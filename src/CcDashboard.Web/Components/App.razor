@@ -1,11 +1,28 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+@using System.Globalization
+
+@{
+    var culture = CultureInfo.CurrentUICulture;
+    var langTag = culture.Name;
+    // RTL: Arabic, Hebrew, Persian, Urdu, Dhivehi, Yiddish
+    var isRtl = culture.TextInfo.IsRightToLeft;
+    var dir = isRtl ? "rtl" : "ltr";
+}
+
+<!DOCTYPE html>
+<html lang="@langTag" dir="@dir">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    @if (isRtl)
+    {
+        <link rel="stylesheet" href="bootstrap/bootstrap.rtl.min.css" />
+    }
+    else
+    {
+        <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    }
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="CcDashboard.Web.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />

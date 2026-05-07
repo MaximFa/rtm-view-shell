@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- ── Login ── -->
+  <data name="Login_Title"><value>تسجيل الدخول</value></data>
+  <data name="Login_SignInToAccount"><value>تسجيل الدخول إلى حسابك</value></data>
+  <data name="Login_Username"><value>اسم المستخدم أو البريد الإلكتروني</value></data>
+  <data name="Login_Password"><value>كلمة المرور</value></data>
+  <data name="Login_PasswordHint"><value>12 حرفاً كحدٍّ أدنى · A-Z · a-z · 0-9 · رمز خاص</value></data>
+  <data name="Login_SignIn"><value>تسجيل الدخول ←</value></data>
+  <data name="Login_ForgotPassword"><value>نسيت كلمة المرور؟</value></data>
+  <data name="Login_Or"><value>أو</value></data>
+  <data name="Login_SsoButton"><value>تسجيل الدخول عبر SSO / الدخول الموحد</value></data>
+  <data name="Login_InvalidCredentials"><value>اسم المستخدم أو كلمة المرور غير صحيحة.</value></data>
+  <data name="Login_BackToSignIn"><value>→ العودة إلى تسجيل الدخول</value></data>
+
+  <!-- ── Two-Factor ── -->
+  <data name="TwoFactor_Title"><value>المصادقة الثنائية</value></data>
+  <data name="TwoFactor_Step"><value>2FA · الخطوة 2 من 2</value></data>
+  <data name="TwoFactor_VerificationRequired"><value>التحقق مطلوب</value></data>
+  <data name="TwoFactor_Instruction"><value>أدخل الرمز المكون من 6 أرقام المرسل إلى بريدك الإلكتروني.</value></data>
+  <data name="TwoFactor_Code"><value>رمز التحقق</value></data>
+  <data name="TwoFactor_Confirm"><value>تأكيد ←</value></data>
+  <data name="TwoFactor_Resend"><value>إعادة إرسال الرمز</value></data>
+  <data name="TwoFactor_NewCodeSent"><value>تم إرسال رمز جديد.</value></data>
+  <data name="TwoFactor_ResendWait"><value>يرجى الانتظار قبل طلب رمز آخر.</value></data>
+  <data name="TwoFactor_TooManyAttempts"><value>محاولات كثيرة جداً. يرجى طلب رمز جديد.</value></data>
+  <data name="TwoFactor_Failed"><value>فشل التحقق. يرجى المحاولة مرة أخرى.</value></data>
+  <data name="TwoFactor_Footer"><value>صالح 10 دقائق · 3 محاولات · HMAC-SHA256 + ملح [2FA-02..03]</value></data>
+  <data name="TwoFactor_InvalidCode"><value>الرمز غير صحيح أو منتهي الصلاحية.</value></data>
+
+  <!-- ── Change Password ── -->
+  <data name="Password_ChangeTitle"><value>تغيير كلمة المرور</value></data>
+  <data name="Password_ChangeRequired"><value>تغيير كلمة المرور مطلوب</value></data>
+  <data name="Password_ChangeSubtitle"><value>أول تسجيل دخول أو انتهت صلاحية كلمة المرور (90 يوماً) [PWD-05]</value></data>
+  <data name="Password_Current"><value>كلمة المرور الحالية</value></data>
+  <data name="Password_New"><value>كلمة المرور الجديدة</value></data>
+  <data name="Password_Confirm"><value>تأكيد كلمة المرور الجديدة</value></data>
+  <data name="Password_ConfirmPlain"><value>تأكيد كلمة المرور</value></data>
+  <data name="Password_Save"><value>حفظ</value></data>
+  <data name="Password_ChangeButton"><value>تغيير كلمة المرور ←</value></data>
+  <data name="Password_Mismatch"><value>كلمة المرور الجديدة وتأكيدها غير متطابقين.</value></data>
+  <data name="Password_ChangeFailed"><value>فشل تغيير كلمة المرور.</value></data>
+  <data name="Password_Rule_MinLength"><value>12 حرفاً كحدٍّ أدنى</value></data>
+  <data name="Password_Rule_Uppercase"><value>حرف كبير (A-Z)</value></data>
+  <data name="Password_Rule_Lowercase"><value>حرف صغير (a-z)</value></data>
+  <data name="Password_Rule_Digit"><value>رقم (0-9)</value></data>
+  <data name="Password_Rule_Special"><value>رمز خاص (!@#$...)</value></data>
+  <data name="Password_Rule_History"><value>يجب ألا تتطابق مع آخر 10 كلمات مرور [PWD-04]</value></data>
+  <data name="Password_Hint"><value>12 حرفاً كحدٍّ أدنى · A-Z · a-z · 0-9 · رمز خاص</value></data>
+
+  <!-- ── Forgot / Reset Password ── -->
+  <data name="ForgotPassword_Title"><value>إعادة تعيين كلمة المرور</value></data>
+  <data name="ForgotPassword_Heading"><value>إعادة تعيين كلمة المرورك</value></data>
+  <data name="ForgotPassword_Subtitle"><value>أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين.</value></data>
+  <data name="ForgotPassword_Email"><value>البريد الإلكتروني</value></data>
+  <data name="ForgotPassword_Send"><value>إرسال الرابط ←</value></data>
+  <data name="ForgotPassword_Sent"><value>إذا كان هناك حساب بهذا البريد الإلكتروني، فقد تم إرسال رابط إعادة التعيين.</value></data>
+  <data name="ForgotPassword_BackToSignIn"><value>→ العودة إلى تسجيل الدخول</value></data>
+
+  <data name="ResetPassword_Title"><value>كلمة مرور جديدة</value></data>
+  <data name="ResetPassword_Heading"><value>تعيين كلمة مرور جديدة</value></data>
+  <data name="ResetPassword_SetButton"><value>تعيين كلمة المرور ←</value></data>
+  <data name="ResetPassword_Success"><value>تم تغيير كلمة المرور.</value></data>
+  <data name="ResetPassword_SignIn"><value>تسجيل الدخول</value></data>
+  <data name="ResetPassword_InvalidLink"><value>رابط إعادة التعيين غير صحيح أو منتهي الصلاحية. يرجى طلب رابط جديد.</value></data>
+  <data name="ResetPassword_RequestNew"><value>طلب رابط جديد</value></data>
+  <data name="ResetPassword_Mismatch"><value>كلمتا المرور غير متطابقتين.</value></data>
+  <data name="ResetPassword_Failed"><value>فشل إعادة تعيين كلمة المرور. قد يكون الرابط منتهي الصلاحية.</value></data>
+
+  <!-- ── Layout ── -->
+  <data name="Layout_AppName"><value>RTM View Shell</value></data>
+  <data name="Layout_SignOut"><value>تسجيل الخروج</value></data>
+  <data name="Layout_UnhandledError"><value>حدث خطأ غير متوقع.</value></data>
+  <data name="Layout_Reload"><value>إعادة تحميل</value></data>
+  <data name="Layout_AccessDenied"><value>الوصول مرفوض</value></data>
+  <data name="Layout_AccessDeniedMsg"><value>ليس لديك صلاحية لعرض هذه الصفحة.</value></data>
+
+  <!-- ── Navigation ── -->
+  <data name="Nav_Content"><value>المحتوى</value></data>
+  <data name="Nav_Administration"><value>الإدارة</value></data>
+  <data name="Nav_Platform"><value>المنصة</value></data>
+  <data name="Nav_Screens"><value>الشاشات</value></data>
+  <data name="Nav_WidgetCatalogue"><value>كتالوج الودجات</value></data>
+  <data name="Nav_Users"><value>المستخدمون</value></data>
+  <data name="Nav_PermissionGroups"><value>مجموعات الصلاحيات</value></data>
+  <data name="Nav_TenantSettings"><value>إعدادات المستأجر</value></data>
+  <data name="Nav_AuditLog"><value>سجل المراجعة</value></data>
+  <data name="Nav_Tenants"><value>المستأجرون</value></data>
+
+  <!-- ── Screens (Dashboards) ── -->
+  <data name="Screens_Title"><value>الشاشات</value></data>
+  <data name="Screens_New"><value>+ شاشة جديدة</value></data>
+  <data name="Screens_SearchPlaceholder"><value>البحث بالاسم...</value></data>
+  <data name="Screens_AllStatuses"><value>جميع الحالات</value></data>
+  <data name="Screens_Draft"><value>مسودة</value></data>
+  <data name="Screens_Published"><value>منشور</value></data>
+  <data name="Screens_NoScreens"><value>لم يتم العثور على شاشات.</value></data>
+  <data name="Screens_CreateFirst"><value>أنشئ شاشتك الأولى</value></data>
+  <data name="Screens_Open"><value>فتح ←</value></data>
+  <data name="Screens_Name"><value>الاسم</value></data>
+  <data name="Screens_Description"><value>الوصف</value></data>
+  <data name="Screens_Status"><value>الحالة</value></data>
+  <data name="Screens_IsPublic"><value>مرئي لجميع مستخدمي المستأجر (IsPublic)</value></data>
+  <data name="Screens_IsPublicHelp"><value>إذا تم التفعيل، يمكن الوصول إليها لجميع المستخدمين المصادق عليهم دون تعيين مجموعة صريح [DASH-01]</value></data>
+  <data name="Screens_CreateModal"><value>شاشة جديدة</value></data>
+  <data name="Screens_EditModal"><value>إعدادات الشاشة</value></data>
+  <data name="Screens_CreateButton"><value>إنشاء الشاشة ←</value></data>
+  <data name="Screens_DangerZone"><value>منطقة الخطر</value></data>
+  <data name="Screens_DeleteScreen"><value>حذف الشاشة</value></data>
+  <data name="Screens_AreYouSure"><value>هل أنت متأكد؟</value></data>
+  <data name="Screens_YesDelete"><value>نعم، احذف</value></data>
+  <data name="Screens_Public"><value>عام</value></data>
+  <data name="Screens_NotFound"><value>الشاشة غير موجودة أو ليس لديك صلاحية الوصول.</value></data>
+  <data name="Screens_AllQueues"><value>جميع الطوابير</value></data>
+  <data name="Screens_LiveIndicator"><value>مباشر · تحديث كل 5 ثوانٍ</value></data>
+  <data name="Screens_Pause"><value>إيقاف مؤقت</value></data>
+  <data name="Screens_Resume"><value>استئناف</value></data>
+  <data name="Screens_Back"><value>→ رجوع</value></data>
+
+  <!-- ── Widget Catalogue ── -->
+  <data name="WidgetCatalogue_Title"><value>كتالوج الودجات</value></data>
+  <data name="WidgetCatalogue_Inactive"><value>غير نشط</value></data>
+
+  <!-- ── Users Admin ── -->
+  <data name="Users_Title"><value>إدارة المستخدمين</value></data>
+  <data name="Users_NewUser"><value>مستخدم جديد</value></data>
+  <data name="Users_SearchPlaceholder"><value>البحث بالاسم أو البريد الإلكتروني...</value></data>
+  <data name="Users_AllRoles"><value>جميع الأدوار</value></data>
+  <data name="Users_AllGroups"><value>جميع المجموعات</value></data>
+  <data name="Users_AllStatuses"><value>جميع الحالات</value></data>
+  <data name="Users_ColUser"><value>المستخدم</value></data>
+  <data name="Users_ColRole"><value>الدور</value></data>
+  <data name="Users_ColGroup"><value>المجموعة</value></data>
+  <data name="Users_ColStatus"><value>الحالة</value></data>
+  <data name="Users_ColLastLogin"><value>آخر تسجيل دخول</value></data>
+  <data name="Users_Col2fa"><value>2FA</value></data>
+  <data name="Users_Never"><value>لم يسجل</value></data>
+  <data name="Users_Active"><value>نشط</value></data>
+  <data name="Users_Inactive"><value>غير نشط</value></data>
+  <data name="Users_CreateModal"><value>مستخدم جديد</value></data>
+  <data name="Users_EditModal"><value>تعديل المستخدم</value></data>
+  <data name="Users_FirstName"><value>الاسم الأول</value></data>
+  <data name="Users_LastName"><value>اسم العائلة</value></data>
+  <data name="Users_Email"><value>البريد الإلكتروني</value></data>
+  <data name="Users_Username"><value>اسم المستخدم</value></data>
+  <data name="Users_Role"><value>الدور</value></data>
+  <data name="Users_PermissionGroup"><value>مجموعة الصلاحيات</value></data>
+  <data name="Users_TempPasswordNote"><value>سيتم إرسال كلمة مرور مؤقتة إلى البريد الإلكتروني المحدد [USR-03]</value></data>
+  <data name="Users_CreateButton"><value>إنشاء المستخدم ←</value></data>
+  <data name="Users_Status"><value>الحالة</value></data>
+  <data name="Users_Enabled2fa"><value>2FA مفعّل</value></data>
+  <data name="Users_ForceLogout"><value>تسجيل خروج إجباري</value></data>
+  <data name="Users_ResetPassword"><value>إعادة تعيين كلمة المرور</value></data>
+  <data name="Users_DeleteUser"><value>حذف المستخدم</value></data>
+  <data name="Users_ResetEmailSent"><value>تم إرسال بريد إعادة التعيين.</value></data>
+  <data name="Users_LoggedOut"><value>تم تسجيل خروج المستخدم.</value></data>
+  <data name="Users_SelectRole"><value>— اختر الدور —</value></data>
+  <data name="Users_SelectGroup"><value>— اختر المجموعة —</value></data>
+  <data name="Users_Locale"><value>اللغة المفضلة</value></data>
+
+  <!-- ── Permission Groups ── -->
+  <data name="PG_Title"><value>مجموعات الصلاحيات</value></data>
+  <data name="PG_NewGroup"><value>مجموعة جديدة</value></data>
+  <data name="PG_GroupName"><value>اسم المجموعة</value></data>
+  <data name="PG_Description"><value>الوصف</value></data>
+  <data name="PG_IsActive"><value>المجموعة نشطة (IsActive)</value></data>
+  <data name="PG_DeleteBlocked"><value>لا يمكن حذف مجموعة بها مستخدمون معينون.</value></data>
+  <data name="PG_DeleteGroup"><value>حذف المجموعة</value></data>
+  <data name="PG_SaveChanges"><value>حفظ التغييرات ←</value></data>
+  <data name="PG_TabMenu"><value>القائمة</value></data>
+  <data name="PG_TabScreens"><value>الشاشات</value></data>
+  <data name="PG_TabQueues"><value>الطوابير</value></data>
+  <data name="PG_TabSkills"><value>المهارات</value></data>
+  <data name="PG_TabBuSg"><value>الوحدات / المجموعات</value></data>
+  <data name="PG_ColMenuItem"><value>عنصر القائمة</value></data>
+  <data name="PG_ColPermissionKey"><value>مفتاح الصلاحية</value></data>
+  <data name="PG_ColAllowedRoles"><value>الأدوار المسموح بها</value></data>
+  <data name="PG_ColView"><value>عرض</value></data>
+  <data name="PG_ColEdit"><value>تعديل</value></data>
+  <data name="PG_ColDelete"><value>حذف</value></data>
+  <data name="PG_QueuesHeading"><value>الطوابير المسموح بها · pg_queues</value></data>
+  <data name="PG_SkillsHeading"><value>المهارات المسموح بها · pg_skills</value></data>
+  <data name="PG_BuHeading"><value>وحدات الأعمال · pg_business_units</value></data>
+  <data name="PG_SgHeading"><value>مجموعات المشرفين · pg_agent_supergroups</value></data>
+  <data name="PG_EmptyListNote"><value>القائمة الفارغة = الوصول مرفوض [PG-03]</value></data>
+  <data name="PG_NoGroupSelected"><value>اختر مجموعة للتعديل</value></data>
+  <data name="PG_Users"><value>مستخدم</value></data>
+
+  <!-- ── Audit Log ── -->
+  <data name="Audit_Title"><value>سجل المراجعة</value></data>
+  <data name="Audit_AllTypes"><value>جميع أنواع الأحداث</value></data>
+  <data name="Audit_AllResults"><value>جميع النتائج</value></data>
+  <data name="Audit_From"><value>من</value></data>
+  <data name="Audit_To"><value>إلى</value></data>
+  <data name="Audit_ColTime"><value>الوقت</value></data>
+  <data name="Audit_ColEvent"><value>الحدث</value></data>
+  <data name="Audit_ColResult"><value>النتيجة</value></data>
+  <data name="Audit_ColUser"><value>المستخدم</value></data>
+  <data name="Audit_ColIp"><value>عنوان IP</value></data>
+  <data name="Audit_ColDetails"><value>التفاصيل</value></data>
+  <data name="Audit_NoRecords"><value>لم يتم العثور على سجلات مراجعة.</value></data>
+  <data name="Audit_Success"><value>نجاح</value></data>
+  <data name="Audit_Failure"><value>فشل</value></data>
+  <data name="Audit_Warning"><value>تحذير</value></data>
+
+  <!-- ── Tenant Settings ── -->
+  <data name="TenantSettings_Title"><value>إعدادات المستأجر</value></data>
+  <data name="TenantSettings_PasswordPolicy"><value>سياسة كلمة المرور</value></data>
+  <data name="TenantSettings_MinLength"><value>الحد الأدنى لطول كلمة المرور</value></data>
+  <data name="TenantSettings_ExpireDays"><value>انتهاء صلاحية كلمة المرور (أيام)</value></data>
+  <data name="TenantSettings_Security"><value>الأمان</value></data>
+  <data name="TenantSettings_Require2fa"><value>إلزام 2FA لجميع المستخدمين</value></data>
+  <data name="TenantSettings_DefaultLocale"><value>اللغة الافتراضية</value></data>
+  <data name="TenantSettings_DataRetention"><value>الاحتفاظ بالبيانات</value></data>
+  <data name="TenantSettings_AuditRetention"><value>مدة الاحتفاظ بسجل المراجعة (أيام)</value></data>
+  <data name="TenantSettings_SoftDelete"><value>تفعيل الحذف اللطيف للشاشات</value></data>
+  <data name="TenantSettings_SoftDeleteRetention"><value>مدة الاحتفاظ بعد الحذف اللطيف (أيام)</value></data>
+  <data name="TenantSettings_Saved"><value>تم حفظ الإعدادات.</value></data>
+
+  <!-- ── Tenants (Platform) ── -->
+  <data name="Tenants_Title"><value>إدارة المستأجرين</value></data>
+  <data name="Tenants_NewTenant"><value>+ مستأجر جديد</value></data>
+  <data name="Tenants_ColName"><value>الاسم</value></data>
+  <data name="Tenants_ColSlug"><value>المعرف المختصر</value></data>
+  <data name="Tenants_ColStatus"><value>الحالة</value></data>
+  <data name="Tenants_ColCreated"><value>تاريخ الإنشاء</value></data>
+  <data name="Tenants_ColActions"><value>الإجراءات</value></data>
+  <data name="Tenants_Suspend"><value>تعليق</value></data>
+  <data name="Tenants_Activate"><value>تفعيل</value></data>
+  <data name="Tenants_Delete"><value>حذف</value></data>
+  <data name="Tenants_ConfirmDelete"><value>حذف نهائي؟</value></data>
+  <data name="Tenants_Active"><value>نشط</value></data>
+  <data name="Tenants_Suspended"><value>معلق</value></data>
+  <data name="Tenants_Deleted"><value>محذوف</value></data>
+  <data name="Tenants_CreateModal"><value>مستأجر جديد</value></data>
+  <data name="Tenants_Name"><value>الاسم</value></data>
+  <data name="Tenants_Slug"><value>المعرف المختصر (النطاق الفرعي)</value></data>
+  <data name="Tenants_SlugHelp"><value>أحرف صغيرة وأرقام وواصلات فقط</value></data>
+  <data name="Tenants_CreateButton"><value>إنشاء المستأجر ←</value></data>
+
+  <!-- ── Common ── -->
+  <data name="Common_Save"><value>حفظ ←</value></data>
+  <data name="Common_Cancel"><value>إلغاء</value></data>
+  <data name="Common_Delete"><value>حذف</value></data>
+  <data name="Common_Create"><value>إنشاء</value></data>
+  <data name="Common_Edit"><value>تعديل</value></data>
+  <data name="Common_Search"><value>بحث</value></data>
+  <data name="Common_Loading"><value>جاري التحميل...</value></data>
+  <data name="Common_Saving"><value>جاري الحفظ...</value></data>
+  <data name="Common_Active"><value>نشط</value></data>
+  <data name="Common_Inactive"><value>غير نشط</value></data>
+  <data name="Common_Yes"><value>نعم</value></data>
+  <data name="Common_No"><value>لا</value></data>
+  <data name="Common_Prev"><value>‹ السابق</value></data>
+  <data name="Common_Next"><value>التالي ›</value></data>
+  <data name="Common_Page"><value>صفحة</value></data>
+  <data name="Common_Of"><value>من</value></data>
+  <data name="Common_Records"><value>سجل/سجلات</value></data>
+
+  <!-- ── Errors ── -->
+  <data name="Error_NotFound"><value>المورد المطلوب غير موجود.</value></data>
+  <data name="Error_Forbidden"><value>ليس لديك صلاحية لتنفيذ هذا الإجراء.</value></data>
+  <data name="Error_Concurrency"><value>تم تعديل هذا السجل من قِبَل مستخدم آخر. يرجى التحديث والمحاولة مرة أخرى.</value></data>
+  <data name="Error_Generic"><value>حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.</value></data>
+</root>
