@@ -32,6 +32,8 @@ try
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddApplication(builder.Configuration);
 
+    var isDev = builder.Environment.IsDevelopment();
+
     builder.Services
         .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
         .AddCookie(o =>
@@ -43,8 +45,8 @@ try
             o.SlidingExpiration = true;
             o.Cookie.Name = "CcDash.Auth";
             o.Cookie.HttpOnly = true;
-            o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-            o.Cookie.SameSite = SameSiteMode.Strict;
+            o.Cookie.SecurePolicy = isDev ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+            o.Cookie.SameSite = isDev ? SameSiteMode.Lax : SameSiteMode.Strict;
         });
 
     builder.Services.AddAuthorization();
@@ -65,7 +67,9 @@ try
         app.UseHsts();
     }
 
-    app.UseHttpsRedirection();
+    if (!app.Environment.IsDevelopment())
+        app.UseHttpsRedirection();
+
     app.UseStaticFiles();
     app.UseAuthentication();
     app.UseAuthorization();

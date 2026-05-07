@@ -2,6 +2,7 @@
 @layout AuthLayout
 @inject IUserService UserService
 @inject ITwoFactorService TwoFactorService
+@inject ISsoService SsoService
 @inject NavigationManager Nav
 
 <PageTitle>Sign In — RTM View</PageTitle>
@@ -9,6 +10,11 @@
 <div class="card shadow-sm">
     <div class="card-body p-4">
         <h2 class="card-title h5 mb-4">Sign in to your account</h2>
+
+        @if (SetupDone)
+        {
+            <div class="alert alert-success py-2">Account created. You can sign in now.</div>
+        }
 
         @if (ErrorMessage is not null)
         {
@@ -32,6 +38,20 @@
 
             <button type="submit" class="btn btn-primary w-100">Sign In</button>
         </form>
+
+        <div class="d-flex align-items-center my-3">
+            <hr class="flex-grow-1" />
+            <span class="px-2 text-muted small">or</span>
+            <hr class="flex-grow-1" />
+        </div>
+
+        <form method="post" @formname="sso">
+            <AntiforgeryToken />
+            <input type="hidden" name="SsoRequest.Trigger" value="1" />
+            <button type="submit" class="btn btn-outline-secondary w-100">
+                Sign in with SSO
+            </button>
+        </form>
     </div>
 </div>
 
@@ -39,17 +59,33 @@
     [CascadingParameter]
     public HttpContext? HttpContext { get; set; }
 
-    [SupplyParameterFromForm]
+    [SupplyParameterFromForm(FormName = "login")]
     public LoginFormModel? Model { get; set; }
+
+    [SupplyParameterFromForm(FormName = "sso")]
+    public SsoTriggerModel? SsoRequest { get; set; }
 
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }
 
+    [SupplyParameterFromQuery(Name = "setup")]
+    public string? SetupParam { get; set; }
+
+    private bool SetupDone => SetupParam == "1";
     private string? ErrorMessage { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        if (Model?.Email is null || HttpContext is null)
+        if (HttpContext is null)
+            return;
+
+        if (SsoRequest?.Trigger == "1")
+        {
+            HandleSso();
+            return;
+        }
+
+        if (Model?.Email is null)
             return;
 
         try
@@ -83,9 +119,31 @@
         {
             ErrorMessage = ex.Message;
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is not Microsoft.AspNetCore.Components.NavigationException)
         {
             ErrorMessage = "An unexpected error occurred. Please try again.";
         }
+    }
+
+    private void HandleSso()
+    {
+        try
+        {
+            var redirectUrl = SsoService.InitiateLogin();
+            Nav.NavigateTo(redirectUrl, forceLoad: true);
+        }
+        catch (NotImplementedException)
+        {
+            ErrorMessage = "SSO is not configured yet. Contact your administrator.";
+        }
+        catch (Exception ex) when (ex is not Microsoft.AspNetCore.Components.NavigationException)
+        {
+            ErrorMessage = "SSO is unavailable. Try again later.";
+        }
+    }
+
+    public class SsoTriggerModel
+    {
+        public string Trigger { get; set; } = string.Empty;
     }
 }

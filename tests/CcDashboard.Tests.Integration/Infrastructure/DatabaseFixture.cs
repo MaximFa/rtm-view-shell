@@ -27,7 +27,7 @@ public class DatabaseFixture : IAsyncLifetime
         await db.Database.MigrateAsync();
     }
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public async Task DisposeAsync() => await CleanAsync();
 
     public async Task CleanAsync()
     {

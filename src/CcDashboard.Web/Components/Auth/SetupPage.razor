@@ -1,0 +1,98 @@
+@page "/setup"
+@layout AuthLayout
+@inject IUserService UserService
+@inject NavigationManager Nav
+
+<PageTitle>Initial Setup — RTM View</PageTitle>
+
+<div class="card shadow-sm">
+    <div class="card-body p-4">
+        <h2 class="card-title h5 mb-1">Initial Setup</h2>
+        <p class="text-muted small mb-4">Create the first administrator account.</p>
+
+        @if (ErrorMessage is not null)
+        {
+            <div class="alert alert-danger py-2" role="alert">@ErrorMessage</div>
+        }
+
+        <form method="post" @formname="setup">
+            <AntiforgeryToken />
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email address</label>
+                <input id="email" name="Model.Email" type="email" class="form-control"
+                       value="@Model?.Email" autocomplete="username" required />
+            </div>
+
+            <div class="mb-3">
+                <label for="display-name" class="form-label">Display name</label>
+                <input id="display-name" name="Model.DisplayName" type="text" class="form-control"
+                       value="@Model?.DisplayName" required />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input id="password" name="Model.Password" type="password" class="form-control"
+                       autocomplete="new-password" required />
+                <div class="form-text">Min 12 chars · upper + lower + digit + special</div>
+            </div>
+
+            <div class="mb-4">
+                <label for="confirm" class="form-label">Confirm password</label>
+                <input id="confirm" name="Model.Confirm" type="password" class="form-control"
+                       autocomplete="new-password" required />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Create account</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromForm]
+    public SetupFormModel? Model { get; set; }
+
+    private string? ErrorMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var existing = await UserService.GetAllAsync();
+        if (existing.Count > 0)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        if (Model?.Email is null || HttpContext is null)
+            return;
+
+        if (Model.Password != Model.Confirm)
+        {
+            ErrorMessage = "Passwords do not match.";
+            return;
+        }
+
+        try
+        {
+            await UserService.CreateAsync(new RegisterUserRequest(
+                Model.Email, Model.DisplayName, Model.Password));
+
+            Nav.NavigateTo("/login?setup=1", forceLoad: true);
+        }
+        catch (Exception ex) when (ex is not Microsoft.AspNetCore.Components.NavigationException)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    public class SetupFormModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string Confirm { get; set; } = string.Empty;
+    }
+}
