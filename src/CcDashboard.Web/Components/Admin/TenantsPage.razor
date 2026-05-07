@@ -1,7 +1,190 @@
 @page "/platform/tenants"
+@rendermode InteractiveServer
 @layout MainLayout
 @attribute [Authorize(Roles = "Superadmin")]
+@inject IMediator Mediator
+@using MediatR
+@using CcDashboard.Application.Commands.Tenants
+@using CcDashboard.Application.Queries.Tenants
+@using CcDashboard.Contracts.DTOs.Tenants
+@using CcDashboard.Domain.Enums
+@using Microsoft.AspNetCore.Authorization
 
 <PageTitle>Tenants — RTM View Shell</PageTitle>
-<h1 class="h4">Tenant Management</h1>
-<p class="text-muted">Tenant administration coming soon.</p>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Tenant Management</h1>
+    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New tenant</button>
+</div>
+
+@if (Loading)
+{
+    <div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+}
+else if (Error is not null)
+{
+    <div class="alert alert-danger py-2">@Error</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Name</th>
+                    <th>Slug</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Tenants)
+                {
+                    <tr>
+                        <td class="fw-semibold">@t.Name</td>
+                        <td class="small text-muted"><code>@t.Slug</code></td>
+                        <td>@StatusBadge(t.Status)</td>
+                        <td class="small">@t.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                @if (t.Status == TenantStatus.Active)
+                                {
+                                    <button class="btn btn-sm btn-outline-warning"
+                                            @onclick="() => SetStatus(t.Id, TenantStatus.Suspended)">
+                                        Suspend
+                                    </button>
+                                }
+                                else if (t.Status == TenantStatus.Suspended)
+                                {
+                                    <button class="btn btn-sm btn-outline-success"
+                                            @onclick="() => SetStatus(t.Id, TenantStatus.Active)">
+                                        Activate
+                                    </button>
+                                }
+                                @if (t.Status != TenantStatus.Deleted)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => ConfirmDeleteId = t.Id">
+                                        Delete
+                                    </button>
+                                }
+                            </div>
+                            @if (ConfirmDeleteId == t.Id)
+                            {
+                                <div class="small mt-1 text-danger">
+                                    Are you sure?
+                                    <button class="btn btn-danger btn-sm ms-1"
+                                            @onclick="() => SetStatus(t.Id, TenantStatus.Deleted)">Yes</button>
+                                    <button class="btn btn-secondary btn-sm ms-1"
+                                            @onclick="() => ConfirmDeleteId = null">No</button>
+                                </div>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (ActionError is not null)
+{
+    <div class="alert alert-danger py-2 mt-2 alert-dismissible">
+        @ActionError <button class="btn-close btn-sm" @onclick="() => ActionError = null"></button>
+    </div>
+}
+
+<!-- Create modal -->
+@if (ShowCreate)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">New Tenant</h5>
+                    <button type="button" class="btn-close" @onclick="() => ShowCreate = false"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null) { <div class="alert alert-danger py-2">@SaveError</div> }
+                    <div class="mb-3">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <input class="form-control" @bind="NewName" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Slug <span class="text-danger">*</span></label>
+                        <input class="form-control" @bind="NewSlug" maxlength="100" placeholder="acme" />
+                        <div class="form-text">Lowercase, used for subdomain resolution</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => ShowCreate = false">Cancel</button>
+                    <button class="btn btn-primary" @onclick="CreateTenant" disabled="@Saving">
+                        @(Saving ? "Creating..." : "Create tenant ->")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
+@code {
+    private List<TenantDto> Tenants = [];
+    private bool Loading = true;
+    private string? Error;
+    private string? ActionError;
+    private string? SaveError;
+    private bool Saving;
+    private bool ShowCreate;
+    private string? NewName;
+    private string? NewSlug;
+    private Guid? ConfirmDeleteId;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        Loading = true;
+        try { Tenants = (await Mediator.Send(new GetTenantsQuery())).ToList(); }
+        catch (Exception ex) { Error = ex.Message; }
+        finally { Loading = false; }
+    }
+
+    private void OpenCreate()
+    {
+        NewName = null; NewSlug = null; SaveError = null; ShowCreate = true;
+    }
+
+    private async Task CreateTenant()
+    {
+        if (string.IsNullOrWhiteSpace(NewName) || string.IsNullOrWhiteSpace(NewSlug))
+        { SaveError = "Name and slug are required."; return; }
+        Saving = true; SaveError = null;
+        try
+        {
+            await Mediator.Send(new CreateTenantCommand(new CreateTenantRequest(NewSlug, NewName)));
+            ShowCreate = false; await LoadAsync();
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task SetStatus(Guid id, TenantStatus status)
+    {
+        ConfirmDeleteId = null; ActionError = null;
+        try
+        {
+            await Mediator.Send(new SetTenantStatusCommand(id, status));
+            await LoadAsync();
+        }
+        catch (Exception ex) { ActionError = ex.Message; }
+    }
+
+    private static RenderFragment StatusBadge(TenantStatus status) => status switch
+    {
+        TenantStatus.Active => @<span class="badge bg-success">Active</span>,
+        TenantStatus.Suspended => @<span class="badge bg-warning text-dark">Suspended</span>,
+        _ => @<span class="badge bg-secondary">Deleted</span>
+    };
+}

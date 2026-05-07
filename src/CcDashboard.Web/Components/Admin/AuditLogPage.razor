@@ -115,16 +115,7 @@ else
         await Task.WhenAll(LoadEventTypesAsync(), LoadAsync());
     }
 
-    private async Task LoadEventTypesAsync()
-    {
-        // Load event types once for the filter dropdown
-        try
-        {
-            var query = new GetAuditLogsQuery(Page: 1, PageSize: 1);
-            // We'll rely on the distinct types from the first load result
-        }
-        catch { }
-    }
+    private Task LoadEventTypesAsync() => Task.CompletedTask;
 
     private async Task LoadAsync()
     {
@@ -139,7 +130,7 @@ else
                 Page: CurrentPage,
                 PageSize: PageSize));
         }
-        catch (Exception ex) { }
+        catch { }
         finally { Loading = false; }
     }
 
