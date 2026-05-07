@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Эскиз 02 — Управление пользователями · RTM View Shell</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; font-size: 14px; padding: 2rem; }
+  h1.page-title { font-size: 13px; font-weight: 500; color: #888; margin-bottom: 1.5rem; }
+
+  input, select, button { font-family: inherit; font-size: 13px; }
+  input[type=text], input[type=email], input[type=password], select {
+    border: 0.5px solid rgba(0,0,0,.2); border-radius: 8px; padding: 7px 10px; outline: none; background: #fff;
+  }
+  input:focus, select:focus { border-color: #185FA5; box-shadow: 0 0 0 3px rgba(24,95,165,.12); }
+  button { border: 0.5px solid rgba(0,0,0,.18); border-radius: 8px; padding: 6px 12px; cursor: pointer; background: #fff; }
+  button:hover { background: #f5f5f3; }
+
+  .shell { display: flex; height: 600px; border: 0.5px solid rgba(0,0,0,.1); border-radius: 12px; overflow: hidden; background: #fff; }
+  .sidebar { width: 196px; border-right: 0.5px solid rgba(0,0,0,.08); background: #fafaf9; padding: .75rem 0; flex-shrink: 0; }
+  .sidebar-logo { padding: 0 .75rem .75rem; border-bottom: 0.5px solid rgba(0,0,0,.08); margin-bottom: .4rem; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 7px; }
+  .logo-icon { width: 22px; height: 22px; border-radius: 5px; background: #185FA5; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 13px; height: 13px; fill: white; }
+  .nav-item { padding: 6px .75rem; font-size: 12px; color: #666; cursor: pointer; }
+  .nav-item.active { color: #1a1a1a; background: #fff; font-weight: 500; border-right: 2px solid #185FA5; }
+  .nav-section { font-size: 10px; color: #aaa; padding: 6px .75rem 2px; text-transform: uppercase; letter-spacing: .5px; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .topbar { padding: .6rem 1rem; border-bottom: 0.5px solid rgba(0,0,0,.08); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .content { padding: .75rem 1rem; overflow-y: auto; flex: 1; }
+  .toolbar { display: flex; gap: 6px; margin-bottom: .75rem; align-items: center; flex-wrap: wrap; }
+  .toolbar input { width: 160px; }
+  .tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 20px; white-space: nowrap; }
+  .ta { background: #eaf3de; color: #3b6d11; }
+  .ti { background: #f1efe8; color: #5f5e5a; }
+  .tl { background: #fcebeb; color: #a32d2d; }
+  .role-admin { background: #e6f1fb; color: #185fa5; }
+  .role-editor { background: #faeeda; color: #854f0b; }
+  .role-viewer { background: #f1efe8; color: #5f5e5a; }
+  .role-super { background: #eeedfe; color: #534ab7; }
+  .user-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .user-table th { text-align: left; font-size: 11px; font-weight: 500; color: #888; padding: 0 6px 7px; border-bottom: 0.5px solid rgba(0,0,0,.08); white-space: nowrap; }
+  .user-table td { padding: 8px 6px; border-bottom: 0.5px solid rgba(0,0,0,.06); vertical-align: middle; }
+  .user-table tr:hover td { background: #fafaf9; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; margin-right: 6px; vertical-align: middle; }
+  .icon-btn { background: none; border: none; cursor: pointer; padding: 1px 3px; color: #888; font-size: 13px; }
+  .pg-badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; background: #f5f5f3; border: 0.5px solid rgba(0,0,0,.12); color: #444; white-space: nowrap; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.3); align-items: center; justify-content: center; z-index: 100; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border: 0.5px solid rgba(0,0,0,.1); border-radius: 12px; padding: 1.5rem; width: 360px; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,.12); }
+  .modal-title { font-size: 15px; font-weight: 500; margin: 0 0 1rem; }
+  .field { margin-bottom: 11px; }
+  .field-label { font-size: 11px; color: #666; margin-bottom: 3px; }
+  .field input, .field select { width: 100%; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field-hint { font-size: 11px; color: #aaa; margin-top: 3px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem; padding-top: .75rem; border-top: 0.5px solid rgba(0,0,0,.08); }
+  .pager { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #888; margin-top: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<h1 class="page-title">RTM View Shell · Эскиз 02 — Управление пользователями (v2)</h1>
+
+<div class="shell">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg></div>
+      RTM View Shell
+    </div>
+    <div class="nav-section">Администрирование</div>
+    <div class="nav-item active">Пользователи</div>
+    <div class="nav-item">Permission Groups</div>
+    <div class="nav-item">Экраны</div>
+    <div class="nav-item">Каталог виджетов</div>
+    <div class="nav-section">Тенант</div>
+    <div class="nav-item">Настройки тенанта</div>
+    <div class="nav-item">Аудит</div>
+    <div class="nav-section">Платформа</div>
+    <div class="nav-item">Тенанты</div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <span style="font-size:14px;font-weight:500">Пользователи</span>
+      <button onclick="document.getElementById('create-modal').classList.add('open')">+ Создать пользователя</button>
+    </div>
+    <div class="content">
+      <div class="toolbar">
+        <input type="text" placeholder="Поиск по имени, email…">
+        <select>
+          <option>Все роли</option>
+          <option>Superadmin</option>
+          <option>Administrator</option>
+          <option>Editor</option>
+          <option>Viewer</option>
+        </select>
+        <select>
+          <option>Все PG</option>
+          <option>Admins PG</option>
+          <option>Supervisors PG</option>
+          <option>Viewers PG</option>
+        </select>
+        <select>
+          <option>Все статусы</option>
+          <option>Активен</option>
+          <option>Заблокирован</option>
+        </select>
+      </div>
+      <table class="user-table">
+        <thead>
+          <tr>
+            <th>Пользователь</th>
+            <th>Роль</th>
+            <th>Permission Group</th>
+            <th>Статус</th>
+            <th>Последний вход</th>
+            <th>2FA</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <span class="avatar" style="background:#e6f1fb;color:#185fa5">АИ</span>
+              Алексей Иванов<br>
+              <span style="font-size:10px;color:#888">a.ivanov@company.com</span>
+            </td>
+            <td><span class="tag role-admin">Administrator</span></td>
+            <td><span class="pg-badge">Admins PG</span></td>
+            <td><span class="tag ta">активен</span></td>
+            <td style="color:#888;font-size:11px">сегодня 09:14</td>
+            <td style="color:#3b6d11">✓</td>
+            <td><button class="icon-btn" onclick="document.getElementById('edit-modal').classList.add('open')">✎</button> <button class="icon-btn">⋯</button></td>
+          </tr>
+          <tr>
+            <td>
+              <span class="avatar" style="background:#eaf3de;color:#3b6d11">МС</span>
+              Мария Смирнова<br>
+              <span style="font-size:10px;color:#888">m.smirnova@company.com</span>
+            </td>
+            <td><span class="tag role-editor">Editor</span></td>
+            <td><span class="pg-badge">Supervisors PG</span></td>
+            <td><span class="tag ta">активна</span></td>
+            <td style="color:#888;font-size:11px">вчера 17:32</td>
+            <td style="color:#3b6d11">✓</td>
+            <td><button class="icon-btn" onclick="document.getElementById('edit-modal').classList.add('open')">✎</button> <button class="icon-btn">⋯</button></td>
+          </tr>
+          <tr>
+            <td>
+              <span class="avatar" style="background:#faeeda;color:#854f0b">ДП</span>
+              Дмитрий Попов<br>
+              <span style="font-size:10px;color:#888">d.popov@company.com</span>
+            </td>
+            <td><span class="tag role-viewer">Viewer</span></td>
+            <td><span class="pg-badge">Viewers PG</span></td>
+            <td><span class="tag ti">неактивен</span></td>
+            <td style="color:#888;font-size:11px">14 дней назад</td>
+            <td style="color:#aaa">—</td>
+            <td><button class="icon-btn" onclick="document.getElementById('edit-modal').classList.add('open')">✎</button> <button class="icon-btn">⋯</button></td>
+          </tr>
+          <tr>
+            <td>
+              <span class="avatar" style="background:#fcebeb;color:#a32d2d">ОК</span>
+              Ольга Козлова<br>
+              <span style="font-size:10px;color:#888">o.kozlova@company.com</span>
+            </td>
+            <td><span class="tag role-editor">Editor</span></td>
+            <td><span class="pg-badge">Supervisors PG</span></td>
+            <td><span class="tag tl">заблокирован</span></td>
+            <td style="color:#888;font-size:11px">31 дн. назад</td>
+            <td style="color:#aaa">—</td>
+            <td><button class="icon-btn" onclick="document.getElementById('edit-modal').classList.add('open')">✎</button> <button class="icon-btn">⋯</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="pager">
+        <button>←</button>
+        <span>Стр. 1 из 3 · 18 пользователей</span>
+        <button>→</button>
+        <span style="margin-left:auto;color:#aaa">На странице:</span>
+        <select style="font-size:11px;padding:2px 6px">
+          <option>10</option>
+          <option selected>25</option>
+          <option>50</option>
+          <option>100</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Создать пользователя -->
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <p class="modal-title">Новый пользователь</p>
+    <div class="field-row">
+      <div class="field"><div class="field-label">Имя (FirstName)</div><input type="text" placeholder="Иван"></div>
+      <div class="field"><div class="field-label">Фамилия (LastName)</div><input type="text" placeholder="Петров"></div>
+    </div>
+    <div class="field"><div class="field-label">Email (логин)</div><input type="email" placeholder="i.petrov@company.com">
+      <div class="field-hint">Уникален в рамках тенанта [USR-04]</div>
+    </div>
+    <div class="field"><div class="field-label">Роль (Role)</div>
+      <select>
+        <option>Viewer</option>
+        <option selected>Editor</option>
+        <option>Administrator</option>
+      </select>
+      <div class="field-hint">Роль определяет тип доступа · Superadmin не назначается Administrator-ом [USR-05]</div>
+    </div>
+    <div class="field"><div class="field-label">Permission Group</div>
+      <select>
+        <option>Viewers PG</option>
+        <option selected>Supervisors PG</option>
+        <option>Admins PG</option>
+      </select>
+      <div class="field-hint">PG определяет область применения прав</div>
+    </div>
+    <div class="field"><div class="field-label">Язык интерфейса (PreferredLocale)</div>
+      <select>
+        <option selected>ru-RU — Русский</option>
+        <option>en-US — English</option>
+        <option>ar-AE — Arabic (RTL)</option>
+      </select>
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="send2fa" checked style="width:auto">
+      <label for="send2fa">Отправить приглашение и настройку 2FA на email</label>
+    </div>
+    <div style="font-size:11px;color:#aaa;margin-top:3px">Временный пароль генерируется автоматически. Смена обязательна при первом входе [USR-03].</div>
+    <div class="modal-footer">
+      <button onclick="document.getElementById('create-modal').classList.remove('open')">Отмена</button>
+      <button onclick="document.getElementById('create-modal').classList.remove('open')">Создать →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Редактировать пользователя -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <p class="modal-title">Редактировать пользователя</p>
+    <div class="field-row">
+      <div class="field"><div class="field-label">Имя (FirstName)</div><input type="text" value="Алексей"></div>
+      <div class="field"><div class="field-label">Фамилия (LastName)</div><input type="text" value="Иванов"></div>
+    </div>
+    <div class="field"><div class="field-label">Email</div><input type="email" value="a.ivanov@company.com"></div>
+    <div class="field"><div class="field-label">Роль (Role)</div>
+      <select>
+        <option selected>Administrator</option>
+        <option>Editor</option>
+        <option>Viewer</option>
+      </select>
+    </div>
+    <div class="field"><div class="field-label">Permission Group</div>
+      <select>
+        <option selected>Admins PG</option>
+        <option>Supervisors PG</option>
+        <option>Viewers PG</option>
+      </select>
+    </div>
+    <div class="field"><div class="field-label">Язык интерфейса (PreferredLocale)</div>
+      <select>
+        <option selected>ru-RU — Русский</option>
+        <option>en-US — English</option>
+        <option>ar-AE — Arabic (RTL)</option>
+      </select>
+    </div>
+    <div class="field"><div class="field-label">Статус</div>
+      <select><option selected>Активен</option><option>Заблокирован</option></select>
+    </div>
+    <div style="font-size:11px;color:#aaa;padding:8px 0;border-top:0.5px solid rgba(0,0,0,.08);margin-top:2px">
+      Последний вход: сегодня 09:14 · 2FA: включён · создан: 2026-01-15
+    </div>
+    <div class="modal-footer">
+      <button onclick="document.getElementById('edit-modal').classList.remove('open')">Отмена</button>
+      <button onclick="document.getElementById('edit-modal').classList.remove('open')">Сохранить →</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

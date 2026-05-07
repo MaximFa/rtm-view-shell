@@ -1,0 +1,144 @@
+@page "/admin/users"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject IUserService UserService
+
+<PageTitle>User Management — RTM View</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">User Management</h1>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status" />
+    </div>
+}
+else
+{
+    <div class="mb-3">
+        <input type="search" class="form-control" style="max-width:320px;"
+               placeholder="Search by name or email…"
+               @bind="_filter" @bind:event="oninput" />
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Email</th>
+                        <th>Display Name</th>
+                        <th>2FA</th>
+                        <th>Status</th>
+                        <th>Last Login</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Filtered)
+                    {
+                        <tr>
+                            <td class="small">@user.Email</td>
+                            <td>@user.DisplayName</td>
+                            <td>
+                                @if (user.TwoFactorEnabled)
+                                {
+                                    <span class="badge bg-success">On</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Off</span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Inactive</span>
+                                }
+                            </td>
+                            <td class="small text-muted">
+                                @(user.LastLoginAt?.ToString("dd MMM yyyy HH:mm") ?? "Never")
+                            </td>
+                            <td class="text-end">
+                                @if (user.IsActive)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => DeactivateAsync(user.Id)">
+                                        Deactivate
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-success"
+                                            @onclick="() => ActivateAsync(user.Id)">
+                                        Activate
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!Filtered.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No users found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger mt-3">@_error</div>
+}
+
+@code {
+    private List<UserDto> _users = new();
+    private bool _loading = true;
+    private string? _error;
+    private string _filter = string.Empty;
+
+    private IEnumerable<UserDto> Filtered => string.IsNullOrWhiteSpace(_filter)
+        ? _users
+        : _users.Where(u =>
+            u.Email.Contains(_filter, StringComparison.OrdinalIgnoreCase) ||
+            u.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _users = (await UserService.GetAllAsync()).ToList(); }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task DeactivateAsync(Guid id)
+    {
+        try
+        {
+            await UserService.DeactivateAsync(id);
+            var i = _users.FindIndex(u => u.Id == id);
+            if (i >= 0) _users[i] = _users[i] with { IsActive = false };
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task ActivateAsync(Guid id)
+    {
+        try
+        {
+            await UserService.UpdateAsync(id, new UpdateUserRequest(
+                _users.First(u => u.Id == id).DisplayName, IsActive: true));
+            var i = _users.FindIndex(u => u.Id == id);
+            if (i >= 0) _users[i] = _users[i] with { IsActive = true };
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+}

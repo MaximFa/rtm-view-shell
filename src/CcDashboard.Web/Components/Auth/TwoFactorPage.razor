@@ -1,0 +1,91 @@
+@page "/two-factor"
+@layout AuthLayout
+@inject ITwoFactorService TwoFactorService
+@inject IUserService UserService
+@inject NavigationManager Nav
+
+<PageTitle>Two-Factor Verification — RTM View</PageTitle>
+
+<div class="card shadow-sm">
+    <div class="card-body p-4">
+        <h2 class="card-title h5 mb-1">Two-step verification</h2>
+        <p class="text-muted small mb-4">Enter the 6-digit code sent to your email.</p>
+
+        @if (ErrorMessage is not null)
+        {
+            <div class="alert alert-danger py-2" role="alert">@ErrorMessage</div>
+        }
+
+        <form method="post" @formname="two-factor">
+            <AntiforgeryToken />
+            <input type="hidden" name="Model.UserId" value="@UserId" />
+
+            <div class="mb-3">
+                <label for="code" class="form-label">Verification code</label>
+                <input id="code" name="Model.Code" type="text" class="form-control form-control-lg text-center"
+                       maxlength="6" inputmode="numeric" pattern="[0-9]{6}"
+                       autocomplete="one-time-code" required placeholder="000000" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Verify</button>
+        </form>
+
+        <div class="mt-3 text-center">
+            <a href="/login" class="small text-muted">Back to sign in</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromForm]
+    public TwoFactorFormModel? Model { get; set; }
+
+    [SupplyParameterFromQuery]
+    public Guid? UserId { get; set; }
+
+    private string? ErrorMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Model?.Code is null || HttpContext is null)
+            return;
+
+        var userId = Model.UserId != Guid.Empty ? Model.UserId : UserId ?? Guid.Empty;
+        if (userId == Guid.Empty)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        var valid = await TwoFactorService.VerifyCodeAsync(userId, Model.Code);
+        if (!valid)
+        {
+            ErrorMessage = "Invalid or expired code. Please try again.";
+            return;
+        }
+
+        var user = await UserService.GetByIdAsync(userId);
+        if (user is null)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Name, user.DisplayName),
+        };
+        var principal = new ClaimsPrincipal(
+            new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme, principal);
+
+        Nav.NavigateTo("/dashboard", forceLoad: true);
+    }
+}

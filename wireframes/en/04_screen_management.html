@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wireframe 04 — Screen Management · RTM View Shell</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; font-size: 14px; padding: 2rem; }
+  h1.page-title { font-size: 13px; font-weight: 500; color: #888; margin-bottom: 1.5rem; }
+
+  input, select, button { font-family: inherit; font-size: 13px; }
+  input[type=text], input[type=email], select { border: 0.5px solid rgba(0,0,0,.2); border-radius: 8px; padding: 7px 10px; outline: none; background: #fff; }
+  input:focus, select:focus { border-color: #185FA5; box-shadow: 0 0 0 3px rgba(24,95,165,.12); }
+  button { border: 0.5px solid rgba(0,0,0,.18); border-radius: 8px; padding: 7px 12px; cursor: pointer; background: #fff; }
+  button:hover { background: #f5f5f3; }
+
+  .shell { display: flex; height: 600px; border: 0.5px solid rgba(0,0,0,.1); border-radius: 12px; overflow: hidden; background: #fff; }
+  .sidebar { width: 200px; border-right: 0.5px solid rgba(0,0,0,.08); background: #fafaf9; padding: 1rem 0; flex-shrink: 0; }
+  .sidebar-logo { padding: 0 1rem 1rem; border-bottom: 0.5px solid rgba(0,0,0,.08); margin-bottom: .5rem; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .logo-icon { width: 24px; height: 24px; border-radius: 6px; background: #185FA5; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 14px; height: 14px; fill: white; }
+  .nav-item { padding: 7px 1rem; font-size: 13px; color: #666; cursor: pointer; }
+  .nav-item.active { color: #1a1a1a; background: #fff; font-weight: 500; border-right: 2px solid #185FA5; }
+  .nav-section { font-size: 11px; color: #aaa; padding: 8px 1rem 3px; text-transform: uppercase; letter-spacing: .5px; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { padding: .75rem 1.25rem; border-bottom: 0.5px solid rgba(0,0,0,.08); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .content { flex: 1; overflow-y: auto; padding: 1rem 1.25rem; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 1rem; align-items: center; }
+  .toolbar input { flex: 1; max-width: 200px; }
+  .screen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .screen-card { border: 0.5px solid rgba(0,0,0,.1); border-radius: 12px; overflow: hidden; cursor: pointer; transition: border-color .15s; }
+  .screen-card:hover { border-color: rgba(0,0,0,.3); }
+  .screen-preview { height: 100px; background: #fafaf9; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px; padding: 8px; }
+  .preview-block { background: #fff; border-radius: 4px; border: 0.5px solid rgba(0,0,0,.08); display: flex; align-items: center; justify-content: center; }
+  .preview-block.wide { grid-column: 1 / 3; }
+  .preview-block.tall { grid-row: 1 / 3; }
+  .preview-dot { width: 20px; height: 3px; border-radius: 2px; background: rgba(0,0,0,.15); }
+  .screen-info { padding: 8px 10px 10px; }
+  .screen-name { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+  .screen-meta { font-size: 11px; color: #888; display: flex; justify-content: space-between; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 20px; }
+  .tag-pub { background: #eaf3de; color: #3b6d11; }
+  .tag-draft { background: #faeeda; color: #854f0b; }
+  .add-card { border: 0.5px dashed rgba(0,0,0,.2); border-radius: 12px; height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; color: #888; font-size: 13px; gap: 8px; }
+  .add-card:hover { background: #fafaf9; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.3); align-items: center; justify-content: center; z-index: 100; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border: 0.5px solid rgba(0,0,0,.1); border-radius: 12px; padding: 1.5rem; width: 400px; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,.12); }
+  .modal-title { font-size: 15px; font-weight: 500; margin: 0 0 1rem; }
+  .field { margin-bottom: 12px; }
+  .field-label { font-size: 12px; color: #666; margin-bottom: 3px; }
+  .field input, .field select { width: 100%; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem; }
+  .widget-cat { margin-bottom: 1rem; }
+  .cat-title { font-size: 12px; font-weight: 500; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .4px; }
+  .widget-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .widget-chip { padding: 5px 10px; border: 0.5px solid rgba(0,0,0,.18); border-radius: 8px; font-size: 12px; cursor: pointer; }
+  .widget-chip.sel { border-color: #185FA5; background: #e6f1fb; color: #185fa5; }
+  .btn-danger { color: #a32d2d; border-color: rgba(163,45,45,.3); }
+  .btn-danger:hover { background: #fcebeb; }
+</style>
+</head>
+<body>
+<h1 class="page-title">RTM View Shell · Wireframe 04 — Screen Management (Dashboards)</h1>
+
+<div class="shell">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg></div>
+      RTM View Shell
+    </div>
+    <div class="nav-section">Content</div>
+    <div class="nav-item active">Screens</div>
+    <div class="nav-item">Widget Catalogue</div>
+    <div class="nav-section">Administration</div>
+    <div class="nav-item">Users</div>
+    <div class="nav-item">Permission Groups</div>
+    <div class="nav-section">System</div>
+    <div class="nav-item">Tenant Settings</div>
+    <div class="nav-item">Audit</div>
+    <div class="nav-item">Tenants</div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <span style="font-size:16px;font-weight:500">Screens (Dashboards)</span>
+      <button onclick="document.getElementById('create-modal').classList.add('open')">+ New screen</button>
+    </div>
+    <div class="content">
+      <div class="toolbar">
+        <input type="text" placeholder="Search by name…">
+        <select><option>All groups</option><option>Admins</option><option>Supervisors</option></select>
+        <select><option>All statuses</option><option>Published</option><option>Draft</option></select>
+      </div>
+      <div class="screen-grid">
+        <div class="screen-card" onclick="document.getElementById('edit-modal').classList.add('open')">
+          <div class="screen-preview">
+            <div class="preview-block wide"><div class="preview-dot"></div></div>
+            <div class="preview-block"><div class="preview-dot"></div></div>
+            <div class="preview-block"><div class="preview-dot"></div></div>
+          </div>
+          <div class="screen-info">
+            <div class="screen-name">Operations Monitor</div>
+            <div class="screen-meta"><span>Admins, Supervisors</span><span class="tag tag-pub">published</span></div>
+          </div>
+        </div>
+        <div class="screen-card" onclick="document.getElementById('edit-modal').classList.add('open')">
+          <div class="screen-preview" style="grid-template-columns:2fr 1fr">
+            <div class="preview-block tall"><div class="preview-dot"></div></div>
+            <div class="preview-block"><div class="preview-dot"></div></div>
+            <div class="preview-block"><div class="preview-dot"></div></div>
+          </div>
+          <div class="screen-info">
+            <div class="screen-name">Queue Load</div>
+            <div class="screen-meta"><span>Supervisors</span><span class="tag tag-pub">published</span></div>
+          </div>
+        </div>
+        <div class="screen-card" onclick="document.getElementById('edit-modal').classList.add('open')">
+          <div class="screen-preview" style="grid-template-columns:1fr;grid-template-rows:1fr 1fr 1fr">
+            <div class="preview-block"><div class="preview-dot"></div></div>
+            <div class="preview-block"><div class="preview-dot"></div></div>
+            <div class="preview-block"><div class="preview-dot"></div></div>
+          </div>
+          <div class="screen-info">
+            <div class="screen-name">SLA Overview</div>
+            <div class="screen-meta"><span>Viewers</span><span class="tag tag-draft">draft</span></div>
+          </div>
+        </div>
+        <div class="add-card" onclick="document.getElementById('create-modal').classList.add('open')">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#ccc" stroke-width="1.2"/><path d="M12 8v8M8 12h8" stroke="#aaa" stroke-width="1.2" stroke-linecap="round"/></svg>
+          New screen
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create screen -->
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <p class="modal-title">New Screen</p>
+    <div class="field"><div class="field-label">Name</div><input type="text" placeholder="e.g. Agent Monitor"></div>
+    <div class="field"><div class="field-label">Description (optional)</div><input type="text"></div>
+    <div class="field"><div class="field-label">Group access</div>
+      <select><option>Admins</option><option>Supervisors</option><option>Viewers</option></select>
+      <div style="font-size:11px;color:#aaa;margin-top:3px">Multiple groups can be assigned after creation</div>
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="isPublic-create" style="width:14px;height:14px;border-radius:3px;accent-color:#185FA5">
+        <span style="font-size:13px">Visible to all tenant users (IsPublic)</span>
+      </label>
+      <div style="font-size:11px;color:#aaa;margin-top:3px;margin-left:22px">If enabled, the screen is accessible to all authenticated tenant users without explicit group assignment [DASH-01]</div>
+    </div>
+    <div class="field"><div class="field-label" style="margin-bottom:8px">Add widgets</div>
+      <div class="widget-cat">
+        <div class="cat-title">Queues</div>
+        <div class="widget-list">
+          <div class="widget-chip sel" onclick="this.classList.toggle('sel')">Queue Summary</div>
+          <div class="widget-chip" onclick="this.classList.toggle('sel')">Queue Trend</div>
+          <div class="widget-chip" onclick="this.classList.toggle('sel')">Abandoned Calls</div>
+          <div class="widget-chip" onclick="this.classList.toggle('sel')">SLA Bar</div>
+        </div>
+      </div>
+      <div class="widget-cat">
+        <div class="cat-title">Agents</div>
+        <div class="widget-list">
+          <div class="widget-chip" onclick="this.classList.toggle('sel')">Agent Status</div>
+          <div class="widget-chip sel" onclick="this.classList.toggle('sel')">Agent List</div>
+          <div class="widget-chip" onclick="this.classList.toggle('sel')">Occupancy Gauge</div>
+        </div>
+      </div>
+      <div class="widget-cat">
+        <div class="cat-title">General metrics</div>
+        <div class="widget-list">
+          <div class="widget-chip" onclick="this.classList.toggle('sel')">KPI Scorecard</div>
+          <div class="widget-chip" onclick="this.classList.toggle('sel')">Calls Per Hour</div>
+          <div class="widget-chip" onclick="this.classList.toggle('sel')">AHT Chart</div>
+          <div class="widget-chip" onclick="this.classList.toggle('sel')">Real-time Ticker</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#aaa">Widget layout is configured separately in the screen editor</div>
+    <div class="modal-footer">
+      <button onclick="document.getElementById('create-modal').classList.remove('open')">Cancel</button>
+      <button onclick="document.getElementById('create-modal').classList.remove('open')">Create screen →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit screen -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <p class="modal-title">Screen Settings</p>
+    <div class="field"><div class="field-label">Name</div><input type="text" value="Operations Monitor"></div>
+    <div class="field"><div class="field-label">Status</div>
+      <select><option selected>Published</option><option>Draft</option></select>
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="isPublic-edit" checked style="width:14px;height:14px;border-radius:3px;accent-color:#185FA5">
+        <span style="font-size:13px">Visible to all tenant users (IsPublic)</span>
+      </label>
+      <div style="font-size:11px;color:#aaa;margin-top:3px;margin-left:22px">If enabled, the screen is accessible to all authenticated tenant users without explicit group assignment [DASH-01]</div>
+    </div>
+    <div class="field"><div class="field-label">Group access</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+        <div style="padding:4px 10px;border-radius:20px;font-size:12px;background:#f5f5f3;border:0.5px solid rgba(0,0,0,.15)">Admins ×</div>
+        <div style="padding:4px 10px;border-radius:20px;font-size:12px;background:#f5f5f3;border:0.5px solid rgba(0,0,0,.15)">Supervisors ×</div>
+        <div style="padding:4px 10px;border-radius:20px;font-size:12px;border:0.5px dashed rgba(0,0,0,.2);color:#888">+ add</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:.5rem;padding-top:.75rem;border-top:0.5px solid rgba(0,0,0,.08)">
+      <button class="btn-danger" onclick="document.getElementById('edit-modal').classList.remove('open')">Delete screen</button>
+      <button style="margin-left:auto" onclick="document.getElementById('edit-modal').classList.remove('open')">Cancel</button>
+      <button onclick="document.getElementById('edit-modal').classList.remove('open')">Save →</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

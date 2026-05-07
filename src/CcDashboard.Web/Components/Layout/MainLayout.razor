@@ -1,0 +1,32 @@
+@inherits LayoutComponentBase
+
+<div class="d-flex flex-column vh-100">
+    <!-- Top bar -->
+    <header class="navbar navbar-dark bg-primary px-3 py-2 flex-shrink-0">
+        <span class="navbar-brand fw-bold mb-0">RTM View</span>
+        <div class="ms-auto d-flex align-items-center gap-3">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="text-white small">@context.User.FindFirst(ClaimTypes.Name)?.Value</span>
+                    <a href="/logout" class="btn btn-sm btn-outline-light">Sign Out</a>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+    </header>
+
+    <div class="d-flex flex-grow-1 overflow-hidden">
+        <!-- Sidebar -->
+        <NavMenu />
+
+        <!-- Main content -->
+        <main class="flex-grow-1 overflow-auto p-4">
+            @Body
+        </main>
+    </div>
+</div>
+
+<div id="blazor-error-ui" class="alert alert-danger m-3" style="display:none;">
+    An unhandled error has occurred.
+    <a href="" class="alert-link">Reload</a>
+    <span class="float-end" style="cursor:pointer;" onclick="document.getElementById('blazor-error-ui').style.display='none'">&#x2715;</span>
+</div>

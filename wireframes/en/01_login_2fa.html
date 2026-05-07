@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wireframe 01 — Login / SSO / 2FA · RTM View Shell</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; font-size: 14px; padding: 2rem; }
+  h1.page-title { font-size: 13px; font-weight: 500; color: #888; margin-bottom: 1.5rem; }
+
+  input, select, button, textarea { font-family: inherit; font-size: 13px; }
+  input[type=text], input[type=email], input[type=password] {
+    width: 100%; border: 0.5px solid rgba(0,0,0,.2); border-radius: 8px; padding: 8px 10px; outline: none;
+  }
+  input:focus { border-color: #185FA5; box-shadow: 0 0 0 3px rgba(24,95,165,.12); }
+  button { border: 0.5px solid rgba(0,0,0,.18); border-radius: 8px; padding: 7px 14px; cursor: pointer; background: #fff; }
+  button:hover { background: #f5f5f3; }
+
+  .frame { background: #ebebea; border-radius: 12px; padding: 2rem; display: flex; justify-content: center; min-height: 560px; }
+  .card { background: #fff; border: 0.5px solid rgba(0,0,0,.1); border-radius: 12px; padding: 1.75rem 2rem 1.5rem; width: 360px; }
+  .logo { display: flex; align-items: center; gap: 8px; margin-bottom: 1.5rem; }
+  .logo-icon { width: 30px; height: 30px; border-radius: 7px; background: #185FA5; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 16px; height: 16px; fill: white; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .field-label { font-size: 12px; color: #666; margin-bottom: 3px; }
+  .field { margin-bottom: 12px; }
+  .hint { font-size: 11px; color: #aaa; margin-top: 4px; }
+  .badge { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 20px; background: #e6f1fb; color: #185fa5; margin-bottom: .9rem; }
+  .badge-warn { background: #faeeda; color: #854f0b; }
+  .nav-tabs { display: flex; gap: 6px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .nav-tab { padding: 4px 12px; font-size: 12px; border: 0.5px solid rgba(0,0,0,.15); border-radius: 8px; cursor: pointer; background: #fff; color: #666; }
+  .nav-tab.active { background: #ebebea; color: #1a1a1a; font-weight: 500; }
+  .otp-row { display: flex; gap: 7px; margin-bottom: 12px; }
+  .otp-row input { width: 42px; text-align: center; font-size: 20px; font-weight: 500; padding: 4px 0; }
+  .link { font-size: 13px; color: #185FA5; cursor: pointer; background: none; border: none; padding: 0; }
+  .divider-row { display: flex; align-items: center; gap: 10px; margin: 1rem 0; }
+  .divider-row span { font-size: 12px; color: #aaa; white-space: nowrap; }
+  .divider-line { flex: 1; height: .5px; background: rgba(0,0,0,.1); }
+  .sso-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 12px; border: 0.5px solid rgba(0,0,0,.18); border-radius: 8px; cursor: pointer; background: #fff; font-size: 13px; font-family: inherit; }
+  .sso-btn:hover { background: #f5f5f3; }
+  .sso-icon { width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: white; flex-shrink: 0; }
+  .bottom-row { display: flex; justify-content: space-between; align-items: center; margin-top: .75rem; }
+  .sec-row { display: flex; align-items: flex-start; gap: 6px; padding: .6rem 0; border-top: 0.5px solid rgba(0,0,0,.08); margin-top: .75rem; }
+  .pw-rules { font-size: 11px; color: #888; line-height: 1.7; margin-top: 5px; }
+  .pw-rules .ok { color: #3b6d11; }
+  .pw-rules .no { color: #a32d2d; }
+</style>
+</head>
+<body>
+<h1 class="page-title">RTM View Shell · Wireframe 01 — Login / SSO / 2FA / Change Password / Reset Password</h1>
+
+<div style="margin-bottom:12px">
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="showTab('login')">1 · Login</div>
+    <div class="nav-tab" onclick="showTab('sso')">2 · SSO</div>
+    <div class="nav-tab" onclick="showTab('twofa')">3 · 2FA</div>
+    <div class="nav-tab" onclick="showTab('pwchange')">4 · Change Password</div>
+    <div class="nav-tab" onclick="showTab('reset')">5 · Reset Password</div>
+  </div>
+</div>
+
+<div class="frame">
+<div class="card">
+
+  <!-- 1. Login -->
+  <div class="screen active" id="tab-login">
+    <div class="logo">
+      <div class="logo-icon"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg></div>
+      <span style="font-size:15px;font-weight:500">RTM View Shell</span>
+    </div>
+    <p style="font-size:18px;font-weight:500;margin:0 0 .2rem">Sign In</p>
+    <p style="font-size:12px;color:#666;margin:0 0 1.1rem">acme.cc-dashboard.local · tenant <strong style="font-weight:500">Acme Corp</strong></p>
+
+    <!-- SSO — primary and preferred option -->
+    <button class="sso-btn" onclick="showTab('sso')">
+      <div class="sso-icon" style="background:#185FA5">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 8h8M10 6l2 2-2 2" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      Sign in with SSO / Single Sign-On
+    </button>
+
+    <div class="divider-row">
+      <div class="divider-line"></div>
+      <span>or username and password</span>
+      <div class="divider-line"></div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">Username or email</div>
+      <input type="text" placeholder="user@company.com">
+    </div>
+    <div class="field">
+      <div class="field-label">Password</div>
+      <input type="password" placeholder="••••••••">
+      <div class="hint">Min. 12 chars · A–Z · a–z · 0–9 · special char</div>
+    </div>
+    <button style="width:100%;margin-top:4px" onclick="showTab('twofa')">Sign in →</button>
+    <div class="bottom-row" style="margin-top:12px">
+      <button class="link" onclick="showTab('reset')">Forgot password?</button>
+    </div>
+    <div class="sec-row">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><rect x="1" y="5" width="14" height="10" rx="2" stroke="#aaa" stroke-width="1.2"/><path d="M5 5V4a3 3 0 016 0v1" stroke="#aaa" stroke-width="1.2"/></svg>
+      <span style="font-size:11px;color:#aaa">HTTPS · TLS 1.3 · cookie HttpOnly SameSite=Strict · session audit [AUTH-WEB-01]</span>
+    </div>
+  </div>
+
+  <!-- 2. SSO -->
+  <div class="screen" id="tab-sso">
+    <div class="logo">
+      <div class="logo-icon"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg></div>
+      <span style="font-size:15px;font-weight:500">RTM View Shell</span>
+    </div>
+    <div class="badge">Single Sign-On</div>
+    <p style="font-size:18px;font-weight:500;margin:0 0 .2rem">Single Sign-On</p>
+    <p style="font-size:12px;color:#666;margin:0 0 1.1rem">Select provider for tenant <strong style="font-weight:500">Acme Corp</strong></p>
+
+    <button class="sso-btn" style="margin-bottom:8px">
+      <div class="sso-icon" style="background:#0072c6">AD</div>
+      Active Directory / LDAP
+    </button>
+    <button class="sso-btn" style="margin-bottom:8px">
+      <div class="sso-icon" style="background:#2563eb">OID</div>
+      OpenID Connect (OIDC)
+    </button>
+    <button class="sso-btn" style="margin-bottom:8px">
+      <div class="sso-icon" style="background:#f59e0b">S2</div>
+      SAML 2.0
+    </button>
+
+    <div class="hint" style="margin: .75rem 0; text-align: center">
+      If provider confirmed MFA (claim amr=mfa), system-level 2FA is not applied [SSO-04]
+    </div>
+
+    <div class="divider-row">
+      <div class="divider-line"></div><span>or</span><div class="divider-line"></div>
+    </div>
+    <button class="link" style="display:block;text-align:center;width:100%" onclick="showTab('login')">← Sign in with username and password</button>
+    <div class="sec-row" style="margin-top:.75rem">
+      <span style="font-size:11px;color:#aaa">SSO configuration — tenant sso_configurations table [SSO-01..04]</span>
+    </div>
+  </div>
+
+  <!-- 3. 2FA -->
+  <div class="screen" id="tab-twofa">
+    <div class="badge">2FA · step 2 of 2</div>
+    <p style="font-size:18px;font-weight:500;margin:0 0 .2rem">Confirm Sign-In</p>
+    <p style="font-size:12px;color:#666;margin:0 0 1rem">Code sent to <strong style="font-weight:500">u***@company.com</strong></p>
+    <div class="field-label">Enter 6-digit code</div>
+    <div class="otp-row">
+      <input type="text" maxlength="1" value="4"><input type="text" maxlength="1" value="8">
+      <input type="text" maxlength="1" value="2"><input type="text" maxlength="1">
+      <input type="text" maxlength="1"><input type="text" maxlength="1">
+    </div>
+    <div class="hint" style="margin-bottom:12px">Valid 10 minutes · 3 attempts · HMAC-SHA256 + salt [2FA-02..03]</div>
+    <button style="width:100%" onclick="showTab('pwchange')">Confirm →</button>
+    <div class="bottom-row" style="margin-top:12px">
+      <button class="link">Resend (59s)</button>
+      <button class="link" onclick="showTab('login')">← Back</button>
+    </div>
+    <div class="sec-row">
+      <span style="font-size:11px;color:#aaa">5 failed login attempts → 15 min lockout [BFP-01] · 3 OTP attempts → cancellation [2FA-04]</span>
+    </div>
+  </div>
+
+  <!-- 4. Change Password (first login / expired) -->
+  <div class="screen" id="tab-pwchange">
+    <div class="badge badge-warn">Password Change Required</div>
+    <p style="font-size:18px;font-weight:500;margin:0 0 .2rem">Set New Password</p>
+    <p style="font-size:12px;color:#666;margin:0 0 1rem">First login or password expired (90 days) [PWD-05]</p>
+    <div class="field">
+      <div class="field-label">Current password</div>
+      <input type="password" placeholder="••••••••">
+    </div>
+    <div class="field">
+      <div class="field-label">New password</div>
+      <input type="password" placeholder="••••••••">
+      <div class="pw-rules">
+        <span class="ok">✓</span> Minimum 12 characters<br>
+        <span class="ok">✓</span> Uppercase letter (A–Z)<br>
+        <span class="ok">✓</span> Lowercase letter (a–z)<br>
+        <span class="ok">✓</span> Digit (0–9)<br>
+        <span class="ok">✓</span> Special character (!@#$…)<br>
+        <span class="no">✗</span> Must not match last 10 passwords [PWD-04]
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Confirm new password</div>
+      <input type="password" placeholder="••••••••">
+    </div>
+    <button style="width:100%">Save and sign in →</button>
+  </div>
+
+  <!-- 5. Reset Password -->
+  <div class="screen" id="tab-reset">
+    <p style="font-size:18px;font-weight:500;margin:0 0 .2rem">Reset Password</p>
+    <p style="font-size:12px;color:#666;margin:0 0 1rem">Link valid for 24 hours [USR-11]</p>
+    <div class="field">
+      <div class="field-label">Email</div>
+      <input type="email" placeholder="user@company.com">
+    </div>
+    <button style="width:100%">Send link →</button>
+    <div class="bottom-row" style="margin-top:12px">
+      <button class="link" onclick="showTab('login')">← Back to sign in</button>
+    </div>
+    <div class="sec-row">
+      <span style="font-size:11px;color:#aaa">UI response is uniform regardless of address existence [BFP-03]</span>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  const idx = { login:0, sso:1, twofa:2, pwchange:3, reset:4 }[id];
+  document.querySelectorAll('.nav-tab')[idx].classList.add('active');
+}
+</script>
+</body>
+</html>
