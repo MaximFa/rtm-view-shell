@@ -1,0 +1,91 @@
+@page "/screens"
+@layout MainLayout
+@attribute [Authorize]
+@inject IMediator Mediator
+@using MediatR
+@using CcDashboard.Application.Queries.Dashboards
+
+<PageTitle>Screens — RTM View Shell</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4">Screens</h1>
+    <AuthorizeView Roles="Superadmin,Administrator,Editor">
+        <button class="btn btn-primary" @onclick="ShowCreateModal">+ New screen</button>
+    </AuthorizeView>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-md-4">
+        <input class="form-control" placeholder="Search by name..." @bind="Search" @bind:event="oninput" @onkeyup="LoadDashboards" />
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" @bind="StatusFilter" @bind:after="LoadDashboards">
+            <option value="">All statuses</option>
+            <option value="Draft">Draft</option>
+            <option value="Published">Published</option>
+        </select>
+    </div>
+</div>
+
+@if (Loading)
+{
+    <div class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading...</div>
+}
+else if (Dashboards?.Items.Count == 0)
+{
+    <div class="text-muted py-4 text-center">No screens found.</div>
+}
+else if (Dashboards is not null)
+{
+    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-3">
+        @foreach (var d in Dashboards.Items)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@d.Name</h5>
+                        @if (d.Description is not null)
+                        {
+                            <p class="card-text text-muted small">@d.Description</p>
+                        }
+                    </div>
+                    <div class="card-footer d-flex justify-content-between align-items-center">
+                        <span class="badge @(d.Status == CcDashboard.Domain.Enums.DashboardStatus.Published ? "bg-success" : "bg-warning text-dark")">
+                            @d.Status
+                        </span>
+                        @if (d.IsPublic)
+                        {
+                            <span class="badge bg-info text-dark">Public</span>
+                        }
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary me-1"
+                                    @onclick="() => OpenEdit(d)">Edit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private CcDashboard.Contracts.Common.PagedResult<CcDashboard.Contracts.DTOs.Dashboards.DashboardDto>? Dashboards;
+    private bool Loading = true;
+    private string? Search;
+    private string? StatusFilter;
+
+    protected override async Task OnInitializedAsync() => await LoadDashboards();
+
+    private async Task LoadDashboards()
+    {
+        Loading = true;
+        var status = StatusFilter is null ? null
+            : Enum.TryParse<CcDashboard.Domain.Enums.DashboardStatus>(StatusFilter, out var s) ? s : (CcDashboard.Domain.Enums.DashboardStatus?)null;
+
+        Dashboards = await Mediator.Send(new GetDashboardsQuery(new(Search, status, null, null)));
+        Loading = false;
+    }
+
+    private void ShowCreateModal() { /* TODO: open modal */ }
+    private void OpenEdit(CcDashboard.Contracts.DTOs.Dashboards.DashboardDto d) { /* TODO: open edit modal */ }
+}

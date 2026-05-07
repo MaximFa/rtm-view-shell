@@ -1,0 +1,7 @@
+@page "/admin/users"
+@layout MainLayout
+@attribute [Authorize(Roles = "Superadmin,Administrator")]
+
+<PageTitle>User Management — RTM View Shell</PageTitle>
+<h1 class="h4">User Management</h1>
+<p class="text-muted">User list with server-side pagination coming soon.</p>

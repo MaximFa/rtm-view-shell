@@ -1,0 +1,38 @@
+using CcDashboard.Application.Behaviors;
+using CcDashboard.Application.Interfaces;
+using CcDashboard.Contracts.DTOs.Dashboards;
+using CcDashboard.Domain.Domain;
+using CcDashboard.Domain.Exceptions;
+using CcDashboard.Domain.Interfaces;
+using MediatR;
+
+namespace CcDashboard.Application.Commands.Dashboards;
+
+public record UpdateDashboardCommand(UpdateDashboardRequest Request) : IRequest<DashboardDto>, ITransactional;
+
+public class UpdateDashboardCommandHandler(
+    IDashboardRepository dashboards,
+    ICurrentUserAccessor currentUser,
+    IDateTimeProvider clock)
+    : IRequestHandler<UpdateDashboardCommand, DashboardDto>
+{
+    public async Task<DashboardDto> Handle(UpdateDashboardCommand cmd, CancellationToken ct)
+    {
+        var dashboard = await dashboards.GetByIdAsync(cmd.Request.Id, ct)
+            ?? throw new NotFoundException(nameof(Dashboard), cmd.Request.Id);
+
+        dashboard.Name = cmd.Request.Name;
+        dashboard.Description = cmd.Request.Description;
+        dashboard.Status = cmd.Request.Status;
+        dashboard.IsPublic = cmd.Request.IsPublic;
+        dashboard.UpdatedAt = clock.UtcNow;
+        dashboard.UpdatedByUserId = currentUser.UserId!.Value;
+
+        dashboards.Update(dashboard);
+
+        return new DashboardDto(
+            dashboard.Id, dashboard.TenantId, dashboard.Name, dashboard.Description,
+            dashboard.Status, dashboard.IsPublic, dashboard.CreatedByUserId, null,
+            dashboard.CreatedAt, dashboard.UpdatedAt);
+    }
+}

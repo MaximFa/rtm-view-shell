@@ -1,38 +1,31 @@
-using CcDashboard.Core.Domain;
-using CcDashboard.Core.Enums;
-using CcDashboard.Core.Interfaces;
-using CcDashboard.Infrastructure.Persistence;
+using CcDashboard.Domain.Enums;
+using CcDashboard.Domain.Interfaces;
+using System.Text.Json;
+using UUIDNext;
 
 namespace CcDashboard.Infrastructure.Audit;
 
-public class AuditService : IAuditService
+public class AuditService(AuditDbContext db, IDateTimeProvider clock) : IAuditService
 {
-    private readonly AppDbContext _context;
-
-    public AuditService(AppDbContext context)
-    {
-        _context = context;
-    }
-
     public async Task LogAsync(
-        AuditEventType eventType,
-        Guid? userId,
-        string ipAddress,
-        string userAgent,
-        string? detail = null,
-        CancellationToken ct = default)
+        string eventType, AuditEventResult result, Guid? tenantId = null, Guid? userId = null,
+        string? userName = null, string? ipAddress = null, string? userAgent = null,
+        object? details = null, CancellationToken ct = default)
     {
-        _context.AuditEvents.Add(new AuditEvent
+        var log = new AuditLog
         {
-            Id = Guid.NewGuid(),
+            Id = Uuid.NewSequential(),
+            TenantId = tenantId,
             UserId = userId,
+            UserName = userName ?? string.Empty,
             EventType = eventType,
+            EventResult = result,
             IpAddress = ipAddress,
             UserAgent = userAgent,
-            Detail = detail,
-            OccurredAt = DateTime.UtcNow
-        });
-
-        await _context.SaveChangesAsync(ct);
+            Details = details is null ? null : JsonSerializer.Serialize(details),
+            CreatedAt = clock.UtcNow,
+        };
+        db.AuditLogs.Add(log);
+        await db.SaveChangesAsync(ct);
     }
 }

@@ -1,0 +1,59 @@
+@page "/login/sso"
+@layout AuthLayout
+
+<PageTitle>SSO Sign In — RTM View Shell</PageTitle>
+
+<div class="card shadow-sm">
+    <div class="card-body p-4">
+        <h2 class="card-title h5 mb-4">Single Sign-On</h2>
+
+        @if (ErrorMessage is not null)
+        {
+            <div class="alert alert-warning py-2">@ErrorMessage</div>
+        }
+
+        <div class="d-grid gap-2">
+            <form method="post" @formname="sso_ldap">
+                <AntiforgeryToken />
+                <input type="hidden" name="Provider" value="AD_LDAP" />
+                <button type="submit" class="btn btn-outline-dark w-100">
+                    Active Directory / LDAP
+                </button>
+            </form>
+            <form method="post" @formname="sso_oidc">
+                <AntiforgeryToken />
+                <input type="hidden" name="Provider" value="OIDC" />
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    OpenID Connect (OIDC)
+                </button>
+            </form>
+            <form method="post" @formname="sso_saml">
+                <AntiforgeryToken />
+                <input type="hidden" name="Provider" value="SAML2" />
+                <button type="submit" class="btn btn-outline-secondary w-100">
+                    SAML 2.0
+                </button>
+            </form>
+        </div>
+
+        <div class="mt-3 text-muted small">
+            If provider confirmed MFA (claim amr=mfa), system-level 2FA is not applied [SSO-04]
+        </div>
+
+        <div class="mt-3">
+            <a href="/login">← Sign in with username and password</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] public HttpContext? HttpContext { get; set; }
+    private string? ErrorMessage { get; set; }
+
+    protected override Task OnInitializedAsync()
+    {
+        // SSO stub — full implementation in next sprint [SSO-01]
+        ErrorMessage = "SSO is not configured yet. Contact your administrator.";
+        return Task.CompletedTask;
+    }
+}

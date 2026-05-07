@@ -1,38 +1,32 @@
-<nav class="d-flex flex-column bg-dark text-white p-0" style="width:220px; min-width:220px;">
-    <div class="p-3 border-bottom border-secondary">
-        <small class="text-uppercase text-muted fw-semibold ls-1">Navigation</small>
-    </div>
+<ul class="nav flex-column px-2 pt-2">
+    <li class="nav-section-label text-uppercase text-muted small px-2 pb-1">Content</li>
+    <li class="nav-item">
+        <NavLink href="/screens" class="nav-link" Match="NavLinkMatch.Prefix">Screens</NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink href="/widget-catalogue" class="nav-link" Match="NavLinkMatch.Prefix">Widget Catalogue</NavLink>
+    </li>
 
-    <ul class="nav flex-column px-2 py-2 flex-grow-1">
+    <AuthorizeView Roles="Superadmin,Administrator">
+        <li class="nav-section-label text-uppercase text-muted small px-2 pb-1 pt-3">Administration</li>
         <li class="nav-item">
-            <NavLink class="nav-link text-white rounded" href="/dashboard" Match="NavLinkMatch.Prefix">
-                <span class="me-2">&#9635;</span> Dashboards
-            </NavLink>
+            <NavLink href="/admin/users" class="nav-link" Match="NavLinkMatch.Prefix">Users</NavLink>
         </li>
         <li class="nav-item">
-            <NavLink class="nav-link text-white rounded" href="/widgets">
-                <span class="me-2">&#9697;</span> Widget Catalogue
-            </NavLink>
+            <NavLink href="/admin/permission-groups" class="nav-link" Match="NavLinkMatch.Prefix">Permission Groups</NavLink>
         </li>
+        <li class="nav-item">
+            <NavLink href="/admin/audit" class="nav-link" Match="NavLinkMatch.Prefix">Audit Log</NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="/admin/tenant-settings" class="nav-link" Match="NavLinkMatch.Prefix">Tenant Settings</NavLink>
+        </li>
+    </AuthorizeView>
 
-        <li class="mt-3 px-1">
-            <small class="text-uppercase text-muted fw-semibold">Administration</small>
-        </li>
+    <AuthorizeView Roles="Superadmin">
+        <li class="nav-section-label text-uppercase text-muted small px-2 pb-1 pt-3">Platform</li>
         <li class="nav-item">
-            <NavLink class="nav-link text-white rounded" href="/admin/users">
-                <span class="me-2">&#128100;</span> Users
-            </NavLink>
+            <NavLink href="/platform/tenants" class="nav-link" Match="NavLinkMatch.Prefix">Tenants</NavLink>
         </li>
-        <li class="nav-item">
-            <NavLink class="nav-link text-white rounded" href="/admin/groups">
-                <span class="me-2">&#128101;</span> Permission Groups
-            </NavLink>
-        </li>
-    </ul>
-</nav>
-
-<style>
-    .nav-link:hover, .nav-link.active {
-        background-color: rgba(255,255,255,.1) !important;
-    }
-</style>
+    </AuthorizeView>
+</ul>

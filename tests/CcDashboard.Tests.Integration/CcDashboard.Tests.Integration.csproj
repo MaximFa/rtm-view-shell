@@ -13,6 +13,7 @@
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="FluentAssertions" Version="8.9.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.11.0" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
   </ItemGroup>
@@ -24,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CcDashboard.Infrastructure\CcDashboard.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\CcDashboard.Application\CcDashboard.Application.csproj" />
+    <ProjectReference Include="..\..\src\CcDashboard.Contracts\CcDashboard.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

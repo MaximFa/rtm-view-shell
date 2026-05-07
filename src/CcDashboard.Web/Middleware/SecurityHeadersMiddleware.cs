@@ -1,29 +1,23 @@
 namespace CcDashboard.Web.Middleware;
 
-public class SecurityHeadersMiddleware
+public class SecurityHeadersMiddleware(RequestDelegate next)
 {
-    private readonly RequestDelegate _next;
-
-    public SecurityHeadersMiddleware(RequestDelegate next) => _next = next;
-
     public async Task InvokeAsync(HttpContext ctx)
     {
-        var h = ctx.Response.Headers;
+        var nonce = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16));
+        ctx.Items["csp-nonce"] = nonce;
 
-        // Blazor Server requires unsafe-eval (SignalR) and wss for WebSocket
-        h.Append("Content-Security-Policy",
-            "default-src 'self'; " +
-            "script-src 'self' 'unsafe-eval'; " +
-            "style-src 'self' 'unsafe-inline'; " +
-            "connect-src 'self' wss: ws:; " +
-            "img-src 'self' data:; " +
-            "font-src 'self'; " +
-            "frame-ancestors 'none';");
+        ctx.Response.Headers["X-Frame-Options"] = "DENY";
+        ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+        ctx.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+        ctx.Response.Headers["Content-Security-Policy"] =
+            $"default-src 'self'; script-src 'self' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; " +
+            $"img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:; frame-ancestors 'none';";
 
-        h.Append("X-Content-Type-Options", "nosniff");
-        h.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-        h.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+        if (!ctx.Request.IsHttps is false)
+            ctx.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
 
-        await _next(ctx);
+        await next(ctx);
     }
 }
