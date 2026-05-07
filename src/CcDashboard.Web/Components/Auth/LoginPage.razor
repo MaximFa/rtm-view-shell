@@ -8,11 +8,11 @@
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>Sign In — RTM View Shell</PageTitle>
+<PageTitle>@L["Login_Title"] — RTM View Shell</PageTitle>
 
 <div class="card shadow-sm">
     <div class="card-body p-4">
-        <h2 class="card-title h5 mb-4">Sign in to your account</h2>
+        <h2 class="card-title h5 mb-4">@L["Login_SignInToAccount"]</h2>
 
         @if (ErrorMessage is not null)
         {
@@ -26,30 +26,30 @@
         <form method="post" @formname="login">
             <AntiforgeryToken />
             <div class="mb-3">
-                <label for="username" class="form-label">Username or email</label>
+                <label for="username" class="form-label">@L["Login_Username"]</label>
                 <input id="username" name="Model.UserName" type="text"
                        class="form-control" value="@Model?.UserName"
                        autocomplete="username" required />
             </div>
             <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
+                <label for="password" class="form-label">@L["Login_Password"]</label>
                 <input id="password" name="Model.Password" type="password"
                        class="form-control" autocomplete="current-password" required />
-                <div class="form-text text-muted small">Min. 12 chars · A-Z · a-z · 0-9 · special char</div>
+                <div class="form-text text-muted small">@L["Login_PasswordHint"]</div>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Sign in →</button>
+            <button type="submit" class="btn btn-primary w-100">@L["Login_SignIn"]</button>
             <div class="mt-2 text-end">
-                <a href="/forgot-password" class="small">Forgot password?</a>
+                <a href="/forgot-password" class="small">@L["Login_ForgotPassword"]</a>
             </div>
         </form>
 
         <div class="d-flex align-items-center my-3">
             <hr class="flex-grow-1" />
-            <span class="px-2 text-muted small">or</span>
+            <span class="px-2 text-muted small">@L["Login_Or"]</span>
             <hr class="flex-grow-1" />
         </div>
 
-        <a href="/login/sso" class="btn btn-outline-secondary w-100">Sign in with SSO / Single Sign-On</a>
+        <a href="/login/sso" class="btn btn-outline-secondary w-100">@L["Login_SsoButton"]</a>
     </div>
 </div>
 
@@ -73,7 +73,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Only process on POST (form submitted)
         if (HttpContext is null || Model?.UserName is null || Model.Password is null)
             return;
 
@@ -102,14 +101,9 @@
                 Nav.NavigateTo("/login/2fa", forceLoad: true);
                 break;
 
-            case IdentitySignInStatus.LockedOut:
-            case IdentitySignInStatus.InvalidCredentials:
-            case IdentitySignInStatus.TenantMismatch:
-            case IdentitySignInStatus.AccountInactive:
-            case IdentitySignInStatus.TenantSuspended:
             default:
                 // [BFP-03] — never reveal WHY login failed
-                ErrorMessage = "Invalid username or password.";
+                ErrorMessage = L["Login_InvalidCredentials"];
                 break;
         }
     }

@@ -15,28 +15,28 @@
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>User Management — RTM View Shell</PageTitle>
+<PageTitle>@L["Users_Title"] — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">User Management</h1>
-    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New user</button>
+    <h1 class="h4 mb-0">@L["Users_Title"]</h1>
+    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">@L["Users_NewUser"]</button>
 </div>
 
 <!-- Toolbar -->
 <div class="row g-2 mb-3">
     <div class="col-md-3">
-        <input class="form-control form-control-sm" placeholder="Search name / email..."
+        <input class="form-control form-control-sm" placeholder="@L["Users_SearchPlaceholder"]"
                @bind="Search" @bind:event="oninput" @onkeyup="OnSearchKey" />
     </div>
     <div class="col-md-2">
         <select class="form-select form-select-sm" @bind="RoleFilter" @bind:after="ResetAndLoad">
-            <option value="">All roles</option>
+            <option value="">@L["Users_AllRoles"]</option>
             @foreach (var r in Roles) { <option value="@r">@r</option> }
         </select>
     </div>
     <div class="col-md-3">
         <select class="form-select form-select-sm" @bind="PgFilter" @bind:after="ResetAndLoad">
-            <option value="">All groups</option>
+            <option value="">@L["Users_AllGroups"]</option>
             @foreach (var pg in PermissionGroups)
             {
                 <option value="@pg.Id">@pg.Name</option>
@@ -45,9 +45,9 @@
     </div>
     <div class="col-md-2">
         <select class="form-select form-select-sm" @bind="ActiveFilter" @bind:after="ResetAndLoad">
-            <option value="">All statuses</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
+            <option value="">@L["Users_AllStatuses"]</option>
+            <option value="true">@L["Common_Active"]</option>
+            <option value="false">@L["Common_Inactive"]</option>
         </select>
     </div>
 </div>
@@ -67,12 +67,12 @@ else
         <table class="table table-hover table-sm align-middle">
             <thead class="table-light">
                 <tr>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Permission Group</th>
-                    <th>Status</th>
-                    <th>Last Login</th>
-                    <th>2FA</th>
+                    <th>@L["Users_ColUser"]</th>
+                    <th>@L["Users_ColRole"]</th>
+                    <th>@L["Users_ColGroup"]</th>
+                    <th>@L["Users_ColStatus"]</th>
+                    <th>@L["Users_ColLastLogin"]</th>
+                    <th>@L["Users_Col2fa"]</th>
                     <th></th>
                 </tr>
             </thead>
@@ -97,24 +97,24 @@ else
                         <td>
                             @if (u.IsActive)
                             {
-                                <span class="badge bg-success">active</span>
+                                <span class="badge bg-success">@L["Users_Active"]</span>
                             }
                             else
                             {
-                                <span class="badge bg-secondary">inactive</span>
+                                <span class="badge bg-secondary">@L["Users_Inactive"]</span>
                             }
                         </td>
                         <td class="text-muted small">@(u.LastLoginAt?.ToLocalTime().ToString("dd MMM yy HH:mm") ?? "—")</td>
                         <td>@(u.Is2faEnabled ? "✓" : "")</td>
                         <td>
                             <button class="btn btn-sm btn-outline-secondary py-0 px-2"
-                                    @onclick="() => OpenEdit(u)">Edit</button>
+                                    @onclick="() => OpenEdit(u)">@L["Common_Edit"]</button>
                         </td>
                     </tr>
                 }
                 @if (!Users.Any())
                 {
-                    <tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-3">@L["Audit_NoRecords"]</td></tr>
                 }
             </tbody>
         </table>
@@ -122,7 +122,7 @@ else
 
     <div class="d-flex justify-content-between align-items-center mt-2">
         <div class="d-flex gap-2 align-items-center">
-            <span class="text-muted small">@TotalCount user(s)</span>
+            <span class="text-muted small">@TotalCount @L["Common_Records"]</span>
             <select class="form-select form-select-sm" style="width:auto"
                     @bind="PageSize" @bind:after="ResetAndLoad">
                 <option value="10">10</option>
@@ -146,19 +146,19 @@ else
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">New User</h5>
+                    <h5 class="modal-title">@L["Users_CreateModal"]</h5>
                     <button class="btn-close" @onclick="CloseModals"></button>
                 </div>
                 <div class="modal-body">
                     @if (SaveError is not null) { <div class="alert alert-danger py-2">@SaveError</div> }
                     <div class="row g-2 mb-2">
-                        <div class="col"><label class="form-label">First Name</label><input class="form-control form-control-sm" @bind="CFirst" /></div>
-                        <div class="col"><label class="form-label">Last Name</label><input class="form-control form-control-sm" @bind="CLast" /></div>
+                        <div class="col"><label class="form-label">@L["Users_FirstName"]</label><input class="form-control form-control-sm" @bind="CFirst" /></div>
+                        <div class="col"><label class="form-label">@L["Users_LastName"]</label><input class="form-control form-control-sm" @bind="CLast" /></div>
                     </div>
-                    <div class="mb-2"><label class="form-label">Email <span class="text-danger">*</span></label><input class="form-control form-control-sm" type="email" @bind="CEmail" /></div>
-                    <div class="mb-2"><label class="form-label">Username <span class="text-danger">*</span></label><input class="form-control form-control-sm" @bind="CUserName" /></div>
+                    <div class="mb-2"><label class="form-label">@L["Users_Email"] <span class="text-danger">*</span></label><input class="form-control form-control-sm" type="email" @bind="CEmail" /></div>
+                    <div class="mb-2"><label class="form-label">@L["Users_Username"] <span class="text-danger">*</span></label><input class="form-control form-control-sm" @bind="CUserName" /></div>
                     <div class="mb-2">
-                        <label class="form-label">Role <span class="text-danger">*</span></label>
+                        <label class="form-label">@L["Users_Role"] <span class="text-danger">*</span></label>
                         <select class="form-select form-select-sm" @bind="CRole" @bind:after="StateHasChanged">
                             @foreach (var r in AllowedCreateRoles) { <option value="@r">@r</option> }
                         </select>
@@ -166,18 +166,20 @@ else
                     @if (CRole != "Superadmin")
                     {
                         <div class="mb-2">
-                            <label class="form-label">Permission Group</label>
+                            <label class="form-label">@L["Users_PermissionGroup"]</label>
                             <select class="form-select form-select-sm" @bind="CPgId">
-                                <option value="">— none —</option>
+                                <option value="">@L["Users_SelectGroup"]</option>
                                 @foreach (var pg in PermissionGroups) { <option value="@pg.Id">@pg.Name</option> }
                             </select>
                         </div>
                     }
-                    <div class="form-text">Temporary password will be sent to the specified email [USR-03]</div>
+                    <div class="form-text">@L["Users_TempPasswordNote"]</div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
-                    <button class="btn btn-primary" @onclick="SaveCreate" disabled="@Saving">@(Saving ? "Creating..." : "Create user →")</button>
+                    <button class="btn btn-secondary" @onclick="CloseModals">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveCreate" disabled="@Saving">
+                        @(Saving ? L["Common_Saving"].Value : L["Users_CreateButton"].Value)
+                    </button>
                 </div>
             </div>
         </div>
@@ -192,18 +194,18 @@ else
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Edit User — @FullName(EditUser)</h5>
+                    <h5 class="modal-title">@L["Users_EditModal"] — @FullName(EditUser)</h5>
                     <button class="btn-close" @onclick="CloseModals"></button>
                 </div>
                 <div class="modal-body">
                     @if (SaveError is not null) { <div class="alert alert-danger py-2">@SaveError</div> }
                     <div class="row g-2 mb-2">
-                        <div class="col"><label class="form-label">First Name</label><input class="form-control form-control-sm" @bind="EFirst" /></div>
-                        <div class="col"><label class="form-label">Last Name</label><input class="form-control form-control-sm" @bind="ELast" /></div>
+                        <div class="col"><label class="form-label">@L["Users_FirstName"]</label><input class="form-control form-control-sm" @bind="EFirst" /></div>
+                        <div class="col"><label class="form-label">@L["Users_LastName"]</label><input class="form-control form-control-sm" @bind="ELast" /></div>
                     </div>
-                    <div class="mb-2"><label class="form-label">Email</label><input class="form-control form-control-sm" type="email" @bind="EEmail" /></div>
+                    <div class="mb-2"><label class="form-label">@L["Users_Email"]</label><input class="form-control form-control-sm" type="email" @bind="EEmail" /></div>
                     <div class="mb-2">
-                        <label class="form-label">Role</label>
+                        <label class="form-label">@L["Users_Role"]</label>
                         <select class="form-select form-select-sm" @bind="ERole" @bind:after="StateHasChanged"
                                 disabled="@(EditUser.Id == CurrentUser.UserId)">
                             @foreach (var r in AllowedCreateRoles) { <option value="@r">@r</option> }
@@ -213,15 +215,15 @@ else
                     @if (ERole != "Superadmin")
                     {
                         <div class="mb-2">
-                            <label class="form-label">Permission Group</label>
+                            <label class="form-label">@L["Users_PermissionGroup"]</label>
                             <select class="form-select form-select-sm" @bind="EPgId">
-                                <option value="">— none —</option>
+                                <option value="">@L["Users_SelectGroup"]</option>
                                 @foreach (var pg in PermissionGroups) { <option value="@pg.Id">@pg.Name</option> }
                             </select>
                         </div>
                     }
                     <div class="mb-2">
-                        <label class="form-label">Locale</label>
+                        <label class="form-label">@L["Users_Locale"]</label>
                         <select class="form-select form-select-sm" @bind="ELocale">
                             <option value="en-US">English (US)</option>
                             <option value="ru-RU">Russian</option>
@@ -231,7 +233,7 @@ else
                     <div class="d-flex gap-3">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="isActive" @bind="EIsActive" />
-                            <label class="form-check-label" for="isActive">Active</label>
+                            <label class="form-check-label" for="isActive">@L["Common_Active"]</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="is2fa" @bind="E2fa" />
@@ -239,27 +241,29 @@ else
                         </div>
                     </div>
                     <div class="text-muted small mt-2">
-                        Last login: @(EditUser.LastLoginAt?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "never")
+                        Last login: @(EditUser.LastLoginAt?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? L["Users_Never"].Value)
                         &nbsp;·&nbsp; Created: @EditUser.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")
                     </div>
                     <hr />
                     <div class="d-flex gap-2 flex-wrap">
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="ResetPassword" disabled="@Saving">Reset password</button>
-                        <button class="btn btn-sm btn-outline-warning" @onclick="ForceLogout" disabled="@Saving">Force logout</button>
-                        <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="() => ConfirmDelete = true" disabled="@ConfirmDelete">Delete user</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="ResetPassword" disabled="@Saving">@L["Users_ResetPassword"]</button>
+                        <button class="btn btn-sm btn-outline-warning" @onclick="ForceLogout" disabled="@Saving">@L["Users_ForceLogout"]</button>
+                        <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="() => ConfirmDelete = true" disabled="@ConfirmDelete">@L["Users_DeleteUser"]</button>
                     </div>
                     @if (ConfirmDelete)
                     {
                         <div class="mt-2 text-danger small">
-                            Permanently delete this user?
-                            <button class="btn btn-danger btn-sm ms-2" @onclick="DeleteUser">Yes, delete</button>
-                            <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">Cancel</button>
+                            @L["Screens_AreYouSure"]
+                            <button class="btn btn-danger btn-sm ms-2" @onclick="DeleteUser">@L["Screens_YesDelete"]</button>
+                            <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">@L["Common_Cancel"]</button>
                         </div>
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
-                    <button class="btn btn-primary" @onclick="SaveEdit" disabled="@Saving">@(Saving ? "Saving..." : "Save →")</button>
+                    <button class="btn btn-secondary" @onclick="CloseModals">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveEdit" disabled="@Saving">
+                        @(Saving ? L["Common_Saving"].Value : L["Common_Save"].Value)
+                    </button>
                 </div>
             </div>
         </div>
@@ -345,7 +349,7 @@ else
     private async Task SaveCreate()
     {
         if (string.IsNullOrWhiteSpace(CEmail) || string.IsNullOrWhiteSpace(CUserName))
-        { SaveError = "Email and Username are required."; return; }
+        { SaveError = L["Users_Email"] + " and " + L["Users_Username"] + " are required."; return; }
         Saving = true; SaveError = null;
         try
         {
@@ -386,7 +390,7 @@ else
         {
             var resetUrl = Nav.BaseUri + "reset-password";
             var (ok, err) = await UserMgmt.AdminResetPasswordAsync(EditUser.Id, resetUrl);
-            if (ok) SaveError = "Reset email sent.";
+            if (ok) SaveError = L["Users_ResetEmailSent"];
             else SaveError = err;
         }
         catch (Exception ex) { SaveError = ex.Message; }
@@ -397,7 +401,7 @@ else
     {
         if (EditUser is null) return;
         Saving = true;
-        try { await UserMgmt.ForceLogoutAsync(EditUser.Id); SaveError = "User logged out."; }
+        try { await UserMgmt.ForceLogoutAsync(EditUser.Id); SaveError = L["Users_LoggedOut"]; }
         catch (Exception ex) { SaveError = ex.Message; }
         finally { Saving = false; }
     }

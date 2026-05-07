@@ -12,25 +12,25 @@
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>Screens — RTM View Shell</PageTitle>
+<PageTitle>@L["Screens_Title"] — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">Screens</h1>
+    <h1 class="h4 mb-0">@L["Screens_Title"]</h1>
     <AuthorizeView Roles="Superadmin,Administrator,Editor">
-        <button class="btn btn-primary btn-sm" @onclick="() => OpenCreate()">+ New screen</button>
+        <button class="btn btn-primary btn-sm" @onclick="() => OpenCreate()">@L["Screens_New"]</button>
     </AuthorizeView>
 </div>
 
 <div class="row g-2 mb-3">
     <div class="col-md-4">
-        <input class="form-control form-control-sm" placeholder="Search by name..."
+        <input class="form-control form-control-sm" placeholder="@L["Screens_SearchPlaceholder"]"
                @bind="Search" @bind:event="oninput" @onkeyup="OnSearchKey" />
     </div>
     <div class="col-md-3">
         <select class="form-select form-select-sm" @bind="StatusFilter" @bind:after="LoadAsync">
-            <option value="">All statuses</option>
-            <option value="Draft">Draft</option>
-            <option value="Published">Published</option>
+            <option value="">@L["Screens_AllStatuses"]</option>
+            <option value="Draft">@L["Screens_Draft"]</option>
+            <option value="Published">@L["Screens_Published"]</option>
         </select>
     </div>
 </div>
@@ -42,9 +42,9 @@
 else if (Dashboards == null || Dashboards.Items.Count == 0)
 {
     <div class="text-center py-5 text-muted">
-        <p>No screens found.</p>
+        <p>@L["Screens_NoScreens"]</p>
         <AuthorizeView Roles="Superadmin,Administrator,Editor">
-            <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenCreate()">Create your first screen</button>
+            <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenCreate()">@L["Screens_CreateFirst"]</button>
         </AuthorizeView>
     </div>
 }
@@ -58,7 +58,7 @@ else
                     <div class="card-body pb-2">
                         <div class="d-flex gap-1 mb-2">
                             @StatusBadge(d.Status)
-                            @if (d.IsPublic) { <span class="badge bg-info text-dark">Public</span> }
+                            @if (d.IsPublic) { <span class="badge bg-info text-dark">@L["Screens_Public"]</span> }
                         </div>
                         <h6 class="card-title mb-1">@d.Name</h6>
                         @if (!string.IsNullOrEmpty(d.Description))
@@ -68,7 +68,7 @@ else
                     </div>
                     <div class="card-footer d-flex justify-content-between align-items-center">
                         <span class="text-muted small">Updated @d.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy")</span>
-                        <a href="/screens/@d.Id" class="btn btn-link btn-sm p-0 small" @onclick:stopPropagation="true">Open &rarr;</a>
+                        <a href="/screens/@d.Id" class="btn btn-link btn-sm p-0 small" @onclick:stopPropagation="true">@L["Screens_Open"]</a>
                     </div>
                 </div>
             </div>
@@ -76,13 +76,13 @@ else
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-3">
-        <span class="text-muted small">@Dashboards.TotalCount record(s)</span>
+        <span class="text-muted small">@Dashboards.TotalCount @L["Common_Records"]</span>
         <div class="d-flex gap-2">
             <button class="btn btn-sm btn-outline-secondary" disabled="@(Dashboards.Page <= 1)"
-                    @onclick="PrevPage">&#8249; Prev</button>
-            <span class="align-self-center small">Page @Dashboards.Page / @Dashboards.TotalPages</span>
+                    @onclick="PrevPage">@L["Common_Prev"]</button>
+            <span class="align-self-center small">@L["Common_Page"] @Dashboards.Page @L["Common_Of"] @Dashboards.TotalPages</span>
             <button class="btn btn-sm btn-outline-secondary" disabled="@(Dashboards.Page >= Dashboards.TotalPages)"
-                    @onclick="NextPage">Next &#8250;</button>
+                    @onclick="NextPage">@L["Common_Next"]</button>
         </div>
     </div>
 }
@@ -101,7 +101,7 @@ else
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">New Screen</h5>
+                    <h5 class="modal-title">@L["Screens_CreateModal"]</h5>
                     <button type="button" class="btn-close" @onclick="CloseModals"></button>
                 </div>
                 <div class="modal-body">
@@ -110,25 +110,23 @@ else
                         <div class="alert alert-danger py-2">@SaveError</div>
                     }
                     <div class="mb-3">
-                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <label class="form-label">@L["Screens_Name"] <span class="text-danger">*</span></label>
                         <input class="form-control" @bind="CreateName" maxlength="200" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Description</label>
+                        <label class="form-label">@L["Screens_Description"]</label>
                         <textarea class="form-control" rows="2" @bind="CreateDescription" maxlength="500"></textarea>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="isPublicCreate" @bind="CreateIsPublic" />
-                        <label class="form-check-label" for="isPublicCreate">
-                            Visible to all tenant users (IsPublic)
-                        </label>
-                        <div class="form-text">If enabled, accessible to all authenticated users without explicit group assignment [DASH-01]</div>
+                        <label class="form-check-label" for="isPublicCreate">@L["Screens_IsPublic"]</label>
+                        <div class="form-text">@L["Screens_IsPublicHelp"]</div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                    <button class="btn btn-secondary" @onclick="CloseModals">@L["Common_Cancel"]</button>
                     <button class="btn btn-primary" @onclick="SaveCreate" disabled="@Saving">
-                        @(Saving ? "Saving..." : "Create screen →")
+                        @(Saving ? L["Common_Saving"].Value : L["Screens_CreateButton"].Value)
                     </button>
                 </div>
             </div>
@@ -144,7 +142,7 @@ else
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Screen Settings</h5>
+                    <h5 class="modal-title">@L["Screens_EditModal"]</h5>
                     <button type="button" class="btn-close" @onclick="CloseModals"></button>
                 </div>
                 <div class="modal-body">
@@ -153,46 +151,46 @@ else
                         <div class="alert alert-danger py-2">@SaveError</div>
                     }
                     <div class="mb-3">
-                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <label class="form-label">@L["Screens_Name"] <span class="text-danger">*</span></label>
                         <input class="form-control" @bind="EditName" maxlength="200" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Description</label>
+                        <label class="form-label">@L["Screens_Description"]</label>
                         <textarea class="form-control" rows="2" @bind="EditDescription" maxlength="500"></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Status</label>
+                        <label class="form-label">@L["Screens_Status"]</label>
                         <select class="form-select" @bind="EditStatusStr">
-                            <option value="Draft">Draft</option>
-                            <option value="Published">Published</option>
+                            <option value="Draft">@L["Screens_Draft"]</option>
+                            <option value="Published">@L["Screens_Published"]</option>
                         </select>
                     </div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="isPublicEdit" @bind="EditIsPublic" />
-                        <label class="form-check-label" for="isPublicEdit">Visible to all tenant users (IsPublic)</label>
+                        <label class="form-check-label" for="isPublicEdit">@L["Screens_IsPublic"]</label>
                     </div>
                     <AuthorizeView Roles="Superadmin,Administrator,Editor">
                         <hr />
                         <div class="text-danger">
-                            <strong>Danger zone</strong>
+                            <strong>@L["Screens_DangerZone"]</strong>
                             <button class="btn btn-sm btn-outline-danger ms-3"
                                     @onclick="() => ConfirmDelete = true" disabled="@ConfirmDelete">
-                                Delete screen
+                                @L["Screens_DeleteScreen"]
                             </button>
                             @if (ConfirmDelete)
                             {
-                                <span class="ms-2 small">Are you sure?
-                                    <button class="btn btn-danger btn-sm ms-1" @onclick="DeleteDashboard">Yes, delete</button>
-                                    <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">Cancel</button>
+                                <span class="ms-2 small">@L["Screens_AreYouSure"]
+                                    <button class="btn btn-danger btn-sm ms-1" @onclick="DeleteDashboard">@L["Screens_YesDelete"]</button>
+                                    <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">@L["Common_Cancel"]</button>
                                 </span>
                             }
                         </div>
                     </AuthorizeView>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                    <button class="btn btn-secondary" @onclick="CloseModals">@L["Common_Cancel"]</button>
                     <button class="btn btn-primary" @onclick="SaveEdit" disabled="@Saving">
-                        @(Saving ? "Saving..." : "Save →")
+                        @(Saving ? L["Common_Saving"].Value : L["Common_Save"].Value)
                     </button>
                 </div>
             </div>
@@ -267,7 +265,7 @@ else
 
     private async Task SaveCreate()
     {
-        if (string.IsNullOrWhiteSpace(CreateName)) { SaveError = "Name is required."; return; }
+        if (string.IsNullOrWhiteSpace(CreateName)) { SaveError = L["Screens_Name"] + " is required."; return; }
         Saving = true; SaveError = null;
         try
         {
@@ -281,7 +279,7 @@ else
 
     private async Task SaveEdit()
     {
-        if (EditDashboard is null || string.IsNullOrWhiteSpace(EditName)) { SaveError = "Name is required."; return; }
+        if (EditDashboard is null || string.IsNullOrWhiteSpace(EditName)) { SaveError = L["Screens_Name"] + " is required."; return; }
         var status = Enum.TryParse<DashboardStatus>(EditStatusStr, out var s) ? s : DashboardStatus.Draft;
         Saving = true; SaveError = null;
         try
@@ -308,9 +306,9 @@ else
         finally { Saving = false; }
     }
 
-    private static RenderFragment StatusBadge(DashboardStatus status) => status switch
+    private RenderFragment StatusBadge(DashboardStatus status) => status switch
     {
-        DashboardStatus.Published => @<span class="badge bg-success">Published</span>,
-        _ => @<span class="badge bg-warning text-dark">Draft</span>
+        DashboardStatus.Published => @<span class="badge bg-success">@L["Screens_Published"]</span>,
+        _ => @<span class="badge bg-warning text-dark">@L["Screens_Draft"]</span>
     };
 }

@@ -8,11 +8,14 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.JSInterop
+@using Microsoft.Extensions.Localization
 @using CcDashboard.Web
 @using CcDashboard.Web.Components
 @using CcDashboard.Web.Components.Layout
 @using CcDashboard.Web.Components.Auth
 @using CcDashboard.Web.Components.Dashboard
+@using CcDashboard.Web.Resources
 @using CcDashboard.Contracts.DTOs.Auth
 @using CcDashboard.Contracts.DTOs.Dashboards
 @using CcDashboard.Contracts.DTOs.Users
+@inject IStringLocalizer<SharedResources> L

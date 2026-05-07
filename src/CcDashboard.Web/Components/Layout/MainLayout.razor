@@ -2,7 +2,7 @@
 
 <div class="shell-layout">
     <nav class="sidebar">
-        <div class="sidebar-brand">RTM View Shell</div>
+        <div class="sidebar-brand">@L["Layout_AppName"]</div>
         <NavMenu />
     </nav>
 
@@ -11,7 +11,7 @@
             <AuthorizeView>
                 <Authorized>
                     <span class="user-info">@context.User.Identity?.Name</span>
-                    <a href="/logout" class="btn btn-sm btn-outline-secondary">Sign out</a>
+                    <a href="/logout" class="btn btn-sm btn-outline-secondary">@L["Layout_SignOut"]</a>
                 </Authorized>
             </AuthorizeView>
         </header>
@@ -23,7 +23,7 @@
 </div>
 
 <div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
+    @L["Layout_UnhandledError"]
+    <a href="" class="reload">@L["Layout_Reload"]</a>
     <span class="dismiss">&#x2715;</span>
 </div>

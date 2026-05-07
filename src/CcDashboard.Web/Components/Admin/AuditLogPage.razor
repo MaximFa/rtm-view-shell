@@ -9,17 +9,17 @@
 @using CcDashboard.Contracts.Common
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>Audit Log — RTM View Shell</PageTitle>
+<PageTitle>@L["Audit_Title"] — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">Audit Log</h1>
+    <h1 class="h4 mb-0">@L["Audit_Title"]</h1>
 </div>
 
 <!-- Filters -->
 <div class="row g-2 mb-3">
     <div class="col-md-3">
         <select class="form-select form-select-sm" @bind="EventTypeFilter" @bind:after="LoadAsync">
-            <option value="">All event types</option>
+            <option value="">@L["Audit_AllTypes"]</option>
             @foreach (var t in EventTypes)
             {
                 <option value="@t">@t</option>
@@ -28,10 +28,10 @@
     </div>
     <div class="col-md-2">
         <select class="form-select form-select-sm" @bind="ResultFilter" @bind:after="LoadAsync">
-            <option value="">All results</option>
-            <option value="Success">Success</option>
-            <option value="Failure">Failure</option>
-            <option value="Warning">Warning</option>
+            <option value="">@L["Audit_AllResults"]</option>
+            <option value="Success">@L["Audit_Success"]</option>
+            <option value="Failure">@L["Audit_Failure"]</option>
+            <option value="Warning">@L["Audit_Warning"]</option>
         </select>
     </div>
     <div class="col-md-2">
@@ -42,9 +42,9 @@
     </div>
     <div class="col-md-2">
         <select class="form-select form-select-sm" @bind="PageSize" @bind:after="LoadAsync">
-            <option value="25">25 per page</option>
-            <option value="50">50 per page</option>
-            <option value="100">100 per page</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
         </select>
     </div>
 </div>
@@ -55,7 +55,7 @@
 }
 else if (Result == null || Result.Items.Count == 0)
 {
-    <div class="text-center text-muted py-5">No audit events found.</div>
+    <div class="text-center text-muted py-5">@L["Audit_NoRecords"]</div>
 }
 else
 {
@@ -63,11 +63,11 @@ else
         <table class="table table-sm table-hover">
             <thead class="table-light">
                 <tr>
-                    <th>Time (UTC)</th>
-                    <th>Event</th>
-                    <th>Result</th>
-                    <th>User</th>
-                    <th>IP</th>
+                    <th>@L["Audit_ColTime"]</th>
+                    <th>@L["Audit_ColEvent"]</th>
+                    <th>@L["Audit_ColResult"]</th>
+                    <th>@L["Audit_ColUser"]</th>
+                    <th>@L["Audit_ColIp"]</th>
                 </tr>
             </thead>
             <tbody>
@@ -86,14 +86,14 @@ else
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-2">
-        <span class="text-muted small">@Result.TotalCount total event(s)</span>
+        <span class="text-muted small">@Result.TotalCount @L["Common_Records"]</span>
         <div class="d-flex gap-2">
             <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">
-                &lsaquo; Prev
+                @L["Common_Prev"]
             </button>
-            <span class="align-self-center small">Page @Result.Page / @Result.TotalPages</span>
+            <span class="align-self-center small">@L["Common_Page"] @Result.Page @L["Common_Of"] @Result.TotalPages</span>
             <button class="btn btn-sm btn-outline-secondary" disabled="@(Result.Page >= Result.TotalPages)" @onclick="NextPage">
-                Next &rsaquo;
+                @L["Common_Next"]
             </button>
         </div>
     </div>
@@ -137,10 +137,10 @@ else
     private async Task PrevPage() { CurrentPage--; await LoadAsync(); }
     private async Task NextPage() { CurrentPage++; await LoadAsync(); }
 
-    private static RenderFragment ResultBadge(string result) => result switch
+    private RenderFragment ResultBadge(string result) => result switch
     {
-        "Success" => @<span class="badge bg-success">Success</span>,
-        "Failure" => @<span class="badge bg-danger">Failure</span>,
-        _ => @<span class="badge bg-warning text-dark">Warning</span>
+        "Success" => @<span class="badge bg-success">@L["Audit_Success"]</span>,
+        "Failure" => @<span class="badge bg-danger">@L["Audit_Failure"]</span>,
+        _ => @<span class="badge bg-warning text-dark">@L["Audit_Warning"]</span>
     };
 }

@@ -31,81 +31,264 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
 
-  <!-- Auth -->
+  <!-- ── Login ── -->
   <data name="Login_Title"><value>Вход</value></data>
-  <data name="Login_Username"><value>Имя пользователя или Email</value></data>
+  <data name="Login_SignInToAccount"><value>Войдите в свой аккаунт</value></data>
+  <data name="Login_Username"><value>Имя пользователя или email</value></data>
   <data name="Login_Password"><value>Пароль</value></data>
-  <data name="Login_SignIn"><value>Войти</value></data>
+  <data name="Login_PasswordHint"><value>Мин. 12 символов · A-Z · a-z · 0-9 · спец. символ</value></data>
+  <data name="Login_SignIn"><value>Войти →</value></data>
   <data name="Login_ForgotPassword"><value>Забыли пароль?</value></data>
-  <data name="Login_SsoButton"><value>Войти через SSO</value></data>
+  <data name="Login_Or"><value>или</value></data>
+  <data name="Login_SsoButton"><value>Войти через SSO / единый вход</value></data>
   <data name="Login_InvalidCredentials"><value>Неверный логин или пароль.</value></data>
+  <data name="Login_BackToSignIn"><value>← Назад ко входу</value></data>
 
-  <!-- 2FA -->
+  <!-- ── Two-Factor ── -->
   <data name="TwoFactor_Title"><value>Двухфакторная аутентификация</value></data>
+  <data name="TwoFactor_Step"><value>2FA · шаг 2 из 2</value></data>
+  <data name="TwoFactor_VerificationRequired"><value>Требуется подтверждение</value></data>
   <data name="TwoFactor_Instruction"><value>Введите 6-значный код, отправленный на ваш email.</value></data>
-  <data name="TwoFactor_Confirm"><value>Подтвердить</value></data>
+  <data name="TwoFactor_Code"><value>Код подтверждения</value></data>
+  <data name="TwoFactor_Confirm"><value>Подтвердить →</value></data>
   <data name="TwoFactor_Resend"><value>Отправить повторно</value></data>
+  <data name="TwoFactor_NewCodeSent"><value>Новый код отправлен.</value></data>
+  <data name="TwoFactor_ResendWait"><value>Пожалуйста, подождите перед повторной отправкой.</value></data>
+  <data name="TwoFactor_TooManyAttempts"><value>Слишком много попыток. Запросите новый код.</value></data>
+  <data name="TwoFactor_Failed"><value>Ошибка подтверждения. Попробуйте ещё раз.</value></data>
+  <data name="TwoFactor_Footer"><value>Действует 10 мин · 3 попытки · HMAC-SHA256 + соль [2FA-02..03]</value></data>
   <data name="TwoFactor_InvalidCode"><value>Неверный или истёкший код.</value></data>
 
-  <!-- Password -->
-  <data name="Password_ChangeTitle"><value>Требуется смена пароля</value></data>
+  <!-- ── Change Password ── -->
+  <data name="Password_ChangeTitle"><value>Смена пароля</value></data>
+  <data name="Password_ChangeRequired"><value>Требуется смена пароля</value></data>
+  <data name="Password_ChangeSubtitle"><value>Первый вход или истёк срок действия пароля (90 дней) [PWD-05]</value></data>
   <data name="Password_Current"><value>Текущий пароль</value></data>
   <data name="Password_New"><value>Новый пароль</value></data>
   <data name="Password_Confirm"><value>Подтвердите новый пароль</value></data>
+  <data name="Password_ConfirmPlain"><value>Подтвердите пароль</value></data>
   <data name="Password_Save"><value>Сохранить</value></data>
+  <data name="Password_ChangeButton"><value>Сменить пароль →</value></data>
+  <data name="Password_Mismatch"><value>Новый пароль и подтверждение не совпадают.</value></data>
+  <data name="Password_ChangeFailed"><value>Ошибка смены пароля.</value></data>
   <data name="Password_Rule_MinLength"><value>Минимум 12 символов</value></data>
   <data name="Password_Rule_Uppercase"><value>Заглавная буква (A-Z)</value></data>
   <data name="Password_Rule_Lowercase"><value>Строчная буква (a-z)</value></data>
   <data name="Password_Rule_Digit"><value>Цифра (0-9)</value></data>
   <data name="Password_Rule_Special"><value>Специальный символ (!@#$...)</value></data>
-  <data name="Password_Rule_History"><value>Не должен совпадать с последними 10 паролями</value></data>
+  <data name="Password_Rule_History"><value>Не должен совпадать с последними 10 паролями [PWD-04]</value></data>
+  <data name="Password_Hint"><value>Мин. 12 символов · A-Z · a-z · 0-9 · спец. символ</value></data>
 
-  <!-- Forgot/Reset Password -->
+  <!-- ── Forgot / Reset Password ── -->
   <data name="ForgotPassword_Title"><value>Сброс пароля</value></data>
-  <data name="ForgotPassword_Email"><value>Email адрес</value></data>
-  <data name="ForgotPassword_Send"><value>Отправить ссылку</value></data>
+  <data name="ForgotPassword_Heading"><value>Сброс пароля</value></data>
+  <data name="ForgotPassword_Subtitle"><value>Введите адрес email, и мы отправим вам ссылку для сброса.</value></data>
+  <data name="ForgotPassword_Email"><value>Email</value></data>
+  <data name="ForgotPassword_Send"><value>Отправить ссылку →</value></data>
   <data name="ForgotPassword_Sent"><value>Если аккаунт с таким email существует, ссылка для сброса отправлена.</value></data>
+  <data name="ForgotPassword_BackToSignIn"><value>← Назад ко входу</value></data>
 
-  <!-- Common UI -->
-  <data name="Common_Save"><value>Сохранить</value></data>
+  <data name="ResetPassword_Title"><value>Новый пароль</value></data>
+  <data name="ResetPassword_Heading"><value>Установите новый пароль</value></data>
+  <data name="ResetPassword_SetButton"><value>Установить пароль →</value></data>
+  <data name="ResetPassword_Success"><value>Пароль изменён.</value></data>
+  <data name="ResetPassword_SignIn"><value>Войти</value></data>
+  <data name="ResetPassword_InvalidLink"><value>Недействительная или устаревшая ссылка. Запросите новую.</value></data>
+  <data name="ResetPassword_RequestNew"><value>запросите новую</value></data>
+  <data name="ResetPassword_Mismatch"><value>Пароли не совпадают.</value></data>
+  <data name="ResetPassword_Failed"><value>Сброс пароля не удался. Срок действия ссылки мог истечь.</value></data>
+
+  <!-- ── Layout ── -->
+  <data name="Layout_AppName"><value>RTM View Shell</value></data>
+  <data name="Layout_SignOut"><value>Выйти</value></data>
+  <data name="Layout_UnhandledError"><value>Произошла необработанная ошибка.</value></data>
+  <data name="Layout_Reload"><value>Обновить</value></data>
+  <data name="Layout_AccessDenied"><value>Доступ запрещён</value></data>
+  <data name="Layout_AccessDeniedMsg"><value>У вас нет прав для просмотра этой страницы.</value></data>
+
+  <!-- ── Navigation ── -->
+  <data name="Nav_Content"><value>Контент</value></data>
+  <data name="Nav_Administration"><value>Администрирование</value></data>
+  <data name="Nav_Platform"><value>Платформа</value></data>
+  <data name="Nav_Screens"><value>Экраны</value></data>
+  <data name="Nav_WidgetCatalogue"><value>Каталог виджетов</value></data>
+  <data name="Nav_Users"><value>Пользователи</value></data>
+  <data name="Nav_PermissionGroups"><value>Группы доступа</value></data>
+  <data name="Nav_TenantSettings"><value>Настройки тенанта</value></data>
+  <data name="Nav_AuditLog"><value>Журнал аудита</value></data>
+  <data name="Nav_Tenants"><value>Тенанты</value></data>
+
+  <!-- ── Screens (Dashboards) ── -->
+  <data name="Screens_Title"><value>Экраны</value></data>
+  <data name="Screens_New"><value>+ Новый экран</value></data>
+  <data name="Screens_SearchPlaceholder"><value>Поиск по названию...</value></data>
+  <data name="Screens_AllStatuses"><value>Все статусы</value></data>
+  <data name="Screens_Draft"><value>Черновик</value></data>
+  <data name="Screens_Published"><value>Опубликован</value></data>
+  <data name="Screens_NoScreens"><value>Экраны не найдены.</value></data>
+  <data name="Screens_CreateFirst"><value>Создайте первый экран</value></data>
+  <data name="Screens_Open"><value>Открыть →</value></data>
+  <data name="Screens_Name"><value>Название</value></data>
+  <data name="Screens_Description"><value>Описание</value></data>
+  <data name="Screens_Status"><value>Статус</value></data>
+  <data name="Screens_IsPublic"><value>Видим всем пользователям тенанта (IsPublic)</value></data>
+  <data name="Screens_IsPublicHelp"><value>Если включено, экран доступен всем аутентифицированным пользователям без явного назначения группы [DASH-01]</value></data>
+  <data name="Screens_CreateModal"><value>Новый экран</value></data>
+  <data name="Screens_EditModal"><value>Настройки экрана</value></data>
+  <data name="Screens_CreateButton"><value>Создать экран →</value></data>
+  <data name="Screens_DangerZone"><value>Опасная зона</value></data>
+  <data name="Screens_DeleteScreen"><value>Удалить экран</value></data>
+  <data name="Screens_AreYouSure"><value>Вы уверены?</value></data>
+  <data name="Screens_YesDelete"><value>Да, удалить</value></data>
+  <data name="Screens_Public"><value>Публичный</value></data>
+  <data name="Screens_NotFound"><value>Экран не найден или у вас нет доступа.</value></data>
+  <data name="Screens_AllQueues"><value>Все очереди</value></data>
+  <data name="Screens_LiveIndicator"><value>Live · обновление 5с</value></data>
+  <data name="Screens_Pause"><value>Пауза</value></data>
+  <data name="Screens_Resume"><value>Возобновить</value></data>
+  <data name="Screens_Back"><value>← Назад</value></data>
+
+  <!-- ── Widget Catalogue ── -->
+  <data name="WidgetCatalogue_Title"><value>Каталог виджетов</value></data>
+  <data name="WidgetCatalogue_Inactive"><value>Неактивен</value></data>
+
+  <!-- ── Users Admin ── -->
+  <data name="Users_Title"><value>Управление пользователями</value></data>
+  <data name="Users_NewUser"><value>Новый пользователь</value></data>
+  <data name="Users_SearchPlaceholder"><value>Поиск по имени или email...</value></data>
+  <data name="Users_AllRoles"><value>Все роли</value></data>
+  <data name="Users_AllGroups"><value>Все группы</value></data>
+  <data name="Users_AllStatuses"><value>Все статусы</value></data>
+  <data name="Users_ColUser"><value>Пользователь</value></data>
+  <data name="Users_ColRole"><value>Роль</value></data>
+  <data name="Users_ColGroup"><value>Группа</value></data>
+  <data name="Users_ColStatus"><value>Статус</value></data>
+  <data name="Users_ColLastLogin"><value>Последний вход</value></data>
+  <data name="Users_Col2fa"><value>2FA</value></data>
+  <data name="Users_Never"><value>Никогда</value></data>
+  <data name="Users_Active"><value>активен</value></data>
+  <data name="Users_Inactive"><value>неактивен</value></data>
+  <data name="Users_CreateModal"><value>Новый пользователь</value></data>
+  <data name="Users_EditModal"><value>Редактировать пользователя</value></data>
+  <data name="Users_FirstName"><value>Имя</value></data>
+  <data name="Users_LastName"><value>Фамилия</value></data>
+  <data name="Users_Email"><value>Email</value></data>
+  <data name="Users_Username"><value>Имя пользователя</value></data>
+  <data name="Users_Role"><value>Роль</value></data>
+  <data name="Users_PermissionGroup"><value>Группа доступа</value></data>
+  <data name="Users_TempPasswordNote"><value>Временный пароль будет отправлен на указанный email [USR-03]</value></data>
+  <data name="Users_CreateButton"><value>Создать пользователя →</value></data>
+  <data name="Users_Status"><value>Статус</value></data>
+  <data name="Users_Enabled2fa"><value>2FA включён</value></data>
+  <data name="Users_ForceLogout"><value>Принудительный выход</value></data>
+  <data name="Users_ResetPassword"><value>Сбросить пароль</value></data>
+  <data name="Users_DeleteUser"><value>Удалить пользователя</value></data>
+  <data name="Users_ResetEmailSent"><value>Письмо для сброса отправлено.</value></data>
+  <data name="Users_LoggedOut"><value>Пользователь вышел из системы.</value></data>
+  <data name="Users_SelectRole"><value>— выберите роль —</value></data>
+  <data name="Users_SelectGroup"><value>— выберите группу —</value></data>
+  <data name="Users_Locale"><value>Предпочтительный язык</value></data>
+
+  <!-- ── Permission Groups ── -->
+  <data name="PG_Title"><value>Группы доступа</value></data>
+  <data name="PG_NewGroup"><value>Новая группа</value></data>
+  <data name="PG_GroupName"><value>Название группы</value></data>
+  <data name="PG_Description"><value>Описание</value></data>
+  <data name="PG_IsActive"><value>Группа активна (IsActive)</value></data>
+  <data name="PG_DeleteBlocked"><value>Нельзя удалить группу с привязанными пользователями.</value></data>
+  <data name="PG_DeleteGroup"><value>Удалить группу</value></data>
+  <data name="PG_SaveChanges"><value>Сохранить изменения →</value></data>
+  <data name="PG_TabMenu"><value>Меню</value></data>
+  <data name="PG_TabScreens"><value>Экраны</value></data>
+  <data name="PG_TabQueues"><value>Очереди</value></data>
+  <data name="PG_TabSkills"><value>Навыки</value></data>
+  <data name="PG_TabBuSg"><value>БЕ / СГ</value></data>
+  <data name="PG_ColMenuItem"><value>Пункт меню</value></data>
+  <data name="PG_ColPermissionKey"><value>Ключ доступа</value></data>
+  <data name="PG_ColAllowedRoles"><value>Допустимые роли</value></data>
+  <data name="PG_ColView"><value>Просмотр</value></data>
+  <data name="PG_ColEdit"><value>Редакт.</value></data>
+  <data name="PG_ColDelete"><value>Удаление</value></data>
+  <data name="PG_QueuesHeading"><value>Разрешённые очереди · pg_queues</value></data>
+  <data name="PG_SkillsHeading"><value>Разрешённые навыки · pg_skills</value></data>
+  <data name="PG_BuHeading"><value>Бизнес-единицы · pg_business_units</value></data>
+  <data name="PG_SgHeading"><value>Супергруппы агентов · pg_agent_supergroups</value></data>
+  <data name="PG_EmptyListNote"><value>Пустой список = доступ запрещён [PG-03]</value></data>
+  <data name="PG_NoGroupSelected"><value>Выберите группу для редактирования</value></data>
+  <data name="PG_Users"><value>польз.</value></data>
+
+  <!-- ── Audit Log ── -->
+  <data name="Audit_Title"><value>Журнал аудита</value></data>
+  <data name="Audit_AllTypes"><value>Все типы событий</value></data>
+  <data name="Audit_AllResults"><value>Все результаты</value></data>
+  <data name="Audit_From"><value>С</value></data>
+  <data name="Audit_To"><value>По</value></data>
+  <data name="Audit_ColTime"><value>Время</value></data>
+  <data name="Audit_ColEvent"><value>Событие</value></data>
+  <data name="Audit_ColResult"><value>Результат</value></data>
+  <data name="Audit_ColUser"><value>Пользователь</value></data>
+  <data name="Audit_ColIp"><value>IP</value></data>
+  <data name="Audit_ColDetails"><value>Детали</value></data>
+  <data name="Audit_NoRecords"><value>Записи аудита не найдены.</value></data>
+  <data name="Audit_Success"><value>Успех</value></data>
+  <data name="Audit_Failure"><value>Ошибка</value></data>
+  <data name="Audit_Warning"><value>Предупреждение</value></data>
+
+  <!-- ── Tenant Settings ── -->
+  <data name="TenantSettings_Title"><value>Настройки тенанта</value></data>
+  <data name="TenantSettings_PasswordPolicy"><value>Политика паролей</value></data>
+  <data name="TenantSettings_MinLength"><value>Минимальная длина пароля</value></data>
+  <data name="TenantSettings_ExpireDays"><value>Срок действия пароля (дни)</value></data>
+  <data name="TenantSettings_Security"><value>Безопасность</value></data>
+  <data name="TenantSettings_Require2fa"><value>Требовать 2FA для всех пользователей</value></data>
+  <data name="TenantSettings_DefaultLocale"><value>Язык по умолчанию</value></data>
+  <data name="TenantSettings_DataRetention"><value>Хранение данных</value></data>
+  <data name="TenantSettings_AuditRetention"><value>Хранение журнала аудита (дни)</value></data>
+  <data name="TenantSettings_SoftDelete"><value>Включить мягкое удаление экранов</value></data>
+  <data name="TenantSettings_SoftDeleteRetention"><value>Хранение после мягкого удаления (дни)</value></data>
+  <data name="TenantSettings_Saved"><value>Настройки сохранены.</value></data>
+
+  <!-- ── Tenants (Platform) ── -->
+  <data name="Tenants_Title"><value>Управление тенантами</value></data>
+  <data name="Tenants_NewTenant"><value>+ Новый тенант</value></data>
+  <data name="Tenants_ColName"><value>Название</value></data>
+  <data name="Tenants_ColSlug"><value>Слаг</value></data>
+  <data name="Tenants_ColStatus"><value>Статус</value></data>
+  <data name="Tenants_ColCreated"><value>Создан</value></data>
+  <data name="Tenants_ColActions"><value>Действия</value></data>
+  <data name="Tenants_Suspend"><value>Приостановить</value></data>
+  <data name="Tenants_Activate"><value>Активировать</value></data>
+  <data name="Tenants_Delete"><value>Удалить</value></data>
+  <data name="Tenants_ConfirmDelete"><value>Удалить навсегда?</value></data>
+  <data name="Tenants_Active"><value>Активен</value></data>
+  <data name="Tenants_Suspended"><value>Приостановлен</value></data>
+  <data name="Tenants_Deleted"><value>Удалён</value></data>
+  <data name="Tenants_CreateModal"><value>Новый тенант</value></data>
+  <data name="Tenants_Name"><value>Название</value></data>
+  <data name="Tenants_Slug"><value>Слаг (поддомен)</value></data>
+  <data name="Tenants_SlugHelp"><value>Только строчные буквы, цифры и дефисы</value></data>
+  <data name="Tenants_CreateButton"><value>Создать тенант →</value></data>
+
+  <!-- ── Common ── -->
+  <data name="Common_Save"><value>Сохранить →</value></data>
   <data name="Common_Cancel"><value>Отмена</value></data>
   <data name="Common_Delete"><value>Удалить</value></data>
   <data name="Common_Create"><value>Создать</value></data>
   <data name="Common_Edit"><value>Редактировать</value></data>
   <data name="Common_Search"><value>Поиск</value></data>
   <data name="Common_Loading"><value>Загрузка...</value></data>
+  <data name="Common_Saving"><value>Сохранение...</value></data>
   <data name="Common_Active"><value>Активен</value></data>
   <data name="Common_Inactive"><value>Неактивен</value></data>
   <data name="Common_Yes"><value>Да</value></data>
   <data name="Common_No"><value>Нет</value></data>
+  <data name="Common_Prev"><value>‹ Назад</value></data>
+  <data name="Common_Next"><value>Вперёд ›</value></data>
+  <data name="Common_Page"><value>Стр.</value></data>
+  <data name="Common_Of"><value>из</value></data>
+  <data name="Common_Records"><value>запис.</value></data>
 
-  <!-- Navigation -->
-  <data name="Nav_Screens"><value>Экраны</value></data>
-  <data name="Nav_WidgetCatalogue"><value>Каталог виджетов</value></data>
-  <data name="Nav_Users"><value>Пользователи</value></data>
-  <data name="Nav_PermissionGroups"><value>Группы доступа</value></data>
-  <data name="Nav_TenantSettings"><value>Настройки тенанта</value></data>
-  <data name="Nav_Audit"><value>Журнал аудита</value></data>
-  <data name="Nav_Tenants"><value>Тенанты</value></data>
-
-  <!-- Users -->
-  <data name="Users_Title"><value>Управление пользователями</value></data>
-  <data name="Users_NewUser"><value>Новый пользователь</value></data>
-  <data name="Users_ForceLogout"><value>Принудительный выход</value></data>
-  <data name="Users_ResetPassword"><value>Сбросить пароль</value></data>
-
-  <!-- Dashboards -->
-  <data name="Screens_Title"><value>Экраны</value></data>
-  <data name="Screens_New"><value>+ Новый экран</value></data>
-  <data name="Screens_Name"><value>Название</value></data>
-  <data name="Screens_Description"><value>Описание</value></data>
-
-  <!-- Permission Groups -->
-  <data name="PG_Title"><value>Группы доступа</value></data>
-  <data name="PG_NewGroup"><value>Новая группа</value></data>
-  <data name="PG_DeleteBlocked"><value>Нельзя удалить группу с привязанными пользователями.</value></data>
-
-  <!-- Errors -->
+  <!-- ── Errors ── -->
   <data name="Error_NotFound"><value>Запрошенный ресурс не найден.</value></data>
   <data name="Error_Forbidden"><value>У вас нет прав для выполнения этого действия.</value></data>
   <data name="Error_Concurrency"><value>Запись была изменена другим пользователем. Обновите страницу и повторите попытку.</value></data>

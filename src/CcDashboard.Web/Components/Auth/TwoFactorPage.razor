@@ -3,15 +3,15 @@
 @inject IIdentityAuthService AuthService
 @inject NavigationManager Nav
 
-<PageTitle>Two-Factor Verification — RTM View Shell</PageTitle>
+<PageTitle>@L["TwoFactor_Title"] — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-center align-items-center" style="min-height:100vh;background:#f0f2f5">
     <div class="card shadow-sm" style="width:420px">
         <div class="card-body p-4">
             <div class="text-center mb-4">
-                <span class="badge bg-primary mb-2">2FA &middot; step 2 of 2</span>
-                <h5 class="fw-bold mb-1">Verification required</h5>
-                <p class="text-muted small mb-0">Enter the 6-digit code sent to your email.</p>
+                <span class="badge bg-primary mb-2">@L["TwoFactor_Step"]</span>
+                <h5 class="fw-bold mb-1">@L["TwoFactor_VerificationRequired"]</h5>
+                <p class="text-muted small mb-0">@L["TwoFactor_Instruction"]</p>
             </div>
 
             @if (ErrorMessage is not null)
@@ -20,29 +20,29 @@
             }
             @if (ResendSuccess)
             {
-                <div class="alert alert-success py-2 small">A new code has been sent.</div>
+                <div class="alert alert-success py-2 small">@L["TwoFactor_NewCodeSent"]</div>
             }
 
             <form method="post" @formname="twofactor">
                 <AntiforgeryToken />
                 <div class="mb-3">
-                    <label class="form-label">Verification code</label>
+                    <label class="form-label">@L["TwoFactor_Code"]</label>
                     <input name="Model.Code" type="text" class="form-control form-control-lg text-center fw-bold"
                            maxlength="6" pattern="[0-9]{6}" placeholder="000000"
                            inputmode="numeric" autocomplete="one-time-code" required />
                 </div>
-                <button type="submit" class="btn btn-primary w-100 mb-3">Confirm -></button>
+                <button type="submit" class="btn btn-primary w-100 mb-3">@L["TwoFactor_Confirm"]</button>
             </form>
 
             <form method="post" @formname="twofactor_resend">
                 <AntiforgeryToken />
                 <div class="text-center">
-                    <button type="submit" class="btn btn-link btn-sm p-0 text-muted">Resend code</button>
+                    <button type="submit" class="btn btn-link btn-sm p-0 text-muted">@L["TwoFactor_Resend"]</button>
                 </div>
             </form>
         </div>
         <div class="card-footer text-muted small text-center py-2">
-            Valid 10 min &middot; 3 attempts &middot; HMAC-SHA256 + salt [2FA-02..03]
+            @L["TwoFactor_Footer"]
         </div>
     </div>
 </div>
@@ -69,7 +69,7 @@
             if (result.Succeeded)
                 ResendSuccess = true;
             else
-                ErrorMessage = "Please wait before requesting another code.";
+                ErrorMessage = L["TwoFactor_ResendWait"];
             return;
         }
 
@@ -84,16 +84,16 @@
                     HttpContext.Response.Redirect(result.RequiresPasswordChange ? "/change-password" : "/screens");
                     return;
                 case IdentitySignInStatus.LockedOut:
-                    ErrorMessage = "Too many attempts. Please request a new code.";
+                    ErrorMessage = L["TwoFactor_TooManyAttempts"];
                     break;
                 default:
-                    ErrorMessage = "Invalid username or password.";
+                    ErrorMessage = L["Login_InvalidCredentials"];
                     break;
             }
         }
         catch (Exception ex) when (ex is not NavigationException)
         {
-            ErrorMessage = "Verification failed. Please try again.";
+            ErrorMessage = L["TwoFactor_Failed"];
         }
     }
 

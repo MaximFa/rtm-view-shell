@@ -10,11 +10,11 @@
 @using CcDashboard.Domain.Enums
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>Tenants — RTM View Shell</PageTitle>
+<PageTitle>@L["Tenants_Title"] — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">Tenant Management</h1>
-    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New tenant</button>
+    <h1 class="h4 mb-0">@L["Tenants_Title"]</h1>
+    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">@L["Tenants_NewTenant"]</button>
 </div>
 
 @if (Loading)
@@ -31,10 +31,10 @@ else
         <table class="table table-hover">
             <thead class="table-light">
                 <tr>
-                    <th>Name</th>
-                    <th>Slug</th>
-                    <th>Status</th>
-                    <th>Created</th>
+                    <th>@L["Tenants_ColName"]</th>
+                    <th>@L["Tenants_ColSlug"]</th>
+                    <th>@L["Tenants_ColStatus"]</th>
+                    <th>@L["Tenants_ColCreated"]</th>
                     <th></th>
                 </tr>
             </thead>
@@ -52,32 +52,32 @@ else
                                 {
                                     <button class="btn btn-sm btn-outline-warning"
                                             @onclick="() => SetStatus(t.Id, TenantStatus.Suspended)">
-                                        Suspend
+                                        @L["Tenants_Suspend"]
                                     </button>
                                 }
                                 else if (t.Status == TenantStatus.Suspended)
                                 {
                                     <button class="btn btn-sm btn-outline-success"
                                             @onclick="() => SetStatus(t.Id, TenantStatus.Active)">
-                                        Activate
+                                        @L["Tenants_Activate"]
                                     </button>
                                 }
                                 @if (t.Status != TenantStatus.Deleted)
                                 {
                                     <button class="btn btn-sm btn-outline-danger"
                                             @onclick="() => ConfirmDeleteId = t.Id">
-                                        Delete
+                                        @L["Tenants_Delete"]
                                     </button>
                                 }
                             </div>
                             @if (ConfirmDeleteId == t.Id)
                             {
                                 <div class="small mt-1 text-danger">
-                                    Are you sure?
+                                    @L["Tenants_ConfirmDelete"]
                                     <button class="btn btn-danger btn-sm ms-1"
-                                            @onclick="() => SetStatus(t.Id, TenantStatus.Deleted)">Yes</button>
+                                            @onclick="() => SetStatus(t.Id, TenantStatus.Deleted)">@L["Common_Yes"]</button>
                                     <button class="btn btn-secondary btn-sm ms-1"
-                                            @onclick="() => ConfirmDeleteId = null">No</button>
+                                            @onclick="() => ConfirmDeleteId = null">@L["Common_No"]</button>
                                 </div>
                             }
                         </td>
@@ -102,25 +102,25 @@ else
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">New Tenant</h5>
+                    <h5 class="modal-title">@L["Tenants_CreateModal"]</h5>
                     <button type="button" class="btn-close" @onclick="() => ShowCreate = false"></button>
                 </div>
                 <div class="modal-body">
                     @if (SaveError is not null) { <div class="alert alert-danger py-2">@SaveError</div> }
                     <div class="mb-3">
-                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <label class="form-label">@L["Tenants_Name"] <span class="text-danger">*</span></label>
                         <input class="form-control" @bind="NewName" maxlength="200" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Slug <span class="text-danger">*</span></label>
+                        <label class="form-label">@L["Tenants_Slug"] <span class="text-danger">*</span></label>
                         <input class="form-control" @bind="NewSlug" maxlength="100" placeholder="acme" />
-                        <div class="form-text">Lowercase, used for subdomain resolution</div>
+                        <div class="form-text">@L["Tenants_SlugHelp"]</div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="() => ShowCreate = false">Cancel</button>
+                    <button class="btn btn-secondary" @onclick="() => ShowCreate = false">@L["Common_Cancel"]</button>
                     <button class="btn btn-primary" @onclick="CreateTenant" disabled="@Saving">
-                        @(Saving ? "Creating..." : "Create tenant ->")
+                        @(Saving ? L["Common_Saving"].Value : L["Tenants_CreateButton"].Value)
                     </button>
                 </div>
             </div>
@@ -159,7 +159,7 @@ else
     private async Task CreateTenant()
     {
         if (string.IsNullOrWhiteSpace(NewName) || string.IsNullOrWhiteSpace(NewSlug))
-        { SaveError = "Name and slug are required."; return; }
+        { SaveError = L["Tenants_Name"] + " and " + L["Tenants_Slug"] + " are required."; return; }
         Saving = true; SaveError = null;
         try
         {
@@ -181,10 +181,10 @@ else
         catch (Exception ex) { ActionError = ex.Message; }
     }
 
-    private static RenderFragment StatusBadge(TenantStatus status) => status switch
+    private RenderFragment StatusBadge(TenantStatus status) => status switch
     {
-        TenantStatus.Active => @<span class="badge bg-success">Active</span>,
-        TenantStatus.Suspended => @<span class="badge bg-warning text-dark">Suspended</span>,
-        _ => @<span class="badge bg-secondary">Deleted</span>
+        TenantStatus.Active => @<span class="badge bg-success">@L["Tenants_Active"]</span>,
+        TenantStatus.Suspended => @<span class="badge bg-warning text-dark">@L["Tenants_Suspended"]</span>,
+        _ => @<span class="badge bg-secondary">@L["Tenants_Deleted"]</span>
     };
 }

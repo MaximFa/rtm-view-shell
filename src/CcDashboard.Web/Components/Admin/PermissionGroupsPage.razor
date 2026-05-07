@@ -11,16 +11,16 @@
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>Permission Groups — RTM View Shell</PageTitle>
+<PageTitle>@L["PG_Title"] — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">Permission Groups</h1>
+    <h1 class="h4 mb-0">@L["PG_Title"]</h1>
 </div>
 
 <div class="row g-0" style="min-height:60vh">
     <!-- Left panel: group list -->
     <div class="col-md-4 col-lg-3 border-end pe-3">
-        <button class="btn btn-sm btn-outline-primary w-100 mb-3" @onclick="NewGroup">+ New group</button>
+        <button class="btn btn-sm btn-outline-primary w-100 mb-3" @onclick="NewGroup">@L["PG_NewGroup"]</button>
 
         @if (Loading)
         {
@@ -35,20 +35,20 @@
                     <div class="card-body py-2 px-3">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="fw-semibold">@g.Name</span>
-                            <span class="badge bg-secondary">@g.UserCount users</span>
+                            <span class="badge bg-secondary">@g.UserCount @L["PG_Users"]</span>
                         </div>
                         <div class="mt-1">
                             @if (g.IsActive)
-                            { <span class="badge bg-success" style="font-size:0.65rem">active</span> }
+                            { <span class="badge bg-success" style="font-size:0.65rem">@L["Common_Active"]</span> }
                             else
-                            { <span class="badge bg-secondary" style="font-size:0.65rem">inactive</span> }
+                            { <span class="badge bg-secondary" style="font-size:0.65rem">@L["Common_Inactive"]</span> }
                         </div>
                     </div>
                 </div>
             }
             @if (!Groups.Any())
             {
-                <div class="text-muted small text-center py-3">No permission groups yet.</div>
+                <div class="text-muted small text-center py-3">@L["PG_NoGroupSelected"]</div>
             }
         }
     </div>
@@ -57,7 +57,7 @@
     <div class="col-md-8 col-lg-9 ps-4">
         @if (EditGroup == null && !IsNew)
         {
-            <div class="text-muted mt-4 text-center">Select a group or create a new one.</div>
+            <div class="text-muted mt-4 text-center">@L["PG_NoGroupSelected"]</div>
         }
         else
         {
@@ -69,16 +69,16 @@
             }
             @if (SaveSuccess)
             {
-                <div class="alert alert-success py-2">Saved successfully.</div>
+                <div class="alert alert-success py-2">@L["TenantSettings_Saved"]</div>
             }
 
             <div class="d-flex align-items-start gap-3 mb-3 flex-wrap">
                 <div class="flex-grow-1">
-                    <label class="form-label fw-semibold">Group Name</label>
+                    <label class="form-label fw-semibold">@L["PG_GroupName"]</label>
                     <input class="form-control" @bind="EName" maxlength="200" />
                 </div>
                 <div class="flex-grow-1">
-                    <label class="form-label fw-semibold">Description</label>
+                    <label class="form-label fw-semibold">@L["PG_Description"]</label>
                     <input class="form-control" @bind="EDescription" maxlength="500" />
                 </div>
             </div>
@@ -86,20 +86,20 @@
             <div class="d-flex gap-3 mb-3 align-items-center">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="pgActive" @bind="EIsActive" />
-                    <label class="form-check-label" for="pgActive">Group active (IsActive)</label>
+                    <label class="form-check-label" for="pgActive">@L["PG_IsActive"]</label>
                 </div>
                 @if (!IsNew)
                 {
                     <button class="btn btn-sm btn-outline-danger ms-auto"
                             @onclick="() => ConfirmDel = true" disabled="@ConfirmDel">
-                        Delete group
+                        @L["PG_DeleteGroup"]
                     </button>
                     @if (ConfirmDel)
                     {
                         <span class="text-danger small">
-                            Are you sure?
-                            <button class="btn btn-danger btn-sm ms-1" @onclick="DeleteGroup">Yes</button>
-                            <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDel = false">No</button>
+                            @L["Screens_AreYouSure"]
+                            <button class="btn btn-danger btn-sm ms-1" @onclick="DeleteGroup">@L["Common_Yes"]</button>
+                            <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDel = false">@L["Common_No"]</button>
                         </span>
                     }
                 }
@@ -107,11 +107,11 @@
 
             <!-- Tabs -->
             <ul class="nav nav-tabs mb-3">
-                @foreach (var tab in new[] { "Menu", "Screens", "Queues", "Skills", "BU / SG" })
+                @foreach (var tab in Tabs)
                 {
                     <li class="nav-item">
-                        <button class="nav-link @(ActiveTab == tab ? "active" : "")"
-                                @onclick="() => ActiveTab = tab">@tab</button>
+                        <button class="nav-link @(ActiveTab == tab.Key ? "active" : "")"
+                                @onclick="() => ActiveTab = tab.Key">@L[tab.LabelKey]</button>
                     </li>
                 }
             </ul>
@@ -120,7 +120,12 @@
             {
                 <div class="table-responsive">
                     <table class="table table-sm">
-                        <thead><tr><th>Menu item</th><th>Permission key</th><th>Allowed roles</th><th>Access</th></tr></thead>
+                        <thead><tr>
+                            <th>@L["PG_ColMenuItem"]</th>
+                            <th>@L["PG_ColPermissionKey"]</th>
+                            <th>@L["PG_ColAllowedRoles"]</th>
+                            <th>@L["PG_TabMenu"]</th>
+                        </tr></thead>
                         <tbody>
                             @foreach (var m in MenuItems)
                             {
@@ -142,28 +147,28 @@
             }
             else if (ActiveTab == "Screens")
             {
-                <p class="text-muted small">Dashboard access control is configured via dashboard permissions. [PG-01]</p>
+                <p class="text-muted small">@L["PG_TabScreens"] — Dashboard access control is configured via dashboard permissions. [PG-01]</p>
             }
             else if (ActiveTab == "Queues")
             {
-                <p class="text-muted small">Allowed queues · pg_queues</p>
-                <p class="text-muted small">Empty list = access denied [PG-03]. Queue assignment UI coming in next iteration.</p>
+                <p class="text-muted small">@L["PG_QueuesHeading"]</p>
+                <p class="text-muted small">@L["PG_EmptyListNote"]</p>
             }
             else if (ActiveTab == "Skills")
             {
-                <p class="text-muted small">Allowed skills · pg_skills</p>
-                <p class="text-muted small">Empty list = access denied [PG-03]. Skill assignment UI coming in next iteration.</p>
+                <p class="text-muted small">@L["PG_SkillsHeading"]</p>
+                <p class="text-muted small">@L["PG_EmptyListNote"]</p>
             }
             else if (ActiveTab == "BU / SG")
             {
-                <p class="text-muted small">Business Units and Agent Supergroups assignment coming in next iteration.</p>
+                <p class="text-muted small">@L["PG_BuHeading"] · @L["PG_SgHeading"]</p>
             }
 
             <div class="d-flex gap-2 mt-3">
                 <button class="btn btn-primary" @onclick="SaveGroup" disabled="@Saving">
-                    @(Saving ? "Saving..." : "Save changes →")
+                    @(Saving ? L["Common_Saving"].Value : L["PG_SaveChanges"].Value)
                 </button>
-                <button class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+                <button class="btn btn-secondary" @onclick="Cancel">@L["Common_Cancel"]</button>
             </div>
         }
     </div>
@@ -171,6 +176,7 @@
 
 @code {
     private record MenuItem(string Label, string Key, string AllowedRoles, bool Restricted = false);
+    private record TabDef(string Key, string LabelKey);
 
     private static readonly MenuItem[] MenuItems =
     [
@@ -181,6 +187,15 @@
         new("Audit Log",          "menu.audit",             "Superadmin, Administrator"),
         new("Tenant Settings",    "menu.tenantSettings",    "Superadmin, Administrator"),
         new("Tenant Management",  "menu.tenants",           "Superadmin only", Restricted: true),
+    ];
+
+    private static readonly TabDef[] Tabs =
+    [
+        new("Menu",     "PG_TabMenu"),
+        new("Screens",  "PG_TabScreens"),
+        new("Queues",   "PG_TabQueues"),
+        new("Skills",   "PG_TabSkills"),
+        new("BU / SG",  "PG_TabBuSg"),
     ];
 
     private List<PermissionGroupDto> Groups = [];
@@ -238,7 +253,7 @@
 
     private async Task SaveGroup()
     {
-        if (string.IsNullOrWhiteSpace(EName)) { SaveError = "Name is required."; return; }
+        if (string.IsNullOrWhiteSpace(EName)) { SaveError = L["PG_GroupName"] + " is required."; return; }
         Saving = true; SaveError = null; SaveSuccess = false;
         try
         {

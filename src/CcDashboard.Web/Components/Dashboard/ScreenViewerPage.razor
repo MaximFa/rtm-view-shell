@@ -9,11 +9,11 @@
 @using CcDashboard.Contracts.DTOs.Dashboards
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>@(Dashboard?.Name ?? "Screen") — RTM View Shell</PageTitle>
+<PageTitle>@(Dashboard?.Name ?? L["Screens_Title"].Value) — RTM View Shell</PageTitle>
 
 @if (Dashboard is null && !Loading)
 {
-    <div class="alert alert-warning mt-4">Screen not found or you do not have access.</div>
+    <div class="alert alert-warning mt-4">@L["Screens_NotFound"]</div>
 }
 else if (Loading)
 {
@@ -26,14 +26,14 @@ else
         <h5 class="mb-0 fw-bold">@Dashboard!.Name</h5>
         <span class="badge bg-success d-flex align-items-center gap-1">
             <span class="rounded-circle bg-white" style="width:7px;height:7px;display:inline-block"></span>
-            Live &middot; update 5s
+            @L["Screens_LiveIndicator"]
         </span>
         <span class="ms-auto d-flex gap-2">
             <button class="btn btn-sm btn-outline-secondary" @onclick="TogglePause">
-                @(Paused ? "Resume" : "Pause")
+                @(Paused ? L["Screens_Resume"].Value : L["Screens_Pause"].Value)
             </button>
             <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
-                &larr; Back
+                @L["Screens_Back"]
             </button>
         </span>
     </div>
@@ -42,7 +42,7 @@ else
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item">
             <button class="nav-link @(ActiveQueue == null ? "active" : "")" @onclick="() => ActiveQueue = null">
-                All queues
+                @L["Screens_AllQueues"]
             </button>
         </li>
     </ul>
@@ -130,7 +130,6 @@ else
     private string? ActiveQueue;
 
     private static readonly string[] KpiTiles = ["In queue", "Avg. wait time", "Available agents", "Handled"];
-
     private static readonly string[] Charts = ["AHT", "Abandon Rate", "Occupancy"];
 
     protected override async Task OnInitializedAsync()

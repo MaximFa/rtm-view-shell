@@ -1,32 +1,32 @@
 <ul class="nav flex-column px-2 pt-2">
-    <li class="nav-section-label text-uppercase text-muted small px-2 pb-1">Content</li>
+    <li class="nav-section-label text-uppercase text-muted small px-2 pb-1">@L["Nav_Content"]</li>
     <li class="nav-item">
-        <NavLink href="/screens" class="nav-link" Match="NavLinkMatch.Prefix">Screens</NavLink>
+        <NavLink href="/screens" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Screens"]</NavLink>
     </li>
     <li class="nav-item">
-        <NavLink href="/widget-catalogue" class="nav-link" Match="NavLinkMatch.Prefix">Widget Catalogue</NavLink>
+        <NavLink href="/widget-catalogue" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_WidgetCatalogue"]</NavLink>
     </li>
 
     <AuthorizeView Roles="Superadmin,Administrator">
-        <li class="nav-section-label text-uppercase text-muted small px-2 pb-1 pt-3">Administration</li>
+        <li class="nav-section-label text-uppercase text-muted small px-2 pb-1 pt-3">@L["Nav_Administration"]</li>
         <li class="nav-item">
-            <NavLink href="/admin/users" class="nav-link" Match="NavLinkMatch.Prefix">Users</NavLink>
+            <NavLink href="/admin/users" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Users"]</NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="/admin/permission-groups" class="nav-link" Match="NavLinkMatch.Prefix">Permission Groups</NavLink>
+            <NavLink href="/admin/permission-groups" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_PermissionGroups"]</NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="/admin/audit" class="nav-link" Match="NavLinkMatch.Prefix">Audit Log</NavLink>
+            <NavLink href="/admin/audit" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_AuditLog"]</NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="/admin/tenant-settings" class="nav-link" Match="NavLinkMatch.Prefix">Tenant Settings</NavLink>
+            <NavLink href="/admin/tenant-settings" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_TenantSettings"]</NavLink>
         </li>
     </AuthorizeView>
 
     <AuthorizeView Roles="Superadmin">
-        <li class="nav-section-label text-uppercase text-muted small px-2 pb-1 pt-3">Platform</li>
+        <li class="nav-section-label text-uppercase text-muted small px-2 pb-1 pt-3">@L["Nav_Platform"]</li>
         <li class="nav-item">
-            <NavLink href="/platform/tenants" class="nav-link" Match="NavLinkMatch.Prefix">Tenants</NavLink>
+            <NavLink href="/platform/tenants" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Tenants"]</NavLink>
         </li>
     </AuthorizeView>
 </ul>

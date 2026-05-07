@@ -4,10 +4,11 @@
 @inject IMediator Mediator
 @using MediatR
 @using CcDashboard.Application.Queries.Widgets
+@using Microsoft.AspNetCore.Authorization
 
-<PageTitle>Widget Catalogue — RTM View Shell</PageTitle>
+<PageTitle>@L["WidgetCatalogue_Title"] — RTM View Shell</PageTitle>
 
-<h1 class="h4 mb-3">Widget Catalogue</h1>
+<h1 class="h4 mb-3">@L["WidgetCatalogue_Title"]</h1>
 
 @if (Categories is null)
 {
@@ -35,7 +36,7 @@ else
                         </div>
                         @if (!item.IsActive)
                         {
-                            <span class="badge bg-secondary">Inactive</span>
+                            <span class="badge bg-secondary">@L["WidgetCatalogue_Inactive"]</span>
                         }
                     </li>
                 }

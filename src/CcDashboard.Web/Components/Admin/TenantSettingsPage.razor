@@ -9,10 +9,10 @@
 @using CcDashboard.Contracts.DTOs.TenantSettings
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>Tenant Settings — RTM View Shell</PageTitle>
+<PageTitle>@L["TenantSettings_Title"] — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">Tenant Settings</h1>
+    <h1 class="h4 mb-0">@L["TenantSettings_Title"]</h1>
 </div>
 
 @if (Loading)
@@ -29,20 +29,20 @@ else
     }
     @if (SaveSuccess)
     {
-        <div class="alert alert-success py-2">Settings saved.</div>
+        <div class="alert alert-success py-2">@L["TenantSettings_Saved"]</div>
     }
 
     <div class="row g-4">
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header fw-semibold">Password Policy</div>
+                <div class="card-header fw-semibold">@L["TenantSettings_PasswordPolicy"]</div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label">Minimum length</label>
+                        <label class="form-label">@L["TenantSettings_MinLength"]</label>
                         <input type="number" class="form-control" min="8" max="128" @bind="PwdMinLength" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Expiry (days)</label>
+                        <label class="form-label">@L["TenantSettings_ExpireDays"]</label>
                         <input type="number" class="form-control" min="1" max="365" @bind="PwdExpireDays" />
                     </div>
                 </div>
@@ -51,16 +51,14 @@ else
 
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header fw-semibold">Security</div>
+                <div class="card-header fw-semibold">@L["TenantSettings_Security"]</div>
                 <div class="card-body">
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="require2fa" @bind="Require2fa" />
-                        <label class="form-check-label" for="require2fa">
-                            Require 2FA for all users (Require2faForAll)
-                        </label>
+                        <label class="form-check-label" for="require2fa">@L["TenantSettings_Require2fa"]</label>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Default locale (BCP-47)</label>
+                        <label class="form-label">@L["TenantSettings_DefaultLocale"]</label>
                         <input type="text" class="form-control" placeholder="en-US" @bind="DefaultLocale" maxlength="10" />
                     </div>
                 </div>
@@ -69,18 +67,18 @@ else
 
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header fw-semibold">Audit &amp; Data Retention</div>
+                <div class="card-header fw-semibold">@L["TenantSettings_DataRetention"]</div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label">Audit retention (days)</label>
+                        <label class="form-label">@L["TenantSettings_AuditRetention"]</label>
                         <input type="number" class="form-control" min="30" max="3650" @bind="AuditRetentionDays" />
                     </div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="softDelete" @bind="SoftDelete" />
-                        <label class="form-check-label" for="softDelete">Soft-delete dashboards (SoftDeleteDashboards)</label>
+                        <label class="form-check-label" for="softDelete">@L["TenantSettings_SoftDelete"]</label>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Soft-delete retention (days)</label>
+                        <label class="form-label">@L["TenantSettings_SoftDeleteRetention"]</label>
                         <input type="number" class="form-control" min="1" max="365" @bind="SoftDeleteRetentionDays" disabled="@(!SoftDelete)" />
                     </div>
                 </div>
@@ -90,7 +88,7 @@ else
 
     <div class="mt-3">
         <button class="btn btn-primary" @onclick="SaveAsync" disabled="@Saving">
-            @(Saving ? "Saving..." : "Save settings ->")
+            @(Saving ? L["Common_Saving"].Value : L["Common_Save"].Value)
         </button>
     </div>
 }
