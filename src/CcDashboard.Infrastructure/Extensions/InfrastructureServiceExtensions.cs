@@ -94,6 +94,8 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IWidgetCatalogRepository, WidgetCatalogRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<ITenantSettingsRepository, TenantSettingsRepository>();
 
         return services;
     }

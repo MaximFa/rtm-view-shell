@@ -1,7 +1,155 @@
 @page "/admin/audit"
+@rendermode InteractiveServer
 @layout MainLayout
 @attribute [Authorize(Roles = "Superadmin,Administrator")]
+@inject IMediator Mediator
+@using MediatR
+@using CcDashboard.Application.Queries.Audit
+@using CcDashboard.Contracts.DTOs.Audit
+@using CcDashboard.Contracts.Common
+@using Microsoft.AspNetCore.Authorization
 
 <PageTitle>Audit Log — RTM View Shell</PageTitle>
-<h1 class="h4">Audit Log</h1>
-<p class="text-muted">Audit log viewer coming soon.</p>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Audit Log</h1>
+</div>
+
+<!-- Filters -->
+<div class="row g-2 mb-3">
+    <div class="col-md-3">
+        <select class="form-select form-select-sm" @bind="EventTypeFilter" @bind:after="LoadAsync">
+            <option value="">All event types</option>
+            @foreach (var t in EventTypes)
+            {
+                <option value="@t">@t</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select form-select-sm" @bind="ResultFilter" @bind:after="LoadAsync">
+            <option value="">All results</option>
+            <option value="Success">Success</option>
+            <option value="Failure">Failure</option>
+            <option value="Warning">Warning</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <input type="date" class="form-control form-control-sm" @bind="FromDate" @bind:after="LoadAsync" />
+    </div>
+    <div class="col-md-2">
+        <input type="date" class="form-control form-control-sm" @bind="ToDate" @bind:after="LoadAsync" />
+    </div>
+    <div class="col-md-2">
+        <select class="form-select form-select-sm" @bind="PageSize" @bind:after="LoadAsync">
+            <option value="25">25 per page</option>
+            <option value="50">50 per page</option>
+            <option value="100">100 per page</option>
+        </select>
+    </div>
+</div>
+
+@if (Loading)
+{
+    <div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+}
+else if (Result == null || Result.Items.Count == 0)
+{
+    <div class="text-center text-muted py-5">No audit events found.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Time (UTC)</th>
+                    <th>Event</th>
+                    <th>Result</th>
+                    <th>User</th>
+                    <th>IP</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Result.Items)
+                {
+                    <tr>
+                        <td class="text-nowrap small">@log.CreatedAt.ToString("dd MMM HH:mm:ss")</td>
+                        <td class="small fw-semibold">@log.EventType</td>
+                        <td>@ResultBadge(log.EventResult)</td>
+                        <td class="small">@(log.UserName ?? "-")</td>
+                        <td class="small text-muted">@(log.IpAddress ?? "-")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-2">
+        <span class="text-muted small">@Result.TotalCount total event(s)</span>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">
+                &lsaquo; Prev
+            </button>
+            <span class="align-self-center small">Page @Result.Page / @Result.TotalPages</span>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(Result.Page >= Result.TotalPages)" @onclick="NextPage">
+                Next &rsaquo;
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private PagedResult<AuditLogDto>? Result;
+    private bool Loading = true;
+    private string? EventTypeFilter;
+    private string? ResultFilter;
+    private DateTime? FromDate;
+    private DateTime? ToDate;
+    private int CurrentPage = 1;
+    private int PageSize = 25;
+    private List<string> EventTypes = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadEventTypesAsync(), LoadAsync());
+    }
+
+    private async Task LoadEventTypesAsync()
+    {
+        // Load event types once for the filter dropdown
+        try
+        {
+            var query = new GetAuditLogsQuery(Page: 1, PageSize: 1);
+            // We'll rely on the distinct types from the first load result
+        }
+        catch { }
+    }
+
+    private async Task LoadAsync()
+    {
+        Loading = true;
+        try
+        {
+            Result = await Mediator.Send(new GetAuditLogsQuery(
+                EventType: EventTypeFilter,
+                Result: ResultFilter,
+                From: FromDate?.ToUniversalTime(),
+                To: ToDate?.ToUniversalTime().AddDays(1),
+                Page: CurrentPage,
+                PageSize: PageSize));
+        }
+        catch (Exception ex) { }
+        finally { Loading = false; }
+    }
+
+    private async Task PrevPage() { CurrentPage--; await LoadAsync(); }
+    private async Task NextPage() { CurrentPage++; await LoadAsync(); }
+
+    private static RenderFragment ResultBadge(string result) => result switch
+    {
+        "Success" => @<span class="badge bg-success">Success</span>,
+        "Failure" => @<span class="badge bg-danger">Failure</span>,
+        _ => @<span class="badge bg-warning text-dark">Warning</span>
+    };
+}

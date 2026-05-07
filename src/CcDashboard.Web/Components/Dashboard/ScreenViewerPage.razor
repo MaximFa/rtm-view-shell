@@ -1,0 +1,145 @@
+@page "/screens/{Id:guid}"
+@rendermode InteractiveServer
+@layout MainLayout
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@using MediatR
+@using CcDashboard.Application.Queries.Dashboards
+@using CcDashboard.Contracts.DTOs.Dashboards
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>@(Dashboard?.Name ?? "Screen") — RTM View Shell</PageTitle>
+
+@if (Dashboard is null && !Loading)
+{
+    <div class="alert alert-warning mt-4">Screen not found or you do not have access.</div>
+}
+else if (Loading)
+{
+    <div class="text-center py-5"><span class="spinner-border text-primary"></span></div>
+}
+else
+{
+    <!-- Top chrome bar -->
+    <div class="d-flex align-items-center gap-3 mb-2 py-2 border-bottom">
+        <h5 class="mb-0 fw-bold">@Dashboard!.Name</h5>
+        <span class="badge bg-success d-flex align-items-center gap-1">
+            <span class="rounded-circle bg-white" style="width:7px;height:7px;display:inline-block"></span>
+            Live &middot; update 5s
+        </span>
+        <span class="ms-auto d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="TogglePause">
+                @(Paused ? "Resume" : "Pause")
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
+                &larr; Back
+            </button>
+        </span>
+    </div>
+
+    <!-- Queue filter tabs -->
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(ActiveQueue == null ? "active" : "")" @onclick="() => ActiveQueue = null">
+                All queues
+            </button>
+        </li>
+    </ul>
+
+    <!-- Widget area — stubs [TODO: widget-library] -->
+    <div class="row g-3 mb-3">
+        @foreach (var tile in KpiTiles)
+        {
+            <div class="col-6 col-md-3">
+                <div class="card text-center py-3 shadow-sm">
+                    <div class="card-body p-2">
+                        <div class="text-muted small">@tile</div>
+                        <div class="display-6 fw-bold text-primary">--</div>
+                        <div class="text-muted" style="font-size:0.65rem">// TODO: widget-library</div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-8">
+            <div class="card shadow-sm" style="height:240px">
+                <div class="card-body d-flex align-items-center justify-content-center text-muted">
+                    Queue load chart // TODO: widget-library
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm" style="height:240px">
+                <div class="card-body d-flex align-items-center justify-content-center text-muted">
+                    SLA gauge // TODO: widget-library
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-8">
+            <div class="card shadow-sm" style="min-height:180px">
+                <div class="card-header small fw-semibold">Agent Status</div>
+                <div class="card-body d-flex align-items-center justify-content-center text-muted">
+                    Agent status table // TODO: widget-library
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm" style="min-height:180px">
+                <div class="card-header small fw-semibold">Event Ticker</div>
+                <div class="card-body d-flex align-items-center justify-content-center text-muted">
+                    Event ticker // TODO: widget-library
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        @foreach (var chart in Charts)
+        {
+            <div class="col-md-4">
+                <div class="card shadow-sm" style="height:180px">
+                    <div class="card-header small fw-semibold">@chart</div>
+                    <div class="card-body d-flex align-items-center justify-content-center text-muted">
+                        // TODO: widget-library
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Status bar -->
+    <div class="d-flex gap-3 text-muted border-top pt-2 mt-2" style="font-size:0.7rem">
+        <span>Blazor Server &middot; SignalR connected</span>
+        <span>Latency: --ms</span>
+        <span class="ms-auto">@Dashboard.Name</span>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private DashboardDto? Dashboard;
+    private bool Loading = true;
+    private bool Paused;
+    private string? ActiveQueue;
+
+    private static readonly string[] KpiTiles = ["In queue", "Avg. wait time", "Available agents", "Handled"];
+
+    private static readonly string[] Charts = ["AHT", "Abandon Rate", "Occupancy"];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { Dashboard = await Mediator.Send(new GetDashboardByIdQuery(Id)); }
+        catch { Dashboard = null; }
+        finally { Loading = false; }
+    }
+
+    private void TogglePause() => Paused = !Paused;
+    private void GoBack() => Nav.NavigateTo("/screens");
+}
