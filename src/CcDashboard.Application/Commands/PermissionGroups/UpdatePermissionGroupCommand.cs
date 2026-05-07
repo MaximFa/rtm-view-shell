@@ -41,6 +41,35 @@ public class UpdatePermissionGroupCommandHandler(
                 TenantId = group.TenantId
             });
 
+        // Replace CC-resource permissions independently for each type
+        if (req.AllowedQueueIds is not null)
+        {
+            group.AllowedQueues.Clear();
+            foreach (var id in req.AllowedQueueIds)
+                group.AllowedQueues.Add(new PgQueue { PermissionGroupId = group.Id, ObjectId = id, TenantId = group.TenantId });
+        }
+
+        if (req.AllowedSkillIds is not null)
+        {
+            group.AllowedSkills.Clear();
+            foreach (var id in req.AllowedSkillIds)
+                group.AllowedSkills.Add(new PgSkill { PermissionGroupId = group.Id, ObjectId = id, TenantId = group.TenantId });
+        }
+
+        if (req.AllowedSupergroupIds is not null)
+        {
+            group.AllowedSupergroups.Clear();
+            foreach (var id in req.AllowedSupergroupIds)
+                group.AllowedSupergroups.Add(new PgAgentSupergroup { PermissionGroupId = group.Id, ObjectId = id, TenantId = group.TenantId });
+        }
+
+        if (req.AllowedBusinessUnitIds is not null)
+        {
+            group.AllowedBusinessUnits.Clear();
+            foreach (var id in req.AllowedBusinessUnitIds)
+                group.AllowedBusinessUnits.Add(new PgBusinessUnit { PermissionGroupId = group.Id, ObjectId = id, TenantId = group.TenantId });
+        }
+
         repo.Update(group);
 
         // [PG-07] Invalidate cached permissions so active sessions re-fetch on next interaction

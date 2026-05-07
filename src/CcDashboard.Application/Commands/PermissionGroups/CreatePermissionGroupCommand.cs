@@ -23,13 +23,14 @@ public class CreatePermissionGroupCommandHandler(
         var tenantId = currentUser.TenantId!.Value;
         var userId = currentUser.UserId!.Value;
         var now = clock.UtcNow;
+        var req = cmd.Request;
 
         var group = new PermissionGroup
         {
             Id = Uuid.NewSequential(),
             TenantId = tenantId,
-            Name = cmd.Request.Name.Trim(),
-            Description = cmd.Request.Description,
+            Name = req.Name.Trim(),
+            Description = req.Description,
             IsActive = true,
             CreatedAt = now,
             CreatedByUserId = userId,
@@ -37,8 +38,20 @@ public class CreatePermissionGroupCommandHandler(
             UpdatedByUserId = userId,
         };
 
-        foreach (var key in cmd.Request.MenuPermissions)
+        foreach (var key in req.MenuPermissions)
             group.MenuPermissions.Add(new MenuPermission { PermissionGroupId = group.Id, MenuKey = key, TenantId = tenantId });
+
+        foreach (var id in req.AllowedQueueIds ?? [])
+            group.AllowedQueues.Add(new PgQueue { PermissionGroupId = group.Id, ObjectId = id, TenantId = tenantId });
+
+        foreach (var id in req.AllowedSkillIds ?? [])
+            group.AllowedSkills.Add(new PgSkill { PermissionGroupId = group.Id, ObjectId = id, TenantId = tenantId });
+
+        foreach (var id in req.AllowedSupergroupIds ?? [])
+            group.AllowedSupergroups.Add(new PgAgentSupergroup { PermissionGroupId = group.Id, ObjectId = id, TenantId = tenantId });
+
+        foreach (var id in req.AllowedBusinessUnitIds ?? [])
+            group.AllowedBusinessUnits.Add(new PgBusinessUnit { PermissionGroupId = group.Id, ObjectId = id, TenantId = tenantId });
 
         await repo.AddAsync(group, ct);
         return Result<Guid>.Success(group.Id);

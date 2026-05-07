@@ -202,7 +202,8 @@
   <data name="PG_TabScreens"><value>Экраны</value></data>
   <data name="PG_TabQueues"><value>Очереди</value></data>
   <data name="PG_TabSkills"><value>Навыки</value></data>
-  <data name="PG_TabBuSg"><value>БЕ / СГ</value></data>
+  <data name="PG_TabBu"><value>Бизнес-единицы</value></data>
+  <data name="PG_TabSg"><value>Супергруппы</value></data>
   <data name="PG_ColMenuItem"><value>Пункт меню</value></data>
   <data name="PG_ColPermissionKey"><value>Ключ доступа</value></data>
   <data name="PG_ColAllowedRoles"><value>Допустимые роли</value></data>

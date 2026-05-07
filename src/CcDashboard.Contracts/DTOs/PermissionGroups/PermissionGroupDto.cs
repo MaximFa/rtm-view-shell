@@ -8,6 +8,10 @@ public record PermissionGroupDto(
     bool IsActive,
     int UserCount,
     IReadOnlyList<string> MenuPermissions,
+    IReadOnlyList<Guid> AllowedQueueIds,
+    IReadOnlyList<Guid> AllowedSkillIds,
+    IReadOnlyList<Guid> AllowedSupergroupIds,
+    IReadOnlyList<Guid> AllowedBusinessUnitIds,
     DateTime CreatedAt,
     DateTime UpdatedAt,
     uint RowVersion = 0);
@@ -15,7 +19,11 @@ public record PermissionGroupDto(
 public record CreatePermissionGroupRequest(
     string Name,
     string? Description,
-    IReadOnlyList<string> MenuPermissions);
+    IReadOnlyList<string> MenuPermissions,
+    IReadOnlyList<Guid>? AllowedQueueIds = null,
+    IReadOnlyList<Guid>? AllowedSkillIds = null,
+    IReadOnlyList<Guid>? AllowedSupergroupIds = null,
+    IReadOnlyList<Guid>? AllowedBusinessUnitIds = null);
 
 public record UpdatePermissionGroupRequest(
     Guid Id,
@@ -23,4 +31,8 @@ public record UpdatePermissionGroupRequest(
     string? Description,
     bool IsActive,
     IReadOnlyList<string> MenuPermissions,
-    uint RowVersion);
+    uint RowVersion,
+    IReadOnlyList<Guid>? AllowedQueueIds = null,
+    IReadOnlyList<Guid>? AllowedSkillIds = null,
+    IReadOnlyList<Guid>? AllowedSupergroupIds = null,
+    IReadOnlyList<Guid>? AllowedBusinessUnitIds = null);

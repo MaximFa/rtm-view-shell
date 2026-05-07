@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- ── Login ── -->
+  <data name="Login_Title"><value>כניסה לחשבון</value></data>
+  <data name="Login_SignInToAccount"><value>התחברות לחשבונך</value></data>
+  <data name="Login_Username"><value>שם משתמש או דואר אלקטרוני</value></data>
+  <data name="Login_Password"><value>סיסמה</value></data>
+  <data name="Login_PasswordHint"><value>לפחות 12 תווים · A-Z · a-z · 0-9 · תו מיוחד</value></data>
+  <data name="Login_SignIn"><value>כניסה ←</value></data>
+  <data name="Login_ForgotPassword"><value>שכחת סיסמה?</value></data>
+  <data name="Login_Or"><value>או</value></data>
+  <data name="Login_SsoButton"><value>כניסה באמצעות SSO / כניסה מאוחדת</value></data>
+  <data name="Login_InvalidCredentials"><value>שם המשתמש או הסיסמה שגויים.</value></data>
+  <data name="Login_BackToSignIn"><value>→ חזרה לכניסה</value></data>
+
+  <!-- ── Two-Factor ── -->
+  <data name="TwoFactor_Title"><value>אימות דו-שלבי</value></data>
+  <data name="TwoFactor_Step"><value>2FA · שלב 2 מתוך 2</value></data>
+  <data name="TwoFactor_VerificationRequired"><value>נדרש אימות</value></data>
+  <data name="TwoFactor_Instruction"><value>הזן את הקוד בן 6 הספרות שנשלח לכתובת הדואר האלקטרוני שלך.</value></data>
+  <data name="TwoFactor_Code"><value>קוד אימות</value></data>
+  <data name="TwoFactor_Confirm"><value>אישור ←</value></data>
+  <data name="TwoFactor_Resend"><value>שלח קוד מחדש</value></data>
+  <data name="TwoFactor_NewCodeSent"><value>קוד חדש נשלח.</value></data>
+  <data name="TwoFactor_ResendWait"><value>יש להמתין לפני בקשת קוד נוסף.</value></data>
+  <data name="TwoFactor_TooManyAttempts"><value>יותר מדי ניסיונות. יש לבקש קוד חדש.</value></data>
+  <data name="TwoFactor_Failed"><value>האימות נכשל. נסה שנית.</value></data>
+  <data name="TwoFactor_Footer"><value>בתוקף 10 דקות · 3 ניסיונות · HMAC-SHA256 + מלח [2FA-02..03]</value></data>
+  <data name="TwoFactor_InvalidCode"><value>הקוד שגוי או פג תוקפו.</value></data>
+
+  <!-- ── Change Password ── -->
+  <data name="Password_ChangeTitle"><value>שינוי סיסמה</value></data>
+  <data name="Password_ChangeRequired"><value>נדרש שינוי סיסמה</value></data>
+  <data name="Password_ChangeSubtitle"><value>כניסה ראשונה או הסיסמה פגה (90 יום) [PWD-05]</value></data>
+  <data name="Password_Current"><value>סיסמה נוכחית</value></data>
+  <data name="Password_New"><value>סיסמה חדשה</value></data>
+  <data name="Password_Confirm"><value>אישור סיסמה חדשה</value></data>
+  <data name="Password_ConfirmPlain"><value>אישור סיסמה</value></data>
+  <data name="Password_Save"><value>שמור</value></data>
+  <data name="Password_ChangeButton"><value>שנה סיסמה ←</value></data>
+  <data name="Password_Mismatch"><value>הסיסמה החדשה ואישורה אינם תואמים.</value></data>
+  <data name="Password_ChangeFailed"><value>שינוי הסיסמה נכשל.</value></data>
+  <data name="Password_Rule_MinLength"><value>לפחות 12 תווים</value></data>
+  <data name="Password_Rule_Uppercase"><value>אות גדולה (A-Z)</value></data>
+  <data name="Password_Rule_Lowercase"><value>אות קטנה (a-z)</value></data>
+  <data name="Password_Rule_Digit"><value>ספרה (0-9)</value></data>
+  <data name="Password_Rule_Special"><value>תו מיוחד (!@#$...)</value></data>
+  <data name="Password_Rule_History"><value>לא יכולה להיות זהה ל-10 הסיסמאות האחרונות [PWD-04]</value></data>
+  <data name="Password_Hint"><value>לפחות 12 תווים · A-Z · a-z · 0-9 · תו מיוחד</value></data>
+
+  <!-- ── Forgot / Reset Password ── -->
+  <data name="ForgotPassword_Title"><value>איפוס סיסמה</value></data>
+  <data name="ForgotPassword_Heading"><value>איפוס הסיסמה שלך</value></data>
+  <data name="ForgotPassword_Subtitle"><value>הזן את כתובת הדואר האלקטרוני שלך ונשלח לך קישור לאיפוס.</value></data>
+  <data name="ForgotPassword_Email"><value>דואר אלקטרוני</value></data>
+  <data name="ForgotPassword_Send"><value>שלח קישור ←</value></data>
+  <data name="ForgotPassword_Sent"><value>אם קיים חשבון עם כתובת דואר זו, נשלח קישור לאיפוס.</value></data>
+  <data name="ForgotPassword_BackToSignIn"><value>→ חזרה לכניסה</value></data>
+
+  <data name="ResetPassword_Title"><value>סיסמה חדשה</value></data>
+  <data name="ResetPassword_Heading"><value>הגדרת סיסמה חדשה</value></data>
+  <data name="ResetPassword_SetButton"><value>הגדר סיסמה ←</value></data>
+  <data name="ResetPassword_Success"><value>הסיסמה שונתה.</value></data>
+  <data name="ResetPassword_SignIn"><value>כניסה</value></data>
+  <data name="ResetPassword_InvalidLink"><value>קישור האיפוס שגוי או פג תוקפו. יש לבקש קישור חדש.</value></data>
+  <data name="ResetPassword_RequestNew"><value>בקש קישור חדש</value></data>
+  <data name="ResetPassword_Mismatch"><value>הסיסמאות אינן תואמות.</value></data>
+  <data name="ResetPassword_Failed"><value>איפוס הסיסמה נכשל. ייתכן שהקישור פג תוקפו.</value></data>
+
+  <!-- ── Layout ── -->
+  <data name="Layout_AppName"><value>RTM View Shell</value></data>
+  <data name="Layout_SignOut"><value>יציאה</value></data>
+  <data name="Layout_UnhandledError"><value>אירעה שגיאה בלתי צפויה.</value></data>
+  <data name="Layout_Reload"><value>טען מחדש</value></data>
+  <data name="Layout_AccessDenied"><value>הגישה נדחתה</value></data>
+  <data name="Layout_AccessDeniedMsg"><value>אין לך הרשאה לצפות בדף זה.</value></data>
+
+  <!-- ── Navigation ── -->
+  <data name="Nav_Content"><value>תוכן</value></data>
+  <data name="Nav_Administration"><value>ניהול</value></data>
+  <data name="Nav_Platform"><value>פלטפורמה</value></data>
+  <data name="Nav_Screens"><value>מסכים</value></data>
+  <data name="Nav_WidgetCatalogue"><value>קטלוג ווידג'טים</value></data>
+  <data name="Nav_Users"><value>משתמשים</value></data>
+  <data name="Nav_PermissionGroups"><value>קבוצות הרשאות</value></data>
+  <data name="Nav_TenantSettings"><value>הגדרות ארגון</value></data>
+  <data name="Nav_AuditLog"><value>יומן ביקורת</value></data>
+  <data name="Nav_Tenants"><value>ארגונים</value></data>
+
+  <!-- ── Screens (Dashboards) ── -->
+  <data name="Screens_Title"><value>מסכים</value></data>
+  <data name="Screens_New"><value>+ מסך חדש</value></data>
+  <data name="Screens_SearchPlaceholder"><value>חיפוש לפי שם...</value></data>
+  <data name="Screens_AllStatuses"><value>כל הסטטוסים</value></data>
+  <data name="Screens_Draft"><value>טיוטה</value></data>
+  <data name="Screens_Published"><value>מפורסם</value></data>
+  <data name="Screens_NoScreens"><value>לא נמצאו מסכים.</value></data>
+  <data name="Screens_CreateFirst"><value>צור את המסך הראשון שלך</value></data>
+  <data name="Screens_Open"><value>פתח ←</value></data>
+  <data name="Screens_Name"><value>שם</value></data>
+  <data name="Screens_Description"><value>תיאור</value></data>
+  <data name="Screens_Status"><value>סטטוס</value></data>
+  <data name="Screens_IsPublic"><value>גלוי לכל משתמשי הארגון (IsPublic)</value></data>
+  <data name="Screens_IsPublicHelp"><value>אם מופעל, נגיש לכל המשתמשים המאומתים ללא הקצאת קבוצה מפורשת [DASH-01]</value></data>
+  <data name="Screens_CreateModal"><value>מסך חדש</value></data>
+  <data name="Screens_EditModal"><value>הגדרות מסך</value></data>
+  <data name="Screens_CreateButton"><value>צור מסך ←</value></data>
+  <data name="Screens_DangerZone"><value>אזור מסוכן</value></data>
+  <data name="Screens_DeleteScreen"><value>מחק מסך</value></data>
+  <data name="Screens_AreYouSure"><value>האם אתה בטוח?</value></data>
+  <data name="Screens_YesDelete"><value>כן, מחק</value></data>
+  <data name="Screens_Public"><value>ציבורי</value></data>
+  <data name="Screens_NotFound"><value>המסך לא נמצא או שאין לך הרשאת גישה.</value></data>
+  <data name="Screens_AllQueues"><value>כל התורים</value></data>
+  <data name="Screens_LiveIndicator"><value>חי · עדכון כל 5 שניות</value></data>
+  <data name="Screens_Pause"><value>השהה</value></data>
+  <data name="Screens_Resume"><value>המשך</value></data>
+  <data name="Screens_Back"><value>→ חזרה</value></data>
+
+  <!-- ── Widget Catalogue ── -->
+  <data name="WidgetCatalogue_Title"><value>קטלוג ווידג'טים</value></data>
+  <data name="WidgetCatalogue_Inactive"><value>לא פעיל</value></data>
+
+  <!-- ── Users Admin ── -->
+  <data name="Users_Title"><value>ניהול משתמשים</value></data>
+  <data name="Users_NewUser"><value>משתמש חדש</value></data>
+  <data name="Users_SearchPlaceholder"><value>חיפוש לפי שם או דואר אלקטרוני...</value></data>
+  <data name="Users_AllRoles"><value>כל התפקידים</value></data>
+  <data name="Users_AllGroups"><value>כל הקבוצות</value></data>
+  <data name="Users_AllStatuses"><value>כל הסטטוסים</value></data>
+  <data name="Users_ColUser"><value>משתמש</value></data>
+  <data name="Users_ColRole"><value>תפקיד</value></data>
+  <data name="Users_ColGroup"><value>קבוצה</value></data>
+  <data name="Users_ColStatus"><value>סטטוס</value></data>
+  <data name="Users_ColLastLogin"><value>כניסה אחרונה</value></data>
+  <data name="Users_Col2fa"><value>2FA</value></data>
+  <data name="Users_Never"><value>מעולם</value></data>
+  <data name="Users_Active"><value>פעיל</value></data>
+  <data name="Users_Inactive"><value>לא פעיל</value></data>
+  <data name="Users_CreateModal"><value>משתמש חדש</value></data>
+  <data name="Users_EditModal"><value>עריכת משתמש</value></data>
+  <data name="Users_FirstName"><value>שם פרטי</value></data>
+  <data name="Users_LastName"><value>שם משפחה</value></data>
+  <data name="Users_Email"><value>דואר אלקטרוני</value></data>
+  <data name="Users_Username"><value>שם משתמש</value></data>
+  <data name="Users_Role"><value>תפקיד</value></data>
+  <data name="Users_PermissionGroup"><value>קבוצת הרשאות</value></data>
+  <data name="Users_TempPasswordNote"><value>סיסמה זמנית תישלח לכתובת הדואר האלקטרוני שצוינה [USR-03]</value></data>
+  <data name="Users_CreateButton"><value>צור משתמש ←</value></data>
+  <data name="Users_Status"><value>סטטוס</value></data>
+  <data name="Users_Enabled2fa"><value>2FA מופעל</value></data>
+  <data name="Users_ForceLogout"><value>כפה יציאה</value></data>
+  <data name="Users_ResetPassword"><value>אפס סיסמה</value></data>
+  <data name="Users_DeleteUser"><value>מחק משתמש</value></data>
+  <data name="Users_ResetEmailSent"><value>דואר לאיפוס נשלח.</value></data>
+  <data name="Users_LoggedOut"><value>המשתמש יצא מהמערכת.</value></data>
+  <data name="Users_SelectRole"><value>— בחר תפקיד —</value></data>
+  <data name="Users_SelectGroup"><value>— בחר קבוצה —</value></data>
+  <data name="Users_Locale"><value>שפה מועדפת</value></data>
+
+  <!-- ── Permission Groups ── -->
+  <data name="PG_Title"><value>קבוצות הרשאות</value></data>
+  <data name="PG_NewGroup"><value>קבוצה חדשה</value></data>
+  <data name="PG_GroupName"><value>שם הקבוצה</value></data>
+  <data name="PG_Description"><value>תיאור</value></data>
+  <data name="PG_IsActive"><value>קבוצה פעילה (IsActive)</value></data>
+  <data name="PG_DeleteBlocked"><value>לא ניתן למחוק קבוצה שיש לה משתמשים מוקצים.</value></data>
+  <data name="PG_DeleteGroup"><value>מחק קבוצה</value></data>
+  <data name="PG_SaveChanges"><value>שמור שינויים ←</value></data>
+  <data name="PG_TabMenu"><value>תפריט</value></data>
+  <data name="PG_TabScreens"><value>מסכים</value></data>
+  <data name="PG_TabQueues"><value>תורים</value></data>
+  <data name="PG_TabSkills"><value>מיומנויות</value></data>
+  <data name="PG_TabBu"><value>יחידות עסקיות</value></data>
+  <data name="PG_TabSg"><value>קבוצות-על</value></data>
+  <data name="PG_ColMenuItem"><value>פריט תפריט</value></data>
+  <data name="PG_ColPermissionKey"><value>מפתח הרשאה</value></data>
+  <data name="PG_ColAllowedRoles"><value>תפקידים מורשים</value></data>
+  <data name="PG_ColView"><value>צפייה</value></data>
+  <data name="PG_ColEdit"><value>עריכה</value></data>
+  <data name="PG_ColDelete"><value>מחיקה</value></data>
+  <data name="PG_QueuesHeading"><value>תורים מורשים · pg_queues</value></data>
+  <data name="PG_SkillsHeading"><value>מיומנויות מורשות · pg_skills</value></data>
+  <data name="PG_BuHeading"><value>יחידות עסקיות · pg_business_units</value></data>
+  <data name="PG_SgHeading"><value>קבוצות-על של סוכנים · pg_agent_supergroups</value></data>
+  <data name="PG_EmptyListNote"><value>רשימה ריקה = גישה אסורה [PG-03]</value></data>
+  <data name="PG_NoGroupSelected"><value>בחר קבוצה לעריכה</value></data>
+  <data name="PG_Users"><value>משתמשים</value></data>
+
+  <!-- ── Audit Log ── -->
+  <data name="Audit_Title"><value>יומן ביקורת</value></data>
+  <data name="Audit_AllTypes"><value>כל סוגי האירועים</value></data>
+  <data name="Audit_AllResults"><value>כל התוצאות</value></data>
+  <data name="Audit_From"><value>מ-</value></data>
+  <data name="Audit_To"><value>עד</value></data>
+  <data name="Audit_ColTime"><value>זמן</value></data>
+  <data name="Audit_ColEvent"><value>אירוע</value></data>
+  <data name="Audit_ColResult"><value>תוצאה</value></data>
+  <data name="Audit_ColUser"><value>משתמש</value></data>
+  <data name="Audit_ColIp"><value>כתובת IP</value></data>
+  <data name="Audit_ColDetails"><value>פרטים</value></data>
+  <data name="Audit_NoRecords"><value>לא נמצאו רשומות ביקורת.</value></data>
+  <data name="Audit_Success"><value>הצלחה</value></data>
+  <data name="Audit_Failure"><value>כישלון</value></data>
+  <data name="Audit_Warning"><value>אזהרה</value></data>
+
+  <!-- ── Tenant Settings ── -->
+  <data name="TenantSettings_Title"><value>הגדרות ארגון</value></data>
+  <data name="TenantSettings_PasswordPolicy"><value>מדיניות סיסמאות</value></data>
+  <data name="TenantSettings_MinLength"><value>אורך סיסמה מינימלי</value></data>
+  <data name="TenantSettings_ExpireDays"><value>תפוגת סיסמה (ימים)</value></data>
+  <data name="TenantSettings_Security"><value>אבטחה</value></data>
+  <data name="TenantSettings_Require2fa"><value>חייב 2FA לכל המשתמשים</value></data>
+  <data name="TenantSettings_DefaultLocale"><value>שפת ברירת מחדל</value></data>
+  <data name="TenantSettings_DataRetention"><value>שמירת נתונים</value></data>
+  <data name="TenantSettings_AuditRetention"><value>שמירת יומן ביקורת (ימים)</value></data>
+  <data name="TenantSettings_SoftDelete"><value>אפשר מחיקה רכה למסכים</value></data>
+  <data name="TenantSettings_SoftDeleteRetention"><value>שמירה לאחר מחיקה רכה (ימים)</value></data>
+  <data name="TenantSettings_Saved"><value>ההגדרות נשמרו.</value></data>
+
+  <!-- ── Tenants (Platform) ── -->
+  <data name="Tenants_Title"><value>ניהול ארגונים</value></data>
+  <data name="Tenants_NewTenant"><value>+ ארגון חדש</value></data>
+  <data name="Tenants_ColName"><value>שם</value></data>
+  <data name="Tenants_ColSlug"><value>מזהה קצר</value></data>
+  <data name="Tenants_ColStatus"><value>סטטוס</value></data>
+  <data name="Tenants_ColCreated"><value>נוצר</value></data>
+  <data name="Tenants_ColActions"><value>פעולות</value></data>
+  <data name="Tenants_Suspend"><value>הגבל</value></data>
+  <data name="Tenants_Activate"><value>הפעל</value></data>
+  <data name="Tenants_Delete"><value>מחק</value></data>
+  <data name="Tenants_ConfirmDelete"><value>מחיקה לצמיתות?</value></data>
+  <data name="Tenants_Active"><value>פעיל</value></data>
+  <data name="Tenants_Suspended"><value>מוגבל</value></data>
+  <data name="Tenants_Deleted"><value>נמחק</value></data>
+  <data name="Tenants_CreateModal"><value>ארגון חדש</value></data>
+  <data name="Tenants_Name"><value>שם</value></data>
+  <data name="Tenants_Slug"><value>מזהה קצר (תת-דומיין)</value></data>
+  <data name="Tenants_SlugHelp"><value>אותיות קטנות, ספרות ומקפים בלבד</value></data>
+  <data name="Tenants_CreateButton"><value>צור ארגון ←</value></data>
+
+  <!-- ── Common ── -->
+  <data name="Common_Save"><value>שמור ←</value></data>
+  <data name="Common_Cancel"><value>ביטול</value></data>
+  <data name="Common_Delete"><value>מחק</value></data>
+  <data name="Common_Create"><value>צור</value></data>
+  <data name="Common_Edit"><value>ערוך</value></data>
+  <data name="Common_Search"><value>חיפוש</value></data>
+  <data name="Common_Loading"><value>טוען...</value></data>
+  <data name="Common_Saving"><value>שומר...</value></data>
+  <data name="Common_Active"><value>פעיל</value></data>
+  <data name="Common_Inactive"><value>לא פעיל</value></data>
+  <data name="Common_Yes"><value>כן</value></data>
+  <data name="Common_No"><value>לא</value></data>
+  <data name="Common_Prev"><value>‹ הקודם</value></data>
+  <data name="Common_Next"><value>הבא ›</value></data>
+  <data name="Common_Page"><value>עמוד</value></data>
+  <data name="Common_Of"><value>מתוך</value></data>
+  <data name="Common_Records"><value>רשומות</value></data>
+
+  <!-- ── Errors ── -->
+  <data name="Error_NotFound"><value>המשאב המבוקש לא נמצא.</value></data>
+  <data name="Error_Forbidden"><value>אין לך הרשאה לבצע פעולה זו.</value></data>
+  <data name="Error_Concurrency"><value>הרשומה שונתה על ידי משתמש אחר. רענן ונסה שנית.</value></data>
+  <data name="Error_Generic"><value>אירעה שגיאה בלתי צפויה. נסה שנית.</value></data>
+</root>

@@ -202,7 +202,8 @@
   <data name="PG_TabScreens"><value>Screens</value></data>
   <data name="PG_TabQueues"><value>Queues</value></data>
   <data name="PG_TabSkills"><value>Skills</value></data>
-  <data name="PG_TabBuSg"><value>BU / SG</value></data>
+  <data name="PG_TabBu"><value>Business Units</value></data>
+  <data name="PG_TabSg"><value>Super Groups</value></data>
   <data name="PG_ColMenuItem"><value>Menu item</value></data>
   <data name="PG_ColPermissionKey"><value>Permission key</value></data>
   <data name="PG_ColAllowedRoles"><value>Allowed roles</value></data>

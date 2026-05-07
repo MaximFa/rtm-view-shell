@@ -61,7 +61,7 @@ try
     services.AddLocalization(opts => opts.ResourcesPath = "Resources");
     services.Configure<RequestLocalizationOptions>(opts =>
     {
-        var supported = new[] { "en-US", "ru-RU", "ar-AE" };
+        var supported = new[] { "en-US", "ru-RU", "he-IL" };
         opts.SetDefaultCulture("en-US")
             .AddSupportedCultures(supported)
             .AddSupportedUICultures(supported);

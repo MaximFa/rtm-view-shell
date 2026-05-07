@@ -151,17 +151,23 @@
             }
             else if (ActiveTab == "Queues")
             {
-                <p class="text-muted small">@L["PG_QueuesHeading"]</p>
+                <p class="text-muted small fw-semibold">@L["PG_QueuesHeading"]</p>
                 <p class="text-muted small">@L["PG_EmptyListNote"]</p>
             }
             else if (ActiveTab == "Skills")
             {
-                <p class="text-muted small">@L["PG_SkillsHeading"]</p>
+                <p class="text-muted small fw-semibold">@L["PG_SkillsHeading"]</p>
                 <p class="text-muted small">@L["PG_EmptyListNote"]</p>
             }
-            else if (ActiveTab == "BU / SG")
+            else if (ActiveTab == "BU")
             {
-                <p class="text-muted small">@L["PG_BuHeading"] · @L["PG_SgHeading"]</p>
+                <p class="text-muted small fw-semibold">@L["PG_BuHeading"]</p>
+                <p class="text-muted small">@L["PG_EmptyListNote"]</p>
+            }
+            else if (ActiveTab == "SG")
+            {
+                <p class="text-muted small fw-semibold">@L["PG_SgHeading"]</p>
+                <p class="text-muted small">@L["PG_EmptyListNote"]</p>
             }
 
             <div class="d-flex gap-2 mt-3">
@@ -191,11 +197,12 @@
 
     private static readonly TabDef[] Tabs =
     [
-        new("Menu",     "PG_TabMenu"),
-        new("Screens",  "PG_TabScreens"),
-        new("Queues",   "PG_TabQueues"),
-        new("Skills",   "PG_TabSkills"),
-        new("BU / SG",  "PG_TabBuSg"),
+        new("Menu",    "PG_TabMenu"),
+        new("Screens", "PG_TabScreens"),
+        new("Queues",  "PG_TabQueues"),
+        new("Skills",  "PG_TabSkills"),
+        new("BU",      "PG_TabBu"),
+        new("SG",      "PG_TabSg"),
     ];
 
     private List<PermissionGroupDto> Groups = [];
@@ -212,6 +219,10 @@
     private string? EName, EDescription;
     private bool EIsActive = true;
     private HashSet<string> SelectedMenuKeys = [];
+    private HashSet<Guid> SelectedQueueIds = [];
+    private HashSet<Guid> SelectedSkillIds = [];
+    private HashSet<Guid> SelectedSupergroupIds = [];
+    private HashSet<Guid> SelectedBusinessUnitIds = [];
     private string ActiveTab = "Menu";
 
     protected override async Task OnInitializedAsync() => await LoadGroupsAsync();
@@ -228,7 +239,11 @@
     {
         SelectedId = g.Id; EditGroup = g; IsNew = false;
         EName = g.Name; EDescription = g.Description; EIsActive = g.IsActive;
-        SelectedMenuKeys = g.MenuPermissions.ToHashSet();
+        SelectedMenuKeys        = g.MenuPermissions.ToHashSet();
+        SelectedQueueIds        = g.AllowedQueueIds.ToHashSet();
+        SelectedSkillIds        = g.AllowedSkillIds.ToHashSet();
+        SelectedSupergroupIds   = g.AllowedSupergroupIds.ToHashSet();
+        SelectedBusinessUnitIds = g.AllowedBusinessUnitIds.ToHashSet();
         ActiveTab = "Menu"; SaveError = null; SaveSuccess = false; ConfirmDel = false;
     }
 
@@ -236,7 +251,11 @@
     {
         SelectedId = null; EditGroup = null; IsNew = true;
         EName = ""; EDescription = ""; EIsActive = true;
-        SelectedMenuKeys = ["menu.dashboards"];
+        SelectedMenuKeys        = ["menu.dashboards"];
+        SelectedQueueIds        = [];
+        SelectedSkillIds        = [];
+        SelectedSupergroupIds   = [];
+        SelectedBusinessUnitIds = [];
         ActiveTab = "Menu"; SaveError = null; SaveSuccess = false; ConfirmDel = false;
     }
 
@@ -260,14 +279,27 @@
             if (IsNew)
             {
                 var result = await Mediator.Send(new CreatePermissionGroupCommand(
-                    new CreatePermissionGroupRequest(EName!.Trim(), EDescription?.Trim(), SelectedMenuKeys.ToList())));
+                    new CreatePermissionGroupRequest(
+                        EName!.Trim(), EDescription?.Trim(),
+                        SelectedMenuKeys.ToList(),
+                        SelectedQueueIds.ToList(),
+                        SelectedSkillIds.ToList(),
+                        SelectedSupergroupIds.ToList(),
+                        SelectedBusinessUnitIds.ToList())));
                 if (!result.IsSuccess) { SaveError = result.Error; return; }
             }
             else if (EditGroup is not null)
             {
                 var result = await Mediator.Send(new UpdatePermissionGroupCommand(
-                    new UpdatePermissionGroupRequest(EditGroup.Id, EName!.Trim(), EDescription?.Trim(),
-                        EIsActive, SelectedMenuKeys.ToList(), EditGroup.RowVersion)));
+                    new UpdatePermissionGroupRequest(
+                        EditGroup.Id, EName!.Trim(), EDescription?.Trim(),
+                        EIsActive,
+                        SelectedMenuKeys.ToList(),
+                        EditGroup.RowVersion,
+                        SelectedQueueIds.ToList(),
+                        SelectedSkillIds.ToList(),
+                        SelectedSupergroupIds.ToList(),
+                        SelectedBusinessUnitIds.ToList())));
                 if (!result.IsSuccess) { SaveError = result.Error; return; }
             }
             await LoadGroupsAsync();
