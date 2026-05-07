@@ -2,10 +2,10 @@ using CcDashboard.Application.Extensions;
 using Microsoft.AspNetCore.RateLimiting;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Extensions;
+using CcDashboard.Infrastructure.Seeding;
 using CcDashboard.Web.Components;
 using CcDashboard.Web.Middleware;
 using CcDashboard.Web.Services;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Serilog;
 using Serilog.Events;
 
@@ -34,19 +34,19 @@ try
 
     services.AddCascadingAuthenticationState();
 
-    services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-        .AddCookie(opts =>
-        {
-            opts.LoginPath = "/login";
-            opts.LogoutPath = "/logout";
-            opts.AccessDeniedPath = "/access-denied";
-            opts.Cookie.Name = isDev ? "cc_auth" : "__Host-cc_auth";
-            opts.Cookie.HttpOnly = true;
-            opts.Cookie.SameSite = isDev ? SameSiteMode.Lax : SameSiteMode.Strict;
-            opts.Cookie.SecurePolicy = isDev ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
-            opts.SlidingExpiration = true;
-            opts.ExpireTimeSpan = TimeSpan.FromMinutes(30);
-        });
+    // Configure the Identity application cookie (AddIdentity is called inside AddInfrastructure)
+    services.ConfigureApplicationCookie(opts =>
+    {
+        opts.LoginPath = "/login";
+        opts.LogoutPath = "/logout";
+        opts.AccessDeniedPath = "/access-denied";
+        opts.Cookie.Name = isDev ? "cc_auth" : "__Host-cc_auth";
+        opts.Cookie.HttpOnly = true;
+        opts.Cookie.SameSite = isDev ? SameSiteMode.Lax : SameSiteMode.Strict;
+        opts.Cookie.SecurePolicy = isDev ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+        opts.SlidingExpiration = true;
+        opts.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    });
 
     services.AddAuthorization();
     services.AddHttpContextAccessor();
@@ -68,6 +68,13 @@ try
     services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
 
     var app = builder.Build();
+
+    // Run database seed on startup
+    using (var scope = app.Services.CreateScope())
+    {
+        var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+        await initializer.InitializeAsync();
+    }
 
     if (!isDev) app.UseHttpsRedirection();
 

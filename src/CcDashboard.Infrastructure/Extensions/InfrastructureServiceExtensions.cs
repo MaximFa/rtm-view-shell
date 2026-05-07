@@ -6,6 +6,7 @@ using CcDashboard.Infrastructure.Email;
 using CcDashboard.Infrastructure.Identity;
 using CcDashboard.Infrastructure.Persistence;
 using CcDashboard.Infrastructure.Persistence.Repositories;
+using CcDashboard.Infrastructure.Seeding;
 using CcDashboard.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -57,7 +58,14 @@ public static class InfrastructureServiceExtensions
             opts.User.RequireUniqueEmail = false; // unique per tenant enforced manually
         })
         .AddEntityFrameworkStores<AppDbContext>()
-        .AddDefaultTokenProviders();
+        .AddDefaultTokenProviders()
+        .AddClaimsPrincipalFactory<CustomClaimsPrincipalFactory>();
+
+        // Auth services
+        services.AddScoped<IIdentityAuthService, IdentityAuthService>();
+
+        // Seeding
+        services.AddScoped<DatabaseInitializer>();
 
         // Redis
         var redisConn = config.GetConnectionString("Redis") ?? "localhost:6379";

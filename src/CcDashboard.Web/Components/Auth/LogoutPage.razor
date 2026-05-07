@@ -1,0 +1,16 @@
+@page "/logout"
+@inject IIdentityAuthService AuthService
+@inject NavigationManager Nav
+@using CcDashboard.Application.Interfaces
+
+@code {
+    [CascadingParameter] public HttpContext? HttpContext { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (HttpContext is not null)
+            await AuthService.SignOutAsync();
+
+        Nav.NavigateTo("/login?info=You+have+been+signed+out.", forceLoad: true);
+    }
+}
