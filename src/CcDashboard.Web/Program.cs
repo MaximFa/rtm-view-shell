@@ -1,4 +1,5 @@
 using CcDashboard.Application.Extensions;
+using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.RateLimiting;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Extensions;
@@ -66,6 +67,9 @@ try
         .AddRedis(config.GetConnectionString("Redis") ?? "localhost:6379");
 
     services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
+
+    // Blazor circuit handler: resolves tenant context for SignalR circuits [ARCH-03]
+    services.AddScoped<CircuitHandler, TenantCircuitHandler>();
 
     var app = builder.Build();
 

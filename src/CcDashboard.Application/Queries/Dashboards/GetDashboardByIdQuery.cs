@@ -1,13 +1,12 @@
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Contracts.DTOs.Dashboards;
-using CcDashboard.Domain.Interfaces;
 using MediatR;
 
 namespace CcDashboard.Application.Queries.Dashboards;
 
 public record GetDashboardByIdQuery(Guid Id) : IRequest<DashboardDto?>;
 
-public class GetDashboardByIdQueryHandler(IDashboardRepository repo, ICurrentUserAccessor currentUser)
+public class GetDashboardByIdQueryHandler(IDashboardRepository repo)
     : IRequestHandler<GetDashboardByIdQuery, DashboardDto?>
 {
     public async Task<DashboardDto?> Handle(GetDashboardByIdQuery request, CancellationToken ct)
