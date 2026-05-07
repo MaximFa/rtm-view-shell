@@ -28,7 +28,7 @@ public class GetDashboardsQueryHandler(
 
         var dtos = items.Select(d => new DashboardDto(
             d.Id, d.TenantId, d.Name, d.Description, d.Status, d.IsPublic,
-            d.CreatedByUserId, null, d.CreatedAt, d.UpdatedAt)).ToList();
+            d.CreatedByUserId, null, d.CreatedAt, d.UpdatedAt, d.RowVersion)).ToList();
 
         return new PagedResult<DashboardDto>(dtos, total, req.Page, req.PageSize);
     }

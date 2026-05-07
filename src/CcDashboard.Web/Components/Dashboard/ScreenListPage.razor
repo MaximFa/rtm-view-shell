@@ -1,25 +1,33 @@
 @page "/screens"
+@rendermode InteractiveServer
 @layout MainLayout
 @attribute [Authorize]
 @inject IMediator Mediator
+@inject ICurrentUserAccessor CurrentUser
 @using MediatR
+@using CcDashboard.Application.Commands.Dashboards
 @using CcDashboard.Application.Queries.Dashboards
+@using CcDashboard.Contracts.DTOs.Dashboards
+@using CcDashboard.Domain.Enums
+@using CcDashboard.Domain.Interfaces
+@using Microsoft.AspNetCore.Authorization
 
 <PageTitle>Screens — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4">Screens</h1>
+    <h1 class="h4 mb-0">Screens</h1>
     <AuthorizeView Roles="Superadmin,Administrator,Editor">
-        <button class="btn btn-primary" @onclick="ShowCreateModal">+ New screen</button>
+        <button class="btn btn-primary btn-sm" @onclick="() => OpenCreate()">+ New screen</button>
     </AuthorizeView>
 </div>
 
 <div class="row g-2 mb-3">
     <div class="col-md-4">
-        <input class="form-control" placeholder="Search by name..." @bind="Search" @bind:event="oninput" @onkeyup="LoadDashboards" />
+        <input class="form-control form-control-sm" placeholder="Search by name..."
+               @bind="Search" @bind:event="oninput" @onkeyup="OnSearchKey" />
     </div>
     <div class="col-md-3">
-        <select class="form-select" @bind="StatusFilter" @bind:after="LoadDashboards">
+        <select class="form-select form-select-sm" @bind="StatusFilter" @bind:after="LoadAsync">
             <option value="">All statuses</option>
             <option value="Draft">Draft</option>
             <option value="Published">Published</option>
@@ -29,63 +37,279 @@
 
 @if (Loading)
 {
-    <div class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading...</div>
+    <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
 }
-else if (Dashboards?.Items.Count == 0)
+else if (Dashboards == null || Dashboards.Items.Count == 0)
 {
-    <div class="text-muted py-4 text-center">No screens found.</div>
+    <div class="text-center py-5 text-muted">
+        <p>No screens found.</p>
+        <AuthorizeView Roles="Superadmin,Administrator,Editor">
+            <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenCreate()">Create your first screen</button>
+        </AuthorizeView>
+    </div>
 }
-else if (Dashboards is not null)
+else
 {
-    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-3">
+    <div class="row row-cols-1 row-cols-md-3 row-cols-xl-4 g-3">
         @foreach (var d in Dashboards.Items)
         {
             <div class="col">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">@d.Name</h5>
-                        @if (d.Description is not null)
+                <div class="card h-100 shadow-sm" style="cursor:pointer" @onclick="() => OpenEdit(d)">
+                    <div class="card-body pb-2">
+                        <div class="d-flex gap-1 mb-2">
+                            @StatusBadge(d.Status)
+                            @if (d.IsPublic) { <span class="badge bg-info text-dark">Public</span> }
+                        </div>
+                        <h6 class="card-title mb-1">@d.Name</h6>
+                        @if (!string.IsNullOrEmpty(d.Description))
                         {
                             <p class="card-text text-muted small">@d.Description</p>
                         }
                     </div>
-                    <div class="card-footer d-flex justify-content-between align-items-center">
-                        <span class="badge @(d.Status == CcDashboard.Domain.Enums.DashboardStatus.Published ? "bg-success" : "bg-warning text-dark")">
-                            @d.Status
-                        </span>
-                        @if (d.IsPublic)
-                        {
-                            <span class="badge bg-info text-dark">Public</span>
-                        }
-                        <div>
-                            <button class="btn btn-sm btn-outline-secondary me-1"
-                                    @onclick="() => OpenEdit(d)">Edit</button>
-                        </div>
+                    <div class="card-footer text-muted small">
+                        Updated @d.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy")
                     </div>
                 </div>
             </div>
         }
     </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <span class="text-muted small">@Dashboards.TotalCount record(s)</span>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(Dashboards.Page <= 1)"
+                    @onclick="PrevPage">&#8249; Prev</button>
+            <span class="align-self-center small">Page @Dashboards.Page / @Dashboards.TotalPages</span>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(Dashboards.Page >= Dashboards.TotalPages)"
+                    @onclick="NextPage">Next &#8250;</button>
+        </div>
+    </div>
+}
+
+@if (Error is not null)
+{
+    <div class="alert alert-danger alert-dismissible mt-2 py-2" role="alert">
+        @Error <button type="button" class="btn-close btn-sm" @onclick="() => Error = null"></button>
+    </div>
+}
+
+<!-- Create Modal -->
+@if (ShowCreate)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">New Screen</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@SaveError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <input class="form-control" @bind="CreateName" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" rows="2" @bind="CreateDescription" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="isPublicCreate" @bind="CreateIsPublic" />
+                        <label class="form-check-label" for="isPublicCreate">
+                            Visible to all tenant users (IsPublic)
+                        </label>
+                        <div class="form-text">If enabled, accessible to all authenticated users without explicit group assignment [DASH-01]</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveCreate" disabled="@Saving">
+                        @(Saving ? "Saving..." : "Create screen →")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
+<!-- Edit Modal -->
+@if (ShowEdit && EditDashboard is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Screen Settings</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@SaveError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <input class="form-control" @bind="EditName" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" rows="2" @bind="EditDescription" maxlength="500"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" @bind="EditStatusStr">
+                            <option value="Draft">Draft</option>
+                            <option value="Published">Published</option>
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="isPublicEdit" @bind="EditIsPublic" />
+                        <label class="form-check-label" for="isPublicEdit">Visible to all tenant users (IsPublic)</label>
+                    </div>
+                    <AuthorizeView Roles="Superadmin,Administrator,Editor">
+                        <hr />
+                        <div class="text-danger">
+                            <strong>Danger zone</strong>
+                            <button class="btn btn-sm btn-outline-danger ms-3"
+                                    @onclick="() => ConfirmDelete = true" disabled="@ConfirmDelete">
+                                Delete screen
+                            </button>
+                            @if (ConfirmDelete)
+                            {
+                                <span class="ms-2 small">Are you sure?
+                                    <button class="btn btn-danger btn-sm ms-1" @onclick="DeleteDashboard">Yes, delete</button>
+                                    <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">Cancel</button>
+                                </span>
+                            }
+                        </div>
+                    </AuthorizeView>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveEdit" disabled="@Saving">
+                        @(Saving ? "Saving..." : "Save →")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
 }
 
 @code {
-    private CcDashboard.Contracts.Common.PagedResult<CcDashboard.Contracts.DTOs.Dashboards.DashboardDto>? Dashboards;
+    private CcDashboard.Contracts.Common.PagedResult<DashboardDto>? Dashboards;
     private bool Loading = true;
     private string? Search;
     private string? StatusFilter;
+    private string? Error;
+    private string? SaveError;
+    private bool Saving;
+    private int CurrentPage = 1;
 
-    protected override async Task OnInitializedAsync() => await LoadDashboards();
+    // Create
+    private bool ShowCreate;
+    private string? CreateName;
+    private string? CreateDescription;
+    private bool CreateIsPublic;
 
-    private async Task LoadDashboards()
+    // Edit
+    private bool ShowEdit;
+    private DashboardDto? EditDashboard;
+    private string? EditName;
+    private string? EditDescription;
+    private string EditStatusStr = "Draft";
+    private bool EditIsPublic;
+    private bool ConfirmDelete;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
     {
         Loading = true;
-        var status = StatusFilter is null ? null
-            : Enum.TryParse<CcDashboard.Domain.Enums.DashboardStatus>(StatusFilter, out var s) ? s : (CcDashboard.Domain.Enums.DashboardStatus?)null;
-
-        Dashboards = await Mediator.Send(new GetDashboardsQuery(new(Search, status, null, null)));
-        Loading = false;
+        try
+        {
+            var status = string.IsNullOrEmpty(StatusFilter) ? null
+                : Enum.TryParse<DashboardStatus>(StatusFilter, out var s) ? s : (DashboardStatus?)null;
+            Dashboards = await Mediator.Send(new GetDashboardsQuery(
+                new DashboardListRequest(Search, status, null, null, CurrentPage, 25)));
+        }
+        catch (Exception ex) { Error = ex.Message; }
+        finally { Loading = false; }
     }
 
-    private void ShowCreateModal() { /* TODO: open modal */ }
-    private void OpenEdit(CcDashboard.Contracts.DTOs.Dashboards.DashboardDto d) { /* TODO: open edit modal */ }
+    private async Task OnSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") { CurrentPage = 1; await LoadAsync(); }
+    }
+
+    private async Task PrevPage() { CurrentPage--; await LoadAsync(); }
+    private async Task NextPage() { CurrentPage++; await LoadAsync(); }
+
+    private void OpenCreate()
+    {
+        CreateName = null; CreateDescription = null; CreateIsPublic = false;
+        SaveError = null; ShowCreate = true; ShowEdit = false;
+    }
+
+    private void OpenEdit(DashboardDto d)
+    {
+        EditDashboard = d; EditName = d.Name; EditDescription = d.Description;
+        EditStatusStr = d.Status.ToString(); EditIsPublic = d.IsPublic;
+        ConfirmDelete = false; SaveError = null; ShowEdit = true; ShowCreate = false;
+    }
+
+    private void CloseModals() { ShowCreate = false; ShowEdit = false; SaveError = null; }
+
+    private async Task SaveCreate()
+    {
+        if (string.IsNullOrWhiteSpace(CreateName)) { SaveError = "Name is required."; return; }
+        Saving = true; SaveError = null;
+        try
+        {
+            await Mediator.Send(new CreateDashboardCommand(
+                new CreateDashboardRequest(CreateName.Trim(), CreateDescription?.Trim(), CreateIsPublic)));
+            CloseModals(); await LoadAsync();
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task SaveEdit()
+    {
+        if (EditDashboard is null || string.IsNullOrWhiteSpace(EditName)) { SaveError = "Name is required."; return; }
+        var status = Enum.TryParse<DashboardStatus>(EditStatusStr, out var s) ? s : DashboardStatus.Draft;
+        Saving = true; SaveError = null;
+        try
+        {
+            await Mediator.Send(new UpdateDashboardCommand(
+                new UpdateDashboardRequest(EditDashboard.Id, EditName.Trim(), EditDescription?.Trim(),
+                    status, EditIsPublic, EditDashboard.RowVersion)));
+            CloseModals(); await LoadAsync();
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task DeleteDashboard()
+    {
+        if (EditDashboard is null) return;
+        Saving = true;
+        try
+        {
+            await Mediator.Send(new DeleteDashboardCommand(EditDashboard.Id));
+            CloseModals(); await LoadAsync();
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private static RenderFragment StatusBadge(DashboardStatus status) => status switch
+    {
+        DashboardStatus.Published => @<span class="badge bg-success">Published</span>,
+        _ => @<span class="badge bg-warning text-dark">Draft</span>
+    };
 }

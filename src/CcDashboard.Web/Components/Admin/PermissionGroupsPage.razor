@@ -1,7 +1,278 @@
 @page "/admin/permission-groups"
+@rendermode InteractiveServer
 @layout MainLayout
 @attribute [Authorize(Roles = "Superadmin,Administrator")]
+@inject IMediator Mediator
+@inject ICurrentUserAccessor CurrentUser
+@using MediatR
+@using CcDashboard.Application.Commands.PermissionGroups
+@using CcDashboard.Application.Queries.PermissionGroups
+@using CcDashboard.Contracts.DTOs.PermissionGroups
+@using CcDashboard.Domain.Interfaces
+@using Microsoft.AspNetCore.Authorization
 
 <PageTitle>Permission Groups — RTM View Shell</PageTitle>
-<h1 class="h4">Permission Groups</h1>
-<p class="text-muted">Permission group editor coming soon.</p>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Permission Groups</h1>
+</div>
+
+<div class="row g-0" style="min-height:60vh">
+    <!-- Left panel: group list -->
+    <div class="col-md-4 col-lg-3 border-end pe-3">
+        <button class="btn btn-sm btn-outline-primary w-100 mb-3" @onclick="NewGroup">+ New group</button>
+
+        @if (Loading)
+        {
+            <div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span></div>
+        }
+        else
+        {
+            @foreach (var g in Groups)
+            {
+                <div class="card mb-2 @(SelectedId == g.Id ? "border-primary" : "") clickable"
+                     style="cursor:pointer" @onclick="() => SelectGroup(g)">
+                    <div class="card-body py-2 px-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">@g.Name</span>
+                            <span class="badge bg-secondary">@g.UserCount users</span>
+                        </div>
+                        <div class="mt-1">
+                            @if (g.IsActive)
+                            { <span class="badge bg-success" style="font-size:0.65rem">active</span> }
+                            else
+                            { <span class="badge bg-secondary" style="font-size:0.65rem">inactive</span> }
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (!Groups.Any())
+            {
+                <div class="text-muted small text-center py-3">No permission groups yet.</div>
+            }
+        }
+    </div>
+
+    <!-- Right panel: editor -->
+    <div class="col-md-8 col-lg-9 ps-4">
+        @if (EditGroup == null && !IsNew)
+        {
+            <div class="text-muted mt-4 text-center">Select a group or create a new one.</div>
+        }
+        else
+        {
+            @if (SaveError is not null)
+            {
+                <div class="alert alert-danger py-2 alert-dismissible">
+                    @SaveError <button class="btn-close btn-sm" @onclick="() => SaveError = null"></button>
+                </div>
+            }
+            @if (SaveSuccess)
+            {
+                <div class="alert alert-success py-2">Saved successfully.</div>
+            }
+
+            <div class="d-flex align-items-start gap-3 mb-3 flex-wrap">
+                <div class="flex-grow-1">
+                    <label class="form-label fw-semibold">Group Name</label>
+                    <input class="form-control" @bind="EName" maxlength="200" />
+                </div>
+                <div class="flex-grow-1">
+                    <label class="form-label fw-semibold">Description</label>
+                    <input class="form-control" @bind="EDescription" maxlength="500" />
+                </div>
+            </div>
+
+            <div class="d-flex gap-3 mb-3 align-items-center">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="pgActive" @bind="EIsActive" />
+                    <label class="form-check-label" for="pgActive">Group active (IsActive)</label>
+                </div>
+                @if (!IsNew)
+                {
+                    <button class="btn btn-sm btn-outline-danger ms-auto"
+                            @onclick="() => ConfirmDel = true" disabled="@ConfirmDel">
+                        Delete group
+                    </button>
+                    @if (ConfirmDel)
+                    {
+                        <span class="text-danger small">
+                            Are you sure?
+                            <button class="btn btn-danger btn-sm ms-1" @onclick="DeleteGroup">Yes</button>
+                            <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDel = false">No</button>
+                        </span>
+                    }
+                }
+            </div>
+
+            <!-- Tabs -->
+            <ul class="nav nav-tabs mb-3">
+                @foreach (var tab in new[] { "Menu", "Screens", "Queues", "Skills", "BU / SG" })
+                {
+                    <li class="nav-item">
+                        <button class="nav-link @(ActiveTab == tab ? "active" : "")"
+                                @onclick="() => ActiveTab = tab">@tab</button>
+                    </li>
+                }
+            </ul>
+
+            @if (ActiveTab == "Menu")
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>Menu item</th><th>Permission key</th><th>Allowed roles</th><th>Access</th></tr></thead>
+                        <tbody>
+                            @foreach (var m in MenuItems)
+                            {
+                                <tr class="@(m.Restricted ? "text-muted" : "")">
+                                    <td>@m.Label</td>
+                                    <td><code class="small">@m.Key</code></td>
+                                    <td class="small">@m.AllowedRoles</td>
+                                    <td>
+                                        <input class="form-check-input" type="checkbox"
+                                               checked="@SelectedMenuKeys.Contains(m.Key)"
+                                               disabled="@m.Restricted"
+                                               @onchange="e => ToggleMenuKey(m.Key, (bool)e.Value!)" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (ActiveTab == "Screens")
+            {
+                <p class="text-muted small">Dashboard access control is configured via dashboard permissions. [PG-01]</p>
+            }
+            else if (ActiveTab == "Queues")
+            {
+                <p class="text-muted small">Allowed queues · pg_queues</p>
+                <p class="text-muted small">Empty list = access denied [PG-03]. Queue assignment UI coming in next iteration.</p>
+            }
+            else if (ActiveTab == "Skills")
+            {
+                <p class="text-muted small">Allowed skills · pg_skills</p>
+                <p class="text-muted small">Empty list = access denied [PG-03]. Skill assignment UI coming in next iteration.</p>
+            }
+            else if (ActiveTab == "BU / SG")
+            {
+                <p class="text-muted small">Business Units and Agent Supergroups assignment coming in next iteration.</p>
+            }
+
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary" @onclick="SaveGroup" disabled="@Saving">
+                    @(Saving ? "Saving..." : "Save changes →")
+                </button>
+                <button class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private record MenuItem(string Label, string Key, string AllowedRoles, bool Restricted = false);
+
+    private static readonly MenuItem[] MenuItems =
+    [
+        new("Dashboards",         "menu.dashboards",        "All"),
+        new("User Management",    "menu.users",             "Superadmin, Administrator"),
+        new("Permission Groups",  "menu.permissionGroups",  "Superadmin, Administrator"),
+        new("Widget Catalogue",   "menu.widgetCatalog",     "Superadmin, Administrator, Editor"),
+        new("Audit Log",          "menu.audit",             "Superadmin, Administrator"),
+        new("Tenant Settings",    "menu.tenantSettings",    "Superadmin, Administrator"),
+        new("Tenant Management",  "menu.tenants",           "Superadmin only", Restricted: true),
+    ];
+
+    private List<PermissionGroupDto> Groups = [];
+    private bool Loading = true;
+    private string? SaveError;
+    private bool SaveSuccess;
+    private bool Saving;
+    private bool ConfirmDel;
+
+    private Guid? SelectedId;
+    private PermissionGroupDto? EditGroup;
+    private bool IsNew;
+
+    private string? EName, EDescription;
+    private bool EIsActive = true;
+    private HashSet<string> SelectedMenuKeys = [];
+    private string ActiveTab = "Menu";
+
+    protected override async Task OnInitializedAsync() => await LoadGroupsAsync();
+
+    private async Task LoadGroupsAsync()
+    {
+        Loading = true;
+        try { Groups = (await Mediator.Send(new GetPermissionGroupsQuery())).ToList(); }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Loading = false; }
+    }
+
+    private void SelectGroup(PermissionGroupDto g)
+    {
+        SelectedId = g.Id; EditGroup = g; IsNew = false;
+        EName = g.Name; EDescription = g.Description; EIsActive = g.IsActive;
+        SelectedMenuKeys = g.MenuPermissions.ToHashSet();
+        ActiveTab = "Menu"; SaveError = null; SaveSuccess = false; ConfirmDel = false;
+    }
+
+    private void NewGroup()
+    {
+        SelectedId = null; EditGroup = null; IsNew = true;
+        EName = ""; EDescription = ""; EIsActive = true;
+        SelectedMenuKeys = ["menu.dashboards"];
+        ActiveTab = "Menu"; SaveError = null; SaveSuccess = false; ConfirmDel = false;
+    }
+
+    private void Cancel()
+    {
+        EditGroup = null; IsNew = false; SelectedId = null; SaveError = null;
+    }
+
+    private void ToggleMenuKey(string key, bool value)
+    {
+        if (value) SelectedMenuKeys.Add(key);
+        else SelectedMenuKeys.Remove(key);
+    }
+
+    private async Task SaveGroup()
+    {
+        if (string.IsNullOrWhiteSpace(EName)) { SaveError = "Name is required."; return; }
+        Saving = true; SaveError = null; SaveSuccess = false;
+        try
+        {
+            if (IsNew)
+            {
+                var result = await Mediator.Send(new CreatePermissionGroupCommand(
+                    new CreatePermissionGroupRequest(EName!.Trim(), EDescription?.Trim(), SelectedMenuKeys.ToList())));
+                if (!result.IsSuccess) { SaveError = result.Error; return; }
+            }
+            else if (EditGroup is not null)
+            {
+                var result = await Mediator.Send(new UpdatePermissionGroupCommand(
+                    new UpdatePermissionGroupRequest(EditGroup.Id, EName!.Trim(), EDescription?.Trim(),
+                        EIsActive, SelectedMenuKeys.ToList(), EditGroup.RowVersion)));
+                if (!result.IsSuccess) { SaveError = result.Error; return; }
+            }
+            await LoadGroupsAsync();
+            IsNew = false; SaveSuccess = true;
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task DeleteGroup()
+    {
+        if (EditGroup is null) return;
+        Saving = true; SaveError = null;
+        try
+        {
+            var result = await Mediator.Send(new DeletePermissionGroupCommand(EditGroup.Id));
+            if (result.IsSuccess) { Cancel(); await LoadGroupsAsync(); }
+            else SaveError = result.Error;
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; ConfirmDel = false; }
+    }
+}

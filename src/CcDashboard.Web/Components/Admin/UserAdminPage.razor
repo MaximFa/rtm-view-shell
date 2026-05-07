@@ -1,7 +1,424 @@
 @page "/admin/users"
+@rendermode InteractiveServer
 @layout MainLayout
 @attribute [Authorize(Roles = "Superadmin,Administrator")]
+@inject IMediator Mediator
+@inject IUserManagementService UserMgmt
+@inject ICurrentUserAccessor CurrentUser
+@using MediatR
+@using CcDashboard.Application.Interfaces
+@using CcDashboard.Application.Queries.Users
+@using CcDashboard.Application.Queries.PermissionGroups
+@using CcDashboard.Contracts.DTOs.Users
+@using CcDashboard.Contracts.DTOs.PermissionGroups
+@using CcDashboard.Domain.Interfaces
+@using Microsoft.AspNetCore.Authorization
 
 <PageTitle>User Management — RTM View Shell</PageTitle>
-<h1 class="h4">User Management</h1>
-<p class="text-muted">User list with server-side pagination coming soon.</p>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">User Management</h1>
+    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New user</button>
+</div>
+
+<!-- Toolbar -->
+<div class="row g-2 mb-3">
+    <div class="col-md-3">
+        <input class="form-control form-control-sm" placeholder="Search name / email..."
+               @bind="Search" @bind:event="oninput" @onkeyup="OnSearchKey" />
+    </div>
+    <div class="col-md-2">
+        <select class="form-select form-select-sm" @bind="RoleFilter" @bind:after="ResetAndLoad">
+            <option value="">All roles</option>
+            @foreach (var r in Roles) { <option value="@r">@r</option> }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select form-select-sm" @bind="PgFilter" @bind:after="ResetAndLoad">
+            <option value="">All groups</option>
+            @foreach (var pg in PermissionGroups)
+            {
+                <option value="@pg.Id">@pg.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select form-select-sm" @bind="ActiveFilter" @bind:after="ResetAndLoad">
+            <option value="">All statuses</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+        </select>
+    </div>
+</div>
+
+@if (Error is not null)
+{
+    <div class="alert alert-danger py-2">@Error</div>
+}
+
+@if (Loading)
+{
+    <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Permission Group</th>
+                    <th>Status</th>
+                    <th>Last Login</th>
+                    <th>2FA</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in Users)
+                {
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
+                                     style="width:32px;height:32px;font-size:0.8rem;">
+                                    @AvatarInitial(u)
+                                </div>
+                                <div>
+                                    <div class="fw-semibold">@FullName(u)</div>
+                                    <div class="text-muted small">@u.Email</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="badge badge-@u.Role.ToLower()">@u.Role</span></td>
+                        <td><span class="text-muted small">@(u.PermissionGroupName ?? "—")</span></td>
+                        <td>
+                            @if (u.IsActive)
+                            {
+                                <span class="badge bg-success">active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">inactive</span>
+                            }
+                        </td>
+                        <td class="text-muted small">@(u.LastLoginAt?.ToLocalTime().ToString("dd MMM yy HH:mm") ?? "—")</td>
+                        <td>@(u.Is2faEnabled ? "✓" : "")</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                    @onclick="() => OpenEdit(u)">Edit</button>
+                        </td>
+                    </tr>
+                }
+                @if (!Users.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-2">
+        <div class="d-flex gap-2 align-items-center">
+            <span class="text-muted small">@TotalCount user(s)</span>
+            <select class="form-select form-select-sm" style="width:auto"
+                    @bind="PageSize" @bind:after="ResetAndLoad">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">&#8249;</button>
+            <span class="align-self-center small">@CurrentPage / @TotalPages</span>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage >= TotalPages)" @onclick="NextPage">&#8250;</button>
+        </div>
+    </div>
+}
+
+<!-- Create Modal -->
+@if (ShowCreate)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">New User</h5>
+                    <button class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null) { <div class="alert alert-danger py-2">@SaveError</div> }
+                    <div class="row g-2 mb-2">
+                        <div class="col"><label class="form-label">First Name</label><input class="form-control form-control-sm" @bind="CFirst" /></div>
+                        <div class="col"><label class="form-label">Last Name</label><input class="form-control form-control-sm" @bind="CLast" /></div>
+                    </div>
+                    <div class="mb-2"><label class="form-label">Email <span class="text-danger">*</span></label><input class="form-control form-control-sm" type="email" @bind="CEmail" /></div>
+                    <div class="mb-2"><label class="form-label">Username <span class="text-danger">*</span></label><input class="form-control form-control-sm" @bind="CUserName" /></div>
+                    <div class="mb-2">
+                        <label class="form-label">Role <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" @bind="CRole" @bind:after="StateHasChanged">
+                            @foreach (var r in AllowedCreateRoles) { <option value="@r">@r</option> }
+                        </select>
+                    </div>
+                    @if (CRole != "Superadmin")
+                    {
+                        <div class="mb-2">
+                            <label class="form-label">Permission Group</label>
+                            <select class="form-select form-select-sm" @bind="CPgId">
+                                <option value="">— none —</option>
+                                @foreach (var pg in PermissionGroups) { <option value="@pg.Id">@pg.Name</option> }
+                            </select>
+                        </div>
+                    }
+                    <div class="form-text">Temporary password will be sent to the specified email [USR-03]</div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveCreate" disabled="@Saving">@(Saving ? "Creating..." : "Create user →")</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Edit Modal -->
+@if (ShowEdit && EditUser is not null)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit User — @FullName(EditUser)</h5>
+                    <button class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null) { <div class="alert alert-danger py-2">@SaveError</div> }
+                    <div class="row g-2 mb-2">
+                        <div class="col"><label class="form-label">First Name</label><input class="form-control form-control-sm" @bind="EFirst" /></div>
+                        <div class="col"><label class="form-label">Last Name</label><input class="form-control form-control-sm" @bind="ELast" /></div>
+                    </div>
+                    <div class="mb-2"><label class="form-label">Email</label><input class="form-control form-control-sm" type="email" @bind="EEmail" /></div>
+                    <div class="mb-2">
+                        <label class="form-label">Role</label>
+                        <select class="form-select form-select-sm" @bind="ERole" @bind:after="StateHasChanged"
+                                disabled="@(EditUser.Id == CurrentUser.UserId)">
+                            @foreach (var r in AllowedCreateRoles) { <option value="@r">@r</option> }
+                        </select>
+                        @if (EditUser.Id == CurrentUser.UserId) { <div class="form-text">You cannot change your own role [USR-08]</div> }
+                    </div>
+                    @if (ERole != "Superadmin")
+                    {
+                        <div class="mb-2">
+                            <label class="form-label">Permission Group</label>
+                            <select class="form-select form-select-sm" @bind="EPgId">
+                                <option value="">— none —</option>
+                                @foreach (var pg in PermissionGroups) { <option value="@pg.Id">@pg.Name</option> }
+                            </select>
+                        </div>
+                    }
+                    <div class="mb-2">
+                        <label class="form-label">Locale</label>
+                        <select class="form-select form-select-sm" @bind="ELocale">
+                            <option value="en-US">English (US)</option>
+                            <option value="ru-RU">Russian</option>
+                            <option value="ar-AE">Arabic (UAE)</option>
+                        </select>
+                    </div>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isActive" @bind="EIsActive" />
+                            <label class="form-check-label" for="isActive">Active</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is2fa" @bind="E2fa" />
+                            <label class="form-check-label" for="is2fa">2FA</label>
+                        </div>
+                    </div>
+                    <div class="text-muted small mt-2">
+                        Last login: @(EditUser.LastLoginAt?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "never")
+                        &nbsp;·&nbsp; Created: @EditUser.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")
+                    </div>
+                    <hr />
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="ResetPassword" disabled="@Saving">Reset password</button>
+                        <button class="btn btn-sm btn-outline-warning" @onclick="ForceLogout" disabled="@Saving">Force logout</button>
+                        <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="() => ConfirmDelete = true" disabled="@ConfirmDelete">Delete user</button>
+                    </div>
+                    @if (ConfirmDelete)
+                    {
+                        <div class="mt-2 text-danger small">
+                            Permanently delete this user?
+                            <button class="btn btn-danger btn-sm ms-2" @onclick="DeleteUser">Yes, delete</button>
+                            <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">Cancel</button>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveEdit" disabled="@Saving">@(Saving ? "Saving..." : "Save →")</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private static readonly string[] Roles = ["Superadmin", "Administrator", "Editor", "Viewer"];
+    private string[] AllowedCreateRoles => CurrentUser.Role == "Superadmin"
+        ? Roles : ["Administrator", "Editor", "Viewer"];
+
+    private List<UserDto> Users = [];
+    private List<PermissionGroupDto> PermissionGroups = [];
+    private bool Loading = true;
+    private string? Error;
+    private string? SaveError;
+    private bool Saving;
+    private int TotalCount;
+    private int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    private int CurrentPage = 1;
+    private int PageSize = 25;
+    private string? Search;
+    private string? RoleFilter;
+    private string? PgFilter;
+    private string? ActiveFilter;
+
+    private bool ShowCreate;
+    private string? CFirst, CLast, CEmail, CUserName;
+    private string CRole = "Editor";
+    private string? CPgId;
+
+    private bool ShowEdit;
+    private UserDto? EditUser;
+    private string? EFirst, ELast, EEmail, ERole, ELocale;
+    private string? EPgId;
+    private bool EIsActive, E2fa;
+    private bool ConfirmDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PermissionGroups = (await Mediator.Send(new GetPermissionGroupsQuery())).ToList();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        Loading = true; Error = null;
+        try
+        {
+            Guid? pgId = Guid.TryParse(PgFilter, out var g) ? g : null;
+            bool? active = ActiveFilter == "true" ? true : ActiveFilter == "false" ? false : null;
+            var result = await Mediator.Send(new GetUsersQuery(
+                new UserListRequest(Search, RoleFilter, pgId, active, CurrentPage, PageSize)));
+            Users = result.Items.ToList();
+            TotalCount = result.TotalCount;
+        }
+        catch (Exception ex) { Error = ex.Message; }
+        finally { Loading = false; }
+    }
+
+    private async Task ResetAndLoad() { CurrentPage = 1; await LoadAsync(); }
+    private async Task PrevPage() { CurrentPage--; await LoadAsync(); }
+    private async Task NextPage() { CurrentPage++; await LoadAsync(); }
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await ResetAndLoad(); }
+
+    private void OpenCreate()
+    {
+        CFirst = CLast = CEmail = CUserName = CPgId = null;
+        CRole = "Editor"; SaveError = null; ShowCreate = true; ShowEdit = false;
+    }
+
+    private void OpenEdit(UserDto u)
+    {
+        EditUser = u; EFirst = u.FirstName; ELast = u.LastName; EEmail = u.Email;
+        ERole = u.Role; ELocale = u.PreferredLocale; EIsActive = u.IsActive; E2fa = u.Is2faEnabled;
+        EPgId = u.PermissionGroupId?.ToString(); ConfirmDelete = false;
+        SaveError = null; ShowEdit = true; ShowCreate = false;
+    }
+
+    private void CloseModals() { ShowCreate = false; ShowEdit = false; SaveError = null; }
+
+    private async Task SaveCreate()
+    {
+        if (string.IsNullOrWhiteSpace(CEmail) || string.IsNullOrWhiteSpace(CUserName))
+        { SaveError = "Email and Username are required."; return; }
+        Saving = true; SaveError = null;
+        try
+        {
+            var pgId = Guid.TryParse(CPgId, out var g) ? g : (Guid?)null;
+            var tenantId = CurrentUser.TenantId!.Value;
+            var (ok, err, _) = await UserMgmt.CreateAsync(tenantId,
+                new CreateUserRequest(CUserName!, CEmail!, CFirst ?? "", CLast ?? "", CRole, pgId));
+            if (ok) { CloseModals(); await LoadAsync(); }
+            else SaveError = err;
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task SaveEdit()
+    {
+        if (EditUser is null) return;
+        Saving = true; SaveError = null;
+        try
+        {
+            var pgId = Guid.TryParse(EPgId, out var g) ? g : (Guid?)null;
+            var roleToSave = EditUser.Id == CurrentUser.UserId ? EditUser.Role : (ERole ?? EditUser.Role);
+            var (ok, err) = await UserMgmt.UpdateAsync(new UpdateUserRequest(
+                EditUser.Id, EFirst ?? "", ELast ?? "", EEmail ?? EditUser.Email,
+                roleToSave, pgId, EIsActive, E2fa, ELocale ?? "en-US"));
+            if (ok) { CloseModals(); await LoadAsync(); }
+            else SaveError = err;
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task ResetPassword()
+    {
+        if (EditUser is null) return;
+        Saving = true; SaveError = null;
+        try
+        {
+            var (ok, err) = await UserMgmt.AdminResetPasswordAsync(EditUser.Id);
+            if (ok) SaveError = "Reset email sent.";
+            else SaveError = err;
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task ForceLogout()
+    {
+        if (EditUser is null) return;
+        Saving = true;
+        try { await UserMgmt.ForceLogoutAsync(EditUser.Id); SaveError = "User logged out."; }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task DeleteUser()
+    {
+        if (EditUser is null) return;
+        Saving = true;
+        try
+        {
+            var (ok, err) = await UserMgmt.DeleteAsync(EditUser.Id);
+            if (ok) { CloseModals(); await LoadAsync(); }
+            else SaveError = err;
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private static string AvatarInitial(UserDto u) =>
+        (!string.IsNullOrEmpty(u.FirstName) ? u.FirstName[0].ToString() :
+         !string.IsNullOrEmpty(u.UserName) ? u.UserName[0].ToString() : "?").ToUpper();
+
+    private static string FullName(UserDto u) =>
+        string.IsNullOrWhiteSpace(u.FirstName + u.LastName) ? u.UserName
+        : $"{u.FirstName} {u.LastName}".Trim();
+}

@@ -9,7 +9,8 @@ public record PermissionGroupDto(
     int UserCount,
     IReadOnlyList<string> MenuPermissions,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    uint RowVersion = 0);
 
 public record CreatePermissionGroupRequest(
     string Name,

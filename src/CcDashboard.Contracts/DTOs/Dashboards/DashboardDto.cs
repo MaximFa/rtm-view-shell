@@ -12,7 +12,8 @@ public record DashboardDto(
     Guid CreatedByUserId,
     string? CreatedByName,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    uint RowVersion = 0);
 
 public record CreateDashboardRequest(
     string Name,

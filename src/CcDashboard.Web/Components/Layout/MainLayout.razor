@@ -1,32 +1,29 @@
 @inherits LayoutComponentBase
 
-<div class="page">
+<div class="shell-layout">
     <nav class="sidebar">
-        <div class="sidebar-header px-3 py-2">
-            <span class="fw-bold">RTM View Shell</span>
-        </div>
+        <div class="sidebar-brand">RTM View Shell</div>
         <NavMenu />
     </nav>
-    <main>
-        <div class="top-row px-4 d-flex justify-content-end align-items-center">
+
+    <div class="main-area">
+        <header class="topbar">
             <AuthorizeView>
                 <Authorized>
-                    <span class="me-3 text-muted small">@context.User.Identity?.Name</span>
-                    <form method="post" action="/logout">
-                        <AntiforgeryToken />
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">Sign Out</button>
-                    </form>
+                    <span class="user-info">@context.User.Identity?.Name</span>
+                    <a href="/logout" class="btn btn-sm btn-outline-secondary">Sign out</a>
                 </Authorized>
             </AuthorizeView>
-        </div>
-        <article class="content px-4">
+        </header>
+
+        <div class="content-area">
             @Body
-        </article>
-    </main>
+        </div>
+    </div>
 </div>
 
 <div id="blazor-error-ui">
     An unhandled error has occurred.
     <a href="" class="reload">Reload</a>
-    <span class="dismiss">✕</span>
+    <span class="dismiss">&#x2715;</span>
 </div>

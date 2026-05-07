@@ -61,8 +61,9 @@ public static class InfrastructureServiceExtensions
         .AddDefaultTokenProviders()
         .AddClaimsPrincipalFactory<CustomClaimsPrincipalFactory>();
 
-        // Auth services
+        // Auth and user management services
         services.AddScoped<IIdentityAuthService, IdentityAuthService>();
+        services.AddScoped<IUserManagementService, UserManagementService>();
 
         // Seeding
         services.AddScoped<DatabaseInitializer>();
