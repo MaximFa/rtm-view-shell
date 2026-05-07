@@ -1,7 +1,10 @@
+using System.Security.Claims;
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Enums;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -14,6 +17,8 @@ public class IdentityAuthService(
     AppDbContext db,
     IAuditService audit,
     IDateTimeProvider clock,
+    ITwoFactorService twoFactorService,
+    IHttpContextAccessor httpContextAccessor,
     ILogger<IdentityAuthService> logger)
     : IIdentityAuthService
 {
@@ -22,7 +27,6 @@ public class IdentityAuthService(
         string ipAddress, string userAgent,
         CancellationToken ct = default)
     {
-        // Resolve user within the tenant (bypass GQF since TenantContext not set yet at login)
         var user = await db.Set<ApplicationUser>()
             .IgnoreQueryFilters()
             .Where(u => u.TenantId == tenantId &&
@@ -38,7 +42,6 @@ public class IdentityAuthService(
             return new IdentitySignInResult(IdentitySignInStatus.InvalidCredentials);
         }
 
-        // Check tenant match
         if (user.TenantId != tenantId)
         {
             await audit.LogAsync("Login.Failure", AuditEventResult.Failure,
@@ -47,7 +50,6 @@ public class IdentityAuthService(
             return new IdentitySignInResult(IdentitySignInStatus.TenantMismatch);
         }
 
-        // Check active
         if (!user.IsActive)
         {
             await audit.LogAsync("Login.Failure", AuditEventResult.Failure,
@@ -56,7 +58,6 @@ public class IdentityAuthService(
             return new IdentitySignInResult(IdentitySignInStatus.AccountInactive);
         }
 
-        // Check tenant status
         var tenant = await db.Tenants.IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
         if (tenant?.Status == TenantStatus.Suspended)
@@ -67,10 +68,9 @@ public class IdentityAuthService(
             return new IdentitySignInResult(IdentitySignInStatus.TenantSuspended);
         }
 
-        // Verify password and handle lockout via Identity
-        var result = await signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
+        var checkResult = await signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
 
-        if (result.IsLockedOut)
+        if (checkResult.IsLockedOut)
         {
             await audit.LogAsync("Login.Failure", AuditEventResult.Failure,
                 tenantId, user.Id, user.UserName, ipAddress, userAgent,
@@ -78,7 +78,7 @@ public class IdentityAuthService(
             return new IdentitySignInResult(IdentitySignInStatus.LockedOut);
         }
 
-        if (!result.Succeeded)
+        if (!checkResult.Succeeded)
         {
             await audit.LogAsync("Login.Failure", AuditEventResult.Failure,
                 tenantId, user.Id, user.UserName, ipAddress, userAgent,
@@ -87,31 +87,86 @@ public class IdentityAuthService(
         }
 
         // 2FA required?
-        if (result.RequiresTwoFactor || user.Is2faEnabled)
+        if (user.Is2faEnabled)
         {
-            await signInManager.SignInAsync(user, isPersistent: false, authenticationMethod: "2fa_pending");
-            return new IdentitySignInResult(IdentitySignInStatus.RequiresTwoFactor,
-                UserId: user.Id, UserName: user.UserName);
+            await StorePendingTwoFactorAsync(user.Id, user.TenantId, user.Email ?? "");
+            var sendResult = await twoFactorService.SendCodeAsync(user.Id, user.TenantId, user.Email ?? "", ct);
+            if (!sendResult.Succeeded)
+                logger.LogWarning("Failed to send 2FA code for userId={UserId}: {Error}", user.Id, sendResult.Error);
+            await audit.LogAsync("2FA.CodeSent", AuditEventResult.Success,
+                tenantId, user.Id, user.UserName, ipAddress, userAgent, null, ct);
+            return new IdentitySignInResult(IdentitySignInStatus.RequiresTwoFactor, UserId: user.Id);
         }
 
-        // Full sign-in
-        await signInManager.SignInAsync(user, isPersistent: false);
+        await CompleteSignInAsync(user, ipAddress, userAgent, ct);
+        bool mustChange = user.MustChangePasswordAt.HasValue && user.MustChangePasswordAt.Value <= clock.UtcNow;
+        return new IdentitySignInResult(IdentitySignInStatus.Success,
+            UserId: user.Id, UserName: user.UserName, RequiresPasswordChange: mustChange);
+    }
 
-        // Update last login
-        user.LastLoginAt = clock.UtcNow;
-        await userManager.UpdateAsync(user);
+    public async Task<IdentitySignInResult> CompleteTwoFactorAsync(string code, CancellationToken ct = default)
+    {
+        var httpContext = httpContextAccessor.HttpContext
+            ?? throw new InvalidOperationException("No HTTP context.");
 
-        bool mustChangePassword = user.MustChangePasswordAt.HasValue &&
-                                   user.MustChangePasswordAt.Value <= clock.UtcNow;
+        var authResult = await httpContext.AuthenticateAsync(IdentityConstants.TwoFactorUserIdScheme);
+        if (!authResult.Succeeded)
+            return new IdentitySignInResult(IdentitySignInStatus.InvalidCredentials);
 
-        await audit.LogAsync("Login.Success", AuditEventResult.Success,
-            tenantId, user.Id, user.UserName, ipAddress, userAgent, null, ct);
+        var userIdStr = authResult.Principal?.FindFirstValue(ClaimTypes.Name);
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return new IdentitySignInResult(IdentitySignInStatus.InvalidCredentials);
 
-        return new IdentitySignInResult(
-            IdentitySignInStatus.Success,
-            UserId: user.Id,
-            UserName: user.UserName,
-            RequiresPasswordChange: mustChangePassword);
+        var verifyResult = await twoFactorService.VerifyCodeAsync(userId, code, ct);
+        if (!verifyResult.Succeeded)
+        {
+            if (verifyResult.MaxAttemptsExceeded)
+                return new IdentitySignInResult(IdentitySignInStatus.LockedOut);
+            return new IdentitySignInResult(IdentitySignInStatus.InvalidCredentials);
+        }
+
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+            return new IdentitySignInResult(IdentitySignInStatus.InvalidCredentials);
+
+        // Clear partial auth cookie
+        await httpContext.SignOutAsync(IdentityConstants.TwoFactorUserIdScheme);
+
+        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var userAgent = httpContext.Request.Headers.UserAgent.ToString();
+        await CompleteSignInAsync(user, ipAddress, userAgent, ct);
+
+        await audit.LogAsync("2FA.Success", AuditEventResult.Success,
+            user.TenantId, user.Id, user.UserName, ipAddress, userAgent, null, ct);
+
+        bool mustChange = user.MustChangePasswordAt.HasValue && user.MustChangePasswordAt.Value <= clock.UtcNow;
+        return new IdentitySignInResult(IdentitySignInStatus.Success,
+            UserId: user.Id, UserName: user.UserName, RequiresPasswordChange: mustChange);
+    }
+
+    public async Task<TwoFactorSendResult> ResendTwoFactorCodeAsync(CancellationToken ct = default)
+    {
+        var httpContext = httpContextAccessor.HttpContext
+            ?? throw new InvalidOperationException("No HTTP context.");
+
+        var authResult = await httpContext.AuthenticateAsync(IdentityConstants.TwoFactorUserIdScheme);
+        if (!authResult.Succeeded)
+            return new TwoFactorSendResult(false, "Session expired. Please sign in again.");
+
+        var userIdStr = authResult.Principal?.FindFirstValue(ClaimTypes.Name);
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return new TwoFactorSendResult(false, "Session expired. Please sign in again.");
+
+        var throttled = await twoFactorService.IsResendThrottledAsync(userId, ct);
+        if (throttled)
+            return new TwoFactorSendResult(false, "Please wait before requesting another code.");
+
+        var email = authResult.Principal?.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
+        var tenantIdStr = authResult.Principal?.FindFirstValue("tenant_id");
+        if (!Guid.TryParse(tenantIdStr, out var tenantId))
+            return new TwoFactorSendResult(false, "Session expired.");
+
+        return await twoFactorService.SendCodeAsync(userId, tenantId, email, ct);
     }
 
     public async Task SignOutAsync(CancellationToken ct = default)
@@ -131,10 +186,30 @@ public class IdentityAuthService(
         if (!result.Succeeded)
             return new ChangePasswordResult(false, string.Join(" ", result.Errors.Select(e => e.Description)));
 
-        // Clear forced change flag
         user.MustChangePasswordAt = null;
         await userManager.UpdateAsync(user);
-
         return new ChangePasswordResult(true);
+    }
+
+    private async Task StorePendingTwoFactorAsync(Guid userId, Guid tenantId, string email)
+    {
+        var httpContext = httpContextAccessor.HttpContext!;
+        var identity = new ClaimsIdentity(IdentityConstants.TwoFactorUserIdScheme);
+        identity.AddClaim(new Claim(ClaimTypes.Name, userId.ToString()));
+        identity.AddClaim(new Claim("tenant_id", tenantId.ToString()));
+        identity.AddClaim(new Claim(ClaimTypes.Email, email));
+        await httpContext.SignInAsync(
+            IdentityConstants.TwoFactorUserIdScheme,
+            new ClaimsPrincipal(identity),
+            new AuthenticationProperties { IsPersistent = false });
+    }
+
+    private async Task CompleteSignInAsync(ApplicationUser user, string ipAddress, string userAgent, CancellationToken ct)
+    {
+        await signInManager.SignInAsync(user, isPersistent: false);
+        user.LastLoginAt = clock.UtcNow;
+        await userManager.UpdateAsync(user);
+        await audit.LogAsync("Login.Success", AuditEventResult.Success,
+            user.TenantId, user.Id, user.UserName, ipAddress, userAgent, null, ct);
     }
 }

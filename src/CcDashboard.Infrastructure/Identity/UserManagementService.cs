@@ -1,7 +1,9 @@
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Contracts.DTOs.Users;
 using CcDashboard.Domain.Interfaces;
+using CcDashboard.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using UUIDNext;
@@ -10,7 +12,8 @@ namespace CcDashboard.Infrastructure.Identity;
 
 public class UserManagementService(
     UserManager<ApplicationUser> userManager,
-    IEmailSender email,
+    AppDbContext db,
+    IEmailSender emailSender,
     IDateTimeProvider clock,
     ILogger<UserManagementService> logger)
     : IUserManagementService
@@ -48,7 +51,7 @@ public class UserManagementService(
         // [USR-03] Send temporary password by email
         try
         {
-            await email.SendAsync(req.Email,
+            await emailSender.SendAsync(req.Email,
                 "Your RTM View Shell account has been created",
                 $"Hello {req.FirstName},\n\nYour account has been created.\nUsername: {req.UserName}\nTemporary password: {tempPassword}\n\nYou will be required to change your password on first login.",
                 ct);
@@ -112,7 +115,7 @@ public class UserManagementService(
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         try
         {
-            await email.SendAsync(user.Email!,
+            await emailSender.SendAsync(user.Email!,
                 "Password Reset — RTM View Shell",
                 $"Hello {user.FirstName},\n\nA password reset was requested for your account. Use token: {token}\n\nThis token expires in 24 hours.",
                 ct);
@@ -140,6 +143,52 @@ public class UserManagementService(
 
         var result = await userManager.DeleteAsync(user);
         return (result.Succeeded, result.Succeeded ? null : string.Join(" ", result.Errors.Select(e => e.Description)));
+    }
+
+    public async Task RequestPasswordResetAsync(Guid tenantId, string email, string resetBaseUrl, CancellationToken ct = default)
+    {
+        // Always show uniform response — look up silently [BFP-03]
+        var user = await db.Set<ApplicationUser>()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.TenantId == tenantId &&
+                                      u.NormalizedEmail == email.ToUpperInvariant(), ct);
+        if (user == null) return;
+
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var encodedToken = Uri.EscapeDataString(token);
+        var encodedEmail = Uri.EscapeDataString(email);
+        var link = $"{resetBaseUrl}?email={encodedEmail}&token={encodedToken}";
+
+        try
+        {
+            await emailSender.SendAsync(user.Email!,
+                "Password Reset — RTM View Shell",
+                $"Hello {user.FirstName},\n\nClick the link below to reset your password (valid 24 hours):\n{link}",
+                ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send password reset email to {Email}", email);
+        }
+    }
+
+    public async Task<ChangePasswordResult> ResetPasswordWithTokenAsync(
+        Guid tenantId, string email, string token, string newPassword, CancellationToken ct = default)
+    {
+        var user = await db.Set<ApplicationUser>()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.TenantId == tenantId &&
+                                      u.NormalizedEmail == email.ToUpperInvariant(), ct);
+        if (user == null)
+            return new ChangePasswordResult(false, "Invalid request.");
+
+        var result = await userManager.ResetPasswordAsync(user, token, newPassword);
+        if (!result.Succeeded)
+            return new ChangePasswordResult(false, string.Join(" ", result.Errors.Select(e => e.Description)));
+
+        user.MustChangePasswordAt = null;
+        await userManager.UpdateAsync(user);
+        return new ChangePasswordResult(true);
     }
 
     private static string GenerateTempPassword()

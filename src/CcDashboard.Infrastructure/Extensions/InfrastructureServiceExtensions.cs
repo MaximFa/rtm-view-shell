@@ -6,6 +6,7 @@ using CcDashboard.Infrastructure.Email;
 using CcDashboard.Infrastructure.Identity;
 using CcDashboard.Infrastructure.Persistence;
 using CcDashboard.Infrastructure.Persistence.Repositories;
+using CcDashboard.Infrastructure.Security;
 using CcDashboard.Infrastructure.Seeding;
 using CcDashboard.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
@@ -61,9 +62,20 @@ public static class InfrastructureServiceExtensions
         .AddDefaultTokenProviders()
         .AddClaimsPrincipalFactory<CustomClaimsPrincipalFactory>();
 
+        // [PWD-03] PBKDF2 with increased iterations
+        services.Configure<PasswordHasherOptions>(opts =>
+        {
+            opts.IterationCount = 100_000;
+        });
+
         // Auth and user management services
         services.AddScoped<IIdentityAuthService, IdentityAuthService>();
         services.AddScoped<IUserManagementService, UserManagementService>();
+        services.AddScoped<ITwoFactorService, TwoFactorService>();
+        services.AddScoped<ITokenService, TokenService>();
+
+        // Required for IHttpContextAccessor in IdentityAuthService
+        services.AddHttpContextAccessor();
 
         // Seeding
         services.AddScoped<DatabaseInitializer>();

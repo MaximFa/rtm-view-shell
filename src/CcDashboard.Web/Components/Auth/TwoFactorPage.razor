@@ -1,44 +1,48 @@
-@page "/two-factor"
-@layout AuthLayout
+@page "/login/2fa"
+@using CcDashboard.Application.Interfaces
+@inject IIdentityAuthService AuthService
 @inject NavigationManager Nav
 
-<PageTitle>2FA Verification — RTM View Shell</PageTitle>
+<PageTitle>Two-Factor Verification — RTM View Shell</PageTitle>
 
-<div class="card shadow-sm">
-    <div class="card-body p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="h5 mb-0">Two-step verification</h2>
-            <span class="badge bg-primary">2FA · step 2 of 2</span>
-        </div>
-
-        @if (ErrorMessage is not null)
-        {
-            <div class="alert alert-danger py-2">@ErrorMessage</div>
-        }
-
-        <p class="text-muted small">
-            A 6-digit code was sent to your email address.
-            Valid 10 minutes · 3 attempts · HMAC-SHA256 + salt [2FA-02..03]
-        </p>
-
-        <form method="post" @formname="twofactor">
-            <AntiforgeryToken />
-            <input type="hidden" name="Model.UserId" value="@UserId" />
-            <div class="mb-3">
-                <label for="code" class="form-label">Verification code</label>
-                <input id="code" name="Model.Code" type="text" class="form-control text-center"
-                       maxlength="6" pattern="[0-9]{6}" placeholder="000000"
-                       inputmode="numeric" autocomplete="one-time-code" required />
+<div class="d-flex justify-content-center align-items-center" style="min-height:100vh;background:#f0f2f5">
+    <div class="card shadow-sm" style="width:420px">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <span class="badge bg-primary mb-2">2FA &middot; step 2 of 2</span>
+                <h5 class="fw-bold mb-1">Verification required</h5>
+                <p class="text-muted small mb-0">Enter the 6-digit code sent to your email.</p>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Confirm →</button>
-        </form>
 
-        <div class="mt-2 text-center">
-            <a href="/two-factor/resend?userId=@UserId" class="small text-muted">Resend code</a>
+            @if (ErrorMessage is not null)
+            {
+                <div class="alert alert-danger py-2 small">@ErrorMessage</div>
+            }
+            @if (ResendSuccess)
+            {
+                <div class="alert alert-success py-2 small">A new code has been sent.</div>
+            }
+
+            <form method="post" @formname="twofactor">
+                <AntiforgeryToken />
+                <div class="mb-3">
+                    <label class="form-label">Verification code</label>
+                    <input name="Model.Code" type="text" class="form-control form-control-lg text-center fw-bold"
+                           maxlength="6" pattern="[0-9]{6}" placeholder="000000"
+                           inputmode="numeric" autocomplete="one-time-code" required />
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mb-3">Confirm -></button>
+            </form>
+
+            <form method="post" @formname="twofactor_resend">
+                <AntiforgeryToken />
+                <div class="text-center">
+                    <button type="submit" class="btn btn-link btn-sm p-0 text-muted">Resend code</button>
+                </div>
+            </form>
         </div>
-
-        <div class="mt-3 text-muted" style="font-size:0.7rem;">
-            5 failed login attempts → 15 min lockout [BFP-01] · 3 OTP attempts → cancellation [2FA-04]
+        <div class="card-footer text-muted small text-center py-2">
+            Valid 10 min &middot; 3 attempts &middot; HMAC-SHA256 + salt [2FA-02..03]
         </div>
     </div>
 </div>
@@ -46,24 +50,48 @@
 @code {
     [CascadingParameter] public HttpContext? HttpContext { get; set; }
 
-    [SupplyParameterFromQuery]
-    public Guid? UserId { get; set; }
-
     [SupplyParameterFromForm(FormName = "twofactor")]
     public TwoFactorFormModel? Model { get; set; }
 
-    private string? ErrorMessage { get; set; }
+    [SupplyParameterFromForm(FormName = "twofactor_resend")]
+    public ResendFormModel? ResendModel { get; set; }
+
+    private string? ErrorMessage;
+    private bool ResendSuccess;
 
     protected override async Task OnInitializedAsync()
     {
-        if (HttpContext is null || Model?.Code is null) return;
+        if (HttpContext is null) return;
+
+        if (ResendModel is not null)
+        {
+            var result = await AuthService.ResendTwoFactorCodeAsync();
+            if (result.Succeeded)
+                ResendSuccess = true;
+            else
+                ErrorMessage = "Please wait before requesting another code.";
+            return;
+        }
+
+        if (Model?.Code is null) return;
 
         try
         {
-            // TODO: verify code via TwoFactorService and sign in
-            ErrorMessage = "2FA verification not yet fully wired.";
+            var result = await AuthService.CompleteTwoFactorAsync(Model.Code);
+            switch (result.Status)
+            {
+                case IdentitySignInStatus.Success:
+                    HttpContext.Response.Redirect(result.RequiresPasswordChange ? "/change-password" : "/screens");
+                    return;
+                case IdentitySignInStatus.LockedOut:
+                    ErrorMessage = "Too many attempts. Please request a new code.";
+                    break;
+                default:
+                    ErrorMessage = "Invalid username or password.";
+                    break;
+            }
         }
-        catch (Exception ex) when (ex is not Microsoft.AspNetCore.Components.NavigationException)
+        catch (Exception ex) when (ex is not NavigationException)
         {
             ErrorMessage = "Verification failed. Please try again.";
         }
@@ -71,7 +99,8 @@
 
     public class TwoFactorFormModel
     {
-        public Guid UserId { get; set; }
         public string Code { get; set; } = string.Empty;
     }
+
+    public class ResendFormModel { }
 }
