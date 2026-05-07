@@ -15,7 +15,8 @@ public record UpdatePermissionGroupCommand(UpdatePermissionGroupRequest Request)
 public class UpdatePermissionGroupCommandHandler(
     IPermissionGroupRepository repo,
     ICurrentUserAccessor currentUser,
-    IDateTimeProvider clock)
+    IDateTimeProvider clock,
+    ICacheService cache)
     : IRequestHandler<UpdatePermissionGroupCommand, Result>
 {
     public async Task<Result> Handle(UpdatePermissionGroupCommand cmd, CancellationToken ct)
@@ -41,6 +42,10 @@ public class UpdatePermissionGroupCommandHandler(
             });
 
         repo.Update(group);
+
+        // [PG-07] Invalidate cached permissions so active sessions re-fetch on next interaction
+        await cache.RemoveAsync($"{group.TenantId}:pg_permissions:{group.Id}", ct);
+
         return Result.Success();
     }
 }

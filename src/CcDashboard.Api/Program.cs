@@ -1,3 +1,4 @@
+using CcDashboard.Api.Middleware;
 using CcDashboard.Application.Extensions;
 using CcDashboard.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -27,7 +28,7 @@ try
     services.AddApplication();
 
     var jwtSection = config.GetSection("Jwt");
-    var secret = jwtSection["Secret"] ?? throw new InvalidOperationException("Jwt:Secret not configured");
+    var secret = jwtSection["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey not configured");
     var issuer = jwtSection["Issuer"] ?? "CcDashboard";
     var audience = jwtSection["Audience"] ?? "CcDashboard";
 
@@ -98,6 +99,7 @@ try
     }
 
     app.UseAuthentication();
+    app.UseMiddleware<JtiRevocationMiddleware>();
     app.UseAuthorization();
 
     app.MapHealthChecks("/health");

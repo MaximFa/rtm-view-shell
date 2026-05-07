@@ -30,6 +30,11 @@ try
     services.AddInfrastructure(config);
     services.AddApplication();
 
+    // [SCALE-01] SignalR Redis backplane — required for multi-instance deployments
+    var redisConn = config.GetConnectionString("Redis") ?? "localhost:6379";
+    services.AddSignalR().AddStackExchangeRedis(redisConn, opts =>
+        opts.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("CcDashboard"));
+
     services.AddRazorComponents()
         .AddInteractiveServerComponents();
 
@@ -51,7 +56,17 @@ try
 
     services.AddAuthorization();
     services.AddHttpContextAccessor();
-    services.AddLocalization();
+
+    // [I18N-01..03] Localization — add new language = new .resx file, no code change
+    services.AddLocalization(opts => opts.ResourcesPath = "Resources");
+    services.Configure<RequestLocalizationOptions>(opts =>
+    {
+        var supported = new[] { "en-US", "ru-RU", "ar-AE" };
+        opts.SetDefaultCulture("en-US")
+            .AddSupportedCultures(supported)
+            .AddSupportedUICultures(supported);
+        opts.ApplyCurrentCultureToResponseHeaders = true;
+    });
 
     services.AddRateLimiter(opts =>
     {
@@ -82,6 +97,7 @@ try
 
     if (!isDev) app.UseHttpsRedirection();
 
+    app.UseRequestLocalization();
     app.UseStaticFiles();
     app.UseRouting();
     app.UseRateLimiter();

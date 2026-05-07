@@ -5,6 +5,7 @@
 @inject IMediator Mediator
 @inject IUserManagementService UserMgmt
 @inject ICurrentUserAccessor CurrentUser
+@inject NavigationManager Nav
 @using MediatR
 @using CcDashboard.Application.Interfaces
 @using CcDashboard.Application.Queries.Users
@@ -383,7 +384,8 @@ else
         Saving = true; SaveError = null;
         try
         {
-            var (ok, err) = await UserMgmt.AdminResetPasswordAsync(EditUser.Id);
+            var resetUrl = Nav.BaseUri + "reset-password";
+            var (ok, err) = await UserMgmt.AdminResetPasswordAsync(EditUser.Id, resetUrl);
             if (ok) SaveError = "Reset email sent.";
             else SaveError = err;
         }

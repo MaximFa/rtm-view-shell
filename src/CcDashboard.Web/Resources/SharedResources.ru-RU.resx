@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- Auth -->
+  <data name="Login_Title"><value>Вход</value></data>
+  <data name="Login_Username"><value>Имя пользователя или Email</value></data>
+  <data name="Login_Password"><value>Пароль</value></data>
+  <data name="Login_SignIn"><value>Войти</value></data>
+  <data name="Login_ForgotPassword"><value>Забыли пароль?</value></data>
+  <data name="Login_SsoButton"><value>Войти через SSO</value></data>
+  <data name="Login_InvalidCredentials"><value>Неверный логин или пароль.</value></data>
+
+  <!-- 2FA -->
+  <data name="TwoFactor_Title"><value>Двухфакторная аутентификация</value></data>
+  <data name="TwoFactor_Instruction"><value>Введите 6-значный код, отправленный на ваш email.</value></data>
+  <data name="TwoFactor_Confirm"><value>Подтвердить</value></data>
+  <data name="TwoFactor_Resend"><value>Отправить повторно</value></data>
+  <data name="TwoFactor_InvalidCode"><value>Неверный или истёкший код.</value></data>
+
+  <!-- Password -->
+  <data name="Password_ChangeTitle"><value>Требуется смена пароля</value></data>
+  <data name="Password_Current"><value>Текущий пароль</value></data>
+  <data name="Password_New"><value>Новый пароль</value></data>
+  <data name="Password_Confirm"><value>Подтвердите новый пароль</value></data>
+  <data name="Password_Save"><value>Сохранить</value></data>
+  <data name="Password_Rule_MinLength"><value>Минимум 12 символов</value></data>
+  <data name="Password_Rule_Uppercase"><value>Заглавная буква (A-Z)</value></data>
+  <data name="Password_Rule_Lowercase"><value>Строчная буква (a-z)</value></data>
+  <data name="Password_Rule_Digit"><value>Цифра (0-9)</value></data>
+  <data name="Password_Rule_Special"><value>Специальный символ (!@#$...)</value></data>
+  <data name="Password_Rule_History"><value>Не должен совпадать с последними 10 паролями</value></data>
+
+  <!-- Forgot/Reset Password -->
+  <data name="ForgotPassword_Title"><value>Сброс пароля</value></data>
+  <data name="ForgotPassword_Email"><value>Email адрес</value></data>
+  <data name="ForgotPassword_Send"><value>Отправить ссылку</value></data>
+  <data name="ForgotPassword_Sent"><value>Если аккаунт с таким email существует, ссылка для сброса отправлена.</value></data>
+
+  <!-- Common UI -->
+  <data name="Common_Save"><value>Сохранить</value></data>
+  <data name="Common_Cancel"><value>Отмена</value></data>
+  <data name="Common_Delete"><value>Удалить</value></data>
+  <data name="Common_Create"><value>Создать</value></data>
+  <data name="Common_Edit"><value>Редактировать</value></data>
+  <data name="Common_Search"><value>Поиск</value></data>
+  <data name="Common_Loading"><value>Загрузка...</value></data>
+  <data name="Common_Active"><value>Активен</value></data>
+  <data name="Common_Inactive"><value>Неактивен</value></data>
+  <data name="Common_Yes"><value>Да</value></data>
+  <data name="Common_No"><value>Нет</value></data>
+
+  <!-- Navigation -->
+  <data name="Nav_Screens"><value>Экраны</value></data>
+  <data name="Nav_WidgetCatalogue"><value>Каталог виджетов</value></data>
+  <data name="Nav_Users"><value>Пользователи</value></data>
+  <data name="Nav_PermissionGroups"><value>Группы доступа</value></data>
+  <data name="Nav_TenantSettings"><value>Настройки тенанта</value></data>
+  <data name="Nav_Audit"><value>Журнал аудита</value></data>
+  <data name="Nav_Tenants"><value>Тенанты</value></data>
+
+  <!-- Users -->
+  <data name="Users_Title"><value>Управление пользователями</value></data>
+  <data name="Users_NewUser"><value>Новый пользователь</value></data>
+  <data name="Users_ForceLogout"><value>Принудительный выход</value></data>
+  <data name="Users_ResetPassword"><value>Сбросить пароль</value></data>
+
+  <!-- Dashboards -->
+  <data name="Screens_Title"><value>Экраны</value></data>
+  <data name="Screens_New"><value>+ Новый экран</value></data>
+  <data name="Screens_Name"><value>Название</value></data>
+  <data name="Screens_Description"><value>Описание</value></data>
+
+  <!-- Permission Groups -->
+  <data name="PG_Title"><value>Группы доступа</value></data>
+  <data name="PG_NewGroup"><value>Новая группа</value></data>
+  <data name="PG_DeleteBlocked"><value>Нельзя удалить группу с привязанными пользователями.</value></data>
+
+  <!-- Errors -->
+  <data name="Error_NotFound"><value>Запрошенный ресурс не найден.</value></data>
+  <data name="Error_Forbidden"><value>У вас нет прав для выполнения этого действия.</value></data>
+  <data name="Error_Concurrency"><value>Запись была изменена другим пользователем. Обновите страницу и повторите попытку.</value></data>
+  <data name="Error_Generic"><value>Произошла непредвиденная ошибка. Попробуйте ещё раз.</value></data>
+</root>

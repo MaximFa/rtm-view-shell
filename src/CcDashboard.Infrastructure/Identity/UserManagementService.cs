@@ -106,18 +106,19 @@ public class UserManagementService(
         return (result.Succeeded, result.Succeeded ? null : string.Join(" ", result.Errors.Select(e => e.Description)));
     }
 
-    public async Task<(bool Succeeded, string? Error)> AdminResetPasswordAsync(Guid userId, CancellationToken ct = default)
+    public async Task<(bool Succeeded, string? Error)> AdminResetPasswordAsync(Guid userId, string resetBaseUrl, CancellationToken ct = default)
     {
         var user = await userManager.FindByIdAsync(userId.ToString());
         if (user == null) return (false, "User not found.");
 
-        // [USR-11] generate reset token and send email
+        // [USR-11] generate reset token, build clickable link, send email
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var link = $"{resetBaseUrl.TrimEnd('/')}?email={Uri.EscapeDataString(user.Email!)}&token={Uri.EscapeDataString(token)}";
         try
         {
             await emailSender.SendAsync(user.Email!,
                 "Password Reset — RTM View Shell",
-                $"Hello {user.FirstName},\n\nA password reset was requested for your account. Use token: {token}\n\nThis token expires in 24 hours.",
+                $"Hello {user.FirstName},\n\nA password reset was requested for your account by an administrator.\n\nClick the link below to set a new password (valid for 24 hours):\n{link}",
                 ct);
         }
         catch (Exception ex)
