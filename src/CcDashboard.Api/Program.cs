@@ -1,44 +1,114 @@
-var builder = WebApplication.CreateBuilder(args);
+using CcDashboard.Application.Extensions;
+using CcDashboard.Infrastructure.Extensions;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Serilog;
+using Serilog.Events;
+using System.Text;
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+try
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var builder = WebApplication.CreateBuilder(args);
+
+    builder.Host.UseSerilog((ctx, cfg) =>
+        cfg.ReadFrom.Configuration(ctx.Configuration).Enrich.FromLogContext());
+
+    var services = builder.Services;
+    var config = builder.Configuration;
+
+    services.AddInfrastructure(config);
+    services.AddApplication();
+
+    var jwtSection = config.GetSection("Jwt");
+    var secret = jwtSection["Secret"] ?? throw new InvalidOperationException("Jwt:Secret not configured");
+    var issuer = jwtSection["Issuer"] ?? "CcDashboard";
+    var audience = jwtSection["Audience"] ?? "CcDashboard";
+
+    services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(opts =>
+        {
+            opts.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = issuer,
+                ValidAudience = audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+                ClockSkew = TimeSpan.Zero
+            };
+        });
+
+    services.AddAuthorization();
+
+    services.AddEndpointsApiExplorer();
+    services.AddSwaggerGen(opts =>
+    {
+        opts.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "RTM View Shell API",
+            Version = "v1",
+            Description = "REST API for RTM View Shell — auth, dashboards, permissions"
+        });
+
+        opts.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "Enter the JWT access token obtained from /api/auth/login"
+        });
+
+        opts.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                },
+                Array.Empty<string>()
+            }
+        });
+    });
+
+    services.AddHealthChecks()
+        .AddNpgSql(config.GetConnectionString("Default")!)
+        .AddRedis(config.GetConnectionString("Redis") ?? "localhost:6379");
+
+    var app = builder.Build();
+
+    app.UseSerilogRequestLogging();
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "RTM View Shell API v1"));
+    }
+    else
+    {
+        app.UseHttpsRedirection();
+    }
+
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.MapHealthChecks("/health");
+
+    app.Run();
 }
-
-app.UseHttpsRedirection();
-
-var summaries = new[]
+catch (Exception ex) when (ex is not HostAbortedException)
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
+    Log.Fatal(ex, "API terminated unexpectedly");
+}
+finally
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
-
-app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    Log.CloseAndFlush();
 }

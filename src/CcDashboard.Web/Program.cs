@@ -1,5 +1,6 @@
 using CcDashboard.Application.Extensions;
 using Microsoft.AspNetCore.RateLimiting;
+using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Extensions;
 using CcDashboard.Web.Components;
 using CcDashboard.Web.Middleware;
@@ -64,7 +65,7 @@ try
         .AddNpgSql(config.GetConnectionString("Default")!)
         .AddRedis(config.GetConnectionString("Redis") ?? "localhost:6379");
 
-    services.AddScoped<CurrentUserAccessor>();
+    services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
 
     var app = builder.Build();
 

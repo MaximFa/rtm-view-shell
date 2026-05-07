@@ -134,6 +134,8 @@ public class AppDbContext(
             e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.PositionJson).HasColumnType("jsonb");
             e.Property(x => x.ConfigJson).HasColumnType("jsonb");
+            // Match the parent Dashboard GQF so widgets are never orphaned by the soft-delete filter
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId && !x.IsDeleted);
         });
 
         // Widget catalog (cross-tenant)
@@ -146,17 +148,17 @@ public class AppDbContext(
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
         });
 
-        // Reference tables
+        // Reference tables (tenant-scoped resource catalogue synced from CC platform)
         ConfigureReferenceTable<Queue>(mb, "queues");
         ConfigureReferenceTable<Skill>(mb, "skills");
         ConfigureReferenceTable<AgentSupergroup>(mb, "agent_supergroups");
         ConfigureReferenceTable<BusinessUnit>(mb, "business_units");
 
-        // PG resource tables
-        ConfigurePgTable<PgQueue>(mb, "pg_queues");
-        ConfigurePgTable<PgSkill>(mb, "pg_skills");
-        ConfigurePgTable<PgAgentSupergroup>(mb, "pg_agent_supergroups");
-        ConfigurePgTable<PgBusinessUnit>(mb, "pg_business_units");
+        // PG resource join tables (composite PK: PermissionGroupId + ObjectId)
+        mb.Entity<PgQueue>(e => { e.ToTable("pg_queues"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
+        mb.Entity<PgSkill>(e => { e.ToTable("pg_skills"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
+        mb.Entity<PgAgentSupergroup>(e => { e.ToTable("pg_agent_supergroups"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
+        mb.Entity<PgBusinessUnit>(e => { e.ToTable("pg_business_units"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
 
         // Identity auth tables
         mb.Entity<RefreshToken>(e =>
@@ -187,19 +189,17 @@ public class AppDbContext(
         });
     }
 
-    private static void ConfigureReferenceTable<T>(ModelBuilder mb, string table) where T : class
+    private void ConfigureReferenceTable<T>(ModelBuilder mb, string table)
+        where T : class, new()
     {
         mb.Entity<T>(e =>
         {
             e.ToTable(table);
-        });
-    }
-
-    private static void ConfigurePgTable<T>(ModelBuilder mb, string table) where T : class
-    {
-        mb.Entity<T>(e =>
-        {
-            e.ToTable(table);
+            e.Property<Guid>("Id").ValueGeneratedNever();
+            e.HasKey("Id");
+            e.Property<string>("ExternalId").HasMaxLength(100).IsRequired();
+            e.Property<string>("Name").HasMaxLength(200).IsRequired();
+            e.HasQueryFilter(x => EF.Property<Guid>(x, "TenantId") == tenantContext.TenantId);
         });
     }
 }

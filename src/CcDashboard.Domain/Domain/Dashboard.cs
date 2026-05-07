@@ -29,7 +29,9 @@ public class DashboardWidget
 {
     public Guid Id { get; set; }
     public Guid DashboardId { get; set; }
+    public Guid TenantId { get; set; }
     public Guid WidgetCatalogItemId { get; set; }
+    public bool IsDeleted { get; set; }
     public string? PositionJson { get; set; }
     public string? ConfigJson { get; set; }
     public Dashboard? Dashboard { get; set; }
