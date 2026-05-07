@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using UUIDNext;
 
 namespace CcDashboard.Infrastructure.Identity;
 
@@ -182,12 +183,44 @@ public class IdentityAuthService(
         if (user == null)
             return new ChangePasswordResult(false, "User not found.");
 
+        // [PWD-04] Check last 10 password hashes
+        var history = await db.UserPasswordHistories
+            .IgnoreQueryFilters()
+            .Where(h => h.UserId == userId)
+            .OrderByDescending(h => h.CreatedAt)
+            .Take(10)
+            .ToListAsync(ct);
+
+        foreach (var h in history)
+        {
+            var check = userManager.PasswordHasher.VerifyHashedPassword(user, h.PasswordHash, newPassword);
+            if (check != PasswordVerificationResult.Failed)
+                return new ChangePasswordResult(false, "Password has been used recently. Please choose a different password.");
+        }
+
+        var oldHash = user.PasswordHash ?? string.Empty;
         var result = await userManager.ChangePasswordAsync(user, currentPassword, newPassword);
         if (!result.Succeeded)
             return new ChangePasswordResult(false, string.Join(" ", result.Errors.Select(e => e.Description)));
 
+        // Store old hash in history
+        db.UserPasswordHistories.Add(new UserPasswordHistory
+        {
+            Id = Uuid.NewSequential(),
+            UserId = userId,
+            TenantId = user.TenantId,
+            PasswordHash = oldHash,
+            CreatedAt = clock.UtcNow
+        });
+
+        // Prune excess entries beyond 10
+        var excess = history.Skip(9).ToList();
+        if (excess.Count > 0)
+            db.UserPasswordHistories.RemoveRange(excess);
+
         user.MustChangePasswordAt = null;
         await userManager.UpdateAsync(user);
+        await db.SaveChangesAsync(ct);
         return new ChangePasswordResult(true);
     }
 
