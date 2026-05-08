@@ -18,15 +18,15 @@
         <li class="nav-item">
             <NavLink href="/admin/audit" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_AuditLog"]</NavLink>
         </li>
-        <li class="nav-item">
-            <NavLink href="/admin/tenant-settings" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_TenantSettings"]</NavLink>
-        </li>
     </AuthorizeView>
 
     <AuthorizeView Roles="Superadmin">
         <li class="nav-section-label text-uppercase text-muted small px-2 pb-1 pt-3">@L["Nav_Platform"]</li>
         <li class="nav-item">
             <NavLink href="/platform/tenants" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Tenants"]</NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="/admin/configuration/metrics" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Metrics"]</NavLink>
         </li>
     </AuthorizeView>
 </ul>
