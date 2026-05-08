@@ -2,6 +2,7 @@ namespace CcDashboard.Domain.Interfaces;
 
 public interface ICurrentUserAccessor
 {
+    Task InitAsync();
     Guid? UserId { get; }
     string? UserName { get; }
     string? Role { get; }

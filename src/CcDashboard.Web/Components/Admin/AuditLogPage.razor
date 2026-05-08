@@ -3,22 +3,52 @@
 @layout MainLayout
 @attribute [Authorize(Roles = "Superadmin,Administrator")]
 @inject IMediator Mediator
+@inject ICurrentUserAccessor CurrentUser
 @using MediatR
 @using CcDashboard.Application.Queries.Audit
+@using System.Collections.Generic
+@using CcDashboard.Application.Queries.Tenants
 @using CcDashboard.Contracts.DTOs.Audit
+@using CcDashboard.Contracts.DTOs.Tenants
 @using CcDashboard.Contracts.Common
+@using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
+@using System.Text.Json
 
 <PageTitle>@L["Audit_Title"] — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">@L["Audit_Title"]</h1>
+    <AuthorizeView Roles="Superadmin">
+        @if (Tenants.Count > 0)
+        {
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-label mb-0 small text-muted">@L["PG_Tenant"]</label>
+                <select class="form-select form-select-sm" style="width:auto"
+                        value="@SelectedTenantId"
+                        @onchange="OnTenantChanged">
+                    <option value="">@L["Audit_AllTenants"]</option>
+                    @foreach (var t in Tenants)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+            </div>
+        }
+    </AuthorizeView>
 </div>
+
+@if (Error is not null)
+{
+    <div class="alert alert-danger py-2 alert-dismissible">
+        @Error <button class="btn-close btn-sm" @onclick="() => Error = null"></button>
+    </div>
+}
 
 <!-- Filters -->
 <div class="row g-2 mb-3">
     <div class="col-md-3">
-        <select class="form-select form-select-sm" @bind="EventTypeFilter" @bind:after="LoadAsync">
+        <select class="form-select form-select-sm" @bind="EventTypeFilter" @bind:after="ResetAndLoad">
             <option value="">@L["Audit_AllTypes"]</option>
             @foreach (var t in EventTypes)
             {
@@ -27,7 +57,7 @@
         </select>
     </div>
     <div class="col-md-2">
-        <select class="form-select form-select-sm" @bind="ResultFilter" @bind:after="LoadAsync">
+        <select class="form-select form-select-sm" @bind="ResultFilter" @bind:after="ResetAndLoad">
             <option value="">@L["Audit_AllResults"]</option>
             <option value="Success">@L["Audit_Success"]</option>
             <option value="Failure">@L["Audit_Failure"]</option>
@@ -35,17 +65,10 @@
         </select>
     </div>
     <div class="col-md-2">
-        <input type="date" class="form-control form-control-sm" @bind="FromDate" @bind:after="LoadAsync" />
+        <input type="date" class="form-control form-control-sm" @bind="FromDate" @bind:after="ResetAndLoad" />
     </div>
     <div class="col-md-2">
-        <input type="date" class="form-control form-control-sm" @bind="ToDate" @bind:after="LoadAsync" />
-    </div>
-    <div class="col-md-2">
-        <select class="form-select form-select-sm" @bind="PageSize" @bind:after="LoadAsync">
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-        </select>
+        <input type="date" class="form-control form-control-sm" @bind="ToDate" @bind:after="ResetAndLoad" />
     </div>
 </div>
 
@@ -67,6 +90,10 @@ else
                     <th>@L["Audit_ColEvent"]</th>
                     <th>@L["Audit_ColResult"]</th>
                     <th>@L["Audit_ColUser"]</th>
+                    <AuthorizeView Roles="Superadmin">
+                        <th>@L["Audit_ColTenant"]</th>
+                    </AuthorizeView>
+                    <th>@L["Audit_ColDetails"]</th>
                     <th>@L["Audit_ColIp"]</th>
                 </tr>
             </thead>
@@ -78,6 +105,10 @@ else
                         <td class="small fw-semibold">@log.EventType</td>
                         <td>@ResultBadge(log.EventResult)</td>
                         <td class="small">@(log.UserName ?? "-")</td>
+                        <AuthorizeView Roles="Superadmin">
+                            <td class="small text-muted">@TenantName(log.TenantId)</td>
+                        </AuthorizeView>
+                        <td class="small text-muted" title="@log.Details">@FormatDetails(log.Details)</td>
                         <td class="small text-muted">@(log.IpAddress ?? "-")</td>
                     </tr>
                 }
@@ -85,16 +116,17 @@ else
         </table>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mt-2">
-        <span class="text-muted small">@Result.TotalCount @L["Common_Records"]</span>
-        <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">
-                @L["Common_Prev"]
-            </button>
-            <span class="align-self-center small">@L["Common_Page"] @Result.Page @L["Common_Of"] @Result.TotalPages</span>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(Result.Page >= Result.TotalPages)" @onclick="NextPage">
-                @L["Common_Next"]
-            </button>
+    <div class="pagination-bar">
+        <span class="pagination-info">@Result.TotalCount @L["Common_Records"]</span>
+        <div class="pagination-controls">
+            <select class="pagination-size" @bind="PageSize" @bind:after="ResetAndLoad">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">&#8249;</button>
+            <span class="pagination-counter">@CurrentPage / @Result.TotalPages</span>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage >= Result.TotalPages)" @onclick="NextPage">&#8250;</button>
         </div>
     </div>
 }
@@ -102,40 +134,103 @@ else
 @code {
     private PagedResult<AuditLogDto>? Result;
     private bool Loading = true;
+    private string? Error;
     private string? EventTypeFilter;
     private string? ResultFilter;
-    private DateTime? FromDate;
-    private DateTime? ToDate;
+    private DateTime? FromDate = DateTime.Today;
+    private DateTime? ToDate = DateTime.Today;
     private int CurrentPage = 1;
     private int PageSize = 25;
     private List<string> EventTypes = [];
 
+    private List<TenantDto> Tenants = [];
+    private Guid? SelectedTenantId;
+
     protected override async Task OnInitializedAsync()
     {
-        await Task.WhenAll(LoadEventTypesAsync(), LoadAsync());
+        await CurrentUser.InitAsync();
+
+        if (CurrentUser.Role == "Superadmin")
+        {
+            Tenants = (await Mediator.Send(new GetTenantsQuery())).ToList();
+            // Default: no filter (all tenants)
+            SelectedTenantId = null;
+        }
+
+        await LoadEventTypesAsync();
+        await LoadAsync();
     }
 
-    private Task LoadEventTypesAsync() => Task.CompletedTask;
+    private async Task OnTenantChanged(ChangeEventArgs e)
+    {
+        SelectedTenantId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        CurrentPage = 1;
+        await LoadEventTypesAsync();
+        await LoadAsync();
+    }
+
+    private async Task ResetAndLoad()
+    {
+        CurrentPage = 1;
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
         Loading = true;
         try
         {
+            // For Superadmin: pass selected tenant (null = all tenants)
+            // For Administrator: TenantId is null here, handler uses currentUser.TenantId
+            var tenantId = CurrentUser.Role == "Superadmin" ? SelectedTenantId : null;
+
             Result = await Mediator.Send(new GetAuditLogsQuery(
                 EventType: EventTypeFilter,
                 Result: ResultFilter,
                 From: FromDate?.ToUniversalTime(),
                 To: ToDate?.ToUniversalTime().AddDays(1),
                 Page: CurrentPage,
-                PageSize: PageSize));
+                PageSize: PageSize,
+                TenantId: tenantId));
+        }
+        catch (Exception ex) { Error = ex.Message; }
+        finally { Loading = false; }
+    }
+
+    private async Task LoadEventTypesAsync()
+    {
+        try
+        {
+            var tenantId = CurrentUser.Role == "Superadmin" ? SelectedTenantId : null;
+            EventTypes = (await Mediator.Send(new GetDistinctAuditEventTypesQuery(tenantId))).ToList();
         }
         catch { }
-        finally { Loading = false; }
     }
 
     private async Task PrevPage() { CurrentPage--; await LoadAsync(); }
     private async Task NextPage() { CurrentPage++; await LoadAsync(); }
+
+    private static string FormatDetails(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return "-";
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            // Prefer "Name" field, fall back to first string value
+            if (root.TryGetProperty("Name", out var name) && name.ValueKind == JsonValueKind.String)
+                return name.GetString() ?? "-";
+            foreach (var prop in root.EnumerateObject())
+                if (prop.Value.ValueKind == JsonValueKind.String)
+                    return $"{prop.Name}: {prop.Value.GetString()}";
+            return json.Length > 60 ? json[..60] + "…" : json;
+        }
+        catch { return json?.Length > 60 ? json[..60] + "…" : json ?? "-"; }
+    }
+
+    private string TenantName(Guid? tenantId) =>
+        tenantId is null ? "—" :
+        Tenants.FirstOrDefault(t => t.Id == tenantId)?.Name ?? tenantId.Value.ToString("D")[..8] + "…";
 
     private RenderFragment ResultBadge(string result) => result switch
     {

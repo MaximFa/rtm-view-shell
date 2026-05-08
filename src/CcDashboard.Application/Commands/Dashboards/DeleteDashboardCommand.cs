@@ -7,7 +7,11 @@ using MediatR;
 
 namespace CcDashboard.Application.Commands.Dashboards;
 
-public record DeleteDashboardCommand(Guid DashboardId) : IRequest, ITransactional;
+public record DeleteDashboardCommand(Guid DashboardId) : IRequest, ITransactional, IAuditable
+{
+    public string AuditEventType => "Dashboard.Deleted";
+    public object? AuditDetails => new { Id = DashboardId };
+}
 
 public class DeleteDashboardCommandHandler(
     IDashboardRepository dashboards,

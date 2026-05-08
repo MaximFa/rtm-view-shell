@@ -1,6 +1,6 @@
 namespace CcDashboard.Domain.Domain;
 
-public class Queue
+public class ResourceQueue
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
@@ -27,7 +27,7 @@ public class AgentSupergroup
     public bool IsActive { get; set; } = true;
 }
 
-public class BusinessUnit
+public class ResourceBusinessUnit
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }

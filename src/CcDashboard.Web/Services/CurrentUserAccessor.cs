@@ -14,7 +14,22 @@ public class CurrentUserAccessor(AuthenticationStateProvider authStateProvider) 
         _principal = state.User;
     }
 
-    private ClaimsPrincipal Principal => _principal ?? new ClaimsPrincipal();
+    // Auto-initializes synchronously if not yet initialized — works on Blazor Server
+    // because AuthenticationStateProvider caches the state and the task is already complete.
+    private ClaimsPrincipal Principal
+    {
+        get
+        {
+            if (_principal is not null) return _principal;
+            var task = authStateProvider.GetAuthenticationStateAsync();
+            if (task.IsCompletedSuccessfully)
+            {
+                _principal = task.Result.User;
+                return _principal;
+            }
+            return new ClaimsPrincipal();
+        }
+    }
 
     public Guid? UserId => Guid.TryParse(Principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
     public string? UserName => Principal.FindFirstValue(ClaimTypes.Name);

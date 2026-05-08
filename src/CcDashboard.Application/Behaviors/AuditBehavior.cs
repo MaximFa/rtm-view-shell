@@ -21,6 +21,7 @@ public class AuditBehavior<TRequest, TResponse>(
                 currentUser.TenantId,
                 currentUser.UserId,
                 currentUser.UserName,
+                details: request.AuditDetails,
                 ct: ct);
             return response;
         }
@@ -32,6 +33,7 @@ public class AuditBehavior<TRequest, TResponse>(
                 currentUser.TenantId,
                 currentUser.UserId,
                 currentUser.UserName,
+                details: request.AuditDetails,
                 ct: ct);
             throw;
         }
@@ -41,4 +43,5 @@ public class AuditBehavior<TRequest, TResponse>(
 public interface IAuditable
 {
     string AuditEventType { get; }
+    object? AuditDetails => null;
 }

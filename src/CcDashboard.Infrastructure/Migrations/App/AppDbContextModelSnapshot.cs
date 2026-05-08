@@ -24,6 +24,31 @@ namespace CcDashboard.Infrastructure.Migrations.App
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pgcrypto");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("CcDashboard.Domain.Domain.AgentGroup", b =>
+                {
+                    b.Property<string>("AgentGroupId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("CreatedDatetime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("AgentGroupId");
+
+                    b.ToTable("ngc_agent_group", (string)null);
+                });
+
             modelBuilder.Entity("CcDashboard.Domain.Domain.AgentSupergroup", b =>
                 {
                     b.Property<Guid>("Id")
@@ -52,28 +77,94 @@ namespace CcDashboard.Infrastructure.Migrations.App
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.BusinessUnit", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                    b.Property<int>("BusinessUnitId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
 
-                    b.Property<string>("ExternalId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("BusinessUnitId"));
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
+                    b.Property<string>("BusinessUnitName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("CreatedDatetime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("SiteId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("Id");
+                    b.HasKey("BusinessUnitId");
 
-                    b.ToTable("business_units", (string)null);
+                    b.HasIndex("SiteId");
+
+                    b.ToTable("ngc_business_unit", (string)null);
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.BusinessUnitQueue", b =>
+                {
+                    b.Property<int>("BusinessUnitId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("QueueId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ClassificationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("CreatedDatetime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("BusinessUnitId", "QueueId");
+
+                    b.HasIndex("QueueId");
+
+                    b.ToTable("ngc_business_unit_queue", (string)null);
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.BusinessUnitSupergroup", b =>
+                {
+                    b.Property<int>("BusinessUnitId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SupergroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("CreatedDatetime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("BusinessUnitId", "SupergroupId");
+
+                    b.HasIndex("SupergroupId");
+
+                    b.ToTable("ngc_business_unit_supergroup", (string)null);
                 });
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.Dashboard", b =>
@@ -318,6 +409,57 @@ namespace CcDashboard.Infrastructure.Migrations.App
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.Queue", b =>
                 {
+                    b.Property<string>("QueueId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("CreatedDatetime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("QueueId");
+
+                    b.ToTable("ngc_queue", (string)null);
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.ResourceBusinessUnit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("business_units", (string)null);
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.ResourceQueue", b =>
+                {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
@@ -340,6 +482,73 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.HasKey("Id");
 
                     b.ToTable("queues", (string)null);
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.RtsGridMetric", b =>
+                {
+                    b.Property<string>("MetricId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("DataType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("DefaultValue")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MetricFormat")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("MetricFunction")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("MetricParameter")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("MetricId");
+
+                    b.ToTable("rtsgrid_metric", (string)null);
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.Site", b =>
+                {
+                    b.Property<string>("SiteId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ClearTime")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("SiteName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TimeZone")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.HasKey("SiteId");
+
+                    b.ToTable("ngc_site", (string)null);
                 });
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.Skill", b =>
@@ -402,6 +611,66 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.HasIndex("TenantId");
 
                     b.ToTable("sso_configurations", (string)null);
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.Supergroup", b =>
+                {
+                    b.Property<int>("SupergroupId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("SupergroupId"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("CreatedDatetime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("SupergroupIdOld")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SupergroupName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("SupergroupId");
+
+                    b.ToTable("ngc_supergroup", (string)null);
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.SupergroupAgentGroup", b =>
+                {
+                    b.Property<int>("SupergroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AgentGroupId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("CreatedDatetime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("SupergroupId", "AgentGroupId");
+
+                    b.HasIndex("AgentGroupId");
+
+                    b.ToTable("ngc_supergroup_agent_group", (string)null);
                 });
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.Tenant", b =>
@@ -841,6 +1110,54 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.ToTable("user_tokens", "identity");
                 });
 
+            modelBuilder.Entity("CcDashboard.Domain.Domain.BusinessUnit", b =>
+                {
+                    b.HasOne("CcDashboard.Domain.Domain.Site", "Site")
+                        .WithMany("BusinessUnits")
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Site");
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.BusinessUnitQueue", b =>
+                {
+                    b.HasOne("CcDashboard.Domain.Domain.BusinessUnit", "BusinessUnit")
+                        .WithMany("QueueAssignments")
+                        .HasForeignKey("BusinessUnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CcDashboard.Domain.Domain.Queue", "Queue")
+                        .WithMany()
+                        .HasForeignKey("QueueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BusinessUnit");
+
+                    b.Navigation("Queue");
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.BusinessUnitSupergroup", b =>
+                {
+                    b.HasOne("CcDashboard.Domain.Domain.BusinessUnit", "BusinessUnit")
+                        .WithMany("SupergroupAssignments")
+                        .HasForeignKey("BusinessUnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CcDashboard.Domain.Domain.Supergroup", "Supergroup")
+                        .WithMany("BusinessUnitAssignments")
+                        .HasForeignKey("SupergroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BusinessUnit");
+
+                    b.Navigation("Supergroup");
+                });
+
             modelBuilder.Entity("CcDashboard.Domain.Domain.Dashboard", b =>
                 {
                     b.HasOne("CcDashboard.Domain.Domain.Tenant", "Tenant")
@@ -959,6 +1276,25 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("CcDashboard.Domain.Domain.SupergroupAgentGroup", b =>
+                {
+                    b.HasOne("CcDashboard.Domain.Domain.AgentGroup", "AgentGroup")
+                        .WithMany()
+                        .HasForeignKey("AgentGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CcDashboard.Domain.Domain.Supergroup", "Supergroup")
+                        .WithMany("AgentGroupAssignments")
+                        .HasForeignKey("SupergroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AgentGroup");
+
+                    b.Navigation("Supergroup");
+                });
+
             modelBuilder.Entity("CcDashboard.Domain.Domain.TenantSettings", b =>
                 {
                     b.HasOne("CcDashboard.Domain.Domain.Tenant", "Tenant")
@@ -1021,6 +1357,13 @@ namespace CcDashboard.Infrastructure.Migrations.App
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CcDashboard.Domain.Domain.BusinessUnit", b =>
+                {
+                    b.Navigation("QueueAssignments");
+
+                    b.Navigation("SupergroupAssignments");
+                });
+
             modelBuilder.Entity("CcDashboard.Domain.Domain.Dashboard", b =>
                 {
                     b.Navigation("Permissions");
@@ -1041,6 +1384,18 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.Navigation("DashboardPermissions");
 
                     b.Navigation("MenuPermissions");
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.Site", b =>
+                {
+                    b.Navigation("BusinessUnits");
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.Supergroup", b =>
+                {
+                    b.Navigation("AgentGroupAssignments");
+
+                    b.Navigation("BusinessUnitAssignments");
                 });
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.Tenant", b =>

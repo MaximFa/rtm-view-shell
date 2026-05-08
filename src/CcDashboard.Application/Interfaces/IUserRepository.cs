@@ -9,9 +9,9 @@ public interface IUserRepository
     Task<ApplicationUserSnapshot?> GetByUserNameAsync(Guid tenantId, string userName, CancellationToken ct = default);
     Task<bool> ExistsAsync(Guid tenantId, string email, CancellationToken ct = default);
     Task<IReadOnlyList<ApplicationUserSnapshot>> GetPageAsync(
-        Guid tenantId, string? search, string? role, Guid? pgId, bool? isActive,
+        Guid? tenantId, string? search, string? role, Guid? pgId, bool? isActive,
         int page, int pageSize, string sortBy, bool desc, CancellationToken ct = default);
-    Task<int> CountAsync(Guid tenantId, string? search, string? role, Guid? pgId, bool? isActive, CancellationToken ct = default);
+    Task<int> CountAsync(Guid? tenantId, string? search, string? role, Guid? pgId, bool? isActive, CancellationToken ct = default);
 }
 
 public record ApplicationUserSnapshot(

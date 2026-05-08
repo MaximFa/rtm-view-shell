@@ -1,0 +1,93 @@
+@typeparam TKey where TKey : notnull
+
+<div class="row g-2">
+    <div class="col-6">
+        <div class="card h-100">
+            <div class="card-header py-2">
+                <span class="small fw-semibold d-block mb-1">@L["DualPane_Available"]</span>
+                <input class="form-control form-control-sm" placeholder="@L["DualPane_Search"]"
+                       @bind="LeftSearch" @bind:event="oninput" />
+            </div>
+            <div class="card-body p-0" style="max-height:240px; overflow-y:auto">
+                <ul class="list-group list-group-flush">
+                    @foreach (var item in FilteredAvailable)
+                    {
+                        <li class="list-group-item list-group-item-action py-1 px-2 d-flex justify-content-between align-items-center"
+                            style="cursor:pointer" @onclick="() => Add(item.Key)">
+                            <span class="small">@item.Label</span>
+                            <i class="bi bi-chevron-right text-muted small"></i>
+                        </li>
+                    }
+                    @if (!FilteredAvailable.Any())
+                    {
+                        <li class="list-group-item py-2 text-muted small text-center">@L["DualPane_AllSelected"]</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-6">
+        <div class="card h-100">
+            <div class="card-header py-2">
+                <span class="small fw-semibold d-block mb-1">@L["DualPane_Selected"] (@_selected.Count)</span>
+                <input class="form-control form-control-sm" placeholder="@L["DualPane_Search"]"
+                       @bind="RightSearch" @bind:event="oninput" />
+            </div>
+            <div class="card-body p-0" style="max-height:240px; overflow-y:auto">
+                <ul class="list-group list-group-flush">
+                    @foreach (var item in FilteredSelected)
+                    {
+                        <li class="list-group-item list-group-item-action py-1 px-2 d-flex justify-content-between align-items-center"
+                            style="cursor:pointer" @onclick="() => Remove(item.Key)">
+                            <i class="bi bi-chevron-left text-muted small"></i>
+                            <span class="small">@item.Label</span>
+                        </li>
+                    }
+                    @if (!FilteredSelected.Any())
+                    {
+                        <li class="list-group-item py-2 text-muted small text-center">@L["DualPane_NoneSelected"]</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<(TKey Key, string Label)> AllItems { get; set; } = [];
+    [Parameter, EditorRequired] public HashSet<TKey> SelectedIds { get; set; } = [];
+    [Parameter] public EventCallback<HashSet<TKey>> SelectedIdsChanged { get; set; }
+
+    // Local copy — updated immediately on add/remove without waiting for parent re-render
+    private HashSet<TKey> _selected = [];
+    private string LeftSearch = "";
+    private string RightSearch = "";
+
+    protected override void OnParametersSet()
+    {
+        // Sync from parent (e.g. when modal opens with different data)
+        _selected = new HashSet<TKey>(SelectedIds);
+    }
+
+    private IEnumerable<(TKey Key, string Label)> FilteredAvailable =>
+        AllItems
+            .Where(i => !_selected.Contains(i.Key))
+            .Where(i => string.IsNullOrEmpty(LeftSearch) || i.Label.Contains(LeftSearch, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<(TKey Key, string Label)> FilteredSelected =>
+        AllItems
+            .Where(i => _selected.Contains(i.Key))
+            .Where(i => string.IsNullOrEmpty(RightSearch) || i.Label.Contains(RightSearch, StringComparison.OrdinalIgnoreCase));
+
+    private async Task Add(TKey key)
+    {
+        _selected.Add(key);
+        await SelectedIdsChanged.InvokeAsync(new HashSet<TKey>(_selected));
+    }
+
+    private async Task Remove(TKey key)
+    {
+        _selected.Remove(key);
+        await SelectedIdsChanged.InvokeAsync(new HashSet<TKey>(_selected));
+    }
+}

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -70,6 +70,7 @@
   <data name="Password_Save"><value>שמור</value></data>
   <data name="Password_ChangeButton"><value>שנה סיסמה ←</value></data>
   <data name="Password_Mismatch"><value>הסיסמה החדשה ואישורה אינם תואמים.</value></data>
+  <data name="Password_AllFieldsRequired"><value>כל השדות נדרשים.</value></data>
   <data name="Password_ChangeFailed"><value>שינוי הסיסמה נכשל.</value></data>
   <data name="Password_Rule_MinLength"><value>לפחות 12 תווים</value></data>
   <data name="Password_Rule_Uppercase"><value>אות גדולה (A-Z)</value></data>
@@ -191,7 +192,9 @@
 
   <!-- ── Permission Groups ── -->
   <data name="PG_Title"><value>קבוצות הרשאות</value></data>
+  <data name="PG_Tenant"><value>ארגון</value></data>
   <data name="PG_NewGroup"><value>קבוצה חדשה</value></data>
+  <data name="PG_EditGroup"><value>עריכת קבוצה</value></data>
   <data name="PG_GroupName"><value>שם הקבוצה</value></data>
   <data name="PG_Description"><value>תיאור</value></data>
   <data name="PG_IsActive"><value>קבוצה פעילה (IsActive)</value></data>
@@ -220,6 +223,7 @@
 
   <!-- ── Audit Log ── -->
   <data name="Audit_Title"><value>יומן ביקורת</value></data>
+  <data name="Audit_AllTenants"><value>כל הדיירים</value></data>
   <data name="Audit_AllTypes"><value>כל סוגי האירועים</value></data>
   <data name="Audit_AllResults"><value>כל התוצאות</value></data>
   <data name="Audit_From"><value>מ-</value></data>
@@ -228,6 +232,7 @@
   <data name="Audit_ColEvent"><value>אירוע</value></data>
   <data name="Audit_ColResult"><value>תוצאה</value></data>
   <data name="Audit_ColUser"><value>משתמש</value></data>
+  <data name="Audit_ColTenant"><value>דייר</value></data>
   <data name="Audit_ColIp"><value>כתובת IP</value></data>
   <data name="Audit_ColDetails"><value>פרטים</value></data>
   <data name="Audit_NoRecords"><value>לא נמצאו רשומות ביקורת.</value></data>
@@ -269,6 +274,11 @@
   <data name="Tenants_Slug"><value>מזהה קצר (תת-דומיין)</value></data>
   <data name="Tenants_SlugHelp"><value>אותיות קטנות, ספרות ומקפים בלבד</value></data>
   <data name="Tenants_CreateButton"><value>צור ארגון ←</value></data>
+  <data name="Tenants_EditModal"><value>עריכת ארגון</value></data>
+  <data name="Tenants_EditButton"><value>שמור שינויים ←</value></data>
+  <data name="Tenants_TabGeneral"><value>כללי</value></data>
+  <data name="Tenants_TabSettings"><value>הגדרות</value></data>
+  <data name="Tenants_SlugReadOnly"><value>לא ניתן לשנות מזהה לאחר היצירה</value></data>
 
   <!-- ── Common ── -->
   <data name="Common_Save"><value>שמור ←</value></data>
@@ -294,4 +304,86 @@
   <data name="Error_Forbidden"><value>אין לך הרשאה לבצע פעולה זו.</value></data>
   <data name="Error_Concurrency"><value>הרשומה שונתה על ידי משתמש אחר. רענן ונסה שנית.</value></data>
   <data name="Error_Generic"><value>אירעה שגיאה בלתי צפויה. נסה שנית.</value></data>
+
+  <!-- ── Common shorthand aliases ── -->
+  <data name="Cancel"><value>ביטול</value></data>
+  <data name="Save"><value>שמור →</value></data>
+  <data name="Delete"><value>מחק</value></data>
+  <data name="Edit"><value>עריכה</value></data>
+
+  <!-- ── DualPane selector ── -->
+  <data name="DualPane_Available"><value>זמינים</value></data>
+  <data name="DualPane_Selected"><value>נבחרים</value></data>
+  <data name="DualPane_AllSelected"><value>כל הפריטים נבחרו</value></data>
+  <data name="DualPane_NoneSelected"><value>לא נבחר דבר</value></data>
+  <data name="DualPane_Search"><value>חיפוש...</value></data>
+
+  <!-- ── Configuration Navigation ── -->
+  <data name="Nav_Configuration"><value>הגדרות</value></data>
+  <data name="Nav_Sites"><value>אתרים</value></data>
+  <data name="Nav_BusinessUnits"><value>יחידות עסקיות</value></data>
+  <data name="Nav_Supergroups"><value>קבוצות-על</value></data>
+  <data name="Nav_Metrics"><value>מדדים</value></data>
+
+  <!-- ── Sites ── -->
+  <data name="Sites_Title"><value>אתרים</value></data>
+  <data name="Sites_NewSite"><value>+ אתר חדש</value></data>
+  <data name="Sites_EditSite"><value>עריכת אתר</value></data>
+  <data name="Sites_SiteId"><value>מזהה אתר</value></data>
+  <data name="Sites_SiteName"><value>שם אתר</value></data>
+  <data name="Sites_Description"><value>תיאור</value></data>
+  <data name="Sites_TimeZone"><value>אזור זמן (הפרש UTC)</value></data>
+  <data name="Sites_ClearTime"><value>זמן איפוס (שש:דד)</value></data>
+  <data name="Sites_Empty"><value>לא הוגדרו אתרים.</value></data>
+  <data name="Sites_SiteIdRequired"><value>מזהה אתר הוא שדה חובה.</value></data>
+  <data name="Sites_DeleteConfirm"><value>מחיקת אתר</value></data>
+  <data name="Sites_DeleteWarning"><value>מחק אתר</value></data>
+  <data name="Sites_SelectTimeZone"><value>בחר אזור זמן</value></data>
+
+  <!-- ── Business Units ── -->
+  <data name="BU_Title"><value>יחידות עסקיות</value></data>
+  <data name="BU_New"><value>+ יחידה עסקית חדשה</value></data>
+  <data name="BU_Edit"><value>עריכת יחידה עסקית</value></data>
+  <data name="BU_Name"><value>שם</value></data>
+  <data name="BU_Description"><value>תיאור</value></data>
+  <data name="BU_Site"><value>אתר</value></data>
+  <data name="BU_NoSite"><value>ללא אתר</value></data>
+  <data name="BU_Queues"><value>תורים</value></data>
+  <data name="BU_Supergroups"><value>קבוצות-על</value></data>
+  <data name="BU_Empty"><value>לא הוגדרו יחידות עסקיות.</value></data>
+  <data name="BU_NameRequired"><value>שם הוא שדה חובה.</value></data>
+  <data name="BU_DeleteConfirm"><value>מחיקת יחידה עסקית</value></data>
+  <data name="BU_DeleteWarning"><value>מחק יחידה עסקית</value></data>
+
+  <!-- ── Super Groups ── -->
+  <data name="SG_Title"><value>קבוצות-על</value></data>
+  <data name="SG_New"><value>+ קבוצת-על חדשה</value></data>
+  <data name="SG_Edit"><value>עריכת קבוצת-על</value></data>
+  <data name="SG_Name"><value>שם</value></data>
+  <data name="SG_Description"><value>תיאור</value></data>
+  <data name="SG_AgentGroups"><value>קבוצות סוכנים</value></data>
+  <data name="SG_Empty"><value>לא הוגדרו קבוצות-על.</value></data>
+  <data name="SG_NameRequired"><value>שם הוא שדה חובה.</value></data>
+  <data name="SG_DeleteConfirm"><value>מחיקת קבוצת-על</value></data>
+  <data name="SG_DeleteWarning"><value>מחק קבוצת-על</value></data>
+
+  <!-- ── Metrics ── -->
+  <data name="Metrics_Title"><value>מדדים</value></data>
+  <data name="Metrics_New"><value>+ מדד חדש</value></data>
+  <data name="Metrics_Edit"><value>עריכת מדד</value></data>
+  <data name="Metrics_MetricId"><value>מזהה מדד</value></data>
+  <data name="Metrics_Description"><value>תיאור</value></data>
+  <data name="Metrics_DataType"><value>סוג נתונים</value></data>
+  <data name="Metrics_Function"><value>פונקציית מדד</value></data>
+  <data name="Metrics_Parameter"><value>פרמטר מדד</value></data>
+  <data name="Metrics_Format"><value>פורמט</value></data>
+  <data name="Metrics_Default"><value>ערך ברירת מחדל</value></data>
+  <data name="Metrics_Empty"><value>לא הוגדרו מדדים.</value></data>
+  <data name="Metrics_IdRequired"><value>מזהה מדד הוא שדה חובה.</value></data>
+  <data name="Metrics_DataTypeRequired"><value>סוג נתונים הוא שדה חובה.</value></data>
+  <data name="Metrics_FunctionRequired"><value>פונקציית מדד היא שדה חובה.</value></data>
+  <data name="Metrics_ParameterRequired"><value>פרמטר מדד הוא שדה חובה.</value></data>
+  <data name="Metrics_DeleteConfirm"><value>מחיקת מדד</value></data>
+  <data name="Metrics_DeleteWarning"><value>מחק מדד</value></data>
 </root>
+

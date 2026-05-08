@@ -8,7 +8,11 @@ using MediatR;
 
 namespace CcDashboard.Application.Commands.Dashboards;
 
-public record UpdateDashboardCommand(UpdateDashboardRequest Request) : IRequest<DashboardDto>, ITransactional;
+public record UpdateDashboardCommand(UpdateDashboardRequest Request) : IRequest<DashboardDto>, ITransactional, IAuditable
+{
+    public string AuditEventType => "Dashboard.Updated";
+    public object? AuditDetails => new { Name = Request.Name, Id = Request.Id };
+}
 
 public class UpdateDashboardCommandHandler(
     IDashboardRepository dashboards,
@@ -21,8 +25,8 @@ public class UpdateDashboardCommandHandler(
         var dashboard = await dashboards.GetByIdAsync(cmd.Request.Id, ct)
             ?? throw new NotFoundException(nameof(Dashboard), cmd.Request.Id);
 
-        dashboard.Name = cmd.Request.Name;
-        dashboard.Description = cmd.Request.Description;
+        dashboard.Name = cmd.Request.Name.Trim();
+        dashboard.Description = cmd.Request.Description?.Trim();
         dashboard.Status = cmd.Request.Status;
         dashboard.IsPublic = cmd.Request.IsPublic;
         dashboard.UpdatedAt = clock.UtcNow;

@@ -1,92 +1,103 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Zero-downtime update script for RTM View Shell [DEPLOY-15].
+    Update script for RTM View Shell (Kestrel + Windows Service) [DEPLOY-15].
 .DESCRIPTION
-    Stops IIS pools, backs up the app dir, copies new files,
-    runs pg_basebackup, applies migrations, then restarts pools.
+    Stops the Windows Service, backs up the app dir, optionally runs pg_basebackup,
+    deploys new files, applies migrations, then restarts the service.
     Target max downtime: 2 minutes.
 .PARAMETER ZipPath
     Path to the new publish zip.
-.PARAMETER SiteName
-    IIS site name (default: CcDashboard.Web).
 .PARAMETER AppPath
     Installation directory (default: C:\Program Files\CcDashboard\web).
+.PARAMETER ServiceName
+    Windows Service name (default: CcDashboard).
 .PARAMETER BackupRoot
     Backup root directory (default: C:\Backups\CcDashboard).
-.PARAMETER PgDumpPath
-    Path to pg_basebackup.exe (default: auto-detect from PATH).
-.PARAMETER PgConnectionString
-    PostgreSQL connection string for backup. If empty, pg_basebackup is skipped.
+.PARAMETER PgBackupDir
+    If set, runs pg_basebackup to this directory before migration.
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)]
     [string]$ZipPath,
 
-    [string]$SiteName            = "CcDashboard.Web",
-    [string]$AppPath             = "C:\Program Files\CcDashboard\web",
-    [string]$BackupRoot          = "C:\Backups\CcDashboard",
-    [string]$PgDumpPath          = "",
-    [string]$PgConnectionString  = ""
+    [string]$AppPath     = "C:\Program Files\CcDashboard\web",
+    [string]$ServiceName = "CcDashboard",
+    [string]$BackupRoot  = "C:\Backups\CcDashboard",
+    [string]$PgBackupDir = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$stamp     = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupDir = Join-Path $BackupRoot $stamp
 
 Write-Host "=== RTM View Shell Update ($stamp) ===" -ForegroundColor Cyan
 
-Import-Module WebAdministration -ErrorAction Stop
+# ── 1. Stop service ────────────────────────────────────────────────────────────
+Write-Host "[1/6] Stopping Windows Service '$ServiceName'..."
+$svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+if ($svc -and $svc.Status -ne "Stopped")
+{
+    Stop-Service -Name $ServiceName -Force
+    $svc.WaitForStatus("Stopped", (New-TimeSpan -Seconds 30))
+}
+Write-Host "      Service stopped"
 
-# 1. Stop IIS pools
-Write-Host "[1/6] Stopping IIS application pool..."
-Stop-WebAppPool -Name $SiteName -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
-Write-Host "      Pool stopped"
-
-# 2. Backup app directory
+# ── 2. Backup app directory ────────────────────────────────────────────────────
 Write-Host "[2/6] Backing up application to $backupDir..."
 if (-not (Test-Path $BackupRoot)) { New-Item -ItemType Directory -Path $BackupRoot -Force | Out-Null }
 Copy-Item -Path $AppPath -Destination $backupDir -Recurse -Force
 Write-Host "      Backup complete"
 
-# 3. pg_basebackup (optional)
-if ($PgConnectionString)
+# ── 3. pg_basebackup (optional) ───────────────────────────────────────────────
+if ($PgBackupDir)
 {
-    Write-Host "[3/6] Running pg_basebackup..."
-    $pgBackupDir = Join-Path $BackupRoot "pg_$stamp"
-    if ($PgDumpPath)
-    { & $PgDumpPath -D $pgBackupDir --format=plain --wal-method=fetch --progress }
-    else
-    { pg_basebackup -D $pgBackupDir --format=plain --wal-method=fetch --progress }
+    Write-Host "[3/6] Running pg_basebackup to $PgBackupDir..."
+    $pgExe = (Get-Command pg_basebackup -ErrorAction SilentlyContinue)?.Source ?? "pg_basebackup"
+    & $pgExe -D $PgBackupDir --format=plain --wal-method=fetch --progress
+    if ($LASTEXITCODE -ne 0) { Write-Error "pg_basebackup failed" }
     Write-Host "      pg_basebackup complete"
 }
 else
 {
-    Write-Host "[3/6] Skipping pg_basebackup (PgConnectionString not set)"
+    Write-Host "[3/6] Skipping pg_basebackup (PgBackupDir not set)"
 }
 
-# 4. Copy new files
+# ── 4. Deploy new files ────────────────────────────────────────────────────────
 Write-Host "[4/6] Deploying new files to $AppPath..."
+# Preserve appsettings.Production.json — don't overwrite secrets
+$prodConfig = Join-Path $AppPath "appsettings.Production.json"
+$prodConfigBackup = $null
+if (Test-Path $prodConfig)
+{
+    $prodConfigBackup = Get-Content $prodConfig -Raw
+}
+
 Expand-Archive -Path $ZipPath -DestinationPath $AppPath -Force
+
+if ($prodConfigBackup)
+{
+    Set-Content $prodConfig $prodConfigBackup -Encoding UTF8
+    Write-Host "      appsettings.Production.json preserved"
+}
 Write-Host "      Files deployed"
 
-# 5. Apply migrations
+# ── 5. Apply migrations ────────────────────────────────────────────────────────
 Write-Host "[5/6] Applying database migrations..."
 $exe = Join-Path $AppPath "CcDashboard.Web.exe"
 if (Test-Path $exe)
 {
+    $env:ASPNETCORE_ENVIRONMENT = "Production"
     & $exe migrate
     if ($LASTEXITCODE -ne 0)
     {
         Write-Warning "Migration failed! Rolling back application files..."
-        # Rollback: restore from backup
         Remove-Item -Path $AppPath -Recurse -Force
         Copy-Item -Path $backupDir -Destination $AppPath -Recurse -Force
-        Write-Error "Update FAILED. Application restored from backup. Investigate migration errors."
+        Write-Error "Update FAILED. Application restored from backup at $backupDir."
     }
     Write-Host "      Migrations applied"
 }
@@ -95,11 +106,13 @@ else
     Write-Warning "      Executable not found — skipping migrations."
 }
 
-# 6. Start IIS pools
-Write-Host "[6/6] Starting IIS application pool..."
-Start-WebAppPool -Name $SiteName
-Write-Host "      Pool started"
+# ── 6. Start service ───────────────────────────────────────────────────────────
+Write-Host "[6/6] Starting Windows Service '$ServiceName'..."
+Start-Service -Name $ServiceName
+(Get-Service -Name $ServiceName).WaitForStatus("Running", (New-TimeSpan -Seconds 30))
+Write-Host "      Service running"
 
 Write-Host ""
 Write-Host "=== Update complete ===" -ForegroundColor Green
 Write-Host "Backup saved to: $backupDir"
+Write-Host "Service status:  $((Get-Service $ServiceName).Status)"

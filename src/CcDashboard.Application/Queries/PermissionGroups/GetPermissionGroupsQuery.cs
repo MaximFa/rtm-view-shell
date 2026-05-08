@@ -5,16 +5,18 @@ using MediatR;
 
 namespace CcDashboard.Application.Queries.PermissionGroups;
 
-public record GetPermissionGroupsQuery : IRequest<IReadOnlyList<PermissionGroupDto>>;
+public record GetPermissionGroupsQuery(Guid? TenantId = null) : IRequest<IReadOnlyList<PermissionGroupDto>>;
 
 public class GetPermissionGroupsQueryHandler(
     IPermissionGroupRepository repo,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetPermissionGroupsQuery, IReadOnlyList<PermissionGroupDto>>
 {
-    public async Task<IReadOnlyList<PermissionGroupDto>> Handle(GetPermissionGroupsQuery _, CancellationToken ct)
+    public async Task<IReadOnlyList<PermissionGroupDto>> Handle(GetPermissionGroupsQuery query, CancellationToken ct)
     {
-        var tenantId = currentUser.TenantId!.Value;
+        var tenantId = currentUser.Role == "Superadmin"
+            ? query.TenantId
+            : (query.TenantId ?? currentUser.TenantId!.Value);
         var groups = await repo.GetAllByTenantAsync(tenantId, ct);
 
         return groups.Select(g => new PermissionGroupDto(

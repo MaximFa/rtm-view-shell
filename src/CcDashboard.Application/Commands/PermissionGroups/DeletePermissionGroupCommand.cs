@@ -7,7 +7,11 @@ using MediatR;
 
 namespace CcDashboard.Application.Commands.PermissionGroups;
 
-public record DeletePermissionGroupCommand(Guid Id) : IRequest<Result>, ITransactional;
+public record DeletePermissionGroupCommand(Guid Id) : IRequest<Result>, ITransactional, IAuditable
+{
+    public string AuditEventType => "PermissionGroup.Deleted";
+    public object? AuditDetails => new { Id };
+}
 
 public class DeletePermissionGroupCommandHandler(IPermissionGroupRepository repo)
     : IRequestHandler<DeletePermissionGroupCommand, Result>

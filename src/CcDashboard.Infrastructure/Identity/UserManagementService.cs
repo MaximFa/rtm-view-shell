@@ -1,5 +1,6 @@
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Contracts.DTOs.Users;
+using CcDashboard.Domain.Enums;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -15,6 +16,8 @@ public class UserManagementService(
     AppDbContext db,
     IEmailSender emailSender,
     IDateTimeProvider clock,
+    IAuditService audit,
+    ICurrentUserAccessor currentUser,
     ILogger<UserManagementService> logger)
     : IUserManagementService
 {
@@ -48,6 +51,10 @@ public class UserManagementService(
             logger.LogWarning("Failed to assign role {Role} to user {Id}: {Errors}",
                 req.Role, user.Id, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
 
+        await audit.LogAsync("User.Created", AuditEventResult.Success,
+            tenantId, currentUser.UserId, currentUser.UserName,
+            details: new { TargetUserId = user.Id, user.UserName, req.Role }, ct: ct);
+
         // [USR-03] Send temporary password by email
         try
         {
@@ -59,6 +66,7 @@ public class UserManagementService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to send welcome email to {Email}", req.Email);
+            logger.LogWarning("DEV FALLBACK — temp password for {UserName}: {TempPassword}", req.UserName, tempPassword);
         }
 
         return (true, null, user.Id);
@@ -90,6 +98,10 @@ public class UserManagementService(
             await userManager.AddToRoleAsync(user, req.Role);
         }
 
+        await audit.LogAsync("User.Updated", AuditEventResult.Success,
+            user.TenantId, currentUser.UserId, currentUser.UserName,
+            details: new { TargetUserId = user.Id, user.UserName }, ct: ct);
+
         return (true, null);
     }
 
@@ -103,6 +115,13 @@ public class UserManagementService(
             await userManager.UpdateSecurityStampAsync(user);  // [USR-09] invalidate sessions
 
         var result = await userManager.UpdateAsync(user);
+        if (result.Succeeded)
+        {
+            var eventType = isActive ? "User.Activated" : "User.Deactivated";
+            await audit.LogAsync(eventType, AuditEventResult.Success,
+                user.TenantId, currentUser.UserId, currentUser.UserName,
+                details: new { TargetUserId = userId }, ct: ct);
+        }
         return (result.Succeeded, result.Succeeded ? null : string.Join(" ", result.Errors.Select(e => e.Description)));
     }
 
@@ -143,6 +162,10 @@ public class UserManagementService(
         if (user == null) return (false, "User not found.");
 
         var result = await userManager.DeleteAsync(user);
+        if (result.Succeeded)
+            await audit.LogAsync("User.Deleted", AuditEventResult.Success,
+                user.TenantId, currentUser.UserId, currentUser.UserName,
+                details: new { TargetUserId = userId, user.UserName }, ct: ct);
         return (result.Succeeded, result.Succeeded ? null : string.Join(" ", result.Errors.Select(e => e.Description)));
     }
 

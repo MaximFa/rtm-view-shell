@@ -27,7 +27,7 @@ public class CreateDashboardCommandHandlerTests
         _user.TenantId.Returns(TenantId);
         _user.PermissionGroupId.Returns(PgId);
         _clock.UtcNow.Returns(Now);
-        _handler = new CreateDashboardCommandHandler(_dashboards, _pgRepo, _user, _clock);
+        _handler = new CreateDashboardCommandHandler(_dashboards, _user, _clock);
     }
 
     [Fact]

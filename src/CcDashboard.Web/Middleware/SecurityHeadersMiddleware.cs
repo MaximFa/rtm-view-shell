@@ -15,7 +15,7 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
             $"default-src 'self'; script-src 'self' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; " +
             $"img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:; frame-ancestors 'none';";
 
-        if (!ctx.Request.IsHttps is false)
+        if (ctx.Request.IsHttps)
             ctx.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
 
         await next(ctx);

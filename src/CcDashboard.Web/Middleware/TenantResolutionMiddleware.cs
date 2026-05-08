@@ -3,12 +3,13 @@ using CcDashboard.Domain.Interfaces;
 
 namespace CcDashboard.Web.Middleware;
 
-public class TenantResolutionMiddleware(RequestDelegate next)
+public class TenantResolutionMiddleware(RequestDelegate next, IConfiguration config)
 {
     public async Task InvokeAsync(HttpContext ctx, ITenantContext tenantCtx, ITenantRepository tenants)
     {
         var host = ctx.Request.Host.Host;
-        var slug = ExtractSlug(host);
+        var slug = ExtractSlug(host)
+                   ?? config["DefaultTenantSlug"];
 
         if (slug == null)
         {
@@ -28,7 +29,8 @@ public class TenantResolutionMiddleware(RequestDelegate next)
     private static string? ExtractSlug(string host)
     {
         // e.g. acme.cc-dashboard.local -> "acme"
+        // e.g. acme.localhost (dev) -> "acme"
         var parts = host.Split('.');
-        return parts.Length >= 3 ? parts[0] : null;
+        return parts.Length >= 2 ? parts[0] : null;
     }
 }

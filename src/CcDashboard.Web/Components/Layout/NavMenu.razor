@@ -8,6 +8,19 @@
     </li>
 
     <AuthorizeView Roles="Superadmin,Administrator">
+        <li class="nav-section-label text-uppercase text-muted small px-2 pb-1 pt-3">@L["Nav_Configuration"]</li>
+        <li class="nav-item">
+            <NavLink href="/admin/configuration/business-units" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_BusinessUnits"]</NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="/admin/configuration/supergroups" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Supergroups"]</NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="/admin/configuration/sites" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Sites"]</NavLink>
+        </li>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="Superadmin,Administrator">
         <li class="nav-section-label text-uppercase text-muted small px-2 pb-1 pt-3">@L["Nav_Administration"]</li>
         <li class="nav-item">
             <NavLink href="/admin/users" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Users"]</NavLink>

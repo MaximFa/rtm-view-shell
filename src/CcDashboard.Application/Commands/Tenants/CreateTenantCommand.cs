@@ -8,7 +8,11 @@ using UUIDNext;
 
 namespace CcDashboard.Application.Commands.Tenants;
 
-public record CreateTenantCommand(CreateTenantRequest Request) : IRequest<TenantDto>, ITransactional;
+public record CreateTenantCommand(CreateTenantRequest Request) : IRequest<TenantDto>, ITransactional, IAuditable
+{
+    public string AuditEventType => "Tenant.Created";
+    public object? AuditDetails => new { Name = Request.Name, Slug = Request.Slug };
+}
 
 public class CreateTenantCommandHandler(ITenantRepository repo, IDateTimeProvider clock)
     : IRequestHandler<CreateTenantCommand, TenantDto>

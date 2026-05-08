@@ -5,8 +5,11 @@
 @inject IMediator Mediator
 @using MediatR
 @using CcDashboard.Application.Commands.Tenants
+@using CcDashboard.Application.Commands.TenantSettings
 @using CcDashboard.Application.Queries.Tenants
+@using CcDashboard.Application.Queries.TenantSettings
 @using CcDashboard.Contracts.DTOs.Tenants
+@using CcDashboard.Contracts.DTOs.TenantSettings
 @using CcDashboard.Domain.Enums
 @using Microsoft.AspNetCore.Authorization
 
@@ -47,15 +50,12 @@ else
                         <td>@StatusBadge(t.Status)</td>
                         <td class="small">@t.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</td>
                         <td>
-                            <div class="d-flex gap-1">
-                                @if (t.Status == TenantStatus.Active)
-                                {
-                                    <button class="btn btn-sm btn-outline-warning"
-                                            @onclick="() => SetStatus(t.Id, TenantStatus.Suspended)">
-                                        @L["Tenants_Suspend"]
-                                    </button>
-                                }
-                                else if (t.Status == TenantStatus.Suspended)
+                            <div class="d-flex gap-1 flex-wrap">
+                                <button class="btn btn-sm btn-outline-secondary"
+                                        @onclick="() => OpenEdit(t)">
+                                    @L["Common_Edit"]
+                                </button>
+                                @if (t.Status == TenantStatus.Suspended)
                                 {
                                     <button class="btn btn-sm btn-outline-success"
                                             @onclick="() => SetStatus(t.Id, TenantStatus.Active)">
@@ -129,6 +129,139 @@ else
     <div class="modal-backdrop fade show modal-overlay"></div>
 }
 
+<!-- Edit modal -->
+@if (EditTenant is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@L["Tenants_EditModal"]</h5>
+                    <button type="button" class="btn-close" @onclick="CloseEdit"></button>
+                </div>
+                <div class="modal-body">
+                    @if (EditSaveError is not null)
+                    {
+                        <div class="alert alert-danger py-2 alert-dismissible">
+                            @EditSaveError
+                            <button class="btn-close btn-sm" @onclick="() => EditSaveError = null"></button>
+                        </div>
+                    }
+                    @if (EditSaveSuccess)
+                    {
+                        <div class="alert alert-success py-2">@L["TenantSettings_Saved"]</div>
+                    }
+
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link @(EditTab == "general" ? "active" : "")"
+                                    @onclick='() => EditTab = "general"'>
+                                @L["Tenants_TabGeneral"]
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(EditTab == "settings" ? "active" : "")"
+                                    @onclick='() => EditTab = "settings"'>
+                                @L["Tenants_TabSettings"]
+                            </button>
+                        </li>
+                    </ul>
+
+                    @if (EditTab == "general")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">@L["Tenants_Name"] <span class="text-danger">*</span></label>
+                            <input class="form-control" @bind="EditName" maxlength="200" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">@L["Tenants_Slug"]</label>
+                            <input class="form-control" value="@EditTenant.Slug" disabled />
+                            <div class="form-text text-muted">@L["Tenants_SlugReadOnly"]</div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">@L["Tenants_ColStatus"]</label>
+                            <div>@StatusBadge(EditTenant.Status)</div>
+                        </div>
+                    }
+                    else
+                    {
+                        @if (EditSettingsLoading)
+                        {
+                            <div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+                        }
+                        else
+                        {
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_PasswordPolicy"]</div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <label class="form-label small">@L["TenantSettings_MinLength"]</label>
+                                                <input type="number" class="form-control form-control-sm" min="8" max="128" @bind="EditPwdMinLength" />
+                                            </div>
+                                            <div class="mb-0">
+                                                <label class="form-label small">@L["TenantSettings_ExpireDays"]</label>
+                                                <input type="number" class="form-control form-control-sm" min="1" max="365" @bind="EditPwdExpireDays" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_Security"]</div>
+                                        <div class="card-body">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="editRequire2fa" @bind="EditRequire2fa" />
+                                                <label class="form-check-label small" for="editRequire2fa">@L["TenantSettings_Require2fa"]</label>
+                                            </div>
+                                            <div class="mb-0">
+                                                <label class="form-label small">@L["TenantSettings_DefaultLocale"]</label>
+                                                <input type="text" class="form-control form-control-sm" @bind="EditDefaultLocale" maxlength="10" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_DataRetention"]</div>
+                                        <div class="card-body">
+                                            <div class="row g-2 align-items-end">
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">@L["TenantSettings_AuditRetention"]</label>
+                                                    <input type="number" class="form-control form-control-sm" min="30" max="3650" @bind="EditAuditRetentionDays" />
+                                                </div>
+                                                <div class="col-md-4 pb-2">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="editSoftDelete" @bind="EditSoftDelete" />
+                                                        <label class="form-check-label small" for="editSoftDelete">@L["TenantSettings_SoftDelete"]</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">@L["TenantSettings_SoftDeleteRetention"]</label>
+                                                    <input type="number" class="form-control form-control-sm" min="1" max="365"
+                                                           @bind="EditSoftDeleteRetentionDays" disabled="@(!EditSoftDelete)" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseEdit">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveEdit" disabled="@(EditSaving || EditSettingsLoading)">
+                        @(EditSaving ? L["Common_Saving"].Value : L["Tenants_EditButton"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
 @code {
     private List<TenantDto> Tenants = [];
     private bool Loading = true;
@@ -140,6 +273,24 @@ else
     private string? NewName;
     private string? NewSlug;
     private Guid? ConfirmDeleteId;
+
+    // Edit state
+    private TenantDto? EditTenant;
+    private string EditTab = "general";
+    private string EditName = "";
+    private bool EditSettingsLoading;
+    private bool EditSaving;
+    private string? EditSaveError;
+    private bool EditSaveSuccess;
+
+    // Settings fields
+    private int EditPwdMinLength = 12;
+    private int EditPwdExpireDays = 90;
+    private bool EditRequire2fa;
+    private int EditAuditRetentionDays = 365;
+    private string EditDefaultLocale = "en-US";
+    private bool EditSoftDelete;
+    private int EditSoftDeleteRetentionDays = 90;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -179,6 +330,66 @@ else
             await LoadAsync();
         }
         catch (Exception ex) { ActionError = ex.Message; }
+    }
+
+    private async Task OpenEdit(TenantDto t)
+    {
+        EditTenant = t;
+        EditName = t.Name;
+        EditTab = "general";
+        EditSaveError = null;
+        EditSaveSuccess = false;
+        await LoadEditSettings(t.Id);
+    }
+
+    private void CloseEdit()
+    {
+        EditTenant = null;
+        EditSaveError = null;
+        EditSaveSuccess = false;
+    }
+
+    private async Task LoadEditSettings(Guid tenantId)
+    {
+        EditSettingsLoading = true;
+        try
+        {
+            var s = await Mediator.Send(new GetTenantSettingsQuery(tenantId));
+            EditPwdMinLength = s?.PasswordMinLength ?? 12;
+            EditPwdExpireDays = s?.PasswordExpireDays ?? 90;
+            EditRequire2fa = s?.Require2faForAll ?? false;
+            EditAuditRetentionDays = s?.AuditRetentionDays ?? 365;
+            EditDefaultLocale = s?.DefaultLocale ?? "en-US";
+            EditSoftDelete = s?.SoftDeleteDashboards ?? false;
+            EditSoftDeleteRetentionDays = s?.SoftDeleteRetentionDays ?? 90;
+        }
+        catch { /* use defaults */ }
+        finally { EditSettingsLoading = false; }
+    }
+
+    private async Task SaveEdit()
+    {
+        if (EditTenant is null) return;
+        if (string.IsNullOrWhiteSpace(EditName))
+        { EditSaveError = L["Tenants_Name"] + " is required."; return; }
+
+        EditSaving = true; EditSaveError = null; EditSaveSuccess = false;
+        try
+        {
+            await Mediator.Send(new UpdateTenantCommand(EditTenant.Id, EditName));
+            await Mediator.Send(new UpdateTenantSettingsCommand(
+                new UpdateTenantSettingsRequest(
+                    EditPwdMinLength, EditPwdExpireDays, EditRequire2fa,
+                    EditAuditRetentionDays, EditDefaultLocale,
+                    EditSoftDelete, EditSoftDeleteRetentionDays),
+                EditTenant.Id));
+            EditSaveSuccess = true;
+            await LoadAsync();
+            // Update the displayed tenant name in the modal header
+            EditTenant = Tenants.FirstOrDefault(t => t.Id == EditTenant.Id) ?? EditTenant;
+        }
+        catch (Exception ex) { EditSaveError = ex.Message; }
+        finally { EditSaving = false; }
     }
 
     private RenderFragment StatusBadge(TenantStatus status) => status switch

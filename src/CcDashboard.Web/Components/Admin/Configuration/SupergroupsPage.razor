@@ -1,0 +1,246 @@
+@page "/admin/configuration/supergroups"
+@rendermode InteractiveServer
+@layout MainLayout
+@attribute [Authorize(Roles = "Superadmin,Administrator")]
+@inject IMediator Mediator
+@inject ICurrentUserAccessor CurrentUser
+@using MediatR
+@using CcDashboard.Application.Queries.Tenants
+@using CcDashboard.Contracts.DTOs.Tenants
+@using CcDashboard.Domain.Interfaces
+@using CcDashboard.Application.Commands.Configuration
+@using CcDashboard.Application.Queries.Configuration
+@using CcDashboard.Contracts.DTOs.Configuration
+@using CcDashboard.Web.Components.Shared
+@using Microsoft.AspNetCore.Authorization
+@using FluentValidation
+
+<PageTitle>@L["SG_Title"] — RTM View Shell</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">@L["SG_Title"]</h1>
+    <div class="d-flex align-items-center gap-2">
+        <AuthorizeView Roles="Superadmin">
+            @if (Tenants.Count > 0)
+            {
+                <label class="form-label mb-0 small text-muted">@L["PG_Tenant"]</label>
+                <select class="form-select form-select-sm" style="width:auto"
+                        value="@SelectedTenantId"
+                        @onchange="async e => { SelectedTenantId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await LoadAsync(); }">
+                    <option value="">@L["Audit_AllTenants"]</option>
+                    @foreach (var t in Tenants)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+            }
+        </AuthorizeView>
+        <button class="btn btn-primary btn-sm text-nowrap" @onclick="() => OpenModal(null)">
+            <i class="bi bi-plus-lg me-1"></i>@L["SG_New"]
+        </button>
+    </div>
+</div>
+
+@if (Error is not null)
+{
+    <div class="alert alert-danger py-2 alert-dismissible">
+        @Error <button class="btn-close btn-sm" @onclick="() => Error = null"></button>
+    </div>
+}
+
+@if (Loading)
+{
+    <div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>@L["SG_Name"]</th>
+                    <th>@L["SG_Description"]</th>
+                    <th>@L["SG_AgentGroups"]</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var sg in Supergroups)
+                {
+                    <tr>
+                        <td>@sg.SupergroupName</td>
+                        <td class="text-muted small">@sg.Description</td>
+                        <td><span class="badge bg-secondary">@sg.AgentGroupIds.Count</span></td>
+                        <td class="text-end">
+                            <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => OpenModal(sg)">@L["Edit"]</button>
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => ConfirmDelete(sg)">@L["Delete"]</button>
+                        </td>
+                    </tr>
+                }
+                @if (!Supergroups.Any())
+                {
+                    <tr><td colspan="4" class="text-center text-muted py-3">@L["SG_Empty"]</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (ShowModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(EditId is null ? L["SG_New"] : L["SG_Edit"])</h5>
+                    <button class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (ModalError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@ModalError</div>
+                    }
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">@L["SG_Name"] *</label>
+                            <input class="form-control" @bind="EditName" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">@L["SG_Description"]</label>
+                            <input class="form-control" @bind="EditDescription" />
+                        </div>
+                    </div>
+
+                    <div class="fw-semibold small mb-2">
+                        @L["SG_AgentGroups"] <span class="badge bg-secondary ms-1">@SelectedAgentGroupIds.Count</span>
+                    </div>
+                    <DualPaneSelector TKey="string"
+                        AllItems="@AgentGroupItems"
+                        SelectedIds="@SelectedAgentGroupIds"
+                        SelectedIdsChanged="@(ids => SelectedAgentGroupIds = ids)" />
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="CloseModal">@L["Cancel"]</button>
+                    <button class="btn btn-primary btn-sm" @onclick="Save" disabled="@Saving">
+                        @if (Saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        @L["Save"]
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (DeleteTarget is not null)
+{
+    <div class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@L["SG_DeleteConfirm"]</h5>
+                    <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
+                </div>
+                <div class="modal-body">@L["SG_DeleteWarning"]: <strong>@DeleteTarget.SupergroupName</strong></div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="() => DeleteTarget = null">@L["Cancel"]</button>
+                    <button class="btn btn-danger btn-sm" @onclick="ExecuteDelete">@L["Delete"]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<SupergroupDto> Supergroups = [];
+    private IReadOnlyList<AgentGroupDto> AllAgentGroups = [];
+    private bool Loading = true;
+    private string? Error;
+
+    private List<TenantDto> Tenants = [];
+    private Guid? SelectedTenantId;
+
+    private bool ShowModal;
+    private bool Saving;
+    private string? ModalError;
+    private int? EditId;
+    private string? EditName;
+    private string? EditDescription;
+    private HashSet<string> SelectedAgentGroupIds = [];
+
+    private SupergroupDto? DeleteTarget;
+
+    private IReadOnlyList<(string Key, string Label)> AgentGroupItems =>
+        AllAgentGroups.Select(a => (a.AgentGroupId, a.Name ?? a.AgentGroupId)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CurrentUser.InitAsync();
+        if (CurrentUser.Role == "Superadmin")
+            Tenants = (await Mediator.Send(new GetTenantsQuery())).ToList();
+        else
+            SelectedTenantId = CurrentUser.TenantId!.Value;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        Loading = true;
+        try
+        {
+            var tid = SelectedTenantId;
+            Supergroups = await Mediator.Send(new GetSupergroupsQuery(tid));
+            AllAgentGroups = await Mediator.Send(new GetAgentGroupsQuery(tid));
+        }
+        catch (Exception ex) { Error = SafeError(ex); }
+        finally { Loading = false; }
+    }
+
+    private void OpenModal(SupergroupDto? sg)
+    {
+        EditId = sg?.SupergroupId;
+        EditName = sg?.SupergroupName;
+        EditDescription = sg?.Description;
+        SelectedAgentGroupIds = sg?.AgentGroupIds.ToHashSet() ?? [];
+        ModalError = null;
+        ShowModal = true;
+    }
+
+    private void CloseModal() { ShowModal = false; ModalError = null; }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(EditName)) { ModalError = L["SG_NameRequired"]; return; }
+        Saving = true;
+        try
+        {
+            var result = await Mediator.Send(new SaveSupergroupCommand(
+                new SaveSupergroupRequest(EditId, EditName, EditDescription,
+                    SelectedAgentGroupIds.ToList())));
+            if (!result.IsSuccess) { ModalError = result.Error; return; }
+            CloseModal();
+            await LoadAsync();
+        }
+        catch (Exception ex) { ModalError = SafeError(ex); }
+        finally { Saving = false; }
+    }
+
+    private void ConfirmDelete(SupergroupDto sg) => DeleteTarget = sg;
+
+    private async Task ExecuteDelete()
+    {
+        if (DeleteTarget is null) return;
+        try
+        {
+            var result = await Mediator.Send(new DeleteSupergroupCommand(DeleteTarget.SupergroupId));
+            if (!result.IsSuccess) Error = result.Error;
+            DeleteTarget = null;
+            await LoadAsync();
+        }
+        catch (Exception ex) { Error = SafeError(ex); DeleteTarget = null; }
+    }
+
+    private static string SafeError(Exception ex) =>
+        ex is ValidationException vex
+            ? string.Join(" ", vex.Errors.Select(e => e.ErrorMessage))
+            : "An unexpected error occurred. Please try again.";
+}

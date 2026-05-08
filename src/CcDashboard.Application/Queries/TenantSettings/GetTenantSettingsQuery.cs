@@ -5,16 +5,16 @@ using MediatR;
 
 namespace CcDashboard.Application.Queries.TenantSettings;
 
-public record GetTenantSettingsQuery : IRequest<TenantSettingsDto?>;
+public record GetTenantSettingsQuery(Guid? TenantId = null) : IRequest<TenantSettingsDto?>;
 
 public class GetTenantSettingsQueryHandler(
     ITenantSettingsRepository repo,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetTenantSettingsQuery, TenantSettingsDto?>
 {
-    public async Task<TenantSettingsDto?> Handle(GetTenantSettingsQuery _, CancellationToken ct)
+    public async Task<TenantSettingsDto?> Handle(GetTenantSettingsQuery query, CancellationToken ct)
     {
-        var tenantId = currentUser.TenantId!.Value;
+        var tenantId = query.TenantId ?? currentUser.TenantId!.Value;
         var s = await repo.GetByTenantAsync(tenantId, ct);
         if (s is null) return null;
 

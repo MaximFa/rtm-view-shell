@@ -8,11 +8,14 @@ using UUIDNext;
 
 namespace CcDashboard.Application.Commands.Dashboards;
 
-public record CreateDashboardCommand(CreateDashboardRequest Request) : IRequest<DashboardDto>, ITransactional;
+public record CreateDashboardCommand(CreateDashboardRequest Request) : IRequest<DashboardDto>, ITransactional, IAuditable
+{
+    public string AuditEventType => "Dashboard.Created";
+    public object? AuditDetails => new { Name = Request.Name };
+}
 
 public class CreateDashboardCommandHandler(
     IDashboardRepository dashboards,
-    IPermissionGroupRepository pgRepo,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<CreateDashboardCommand, DashboardDto>
@@ -27,8 +30,8 @@ public class CreateDashboardCommandHandler(
         {
             Id = Uuid.NewSequential(),
             TenantId = tenantId,
-            Name = cmd.Request.Name,
-            Description = cmd.Request.Description,
+            Name = cmd.Request.Name.Trim(),
+            Description = cmd.Request.Description?.Trim(),
             IsPublic = cmd.Request.IsPublic,
             CreatedByUserId = userId,
             UpdatedByUserId = userId,

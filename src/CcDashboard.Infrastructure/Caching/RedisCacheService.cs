@@ -1,26 +1,54 @@
 using CcDashboard.Application.Interfaces;
+using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Text.Json;
 
 namespace CcDashboard.Infrastructure.Caching;
 
-public class RedisCacheService(IConnectionMultiplexer redis) : ICacheService
+public class RedisCacheService(IConnectionMultiplexer redis, ILogger<RedisCacheService> logger) : ICacheService
 {
-    private readonly IDatabase _db = redis.GetDatabase();
+    private IDatabase Db => redis.GetDatabase();
 
     public async Task<T?> GetAsync<T>(string key, CancellationToken ct = default) where T : class
     {
-        var value = await _db.StringGetAsync(key);
-        return value.IsNullOrEmpty ? null : JsonSerializer.Deserialize<T>(value!);
+        try
+        {
+            var value = await Db.StringGetAsync(key);
+            return value.IsNullOrEmpty ? null : JsonSerializer.Deserialize<T>(value!);
+        }
+        catch (RedisException ex)
+        {
+            logger.LogWarning(ex, "Redis unavailable — cache miss for key {Key}", key);
+            return null;
+        }
     }
 
     public async Task SetAsync<T>(string key, T value, TimeSpan? ttl = null, CancellationToken ct = default) where T : class
     {
-        var json = JsonSerializer.Serialize(value);
-        await _db.StringSetAsync(key, json, ttl);
+        try
+        {
+            var json = JsonSerializer.Serialize(value);
+            await Db.StringSetAsync(key, json, ttl);
+        }
+        catch (RedisException ex)
+        {
+            logger.LogWarning(ex, "Redis unavailable — skipped cache set for key {Key}", key);
+        }
     }
 
-    public async Task RemoveAsync(string key, CancellationToken ct = default) => await _db.KeyDeleteAsync(key);
+    public async Task RemoveAsync(string key, CancellationToken ct = default)
+    {
+        try { await Db.KeyDeleteAsync(key); }
+        catch (RedisException ex) { logger.LogWarning(ex, "Redis unavailable — skipped remove for key {Key}", key); }
+    }
 
-    public Task<bool> ExistsAsync(string key, CancellationToken ct = default) => _db.KeyExistsAsync(key);
+    public async Task<bool> ExistsAsync(string key, CancellationToken ct = default)
+    {
+        try { return await Db.KeyExistsAsync(key); }
+        catch (RedisException ex)
+        {
+            logger.LogWarning(ex, "Redis unavailable — ExistsAsync returning false for key {Key}", key);
+            return false;
+        }
+    }
 }

@@ -31,15 +31,16 @@ public class AuditLogRepository(AuditDbContext db) : IAuditLogRepository
             q = q.Where(l => l.CreatedAt <= to.Value);
 
         var total = await q.CountAsync(ct);
-        var items = await q
+        var entities = await q
             .OrderByDescending(l => l.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(l => new AuditLogDto(
-                l.Id, l.TenantId, l.UserId, l.UserName,
-                l.EventType, l.EventResult.ToString(),
-                l.IpAddress, l.Details, l.CreatedAt))
             .ToListAsync(ct);
+
+        var items = entities.Select(l => new AuditLogDto(
+            l.Id, l.TenantId, l.UserId, l.UserName,
+            l.EventType, l.EventResult.ToString(),
+            l.IpAddress, l.Details, l.CreatedAt)).ToList();
 
         return (items, total);
     }

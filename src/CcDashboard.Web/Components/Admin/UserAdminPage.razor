@@ -10,8 +10,10 @@
 @using CcDashboard.Application.Interfaces
 @using CcDashboard.Application.Queries.Users
 @using CcDashboard.Application.Queries.PermissionGroups
+@using CcDashboard.Application.Queries.Tenants
 @using CcDashboard.Contracts.DTOs.Users
 @using CcDashboard.Contracts.DTOs.PermissionGroups
+@using CcDashboard.Contracts.DTOs.Tenants
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
 
@@ -19,7 +21,26 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">@L["Users_Title"]</h1>
-    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">@L["Users_NewUser"]</button>
+    <div class="d-flex align-items-center gap-3">
+        <AuthorizeView Roles="Superadmin">
+            @if (Tenants.Count > 0)
+            {
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 small text-muted">@L["PG_Tenant"]</label>
+                    <select class="form-select form-select-sm" style="width:auto"
+                            value="@SelectedTenantId"
+                            @onchange="OnTenantChanged">
+                        <option value="">@L["Audit_AllTenants"]</option>
+                        @foreach (var t in Tenants)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+        </AuthorizeView>
+        <button class="btn btn-primary btn-sm" @onclick="OpenCreate">@L["Users_NewUser"]</button>
+    </div>
 </div>
 
 <!-- Toolbar -->
@@ -68,8 +89,10 @@ else
             <thead class="table-light">
                 <tr>
                     <th>@L["Users_ColUser"]</th>
+                    <th>@L["Users_Username"]</th>
                     <th>@L["Users_ColRole"]</th>
                     <th>@L["Users_ColGroup"]</th>
+                    @if (IsSuperadmin) { <th>@L["PG_Tenant"]</th> }
                     <th>@L["Users_ColStatus"]</th>
                     <th>@L["Users_ColLastLogin"]</th>
                     <th>@L["Users_Col2fa"]</th>
@@ -81,9 +104,8 @@ else
                 {
                     <tr>
                         <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
-                                     style="width:32px;height:32px;font-size:0.8rem;">
+                            <div class="d-flex align-items-start gap-2">
+                                <div class="user-avatar">
                                     @AvatarInitial(u)
                                 </div>
                                 <div>
@@ -92,8 +114,13 @@ else
                                 </div>
                             </div>
                         </td>
+                        <td class="small text-muted">@u.UserName</td>
                         <td><span class="badge badge-@u.Role.ToLower()">@u.Role</span></td>
-                        <td><span class="text-muted small">@(u.PermissionGroupName ?? "—")</span></td>
+                        <td><span class="text-muted small">@(PermissionGroups.FirstOrDefault(pg => pg.Id == u.PermissionGroupId)?.Name ?? "—")</span></td>
+                        @if (IsSuperadmin)
+                        {
+                            <td class="small text-muted">@(Tenants.FirstOrDefault(t => t.Id == u.TenantId)?.Name ?? "—")</td>
+                        }
                         <td>
                             @if (u.IsActive)
                             {
@@ -114,26 +141,23 @@ else
                 }
                 @if (!Users.Any())
                 {
-                    <tr><td colspan="7" class="text-center text-muted py-3">@L["Audit_NoRecords"]</td></tr>
+                    <tr><td colspan="@(IsSuperadmin ? 9 : 8)" class="text-center text-muted py-3">@L["Audit_NoRecords"]</td></tr>
                 }
             </tbody>
         </table>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mt-2">
-        <div class="d-flex gap-2 align-items-center">
-            <span class="text-muted small">@TotalCount @L["Common_Records"]</span>
-            <select class="form-select form-select-sm" style="width:auto"
-                    @bind="PageSize" @bind:after="ResetAndLoad">
+    <div class="pagination-bar">
+        <span class="pagination-info">@TotalCount @L["Common_Records"]</span>
+        <div class="pagination-controls">
+            <select class="pagination-size" @bind="PageSize" @bind:after="ResetAndLoad">
                 <option value="10">10</option>
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
             </select>
-        </div>
-        <div class="d-flex gap-2">
             <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">&#8249;</button>
-            <span class="align-self-center small">@CurrentPage / @TotalPages</span>
+            <span class="pagination-counter">@PageLabel</span>
             <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage >= TotalPages)" @onclick="NextPage">&#8250;</button>
         </div>
     </div>
@@ -273,17 +297,20 @@ else
 
 @code {
     private static readonly string[] Roles = ["Superadmin", "Administrator", "Editor", "Viewer"];
-    private string[] AllowedCreateRoles => CurrentUser.Role == "Superadmin"
-        ? Roles : ["Administrator", "Editor", "Viewer"];
+    private bool IsSuperadmin => CurrentUser.Role == "Superadmin";
+    private string[] AllowedCreateRoles => IsSuperadmin ? Roles : ["Administrator", "Editor", "Viewer"];
 
     private List<UserDto> Users = [];
     private List<PermissionGroupDto> PermissionGroups = [];
+    private List<TenantDto> Tenants = [];
+    private Guid? SelectedTenantId;
     private bool Loading = true;
     private string? Error;
     private string? SaveError;
     private bool Saving;
     private int TotalCount;
     private int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    private string PageLabel => $"{CurrentPage} / {TotalPages}";
     private int CurrentPage = 1;
     private int PageSize = 25;
     private string? Search;
@@ -305,8 +332,33 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        PermissionGroups = (await Mediator.Send(new GetPermissionGroupsQuery())).ToList();
+        await CurrentUser.InitAsync();
+        if (CurrentUser.Role == "Superadmin")
+        {
+            try
+            {
+                Tenants = (await Mediator.Send(new GetTenantsQuery())).ToList();
+                SelectedTenantId = null;
+            }
+            catch { /* non-critical */ }
+        }
+        await LoadPermissionGroupsAsync();
         await LoadAsync();
+    }
+
+    private async Task OnTenantChanged(ChangeEventArgs e)
+    {
+        SelectedTenantId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        PgFilter = null;
+        CurrentPage = 1;
+        await LoadPermissionGroupsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadPermissionGroupsAsync()
+    {
+        try { PermissionGroups = (await Mediator.Send(new GetPermissionGroupsQuery(SelectedTenantId))).ToList(); }
+        catch { PermissionGroups = []; }
     }
 
     private async Task LoadAsync()
@@ -317,7 +369,8 @@ else
             Guid? pgId = Guid.TryParse(PgFilter, out var g) ? g : null;
             bool? active = ActiveFilter == "true" ? true : ActiveFilter == "false" ? false : null;
             var result = await Mediator.Send(new GetUsersQuery(
-                new UserListRequest(Search, RoleFilter, pgId, active, CurrentPage, PageSize)));
+                new UserListRequest(Search, RoleFilter, pgId, active, CurrentPage, PageSize),
+                SelectedTenantId));
             Users = result.Items.ToList();
             TotalCount = result.TotalCount;
         }
@@ -354,7 +407,7 @@ else
         try
         {
             var pgId = Guid.TryParse(CPgId, out var g) ? g : (Guid?)null;
-            var tenantId = CurrentUser.TenantId!.Value;
+            var tenantId = SelectedTenantId ?? CurrentUser.TenantId!.Value;
             var (ok, err, _) = await UserMgmt.CreateAsync(tenantId,
                 new CreateUserRequest(CUserName!, CEmail!, CFirst ?? "", CLast ?? "", CRole, pgId));
             if (ok) { CloseModals(); await LoadAsync(); }

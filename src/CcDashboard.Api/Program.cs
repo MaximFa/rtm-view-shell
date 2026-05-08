@@ -29,6 +29,8 @@ try
 
     var jwtSection = config.GetSection("Jwt");
     var secret = jwtSection["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey not configured");
+    if (secret.Length < 32)
+        throw new InvalidOperationException("Jwt:SecretKey must be at least 32 characters (256 bits) for HMAC-SHA256.");
     var issuer = jwtSection["Issuer"] ?? "CcDashboard";
     var audience = jwtSection["Audience"] ?? "CcDashboard";
 

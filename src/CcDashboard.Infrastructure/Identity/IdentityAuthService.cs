@@ -224,6 +224,50 @@ public class IdentityAuthService(
         return new ChangePasswordResult(true);
     }
 
+    public async Task<ChangePasswordResult> ForceSetPasswordAsync(
+        Guid userId, string newPassword, CancellationToken ct = default)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+            return new ChangePasswordResult(false, "User not found.");
+
+        var history = await db.UserPasswordHistories
+            .Where(h => h.UserId == userId)
+            .OrderByDescending(h => h.CreatedAt)
+            .Take(10).ToListAsync(ct);
+
+        foreach (var h in history)
+        {
+            var check = userManager.PasswordHasher.VerifyHashedPassword(user, h.PasswordHash, newPassword);
+            if (check != PasswordVerificationResult.Failed)
+                return new ChangePasswordResult(false, "Password has been used recently. Please choose a different password.");
+        }
+
+        var oldHash = user.PasswordHash ?? string.Empty;
+        await userManager.RemovePasswordAsync(user);
+        var result = await userManager.AddPasswordAsync(user, newPassword);
+        if (!result.Succeeded)
+            return new ChangePasswordResult(false, string.Join(" ", result.Errors.Select(e => e.Description)));
+
+        db.UserPasswordHistories.Add(new UserPasswordHistory
+        {
+            Id = Uuid.NewSequential(),
+            UserId = userId,
+            TenantId = user.TenantId,
+            PasswordHash = oldHash,
+            CreatedAt = clock.UtcNow
+        });
+
+        var excess = history.Skip(9).ToList();
+        if (excess.Count > 0)
+            db.UserPasswordHistories.RemoveRange(excess);
+
+        user.MustChangePasswordAt = null;
+        await userManager.UpdateAsync(user);
+        await db.SaveChangesAsync(ct);
+        return new ChangePasswordResult(true);
+    }
+
     private async Task StorePendingTwoFactorAsync(Guid userId, Guid tenantId, string email)
     {
         var httpContext = httpContextAccessor.HttpContext!;

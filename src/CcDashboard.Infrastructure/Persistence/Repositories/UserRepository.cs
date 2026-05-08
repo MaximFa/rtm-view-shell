@@ -42,10 +42,11 @@ public class UserRepository(AppDbContext db, UserManager<ApplicationUser> userMa
     }
 
     public async Task<IReadOnlyList<ApplicationUserSnapshot>> GetPageAsync(
-        Guid tenantId, string? search, string? role, Guid? pgId, bool? isActive,
+        Guid? tenantId, string? search, string? role, Guid? pgId, bool? isActive,
         int page, int pageSize, string sortBy, bool desc, CancellationToken ct = default)
     {
-        var q = db.Users.AsNoTracking().Where(u => u.TenantId == tenantId);
+        var q = db.Users.AsNoTracking().IgnoreQueryFilters()
+            .Where(u => tenantId == null || u.TenantId == tenantId);
         if (!string.IsNullOrWhiteSpace(search))
             q = q.Where(u => EF.Functions.ILike(u.Email!, $"%{search}%") || EF.Functions.ILike(u.UserName!, $"%{search}%"));
         if (isActive.HasValue)
@@ -63,9 +64,10 @@ public class UserRepository(AppDbContext db, UserManager<ApplicationUser> userMa
         return snapshots;
     }
 
-    public Task<int> CountAsync(Guid tenantId, string? search, string? role, Guid? pgId, bool? isActive, CancellationToken ct = default)
+    public Task<int> CountAsync(Guid? tenantId, string? search, string? role, Guid? pgId, bool? isActive, CancellationToken ct = default)
     {
-        var q = db.Users.AsNoTracking().Where(u => u.TenantId == tenantId);
+        var q = db.Users.AsNoTracking().IgnoreQueryFilters()
+            .Where(u => tenantId == null || u.TenantId == tenantId);
         if (!string.IsNullOrWhiteSpace(search))
             q = q.Where(u => EF.Functions.ILike(u.Email!, $"%{search}%") || EF.Functions.ILike(u.UserName!, $"%{search}%"));
         if (isActive.HasValue)

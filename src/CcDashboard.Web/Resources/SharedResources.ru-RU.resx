@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -70,6 +70,7 @@
   <data name="Password_Save"><value>Сохранить</value></data>
   <data name="Password_ChangeButton"><value>Сменить пароль →</value></data>
   <data name="Password_Mismatch"><value>Новый пароль и подтверждение не совпадают.</value></data>
+  <data name="Password_AllFieldsRequired"><value>Все поля обязательны.</value></data>
   <data name="Password_ChangeFailed"><value>Ошибка смены пароля.</value></data>
   <data name="Password_Rule_MinLength"><value>Минимум 12 символов</value></data>
   <data name="Password_Rule_Uppercase"><value>Заглавная буква (A-Z)</value></data>
@@ -191,7 +192,9 @@
 
   <!-- ── Permission Groups ── -->
   <data name="PG_Title"><value>Группы доступа</value></data>
+  <data name="PG_Tenant"><value>Тенант</value></data>
   <data name="PG_NewGroup"><value>Новая группа</value></data>
+  <data name="PG_EditGroup"><value>Редактировать группу</value></data>
   <data name="PG_GroupName"><value>Название группы</value></data>
   <data name="PG_Description"><value>Описание</value></data>
   <data name="PG_IsActive"><value>Группа активна (IsActive)</value></data>
@@ -220,6 +223,7 @@
 
   <!-- ── Audit Log ── -->
   <data name="Audit_Title"><value>Журнал аудита</value></data>
+  <data name="Audit_AllTenants"><value>Все тенанты</value></data>
   <data name="Audit_AllTypes"><value>Все типы событий</value></data>
   <data name="Audit_AllResults"><value>Все результаты</value></data>
   <data name="Audit_From"><value>С</value></data>
@@ -228,6 +232,7 @@
   <data name="Audit_ColEvent"><value>Событие</value></data>
   <data name="Audit_ColResult"><value>Результат</value></data>
   <data name="Audit_ColUser"><value>Пользователь</value></data>
+  <data name="Audit_ColTenant"><value>Тенант</value></data>
   <data name="Audit_ColIp"><value>IP</value></data>
   <data name="Audit_ColDetails"><value>Детали</value></data>
   <data name="Audit_NoRecords"><value>Записи аудита не найдены.</value></data>
@@ -269,6 +274,11 @@
   <data name="Tenants_Slug"><value>Слаг (поддомен)</value></data>
   <data name="Tenants_SlugHelp"><value>Только строчные буквы, цифры и дефисы</value></data>
   <data name="Tenants_CreateButton"><value>Создать тенант →</value></data>
+  <data name="Tenants_EditModal"><value>Редактировать тенант</value></data>
+  <data name="Tenants_EditButton"><value>Сохранить изменения →</value></data>
+  <data name="Tenants_TabGeneral"><value>Общее</value></data>
+  <data name="Tenants_TabSettings"><value>Настройки</value></data>
+  <data name="Tenants_SlugReadOnly"><value>Слаг нельзя изменить после создания</value></data>
 
   <!-- ── Common ── -->
   <data name="Common_Save"><value>Сохранить →</value></data>
@@ -289,9 +299,91 @@
   <data name="Common_Of"><value>из</value></data>
   <data name="Common_Records"><value>запис.</value></data>
 
+  <!-- ── Common shorthand aliases ── -->
+  <data name="Cancel"><value>Отмена</value></data>
+  <data name="Save"><value>Сохранить →</value></data>
+  <data name="Delete"><value>Удалить</value></data>
+  <data name="Edit"><value>Изменить</value></data>
+
+  <!-- ── DualPane selector ── -->
+  <data name="DualPane_Available"><value>Доступные</value></data>
+  <data name="DualPane_Selected"><value>Выбранные</value></data>
+  <data name="DualPane_AllSelected"><value>Все элементы выбраны</value></data>
+  <data name="DualPane_NoneSelected"><value>Ничего не выбрано</value></data>
+  <data name="DualPane_Search"><value>Поиск...</value></data>
+
+  <!-- ── Configuration Navigation ── -->
+  <data name="Nav_Configuration"><value>Конфигурация</value></data>
+  <data name="Nav_Sites"><value>Сайты</value></data>
+  <data name="Nav_BusinessUnits"><value>Бизнес-единицы</value></data>
+  <data name="Nav_Supergroups"><value>Супергруппы</value></data>
+  <data name="Nav_Metrics"><value>Метрики</value></data>
+
+  <!-- ── Sites ── -->
+  <data name="Sites_Title"><value>Сайты</value></data>
+  <data name="Sites_NewSite"><value>+ Новый сайт</value></data>
+  <data name="Sites_EditSite"><value>Редактировать сайт</value></data>
+  <data name="Sites_SiteId"><value>ID сайта</value></data>
+  <data name="Sites_SiteName"><value>Название сайта</value></data>
+  <data name="Sites_Description"><value>Описание</value></data>
+  <data name="Sites_TimeZone"><value>Часовой пояс (UTC смещение)</value></data>
+  <data name="Sites_ClearTime"><value>Время сброса (ЧЧ:ММ)</value></data>
+  <data name="Sites_Empty"><value>Сайты не настроены.</value></data>
+  <data name="Sites_SiteIdRequired"><value>ID сайта обязателен.</value></data>
+  <data name="Sites_DeleteConfirm"><value>Удалить сайт</value></data>
+  <data name="Sites_DeleteWarning"><value>Удалить сайт</value></data>
+  <data name="Sites_SelectTimeZone"><value>Выберите часовой пояс</value></data>
+
+  <!-- ── Business Units ── -->
+  <data name="BU_Title"><value>Бизнес-единицы</value></data>
+  <data name="BU_New"><value>+ Новая бизнес-единица</value></data>
+  <data name="BU_Edit"><value>Редактировать бизнес-единицу</value></data>
+  <data name="BU_Name"><value>Название</value></data>
+  <data name="BU_Description"><value>Описание</value></data>
+  <data name="BU_Site"><value>Сайт</value></data>
+  <data name="BU_NoSite"><value>Без сайта</value></data>
+  <data name="BU_Queues"><value>Очереди</value></data>
+  <data name="BU_Supergroups"><value>Супергруппы</value></data>
+  <data name="BU_Empty"><value>Бизнес-единицы не настроены.</value></data>
+  <data name="BU_NameRequired"><value>Название обязательно.</value></data>
+  <data name="BU_DeleteConfirm"><value>Удалить бизнес-единицу</value></data>
+  <data name="BU_DeleteWarning"><value>Удалить бизнес-единицу</value></data>
+
+  <!-- ── Super Groups ── -->
+  <data name="SG_Title"><value>Супергруппы</value></data>
+  <data name="SG_New"><value>+ Новая супергруппа</value></data>
+  <data name="SG_Edit"><value>Редактировать супергруппу</value></data>
+  <data name="SG_Name"><value>Название</value></data>
+  <data name="SG_Description"><value>Описание</value></data>
+  <data name="SG_AgentGroups"><value>Группы агентов</value></data>
+  <data name="SG_Empty"><value>Супергруппы не настроены.</value></data>
+  <data name="SG_NameRequired"><value>Название обязательно.</value></data>
+  <data name="SG_DeleteConfirm"><value>Удалить супергруппу</value></data>
+  <data name="SG_DeleteWarning"><value>Удалить супергруппу</value></data>
+
+  <!-- ── Metrics ── -->
+  <data name="Metrics_Title"><value>Метрики</value></data>
+  <data name="Metrics_New"><value>+ Новая метрика</value></data>
+  <data name="Metrics_Edit"><value>Редактировать метрику</value></data>
+  <data name="Metrics_MetricId"><value>ID метрики</value></data>
+  <data name="Metrics_Description"><value>Описание</value></data>
+  <data name="Metrics_DataType"><value>Тип данных</value></data>
+  <data name="Metrics_Function"><value>Функция метрики</value></data>
+  <data name="Metrics_Parameter"><value>Параметр метрики</value></data>
+  <data name="Metrics_Format"><value>Формат</value></data>
+  <data name="Metrics_Default"><value>Значение по умолчанию</value></data>
+  <data name="Metrics_Empty"><value>Метрики не настроены.</value></data>
+  <data name="Metrics_IdRequired"><value>ID метрики обязателен.</value></data>
+  <data name="Metrics_DataTypeRequired"><value>Тип данных обязателен.</value></data>
+  <data name="Metrics_FunctionRequired"><value>Функция метрики обязательна.</value></data>
+  <data name="Metrics_ParameterRequired"><value>Параметр метрики обязателен.</value></data>
+  <data name="Metrics_DeleteConfirm"><value>Удалить метрику</value></data>
+  <data name="Metrics_DeleteWarning"><value>Удалить метрику</value></data>
+
   <!-- ── Errors ── -->
   <data name="Error_NotFound"><value>Запрошенный ресурс не найден.</value></data>
   <data name="Error_Forbidden"><value>У вас нет прав для выполнения этого действия.</value></data>
   <data name="Error_Concurrency"><value>Запись была изменена другим пользователем. Обновите страницу и повторите попытку.</value></data>
   <data name="Error_Generic"><value>Произошла непредвиденная ошибка. Попробуйте ещё раз.</value></data>
 </root>
+

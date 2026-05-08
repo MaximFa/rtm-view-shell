@@ -6,7 +6,10 @@ using MediatR;
 
 namespace CcDashboard.Application.Commands.TenantSettings;
 
-public record UpdateTenantSettingsCommand(UpdateTenantSettingsRequest Request) : IRequest, ITransactional;
+public record UpdateTenantSettingsCommand(UpdateTenantSettingsRequest Request, Guid? TenantId = null) : IRequest, ITransactional, IAuditable
+{
+    public string AuditEventType => "TenantSettings.Updated";
+}
 
 public class UpdateTenantSettingsCommandHandler(
     ITenantSettingsRepository repo,
@@ -15,17 +18,17 @@ public class UpdateTenantSettingsCommandHandler(
 {
     public async Task Handle(UpdateTenantSettingsCommand cmd, CancellationToken ct)
     {
-        var tenantId = currentUser.TenantId!.Value;
+        var tenantId = cmd.TenantId ?? currentUser.TenantId!.Value;
         var settings = await repo.GetByTenantAsync(tenantId, ct) ?? new Domain.Domain.TenantSettings { TenantId = tenantId };
 
         var r = cmd.Request;
-        settings.PasswordMinLength = Math.Max(8, r.PasswordMinLength);
-        settings.PasswordExpireDays = Math.Max(1, r.PasswordExpireDays);
+        settings.PasswordMinLength = Math.Clamp(r.PasswordMinLength, 8, 128);
+        settings.PasswordExpireDays = Math.Clamp(r.PasswordExpireDays, 1, 3650);
         settings.Require2faForAll = r.Require2faForAll;
-        settings.AuditRetentionDays = Math.Max(30, r.AuditRetentionDays);
-        settings.DefaultLocale = r.DefaultLocale;
+        settings.AuditRetentionDays = Math.Clamp(r.AuditRetentionDays, 30, 3650);
+        settings.DefaultLocale = r.DefaultLocale?.Trim().Substring(0, Math.Min(10, r.DefaultLocale.Length)) ?? "en-US";
         settings.SoftDeleteDashboards = r.SoftDeleteDashboards;
-        settings.SoftDeleteRetentionDays = Math.Max(1, r.SoftDeleteRetentionDays);
+        settings.SoftDeleteRetentionDays = Math.Clamp(r.SoftDeleteRetentionDays, 1, 365);
 
         await repo.UpsertAsync(settings, ct);
     }

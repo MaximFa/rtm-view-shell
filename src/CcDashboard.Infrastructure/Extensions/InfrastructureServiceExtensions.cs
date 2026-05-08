@@ -80,9 +80,10 @@ public static class InfrastructureServiceExtensions
         // Seeding
         services.AddScoped<DatabaseInitializer>();
 
-        // Redis
+        // Redis — abortConnect=false so startup does not throw when Redis is unavailable
         var redisConn = config.GetConnectionString("Redis") ?? "localhost:6379";
-        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConn));
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
+            ConnectionMultiplexer.Connect(ConfigurationOptions.Parse(redisConn + ",abortConnect=false")));
         services.AddScoped<ICacheService, RedisCacheService>();
 
         // Audit
@@ -96,6 +97,17 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<ITenantSettingsRepository, TenantSettingsRepository>();
+
+        // Configuration repositories
+        services.AddScoped<ISiteRepository, SiteRepository>();
+        services.AddScoped<IBusinessUnitRepository, BusinessUnitRepository>();
+        services.AddScoped<IQueueRepository, QueueRepository>();
+        services.AddScoped<ISupergroupRepository, SupergroupRepository>();
+        services.AddScoped<IAgentGroupRepository, AgentGroupRepository>();
+        services.AddScoped<IRtsGridMetricRepository, RtsGridMetricRepository>();
+
+        // API hook (no-op until CC-platform API is available)
+        services.AddScoped<IConfigurationApiHook, NoOpConfigurationApiHook>();
 
         return services;
     }

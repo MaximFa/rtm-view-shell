@@ -9,8 +9,12 @@ using UUIDNext;
 
 namespace CcDashboard.Application.Commands.PermissionGroups;
 
-public record CreatePermissionGroupCommand(CreatePermissionGroupRequest Request)
-    : IRequest<Result<Guid>>, ITransactional;
+public record CreatePermissionGroupCommand(CreatePermissionGroupRequest Request, Guid? TenantId = null)
+    : IRequest<Result<Guid>>, ITransactional, IAuditable
+{
+    public string AuditEventType => "PermissionGroup.Created";
+    public object? AuditDetails => new { Name = Request.Name };
+}
 
 public class CreatePermissionGroupCommandHandler(
     IPermissionGroupRepository repo,
@@ -20,7 +24,7 @@ public class CreatePermissionGroupCommandHandler(
 {
     public async Task<Result<Guid>> Handle(CreatePermissionGroupCommand cmd, CancellationToken ct)
     {
-        var tenantId = currentUser.TenantId!.Value;
+        var tenantId = cmd.TenantId ?? currentUser.TenantId!.Value;
         var userId = currentUser.UserId!.Value;
         var now = clock.UtcNow;
         var req = cmd.Request;
@@ -30,7 +34,7 @@ public class CreatePermissionGroupCommandHandler(
             Id = Uuid.NewSequential(),
             TenantId = tenantId,
             Name = req.Name.Trim(),
-            Description = req.Description,
+            Description = req.Description?.Trim(),
             IsActive = true,
             CreatedAt = now,
             CreatedByUserId = userId,

@@ -19,6 +19,7 @@ Log.Logger = new LoggerConfiguration()
 try
 {
     var builder = WebApplication.CreateBuilder(args);
+    builder.Host.UseWindowsService(); // enables running as Windows Service in production
 
     builder.Host.UseSerilog((ctx, cfg) =>
         cfg.ReadFrom.Configuration(ctx.Configuration).Enrich.FromLogContext());
@@ -31,9 +32,12 @@ try
     services.AddApplication();
 
     // [SCALE-01] SignalR Redis backplane — required for multi-instance deployments
+    // In development use in-memory transport; Redis backplane is for production only.
     var redisConn = config.GetConnectionString("Redis") ?? "localhost:6379";
-    services.AddSignalR().AddStackExchangeRedis(redisConn, opts =>
-        opts.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("CcDashboard"));
+    var signalR = services.AddSignalR();
+    if (!isDev)
+        signalR.AddStackExchangeRedis(redisConn, opts =>
+            opts.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("CcDashboard"));
 
     services.AddRazorComponents()
         .AddInteractiveServerComponents();
@@ -58,7 +62,7 @@ try
     services.AddHttpContextAccessor();
 
     // [I18N-01..03] Localization — add new language = new .resx file, no code change
-    services.AddLocalization(opts => opts.ResourcesPath = "Resources");
+    services.AddLocalization();
     services.Configure<RequestLocalizationOptions>(opts =>
     {
         var supported = new[] { "en-US", "ru-RU", "he-IL" };

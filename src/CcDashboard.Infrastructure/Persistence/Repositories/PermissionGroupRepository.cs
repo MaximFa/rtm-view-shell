@@ -8,14 +8,16 @@ public class PermissionGroupRepository(AppDbContext db) : IPermissionGroupReposi
 {
     public Task<PermissionGroup?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => db.PermissionGroups
+             .IgnoreQueryFilters()
              .Include(g => g.MenuPermissions)
              .FirstOrDefaultAsync(g => g.Id == id, ct);
 
-    public Task<IReadOnlyList<PermissionGroup>> GetAllByTenantAsync(Guid tenantId, CancellationToken ct = default)
+    public Task<IReadOnlyList<PermissionGroup>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default)
         => db.PermissionGroups
+             .IgnoreQueryFilters()
              .AsNoTracking()
              .Include(g => g.MenuPermissions)
-             .Where(g => g.TenantId == tenantId)
+             .Where(g => tenantId == null || g.TenantId == tenantId)
              .OrderBy(g => g.Name)
              .ToListAsync(ct)
              .ContinueWith<IReadOnlyList<PermissionGroup>>(t => t.Result);

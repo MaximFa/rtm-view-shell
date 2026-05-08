@@ -7,7 +7,9 @@
 @using MediatR
 @using CcDashboard.Application.Commands.PermissionGroups
 @using CcDashboard.Application.Queries.PermissionGroups
+@using CcDashboard.Application.Queries.Tenants
 @using CcDashboard.Contracts.DTOs.PermissionGroups
+@using CcDashboard.Contracts.DTOs.Tenants
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
 
@@ -15,170 +17,213 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">@L["PG_Title"]</h1>
+    <div class="d-flex align-items-center gap-2">
+        <AuthorizeView Roles="Superadmin">
+            @if (Tenants.Count > 0)
+            {
+                <label class="form-label mb-0 small text-muted">@L["PG_Tenant"]</label>
+                <select class="form-select form-select-sm" style="width:auto"
+                        value="@SelectedTenantId"
+                        @onchange="OnTenantChanged">
+                    <option value="">@L["Audit_AllTenants"]</option>
+                    @foreach (var t in Tenants)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+            }
+        </AuthorizeView>
+        <button class="btn btn-primary btn-sm text-nowrap" @onclick="OpenNew">
+            <i class="bi bi-plus-lg me-1"></i>@L["PG_NewGroup"]
+        </button>
+    </div>
 </div>
 
-<div class="row g-0" style="min-height:60vh">
-    <!-- Left panel: group list -->
-    <div class="col-md-4 col-lg-3 border-end pe-3">
-        <button class="btn btn-sm btn-outline-primary w-100 mb-3" @onclick="NewGroup">@L["PG_NewGroup"]</button>
+@if (SaveError is not null && !ShowModal)
+{
+    <div class="alert alert-danger py-2 alert-dismissible">
+        @SaveError <button class="btn-close btn-sm" @onclick="() => SaveError = null"></button>
+    </div>
+}
 
-        @if (Loading)
-        {
-            <div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span></div>
-        }
-        else
-        {
-            @foreach (var g in Groups)
-            {
-                <div class="card mb-2 @(SelectedId == g.Id ? "border-primary" : "") clickable"
-                     style="cursor:pointer" @onclick="() => SelectGroup(g)">
-                    <div class="card-body py-2 px-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="fw-semibold">@g.Name</span>
-                            <span class="badge bg-secondary">@g.UserCount @L["PG_Users"]</span>
-                        </div>
-                        <div class="mt-1">
+@if (Loading)
+{
+    <div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>@L["PG_GroupName"]</th>
+                    <th>@L["PG_Description"]</th>
+                    @if (IsSuperadmin) { <th>@L["PG_Tenant"]</th> }
+                    <th>@L["Common_Active"]</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var g in Groups)
+                {
+                    <tr>
+                        <td class="fw-semibold">@g.Name</td>
+                        <td class="text-muted small">@g.Description</td>
+                        @if (IsSuperadmin)
+                        {
+                            <td class="small text-muted">@(Tenants.FirstOrDefault(t => t.Id == g.TenantId)?.Name ?? "—")</td>
+                        }
+                        <td>
                             @if (g.IsActive)
-                            { <span class="badge bg-success" style="font-size:0.65rem">@L["Common_Active"]</span> }
+                            { <span class="badge bg-success">@L["Common_Active"]</span> }
                             else
-                            { <span class="badge bg-secondary" style="font-size:0.65rem">@L["Common_Inactive"]</span> }
+                            { <span class="badge bg-secondary">@L["Common_Inactive"]</span> }
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => OpenEdit(g)">@L["Common_Edit"]</button>
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => ConfirmDelete(g)">@L["Delete"]</button>
+                        </td>
+                    </tr>
+                }
+                @if (!Groups.Any())
+                {
+                    <tr><td colspan="@(IsSuperadmin ? 5 : 4)" class="text-center text-muted py-3">@L["PG_NoGroupSelected"]</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (ShowModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(IsNew ? L["PG_NewGroup"] : L["PG_EditGroup"])</h5>
+                    <button class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@SaveError</div>
+                    }
+                    @if (SaveSuccess)
+                    {
+                        <div class="alert alert-success py-2">@L["TenantSettings_Saved"]</div>
+                    }
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">@L["PG_GroupName"] *</label>
+                            <input class="form-control" @bind="EName" maxlength="200" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">@L["PG_Description"]</label>
+                            <input class="form-control" @bind="EDescription" maxlength="500" />
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="pgActive" @bind="EIsActive" />
+                                <label class="form-check-label" for="pgActive">@L["PG_IsActive"]</label>
+                            </div>
                         </div>
                     </div>
-                </div>
-            }
-            @if (!Groups.Any())
-            {
-                <div class="text-muted small text-center py-3">@L["PG_NoGroupSelected"]</div>
-            }
-        }
-    </div>
 
-    <!-- Right panel: editor -->
-    <div class="col-md-8 col-lg-9 ps-4">
-        @if (EditGroup == null && !IsNew)
-        {
-            <div class="text-muted mt-4 text-center">@L["PG_NoGroupSelected"]</div>
-        }
-        else
-        {
-            @if (SaveError is not null)
-            {
-                <div class="alert alert-danger py-2 alert-dismissible">
-                    @SaveError <button class="btn-close btn-sm" @onclick="() => SaveError = null"></button>
-                </div>
-            }
-            @if (SaveSuccess)
-            {
-                <div class="alert alert-success py-2">@L["TenantSettings_Saved"]</div>
-            }
+                    <ul class="nav nav-tabs mb-3">
+                        @foreach (var tab in Tabs)
+                        {
+                            <li class="nav-item">
+                                <button class="nav-link @(ActiveTab == tab.Key ? "active" : "")"
+                                        @onclick="() => ActiveTab = tab.Key">@L[tab.LabelKey]</button>
+                            </li>
+                        }
+                    </ul>
 
-            <div class="d-flex align-items-start gap-3 mb-3 flex-wrap">
-                <div class="flex-grow-1">
-                    <label class="form-label fw-semibold">@L["PG_GroupName"]</label>
-                    <input class="form-control" @bind="EName" maxlength="200" />
-                </div>
-                <div class="flex-grow-1">
-                    <label class="form-label fw-semibold">@L["PG_Description"]</label>
-                    <input class="form-control" @bind="EDescription" maxlength="500" />
-                </div>
-            </div>
-
-            <div class="d-flex gap-3 mb-3 align-items-center">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="pgActive" @bind="EIsActive" />
-                    <label class="form-check-label" for="pgActive">@L["PG_IsActive"]</label>
-                </div>
-                @if (!IsNew)
-                {
-                    <button class="btn btn-sm btn-outline-danger ms-auto"
-                            @onclick="() => ConfirmDel = true" disabled="@ConfirmDel">
-                        @L["PG_DeleteGroup"]
-                    </button>
-                    @if (ConfirmDel)
+                    @if (ActiveTab == "Menu")
                     {
-                        <span class="text-danger small">
-                            @L["Screens_AreYouSure"]
-                            <button class="btn btn-danger btn-sm ms-1" @onclick="DeleteGroup">@L["Common_Yes"]</button>
-                            <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDel = false">@L["Common_No"]</button>
-                        </span>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr>
+                                    <th>@L["PG_ColMenuItem"]</th>
+                                    <th>@L["PG_ColPermissionKey"]</th>
+                                    <th>@L["PG_ColAllowedRoles"]</th>
+                                    <th>@L["PG_TabMenu"]</th>
+                                </tr></thead>
+                                <tbody>
+                                    @foreach (var m in MenuItems)
+                                    {
+                                        <tr class="@(m.Restricted ? "text-muted" : "")">
+                                            <td>@m.Label</td>
+                                            <td><code class="small">@m.Key</code></td>
+                                            <td class="small">@m.AllowedRoles</td>
+                                            <td>
+                                                <input class="form-check-input" type="checkbox"
+                                                       checked="@SelectedMenuKeys.Contains(m.Key)"
+                                                       disabled="@m.Restricted"
+                                                       @onchange="e => ToggleMenuKey(m.Key, (bool)e.Value!)" />
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     }
-                }
-            </div>
-
-            <!-- Tabs -->
-            <ul class="nav nav-tabs mb-3">
-                @foreach (var tab in Tabs)
-                {
-                    <li class="nav-item">
-                        <button class="nav-link @(ActiveTab == tab.Key ? "active" : "")"
-                                @onclick="() => ActiveTab = tab.Key">@L[tab.LabelKey]</button>
-                    </li>
-                }
-            </ul>
-
-            @if (ActiveTab == "Menu")
-            {
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead><tr>
-                            <th>@L["PG_ColMenuItem"]</th>
-                            <th>@L["PG_ColPermissionKey"]</th>
-                            <th>@L["PG_ColAllowedRoles"]</th>
-                            <th>@L["PG_TabMenu"]</th>
-                        </tr></thead>
-                        <tbody>
-                            @foreach (var m in MenuItems)
-                            {
-                                <tr class="@(m.Restricted ? "text-muted" : "")">
-                                    <td>@m.Label</td>
-                                    <td><code class="small">@m.Key</code></td>
-                                    <td class="small">@m.AllowedRoles</td>
-                                    <td>
-                                        <input class="form-check-input" type="checkbox"
-                                               checked="@SelectedMenuKeys.Contains(m.Key)"
-                                               disabled="@m.Restricted"
-                                               @onchange="e => ToggleMenuKey(m.Key, (bool)e.Value!)" />
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                    else if (ActiveTab == "Screens")
+                    {
+                        <p class="text-muted small">@L["PG_TabScreens"] — Dashboard access control is configured via dashboard permissions. [PG-01]</p>
+                    }
+                    else if (ActiveTab == "Queues")
+                    {
+                        <p class="text-muted small fw-semibold">@L["PG_QueuesHeading"]</p>
+                        <p class="text-muted small">@L["PG_EmptyListNote"]</p>
+                    }
+                    else if (ActiveTab == "Skills")
+                    {
+                        <p class="text-muted small fw-semibold">@L["PG_SkillsHeading"]</p>
+                        <p class="text-muted small">@L["PG_EmptyListNote"]</p>
+                    }
+                    else if (ActiveTab == "BU")
+                    {
+                        <p class="text-muted small fw-semibold">@L["PG_BuHeading"]</p>
+                        <p class="text-muted small">@L["PG_EmptyListNote"]</p>
+                    }
+                    else if (ActiveTab == "SG")
+                    {
+                        <p class="text-muted small fw-semibold">@L["PG_SgHeading"]</p>
+                        <p class="text-muted small">@L["PG_EmptyListNote"]</p>
+                    }
                 </div>
-            }
-            else if (ActiveTab == "Screens")
-            {
-                <p class="text-muted small">@L["PG_TabScreens"] — Dashboard access control is configured via dashboard permissions. [PG-01]</p>
-            }
-            else if (ActiveTab == "Queues")
-            {
-                <p class="text-muted small fw-semibold">@L["PG_QueuesHeading"]</p>
-                <p class="text-muted small">@L["PG_EmptyListNote"]</p>
-            }
-            else if (ActiveTab == "Skills")
-            {
-                <p class="text-muted small fw-semibold">@L["PG_SkillsHeading"]</p>
-                <p class="text-muted small">@L["PG_EmptyListNote"]</p>
-            }
-            else if (ActiveTab == "BU")
-            {
-                <p class="text-muted small fw-semibold">@L["PG_BuHeading"]</p>
-                <p class="text-muted small">@L["PG_EmptyListNote"]</p>
-            }
-            else if (ActiveTab == "SG")
-            {
-                <p class="text-muted small fw-semibold">@L["PG_SgHeading"]</p>
-                <p class="text-muted small">@L["PG_EmptyListNote"]</p>
-            }
-
-            <div class="d-flex gap-2 mt-3">
-                <button class="btn btn-primary" @onclick="SaveGroup" disabled="@Saving">
-                    @(Saving ? L["Common_Saving"].Value : L["PG_SaveChanges"].Value)
-                </button>
-                <button class="btn btn-secondary" @onclick="Cancel">@L["Common_Cancel"]</button>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="CloseModal">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveGroup" disabled="@Saving">
+                        @if (Saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        @L["Common_Save"]
+                    </button>
+                </div>
             </div>
-        }
+        </div>
     </div>
-</div>
+}
+
+@if (DeleteTarget is not null)
+{
+    <div class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@L["PG_DeleteGroup"]</h5>
+                    <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
+                </div>
+                <div class="modal-body">@L["Screens_AreYouSure"]: <strong>@DeleteTarget.Name</strong></div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="() => DeleteTarget = null">@L["Common_Cancel"]</button>
+                    <button class="btn btn-danger btn-sm" @onclick="ExecuteDelete">@L["Delete"]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private record MenuItem(string Label, string Key, string AllowedRoles, bool Restricted = false);
@@ -206,15 +251,19 @@
     ];
 
     private List<PermissionGroupDto> Groups = [];
+    private List<TenantDto> Tenants = [];
+    private Guid? SelectedTenantId;
     private bool Loading = true;
     private string? SaveError;
     private bool SaveSuccess;
     private bool Saving;
-    private bool ConfirmDel;
 
-    private Guid? SelectedId;
-    private PermissionGroupDto? EditGroup;
+    private bool IsSuperadmin => CurrentUser.Role == "Superadmin";
+
+    private bool ShowModal;
     private bool IsNew;
+    private PermissionGroupDto? EditGroup;
+    private PermissionGroupDto? DeleteTarget;
 
     private string? EName, EDescription;
     private bool EIsActive = true;
@@ -225,44 +274,64 @@
     private HashSet<Guid> SelectedBusinessUnitIds = [];
     private string ActiveTab = "Menu";
 
-    protected override async Task OnInitializedAsync() => await LoadGroupsAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await CurrentUser.InitAsync();
+        if (CurrentUser.Role == "Superadmin")
+        {
+            try
+            {
+                Tenants = (await Mediator.Send(new GetTenantsQuery())).ToList();
+                SelectedTenantId = null;
+            }
+            catch { /* non-critical */ }
+        }
+        await LoadGroupsAsync();
+    }
+
+    private async Task OnTenantChanged(ChangeEventArgs e)
+    {
+        SelectedTenantId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        await LoadGroupsAsync();
+    }
 
     private async Task LoadGroupsAsync()
     {
         Loading = true;
-        try { Groups = (await Mediator.Send(new GetPermissionGroupsQuery())).ToList(); }
+        try { Groups = (await Mediator.Send(new GetPermissionGroupsQuery(SelectedTenantId))).ToList(); }
         catch (Exception ex) { SaveError = ex.Message; }
         finally { Loading = false; }
     }
 
-    private void SelectGroup(PermissionGroupDto g)
+    private void OpenNew()
     {
-        SelectedId = g.Id; EditGroup = g; IsNew = false;
-        EName = g.Name; EDescription = g.Description; EIsActive = g.IsActive;
-        SelectedMenuKeys        = g.MenuPermissions.ToHashSet();
-        SelectedQueueIds        = g.AllowedQueueIds.ToHashSet();
-        SelectedSkillIds        = g.AllowedSkillIds.ToHashSet();
-        SelectedSupergroupIds   = g.AllowedSupergroupIds.ToHashSet();
-        SelectedBusinessUnitIds = g.AllowedBusinessUnitIds.ToHashSet();
-        ActiveTab = "Menu"; SaveError = null; SaveSuccess = false; ConfirmDel = false;
-    }
-
-    private void NewGroup()
-    {
-        SelectedId = null; EditGroup = null; IsNew = true;
+        EditGroup = null; IsNew = true;
         EName = ""; EDescription = ""; EIsActive = true;
         SelectedMenuKeys        = ["menu.dashboards"];
         SelectedQueueIds        = [];
         SelectedSkillIds        = [];
         SelectedSupergroupIds   = [];
         SelectedBusinessUnitIds = [];
-        ActiveTab = "Menu"; SaveError = null; SaveSuccess = false; ConfirmDel = false;
+        ActiveTab = "Menu"; SaveError = null; SaveSuccess = false;
+        ShowModal = true;
     }
 
-    private void Cancel()
+    private void OpenEdit(PermissionGroupDto g)
     {
-        EditGroup = null; IsNew = false; SelectedId = null; SaveError = null;
+        EditGroup = g; IsNew = false;
+        EName = g.Name; EDescription = g.Description; EIsActive = g.IsActive;
+        SelectedMenuKeys        = g.MenuPermissions.ToHashSet();
+        SelectedQueueIds        = g.AllowedQueueIds.ToHashSet();
+        SelectedSkillIds        = g.AllowedSkillIds.ToHashSet();
+        SelectedSupergroupIds   = g.AllowedSupergroupIds.ToHashSet();
+        SelectedBusinessUnitIds = g.AllowedBusinessUnitIds.ToHashSet();
+        ActiveTab = "Menu"; SaveError = null; SaveSuccess = false;
+        ShowModal = true;
     }
+
+    private void CloseModal() { ShowModal = false; SaveError = null; SaveSuccess = false; }
+
+    private void ConfirmDelete(PermissionGroupDto g) => DeleteTarget = g;
 
     private void ToggleMenuKey(string key, bool value)
     {
@@ -285,7 +354,8 @@
                         SelectedQueueIds.ToList(),
                         SelectedSkillIds.ToList(),
                         SelectedSupergroupIds.ToList(),
-                        SelectedBusinessUnitIds.ToList())));
+                        SelectedBusinessUnitIds.ToList()),
+                    SelectedTenantId));
                 if (!result.IsSuccess) { SaveError = result.Error; return; }
             }
             else if (EditGroup is not null)
@@ -302,24 +372,23 @@
                         SelectedBusinessUnitIds.ToList())));
                 if (!result.IsSuccess) { SaveError = result.Error; return; }
             }
+            CloseModal();
             await LoadGroupsAsync();
-            IsNew = false; SaveSuccess = true;
         }
         catch (Exception ex) { SaveError = ex.Message; }
         finally { Saving = false; }
     }
 
-    private async Task DeleteGroup()
+    private async Task ExecuteDelete()
     {
-        if (EditGroup is null) return;
-        Saving = true; SaveError = null;
+        if (DeleteTarget is null) return;
         try
         {
-            var result = await Mediator.Send(new DeletePermissionGroupCommand(EditGroup.Id));
-            if (result.IsSuccess) { Cancel(); await LoadGroupsAsync(); }
-            else SaveError = result.Error;
+            var result = await Mediator.Send(new DeletePermissionGroupCommand(DeleteTarget.Id));
+            if (!result.IsSuccess) SaveError = result.Error;
+            DeleteTarget = null;
+            await LoadGroupsAsync();
         }
-        catch (Exception ex) { SaveError = ex.Message; }
-        finally { Saving = false; ConfirmDel = false; }
+        catch (Exception ex) { SaveError = ex.Message; DeleteTarget = null; }
     }
 }

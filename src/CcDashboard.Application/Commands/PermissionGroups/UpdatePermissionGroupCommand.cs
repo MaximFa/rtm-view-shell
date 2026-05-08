@@ -10,7 +10,11 @@ using MediatR;
 namespace CcDashboard.Application.Commands.PermissionGroups;
 
 public record UpdatePermissionGroupCommand(UpdatePermissionGroupRequest Request)
-    : IRequest<Result>, ITransactional;
+    : IRequest<Result>, ITransactional, IAuditable
+{
+    public string AuditEventType => "PermissionGroup.Updated";
+    public object? AuditDetails => new { Name = Request.Name, Id = Request.Id };
+}
 
 public class UpdatePermissionGroupCommandHandler(
     IPermissionGroupRepository repo,

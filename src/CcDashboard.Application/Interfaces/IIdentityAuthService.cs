@@ -22,6 +22,11 @@ public interface IIdentityAuthService
     Task<ChangePasswordResult> ChangePasswordAsync(
         Guid userId, string currentPassword, string newPassword,
         CancellationToken ct = default);
+
+    /// <summary>Force-sets a new password without requiring the current one (first login / admin reset).</summary>
+    Task<ChangePasswordResult> ForceSetPasswordAsync(
+        Guid userId, string newPassword,
+        CancellationToken ct = default);
 }
 
 public record IdentitySignInResult(

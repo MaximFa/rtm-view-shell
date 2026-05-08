@@ -1,5 +1,6 @@
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Enums;
+using CcDashboard.Infrastructure.Audit;
 using CcDashboard.Infrastructure.Identity;
 using CcDashboard.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -15,6 +16,7 @@ namespace CcDashboard.Infrastructure.Seeding;
 /// </summary>
 public class DatabaseInitializer(
     AppDbContext db,
+    AuditDbContext auditDb,
     UserManager<ApplicationUser> userManager,
     RoleManager<ApplicationRole> roleManager,
     IConfiguration config,
@@ -25,6 +27,9 @@ public class DatabaseInitializer(
     public async Task InitializeAsync(CancellationToken ct = default)
     {
         logger.LogInformation("Running database seed...");
+
+        await db.Database.MigrateAsync(ct);
+        await auditDb.Database.MigrateAsync(ct);
 
         await SeedRolesAsync(ct);
         var platformTenant = await SeedPlatformTenantAsync(ct);

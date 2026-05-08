@@ -6,7 +6,7 @@ using MediatR;
 
 namespace CcDashboard.Application.Queries.Users;
 
-public record GetUsersQuery(UserListRequest Request) : IRequest<PagedResult<UserDto>>;
+public record GetUsersQuery(UserListRequest Request, Guid? TenantId = null) : IRequest<PagedResult<UserDto>>;
 
 public class GetUsersQueryHandler(IUserRepository users, ICurrentUserAccessor currentUser)
     : IRequestHandler<GetUsersQuery, PagedResult<UserDto>>
@@ -14,7 +14,9 @@ public class GetUsersQueryHandler(IUserRepository users, ICurrentUserAccessor cu
     public async Task<PagedResult<UserDto>> Handle(GetUsersQuery query, CancellationToken ct)
     {
         var req = query.Request;
-        var tenantId = currentUser.TenantId!.Value;
+        var tenantId = currentUser.Role == "Superadmin"
+            ? query.TenantId
+            : (query.TenantId ?? currentUser.TenantId!.Value);
 
         var items = await users.GetPageAsync(
             tenantId, req.Search, req.Role, req.PermissionGroupId, req.IsActive,
