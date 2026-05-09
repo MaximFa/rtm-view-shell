@@ -1213,4 +1213,264 @@ dotnet add src/CcDashboard.Infrastructure package Npgsql.EntityFrameworkCore.Pos
 
 ---
 
-*TZ version: 1.2 | CLAUDE.md last updated: 2026-05-07*
+## 29. Implementation insights & lessons learned
+
+> Practical notes from building and testing this solution. These supplement the spec above
+> with real-world patterns, gotchas, and tested solutions.
+
+### 29.1 Localization implementation
+
+**Culture cookie at login:**
+ASP.NET Core's `RequestLocalizationMiddleware` uses `CookieRequestCultureProvider` by default.
+The cookie `.AspNetCore.Culture` must be set **during login** in `IdentityAuthService.CompleteSignInAsync()`:
+
+```csharp
+// Determine locale: tenant default, unless user explicitly chose something else
+var tenantSettings = await db.TenantSettings.IgnoreQueryFilters()
+    .FirstOrDefaultAsync(s => s.TenantId == user.TenantId, ct);
+var locale = tenantSettings?.DefaultLocale ?? "en-US";
+if (!string.IsNullOrEmpty(user.PreferredLocale) && user.PreferredLocale != "en-US")
+    locale = user.PreferredLocale;
+
+httpContext.Response.Cookies.Append(
+    CookieRequestCultureProvider.DefaultCookieName,
+    CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(locale)),
+    new CookieOptions { Expires = expiresAt, IsEssential = true });
+```
+
+**Why this logic:** `ApplicationUser.PreferredLocale` defaults to "en-US". We can't distinguish
+"user explicitly chose en-US" from "never changed from default". So: use tenant's `DefaultLocale`
+unless user explicitly set a non-default locale.
+
+**RTL support:**
+Bootstrap 5 ships with separate RTL CSS (`bootstrap.rtl.min.css`). In `App.razor`:
+
+```razor
+@{
+    var culture = CultureInfo.CurrentUICulture;
+    var isRtl = culture.TextInfo.IsRightToLeft;
+    var dir = isRtl ? "rtl" : "ltr";
+}
+<html lang="@culture.Name" dir="@dir">
+<head>
+    @if (isRtl)
+    {
+        <link rel="stylesheet" href="bootstrap/bootstrap.rtl.min.css" />
+    }
+    else
+    {
+        <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    }
+</head>
+```
+
+**Download RTL CSS:** `https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css`
+to `wwwroot/bootstrap/bootstrap.rtl.min.css`.
+
+**Resource file conventions:**
+- All UI strings must start with capital letter (English and Russian)
+- Use `@L["Key"]` pattern with `IStringLocalizer<SharedResources>` injected as `L`
+- File naming: `SharedResources.{locale}.resx` (e.g., `SharedResources.he-IL.resx`)
+- Cache busting: update `app.css?v=N` in `App.razor` when changing CSS
+
+### 29.2 Multi-tenancy patterns
+
+**Superadmin cross-tenant queries:**
+When Superadmin needs to query another tenant's data, use `IgnoreQueryFilters()` with explicit
+`Where(e => e.TenantId == targetTenantId)`:
+
+```csharp
+// In repository — for Superadmin cross-tenant access
+public async Task<IReadOnlyList<PermissionGroup>> GetAllByTenantAsync(Guid tenantId, CancellationToken ct)
+{
+    return await _db.PermissionGroups
+        .IgnoreQueryFilters()
+        .Where(g => g.TenantId == tenantId)
+        .Include(g => g.MenuPermissions)
+        .AsNoTracking()
+        .ToListAsync(ct);
+}
+```
+
+**Command/Query pattern for optional TenantId:**
+```csharp
+public record GetPermissionGroupsQuery(Guid? TenantId = null) : IRequest<IReadOnlyList<PermissionGroupDto>>;
+
+// In handler:
+var tenantId = query.TenantId ?? currentUser.TenantId!.Value;
+var groups = await repo.GetAllByTenantAsync(tenantId, ct);
+```
+
+**Seed data for multiple tenants:**
+When seeding reference data (NGC tables, queues, agent groups), seed for ALL test tenants:
+
+```csharp
+// Seed for platform tenant
+var platformTenantId = Guid.Parse("...");
+db.NgcQueues.AddRange(new NgcQueue { TenantId = platformTenantId, Name = "Sales" }, ...);
+
+// Also seed for customer1 tenant
+var customer1Id = Guid.Parse("...");
+db.NgcQueues.AddRange(new NgcQueue { TenantId = customer1Id, Name = "Support" }, ...);
+```
+
+Without this, tabs in Permission Groups appear empty when logged into customer1.
+
+### 29.3 EF Core gotchas
+
+**Keyless entities with navigation properties:**
+EF Core cannot have navigation properties on keyless entities. If you have a junction table
+like `NGC_SupergroupAgentgroup` that needs to reference `NgcSupergroup`, add a surrogate PK:
+
+```csharp
+public class NgcSupergroupAgentgroup
+{
+    public int Id { get; set; } // Surrogate PK (EF requires key for navigation)
+    public int? SupergroupId { get; set; }
+    public int? AgentgroupId { get; set; }
+    public NgcSupergroup? Supergroup { get; set; }
+}
+```
+
+**Multiple collection Includes warning:**
+When including multiple collections, EF warns about query splitting. Add to `AppDbContext`:
+```csharp
+optionsBuilder.ConfigureWarnings(w => 
+    w.Ignore(RelationalEventId.MultipleCollectionIncludeWarning));
+```
+Or use `.AsSplitQuery()` on specific queries.
+
+**PostgreSQL `xmin` as concurrency token:**
+Map using shadow property in `IEntityTypeConfiguration<T>`:
+```csharp
+builder.Property<uint>("xmin")
+    .HasColumnName("xmin")
+    .HasColumnType("xid")
+    .ValueGeneratedOnAddOrUpdate()
+    .IsConcurrencyToken();
+```
+
+### 29.4 Blazor component patterns
+
+**DualPaneSelector with proper binding:**
+For dual-pane (available/selected) selectors, use a generic component with `@bind-SelectedIds`:
+
+```razor
+<DualPaneSelector TKey="int"
+    AllItems="AvailableItems.Select(x => (x.Id, x.Name)).ToList()"
+    SelectedIds="SelectedIds"
+    SelectedIdsChanged="ids => { SelectedIds = ids; StateHasChanged(); }" />
+```
+
+The component maintains internal `_selected` HashSet that syncs with the parameter.
+**Key insight:** Don't use RenderFragment with closures for clickable items — closures
+capture stale state. Use proper `@bind-*` pattern.
+
+**SSR vs InteractiveServer:**
+- Auth pages (`/login`, `/login/2fa`, `/forgot-password`): Use SSR (no `@rendermode`)
+  for clean form POST without SignalR circuit
+- Admin pages: Use `@rendermode InteractiveServer` for reactive UI
+- Login page uses `@formname` + `<AntiforgeryToken />` for form binding
+
+**Modal state pattern:**
+```csharp
+private TenantDto? EditTenant;  // null = modal closed
+private string EditTab = "general";
+private bool EditSaving;
+private string? EditSaveError;
+
+private async Task OpenEdit(TenantDto t)
+{
+    EditTenant = t;
+    EditTab = "general";
+    EditSaveError = null;
+    await LoadEditSettings(t.Id);
+}
+
+private void CloseEdit() => EditTenant = null;
+```
+
+### 29.5 CSS and styling
+
+**Dark sidebar category labels:**
+Bootstrap's `text-muted` class uses a grey that's invisible on dark backgrounds.
+Override in `app.css`:
+
+```css
+.sidebar .nav-section-label {
+    font-size: 0.88rem;           /* Slightly larger than menu items (0.85rem) */
+    color: #a0b0c0 !important;    /* Override Bootstrap text-muted */
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+```
+
+Remove `text-muted` from NavMenu markup.
+
+**User avatar circles:**
+```css
+.user-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background-color: #1e3461;
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem;
+}
+```
+
+### 29.6 API hooks for external integration
+
+When commands need to notify external systems (CC-platform), use an interface:
+
+```csharp
+public interface IConfigurationApiHook
+{
+    Task NotifyAsync(string eventType, object payload, CancellationToken ct = default);
+}
+
+// NoOp implementation for now — logs only
+public class NoOpConfigurationApiHook(ILogger<NoOpConfigurationApiHook> logger) : IConfigurationApiHook
+{
+    public Task NotifyAsync(string eventType, object payload, CancellationToken ct)
+    {
+        logger.LogInformation("[API Hook] {EventType}: {@Payload}", eventType, payload);
+        return Task.CompletedTask;
+    }
+}
+```
+
+Inject into commands:
+```csharp
+await apiHook.NotifyAsync("PermissionGroup.Created", new { group.Id, group.Name, group.TenantId }, ct);
+```
+
+Replace `NoOpConfigurationApiHook` with real HTTP implementation when API is available.
+
+### 29.7 Common debugging tips
+
+**Port already in use:**
+```powershell
+Get-NetTCPConnection -LocalPort 7196 | Stop-Process -Id { $_.OwningProcess } -Force
+```
+
+**Build fails with file lock:**
+Stop all dotnet processes before rebuilding:
+```powershell
+Get-Process -Name dotnet -ErrorAction SilentlyContinue | Stop-Process -Force
+```
+
+**EF migration for separate DbContexts:**
+For `AppDbContext` (main) vs `AuditDbContext`, specify context explicitly:
+```powershell
+dotnet ef migrations add <Name> --context AppDbContext --project src/CcDashboard.Infrastructure --startup-project src/CcDashboard.Web
+```
+
+**Locale not applying after login:**
+Check that `.AspNetCore.Culture` cookie is being set in `CompleteSignInAsync()`.
+Use browser DevTools → Application → Cookies to verify.
+
+---
+
+*TZ version: 1.2 | CLAUDE.md last updated: 2026-05-09*
