@@ -1,5 +1,6 @@
 ---
 name: frontend-design
+invocation: user
 description: >
   Apply modern frontend best practices to the RTM View Shell (Blazor Server) project.
   Trigger this skill whenever the user mentions: creating Blazor components, CSS, styling,

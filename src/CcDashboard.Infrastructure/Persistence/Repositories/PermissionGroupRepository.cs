@@ -18,8 +18,9 @@ public class PermissionGroupRepository(AppDbContext db) : IPermissionGroupReposi
              .Include(g => g.AllowedSupergroups)
              .FirstOrDefaultAsync(g => g.Id == id, ct);
 
-    public Task<IReadOnlyList<PermissionGroup>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default)
-        => db.PermissionGroups
+    public async Task<IReadOnlyList<PermissionGroup>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default)
+    {
+        var list = await db.PermissionGroups
              .IgnoreQueryFilters()
              .AsNoTracking()
              .Include(g => g.MenuPermissions)
@@ -30,8 +31,9 @@ public class PermissionGroupRepository(AppDbContext db) : IPermissionGroupReposi
              .Include(g => g.AllowedSupergroups)
              .Where(g => tenantId == null || g.TenantId == tenantId)
              .OrderBy(g => g.Name)
-             .ToListAsync(ct)
-             .ContinueWith<IReadOnlyList<PermissionGroup>>(t => t.Result);
+             .ToListAsync(ct);
+        return list;
+    }
 
     public Task<int> CountUsersAsync(Guid permissionGroupId, CancellationToken ct = default)
         => db.Users.CountAsync(u => u.PermissionGroupId == permissionGroupId, ct);

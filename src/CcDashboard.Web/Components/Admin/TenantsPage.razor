@@ -51,9 +51,9 @@ else
                         <td class="small">@t.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</td>
                         <td>
                             <div class="d-flex gap-1 flex-wrap">
-                                <button class="btn btn-sm btn-outline-secondary"
+                                <button class="btn btn-sm btn-outline-primary me-1"
                                         @onclick="() => OpenEdit(t)">
-                                    @L["Common_Edit"]
+                                    @L["Edit"]
                                 </button>
                                 @if (t.Status == TenantStatus.Suspended)
                                 {

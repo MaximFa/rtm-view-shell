@@ -122,7 +122,7 @@
 
   <!-- ── Screens (Dashboards) ── -->
   <data name="Screens_Title"><value>Screens</value></data>
-  <data name="Screens_New"><value>+ New screen</value></data>
+  <data name="Screens_New"><value>+ New Screen</value></data>
   <data name="Screens_SearchPlaceholder"><value>Search by name...</value></data>
   <data name="Screens_AllStatuses"><value>All statuses</value></data>
   <data name="Screens_Draft"><value>Draft</value></data>
@@ -137,9 +137,9 @@
   <data name="Screens_IsPublicHelp"><value>If enabled, accessible to all authenticated users without explicit group assignment [DASH-01]</value></data>
   <data name="Screens_CreateModal"><value>New Screen</value></data>
   <data name="Screens_EditModal"><value>Screen Settings</value></data>
-  <data name="Screens_CreateButton"><value>Create screen →</value></data>
+  <data name="Screens_CreateButton"><value>Create Screen →</value></data>
   <data name="Screens_DangerZone"><value>Danger zone</value></data>
-  <data name="Screens_DeleteScreen"><value>Delete screen</value></data>
+  <data name="Screens_DeleteScreen"><value>Delete Screen</value></data>
   <data name="Screens_AreYouSure"><value>Are you sure?</value></data>
   <data name="Screens_YesDelete"><value>Yes, delete</value></data>
   <data name="Screens_Public"><value>Public</value></data>
@@ -156,7 +156,7 @@
 
   <!-- ── Users Admin ── -->
   <data name="Users_Title"><value>User Management</value></data>
-  <data name="Users_NewUser"><value>New user</value></data>
+  <data name="Users_NewUser"><value>New User</value></data>
   <data name="Users_SearchPlaceholder"><value>Search name or email...</value></data>
   <data name="Users_AllRoles"><value>All roles</value></data>
   <data name="Users_AllGroups"><value>All groups</value></data>
@@ -179,12 +179,13 @@
   <data name="Users_Role"><value>Role</value></data>
   <data name="Users_PermissionGroup"><value>Permission Group</value></data>
   <data name="Users_TempPasswordNote"><value>Temporary password will be sent to the specified email [USR-03]</value></data>
-  <data name="Users_CreateButton"><value>Create user →</value></data>
+  <data name="Users_CreateButton"><value>Create User →</value></data>
   <data name="Users_Status"><value>Status</value></data>
   <data name="Users_Enabled2fa"><value>2FA enabled</value></data>
-  <data name="Users_ForceLogout"><value>Force logout</value></data>
-  <data name="Users_ResetPassword"><value>Reset password</value></data>
-  <data name="Users_DeleteUser"><value>Delete user</value></data>
+  <data name="Users_ForceLogout"><value>Force Logout</value></data>
+  <data name="Users_ResetPassword"><value>Reset Password</value></data>
+  <data name="Users_DeleteUser"><value>Delete User</value></data>
+  <data name="Users_DeleteConfirm"><value>Delete user</value></data>
   <data name="Users_ResetEmailSent"><value>Reset email sent.</value></data>
   <data name="Users_LoggedOut"><value>User logged out.</value></data>
   <data name="Users_SelectRole"><value>— select role —</value></data>
@@ -194,13 +195,13 @@
   <!-- ── Permission Groups ── -->
   <data name="PG_Title"><value>Permission Groups</value></data>
   <data name="PG_Tenant"><value>Tenant</value></data>
-  <data name="PG_NewGroup"><value>New group</value></data>
-  <data name="PG_EditGroup"><value>Edit group</value></data>
-  <data name="PG_GroupName"><value>Group name</value></data>
+  <data name="PG_NewGroup"><value>New Group</value></data>
+  <data name="PG_EditGroup"><value>Edit Group</value></data>
+  <data name="PG_GroupName"><value>Group Name</value></data>
   <data name="PG_Description"><value>Description</value></data>
   <data name="PG_IsActive"><value>Group active (IsActive)</value></data>
   <data name="PG_DeleteBlocked"><value>Cannot delete a group with assigned users.</value></data>
-  <data name="PG_DeleteGroup"><value>Delete group</value></data>
+  <data name="PG_DeleteGroup"><value>Delete Group</value></data>
   <data name="PG_SaveChanges"><value>Save changes →</value></data>
   <data name="PG_TabMenu"><value>Menu</value></data>
   <data name="PG_TabScreens"><value>Screens</value></data>
@@ -265,7 +266,7 @@
 
   <!-- ── Tenants (Platform) ── -->
   <data name="Tenants_Title"><value>Tenant Management</value></data>
-  <data name="Tenants_NewTenant"><value>+ New tenant</value></data>
+  <data name="Tenants_NewTenant"><value>+ New Tenant</value></data>
   <data name="Tenants_ColName"><value>Name</value></data>
   <data name="Tenants_ColSlug"><value>Slug</value></data>
   <data name="Tenants_ColStatus"><value>Status</value></data>
@@ -297,6 +298,7 @@
   <data name="Common_Edit"><value>Edit</value></data>
   <data name="Common_Search"><value>Search</value></data>
   <data name="Common_Loading"><value>Loading...</value></data>
+  <data name="Common_Close"><value>Close</value></data>
   <data name="Common_Saving"><value>Saving...</value></data>
   <data name="Common_Active"><value>Active</value></data>
   <data name="Common_Inactive"><value>Inactive</value></data>
@@ -330,7 +332,7 @@
 
   <!-- ── Sites ── -->
   <data name="Sites_Title"><value>Sites</value></data>
-  <data name="Sites_NewSite"><value>+ New site</value></data>
+  <data name="Sites_NewSite"><value>+ New Site</value></data>
   <data name="Sites_EditSite"><value>Edit Site</value></data>
   <data name="Sites_SiteId"><value>Site ID</value></data>
   <data name="Sites_SiteName"><value>Site Name</value></data>
@@ -345,7 +347,7 @@
 
   <!-- ── Business Units ── -->
   <data name="BU_Title"><value>Business Units</value></data>
-  <data name="BU_New"><value>+ New business unit</value></data>
+  <data name="BU_New"><value>+ New Business Unit</value></data>
   <data name="BU_Edit"><value>Edit Business Unit</value></data>
   <data name="BU_Name"><value>Name</value></data>
   <data name="BU_Description"><value>Description</value></data>
@@ -360,7 +362,7 @@
 
   <!-- ── Super Groups ── -->
   <data name="SG_Title"><value>Super Groups</value></data>
-  <data name="SG_New"><value>+ New super group</value></data>
+  <data name="SG_New"><value>+ New Super Group</value></data>
   <data name="SG_Edit"><value>Edit Super Group</value></data>
   <data name="SG_Name"><value>Name</value></data>
   <data name="SG_Description"><value>Description</value></data>
@@ -372,7 +374,7 @@
 
   <!-- ── Metrics ── -->
   <data name="Metrics_Title"><value>Metrics</value></data>
-  <data name="Metrics_New"><value>+ New metric</value></data>
+  <data name="Metrics_New"><value>+ New Metric</value></data>
   <data name="Metrics_Edit"><value>Edit Metric</value></data>
   <data name="Metrics_MetricId"><value>Metric ID</value></data>
   <data name="Metrics_Description"><value>Description</value></data>

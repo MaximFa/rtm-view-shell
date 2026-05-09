@@ -1,0 +1,32 @@
+@* Enterprise Loading Skeleton component *@
+
+<div class="skeleton @VariantClass @Class" style="@StyleString" aria-hidden="true" @attributes="ExtraAttributes"></div>
+
+@code {
+    [Parameter] public string Variant { get; set; } = "text";
+    [Parameter] public string? Width { get; set; }
+    [Parameter] public string? Height { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? ExtraAttributes { get; set; }
+
+    private string VariantClass => Variant.ToLowerInvariant() switch
+    {
+        "title" => "skeleton-title",
+        "avatar" => "skeleton-avatar",
+        "button" => "skeleton-button",
+        "circle" => "skeleton-avatar",
+        _ => "skeleton-text"
+    };
+
+    private string StyleString
+    {
+        get
+        {
+            var styles = new List<string>();
+            if (!string.IsNullOrEmpty(Width)) styles.Add($"width: {Width}");
+            if (!string.IsNullOrEmpty(Height)) styles.Add($"height: {Height}");
+            return string.Join("; ", styles);
+        }
+    }
+}

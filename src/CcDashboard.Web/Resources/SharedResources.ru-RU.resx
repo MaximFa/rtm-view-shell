@@ -185,6 +185,7 @@
   <data name="Users_ForceLogout"><value>Принудительный выход</value></data>
   <data name="Users_ResetPassword"><value>Сбросить пароль</value></data>
   <data name="Users_DeleteUser"><value>Удалить пользователя</value></data>
+  <data name="Users_DeleteConfirm"><value>Удалить пользователя</value></data>
   <data name="Users_ResetEmailSent"><value>Письмо для сброса отправлено.</value></data>
   <data name="Users_LoggedOut"><value>Пользователь вышел из системы.</value></data>
   <data name="Users_SelectRole"><value>— выберите роль —</value></data>
@@ -297,6 +298,7 @@
   <data name="Common_Edit"><value>Редактировать</value></data>
   <data name="Common_Search"><value>Поиск</value></data>
   <data name="Common_Loading"><value>Загрузка...</value></data>
+  <data name="Common_Close"><value>Закрыть</value></data>
   <data name="Common_Saving"><value>Сохранение...</value></data>
   <data name="Common_Active"><value>Активен</value></data>
   <data name="Common_Inactive"><value>Неактивен</value></data>

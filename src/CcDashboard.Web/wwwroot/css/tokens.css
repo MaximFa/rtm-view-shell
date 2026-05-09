@@ -1,0 +1,256 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Design Tokens — RTM View Shell (Enterprise Grade)
+   All visual constants live here. Import BEFORE Bootstrap.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Brand colours — Enterprise Grade (muted, professional) ────────────── */
+  --clr-primary:        #0066CC;
+  --clr-primary-hover:  #004C99;
+  --clr-primary-subtle: #E6F0FA;
+  --clr-primary-muted:  #4D94DB;
+
+  --clr-danger:         #C42B1C;
+  --clr-danger-hover:   #A31A0D;
+  --clr-danger-subtle:  #FCE8E6;
+
+  --clr-success:        #107C10;
+  --clr-success-hover:  #0B5A0B;
+  --clr-success-subtle: #DFFBE6;
+
+  --clr-warning:        #CA8300;
+  --clr-warning-hover:  #9E6700;
+  --clr-warning-subtle: #FFF4CE;
+
+  --clr-info:           #0078D4;
+  --clr-info-subtle:    #EFF6FC;
+
+  /* ── Sidebar — Enterprise dark theme ───────────────────────────────────── */
+  --clr-sidebar-bg:     #1B1B1F;
+  --clr-sidebar-text:   #B3B3B3;
+  --clr-sidebar-text-hover: #FFFFFF;
+  --clr-sidebar-hover:  rgba(255, 255, 255, 0.06);
+  --clr-sidebar-active: rgba(0, 102, 204, 0.15);
+  --clr-sidebar-active-border: var(--clr-primary);
+  --clr-sidebar-label:  #808080;
+  --clr-sidebar-divider: rgba(255, 255, 255, 0.08);
+
+  /* ── Neutrals — Enterprise grade ───────────────────────────────────────── */
+  --clr-bg:             #F5F5F5;
+  --clr-surface:        #FFFFFF;
+  --clr-overlay:        #FAFAFA;
+  --clr-text:           #202124;
+  --clr-text-secondary: #5F6368;
+  --clr-text-muted:     #80868B;
+  --clr-text-faint:     #9AA0A6;
+  --clr-text-disabled:  #DADCE0;
+  --clr-border:         rgba(0, 0, 0, 0.08);
+  --clr-border-md:      rgba(0, 0, 0, 0.12);
+  --clr-border-solid:   #DADCE0;
+  --clr-border-strong:  #C4C7C9;
+
+  /* ── Role badges — Enterprise muted ────────────────────────────────────── */
+  --clr-role-superadmin-bg:    #F3E8FF;
+  --clr-role-superadmin:       #6B21A8;
+  --clr-role-administrator-bg: #DBEAFE;
+  --clr-role-administrator:    #1E40AF;
+  --clr-role-editor-bg:        #D1FAE5;
+  --clr-role-editor:           #065F46;
+  --clr-role-viewer-bg:        #F3F4F6;
+  --clr-role-viewer:           #4B5563;
+
+  /* ── Status badges ─────────────────────────────────────────────────────── */
+  --clr-status-active-bg:    #DFFBE6;
+  --clr-status-active:       #0A5D1E;
+  --clr-status-inactive-bg:  #F3F4F6;
+  --clr-status-inactive:     #6B7280;
+  --clr-status-blocked-bg:   #FCE8E6;
+  --clr-status-blocked:      #C5221F;
+  --clr-status-pending-bg:   #FEF3C7;
+  --clr-status-pending:      #92400E;
+
+  /* ── Typography — Enterprise readable sizes ────────────────────────────── */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Consolas', 'Liberation Mono', Menlo, monospace;
+
+  --text-xs:    0.75rem;    /* 12px — captions only */
+  --text-sm:    0.8125rem;  /* 13px — secondary text */
+  --text-base:  0.875rem;   /* 14px — body text (enterprise standard) */
+  --text-md:    1rem;       /* 16px — emphasized body */
+  --text-lg:    1.125rem;   /* 18px — subheadings */
+  --text-xl:    1.25rem;    /* 20px — section titles */
+  --text-2xl:   1.5rem;     /* 24px — page titles */
+  --text-3xl:   1.875rem;   /* 30px — hero titles */
+
+  /* Line heights */
+  --lh-none:    1;
+  --lh-tight:   1.25;
+  --lh-snug:    1.375;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.625;
+  --lh-loose:   2;
+
+  /* Font weights */
+  --fw-normal:   400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* Letter spacing */
+  --ls-tighter: -0.02em;
+  --ls-tight:   -0.01em;
+  --ls-normal:  0;
+  --ls-wide:    0.025em;
+  --ls-wider:   0.05em;
+  --ls-widest:  0.1em;
+
+  /* ── Spacing (4px grid) ────────────────────────────────────────────────── */
+  --sp-0:  0;
+  --sp-1:  0.25rem;   /* 4px */
+  --sp-2:  0.5rem;    /* 8px */
+  --sp-3:  0.75rem;   /* 12px */
+  --sp-4:  1rem;      /* 16px */
+  --sp-5:  1.25rem;   /* 20px */
+  --sp-6:  1.5rem;    /* 24px */
+  --sp-8:  2rem;      /* 32px */
+  --sp-10: 2.5rem;    /* 40px */
+  --sp-12: 3rem;      /* 48px */
+  --sp-16: 4rem;      /* 64px */
+  --sp-20: 5rem;      /* 80px */
+
+  /* ── Radii — Enterprise (subtle, not rounded) ──────────────────────────── */
+  --r-none: 0;
+  --r-sm:   3px;
+  --r-md:   4px;
+  --r-lg:   6px;
+  --r-xl:   8px;
+  --r-2xl:  12px;
+  --r-pill: 9999px;
+
+  /* ── Shadows — Enterprise subtle ───────────────────────────────────────── */
+  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:  0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg:  0 10px 15px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --shadow-xl:  0 20px 25px rgba(0, 0, 0, 0.10), 0 10px 10px rgba(0, 0, 0, 0.04);
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+
+  /* ── Focus ring ────────────────────────────────────────────────────────── */
+  --focus-ring: 0 0 0 2px var(--clr-surface), 0 0 0 4px rgba(0, 102, 204, 0.4);
+  --focus-ring-danger: 0 0 0 2px var(--clr-surface), 0 0 0 4px rgba(196, 43, 28, 0.4);
+
+  /* ── Transitions ───────────────────────────────────────────────────────── */
+  --dur-instant: 50ms;
+  --dur-fast:    100ms;
+  --dur-normal:  150ms;
+  --dur-slow:    200ms;
+  --dur-slower:  300ms;
+  --ease-linear: linear;
+  --ease-in:     cubic-bezier(0.4, 0, 1, 1);
+  --ease-out:    cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Layout — Enterprise dimensions ────────────────────────────────────── */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+  --topbar-height: 56px;
+  --content-max-width: 1400px;
+
+  /* ── Z-index layers ────────────────────────────────────────────────────── */
+  --z-dropdown:  1000;
+  --z-sticky:    1020;
+  --z-fixed:     1030;
+  --z-modal-bg:  1040;
+  --z-modal:     1050;
+  --z-popover:   1060;
+  --z-tooltip:   1070;
+  --z-toast:     1080;
+
+  /* ── Component specific ────────────────────────────────────────────────── */
+  --input-height: 40px;
+  --input-height-sm: 32px;
+  --input-height-lg: 48px;
+  --btn-height: 36px;
+  --btn-height-sm: 28px;
+  --btn-height-lg: 44px;
+  --table-row-height: 48px;
+  --table-row-height-compact: 40px;
+  --nav-item-height: 40px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Dark Mode — Enterprise
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --clr-bg:             #121212;
+    --clr-surface:        #1E1E1E;
+    --clr-overlay:        #2D2D2D;
+    --clr-text:           #E4E4E7;
+    --clr-text-secondary: #A1A1AA;
+    --clr-text-muted:     #71717A;
+    --clr-text-faint:     #52525B;
+    --clr-text-disabled:  #3F3F46;
+    --clr-border:         rgba(255, 255, 255, 0.08);
+    --clr-border-md:      rgba(255, 255, 255, 0.12);
+    --clr-border-solid:   #3F3F46;
+    --clr-border-strong:  #52525B;
+
+    --clr-primary-subtle: #1A3A5C;
+    --clr-danger-subtle:  #3D1F1F;
+    --clr-success-subtle: #1A3D2A;
+    --clr-warning-subtle: #3D3010;
+    --clr-info-subtle:    #1A3D5C;
+
+    /* Role badges dark mode */
+    --clr-role-superadmin-bg:    #2E1065;
+    --clr-role-superadmin:       #C4B5FD;
+    --clr-role-administrator-bg: #1E3A5F;
+    --clr-role-administrator:    #93C5FD;
+    --clr-role-editor-bg:        #064E3B;
+    --clr-role-editor:           #6EE7B7;
+    --clr-role-viewer-bg:        #374151;
+    --clr-role-viewer:           #9CA3AF;
+
+    /* Status badges dark mode */
+    --clr-status-active-bg:    #064E3B;
+    --clr-status-active:       #6EE7B7;
+    --clr-status-inactive-bg:  #374151;
+    --clr-status-inactive:     #9CA3AF;
+    --clr-status-blocked-bg:   #450A0A;
+    --clr-status-blocked:      #FCA5A5;
+
+    /* Focus ring dark mode */
+    --focus-ring: 0 0 0 2px var(--clr-surface), 0 0 0 4px rgba(77, 148, 219, 0.5);
+
+    /* Shadows dark mode */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3), 0 4px 6px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Reduced Motion — Accessibility
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   High Contrast Mode — Accessibility
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-contrast: more) {
+  :root {
+    --clr-border-solid: #000000;
+    --clr-text-muted: #404040;
+    --focus-ring: 0 0 0 3px #000000;
+  }
+}

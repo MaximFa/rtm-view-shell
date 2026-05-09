@@ -1,0 +1,38 @@
+@* Enterprise Breadcrumb navigation component *@
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb @Class">
+        @foreach (var (item, index) in Items.Select((item, index) => (item, index)))
+        {
+            var isLast = index == Items.Count - 1;
+            <li class="breadcrumb-item @(isLast ? "active" : "")" @(isLast ? "aria-current=page" : "")>
+                @if (isLast || string.IsNullOrEmpty(item.Href))
+                {
+                    @item.Label
+                }
+                else
+                {
+                    <a href="@item.Href">
+                        @if (!string.IsNullOrEmpty(item.Icon))
+                        {
+                            <i class="bi bi-@item.Icon me-1" aria-hidden="true"></i>
+                        }
+                        @item.Label
+                    </a>
+                }
+            </li>
+        }
+    </ol>
+</nav>
+
+@code {
+    [Parameter] public List<BreadcrumbItem> Items { get; set; } = new();
+    [Parameter] public string? Class { get; set; }
+
+    public class BreadcrumbItem
+    {
+        public string Label { get; set; } = "";
+        public string? Href { get; set; }
+        public string? Icon { get; set; }
+    }
+}

@@ -133,9 +133,11 @@ else
                         </td>
                         <td class="text-muted small">@(u.LastLoginAt?.ToLocalTime().ToString("dd MMM yy HH:mm") ?? "—")</td>
                         <td>@(u.Is2faEnabled ? "✓" : "")</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-secondary py-0 px-2"
-                                    @onclick="() => OpenEdit(u)">@L["Common_Edit"]</button>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary me-1"
+                                    @onclick="() => OpenEdit(u)">@L["Edit"]</button>
+                            <button class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => OpenDeleteConfirm(u)">@L["Delete"]</button>
                         </td>
                     </tr>
                 }
@@ -295,6 +297,27 @@ else
     <div class="modal-backdrop fade show"></div>
 }
 
+@if (DeleteTarget is not null)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@L["Users_DeleteUser"]</h5>
+                    <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
+                </div>
+                <div class="modal-body">
+                    @L["Users_DeleteConfirm"]: <strong>@DeleteTarget.UserName</strong>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="() => DeleteTarget = null">@L["Cancel"]</button>
+                    <button class="btn btn-danger btn-sm" @onclick="ExecuteDelete" disabled="@Saving">@L["Delete"]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private static readonly string[] Roles = ["Superadmin", "Administrator", "Editor", "Viewer"];
     private bool IsSuperadmin => CurrentUser.Role == "Superadmin";
@@ -329,6 +352,7 @@ else
     private string? EPgId;
     private bool EIsActive, E2fa;
     private bool ConfirmDelete;
+    private UserDto? DeleteTarget;
 
     protected override async Task OnInitializedAsync()
     {
@@ -397,7 +421,9 @@ else
         SaveError = null; ShowEdit = true; ShowCreate = false;
     }
 
-    private void CloseModals() { ShowCreate = false; ShowEdit = false; SaveError = null; }
+    private void CloseModals() { ShowCreate = false; ShowEdit = false; SaveError = null; DeleteTarget = null; }
+
+    private void OpenDeleteConfirm(UserDto u) => DeleteTarget = u;
 
     private async Task SaveCreate()
     {
@@ -471,6 +497,20 @@ else
         }
         catch (Exception ex) { SaveError = ex.Message; }
         finally { Saving = false; }
+    }
+
+    private async Task ExecuteDelete()
+    {
+        if (DeleteTarget is null) return;
+        Saving = true;
+        try
+        {
+            var (ok, err) = await UserMgmt.DeleteAsync(DeleteTarget.Id);
+            if (ok) { DeleteTarget = null; await LoadAsync(); }
+            else Error = err;
+        }
+        catch (Exception ex) { Error = ex.Message; }
+        finally { Saving = false; DeleteTarget = null; }
     }
 
     private static string AvatarInitial(UserDto u) =>

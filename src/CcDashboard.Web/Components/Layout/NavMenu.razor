@@ -1,45 +1,65 @@
-<ul class="nav flex-column px-2 pt-2">
-    <li class="nav-section-label text-uppercase small px-2 pb-1">@L["Nav_Content"]</li>
+<ul class="nav flex-column">
+    <li class="nav-section-label">@L["Nav_Content"]</li>
     <li class="nav-item">
-        <NavLink href="/screens" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Screens"]</NavLink>
+        <NavLink href="/screens" class="nav-link" Match="NavLinkMatch.Prefix">
+            <span class="nav-link-content"><i class="bi bi-grid-3x3-gap"></i><span>@L["Nav_Screens"]</span></span>
+        </NavLink>
     </li>
     <li class="nav-item">
-        <NavLink href="/widget-catalogue" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_WidgetCatalogue"]</NavLink>
+        <NavLink href="/widget-catalogue" class="nav-link" Match="NavLinkMatch.Prefix">
+            <span class="nav-link-content"><i class="bi bi-puzzle"></i><span>@L["Nav_WidgetCatalogue"]</span></span>
+        </NavLink>
     </li>
 
     <AuthorizeView Roles="Superadmin,Administrator">
-        <li class="nav-section-label text-uppercase small px-2 pb-1 pt-3">@L["Nav_Configuration"]</li>
+        <li class="nav-section-label">@L["Nav_Configuration"]</li>
         <li class="nav-item">
-            <NavLink href="/admin/configuration/business-units" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_BusinessUnits"]</NavLink>
+            <NavLink href="/admin/configuration/business-units" class="nav-link" Match="NavLinkMatch.Prefix">
+                <span class="nav-link-content"><i class="bi bi-building"></i><span>@L["Nav_BusinessUnits"]</span></span>
+            </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="/admin/configuration/supergroups" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Supergroups"]</NavLink>
+            <NavLink href="/admin/configuration/supergroups" class="nav-link" Match="NavLinkMatch.Prefix">
+                <span class="nav-link-content"><i class="bi bi-diagram-3"></i><span>@L["Nav_Supergroups"]</span></span>
+            </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="/admin/configuration/sites" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Sites"]</NavLink>
+            <NavLink href="/admin/configuration/sites" class="nav-link" Match="NavLinkMatch.Prefix">
+                <span class="nav-link-content"><i class="bi bi-geo-alt"></i><span>@L["Nav_Sites"]</span></span>
+            </NavLink>
         </li>
     </AuthorizeView>
 
     <AuthorizeView Roles="Superadmin,Administrator">
-        <li class="nav-section-label text-uppercase small px-2 pb-1 pt-3">@L["Nav_Administration"]</li>
+        <li class="nav-section-label">@L["Nav_Administration"]</li>
         <li class="nav-item">
-            <NavLink href="/admin/users" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Users"]</NavLink>
+            <NavLink href="/admin/users" class="nav-link" Match="NavLinkMatch.Prefix">
+                <span class="nav-link-content"><i class="bi bi-people"></i><span>@L["Nav_Users"]</span></span>
+            </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="/admin/permission-groups" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_PermissionGroups"]</NavLink>
+            <NavLink href="/admin/permission-groups" class="nav-link" Match="NavLinkMatch.Prefix">
+                <span class="nav-link-content"><i class="bi bi-shield-lock"></i><span>@L["Nav_PermissionGroups"]</span></span>
+            </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="/admin/audit" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_AuditLog"]</NavLink>
+            <NavLink href="/admin/audit" class="nav-link" Match="NavLinkMatch.Prefix">
+                <span class="nav-link-content"><i class="bi bi-journal-text"></i><span>@L["Nav_AuditLog"]</span></span>
+            </NavLink>
         </li>
     </AuthorizeView>
 
     <AuthorizeView Roles="Superadmin">
-        <li class="nav-section-label text-uppercase small px-2 pb-1 pt-3">@L["Nav_Platform"]</li>
+        <li class="nav-section-label">@L["Nav_Platform"]</li>
         <li class="nav-item">
-            <NavLink href="/platform/tenants" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Tenants"]</NavLink>
+            <NavLink href="/platform/tenants" class="nav-link" Match="NavLinkMatch.Prefix">
+                <span class="nav-link-content"><i class="bi bi-buildings"></i><span>@L["Nav_Tenants"]</span></span>
+            </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="/admin/configuration/metrics" class="nav-link" Match="NavLinkMatch.Prefix">@L["Nav_Metrics"]</NavLink>
+            <NavLink href="/admin/configuration/metrics" class="nav-link" Match="NavLinkMatch.Prefix">
+                <span class="nav-link-content"><i class="bi bi-graph-up"></i><span>@L["Nav_Metrics"]</span></span>
+            </NavLink>
         </li>
     </AuthorizeView>
 </ul>

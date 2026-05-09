@@ -1,0 +1,40 @@
+@* Enterprise Badge component for status and role indicators *@
+
+<span class="badge @BadgeClass @Class" @attributes="ExtraAttributes">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <i class="bi bi-@Icon" aria-hidden="true"></i>
+    }
+    @ChildContent
+</span>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string Variant { get; set; } = "secondary";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? ExtraAttributes { get; set; }
+
+    private string BadgeClass => Variant.ToLowerInvariant() switch
+    {
+        // Status variants
+        "active" or "published" or "success" => "badge-active",
+        "inactive" or "draft" => "badge-inactive",
+        "blocked" or "suspended" or "danger" => "badge-blocked",
+        "pending" or "warning" => "badge-pending",
+
+        // Role variants
+        "superadmin" => "badge-superadmin",
+        "administrator" => "badge-administrator",
+        "editor" => "badge-editor",
+        "viewer" => "badge-viewer",
+
+        // Bootstrap semantic (mapped to enterprise)
+        "primary" => "badge-administrator",
+        "secondary" => "badge-inactive",
+        "info" => "badge-active",
+
+        _ => $"badge-{Variant.ToLowerInvariant()}"
+    };
+}

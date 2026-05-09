@@ -1,0 +1,110 @@
+@* Shared modal component with proper accessibility (WCAG 2.2 AA) *@
+@inject IJSRuntime JS
+
+@if (IsOpen)
+{
+    <div class="modal-backdrop fade show" @onclick="HandleBackdropClick"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog"
+         aria-modal="true" aria-labelledby="modal-@Id-title" @ref="_modalRef">
+        <div class="modal-dialog @SizeClass @(Centered ? "modal-dialog-centered" : "")"
+             @onclick:stopPropagation="true">
+            <div class="modal-content">
+                @if (Header != null)
+                {
+                    <div class="modal-header">
+                        @Header
+                        @if (ShowCloseButton)
+                        {
+                            <button type="button" class="btn-close" aria-label="@L["Common_Close"]"
+                                    @onclick="Close"></button>
+                        }
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(Title))
+                {
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modal-@Id-title">@Title</h5>
+                        @if (ShowCloseButton)
+                        {
+                            <button type="button" class="btn-close" aria-label="@L["Common_Close"]"
+                                    @onclick="Close"></button>
+                        }
+                    </div>
+                }
+                <div class="modal-body">
+                    @ChildContent
+                </div>
+                @if (Footer != null)
+                {
+                    <div class="modal-footer">
+                        @Footer
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? Header { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string Size { get; set; } = "";
+    [Parameter] public bool Centered { get; set; } = true;
+    [Parameter] public bool ShowCloseButton { get; set; } = true;
+    [Parameter] public bool CloseOnBackdropClick { get; set; } = true;
+    [Parameter] public bool CloseOnEscape { get; set; } = true;
+
+    private ElementReference _modalRef;
+    private DotNetObjectReference<AppModal>? _dotNetRef;
+
+    private string SizeClass => Size switch
+    {
+        "sm" => "modal-sm",
+        "lg" => "modal-lg",
+        "xl" => "modal-xl",
+        _ => ""
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsOpen && CloseOnEscape)
+        {
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("setupModalEscape", _modalRef, _dotNetRef);
+        }
+    }
+
+    private async Task HandleBackdropClick()
+    {
+        if (CloseOnBackdropClick)
+        {
+            await Close();
+        }
+    }
+
+    [JSInvokable]
+    public async Task HandleEscapeKey()
+    {
+        if (CloseOnEscape)
+        {
+            await Close();
+        }
+    }
+
+    public async Task Close()
+    {
+        await IsOpenChanged.InvokeAsync(false);
+        await OnClose.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+    }
+}

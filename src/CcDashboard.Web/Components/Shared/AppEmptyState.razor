@@ -1,0 +1,34 @@
+@* Enterprise Empty State component *@
+
+<div class="empty-state @Class" @attributes="ExtraAttributes">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <div class="empty-state-icon">
+            <i class="bi bi-@Icon" aria-hidden="true"></i>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Title))
+    {
+        <h3 class="empty-state-title">@Title</h3>
+    }
+    @if (!string.IsNullOrEmpty(Description))
+    {
+        <p class="empty-state-description">@Description</p>
+    }
+    @if (ChildContent != null)
+    {
+        <div class="empty-state-action">
+            @ChildContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Icon { get; set; } = "inbox";
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? ExtraAttributes { get; set; }
+}

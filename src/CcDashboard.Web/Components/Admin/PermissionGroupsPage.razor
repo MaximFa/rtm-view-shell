@@ -81,7 +81,7 @@ else
                             { <span class="badge bg-secondary">@L["Common_Inactive"]</span> }
                         </td>
                         <td class="text-end">
-                            <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => OpenEdit(g)">@L["Common_Edit"]</button>
+                            <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => OpenEdit(g)">@L["Edit"]</button>
                             <button class="btn btn-outline-danger btn-sm" @onclick="() => ConfirmDelete(g)">@L["Delete"]</button>
                         </td>
                     </tr>
@@ -97,7 +97,7 @@ else
 
 @if (ShowModal)
 {
-    <div class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+    <div class="modal show d-block" tabindex="-1" >
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -208,8 +208,8 @@ else
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary btn-sm" @onclick="CloseModal">@L["Common_Cancel"]</button>
-                    <button class="btn btn-primary btn-sm" @onclick="SaveGroup" disabled="@Saving">
-                        @if (Saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <button class="btn btn-primary btn-sm" @onclick="SaveGroup" disabled="@(Saving || ModalLoading)">
+                        @if (Saving || ModalLoading) { <span class="spinner-border spinner-border-sm me-1"></span> }
                         @L["Common_Save"]
                     </button>
                 </div>
@@ -220,7 +220,7 @@ else
 
 @if (DeleteTarget is not null)
 {
-    <div class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+    <div class="modal show d-block" tabindex="-1" >
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
@@ -269,6 +269,7 @@ else
     private string? SaveError;
     private bool SaveSuccess;
     private bool Saving;
+    private bool ModalLoading;
 
     private bool IsSuperadmin => CurrentUser.Role == "Superadmin";
 
@@ -325,6 +326,7 @@ else
 
     private async Task LoadAvailableEntitiesAsync(Guid tenantId)
     {
+        ModalLoading = true;
         try
         {
             var result = await Mediator.Send(new GetAvailableEntitiesQuery(tenantId));
@@ -335,6 +337,7 @@ else
             AvailableSGs = result.Supergroups.ToList();
         }
         catch { /* fallback to empty */ }
+        finally { ModalLoading = false; }
     }
 
     private async Task OpenNew()
@@ -383,6 +386,7 @@ else
 
     private async Task SaveGroup()
     {
+        if (Saving || ModalLoading) return;
         if (string.IsNullOrWhiteSpace(EName)) { SaveError = L["PG_GroupName"] + " is required."; return; }
         Saving = true; SaveError = null; SaveSuccess = false;
         try

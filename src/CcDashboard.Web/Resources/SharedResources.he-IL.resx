@@ -185,6 +185,7 @@
   <data name="Users_ForceLogout"><value>כפה יציאה</value></data>
   <data name="Users_ResetPassword"><value>אפס סיסמה</value></data>
   <data name="Users_DeleteUser"><value>מחק משתמש</value></data>
+  <data name="Users_DeleteConfirm"><value>האם למחוק את המשתמש</value></data>
   <data name="Users_ResetEmailSent"><value>דואר לאיפוס נשלח.</value></data>
   <data name="Users_LoggedOut"><value>המשתמש יצא מהמערכת.</value></data>
   <data name="Users_SelectRole"><value>— בחר תפקיד —</value></data>
@@ -297,6 +298,7 @@
   <data name="Common_Edit"><value>ערוך</value></data>
   <data name="Common_Search"><value>חיפוש</value></data>
   <data name="Common_Loading"><value>טוען...</value></data>
+  <data name="Common_Close"><value>סגור</value></data>
   <data name="Common_Saving"><value>שומר...</value></data>
   <data name="Common_Active"><value>פעיל</value></data>
   <data name="Common_Inactive"><value>לא פעיל</value></data>

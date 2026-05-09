@@ -1,0 +1,72 @@
+@* Enterprise Toast notification component *@
+
+@if (IsVisible)
+{
+    <div class="toast toast-@Variant.ToLowerInvariant()" role="alert" aria-live="polite">
+        <i class="bi @IconClass" aria-hidden="true"></i>
+        <div class="toast-content">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <strong class="toast-title">@Title</strong>
+            }
+            <span class="toast-message">@Message</span>
+        </div>
+        @if (Dismissible)
+        {
+            <button type="button" class="btn-close" aria-label="@L["Common_Close"]" @onclick="Hide"></button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string Variant { get; set; } = "info";
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public bool Dismissible { get; set; } = true;
+    [Parameter] public int AutoHideMs { get; set; } = 5000;
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+
+    private System.Timers.Timer? _autoHideTimer;
+
+    private string IconClass => Variant.ToLowerInvariant() switch
+    {
+        "success" => "bi-check-circle-fill",
+        "danger" or "error" => "bi-exclamation-circle-fill",
+        "warning" => "bi-exclamation-triangle-fill",
+        _ => "bi-info-circle-fill"
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (IsVisible && AutoHideMs > 0)
+        {
+            StartAutoHideTimer();
+        }
+    }
+
+    private void StartAutoHideTimer()
+    {
+        _autoHideTimer?.Dispose();
+        _autoHideTimer = new System.Timers.Timer(AutoHideMs);
+        _autoHideTimer.Elapsed += async (_, _) =>
+        {
+            await InvokeAsync(Hide);
+        };
+        _autoHideTimer.AutoReset = false;
+        _autoHideTimer.Start();
+    }
+
+    private async Task Hide()
+    {
+        _autoHideTimer?.Dispose();
+        IsVisible = false;
+        await IsVisibleChanged.InvokeAsync(false);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _autoHideTimer?.Dispose();
+    }
+}

@@ -10,8 +10,22 @@
         <header class="topbar">
             <AuthorizeView>
                 <Authorized>
-                    <span class="user-info">@context.User.Identity?.Name</span>
-                    <a href="/logout" class="btn btn-sm btn-outline-secondary">@L["Layout_SignOut"]</a>
+                    <div class="user-info">
+                        <span class="user-name">@context.User.Identity?.Name</span>
+                        @{
+                            var role = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+                            var initials = GetInitials(context.User.Identity?.Name);
+                        }
+                        @if (!string.IsNullOrEmpty(role))
+                        {
+                            <span class="badge badge-@role.ToLowerInvariant()">@role</span>
+                        }
+                    </div>
+                    <div class="user-avatar" title="@context.User.Identity?.Name">@initials</div>
+                    <a href="/logout" class="btn btn-sm btn-secondary">
+                        <i class="bi bi-box-arrow-right"></i>
+                        @L["Layout_SignOut"]
+                    </a>
                 </Authorized>
             </AuthorizeView>
         </header>
@@ -27,3 +41,14 @@
     <a href="" class="reload">@L["Layout_Reload"]</a>
     <span class="dismiss">&#x2715;</span>
 </div>
+
+@code {
+    private static string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+        return name.Length >= 2 ? name[..2].ToUpperInvariant() : name.ToUpperInvariant();
+    }
+}
