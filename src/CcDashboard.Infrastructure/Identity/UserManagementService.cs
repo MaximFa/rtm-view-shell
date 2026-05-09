@@ -77,7 +77,7 @@ public class UserManagementService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to send welcome email to {Email}", req.Email);
-            logger.LogWarning("DEV FALLBACK — temp password for {UserName}: {TempPassword}", req.UserName, tempPassword);
+            // [MAINT-02] Never log passwords — admin must re-trigger password reset if email fails
         }
 
         return (true, null, user.Id);
