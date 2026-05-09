@@ -168,8 +168,8 @@
   <data name="Users_ColLastLogin"><value>Last login</value></data>
   <data name="Users_Col2fa"><value>2FA</value></data>
   <data name="Users_Never"><value>Never</value></data>
-  <data name="Users_Active"><value>active</value></data>
-  <data name="Users_Inactive"><value>inactive</value></data>
+  <data name="Users_Active"><value>Active</value></data>
+  <data name="Users_Inactive"><value>Inactive</value></data>
   <data name="Users_CreateModal"><value>New User</value></data>
   <data name="Users_EditModal"><value>Edit User</value></data>
   <data name="Users_FirstName"><value>First Name</value></data>

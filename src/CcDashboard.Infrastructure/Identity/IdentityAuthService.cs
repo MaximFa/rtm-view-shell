@@ -319,14 +319,32 @@ public class IdentityAuthService(
         });
         await db.SaveChangesAsync(ct);
 
+        var httpContext = httpContextAccessor.HttpContext;
+
         // Set session cookie so we can revoke it on sign-out
-        httpContextAccessor.HttpContext?.Response.Cookies.Append("cc-sid", sessionId.ToString(),
+        httpContext?.Response.Cookies.Append("cc-sid", sessionId.ToString(),
             new Microsoft.AspNetCore.Http.CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
                 SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict,
                 Expires = expiresAt
+            });
+
+        // Set culture cookie based on user preference or tenant default [I18N-06]
+        var tenantSettings = await db.TenantSettings.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TenantId == user.TenantId, ct);
+        var locale = tenantSettings?.DefaultLocale ?? "en-US";
+        if (!string.IsNullOrEmpty(user.PreferredLocale) && user.PreferredLocale != "en-US")
+            locale = user.PreferredLocale;
+        httpContext?.Response.Cookies.Append(
+            Microsoft.AspNetCore.Localization.CookieRequestCultureProvider.DefaultCookieName,
+            Microsoft.AspNetCore.Localization.CookieRequestCultureProvider.MakeCookieValue(
+                new Microsoft.AspNetCore.Localization.RequestCulture(locale)),
+            new Microsoft.AspNetCore.Http.CookieOptions
+            {
+                Expires = expiresAt,
+                IsEssential = true
             });
 
         user.LastLoginAt = clock.UtcNow;

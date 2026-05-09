@@ -234,7 +234,11 @@ else
                                             </div>
                                             <div class="mb-0">
                                                 <label class="form-label small">@L["TenantSettings_DefaultLocale"]</label>
-                                                <input type="text" class="form-control form-control-sm" @bind="EditDefaultLocale" maxlength="10" />
+                                                <select class="form-select form-select-sm" @bind="EditDefaultLocale">
+                                                    <option value="en-US">English</option>
+                                                    <option value="he-IL">Hebrew</option>
+                                                    <option value="ru-RU">Russian</option>
+                                                </select>
                                             </div>
                                         </div>
                                     </div>

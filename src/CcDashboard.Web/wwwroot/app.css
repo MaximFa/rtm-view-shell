@@ -42,12 +42,14 @@ a, .btn-link { color: #006bb7; }
 }
 
 .sidebar .nav-section-label {
-    font-size: 0.68rem;
-    color: #8b949e;
+    font-size: 0.88rem;
+    color: #a0b0c0 !important;
     padding: 0.8rem 1rem 0.2rem;
     text-transform: uppercase;
-    letter-spacing: 0.07em;
+    letter-spacing: 0.05em;
     list-style: none;
+    opacity: 1 !important;
+    font-weight: 500;
 }
 
 .sidebar .nav-link {

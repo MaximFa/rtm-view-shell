@@ -168,8 +168,8 @@
   <data name="Users_ColLastLogin"><value>Последний вход</value></data>
   <data name="Users_Col2fa"><value>2FA</value></data>
   <data name="Users_Never"><value>Никогда</value></data>
-  <data name="Users_Active"><value>активен</value></data>
-  <data name="Users_Inactive"><value>неактивен</value></data>
+  <data name="Users_Active"><value>Активен</value></data>
+  <data name="Users_Inactive"><value>Неактивен</value></data>
   <data name="Users_CreateModal"><value>Новый пользователь</value></data>
   <data name="Users_EditModal"><value>Редактировать пользователя</value></data>
   <data name="Users_FirstName"><value>Имя</value></data>
