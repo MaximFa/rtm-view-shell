@@ -56,8 +56,8 @@
   --clr-role-administrator:    #1E40AF;
   --clr-role-editor-bg:        #D1FAE5;
   --clr-role-editor:           #065F46;
-  --clr-role-viewer-bg:        #F3F4F6;
-  --clr-role-viewer:           #4B5563;
+  --clr-role-viewer-bg:        #E5E7EB;
+  --clr-role-viewer:           #374151;
 
   /* ── Status badges ─────────────────────────────────────────────────────── */
   --clr-status-active-bg:    #DFFBE6;
