@@ -44,19 +44,43 @@ try
 
     services.AddCascadingAuthenticationState();
 
-    // Configure the Identity application cookie (AddIdentity is called inside AddInfrastructure)
+    // [AUTH-WEB-01] Configure the Identity application cookie
     services.ConfigureApplicationCookie(opts =>
     {
         opts.LoginPath = "/login";
         opts.LogoutPath = "/logout";
         opts.AccessDeniedPath = "/access-denied";
-        opts.Cookie.Name = isDev ? "cc_auth" : "__Host-cc_auth";
+        // __Host- prefix enforces Secure + Path=/ + no Domain [AUTH-WEB-01]
+        // In dev without HTTPS, fall back to standard name (requires UseHttpsRedirection in dev for full security)
+        opts.Cookie.Name = isDev ? "cc_auth_dev" : "__Host-cc_auth";
         opts.Cookie.HttpOnly = true;
         opts.Cookie.SameSite = isDev ? SameSiteMode.Lax : SameSiteMode.Strict;
         opts.Cookie.SecurePolicy = isDev ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
         opts.SlidingExpiration = true;
         opts.ExpireTimeSpan = TimeSpan.FromMinutes(30);
     });
+
+    // Production security checks [CODE-05]
+    if (!isDev)
+    {
+        var jwtSecret = config["Jwt:SecretKey"];
+        var jwtPrivateKey = config["Jwt:PrivateKeyPath"];
+
+        // Ensure RS256 is configured for production
+        if (string.IsNullOrEmpty(jwtPrivateKey))
+        {
+            if (!string.IsNullOrEmpty(jwtSecret) && !jwtSecret.Contains("dev", StringComparison.OrdinalIgnoreCase))
+                Log.Warning("Production environment using HS256 JWT signing. Configure Jwt:PrivateKeyPath for RS256.");
+        }
+
+        // Ensure no dev secrets in production
+        if (jwtSecret?.Contains("dev-only", StringComparison.OrdinalIgnoreCase) == true)
+            throw new InvalidOperationException("Development JWT secret detected in production! Configure production secrets.");
+
+        var seedPassword = config["Seed:SuperadminPassword"];
+        if (seedPassword?.Contains("Admin@123456", StringComparison.OrdinalIgnoreCase) == true)
+            throw new InvalidOperationException("Default seed password detected in production! Configure production secrets.");
+    }
 
     services.AddAuthorization();
     services.AddHttpContextAccessor();

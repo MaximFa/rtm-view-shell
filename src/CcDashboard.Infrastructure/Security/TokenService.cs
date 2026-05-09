@@ -8,6 +8,7 @@ using CcDashboard.Infrastructure.Identity;
 using CcDashboard.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 using UUIDNext;
@@ -18,21 +19,55 @@ public class TokenService(
     AppDbContext db,
     IConnectionMultiplexer redis,
     IDateTimeProvider clock,
-    IConfiguration config)
+    IConfiguration config,
+    ILogger<TokenService> logger)
     : ITokenService
 {
     private readonly IDatabase _cache = redis.GetDatabase();
+    private RSA? _rsaKey;
+    private readonly object _rsaLock = new();
 
     private string Issuer => config["Jwt:Issuer"] ?? "RTMView";
     private string Audience => config["Jwt:Audience"] ?? "RTMView.Users";
     private int AccessTokenMinutes => int.TryParse(config["Jwt:AccessTokenExpiryMinutes"], out var m) ? m : 15;
     private int RefreshTokenHours => int.TryParse(config["Jwt:RefreshTokenExpiryHours"], out var h) ? h : 8;
+    private bool UseRsaSigning => !string.IsNullOrEmpty(config["Jwt:PrivateKeyPath"]);
 
-    private SymmetricSecurityKey GetSigningKey()
+    /// <summary>
+    /// Gets signing credentials. Uses RS256 if PrivateKeyPath is configured [AUTH-API-02],
+    /// falls back to HS256 for development only.
+    /// </summary>
+    private SigningCredentials GetSigningCredentials()
     {
-        var secret = config["Jwt:SecretKey"]
-            ?? throw new InvalidOperationException("Jwt:SecretKey is not configured.");
-        return new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+        // Production: RS256 with RSA-2048+ key [AUTH-API-02]
+        var privateKeyPath = config["Jwt:PrivateKeyPath"];
+        if (!string.IsNullOrEmpty(privateKeyPath))
+        {
+            lock (_rsaLock)
+            {
+                if (_rsaKey is null)
+                {
+                    _rsaKey = RSA.Create();
+                    var keyPem = File.ReadAllText(privateKeyPath);
+                    _rsaKey.ImportFromPem(keyPem);
+                    logger.LogInformation("JWT signing: RS256 with RSA key from {Path}", privateKeyPath);
+                }
+            }
+            return new SigningCredentials(new RsaSecurityKey(_rsaKey), SecurityAlgorithms.RsaSha256);
+        }
+
+        // Development fallback: HS256 (NOT for production)
+        var secret = config["Jwt:SecretKey"];
+        if (string.IsNullOrEmpty(secret))
+            throw new InvalidOperationException(
+                "JWT signing not configured. Set Jwt:PrivateKeyPath (production) or Jwt:SecretKey (dev only).");
+
+        if (!secret.Contains("dev", StringComparison.OrdinalIgnoreCase))
+            logger.LogWarning("JWT using HS256 symmetric key. For production, configure Jwt:PrivateKeyPath with RSA key.");
+
+        return new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+            SecurityAlgorithms.HmacSha256);
     }
 
     public async Task<TokenPair> CreateTokenPairAsync(
@@ -54,8 +89,7 @@ public class TokenService(
         if (pgId.HasValue)
             claims.Add(new Claim("permission_group_id", pgId.Value.ToString()));
 
-        var key = GetSigningKey();
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var credentials = GetSigningCredentials();
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),

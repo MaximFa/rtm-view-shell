@@ -14,8 +14,10 @@ public static class ApplicationServiceExtensions
         services.AddMediatR(cfg =>
         {
             cfg.RegisterServicesFromAssembly(assembly);
+            // Pipeline order: Logging → Validation → Authorization → Transaction → Audit → Handler
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>)); // [CODE-03]
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(AuditBehavior<,>));
         });

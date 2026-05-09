@@ -8,8 +8,8 @@ public interface ITwoFactorService
     /// <summary>Verifies submitted code; tracks attempts, invalidates on exceed [2FA-04].</summary>
     Task<TwoFactorVerifyResult> VerifyCodeAsync(Guid userId, string code, CancellationToken ct = default);
 
-    /// <summary>Returns true if resend is rate-limited (1/min per userId) [2FA-04].</summary>
-    Task<bool> IsResendThrottledAsync(Guid userId, CancellationToken ct = default);
+    /// <summary>Returns true if resend is rate-limited (1/min per userId) [2FA-04] [ARCH-08].</summary>
+    Task<bool> IsResendThrottledAsync(Guid userId, Guid tenantId, CancellationToken ct = default);
 }
 
 public record TwoFactorSendResult(bool Succeeded, string? Error = null);

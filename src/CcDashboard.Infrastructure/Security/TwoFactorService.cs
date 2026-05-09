@@ -24,8 +24,8 @@ public class TwoFactorService(
     public async Task<TwoFactorSendResult> SendCodeAsync(
         Guid userId, Guid tenantId, string email, CancellationToken ct = default)
     {
-        // Rate-limit resend: 1 per minute per userId [2FA-04]
-        var throttleKey = $"2fa_resend:{userId}";
+        // Rate-limit resend: 1 per minute per userId [2FA-04] [ARCH-08]
+        var throttleKey = $"{tenantId}:2fa_resend:{userId}";
         if (await _cache.KeyExistsAsync(throttleKey))
             return new TwoFactorSendResult(false, "Please wait before requesting another code.");
 
@@ -108,9 +108,9 @@ public class TwoFactorService(
         return new TwoFactorVerifyResult(true);
     }
 
-    public async Task<bool> IsResendThrottledAsync(Guid userId, CancellationToken ct = default)
+    public async Task<bool> IsResendThrottledAsync(Guid userId, Guid tenantId, CancellationToken ct = default)
     {
-        return await _cache.KeyExistsAsync($"2fa_resend:{userId}");
+        return await _cache.KeyExistsAsync($"{tenantId}:2fa_resend:{userId}");
     }
 
     private static string ComputeHmac(string code, string salt)

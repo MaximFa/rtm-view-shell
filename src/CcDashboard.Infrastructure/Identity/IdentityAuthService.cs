@@ -162,14 +162,14 @@ public class IdentityAuthService(
         if (!Guid.TryParse(userIdStr, out var userId))
             return new TwoFactorSendResult(false, "Session expired. Please sign in again.");
 
-        var throttled = await twoFactorService.IsResendThrottledAsync(userId, ct);
-        if (throttled)
-            return new TwoFactorSendResult(false, "Please wait before requesting another code.");
-
         var email = authResult.Principal?.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
         var tenantIdStr = authResult.Principal?.FindFirstValue("tenant_id");
         if (!Guid.TryParse(tenantIdStr, out var tenantId))
             return new TwoFactorSendResult(false, "Session expired.");
+
+        var throttled = await twoFactorService.IsResendThrottledAsync(userId, tenantId, ct);
+        if (throttled)
+            return new TwoFactorSendResult(false, "Please wait before requesting another code.");
 
         return await twoFactorService.SendCodeAsync(userId, tenantId, email, ct);
     }
