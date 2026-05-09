@@ -42,6 +42,7 @@
   <data name="Login_Or"><value>или</value></data>
   <data name="Login_SsoButton"><value>Войти через SSO / единый вход</value></data>
   <data name="Login_InvalidCredentials"><value>Неверный логин или пароль.</value></data>
+  <data name="Login_SessionLimitExceeded"><value>Достигнуто максимальное количество параллельных сессий. Выйдите из системы на другом устройстве и повторите попытку.</value></data>
   <data name="Login_BackToSignIn"><value>← Назад ко входу</value></data>
 
   <!-- ── Two-Factor ── -->
@@ -204,7 +205,7 @@
   <data name="PG_TabMenu"><value>Меню</value></data>
   <data name="PG_TabScreens"><value>Экраны</value></data>
   <data name="PG_TabQueues"><value>Очереди</value></data>
-  <data name="PG_TabSkills"><value>Навыки</value></data>
+  <data name="PG_TabAgentGroups"><value>Группы агентов</value></data>
   <data name="PG_TabBu"><value>Бизнес-единицы</value></data>
   <data name="PG_TabSg"><value>Супергруппы</value></data>
   <data name="PG_ColMenuItem"><value>Пункт меню</value></data>
@@ -220,6 +221,9 @@
   <data name="PG_EmptyListNote"><value>Пустой список = доступ запрещён [PG-03]</value></data>
   <data name="PG_NoGroupSelected"><value>Выберите группу для редактирования</value></data>
   <data name="PG_Users"><value>польз.</value></data>
+  <data name="PG_Available"><value>Доступно</value></data>
+  <data name="PG_Selected"><value>Выбрано</value></data>
+  <data name="PG_NoItemsAvailable"><value>Нет доступных элементов</value></data>
 
   <!-- ── Audit Log ── -->
   <data name="Audit_Title"><value>Журнал аудита</value></data>
@@ -252,6 +256,11 @@
   <data name="TenantSettings_AuditRetention"><value>Хранение журнала аудита (дни)</value></data>
   <data name="TenantSettings_SoftDelete"><value>Включить мягкое удаление экранов</value></data>
   <data name="TenantSettings_SoftDeleteRetention"><value>Хранение после мягкого удаления (дни)</value></data>
+  <data name="TenantSettings_Licensing"><value>Лицензирование</value></data>
+  <data name="TenantSettings_PurchasedLicences"><value>Купленные лицензии</value></data>
+  <data name="TenantSettings_LicencesHelp"><value>Максимальное количество пользователей. 0 = без ограничений.</value></data>
+  <data name="TenantSettings_MaxConcurrentConnections"><value>Параллельные подключения</value></data>
+  <data name="TenantSettings_ConnectionsHelp"><value>Максимальное количество одновременных сессий на пользователя с разных IP-адресов. 0 = без ограничений.</value></data>
   <data name="TenantSettings_Saved"><value>Настройки сохранены.</value></data>
 
   <!-- ── Tenants (Platform) ── -->

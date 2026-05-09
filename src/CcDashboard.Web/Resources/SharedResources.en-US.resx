@@ -42,6 +42,7 @@
   <data name="Login_Or"><value>or</value></data>
   <data name="Login_SsoButton"><value>Sign in with SSO / Single Sign-On</value></data>
   <data name="Login_InvalidCredentials"><value>Invalid username or password.</value></data>
+  <data name="Login_SessionLimitExceeded"><value>Maximum number of concurrent devices (IPs) reached. Please sign out from another device and try again.</value></data>
   <data name="Login_BackToSignIn"><value>← Back to sign in</value></data>
 
   <!-- ── Two-Factor ── -->
@@ -204,7 +205,7 @@
   <data name="PG_TabMenu"><value>Menu</value></data>
   <data name="PG_TabScreens"><value>Screens</value></data>
   <data name="PG_TabQueues"><value>Queues</value></data>
-  <data name="PG_TabSkills"><value>Skills</value></data>
+  <data name="PG_TabAgentGroups"><value>Agent Groups</value></data>
   <data name="PG_TabBu"><value>Business Units</value></data>
   <data name="PG_TabSg"><value>Super Groups</value></data>
   <data name="PG_ColMenuItem"><value>Menu item</value></data>
@@ -220,6 +221,9 @@
   <data name="PG_EmptyListNote"><value>Empty list = access denied [PG-03]</value></data>
   <data name="PG_NoGroupSelected"><value>Select a group to edit</value></data>
   <data name="PG_Users"><value>users</value></data>
+  <data name="PG_Available"><value>Available</value></data>
+  <data name="PG_Selected"><value>Selected</value></data>
+  <data name="PG_NoItemsAvailable"><value>No items available</value></data>
 
   <!-- ── Audit Log ── -->
   <data name="Audit_Title"><value>Audit Log</value></data>
@@ -252,6 +256,11 @@
   <data name="TenantSettings_AuditRetention"><value>Audit log retention (days)</value></data>
   <data name="TenantSettings_SoftDelete"><value>Enable soft-delete for screens</value></data>
   <data name="TenantSettings_SoftDeleteRetention"><value>Soft-delete retention (days)</value></data>
+  <data name="TenantSettings_Licensing"><value>Licensing</value></data>
+  <data name="TenantSettings_PurchasedLicences"><value>Purchased licences</value></data>
+  <data name="TenantSettings_LicencesHelp"><value>Maximum number of user accounts. 0 = unlimited.</value></data>
+  <data name="TenantSettings_MaxConcurrentConnections"><value>User connections</value></data>
+  <data name="TenantSettings_ConnectionsHelp"><value>Maximum parallel sessions per user from different IP addresses. 0 = unlimited.</value></data>
   <data name="TenantSettings_Saved"><value>Settings saved.</value></data>
 
   <!-- ── Tenants (Platform) ── -->

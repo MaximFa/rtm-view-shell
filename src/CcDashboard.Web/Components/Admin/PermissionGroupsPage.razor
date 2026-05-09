@@ -12,6 +12,7 @@
 @using CcDashboard.Contracts.DTOs.Tenants
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
+@using CcDashboard.Web.Components.Shared
 
 <PageTitle>@L["PG_Title"] — RTM View Shell</PageTitle>
 
@@ -171,27 +172,38 @@ else
                     }
                     else if (ActiveTab == "Screens")
                     {
-                        <p class="text-muted small">@L["PG_TabScreens"] — Dashboard access control is configured via dashboard permissions. [PG-01]</p>
+                        <DualPaneSelector TKey="Guid"
+                                          AllItems="AvailableDashboards.Select(x => (x.Id, x.Name)).ToList()"
+                                          SelectedIds="SelectedDashboardIds"
+                                          SelectedIdsChanged="ids => { SelectedDashboardIds = ids; }" />
                     }
                     else if (ActiveTab == "Queues")
                     {
-                        <p class="text-muted small fw-semibold">@L["PG_QueuesHeading"]</p>
-                        <p class="text-muted small">@L["PG_EmptyListNote"]</p>
+                        <DualPaneSelector TKey="Guid"
+                                          AllItems="AvailableQueues.Select(x => (x.Id, x.Name)).ToList()"
+                                          SelectedIds="SelectedQueueIds"
+                                          SelectedIdsChanged="ids => { SelectedQueueIds = ids; }" />
                     }
-                    else if (ActiveTab == "Skills")
+                    else if (ActiveTab == "AgentGroups")
                     {
-                        <p class="text-muted small fw-semibold">@L["PG_SkillsHeading"]</p>
-                        <p class="text-muted small">@L["PG_EmptyListNote"]</p>
+                        <DualPaneSelector TKey="Guid"
+                                          AllItems="AvailableAgentGroups.Select(x => (x.Id, x.Name)).ToList()"
+                                          SelectedIds="SelectedAgentGroupIds"
+                                          SelectedIdsChanged="ids => { SelectedAgentGroupIds = ids; }" />
                     }
                     else if (ActiveTab == "BU")
                     {
-                        <p class="text-muted small fw-semibold">@L["PG_BuHeading"]</p>
-                        <p class="text-muted small">@L["PG_EmptyListNote"]</p>
+                        <DualPaneSelector TKey="int"
+                                          AllItems="AvailableBUs.Select(x => (x.Id, x.Name)).ToList()"
+                                          SelectedIds="SelectedBusinessUnitIds"
+                                          SelectedIdsChanged="ids => { SelectedBusinessUnitIds = ids; }" />
                     }
                     else if (ActiveTab == "SG")
                     {
-                        <p class="text-muted small fw-semibold">@L["PG_SgHeading"]</p>
-                        <p class="text-muted small">@L["PG_EmptyListNote"]</p>
+                        <DualPaneSelector TKey="int"
+                                          AllItems="AvailableSGs.Select(x => (x.Id, x.Name)).ToList()"
+                                          SelectedIds="SelectedSupergroupIds"
+                                          SelectedIdsChanged="ids => { SelectedSupergroupIds = ids; }" />
                     }
                 </div>
                 <div class="modal-footer">
@@ -242,12 +254,12 @@ else
 
     private static readonly TabDef[] Tabs =
     [
-        new("Menu",    "PG_TabMenu"),
-        new("Screens", "PG_TabScreens"),
-        new("Queues",  "PG_TabQueues"),
-        new("Skills",  "PG_TabSkills"),
-        new("BU",      "PG_TabBu"),
-        new("SG",      "PG_TabSg"),
+        new("Menu",        "PG_TabMenu"),
+        new("Screens",     "PG_TabScreens"),
+        new("Queues",      "PG_TabQueues"),
+        new("AgentGroups", "PG_TabAgentGroups"),
+        new("BU",          "PG_TabBu"),
+        new("SG",          "PG_TabSg"),
     ];
 
     private List<PermissionGroupDto> Groups = [];
@@ -268,11 +280,19 @@ else
     private string? EName, EDescription;
     private bool EIsActive = true;
     private HashSet<string> SelectedMenuKeys = [];
+    private HashSet<Guid> SelectedDashboardIds = [];
     private HashSet<Guid> SelectedQueueIds = [];
-    private HashSet<Guid> SelectedSkillIds = [];
-    private HashSet<Guid> SelectedSupergroupIds = [];
-    private HashSet<Guid> SelectedBusinessUnitIds = [];
+    private HashSet<Guid> SelectedAgentGroupIds = [];
+    private HashSet<int> SelectedBusinessUnitIds = [];
+    private HashSet<int> SelectedSupergroupIds = [];
     private string ActiveTab = "Menu";
+
+    // Available entities for dual-pane selection
+    private List<AvailableEntityDto> AvailableDashboards = [];
+    private List<AvailableEntityDto> AvailableQueues = [];
+    private List<AvailableEntityDto> AvailableAgentGroups = [];
+    private List<AvailableEntityIntDto> AvailableBUs = [];
+    private List<AvailableEntityIntDto> AvailableSGs = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -303,30 +323,52 @@ else
         finally { Loading = false; }
     }
 
-    private void OpenNew()
+    private async Task LoadAvailableEntitiesAsync(Guid tenantId)
+    {
+        try
+        {
+            var result = await Mediator.Send(new GetAvailableEntitiesQuery(tenantId));
+            AvailableDashboards = result.Dashboards.ToList();
+            AvailableQueues = result.Queues.ToList();
+            AvailableAgentGroups = result.AgentGroups.ToList();
+            AvailableBUs = result.BusinessUnits.ToList();
+            AvailableSGs = result.Supergroups.ToList();
+        }
+        catch { /* fallback to empty */ }
+    }
+
+    private async Task OpenNew()
     {
         EditGroup = null; IsNew = true;
         EName = ""; EDescription = ""; EIsActive = true;
         SelectedMenuKeys        = ["menu.dashboards"];
+        SelectedDashboardIds    = [];
         SelectedQueueIds        = [];
-        SelectedSkillIds        = [];
-        SelectedSupergroupIds   = [];
+        SelectedAgentGroupIds   = [];
         SelectedBusinessUnitIds = [];
+        SelectedSupergroupIds   = [];
         ActiveTab = "Menu"; SaveError = null; SaveSuccess = false;
         ShowModal = true;
+
+        var tenantId = SelectedTenantId ?? CurrentUser.TenantId ?? Guid.Empty;
+        if (tenantId != Guid.Empty)
+            await LoadAvailableEntitiesAsync(tenantId);
     }
 
-    private void OpenEdit(PermissionGroupDto g)
+    private async Task OpenEdit(PermissionGroupDto g)
     {
         EditGroup = g; IsNew = false;
         EName = g.Name; EDescription = g.Description; EIsActive = g.IsActive;
         SelectedMenuKeys        = g.MenuPermissions.ToHashSet();
+        SelectedDashboardIds    = g.AllowedDashboardIds.ToHashSet();
         SelectedQueueIds        = g.AllowedQueueIds.ToHashSet();
-        SelectedSkillIds        = g.AllowedSkillIds.ToHashSet();
-        SelectedSupergroupIds   = g.AllowedSupergroupIds.ToHashSet();
+        SelectedAgentGroupIds   = g.AllowedAgentGroupIds.ToHashSet();
         SelectedBusinessUnitIds = g.AllowedBusinessUnitIds.ToHashSet();
+        SelectedSupergroupIds   = g.AllowedSupergroupIds.ToHashSet();
         ActiveTab = "Menu"; SaveError = null; SaveSuccess = false;
         ShowModal = true;
+
+        await LoadAvailableEntitiesAsync(g.TenantId);
     }
 
     private void CloseModal() { ShowModal = false; SaveError = null; SaveSuccess = false; }
@@ -352,9 +394,10 @@ else
                         EName!.Trim(), EDescription?.Trim(),
                         SelectedMenuKeys.ToList(),
                         SelectedQueueIds.ToList(),
-                        SelectedSkillIds.ToList(),
+                        SelectedAgentGroupIds.ToList(),
+                        SelectedBusinessUnitIds.ToList(),
                         SelectedSupergroupIds.ToList(),
-                        SelectedBusinessUnitIds.ToList()),
+                        SelectedDashboardIds.ToList()),
                     SelectedTenantId));
                 if (!result.IsSuccess) { SaveError = result.Error; return; }
             }
@@ -367,9 +410,10 @@ else
                         SelectedMenuKeys.ToList(),
                         EditGroup.RowVersion,
                         SelectedQueueIds.ToList(),
-                        SelectedSkillIds.ToList(),
+                        SelectedAgentGroupIds.ToList(),
+                        SelectedBusinessUnitIds.ToList(),
                         SelectedSupergroupIds.ToList(),
-                        SelectedBusinessUnitIds.ToList())));
+                        SelectedDashboardIds.ToList())));
                 if (!result.IsSuccess) { SaveError = result.Error; return; }
             }
             CloseModal();

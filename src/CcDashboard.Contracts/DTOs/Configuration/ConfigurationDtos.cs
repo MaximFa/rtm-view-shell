@@ -16,14 +16,13 @@ public record BusinessUnitDto(
     IReadOnlyList<string> QueueIds,
     IReadOnlyList<int> SupergroupIds);
 
-public record QueueDto(string QueueId, string? Name);
-
 public record SupergroupDto(
     int SupergroupId,
     string? SupergroupName,
     string? Description,
     IReadOnlyList<string> AgentGroupIds);
 
+public record QueueDto(string QueueId, string? Name);
 public record AgentGroupDto(string AgentGroupId, string? Name);
 
 public record RtsGridMetricDto(

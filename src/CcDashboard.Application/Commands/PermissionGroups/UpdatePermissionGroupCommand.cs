@@ -20,7 +20,8 @@ public class UpdatePermissionGroupCommandHandler(
     IPermissionGroupRepository repo,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock,
-    ICacheService cache)
+    ICacheService cache,
+    IConfigurationApiHook apiHook)
     : IRequestHandler<UpdatePermissionGroupCommand, Result>
 {
     public async Task<Result> Handle(UpdatePermissionGroupCommand cmd, CancellationToken ct)
@@ -53,31 +54,41 @@ public class UpdatePermissionGroupCommandHandler(
                 group.AllowedQueues.Add(new PgQueue { PermissionGroupId = group.Id, ObjectId = id, TenantId = group.TenantId });
         }
 
-        if (req.AllowedSkillIds is not null)
+        if (req.AllowedAgentGroupIds is not null)
         {
             group.AllowedSkills.Clear();
-            foreach (var id in req.AllowedSkillIds)
+            foreach (var id in req.AllowedAgentGroupIds)
                 group.AllowedSkills.Add(new PgSkill { PermissionGroupId = group.Id, ObjectId = id, TenantId = group.TenantId });
-        }
-
-        if (req.AllowedSupergroupIds is not null)
-        {
-            group.AllowedSupergroups.Clear();
-            foreach (var id in req.AllowedSupergroupIds)
-                group.AllowedSupergroups.Add(new PgAgentSupergroup { PermissionGroupId = group.Id, ObjectId = id, TenantId = group.TenantId });
         }
 
         if (req.AllowedBusinessUnitIds is not null)
         {
             group.AllowedBusinessUnits.Clear();
             foreach (var id in req.AllowedBusinessUnitIds)
-                group.AllowedBusinessUnits.Add(new PgBusinessUnit { PermissionGroupId = group.Id, ObjectId = id, TenantId = group.TenantId });
+                group.AllowedBusinessUnits.Add(new PgBusinessUnit { PermissionGroupId = group.Id, BusinessUnitId = id, TenantId = group.TenantId });
+        }
+
+        if (req.AllowedSupergroupIds is not null)
+        {
+            group.AllowedSupergroups.Clear();
+            foreach (var id in req.AllowedSupergroupIds)
+                group.AllowedSupergroups.Add(new PgSupergroup { PermissionGroupId = group.Id, SupergroupId = id, TenantId = group.TenantId });
+        }
+
+        if (req.AllowedDashboardIds is not null)
+        {
+            group.DashboardPermissions.Clear();
+            foreach (var id in req.AllowedDashboardIds)
+                group.DashboardPermissions.Add(new DashboardPermission { PermissionGroupId = group.Id, DashboardId = id, TenantId = group.TenantId, AccessLevel = 7 });
         }
 
         repo.Update(group);
 
         // [PG-07] Invalidate cached permissions so active sessions re-fetch on next interaction
         await cache.RemoveAsync($"{group.TenantId}:pg_permissions:{group.Id}", ct);
+
+        // TODO: API hook — notify CC-platform when API is available
+        await apiHook.NotifyAsync("PermissionGroup.Updated", new { group.Id, group.Name, group.TenantId }, ct);
 
         return Result.Success();
     }

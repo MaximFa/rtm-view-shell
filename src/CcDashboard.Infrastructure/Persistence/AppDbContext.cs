@@ -20,28 +20,27 @@ public class AppDbContext(
     public DbSet<Dashboard> Dashboards => Set<Dashboard>();
     public DbSet<DashboardWidget> DashboardWidgets => Set<DashboardWidget>();
     public DbSet<WidgetCatalogItem> WidgetCatalogItems => Set<WidgetCatalogItem>();
-    public DbSet<ResourceQueue> ResourceQueues => Set<ResourceQueue>();
-    public DbSet<Skill> Skills => Set<Skill>();
-    public DbSet<AgentSupergroup> AgentSupergroups => Set<AgentSupergroup>();
-    public DbSet<ResourceBusinessUnit> ResourceBusinessUnits => Set<ResourceBusinessUnit>();
+    // Reference tables (ngc_queues, ngc_AgentGroups)
+    public DbSet<NgcQueue> NgcQueues => Set<NgcQueue>();
+    public DbSet<NgcAgentGroup> NgcAgentGroups => Set<NgcAgentGroup>();
+    // PG permission join tables
     public DbSet<PgQueue> PgQueues => Set<PgQueue>();
     public DbSet<PgSkill> PgSkills => Set<PgSkill>();
-    public DbSet<PgAgentSupergroup> PgAgentSupergroups => Set<PgAgentSupergroup>();
     public DbSet<PgBusinessUnit> PgBusinessUnits => Set<PgBusinessUnit>();
-    // Configuration tables
-    public DbSet<Site> Sites => Set<Site>();
-    public DbSet<BusinessUnit> BusinessUnits => Set<BusinessUnit>();
-    public DbSet<Queue> Queues => Set<Queue>();
-    public DbSet<Supergroup> Supergroups => Set<Supergroup>();
-    public DbSet<AgentGroup> AgentGroups => Set<AgentGroup>();
-    public DbSet<BusinessUnitQueue> BusinessUnitQueues => Set<BusinessUnitQueue>();
-    public DbSet<BusinessUnitSupergroup> BusinessUnitSupergroups => Set<BusinessUnitSupergroup>();
-    public DbSet<SupergroupAgentGroup> SupergroupAgentGroups => Set<SupergroupAgentGroup>();
+    public DbSet<PgSupergroup> PgSupergroups => Set<PgSupergroup>();
+    // NGC Configuration tables
+    public DbSet<NgcSite> NgcSites => Set<NgcSite>();
+    public DbSet<NgcBusinessUnit> NgcBusinessUnits => Set<NgcBusinessUnit>();
+    public DbSet<NgcSupergroup> NgcSupergroups => Set<NgcSupergroup>();
+    public DbSet<NgcBusinessUnitQueueClassification> NgcBusinessUnitQueueClassifications => Set<NgcBusinessUnitQueueClassification>();
+    public DbSet<NgcBusinessUnitSupergroup> NgcBusinessUnitSupergroups => Set<NgcBusinessUnitSupergroup>();
+    public DbSet<NgcSupergroupAgentgroup> NgcSupergroupAgentgroups => Set<NgcSupergroupAgentgroup>();
     public DbSet<RtsGridMetric> RtsGridMetrics => Set<RtsGridMetric>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<TwoFactorCode> TwoFactorCodes => Set<TwoFactorCode>();
     public DbSet<UserPasswordHistory> UserPasswordHistories => Set<UserPasswordHistory>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -160,16 +159,14 @@ public class AppDbContext(
         });
 
         // Reference tables (tenant-scoped resource catalogue synced from CC platform)
-        ConfigureReferenceTable<ResourceQueue>(mb, "queues");
-        ConfigureReferenceTable<Skill>(mb, "skills");
-        ConfigureReferenceTable<AgentSupergroup>(mb, "agent_supergroups");
-        ConfigureReferenceTable<ResourceBusinessUnit>(mb, "business_units");
+        ConfigureReferenceTable<NgcQueue>(mb, "ngc_queues");
+        ConfigureReferenceTable<NgcAgentGroup>(mb, "ngc_AgentGroups");
 
-        // PG resource join tables (composite PK: PermissionGroupId + ObjectId)
+        // PG resource join tables
         mb.Entity<PgQueue>(e => { e.ToTable("pg_queues"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
         mb.Entity<PgSkill>(e => { e.ToTable("pg_skills"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
-        mb.Entity<PgAgentSupergroup>(e => { e.ToTable("pg_agent_supergroups"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
-        mb.Entity<PgBusinessUnit>(e => { e.ToTable("pg_business_units"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
+        mb.Entity<PgBusinessUnit>(e => { e.ToTable("pg_business_units"); e.HasKey(x => new { x.PermissionGroupId, x.BusinessUnitId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
+        mb.Entity<PgSupergroup>(e => { e.ToTable("pg_supergroups"); e.HasKey(x => new { x.PermissionGroupId, x.SupergroupId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
 
         // Identity auth tables
         mb.Entity<RefreshToken>(e =>
@@ -199,12 +196,23 @@ public class AppDbContext(
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
-        // Configuration tables
-        mb.Entity<Site>(e =>
+        mb.Entity<UserSession>(e =>
         {
-            e.ToTable("ngc_site");
+            e.ToTable("user_sessions", "identity");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.IpAddress).HasMaxLength(45);
+            e.Property(x => x.UserAgent).HasMaxLength(500);
+            e.HasIndex(x => new { x.UserId, x.IsRevoked, x.ExpiresAt });
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        // NGC Configuration tables
+        mb.Entity<NgcSite>(e =>
+        {
+            e.ToTable("NGC_Site");
             e.HasKey(x => x.SiteId);
-            e.Property(x => x.SiteId).HasMaxLength(100);
+            e.Property(x => x.SiteId).HasMaxLength(50);
             e.Property(x => x.SiteName).HasMaxLength(200);
             e.Property(x => x.Description).HasMaxLength(500);
             e.Property(x => x.TimeZone).HasMaxLength(10);
@@ -212,15 +220,14 @@ public class AppDbContext(
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
-        mb.Entity<BusinessUnit>(e =>
+        mb.Entity<NgcBusinessUnit>(e =>
         {
-            e.ToTable("ngc_business_unit");
+            e.ToTable("NGC_BusinessUnit");
             e.HasKey(x => x.BusinessUnitId);
             e.Property(x => x.BusinessUnitId).UseIdentityAlwaysColumn();
-            e.Property(x => x.BusinessUnitName).HasMaxLength(200);
-            e.Property(x => x.Description).HasMaxLength(500);
-            e.Property(x => x.SiteId).HasMaxLength(100);
-            e.Property(x => x.CreatedBy).HasMaxLength(200);
+            e.Property(x => x.BusinessUnitName).HasMaxLength(100);
+            e.Property(x => x.CreatedBy).HasMaxLength(100);
+            e.Property(x => x.SiteId).HasMaxLength(50);
             e.HasOne(x => x.Site)
                 .WithMany(x => x.BusinessUnits)
                 .HasForeignKey(x => x.SiteId)
@@ -230,57 +237,34 @@ public class AppDbContext(
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
-        mb.Entity<Queue>(e =>
+        mb.Entity<NgcSupergroup>(e =>
         {
-            e.ToTable("ngc_queue");
-            e.HasKey(x => x.QueueId);
-            e.Property(x => x.QueueId).HasMaxLength(100);
-            e.Property(x => x.Name).HasMaxLength(200);
-            e.Property(x => x.CreatedBy).HasMaxLength(200);
-            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
-        });
-
-        mb.Entity<Supergroup>(e =>
-        {
-            e.ToTable("ngc_supergroup");
+            e.ToTable("NGC_Supergroup");
             e.HasKey(x => x.SupergroupId);
             e.Property(x => x.SupergroupId).UseIdentityAlwaysColumn();
             e.Property(x => x.SupergroupName).HasMaxLength(200);
             e.Property(x => x.Description).HasMaxLength(500);
-            e.Property(x => x.CreatedBy).HasMaxLength(200);
+            e.Property(x => x.CreatedBy).HasMaxLength(100);
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
-        mb.Entity<AgentGroup>(e =>
+        mb.Entity<NgcBusinessUnitQueueClassification>(e =>
         {
-            e.ToTable("ngc_agent_group");
-            e.HasKey(x => x.AgentGroupId);
-            e.Property(x => x.AgentGroupId).HasMaxLength(100);
-            e.Property(x => x.Name).HasMaxLength(200);
-            e.Property(x => x.CreatedBy).HasMaxLength(200);
-            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
-        });
-
-        mb.Entity<BusinessUnitQueue>(e =>
-        {
-            e.ToTable("ngc_business_unit_queue");
+            e.ToTable("NGC_BusinessUnitQueueClassification");
             e.HasKey(x => new { x.BusinessUnitId, x.QueueId });
             e.Property(x => x.QueueId).HasMaxLength(100);
             e.Property(x => x.ClassificationId).HasMaxLength(100);
-            e.Property(x => x.CreatedBy).HasMaxLength(200);
+            e.Property(x => x.CreatedBy).HasMaxLength(100);
             e.HasOne(x => x.BusinessUnit).WithMany(x => x.QueueAssignments)
                 .HasForeignKey(x => x.BusinessUnitId);
-            e.HasOne(x => x.Queue).WithMany()
-                .HasForeignKey(x => x.QueueId)
-                .HasPrincipalKey(x => x.QueueId);
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
-        mb.Entity<BusinessUnitSupergroup>(e =>
+        mb.Entity<NgcBusinessUnitSupergroup>(e =>
         {
-            e.ToTable("ngc_business_unit_supergroup");
+            e.ToTable("NGC_BusinessUnitSupergroup");
             e.HasKey(x => new { x.BusinessUnitId, x.SupergroupId });
-            e.Property(x => x.CreatedBy).HasMaxLength(200);
+            e.Property(x => x.CreatedBy).HasMaxLength(100);
             e.HasOne(x => x.BusinessUnit).WithMany(x => x.SupergroupAssignments)
                 .HasForeignKey(x => x.BusinessUnitId);
             e.HasOne(x => x.Supergroup).WithMany(x => x.BusinessUnitAssignments)
@@ -288,17 +272,15 @@ public class AppDbContext(
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
-        mb.Entity<SupergroupAgentGroup>(e =>
+        mb.Entity<NgcSupergroupAgentgroup>(e =>
         {
-            e.ToTable("ngc_supergroup_agent_group");
-            e.HasKey(x => new { x.SupergroupId, x.AgentGroupId });
-            e.Property(x => x.AgentGroupId).HasMaxLength(100);
-            e.Property(x => x.CreatedBy).HasMaxLength(200);
+            e.ToTable("NGC_SupergroupAgentgroup");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityAlwaysColumn();
+            e.Property(x => x.AgentgroupId).HasMaxLength(100);
+            e.Property(x => x.CreatedBy).HasMaxLength(100);
             e.HasOne(x => x.Supergroup).WithMany(x => x.AgentGroupAssignments)
                 .HasForeignKey(x => x.SupergroupId);
-            e.HasOne(x => x.AgentGroup).WithMany()
-                .HasForeignKey(x => x.AgentGroupId)
-                .HasPrincipalKey(x => x.AgentGroupId);
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 

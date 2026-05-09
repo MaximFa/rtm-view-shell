@@ -13,5 +13,9 @@ public class TenantSettings
     public string? EmailProviderConfig { get; set; }
     public Guid? SsoConfigurationId { get; set; }
 
+    // Licensing
+    public int PurchasedLicences { get; set; } = 0;        // 0 = unlimited
+    public int MaxConcurrentConnections { get; set; } = 0; // 0 = unlimited
+
     public Tenant? Tenant { get; set; }
 }

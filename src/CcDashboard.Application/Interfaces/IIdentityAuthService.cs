@@ -43,7 +43,8 @@ public enum IdentitySignInStatus
     RequiresTwoFactor,
     TenantMismatch,
     AccountInactive,
-    TenantSuspended
+    TenantSuspended,
+    SessionLimitExceeded
 }
 
 public record ChangePasswordResult(bool Succeeded, string? Error = null);

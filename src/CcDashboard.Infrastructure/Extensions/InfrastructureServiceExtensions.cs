@@ -98,13 +98,13 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<ITenantSettingsRepository, TenantSettingsRepository>();
 
-        // Configuration repositories
-        services.AddScoped<ISiteRepository, SiteRepository>();
-        services.AddScoped<IBusinessUnitRepository, BusinessUnitRepository>();
-        services.AddScoped<IQueueRepository, QueueRepository>();
-        services.AddScoped<ISupergroupRepository, SupergroupRepository>();
-        services.AddScoped<IAgentGroupRepository, AgentGroupRepository>();
+        // NGC Configuration repositories
+        services.AddScoped<INgcSiteRepository, NgcSiteRepository>();
+        services.AddScoped<INgcBusinessUnitRepository, NgcBusinessUnitRepository>();
+        services.AddScoped<INgcSupergroupRepository, NgcSupergroupRepository>();
         services.AddScoped<IRtsGridMetricRepository, RtsGridMetricRepository>();
+        services.AddScoped<INgcQueueRepository, NgcQueueRepository>();
+        services.AddScoped<INgcAgentGroupRepository, NgcAgentGroupRepository>();
 
         // API hook (no-op until CC-platform API is available)
         services.AddScoped<IConfigurationApiHook, NoOpConfigurationApiHook>();

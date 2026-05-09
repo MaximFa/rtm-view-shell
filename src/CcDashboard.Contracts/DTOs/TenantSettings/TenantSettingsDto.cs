@@ -8,7 +8,9 @@ public record TenantSettingsDto(
     int AuditRetentionDays,
     string DefaultLocale,
     bool SoftDeleteDashboards,
-    int SoftDeleteRetentionDays);
+    int SoftDeleteRetentionDays,
+    int PurchasedLicences,
+    int MaxConcurrentConnections);
 
 public record UpdateTenantSettingsRequest(
     int PasswordMinLength,
@@ -17,4 +19,6 @@ public record UpdateTenantSettingsRequest(
     int AuditRetentionDays,
     string DefaultLocale,
     bool SoftDeleteDashboards,
-    int SoftDeleteRetentionDays);
+    int SoftDeleteRetentionDays,
+    int PurchasedLicences,
+    int MaxConcurrentConnections);

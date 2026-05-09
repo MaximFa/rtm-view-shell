@@ -1,6 +1,8 @@
 namespace CcDashboard.Domain.Domain;
 
-public class Site
+// NGC Configuration entities — matches SQL Server NGC_* schema
+
+public class NgcSite
 {
     public string SiteId { get; set; } = string.Empty;
     public Guid TenantId { get; set; }
@@ -9,10 +11,10 @@ public class Site
     public string? TimeZone { get; set; }   // format: "+10:00"
     public string? ClearTime { get; set; }  // format: "HH:MM" as nvarchar
 
-    public ICollection<BusinessUnit> BusinessUnits { get; set; } = [];
+    public ICollection<NgcBusinessUnit> BusinessUnits { get; set; } = [];
 }
 
-public class BusinessUnit
+public class NgcBusinessUnit
 {
     public int BusinessUnitId { get; set; }
     public Guid TenantId { get; set; }
@@ -22,21 +24,12 @@ public class BusinessUnit
     public string? CreatedBy { get; set; }
     public string? SiteId { get; set; }
 
-    public Site? Site { get; set; }
-    public ICollection<BusinessUnitQueue> QueueAssignments { get; set; } = [];
-    public ICollection<BusinessUnitSupergroup> SupergroupAssignments { get; set; } = [];
+    public NgcSite? Site { get; set; }
+    public ICollection<NgcBusinessUnitQueueClassification> QueueAssignments { get; set; } = [];
+    public ICollection<NgcBusinessUnitSupergroup> SupergroupAssignments { get; set; } = [];
 }
 
-public class Queue
-{
-    public string QueueId { get; set; } = string.Empty;
-    public Guid TenantId { get; set; }
-    public string? Name { get; set; }  // display name from external system, read-only
-    public DateTime? CreatedDatetime { get; set; }
-    public string? CreatedBy { get; set; }
-}
-
-public class Supergroup
+public class NgcSupergroup
 {
     public int SupergroupId { get; set; }
     public Guid TenantId { get; set; }
@@ -46,22 +39,13 @@ public class Supergroup
     public string? CreatedBy { get; set; }
     public int? SupergroupIdOld { get; set; }
 
-    public ICollection<BusinessUnitSupergroup> BusinessUnitAssignments { get; set; } = [];
-    public ICollection<SupergroupAgentGroup> AgentGroupAssignments { get; set; } = [];
-}
-
-public class AgentGroup
-{
-    public string AgentGroupId { get; set; } = string.Empty;
-    public Guid TenantId { get; set; }
-    public string? Name { get; set; }  // display name from external system, read-only
-    public DateTime? CreatedDatetime { get; set; }
-    public string? CreatedBy { get; set; }
+    public ICollection<NgcBusinessUnitSupergroup> BusinessUnitAssignments { get; set; } = [];
+    public ICollection<NgcSupergroupAgentgroup> AgentGroupAssignments { get; set; } = [];
 }
 
 // ── Junction tables ──────────────────────────────────────────────────────────
 
-public class BusinessUnitQueue
+public class NgcBusinessUnitQueueClassification
 {
     public int BusinessUnitId { get; set; }
     public string QueueId { get; set; } = string.Empty;
@@ -70,11 +54,10 @@ public class BusinessUnitQueue
     public DateTime? CreatedDatetime { get; set; }
     public string? CreatedBy { get; set; }
 
-    public BusinessUnit? BusinessUnit { get; set; }
-    public Queue? Queue { get; set; }
+    public NgcBusinessUnit? BusinessUnit { get; set; }
 }
 
-public class BusinessUnitSupergroup
+public class NgcBusinessUnitSupergroup
 {
     public int BusinessUnitId { get; set; }
     public int SupergroupId { get; set; }
@@ -82,18 +65,18 @@ public class BusinessUnitSupergroup
     public DateTime? CreatedDatetime { get; set; }
     public string? CreatedBy { get; set; }
 
-    public BusinessUnit? BusinessUnit { get; set; }
-    public Supergroup? Supergroup { get; set; }
+    public NgcBusinessUnit? BusinessUnit { get; set; }
+    public NgcSupergroup? Supergroup { get; set; }
 }
 
-public class SupergroupAgentGroup
+public class NgcSupergroupAgentgroup
 {
-    public int SupergroupId { get; set; }
-    public string AgentGroupId { get; set; } = string.Empty;
+    public int Id { get; set; } // Surrogate PK (EF requires key for navigation properties)
+    public int? SupergroupId { get; set; }
+    public string? AgentgroupId { get; set; }
     public Guid TenantId { get; set; }
     public DateTime? CreatedDatetime { get; set; }
     public string? CreatedBy { get; set; }
 
-    public Supergroup? Supergroup { get; set; }
-    public AgentGroup? AgentGroup { get; set; }
+    public NgcSupergroup? Supergroup { get; set; }
 }

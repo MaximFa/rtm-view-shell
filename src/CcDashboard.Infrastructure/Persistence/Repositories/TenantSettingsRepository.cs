@@ -12,19 +12,15 @@ public class TenantSettingsRepository(AppDbContext db) : ITenantSettingsReposito
 
     public async Task UpsertAsync(TenantSettings settings, CancellationToken ct = default)
     {
-        var existing = await db.TenantSettings.FindAsync([settings.TenantId], ct);
-        if (existing is null)
-            db.TenantSettings.Add(settings);
+        var entry = db.Entry(settings);
+        if (entry.State != EntityState.Detached)
+            return; // already tracked — TransactionBehavior's SaveChanges will persist changes
+
+        var exists = await db.TenantSettings.IgnoreQueryFilters()
+            .AnyAsync(s => s.TenantId == settings.TenantId, ct);
+        if (exists)
+            db.TenantSettings.Update(settings);
         else
-        {
-            existing.PasswordMinLength = settings.PasswordMinLength;
-            existing.PasswordExpireDays = settings.PasswordExpireDays;
-            existing.Require2faForAll = settings.Require2faForAll;
-            existing.AuditRetentionDays = settings.AuditRetentionDays;
-            existing.DefaultLocale = settings.DefaultLocale;
-            existing.SoftDeleteDashboards = settings.SoftDeleteDashboards;
-            existing.SoftDeleteRetentionDays = settings.SoftDeleteRetentionDays;
-            db.TenantSettings.Update(existing);
-        }
+            db.TenantSettings.Add(settings);
     }
 }

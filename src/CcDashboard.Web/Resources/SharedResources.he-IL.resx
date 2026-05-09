@@ -42,6 +42,7 @@
   <data name="Login_Or"><value>או</value></data>
   <data name="Login_SsoButton"><value>כניסה באמצעות SSO / כניסה מאוחדת</value></data>
   <data name="Login_InvalidCredentials"><value>שם המשתמש או הסיסמה שגויים.</value></data>
+  <data name="Login_SessionLimitExceeded"><value>הגעת למספר המקסימלי של חיבורים מקבילים. התנתק ממכשיר אחר ונסה שנית.</value></data>
   <data name="Login_BackToSignIn"><value>→ חזרה לכניסה</value></data>
 
   <!-- ── Two-Factor ── -->
@@ -204,7 +205,7 @@
   <data name="PG_TabMenu"><value>תפריט</value></data>
   <data name="PG_TabScreens"><value>מסכים</value></data>
   <data name="PG_TabQueues"><value>תורים</value></data>
-  <data name="PG_TabSkills"><value>מיומנויות</value></data>
+  <data name="PG_TabAgentGroups"><value>קבוצות סוכנים</value></data>
   <data name="PG_TabBu"><value>יחידות עסקיות</value></data>
   <data name="PG_TabSg"><value>קבוצות-על</value></data>
   <data name="PG_ColMenuItem"><value>פריט תפריט</value></data>
@@ -220,6 +221,9 @@
   <data name="PG_EmptyListNote"><value>רשימה ריקה = גישה אסורה [PG-03]</value></data>
   <data name="PG_NoGroupSelected"><value>בחר קבוצה לעריכה</value></data>
   <data name="PG_Users"><value>משתמשים</value></data>
+  <data name="PG_Available"><value>זמין</value></data>
+  <data name="PG_Selected"><value>נבחר</value></data>
+  <data name="PG_NoItemsAvailable"><value>אין פריטים זמינים</value></data>
 
   <!-- ── Audit Log ── -->
   <data name="Audit_Title"><value>יומן ביקורת</value></data>
@@ -252,6 +256,11 @@
   <data name="TenantSettings_AuditRetention"><value>שמירת יומן ביקורת (ימים)</value></data>
   <data name="TenantSettings_SoftDelete"><value>אפשר מחיקה רכה למסכים</value></data>
   <data name="TenantSettings_SoftDeleteRetention"><value>שמירה לאחר מחיקה רכה (ימים)</value></data>
+  <data name="TenantSettings_Licensing"><value>רישוי</value></data>
+  <data name="TenantSettings_PurchasedLicences"><value>רישיונות שנרכשו</value></data>
+  <data name="TenantSettings_LicencesHelp"><value>מספר משתמשים מקסימלי. 0 = ללא הגבלה.</value></data>
+  <data name="TenantSettings_MaxConcurrentConnections"><value>חיבורי משתמש</value></data>
+  <data name="TenantSettings_ConnectionsHelp"><value>מספר סשנים מקבילים מקסימלי למשתמש מכתובות IP שונות. 0 = ללא הגבלה.</value></data>
   <data name="TenantSettings_Saved"><value>ההגדרות נשמרו.</value></data>
 
   <!-- ── Tenants (Platform) ── -->

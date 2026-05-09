@@ -13,7 +13,9 @@ public record DeletePermissionGroupCommand(Guid Id) : IRequest<Result>, ITransac
     public object? AuditDetails => new { Id };
 }
 
-public class DeletePermissionGroupCommandHandler(IPermissionGroupRepository repo)
+public class DeletePermissionGroupCommandHandler(
+    IPermissionGroupRepository repo,
+    IConfigurationApiHook apiHook)
     : IRequestHandler<DeletePermissionGroupCommand, Result>
 {
     public async Task<Result> Handle(DeletePermissionGroupCommand cmd, CancellationToken ct)
@@ -26,6 +28,10 @@ public class DeletePermissionGroupCommandHandler(IPermissionGroupRepository repo
             return Result.Failure($"Cannot delete group with {userCount} assigned user(s). [PG-06]");
 
         repo.Remove(group);
+
+        // TODO: API hook — notify CC-platform when API is available
+        await apiHook.NotifyAsync("PermissionGroup.Deleted", new { group.Id, group.Name, group.TenantId }, ct);
+
         return Result.Success();
     }
 }

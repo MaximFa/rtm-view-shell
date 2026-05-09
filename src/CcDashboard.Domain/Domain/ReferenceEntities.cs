@@ -1,6 +1,8 @@
 namespace CcDashboard.Domain.Domain;
 
-public class ResourceQueue
+// Reference tables for PG permissions — synced from CC platform
+
+public class NgcQueue
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
@@ -9,25 +11,7 @@ public class ResourceQueue
     public bool IsActive { get; set; } = true;
 }
 
-public class Skill
-{
-    public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
-    public string ExternalId { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public bool IsActive { get; set; } = true;
-}
-
-public class AgentSupergroup
-{
-    public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
-    public string ExternalId { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public bool IsActive { get; set; } = true;
-}
-
-public class ResourceBusinessUnit
+public class NgcAgentGroup
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }

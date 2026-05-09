@@ -21,6 +21,7 @@ public class GetTenantSettingsQueryHandler(
         return new TenantSettingsDto(
             s.TenantId, s.PasswordMinLength, s.PasswordExpireDays,
             s.Require2faForAll, s.AuditRetentionDays, s.DefaultLocale,
-            s.SoftDeleteDashboards, s.SoftDeleteRetentionDays);
+            s.SoftDeleteDashboards, s.SoftDeleteRetentionDays,
+            s.PurchasedLicences, s.MaxConcurrentConnections);
     }
 }

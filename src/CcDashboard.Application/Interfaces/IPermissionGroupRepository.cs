@@ -1,3 +1,4 @@
+using CcDashboard.Application.Queries.PermissionGroups;
 using CcDashboard.Domain.Domain;
 
 namespace CcDashboard.Application.Interfaces;
@@ -10,4 +11,7 @@ public interface IPermissionGroupRepository
     Task AddAsync(PermissionGroup group, CancellationToken ct = default);
     void Update(PermissionGroup group);
     void Remove(PermissionGroup group);
+
+    Task<AvailableEntitiesResult> GetAllEntitiesForTenantAsync(Guid tenantId, CancellationToken ct = default);
+    Task<AvailableEntitiesResult> GetEntitiesForPermissionGroupAsync(Guid pgId, Guid tenantId, CancellationToken ct = default);
 }

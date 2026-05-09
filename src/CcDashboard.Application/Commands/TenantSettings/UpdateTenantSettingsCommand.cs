@@ -29,6 +29,8 @@ public class UpdateTenantSettingsCommandHandler(
         settings.DefaultLocale = r.DefaultLocale?.Trim().Substring(0, Math.Min(10, r.DefaultLocale.Length)) ?? "en-US";
         settings.SoftDeleteDashboards = r.SoftDeleteDashboards;
         settings.SoftDeleteRetentionDays = Math.Clamp(r.SoftDeleteRetentionDays, 1, 365);
+        settings.PurchasedLicences = Math.Max(0, r.PurchasedLicences);
+        settings.MaxConcurrentConnections = Math.Max(0, r.MaxConcurrentConnections);
 
         await repo.UpsertAsync(settings, ct);
     }

@@ -194,6 +194,23 @@ else
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <div class="card h-100">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_Licensing"]</div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <label class="form-label small">@L["TenantSettings_PurchasedLicences"]</label>
+                                                <input type="number" class="form-control form-control-sm" min="0" @bind="EditPurchasedLicences" />
+                                                <div class="form-text">@L["TenantSettings_LicencesHelp"]</div>
+                                            </div>
+                                            <div class="mb-0">
+                                                <label class="form-label small">@L["TenantSettings_MaxConcurrentConnections"]</label>
+                                                <input type="number" class="form-control form-control-sm" min="0" @bind="EditMaxConcurrentConnections" />
+                                                <div class="form-text">@L["TenantSettings_ConnectionsHelp"]</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100">
                                         <div class="card-header fw-semibold small">@L["TenantSettings_PasswordPolicy"]</div>
                                         <div class="card-body">
                                             <div class="mb-2">
@@ -291,6 +308,8 @@ else
     private string EditDefaultLocale = "en-US";
     private bool EditSoftDelete;
     private int EditSoftDeleteRetentionDays = 90;
+    private int EditPurchasedLicences = 0;
+    private int EditMaxConcurrentConnections = 0;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -362,6 +381,8 @@ else
             EditDefaultLocale = s?.DefaultLocale ?? "en-US";
             EditSoftDelete = s?.SoftDeleteDashboards ?? false;
             EditSoftDeleteRetentionDays = s?.SoftDeleteRetentionDays ?? 90;
+            EditPurchasedLicences = s?.PurchasedLicences ?? 0;
+            EditMaxConcurrentConnections = s?.MaxConcurrentConnections ?? 0;
         }
         catch { /* use defaults */ }
         finally { EditSettingsLoading = false; }
@@ -381,7 +402,8 @@ else
                 new UpdateTenantSettingsRequest(
                     EditPwdMinLength, EditPwdExpireDays, EditRequire2fa,
                     EditAuditRetentionDays, EditDefaultLocale,
-                    EditSoftDelete, EditSoftDeleteRetentionDays),
+                    EditSoftDelete, EditSoftDeleteRetentionDays,
+                    EditPurchasedLicences, EditMaxConcurrentConnections),
                 EditTenant.Id));
             EditSaveSuccess = true;
             await LoadAsync();

@@ -24,6 +24,17 @@ public class UserManagementService(
     public async Task<(bool Succeeded, string? Error, Guid UserId)> CreateAsync(
         Guid tenantId, CreateUserRequest req, CancellationToken ct = default)
     {
+        // [LIC-01] Check purchased licence limit
+        var settings = await db.TenantSettings.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId, ct);
+        if (settings?.PurchasedLicences > 0)
+        {
+            var userCount = await db.Users.IgnoreQueryFilters()
+                .CountAsync(u => u.TenantId == tenantId, ct);
+            if (userCount >= settings.PurchasedLicences)
+                return (false, $"Licence limit reached ({settings.PurchasedLicences} users). Cannot create more users.", Guid.Empty);
+        }
+
         var user = new ApplicationUser
         {
             Id = Uuid.NewSequential(),

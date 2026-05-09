@@ -41,7 +41,7 @@ else
                         <label class="form-label">@L["TenantSettings_MinLength"]</label>
                         <input type="number" class="form-control" min="8" max="128" @bind="PwdMinLength" />
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-0">
                         <label class="form-label">@L["TenantSettings_ExpireDays"]</label>
                         <input type="number" class="form-control" min="1" max="365" @bind="PwdExpireDays" />
                     </div>
@@ -57,9 +57,27 @@ else
                         <input class="form-check-input" type="checkbox" id="require2fa" @bind="Require2fa" />
                         <label class="form-check-label" for="require2fa">@L["TenantSettings_Require2fa"]</label>
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-0">
                         <label class="form-label">@L["TenantSettings_DefaultLocale"]</label>
                         <input type="text" class="form-control" placeholder="en-US" @bind="DefaultLocale" maxlength="10" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header fw-semibold">@L["TenantSettings_Licensing"]</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">@L["TenantSettings_PurchasedLicences"]</label>
+                        <input type="number" class="form-control" min="0" @bind="PurchasedLicences" />
+                        <div class="form-text">@L["TenantSettings_LicencesHelp"]</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">@L["TenantSettings_MaxConcurrentConnections"]</label>
+                        <input type="number" class="form-control" min="0" @bind="MaxConcurrentConnections" />
+                        <div class="form-text">@L["TenantSettings_ConnectionsHelp"]</div>
                     </div>
                 </div>
             </div>
@@ -77,7 +95,7 @@ else
                         <input class="form-check-input" type="checkbox" id="softDelete" @bind="SoftDelete" />
                         <label class="form-check-label" for="softDelete">@L["TenantSettings_SoftDelete"]</label>
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-0">
                         <label class="form-label">@L["TenantSettings_SoftDeleteRetention"]</label>
                         <input type="number" class="form-control" min="1" max="365" @bind="SoftDeleteRetentionDays" disabled="@(!SoftDelete)" />
                     </div>
@@ -106,6 +124,8 @@ else
     private string DefaultLocale = "en-US";
     private bool SoftDelete;
     private int SoftDeleteRetentionDays = 90;
+    private int PurchasedLicences = 0;
+    private int MaxConcurrentConnections = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -121,6 +141,8 @@ else
                 DefaultLocale = settings.DefaultLocale;
                 SoftDelete = settings.SoftDeleteDashboards;
                 SoftDeleteRetentionDays = settings.SoftDeleteRetentionDays;
+                PurchasedLicences = settings.PurchasedLicences;
+                MaxConcurrentConnections = settings.MaxConcurrentConnections;
             }
         }
         catch (Exception ex) { SaveError = ex.Message; }
@@ -136,7 +158,8 @@ else
                 new UpdateTenantSettingsRequest(
                     PwdMinLength, PwdExpireDays, Require2fa,
                     AuditRetentionDays, DefaultLocale,
-                    SoftDelete, SoftDeleteRetentionDays)));
+                    SoftDelete, SoftDeleteRetentionDays,
+                    PurchasedLicences, MaxConcurrentConnections)));
             SaveSuccess = true;
         }
         catch (Exception ex) { SaveError = ex.Message; }

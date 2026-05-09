@@ -8,7 +8,7 @@ using MediatR;
 
 namespace CcDashboard.Application.Commands.Configuration;
 
-// ── Sites ────────────────────────────────────────────────────────────────────
+// ── NGC Sites ────────────────────────────────────────────────────────────────
 
 public record SaveSiteCommand(SaveSiteRequest Request) : IRequest<Result>, ITransactional, IAuditable
 {
@@ -17,7 +17,7 @@ public record SaveSiteCommand(SaveSiteRequest Request) : IRequest<Result>, ITran
 }
 
 public class SaveSiteCommandHandler(
-    ISiteRepository repo,
+    INgcSiteRepository repo,
     ICurrentUserAccessor user,
     IConfigurationApiHook apiHook)
     : IRequestHandler<SaveSiteCommand, Result>
@@ -29,7 +29,7 @@ public class SaveSiteCommandHandler(
 
         if (req.IsNew)
         {
-            var site = new Site
+            var site = new NgcSite
             {
                 SiteId = req.SiteId.Trim(),
                 TenantId = tenantId,
@@ -64,7 +64,7 @@ public record DeleteSiteCommand(string SiteId) : IRequest<Result>, ITransactiona
     public object? AuditDetails => new { Id = SiteId };
 }
 
-public class DeleteSiteCommandHandler(ISiteRepository repo, ICurrentUserAccessor user)
+public class DeleteSiteCommandHandler(INgcSiteRepository repo, ICurrentUserAccessor user)
     : IRequestHandler<DeleteSiteCommand, Result>
 {
     public async Task<Result> Handle(DeleteSiteCommand cmd, CancellationToken ct)
@@ -76,7 +76,7 @@ public class DeleteSiteCommandHandler(ISiteRepository repo, ICurrentUserAccessor
     }
 }
 
-// ── Business Units ───────────────────────────────────────────────────────────
+// ── NGC Business Units ───────────────────────────────────────────────────────
 
 public record SaveBusinessUnitCommand(SaveBusinessUnitRequest Request) : IRequest<Result<int>>, ITransactional, IAuditable
 {
@@ -85,7 +85,7 @@ public record SaveBusinessUnitCommand(SaveBusinessUnitRequest Request) : IReques
 }
 
 public class SaveBusinessUnitCommandHandler(
-    IBusinessUnitRepository repo,
+    INgcBusinessUnitRepository repo,
     ICurrentUserAccessor user,
     IDateTimeProvider clock,
     IConfigurationApiHook apiHook)
@@ -98,10 +98,10 @@ public class SaveBusinessUnitCommandHandler(
         var now = clock.UtcNow;
         var createdBy = user.UserName ?? "system";
 
-        BusinessUnit? bu;
+        NgcBusinessUnit? bu;
         if (req.BusinessUnitId is null)
         {
-            bu = new BusinessUnit
+            bu = new NgcBusinessUnit
             {
                 TenantId = tenantId,
                 CreatedDatetime = now,
@@ -122,7 +122,7 @@ public class SaveBusinessUnitCommandHandler(
         // Replace queue assignments
         bu.QueueAssignments.Clear();
         foreach (var qid in req.QueueIds)
-            bu.QueueAssignments.Add(new BusinessUnitQueue
+            bu.QueueAssignments.Add(new NgcBusinessUnitQueueClassification
             {
                 BusinessUnitId = bu.BusinessUnitId,
                 QueueId = qid,
@@ -134,7 +134,7 @@ public class SaveBusinessUnitCommandHandler(
         // Replace supergroup assignments
         bu.SupergroupAssignments.Clear();
         foreach (var sgid in req.SupergroupIds)
-            bu.SupergroupAssignments.Add(new BusinessUnitSupergroup
+            bu.SupergroupAssignments.Add(new NgcBusinessUnitSupergroup
             {
                 BusinessUnitId = bu.BusinessUnitId,
                 SupergroupId = sgid,
@@ -158,7 +158,7 @@ public record DeleteBusinessUnitCommand(int BusinessUnitId) : IRequest<Result>, 
     public object? AuditDetails => new { Id = BusinessUnitId };
 }
 
-public class DeleteBusinessUnitCommandHandler(IBusinessUnitRepository repo, ICurrentUserAccessor user)
+public class DeleteBusinessUnitCommandHandler(INgcBusinessUnitRepository repo, ICurrentUserAccessor user)
     : IRequestHandler<DeleteBusinessUnitCommand, Result>
 {
     public async Task<Result> Handle(DeleteBusinessUnitCommand cmd, CancellationToken ct)
@@ -170,7 +170,7 @@ public class DeleteBusinessUnitCommandHandler(IBusinessUnitRepository repo, ICur
     }
 }
 
-// ── Supergroups ──────────────────────────────────────────────────────────────
+// ── NGC Supergroups ──────────────────────────────────────────────────────────
 
 public record SaveSupergroupCommand(SaveSupergroupRequest Request) : IRequest<Result<int>>, ITransactional, IAuditable
 {
@@ -179,7 +179,7 @@ public record SaveSupergroupCommand(SaveSupergroupRequest Request) : IRequest<Re
 }
 
 public class SaveSupergroupCommandHandler(
-    ISupergroupRepository repo,
+    INgcSupergroupRepository repo,
     ICurrentUserAccessor user,
     IDateTimeProvider clock,
     IConfigurationApiHook apiHook)
@@ -192,10 +192,10 @@ public class SaveSupergroupCommandHandler(
         var now = clock.UtcNow;
         var createdBy = user.UserName ?? "system";
 
-        Supergroup? sg;
+        NgcSupergroup? sg;
         if (req.SupergroupId is null)
         {
-            sg = new Supergroup
+            sg = new NgcSupergroup
             {
                 TenantId = tenantId,
                 CreatedDatetime = now,
@@ -215,10 +215,10 @@ public class SaveSupergroupCommandHandler(
         // Replace agent group assignments
         sg.AgentGroupAssignments.Clear();
         foreach (var agid in req.AgentGroupIds)
-            sg.AgentGroupAssignments.Add(new SupergroupAgentGroup
+            sg.AgentGroupAssignments.Add(new NgcSupergroupAgentgroup
             {
                 SupergroupId = sg.SupergroupId,
-                AgentGroupId = agid,
+                AgentgroupId = agid,
                 TenantId = tenantId,
                 CreatedDatetime = now,
                 CreatedBy = createdBy
@@ -239,7 +239,7 @@ public record DeleteSupergroupCommand(int SupergroupId) : IRequest<Result>, ITra
     public object? AuditDetails => new { Id = SupergroupId };
 }
 
-public class DeleteSupergroupCommandHandler(ISupergroupRepository repo, ICurrentUserAccessor user)
+public class DeleteSupergroupCommandHandler(INgcSupergroupRepository repo, ICurrentUserAccessor user)
     : IRequestHandler<DeleteSupergroupCommand, Result>
 {
     public async Task<Result> Handle(DeleteSupergroupCommand cmd, CancellationToken ct)

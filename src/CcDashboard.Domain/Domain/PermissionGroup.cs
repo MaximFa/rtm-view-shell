@@ -18,8 +18,8 @@ public class PermissionGroup
     public ICollection<DashboardPermission> DashboardPermissions { get; set; } = [];
     public ICollection<PgQueue> AllowedQueues { get; set; } = [];
     public ICollection<PgSkill> AllowedSkills { get; set; } = [];
-    public ICollection<PgAgentSupergroup> AllowedSupergroups { get; set; } = [];
     public ICollection<PgBusinessUnit> AllowedBusinessUnits { get; set; } = [];
+    public ICollection<PgSupergroup> AllowedSupergroups { get; set; } = [];
 }
 
 public class MenuPermission
@@ -54,16 +54,16 @@ public class PgSkill
     public Guid TenantId { get; set; }
 }
 
-public class PgAgentSupergroup
-{
-    public Guid PermissionGroupId { get; set; }
-    public Guid ObjectId { get; set; }
-    public Guid TenantId { get; set; }
-}
-
 public class PgBusinessUnit
 {
     public Guid PermissionGroupId { get; set; }
-    public Guid ObjectId { get; set; }
+    public int BusinessUnitId { get; set; }  // FK to NGC_BusinessUnit.BusinessUnitId
+    public Guid TenantId { get; set; }
+}
+
+public class PgSupergroup
+{
+    public Guid PermissionGroupId { get; set; }
+    public int SupergroupId { get; set; }  // FK to NGC_Supergroup.SupergroupId
     public Guid TenantId { get; set; }
 }

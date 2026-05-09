@@ -87,6 +87,10 @@ public class IdentityAuthService(
             return new IdentitySignInResult(IdentitySignInStatus.InvalidCredentials);
         }
 
+        // Check concurrent connection limit
+        var sessionCheck = await CheckSessionLimitAsync(user, tenantId, ipAddress, userAgent, ct);
+        if (sessionCheck != null) return sessionCheck;
+
         // 2FA required?
         if (user.Is2faEnabled)
         {
@@ -172,6 +176,21 @@ public class IdentityAuthService(
 
     public async Task SignOutAsync(CancellationToken ct = default)
     {
+        var httpContext = httpContextAccessor.HttpContext;
+        if (httpContext is not null)
+        {
+            var sidCookie = httpContext.Request.Cookies["cc-sid"];
+            if (Guid.TryParse(sidCookie, out var sessionId))
+            {
+                var session = await db.UserSessions.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(s => s.Id == sessionId, ct);
+                if (session is not null)
+                {
+                    session.IsRevoked = true;
+                    await db.SaveChangesAsync(ct);
+                }
+            }
+        }
         await signInManager.SignOutAsync();
     }
 
@@ -284,9 +303,71 @@ public class IdentityAuthService(
     private async Task CompleteSignInAsync(ApplicationUser user, string ipAddress, string userAgent, CancellationToken ct)
     {
         await signInManager.SignInAsync(user, isPersistent: false);
+
+        // Track session for concurrent connection enforcement
+        var sessionId = UUIDNext.Uuid.NewSequential();
+        var expiresAt = clock.UtcNow.AddHours(8);
+        db.UserSessions.Add(new Domain.Domain.UserSession
+        {
+            Id = sessionId,
+            UserId = user.Id,
+            TenantId = user.TenantId,
+            CreatedAt = clock.UtcNow,
+            ExpiresAt = expiresAt,
+            IpAddress = ipAddress,
+            UserAgent = userAgent?.Length > 500 ? userAgent[..500] : userAgent,
+        });
+        await db.SaveChangesAsync(ct);
+
+        // Set session cookie so we can revoke it on sign-out
+        httpContextAccessor.HttpContext?.Response.Cookies.Append("cc-sid", sessionId.ToString(),
+            new Microsoft.AspNetCore.Http.CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict,
+                Expires = expiresAt
+            });
+
         user.LastLoginAt = clock.UtcNow;
         await userManager.UpdateAsync(user);
         await audit.LogAsync("Login.Success", AuditEventResult.Success,
             user.TenantId, user.Id, user.UserName, ipAddress, userAgent, null, ct);
+    }
+
+    private async Task<IdentitySignInResult?> CheckSessionLimitAsync(
+        ApplicationUser user, Guid tenantId, string ipAddress, string userAgent, CancellationToken ct)
+    {
+        var settings = await db.TenantSettings.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId, ct);
+
+        if (settings is null || settings.MaxConcurrentConnections <= 0)
+            return null;
+
+        var now = clock.UtcNow;
+
+        // Unlimited connections from the same IP - check if this IP already has a session
+        var hasSessionFromSameIp = await db.UserSessions.IgnoreQueryFilters()
+            .AnyAsync(s => s.UserId == user.Id && s.IpAddress == ipAddress && !s.IsRevoked && s.ExpiresAt > now, ct);
+
+        if (hasSessionFromSameIp)
+            return null; // Allow unlimited from same IP
+
+        // Count distinct IPs with active sessions
+        var distinctIps = await db.UserSessions.IgnoreQueryFilters()
+            .Where(s => s.UserId == user.Id && !s.IsRevoked && s.ExpiresAt > now)
+            .Select(s => s.IpAddress)
+            .Distinct()
+            .CountAsync(ct);
+
+        if (distinctIps >= settings.MaxConcurrentConnections)
+        {
+            await audit.LogAsync("Login.Failure", AuditEventResult.Failure,
+                tenantId, user.Id, user.UserName, ipAddress, userAgent,
+                new { Subtype = "SessionLimitExceeded", DistinctIPs = distinctIps, Limit = settings.MaxConcurrentConnections }, ct);
+            return new IdentitySignInResult(IdentitySignInStatus.SessionLimitExceeded);
+        }
+
+        return null;
     }
 }

@@ -2,41 +2,31 @@ using CcDashboard.Domain.Domain;
 
 namespace CcDashboard.Domain.Interfaces;
 
-public interface ISiteRepository
+public interface INgcSiteRepository
 {
-    Task<IReadOnlyList<Site>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
-    Task<Site?> GetByIdAsync(string siteId, Guid tenantId, CancellationToken ct = default);
-    Task AddAsync(Site site, CancellationToken ct = default);
-    void Update(Site site);
-    void Delete(Site site);
+    Task<IReadOnlyList<NgcSite>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
+    Task<NgcSite?> GetByIdAsync(string siteId, Guid tenantId, CancellationToken ct = default);
+    Task AddAsync(NgcSite site, CancellationToken ct = default);
+    void Update(NgcSite site);
+    void Delete(NgcSite site);
 }
 
-public interface IBusinessUnitRepository
+public interface INgcBusinessUnitRepository
 {
-    Task<IReadOnlyList<BusinessUnit>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
-    Task<BusinessUnit?> GetByIdAsync(int id, Guid tenantId, CancellationToken ct = default);
-    Task AddAsync(BusinessUnit bu, CancellationToken ct = default);
-    void Update(BusinessUnit bu);
-    void Delete(BusinessUnit bu);
+    Task<IReadOnlyList<NgcBusinessUnit>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
+    Task<NgcBusinessUnit?> GetByIdAsync(int id, Guid tenantId, CancellationToken ct = default);
+    Task AddAsync(NgcBusinessUnit bu, CancellationToken ct = default);
+    void Update(NgcBusinessUnit bu);
+    void Delete(NgcBusinessUnit bu);
 }
 
-public interface IQueueRepository
+public interface INgcSupergroupRepository
 {
-    Task<IReadOnlyList<Queue>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
-}
-
-public interface ISupergroupRepository
-{
-    Task<IReadOnlyList<Supergroup>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
-    Task<Supergroup?> GetByIdAsync(int id, Guid tenantId, CancellationToken ct = default);
-    Task AddAsync(Supergroup sg, CancellationToken ct = default);
-    void Update(Supergroup sg);
-    void Delete(Supergroup sg);
-}
-
-public interface IAgentGroupRepository
-{
-    Task<IReadOnlyList<AgentGroup>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
+    Task<IReadOnlyList<NgcSupergroup>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
+    Task<NgcSupergroup?> GetByIdAsync(int id, Guid tenantId, CancellationToken ct = default);
+    Task AddAsync(NgcSupergroup sg, CancellationToken ct = default);
+    void Update(NgcSupergroup sg);
+    void Delete(NgcSupergroup sg);
 }
 
 public interface IRtsGridMetricRepository
@@ -46,4 +36,14 @@ public interface IRtsGridMetricRepository
     Task AddAsync(RtsGridMetric metric, CancellationToken ct = default);
     void Update(RtsGridMetric metric);
     void Delete(RtsGridMetric metric);
+}
+
+public interface INgcQueueRepository
+{
+    Task<IReadOnlyList<NgcQueue>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
+}
+
+public interface INgcAgentGroupRepository
+{
+    Task<IReadOnlyList<NgcAgentGroup>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default);
 }

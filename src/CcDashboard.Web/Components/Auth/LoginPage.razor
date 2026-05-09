@@ -101,6 +101,10 @@
                 Nav.NavigateTo("/login/2fa", forceLoad: true);
                 break;
 
+            case IdentitySignInStatus.SessionLimitExceeded:
+                ErrorMessage = L["Login_SessionLimitExceeded"];
+                break;
+
             default:
                 // [BFP-03] — never reveal WHY login failed
                 ErrorMessage = L["Login_InvalidCredentials"];

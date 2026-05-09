@@ -19,7 +19,8 @@ public record CreatePermissionGroupCommand(CreatePermissionGroupRequest Request,
 public class CreatePermissionGroupCommandHandler(
     IPermissionGroupRepository repo,
     ICurrentUserAccessor currentUser,
-    IDateTimeProvider clock)
+    IDateTimeProvider clock,
+    IConfigurationApiHook apiHook)
     : IRequestHandler<CreatePermissionGroupCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(CreatePermissionGroupCommand cmd, CancellationToken ct)
@@ -48,16 +49,23 @@ public class CreatePermissionGroupCommandHandler(
         foreach (var id in req.AllowedQueueIds ?? [])
             group.AllowedQueues.Add(new PgQueue { PermissionGroupId = group.Id, ObjectId = id, TenantId = tenantId });
 
-        foreach (var id in req.AllowedSkillIds ?? [])
+        foreach (var id in req.AllowedAgentGroupIds ?? [])
             group.AllowedSkills.Add(new PgSkill { PermissionGroupId = group.Id, ObjectId = id, TenantId = tenantId });
 
-        foreach (var id in req.AllowedSupergroupIds ?? [])
-            group.AllowedSupergroups.Add(new PgAgentSupergroup { PermissionGroupId = group.Id, ObjectId = id, TenantId = tenantId });
-
         foreach (var id in req.AllowedBusinessUnitIds ?? [])
-            group.AllowedBusinessUnits.Add(new PgBusinessUnit { PermissionGroupId = group.Id, ObjectId = id, TenantId = tenantId });
+            group.AllowedBusinessUnits.Add(new PgBusinessUnit { PermissionGroupId = group.Id, BusinessUnitId = id, TenantId = tenantId });
+
+        foreach (var id in req.AllowedSupergroupIds ?? [])
+            group.AllowedSupergroups.Add(new PgSupergroup { PermissionGroupId = group.Id, SupergroupId = id, TenantId = tenantId });
+
+        foreach (var id in req.AllowedDashboardIds ?? [])
+            group.DashboardPermissions.Add(new DashboardPermission { PermissionGroupId = group.Id, DashboardId = id, TenantId = tenantId, AccessLevel = 7 });
 
         await repo.AddAsync(group, ct);
+
+        // TODO: API hook — notify CC-platform when API is available
+        await apiHook.NotifyAsync("PermissionGroup.Created", new { group.Id, group.Name, group.TenantId }, ct);
+
         return Result<Guid>.Success(group.Id);
     }
 }
