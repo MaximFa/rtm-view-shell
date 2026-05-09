@@ -26,8 +26,8 @@
             <form method="post" @formname="twofactor">
                 <AntiforgeryToken />
                 <div class="mb-3">
-                    <label class="form-label">@L["TwoFactor_Code"]</label>
-                    <input name="Model.Code" type="text" class="form-control form-control-lg text-center fw-bold"
+                    <label for="code" class="form-label">@L["TwoFactor_Code"]</label>
+                    <input id="code" name="Model.Code" type="text" class="form-control form-control-lg text-center fw-bold"
                            maxlength="6" pattern="[0-9]{6}" placeholder="000000"
                            inputmode="numeric" autocomplete="one-time-code" required />
                 </div>

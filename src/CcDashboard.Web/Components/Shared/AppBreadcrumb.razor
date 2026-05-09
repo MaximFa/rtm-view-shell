@@ -5,7 +5,7 @@
         @foreach (var (item, index) in Items.Select((item, index) => (item, index)))
         {
             var isLast = index == Items.Count - 1;
-            <li class="breadcrumb-item @(isLast ? "active" : "")" @(isLast ? "aria-current=page" : "")>
+            <li @key="index" class="breadcrumb-item @(isLast ? "active" : "")" aria-current="@(isLast ? "page" : null)">
                 @if (isLast || string.IsNullOrEmpty(item.Href))
                 {
                     @item.Label

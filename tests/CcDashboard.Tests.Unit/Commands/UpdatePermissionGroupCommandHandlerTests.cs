@@ -15,6 +15,7 @@ public class UpdatePermissionGroupCommandHandlerTests
     private readonly ICurrentUserAccessor _user = Substitute.For<ICurrentUserAccessor>();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
     private readonly ICacheService _cache = Substitute.For<ICacheService>();
+    private readonly IConfigurationApiHook _apiHook = Substitute.For<IConfigurationApiHook>();
     private readonly UpdatePermissionGroupCommandHandler _handler;
 
     private static readonly Guid UserId = Guid.NewGuid();
@@ -25,7 +26,7 @@ public class UpdatePermissionGroupCommandHandlerTests
     {
         _user.UserId.Returns(UserId);
         _clock.UtcNow.Returns(Now);
-        _handler = new UpdatePermissionGroupCommandHandler(_repo, _user, _clock, _cache);
+        _handler = new UpdatePermissionGroupCommandHandler(_repo, _user, _clock, _cache, _apiHook);
     }
 
     [Fact]

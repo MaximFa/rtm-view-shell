@@ -1,3 +1,5 @@
+claude --resume 61838cc4-ff59-4536-a4d7-1c1a159ba4f6
+
 Ты увидишь это по интерфейсу: при открытии Claude Code показывает список последних сессий по рабочей директории. Нужно
    выбрать ту, что открыта в C:\Users\farbe\Documents\Claude\Projects\RTM View Shell\src\CcDashboard.Web — она будет в
   списке.

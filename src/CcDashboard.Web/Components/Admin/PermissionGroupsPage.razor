@@ -13,6 +13,7 @@
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
 @using CcDashboard.Web.Components.Shared
+@implements IDisposable
 
 <PageTitle>@L["PG_Title"] — RTM View Shell</PageTitle>
 
@@ -53,7 +54,7 @@
 }
 else
 {
-    <div class="table-responsive">
+    <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover align-middle">
             <thead class="table-light">
                 <tr>
@@ -67,7 +68,7 @@ else
             <tbody>
                 @foreach (var g in Groups)
                 {
-                    <tr>
+                    <tr @key="g.Id">
                         <td class="fw-semibold">@g.Name</td>
                         <td class="text-muted small">@g.Description</td>
                         @if (IsSuperadmin)
@@ -97,11 +98,11 @@ else
 
 @if (ShowModal)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-pg-title">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@(IsNew ? L["PG_NewGroup"] : L["PG_EditGroup"])</h5>
+                    <h5 class="modal-title" id="modal-pg-title">@(IsNew ? L["PG_NewGroup"] : L["PG_EditGroup"])</h5>
                     <button class="btn-close" @onclick="CloseModal"></button>
                 </div>
                 <div class="modal-body">
@@ -134,7 +135,7 @@ else
                     <ul class="nav nav-tabs mb-3">
                         @foreach (var tab in Tabs)
                         {
-                            <li class="nav-item">
+                            <li class="nav-item" @key="tab.Key">
                                 <button class="nav-link @(ActiveTab == tab.Key ? "active" : "")"
                                         @onclick="() => ActiveTab = tab.Key">@L[tab.LabelKey]</button>
                             </li>
@@ -154,7 +155,7 @@ else
                                 <tbody>
                                     @foreach (var m in MenuItems)
                                     {
-                                        <tr class="@(m.Restricted ? "text-muted" : "")">
+                                        <tr @key="m.Key" class="@(m.Restricted ? "text-muted" : "")">
                                             <td>@m.Label</td>
                                             <td><code class="small">@m.Key</code></td>
                                             <td class="small">@m.AllowedRoles</td>
@@ -220,11 +221,11 @@ else
 
 @if (DeleteTarget is not null)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-delete-pg-title">
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@L["PG_DeleteGroup"]</h5>
+                    <h5 class="modal-title" id="modal-delete-pg-title">@L["PG_DeleteGroup"]</h5>
                     <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
                 </div>
                 <div class="modal-body">@L["Screens_AreYouSure"]: <strong>@DeleteTarget.Name</strong></div>
@@ -438,5 +439,13 @@ else
             await LoadGroupsAsync();
         }
         catch (Exception ex) { SaveError = ex.Message; DeleteTarget = null; }
+    }
+
+    private readonly CancellationTokenSource _cts = new();
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }

@@ -14,6 +14,7 @@
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
 @using System.Text.Json
+@implements IDisposable
 
 <PageTitle>@L["Audit_Title"] — RTM View Shell</PageTitle>
 
@@ -30,7 +31,7 @@
                     <option value="">@L["Audit_AllTenants"]</option>
                     @foreach (var t in Tenants)
                     {
-                        <option value="@t.Id">@t.Name</option>
+                        <option @key="t.Id" value="@t.Id">@t.Name</option>
                     }
                 </select>
             </div>
@@ -52,7 +53,7 @@
             <option value="">@L["Audit_AllTypes"]</option>
             @foreach (var t in EventTypes)
             {
-                <option value="@t">@t</option>
+                <option @key="t" value="@t">@t</option>
             }
         </select>
     </div>
@@ -82,7 +83,7 @@ else if (Result == null || Result.Items.Count == 0)
 }
 else
 {
-    <div class="table-responsive">
+    <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover">
             <thead class="table-light">
                 <tr>
@@ -100,7 +101,7 @@ else
             <tbody>
                 @foreach (var log in Result.Items)
                 {
-                    <tr>
+                    <tr @key="log.Id">
                         <td class="text-nowrap small">@log.CreatedAt.ToString("dd MMM HH:mm:ss")</td>
                         <td class="small fw-semibold">@log.EventType</td>
                         <td>@ResultBadge(log.EventResult)</td>
@@ -152,7 +153,7 @@ else
 
         if (CurrentUser.Role == "Superadmin")
         {
-            Tenants = (await Mediator.Send(new GetTenantsQuery())).ToList();
+            Tenants = (await Mediator.Send(new GetTenantsQuery(), _cts.Token)).ToList();
             // Default: no filter (all tenants)
             SelectedTenantId = null;
         }
@@ -191,8 +192,9 @@ else
                 To: ToDate?.ToUniversalTime().AddDays(1),
                 Page: CurrentPage,
                 PageSize: PageSize,
-                TenantId: tenantId));
+                TenantId: tenantId), _cts.Token);
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex) { Error = ex.Message; }
         finally { Loading = false; }
     }
@@ -202,7 +204,7 @@ else
         try
         {
             var tenantId = CurrentUser.Role == "Superadmin" ? SelectedTenantId : null;
-            EventTypes = (await Mediator.Send(new GetDistinctAuditEventTypesQuery(tenantId))).ToList();
+            EventTypes = (await Mediator.Send(new GetDistinctAuditEventTypesQuery(tenantId), _cts.Token)).ToList();
         }
         catch { }
     }
@@ -238,4 +240,7 @@ else
         "Failure" => @<span class="badge bg-danger">@L["Audit_Failure"]</span>,
         _ => @<span class="badge bg-warning text-dark">@L["Audit_Warning"]</span>
     };
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }

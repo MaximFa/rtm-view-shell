@@ -13,6 +13,7 @@
 @using CcDashboard.Contracts.DTOs.Configuration
 @using Microsoft.AspNetCore.Authorization
 @using FluentValidation
+@implements IDisposable
 
 <PageTitle>@L["Sites_Title"] — RTM View Shell</PageTitle>
 
@@ -29,7 +30,7 @@
                     <option value="">@L["Audit_AllTenants"]</option>
                     @foreach (var t in Tenants)
                     {
-                        <option value="@t.Id">@t.Name</option>
+                        <option @key="t.Id" value="@t.Id">@t.Name</option>
                     }
                 </select>
             }
@@ -53,7 +54,7 @@
 }
 else
 {
-    <div class="table-responsive">
+    <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover align-middle">
             <thead class="table-light">
                 <tr>
@@ -67,7 +68,7 @@ else
             <tbody>
                 @foreach (var s in Sites)
                 {
-                    <tr>
+                    <tr @key="s.SiteId">
                         <td class="fw-mono small">@s.SiteId</td>
                         <td>@s.SiteName</td>
                         <td>@s.TimeZone</td>
@@ -89,11 +90,11 @@ else
 
 @if (ShowModal)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-site-title">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@(IsNew ? L["Sites_NewSite"] : L["Sites_EditSite"])</h5>
+                    <h5 class="modal-title" id="modal-site-title">@(IsNew ? L["Sites_NewSite"] : L["Sites_EditSite"])</h5>
                     <button class="btn-close" @onclick="CloseModal"></button>
                 </div>
                 <div class="modal-body">
@@ -178,11 +179,11 @@ else
 
 @if (DeleteTarget is not null)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-site-delete-title">
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@L["Sites_DeleteConfirm"]</h5>
+                    <h5 class="modal-title" id="modal-site-delete-title">@L["Sites_DeleteConfirm"]</h5>
                     <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
                 </div>
                 <div class="modal-body">
@@ -287,4 +288,7 @@ else
         ex is ValidationException vex
             ? string.Join(" ", vex.Errors.Select(e => e.ErrorMessage))
             : "An unexpected error occurred. Please try again.";
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }

@@ -14,6 +14,7 @@
 @using CcDashboard.Web.Components.Shared
 @using Microsoft.AspNetCore.Authorization
 @using FluentValidation
+@implements IDisposable
 
 <PageTitle>@L["BU_Title"] — RTM View Shell</PageTitle>
 
@@ -30,7 +31,7 @@
                     <option value="">@L["Audit_AllTenants"]</option>
                     @foreach (var t in Tenants)
                     {
-                        <option value="@t.Id">@t.Name</option>
+                        <option @key="t.Id" value="@t.Id">@t.Name</option>
                     }
                 </select>
             }
@@ -54,7 +55,7 @@
 }
 else
 {
-    <div class="table-responsive">
+    <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover align-middle">
             <thead class="table-light">
                 <tr>
@@ -68,7 +69,7 @@ else
             <tbody>
                 @foreach (var bu in BusinessUnits)
                 {
-                    <tr>
+                    <tr @key="bu.BusinessUnitId">
                         <td>@bu.BusinessUnitName</td>
                         <td>@(bu.SiteName ?? bu.SiteId)</td>
                         <td><span class="badge bg-secondary">@bu.QueueIds.Count</span></td>
@@ -90,11 +91,11 @@ else
 
 @if (ShowModal)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-bu-title">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@(EditId is null ? L["BU_New"] : L["BU_Edit"])</h5>
+                    <h5 class="modal-title" id="modal-bu-title">@(EditId is null ? L["BU_New"] : L["BU_Edit"])</h5>
                     <button class="btn-close" @onclick="CloseModal"></button>
                 </div>
                 <div class="modal-body">
@@ -113,7 +114,7 @@ else
                                 <option value="">— @L["BU_NoSite"] —</option>
                                 @foreach (var s in Sites)
                                 {
-                                    <option value="@s.SiteId">@(s.SiteName ?? s.SiteId)</option>
+                                    <option @key="s.SiteId" value="@s.SiteId">@(s.SiteName ?? s.SiteId)</option>
                                 }
                             </select>
                         </div>
@@ -167,11 +168,11 @@ else
 
 @if (DeleteTarget is not null)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-bu-delete-title">
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@L["BU_DeleteConfirm"]</h5>
+                    <h5 class="modal-title" id="modal-bu-delete-title">@L["BU_DeleteConfirm"]</h5>
                     <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
                 </div>
                 <div class="modal-body">@L["BU_DeleteWarning"]: <strong>@DeleteTarget.BusinessUnitName</strong></div>
@@ -295,4 +296,7 @@ else
         ex is ValidationException vex
             ? string.Join(" ", vex.Errors.Select(e => e.ErrorMessage))
             : "An unexpected error occurred. Please try again.";
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }

@@ -8,6 +8,7 @@
 @using CcDashboard.Application.Queries.TenantSettings
 @using CcDashboard.Contracts.DTOs.TenantSettings
 @using Microsoft.AspNetCore.Authorization
+@implements IDisposable
 
 <PageTitle>@L["TenantSettings_Title"] — RTM View Shell</PageTitle>
 
@@ -162,7 +163,11 @@ else
                     PurchasedLicences, MaxConcurrentConnections)));
             SaveSuccess = true;
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex) { SaveError = ex.Message; }
         finally { Saving = false; }
     }
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }

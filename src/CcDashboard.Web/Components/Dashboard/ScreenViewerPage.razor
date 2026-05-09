@@ -8,6 +8,7 @@
 @using CcDashboard.Application.Queries.Dashboards
 @using CcDashboard.Contracts.DTOs.Dashboards
 @using Microsoft.AspNetCore.Authorization
+@implements IDisposable
 
 <PageTitle>@(Dashboard?.Name ?? L["Screens_Title"].Value) — RTM View Shell</PageTitle>
 
@@ -51,7 +52,7 @@ else
     <div class="row g-3 mb-3">
         @foreach (var tile in KpiTiles)
         {
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-3" @key="tile">
                 <div class="card text-center py-3 shadow-sm">
                     <div class="card-body p-2">
                         <div class="text-muted small">@tile</div>
@@ -102,7 +103,7 @@ else
     <div class="row g-3 mb-3">
         @foreach (var chart in Charts)
         {
-            <div class="col-md-4">
+            <div class="col-md-4" @key="chart">
                 <div class="card shadow-sm" style="height:180px">
                     <div class="card-header small fw-semibold">@chart</div>
                     <div class="card-body d-flex align-items-center justify-content-center text-muted">
@@ -141,4 +142,7 @@ else
 
     private void TogglePause() => Paused = !Paused;
     private void GoBack() => Nav.NavigateTo("/screens");
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }

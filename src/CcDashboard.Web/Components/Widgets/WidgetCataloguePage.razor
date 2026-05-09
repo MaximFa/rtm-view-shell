@@ -5,6 +5,7 @@
 @using MediatR
 @using CcDashboard.Application.Queries.Widgets
 @using Microsoft.AspNetCore.Authorization
+@implements IDisposable
 
 <PageTitle>@L["WidgetCatalogue_Title"] — RTM View Shell</PageTitle>
 
@@ -18,7 +19,7 @@ else
 {
     @foreach (var cat in Categories)
     {
-        <div class="card mb-3">
+        <div class="card mb-3" @key="cat.Category">
             <div class="card-header">
                 <strong>@cat.Category</strong>
                 <span class="badge bg-secondary ms-2">@cat.Items.Count</span>
@@ -26,7 +27,7 @@ else
             <ul class="list-group list-group-flush">
                 @foreach (var item in cat.Items)
                 {
-                    <li class="list-group-item d-flex justify-content-between">
+                    <li @key="item.Id" class="list-group-item d-flex justify-content-between">
                         <div>
                             <strong>@item.Name</strong>
                             @if (item.Description is not null)
@@ -49,5 +50,8 @@ else
     private IReadOnlyList<CcDashboard.Contracts.DTOs.Widgets.WidgetCatalogCategoryDto>? Categories;
 
     protected override async Task OnInitializedAsync()
-        => Categories = await Mediator.Send(new GetWidgetCatalogQuery());
+        => Categories = await Mediator.Send(new GetWidgetCatalogQuery(), _cts.Token);
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }

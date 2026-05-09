@@ -11,6 +11,7 @@
 @using CcDashboard.Domain.Enums
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
+@implements IDisposable
 
 <PageTitle>@L["Screens_Title"] — RTM View Shell</PageTitle>
 
@@ -53,7 +54,7 @@ else
     <div class="row row-cols-1 row-cols-md-3 row-cols-xl-4 g-3">
         @foreach (var d in Dashboards.Items)
         {
-            <div class="col">
+            <div class="col" @key="d.Id">
                 <div class="card h-100 shadow-sm" style="cursor:pointer" @onclick="() => OpenEdit(d)">
                     <div class="card-body pb-2">
                         <div class="d-flex gap-1 mb-2">
@@ -97,11 +98,11 @@ else
 <!-- Create Modal -->
 @if (ShowCreate)
 {
-    <div class="modal show d-block" tabindex="-1" role="dialog">
-        <div class="modal-dialog" role="document">
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-screen-create-title">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@L["Screens_CreateModal"]</h5>
+                    <h5 class="modal-title" id="modal-screen-create-title">@L["Screens_CreateModal"]</h5>
                     <button type="button" class="btn-close" @onclick="CloseModals"></button>
                 </div>
                 <div class="modal-body">
@@ -138,11 +139,11 @@ else
 <!-- Edit Modal -->
 @if (ShowEdit && EditDashboard is not null)
 {
-    <div class="modal show d-block" tabindex="-1" role="dialog">
-        <div class="modal-dialog" role="document">
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-screen-edit-title">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@L["Screens_EditModal"]</h5>
+                    <h5 class="modal-title" id="modal-screen-edit-title">@L["Screens_EditModal"]</h5>
                     <button type="button" class="btn-close" @onclick="CloseModals"></button>
                 </div>
                 <div class="modal-body">
@@ -311,4 +312,7 @@ else
         DashboardStatus.Published => @<span class="badge bg-success">@L["Screens_Published"]</span>,
         _ => @<span class="badge bg-warning text-dark">@L["Screens_Draft"]</span>
     };
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }

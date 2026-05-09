@@ -9,6 +9,7 @@
 @using CcDashboard.Contracts.DTOs.Configuration
 @using Microsoft.AspNetCore.Authorization
 @using FluentValidation
+@implements IDisposable
 
 <PageTitle>@L["Metrics_Title"] — RTM View Shell</PageTitle>
 
@@ -41,7 +42,7 @@ else
         </div>
     </div>
 
-    <div class="table-responsive">
+    <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover align-middle" style="table-layout:fixed; width:100%;">
             <colgroup>
                 <col style="width:22%" />
@@ -62,7 +63,7 @@ else
             <tbody>
                 @foreach (var m in PagedMetrics)
                 {
-                    <tr>
+                    <tr @key="m.MetricId">
                         <td class="small text-truncate" title="@m.MetricId">@m.MetricId</td>
                         <td class="small text-truncate" title="@m.Description">@m.Description</td>
                         <td class="small text-truncate">@m.DataType</td>
@@ -99,11 +100,11 @@ else
 
 @if (ShowModal)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-metric-title">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@(IsNew ? L["Metrics_New"] : L["Metrics_Edit"])</h5>
+                    <h5 class="modal-title" id="modal-metric-title">@(IsNew ? L["Metrics_New"] : L["Metrics_Edit"])</h5>
                     <button class="btn-close" @onclick="CloseModal"></button>
                 </div>
                 <div class="modal-body">
@@ -130,7 +131,7 @@ else
                                 <option value="">— select —</option>
                                 @foreach (var v in DataTypes)
                                 {
-                                    <option value="@v">@v</option>
+                                    <option @key="v" value="@v">@v</option>
                                 }
                             </select>
                         </div>
@@ -140,7 +141,7 @@ else
                                 <option value="">— select —</option>
                                 @foreach (var v in MetricFunctions)
                                 {
-                                    <option value="@v">@v</option>
+                                    <option @key="v" value="@v">@v</option>
                                 }
                             </select>
                         </div>
@@ -168,11 +169,11 @@ else
 
 @if (DeleteTarget is not null)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-metric-delete-title">
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@L["Metrics_DeleteConfirm"]</h5>
+                    <h5 class="modal-title" id="modal-metric-delete-title">@L["Metrics_DeleteConfirm"]</h5>
                     <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
                 </div>
                 <div class="modal-body">@L["Metrics_DeleteWarning"]: <strong>@DeleteTarget.MetricId</strong></div>
@@ -292,4 +293,7 @@ else
         ex is ValidationException vex
             ? string.Join(" ", vex.Errors.Select(e => e.ErrorMessage))
             : "An unexpected error occurred. Please try again.";
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }

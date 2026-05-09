@@ -10,11 +10,12 @@ namespace CcDashboard.Tests.Unit.Commands;
 public class DeletePermissionGroupCommandHandlerTests
 {
     private readonly IPermissionGroupRepository _repo = Substitute.For<IPermissionGroupRepository>();
+    private readonly IConfigurationApiHook _apiHook = Substitute.For<IConfigurationApiHook>();
     private readonly DeletePermissionGroupCommandHandler _handler;
 
     public DeletePermissionGroupCommandHandlerTests()
     {
-        _handler = new DeletePermissionGroupCommandHandler(_repo);
+        _handler = new DeletePermissionGroupCommandHandler(_repo, _apiHook);
     }
 
     [Fact]

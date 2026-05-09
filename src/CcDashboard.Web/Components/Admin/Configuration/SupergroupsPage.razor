@@ -14,6 +14,7 @@
 @using CcDashboard.Web.Components.Shared
 @using Microsoft.AspNetCore.Authorization
 @using FluentValidation
+@implements IDisposable
 
 <PageTitle>@L["SG_Title"] — RTM View Shell</PageTitle>
 
@@ -30,7 +31,7 @@
                     <option value="">@L["Audit_AllTenants"]</option>
                     @foreach (var t in Tenants)
                     {
-                        <option value="@t.Id">@t.Name</option>
+                        <option @key="t.Id" value="@t.Id">@t.Name</option>
                     }
                 </select>
             }
@@ -54,7 +55,7 @@
 }
 else
 {
-    <div class="table-responsive">
+    <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover align-middle">
             <thead class="table-light">
                 <tr>
@@ -67,7 +68,7 @@ else
             <tbody>
                 @foreach (var sg in Supergroups)
                 {
-                    <tr>
+                    <tr @key="sg.SupergroupId">
                         <td>@sg.SupergroupName</td>
                         <td class="text-muted small">@sg.Description</td>
                         <td><span class="badge bg-secondary">@sg.AgentGroupIds.Count</span></td>
@@ -88,11 +89,11 @@ else
 
 @if (ShowModal)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-sg-title">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@(EditId is null ? L["SG_New"] : L["SG_Edit"])</h5>
+                    <h5 class="modal-title" id="modal-sg-title">@(EditId is null ? L["SG_New"] : L["SG_Edit"])</h5>
                     <button class="btn-close" @onclick="CloseModal"></button>
                 </div>
                 <div class="modal-body">
@@ -133,11 +134,11 @@ else
 
 @if (DeleteTarget is not null)
 {
-    <div class="modal show d-block" tabindex="-1" >
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-sg-delete-title">
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@L["SG_DeleteConfirm"]</h5>
+                    <h5 class="modal-title" id="modal-sg-delete-title">@L["SG_DeleteConfirm"]</h5>
                     <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
                 </div>
                 <div class="modal-body">@L["SG_DeleteWarning"]: <strong>@DeleteTarget.SupergroupName</strong></div>
@@ -243,4 +244,7 @@ else
         ex is ValidationException vex
             ? string.Join(" ", vex.Errors.Select(e => e.ErrorMessage))
             : "An unexpected error occurred. Please try again.";
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }

@@ -12,6 +12,7 @@
 @using CcDashboard.Contracts.DTOs.TenantSettings
 @using CcDashboard.Domain.Enums
 @using Microsoft.AspNetCore.Authorization
+@implements IDisposable
 
 <PageTitle>@L["Tenants_Title"] — RTM View Shell</PageTitle>
 
@@ -30,7 +31,7 @@ else if (Error is not null)
 }
 else
 {
-    <div class="table-responsive">
+    <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-hover">
             <thead class="table-light">
                 <tr>
@@ -44,7 +45,7 @@ else
             <tbody>
                 @foreach (var t in Tenants)
                 {
-                    <tr>
+                    <tr @key="t.Id">
                         <td class="fw-semibold">@t.Name</td>
                         <td class="small text-muted"><code>@t.Slug</code></td>
                         <td>@StatusBadge(t.Status)</td>
@@ -98,11 +99,11 @@ else
 <!-- Create modal -->
 @if (ShowCreate)
 {
-    <div class="modal show d-block" tabindex="-1" role="dialog">
-        <div class="modal-dialog" role="document">
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-create-tenant-title">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@L["Tenants_CreateModal"]</h5>
+                    <h5 class="modal-title" id="modal-create-tenant-title">@L["Tenants_CreateModal"]</h5>
                     <button type="button" class="btn-close" @onclick="() => ShowCreate = false"></button>
                 </div>
                 <div class="modal-body">
@@ -132,11 +133,11 @@ else
 <!-- Edit modal -->
 @if (EditTenant is not null)
 {
-    <div class="modal show d-block" tabindex="-1" role="dialog">
-        <div class="modal-dialog modal-lg" role="document">
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-edit-tenant-title">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@L["Tenants_EditModal"]</h5>
+                    <h5 class="modal-title" id="modal-edit-tenant-title">@L["Tenants_EditModal"]</h5>
                     <button type="button" class="btn-close" @onclick="CloseEdit"></button>
                 </div>
                 <div class="modal-body">
@@ -320,7 +321,8 @@ else
     private async Task LoadAsync()
     {
         Loading = true;
-        try { Tenants = (await Mediator.Send(new GetTenantsQuery())).ToList(); }
+        try { Tenants = (await Mediator.Send(new GetTenantsQuery(), _cts.Token)).ToList(); }
+        catch (OperationCanceledException) { }
         catch (Exception ex) { Error = ex.Message; }
         finally { Loading = false; }
     }
@@ -424,4 +426,7 @@ else
         TenantStatus.Suspended => @<span class="badge bg-warning text-dark">@L["Tenants_Suspended"]</span>,
         _ => @<span class="badge bg-secondary">@L["Tenants_Deleted"]</span>
     };
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }
