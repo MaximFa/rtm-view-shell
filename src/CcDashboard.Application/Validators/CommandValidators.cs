@@ -2,6 +2,7 @@ using CcDashboard.Application.Commands.Configuration;
 using CcDashboard.Application.Commands.Dashboards;
 using CcDashboard.Application.Commands.PermissionGroups;
 using CcDashboard.Application.Commands.Tenants;
+using CcDashboard.Application.Commands.TenantSettings;
 using FluentValidation;
 
 namespace CcDashboard.Application.Validators;
@@ -52,6 +53,19 @@ public class CreateTenantCommandValidator : AbstractValidator<CreateTenantComman
     }
 }
 
+public class UpdateTenantCommandValidator : AbstractValidator<UpdateTenantCommand>
+{
+    public UpdateTenantCommandValidator()
+    {
+        RuleFor(x => x.TenantId)
+            .NotEmpty().WithMessage("Tenant ID is required.");
+
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("Tenant name is required.")
+            .MaximumLength(200).WithMessage("Tenant name cannot exceed 200 characters.");
+    }
+}
+
 // ── Permission Groups ─────────────────────────────────────────────────────────
 
 public class CreatePermissionGroupCommandValidator : AbstractValidator<CreatePermissionGroupCommand>
@@ -64,6 +78,34 @@ public class CreatePermissionGroupCommandValidator : AbstractValidator<CreatePer
 
         RuleFor(x => x.Request.Description)
             .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.");
+    }
+}
+
+public class UpdatePermissionGroupCommandValidator : AbstractValidator<UpdatePermissionGroupCommand>
+{
+    public UpdatePermissionGroupCommandValidator()
+    {
+        RuleFor(x => x.Request.Id)
+            .NotEmpty().WithMessage("Permission group ID is required.");
+
+        RuleFor(x => x.Request.Name)
+            .NotEmpty().WithMessage("Permission group name is required.")
+            .MaximumLength(200).WithMessage("Name cannot exceed 200 characters.");
+
+        RuleFor(x => x.Request.Description)
+            .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.");
+
+        RuleFor(x => x.Request.AllowedQueueIds)
+            .Must(ids => ids == null || ids.Count <= 1000)
+            .WithMessage("Cannot assign more than 1000 queues.");
+
+        RuleFor(x => x.Request.AllowedAgentGroupIds)
+            .Must(ids => ids == null || ids.Count <= 1000)
+            .WithMessage("Cannot assign more than 1000 agent groups.");
+
+        RuleFor(x => x.Request.AllowedDashboardIds)
+            .Must(ids => ids == null || ids.Count <= 500)
+            .WithMessage("Cannot assign more than 500 dashboards.");
     }
 }
 
@@ -177,5 +219,36 @@ public class SaveRtsGridMetricCommandValidator : AbstractValidator<SaveRtsGridMe
 
         RuleFor(x => x.Request.DefaultValue)
             .MaximumLength(100).WithMessage("Default value cannot exceed 100 characters.");
+    }
+}
+
+// ── Tenant Settings ───────────────────────────────────────────────────────────
+
+public class UpdateTenantSettingsCommandValidator : AbstractValidator<UpdateTenantSettingsCommand>
+{
+    public UpdateTenantSettingsCommandValidator()
+    {
+        RuleFor(x => x.Request.PasswordMinLength)
+            .InclusiveBetween(8, 128).WithMessage("Password minimum length must be between 8 and 128.");
+
+        RuleFor(x => x.Request.PasswordExpireDays)
+            .InclusiveBetween(0, 365).WithMessage("Password expiry must be between 0 and 365 days.");
+
+        RuleFor(x => x.Request.AuditRetentionDays)
+            .InclusiveBetween(30, 3650).WithMessage("Audit retention must be between 30 and 3650 days.");
+
+        RuleFor(x => x.Request.DefaultLocale)
+            .NotEmpty().WithMessage("Default locale is required.")
+            .MaximumLength(10).WithMessage("Locale cannot exceed 10 characters.")
+            .Matches(@"^[a-z]{2}-[A-Z]{2}$").WithMessage("Locale must be in format xx-XX (e.g., en-US).");
+
+        RuleFor(x => x.Request.SoftDeleteRetentionDays)
+            .InclusiveBetween(1, 365).WithMessage("Soft delete retention must be between 1 and 365 days.");
+
+        RuleFor(x => x.Request.PurchasedLicences)
+            .GreaterThanOrEqualTo(0).WithMessage("Purchased licences cannot be negative.");
+
+        RuleFor(x => x.Request.MaxConcurrentConnections)
+            .GreaterThanOrEqualTo(0).WithMessage("Max concurrent connections cannot be negative.");
     }
 }
