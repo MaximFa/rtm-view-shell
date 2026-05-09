@@ -48,7 +48,7 @@ else
         </li>
     </ul>
 
-    <!-- Widget area — stubs [TODO: widget-library] -->
+    <!-- Widget area — placeholders until widget-library is implemented -->
     <div class="row g-3 mb-3">
         @foreach (var tile in KpiTiles)
         {
@@ -57,7 +57,6 @@ else
                     <div class="card-body p-2">
                         <div class="text-muted small">@tile</div>
                         <div class="display-6 fw-bold text-primary">--</div>
-                        <div class="text-muted" style="font-size:0.65rem">// TODO: widget-library</div>
                     </div>
                 </div>
             </div>
@@ -67,15 +66,19 @@ else
     <div class="row g-3 mb-3">
         <div class="col-md-8">
             <div class="card shadow-sm" style="height:240px">
-                <div class="card-body d-flex align-items-center justify-content-center text-muted">
-                    Queue load chart // TODO: widget-library
+                <div class="card-body d-flex flex-column align-items-center justify-content-center text-muted">
+                    <i class="bi bi-bar-chart-line fs-1 mb-2 opacity-50"></i>
+                    <span class="small">@L["Widget_QueueLoad"]</span>
+                    <span class="small opacity-50">@L["Widget_ComingSoon"]</span>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card shadow-sm" style="height:240px">
-                <div class="card-body d-flex align-items-center justify-content-center text-muted">
-                    SLA gauge // TODO: widget-library
+                <div class="card-body d-flex flex-column align-items-center justify-content-center text-muted">
+                    <i class="bi bi-speedometer2 fs-1 mb-2 opacity-50"></i>
+                    <span class="small">@L["Widget_SlaGauge"]</span>
+                    <span class="small opacity-50">@L["Widget_ComingSoon"]</span>
                 </div>
             </div>
         </div>
@@ -84,17 +87,19 @@ else
     <div class="row g-3 mb-3">
         <div class="col-md-8">
             <div class="card shadow-sm" style="min-height:180px">
-                <div class="card-header small fw-semibold">Agent Status</div>
-                <div class="card-body d-flex align-items-center justify-content-center text-muted">
-                    Agent status table // TODO: widget-library
+                <div class="card-header small fw-semibold">@L["Widget_AgentStatus"]</div>
+                <div class="card-body d-flex flex-column align-items-center justify-content-center text-muted">
+                    <i class="bi bi-people fs-1 mb-2 opacity-50"></i>
+                    <span class="small opacity-50">@L["Widget_ComingSoon"]</span>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card shadow-sm" style="min-height:180px">
-                <div class="card-header small fw-semibold">Event Ticker</div>
-                <div class="card-body d-flex align-items-center justify-content-center text-muted">
-                    Event ticker // TODO: widget-library
+                <div class="card-header small fw-semibold">@L["Widget_EventTicker"]</div>
+                <div class="card-body d-flex flex-column align-items-center justify-content-center text-muted">
+                    <i class="bi bi-activity fs-1 mb-2 opacity-50"></i>
+                    <span class="small opacity-50">@L["Widget_ComingSoon"]</span>
                 </div>
             </div>
         </div>
@@ -106,8 +111,9 @@ else
             <div class="col-md-4" @key="chart">
                 <div class="card shadow-sm" style="height:180px">
                     <div class="card-header small fw-semibold">@chart</div>
-                    <div class="card-body d-flex align-items-center justify-content-center text-muted">
-                        // TODO: widget-library
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center text-muted">
+                        <i class="bi bi-graph-up fs-1 mb-2 opacity-50"></i>
+                        <span class="small opacity-50">@L["Widget_ComingSoon"]</span>
                     </div>
                 </div>
             </div>
@@ -116,8 +122,9 @@ else
 
     <!-- Status bar -->
     <div class="d-flex gap-3 text-muted border-top pt-2 mt-2" style="font-size:0.7rem">
-        <span>Blazor Server &middot; SignalR connected</span>
-        <span>Latency: --ms</span>
+        <span>
+            <span class="text-success">●</span> @L["Screens_Connected"]
+        </span>
         <span class="ms-auto">@Dashboard.Name</span>
     </div>
 }
