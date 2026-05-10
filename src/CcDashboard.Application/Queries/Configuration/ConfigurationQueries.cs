@@ -30,7 +30,8 @@ public class GetBusinessUnitsQueryHandler(INgcBusinessUnitRepository repo, ICurr
 {
     public async Task<IReadOnlyList<BusinessUnitDto>> Handle(GetBusinessUnitsQuery q, CancellationToken ct)
     {
-        var tenantId = user.Role == "Superadmin" ? q.TenantId : (q.TenantId ?? user.TenantId!.Value);
+        // Always use provided TenantId; fall back to user's tenant only if not provided
+        Guid? tenantId = q.TenantId.HasValue ? q.TenantId.Value : user.TenantId;
         var items = await repo.GetAllByTenantAsync(tenantId, ct);
         return items.Select(bu => new BusinessUnitDto(
             bu.BusinessUnitId,

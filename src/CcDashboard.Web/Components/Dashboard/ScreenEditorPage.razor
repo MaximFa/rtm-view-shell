@@ -533,13 +533,15 @@
             var categories = await Mediator.Send(new GetWidgetCatalogQuery(), _cts.Token);
             WidgetCatalog = categories.SelectMany(c => c.Items).ToList();
 
-            // Load reference data - isolated so failures don't break drag-drop
-            Guid? dashboardTenantId = Dashboard?.TenantId;
-            try
+            // Load reference data - always use dashboard's tenant for BUs
+            if (Dashboard is not null)
             {
-                BusinessUnits = (await Mediator.Send(new GetBusinessUnitsQuery(dashboardTenantId), _cts.Token)).ToList();
+                try
+                {
+                    BusinessUnits = (await Mediator.Send(new GetBusinessUnitsQuery(Dashboard.TenantId), _cts.Token)).ToList();
+                }
+                catch { BusinessUnits = []; }
             }
-            catch { BusinessUnits = []; }
 
             try
             {
