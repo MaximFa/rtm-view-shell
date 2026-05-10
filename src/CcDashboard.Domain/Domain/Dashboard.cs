@@ -8,6 +8,7 @@ public class Dashboard
     public Guid TenantId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public Guid? CategoryId { get; set; }
     public DashboardStatus Status { get; set; } = DashboardStatus.Draft;
     public bool IsPublic { get; set; }
     public Guid CreatedByUserId { get; set; }
@@ -21,6 +22,7 @@ public class Dashboard
     public uint RowVersion { get; set; }
 
     public Tenant? Tenant { get; set; }
+    public DashboardCategory? Category { get; set; }
     public ICollection<DashboardPermission> Permissions { get; set; } = [];
     public ICollection<DashboardWidget> Widgets { get; set; } = [];
 }

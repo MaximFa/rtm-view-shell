@@ -4,9 +4,12 @@
 @attribute [Authorize]
 @inject IMediator Mediator
 @inject ICurrentUserAccessor CurrentUser
+@inject NavigationManager Nav
 @using MediatR
 @using CcDashboard.Application.Commands.Dashboards
 @using CcDashboard.Application.Queries.Dashboards
+@using CcDashboard.Application.Queries.TenantSettings
+@using CcDashboard.Application.Queries.Tenants
 @using CcDashboard.Contracts.DTOs.Dashboards
 @using CcDashboard.Domain.Enums
 @using CcDashboard.Domain.Interfaces
@@ -22,58 +25,171 @@
     </AuthorizeView>
 </div>
 
-<div class="row g-2 mb-3">
-    <div class="col-md-4">
-        <input class="form-control form-control-sm" placeholder="@L["Screens_SearchPlaceholder"]"
-               @bind="Search" @bind:event="oninput" @onkeyup="OnSearchKey" />
-    </div>
-    <div class="col-md-3">
-        <select class="form-select form-select-sm" @bind="StatusFilter" @bind:after="LoadAsync">
-            <option value="">@L["Screens_AllStatuses"]</option>
-            <option value="Draft">@L["Screens_Draft"]</option>
-            <option value="Published">@L["Screens_Published"]</option>
-        </select>
-    </div>
-</div>
+@if (SoftDeleteEnabled)
+{
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(ActiveTab == "screens" ? "active" : "")" @onclick='() => SwitchTab("screens")'>
+                @L["Screens_Title"]
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(ActiveTab == "trash" ? "active" : "")" @onclick='() => SwitchTab("trash")'>
+                <i class="bi bi-trash3 me-1"></i> @L["Screens_Trash"]
+                @if (DeletedDashboards?.TotalCount > 0)
+                {
+                    <span class="badge bg-secondary ms-1">@DeletedDashboards.TotalCount</span>
+                }
+            </button>
+        </li>
+    </ul>
+}
 
-@if (Loading)
+@if (ActiveTab == "screens")
 {
-    <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
-}
-else if (Dashboards == null || Dashboards.Items.Count == 0)
-{
-    <div class="text-center py-5 text-muted">
-        <p>@L["Screens_NoScreens"]</p>
-        <AuthorizeView Roles="Superadmin,Administrator,Editor">
-            <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenCreate()">@L["Screens_CreateFirst"]</button>
-        </AuthorizeView>
-    </div>
-}
-else
-{
-    <div class="row row-cols-1 row-cols-md-3 row-cols-xl-4 g-3">
-        @foreach (var d in Dashboards.Items)
+    <div class="row g-2 mb-3">
+        <div class="col-md-3">
+            <input class="form-control form-control-sm" placeholder="@L["Screens_SearchPlaceholder"]"
+                   @bind="Search" @bind:event="oninput" @onkeyup="OnSearchKey" />
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" @bind="StatusFilter" @bind:after="LoadAsync">
+                <option value="">@L["Screens_AllStatuses"]</option>
+                <option value="Draft">@L["Screens_Draft"]</option>
+                <option value="Published">@L["Screens_Published"]</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" @bind="CategoryFilter" @bind:after="LoadAsync">
+                <option value="">@L["Screens_AllCategories"]</option>
+                @foreach (var c in Categories)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </div>
+        @if (IsSuperadmin)
         {
-            <div class="col" @key="d.Id">
-                <div class="card h-100 shadow-sm" style="cursor:pointer" @onclick="() => OpenEdit(d)">
-                    <div class="card-body pb-2">
-                        <div class="d-flex gap-1 mb-2">
-                            @StatusBadge(d.Status)
-                            @if (d.IsPublic) { <span class="badge bg-info text-dark">@L["Screens_Public"]</span> }
-                        </div>
-                        <h6 class="card-title mb-1">@d.Name</h6>
-                        @if (!string.IsNullOrEmpty(d.Description))
-                        {
-                            <p class="card-text text-muted small">@d.Description</p>
-                        }
-                    </div>
-                    <div class="card-footer d-flex justify-content-between align-items-center">
-                        <span class="text-muted small">Updated @d.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy")</span>
-                        <a href="/screens/@d.Id" class="btn btn-link btn-sm p-0 small" @onclick:stopPropagation="true">@L["Screens_Open"]</a>
-                    </div>
-                </div>
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" @bind="TenantFilter" @bind:after="LoadAsync">
+                    <option value="">@L["Screens_AllTenants"]</option>
+                    @foreach (var t in Tenants)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
             </div>
         }
+    </div>
+}
+
+@if (ActiveTab == "screens")
+{
+    @if (Loading)
+    {
+        <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+    }
+    else if (Dashboards == null || Dashboards.Items.Count == 0)
+    {
+        <div class="text-center py-5 text-muted">
+            <p>@L["Screens_NoScreens"]</p>
+            <AuthorizeView Roles="Superadmin,Administrator,Editor">
+                <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenCreate()">@L["Screens_CreateFirst"]</button>
+            </AuthorizeView>
+        </div>
+    }
+    else
+    {
+    <div class="table-responsive">
+        <table class="table table-hover align-middle" style="table-layout: fixed;">
+            <colgroup>
+                @if (IsSuperadmin)
+                {
+                    <col style="width: 22%;" />
+                    <col style="width: 12%;" />
+                    <col style="width: 12%;" />
+                    <col style="width: 10%;" />
+                    <col style="width: 8%;" />
+                    <col style="width: 14%;" />
+                    <col style="width: 14%;" />
+                    <col style="width: 8%;" />
+                }
+                else
+                {
+                    <col style="width: 26%;" />
+                    <col style="width: 14%;" />
+                    <col style="width: 10%;" />
+                    <col style="width: 8%;" />
+                    <col style="width: 16%;" />
+                    <col style="width: 16%;" />
+                    <col style="width: 10%;" />
+                }
+            </colgroup>
+            <thead class="table-light">
+                <tr>
+                    <th>@L["Screens_Name"]</th>
+                    @if (IsSuperadmin)
+                    {
+                        <th>@L["Screens_Tenant"]</th>
+                    }
+                    <th>@L["Screens_Category"]</th>
+                    <th>@L["Screens_Status"]</th>
+                    <th class="text-center">@L["Common_Widgets"]</th>
+                    <th>@L["Common_CreatedBy"]</th>
+                    <th>@L["Common_UpdatedBy"]</th>
+                    <th class="text-end">@L["Common_Actions"]</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in Dashboards.Items)
+                {
+                    <tr @key="d.Id">
+                        <td>
+                            <a href="/screens/@d.Id" class="text-decoration-none fw-medium">@d.Name</a>
+                            @if (!string.IsNullOrEmpty(d.Description))
+                            {
+                                <div class="text-muted small">@d.Description</div>
+                            }
+                        </td>
+                        @if (IsSuperadmin)
+                        {
+                            <td class="small">@(d.TenantName ?? "—")</td>
+                        }
+                        <td class="small">@(d.CategoryName ?? "—")</td>
+                        <td>
+                            @StatusBadge(d.Status)
+                            @if (d.IsPublic) { <span class="badge bg-info text-dark ms-1">@L["Screens_Public"]</span> }
+                        </td>
+                        <td class="text-center">@(d.Widgets?.Count ?? 0)</td>
+                        <td class="small">
+                            <div>@(d.CreatedByName ?? "—")</div>
+                            <div class="text-muted">@d.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</div>
+                        </td>
+                        <td class="small">
+                            <div>@(d.UpdatedByName ?? "—")</div>
+                            <div class="text-muted">@d.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy")</div>
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex gap-1 justify-content-end">
+                                <button class="btn btn-sm btn-icon" title="@L["View"]"
+                                        @onclick="() => OpenView(d.Id)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <AuthorizeView Roles="Superadmin,Administrator,Editor">
+                                    <a href="/screens/@d.Id/edit" class="btn btn-sm btn-icon" title="@L["Edit"]">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </AuthorizeView>
+                                <button class="btn btn-sm btn-icon" title="@L["Screens_Settings"]"
+                                        @onclick="() => OpenEdit(d)">
+                                    <i class="bi bi-gear"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-3">
@@ -86,6 +202,90 @@ else
                     @onclick="NextPage">@L["Common_Next"]</button>
         </div>
     </div>
+    }
+}
+else if (ActiveTab == "trash")
+{
+    @if (Loading)
+    {
+        <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+    }
+    else if (DeletedDashboards == null || DeletedDashboards.Items.Count == 0)
+    {
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-trash3 fs-1 mb-3 opacity-50"></i>
+            <p>@L["Screens_TrashEmpty"]</p>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            @L["Screens_TrashInfo", SoftDeleteRetentionDays]
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle" style="table-layout: fixed;">
+                <colgroup>
+                    <col style="width: 35%;" />
+                    <col style="width: 20%;" />
+                    <col style="width: 20%;" />
+                    <col style="width: 15%;" />
+                    <col style="width: 10%;" />
+                </colgroup>
+                <thead class="table-light">
+                    <tr>
+                        <th>@L["Screens_Name"]</th>
+                        <th>@L["Screens_DeletedAt"]</th>
+                        <th>@L["Screens_DeletedBy"]</th>
+                        <th>@L["Screens_DaysRemaining"]</th>
+                        <th class="text-end">@L["Common_Actions"]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in DeletedDashboards.Items)
+                    {
+                        <tr @key="d.Id">
+                            <td>
+                                <span class="fw-medium">@d.Name</span>
+                                @if (!string.IsNullOrEmpty(d.Description))
+                                {
+                                    <div class="text-muted small text-truncate">@d.Description</div>
+                                }
+                            </td>
+                            <td class="small">@d.DeletedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                            <td class="small">@(d.DeletedByName ?? "—")</td>
+                            <td>
+                                @if (d.DaysUntilPermanentDelete <= 7)
+                                {
+                                    <span class="badge bg-danger">@d.DaysUntilPermanentDelete @L["Common_Days"]</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@d.DaysUntilPermanentDelete @L["Common_Days"]</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-success" title="@L["Screens_Restore"]"
+                                        @onclick="() => RestoreDashboard(d.Id)" disabled="@Saving">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="text-muted small">@DeletedDashboards.TotalCount @L["Common_Records"]</span>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(DeletedDashboards.Page <= 1)"
+                        @onclick="PrevTrashPage">@L["Common_Prev"]</button>
+                <span class="align-self-center small">@L["Common_Page"] @DeletedDashboards.Page @L["Common_Of"] @DeletedDashboards.TotalPages</span>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(DeletedDashboards.Page >= DeletedDashboards.TotalPages)"
+                        @onclick="NextTrashPage">@L["Common_Next"]</button>
+            </div>
+        </div>
+    }
 }
 
 @if (Error is not null)
@@ -110,6 +310,18 @@ else
                     {
                         <div class="alert alert-danger py-2">@SaveError</div>
                     }
+                    @if (IsSuperadmin && Tenants.Count > 0)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">@L["PG_Tenant"] <span class="text-danger">*</span></label>
+                            <select class="form-select" value="@CreateTenantId" @onchange="OnCreateTenantChanged">
+                                @foreach (var t in Tenants)
+                                {
+                                    <option value="@t.Id">@t.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
                     <div class="mb-3">
                         <label class="form-label">@L["Screens_Name"] <span class="text-danger">*</span></label>
                         <input class="form-control" @bind="CreateName" maxlength="200" />
@@ -117,6 +329,16 @@ else
                     <div class="mb-3">
                         <label class="form-label">@L["Screens_Description"]</label>
                         <textarea class="form-control" rows="2" @bind="CreateDescription" maxlength="500"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Screens_Category"]</label>
+                        <select class="form-select" @bind="CreateCategoryId">
+                            <option value="">—</option>
+                            @foreach (var c in CreateCategories)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </select>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="isPublicCreate" @bind="CreateIsPublic" />
@@ -158,6 +380,16 @@ else
                     <div class="mb-3">
                         <label class="form-label">@L["Screens_Description"]</label>
                         <textarea class="form-control" rows="2" @bind="EditDescription" maxlength="500"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Screens_Category"]</label>
+                        <select class="form-select" @bind="EditCategoryId">
+                            <option value="">—</option>
+                            @foreach (var c in EditCategories)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">@L["Screens_Status"]</label>
@@ -202,76 +434,187 @@ else
 
 @code {
     private CcDashboard.Contracts.Common.PagedResult<DashboardDto>? Dashboards;
+    private CcDashboard.Contracts.Common.PagedResult<DeletedDashboardDto>? DeletedDashboards;
     private bool Loading = true;
     private string? Search;
     private string? StatusFilter;
+    private string? TenantFilter;
     private string? Error;
     private string? SaveError;
     private bool Saving;
     private int CurrentPage = 1;
+    private int TrashPage = 1;
+
+    // Superadmin tenant selector
+    private bool IsSuperadmin;
+    private IReadOnlyList<CcDashboard.Contracts.DTOs.Tenants.TenantDto> Tenants = [];
+
+    // Categories
+    private IReadOnlyList<DashboardCategoryDto> Categories = [];
+    private string? CategoryFilter;
+
+    // Tabs and soft delete
+    private string ActiveTab = "screens";
+    private bool SoftDeleteEnabled;
+    private int SoftDeleteRetentionDays = 90;
 
     // Create
     private bool ShowCreate;
     private string? CreateName;
     private string? CreateDescription;
+    private string? CreateCategoryId;
     private bool CreateIsPublic;
+    private Guid? CreateTenantId;
+    private IReadOnlyList<DashboardCategoryDto> CreateCategories = [];
 
     // Edit
     private bool ShowEdit;
     private DashboardDto? EditDashboard;
     private string? EditName;
     private string? EditDescription;
+    private string? EditCategoryId;
     private string EditStatusStr = "Draft";
     private bool EditIsPublic;
     private bool ConfirmDelete;
+    private IReadOnlyList<DashboardCategoryDto> EditCategories = [];
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        IsSuperadmin = CurrentUser.Role == "Superadmin";
+        if (IsSuperadmin)
+        {
+            try
+            {
+                Tenants = await Mediator.Send(new GetTenantsQuery());
+            }
+            catch { Tenants = []; }
+        }
+        try
+        {
+            Categories = await Mediator.Send(new GetAllDashboardCategoriesQuery());
+        }
+        catch { Categories = []; }
+        await LoadSettingsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settings = await Mediator.Send(new GetTenantSettingsQuery());
+            if (settings is not null)
+            {
+                SoftDeleteEnabled = settings.SoftDeleteDashboards;
+                SoftDeleteRetentionDays = settings.SoftDeleteRetentionDays;
+            }
+        }
+        catch { }
+    }
 
     private async Task LoadAsync()
     {
         Loading = true;
         try
         {
-            var status = string.IsNullOrEmpty(StatusFilter) ? null
-                : Enum.TryParse<DashboardStatus>(StatusFilter, out var s) ? s : (DashboardStatus?)null;
-            Dashboards = await Mediator.Send(new GetDashboardsQuery(
-                new DashboardListRequest(Search, status, null, null, CurrentPage, 25)));
+            if (ActiveTab == "screens")
+            {
+                var status = string.IsNullOrEmpty(StatusFilter) ? null
+                    : Enum.TryParse<DashboardStatus>(StatusFilter, out var s) ? s : (DashboardStatus?)null;
+                Guid? tenantId = string.IsNullOrEmpty(TenantFilter) ? null
+                    : Guid.TryParse(TenantFilter, out var tid) ? tid : null;
+                Guid? categoryId = string.IsNullOrEmpty(CategoryFilter) ? null
+                    : Guid.TryParse(CategoryFilter, out var cid) ? cid : null;
+                Dashboards = await Mediator.Send(new GetDashboardsQuery(
+                    new DashboardListRequest(Search, status, categoryId, null, null, tenantId, CurrentPage, 25)));
+            }
+            else if (ActiveTab == "trash")
+            {
+                DeletedDashboards = await Mediator.Send(new GetDeletedDashboardsQuery(Search, TrashPage, 25));
+            }
         }
         catch (Exception ex) { Error = ex.Message; }
         finally { Loading = false; }
     }
 
+    private async Task SwitchTab(string tab)
+    {
+        ActiveTab = tab;
+        Search = null;
+        CurrentPage = 1;
+        TrashPage = 1;
+        await LoadAsync();
+    }
+
     private async Task OnSearchKey(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") { CurrentPage = 1; await LoadAsync(); }
+        if (e.Key == "Enter") { CurrentPage = 1; TrashPage = 1; await LoadAsync(); }
     }
 
     private async Task PrevPage() { CurrentPage--; await LoadAsync(); }
     private async Task NextPage() { CurrentPage++; await LoadAsync(); }
+    private async Task PrevTrashPage() { TrashPage--; await LoadAsync(); }
+    private async Task NextTrashPage() { TrashPage++; await LoadAsync(); }
 
-    private void OpenCreate()
+    private async Task OpenCreate()
     {
-        CreateName = null; CreateDescription = null; CreateIsPublic = false;
+        CreateName = null; CreateDescription = null; CreateCategoryId = null; CreateIsPublic = false;
         SaveError = null; ShowCreate = true; ShowEdit = false;
+
+        // For Superadmin, default to first tenant; otherwise use current user's tenant
+        CreateTenantId = IsSuperadmin && Tenants.Count > 0 ? Tenants[0].Id : CurrentUser.TenantId;
+        await LoadCreateCategories();
     }
 
-    private void OpenEdit(DashboardDto d)
+    private async Task OnCreateTenantChanged(ChangeEventArgs e)
+    {
+        CreateTenantId = Guid.TryParse(e.Value?.ToString(), out var tid) ? tid : null;
+        CreateCategoryId = null; // Reset category when tenant changes
+        await LoadCreateCategories();
+    }
+
+    private async Task LoadCreateCategories()
+    {
+        try { CreateCategories = await Mediator.Send(new GetAllDashboardCategoriesQuery(CreateTenantId)); }
+        catch { CreateCategories = []; }
+    }
+
+    private async Task OpenEdit(DashboardDto d)
     {
         EditDashboard = d; EditName = d.Name; EditDescription = d.Description;
-        EditStatusStr = d.Status.ToString(); EditIsPublic = d.IsPublic;
+        EditCategoryId = d.CategoryId?.ToString(); EditStatusStr = d.Status.ToString(); EditIsPublic = d.IsPublic;
         ConfirmDelete = false; SaveError = null; ShowEdit = true; ShowCreate = false;
+
+        // Load categories for the dashboard's tenant (for Superadmin editing other tenants)
+        if (IsSuperadmin && d.TenantId != CurrentUser.TenantId)
+        {
+            try { EditCategories = await Mediator.Send(new GetAllDashboardCategoriesQuery(d.TenantId)); }
+            catch { EditCategories = []; }
+        }
+        else
+        {
+            EditCategories = Categories;
+        }
     }
 
     private void CloseModals() { ShowCreate = false; ShowEdit = false; SaveError = null; }
 
+    private void OpenView(Guid dashboardId)
+    {
+        Nav.NavigateTo($"/screens/{dashboardId}", forceLoad: true);
+    }
+
     private async Task SaveCreate()
     {
         if (string.IsNullOrWhiteSpace(CreateName)) { SaveError = L["Screens_Name"] + " is required."; return; }
+        if (IsSuperadmin && !CreateTenantId.HasValue) { SaveError = L["PG_Tenant"] + " is required."; return; }
         Saving = true; SaveError = null;
         try
         {
+            Guid? categoryId = string.IsNullOrEmpty(CreateCategoryId) ? null
+                : Guid.TryParse(CreateCategoryId, out var cid) ? cid : null;
             await Mediator.Send(new CreateDashboardCommand(
-                new CreateDashboardRequest(CreateName.Trim(), CreateDescription?.Trim(), CreateIsPublic)));
+                new CreateDashboardRequest(CreateName.Trim(), CreateDescription?.Trim(), categoryId, CreateIsPublic, CreateTenantId)));
             CloseModals(); await LoadAsync();
         }
         catch (Exception ex) { SaveError = ex.Message; }
@@ -285,9 +628,11 @@ else
         Saving = true; SaveError = null;
         try
         {
+            Guid? categoryId = string.IsNullOrEmpty(EditCategoryId) ? null
+                : Guid.TryParse(EditCategoryId, out var cid) ? cid : null;
             await Mediator.Send(new UpdateDashboardCommand(
                 new UpdateDashboardRequest(EditDashboard.Id, EditName.Trim(), EditDescription?.Trim(),
-                    status, EditIsPublic, EditDashboard.RowVersion)));
+                    categoryId, status, EditIsPublic, EditDashboard.RowVersion)));
             CloseModals(); await LoadAsync();
         }
         catch (Exception ex) { SaveError = ex.Message; }
@@ -301,10 +646,33 @@ else
         try
         {
             await Mediator.Send(new DeleteDashboardCommand(EditDashboard.Id));
-            CloseModals(); await LoadAsync();
+            CloseModals();
+            await LoadAsync();
+            if (SoftDeleteEnabled) await LoadDeletedCountAsync();
         }
         catch (Exception ex) { SaveError = ex.Message; }
         finally { Saving = false; }
+    }
+
+    private async Task RestoreDashboard(Guid id)
+    {
+        Saving = true;
+        try
+        {
+            await Mediator.Send(new RestoreDashboardCommand(id));
+            await LoadAsync();
+        }
+        catch (Exception ex) { Error = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task LoadDeletedCountAsync()
+    {
+        try
+        {
+            DeletedDashboards = await Mediator.Send(new GetDeletedDashboardsQuery(null, 1, 1));
+        }
+        catch { }
     }
 
     private RenderFragment StatusBadge(DashboardStatus status) => status switch
@@ -312,6 +680,33 @@ else
         DashboardStatus.Published => @<span class="badge bg-success">@L["Screens_Published"]</span>,
         _ => @<span class="badge bg-warning text-dark">@L["Screens_Draft"]</span>
     };
+
+    private static (int X, int Y, int Width, int Height) ParsePosition(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return (0, 0, 280, 200);
+        try
+        {
+            var opt = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var pos = System.Text.Json.JsonSerializer.Deserialize<PositionData>(json, opt);
+            return (pos?.X ?? 0, pos?.Y ?? 0, pos?.Width ?? 280, pos?.Height ?? 200);
+        }
+        catch { return (0, 0, 280, 200); }
+    }
+
+    private double CalcPreviewScale(IReadOnlyList<DashboardWidgetDto> widgets)
+    {
+        if (widgets.Count == 0) return 0.1;
+        var allPos = widgets.Select(w => ParsePosition(w.PositionJson)).ToList();
+        var maxX = allPos.Max(p => p.X + p.Width);
+        var maxY = allPos.Max(p => p.Y + p.Height);
+        if (maxX <= 0) maxX = 1;
+        if (maxY <= 0) maxY = 1;
+        var scaleX = 250.0 / maxX;
+        var scaleY = 110.0 / maxY;
+        return Math.Min(scaleX, scaleY) * 0.85;
+    }
+
+    private class PositionData { public int X { get; set; } public int Y { get; set; } public int Width { get; set; } = 280; public int Height { get; set; } = 200; }
 
     private readonly CancellationTokenSource _cts = new();
     public void Dispose() => _cts.Cancel();

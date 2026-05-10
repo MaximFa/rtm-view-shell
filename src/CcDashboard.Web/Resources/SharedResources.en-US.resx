@@ -115,44 +115,64 @@
   <data name="Nav_Content"><value>Content</value></data>
   <data name="Nav_Administration"><value>Administration</value></data>
   <data name="Nav_Platform"><value>Platform</value></data>
-  <data name="Nav_Screens"><value>Screens</value></data>
+  <data name="Nav_Screens"><value>Dashboards</value></data>
   <data name="Nav_WidgetCatalogue"><value>Widget Catalogue</value></data>
   <data name="Nav_Users"><value>Users</value></data>
   <data name="Nav_PermissionGroups"><value>Permission Groups</value></data>
   <data name="Nav_TenantSettings"><value>Tenant Settings</value></data>
+  <data name="Nav_Categories"><value>Categories</value></data>
   <data name="Nav_AuditLog"><value>Audit Log</value></data>
   <data name="Nav_Tenants"><value>Tenants</value></data>
 
   <!-- ── Screens (Dashboards) ── -->
-  <data name="Screens_Title"><value>Screens</value></data>
-  <data name="Screens_New"><value>+ New Screen</value></data>
+  <data name="Screens_Title"><value>Dashboards</value></data>
+  <data name="Screens_New"><value>+ New Dashboard</value></data>
   <data name="Screens_SearchPlaceholder"><value>Search by name...</value></data>
+  <data name="Screens_Category"><value>Category</value></data>
+  <data name="Screens_AllCategories"><value>All categories</value></data>
+  <data name="Screens_Tenant"><value>Tenant</value></data>
+  <data name="Screens_AllTenants"><value>All Tenants</value></data>
   <data name="Screens_AllStatuses"><value>All statuses</value></data>
   <data name="Screens_Draft"><value>Draft</value></data>
   <data name="Screens_Published"><value>Published</value></data>
-  <data name="Screens_NoScreens"><value>No screens found.</value></data>
-  <data name="Screens_CreateFirst"><value>Create your first screen</value></data>
+  <data name="Screens_Publish"><value>Publish</value></data>
+  <data name="Screens_Unpublish"><value>Unpublish</value></data>
+  <data name="Screens_NoScreens"><value>No dashboards found.</value></data>
+  <data name="Screens_CreateFirst"><value>Create your first dashboard</value></data>
   <data name="Screens_Open"><value>Open →</value></data>
   <data name="Screens_Name"><value>Name</value></data>
   <data name="Screens_Description"><value>Description</value></data>
   <data name="Screens_Status"><value>Status</value></data>
   <data name="Screens_IsPublic"><value>Visible to all tenant users (IsPublic)</value></data>
   <data name="Screens_IsPublicHelp"><value>If enabled, accessible to all authenticated users without explicit group assignment [DASH-01]</value></data>
-  <data name="Screens_CreateModal"><value>New Screen</value></data>
-  <data name="Screens_EditModal"><value>Screen Settings</value></data>
-  <data name="Screens_CreateButton"><value>Create Screen →</value></data>
+  <data name="Screens_CreateModal"><value>New Dashboard</value></data>
+  <data name="Screens_EditModal"><value>Dashboard Settings</value></data>
+  <data name="Screens_CreateButton"><value>Create Dashboard →</value></data>
   <data name="Screens_DangerZone"><value>Danger zone</value></data>
-  <data name="Screens_DeleteScreen"><value>Delete Screen</value></data>
+  <data name="Screens_DeleteScreen"><value>Delete Dashboard</value></data>
   <data name="Screens_AreYouSure"><value>Are you sure?</value></data>
   <data name="Screens_YesDelete"><value>Yes, delete</value></data>
   <data name="Screens_Public"><value>Public</value></data>
-  <data name="Screens_NotFound"><value>Screen not found or you do not have access.</value></data>
+  <data name="Screens_NotFound"><value>Dashboard not found or you do not have access.</value></data>
   <data name="Screens_AllQueues"><value>All queues</value></data>
   <data name="Screens_LiveIndicator"><value>Live · update 5s</value></data>
   <data name="Screens_Pause"><value>Pause</value></data>
   <data name="Screens_Resume"><value>Resume</value></data>
   <data name="Screens_Back"><value>← Back</value></data>
   <data name="Screens_Connected"><value>Blazor Server · SignalR connected</value></data>
+  <data name="Screens_FullScreen"><value>Full Screen</value></data>
+  <data name="Screens_Settings"><value>Settings</value></data>
+  <data name="Screens_Edit"><value>Edit Dashboard</value></data>
+  <data name="Screens_Preview"><value>Preview</value></data>
+  <data name="Screens_ExitFullscreen"><value>Exit Fullscreen</value></data>
+  <data name="Screens_Trash"><value>Trash</value></data>
+  <data name="Screens_TrashEmpty"><value>Trash is empty</value></data>
+  <data name="Screens_TrashInfo"><value>Deleted dashboards are permanently removed after {0} days.</value></data>
+  <data name="Screens_DeletedAt"><value>Deleted</value></data>
+  <data name="Screens_DeletedBy"><value>Deleted by</value></data>
+  <data name="Screens_DaysRemaining"><value>Days remaining</value></data>
+  <data name="Screens_Restore"><value>Restore</value></data>
+  <data name="Common_Days"><value>days</value></data>
 
   <!-- ── Widget Catalogue ── -->
   <data name="WidgetCatalogue_Title"><value>Widget Catalogue</value></data>
@@ -164,6 +184,39 @@
   <data name="Widget_AgentStatus"><value>Agent Status</value></data>
   <data name="Widget_EventTicker"><value>Event Ticker</value></data>
   <data name="Widget_ComingSoon"><value>Available in next version</value></data>
+  <data name="Widget_CallsWaiting"><value>Calls Waiting</value></data>
+  <data name="Widget_AvgWait"><value>Avg Wait</value></data>
+  <data name="Widget_Available"><value>Available</value></data>
+  <data name="Widget_OnCall"><value>On Call</value></data>
+  <data name="Widget_Away"><value>Away</value></data>
+  <data name="Widget_KpiDefault"><value>KPI Value</value></data>
+
+  <!-- ── Widget Editor ── -->
+  <data name="Widgets_Name"><value>Widget Name</value></data>
+  <data name="Widgets_Palette"><value>Widgets</value></data>
+  <data name="Widgets_NoWidgets"><value>No widgets available</value></data>
+  <data name="Widgets_DragHere"><value>Drag widgets here to build your dashboard</value></data>
+  <data name="Widgets_NoWidgetsPlaced"><value>No widgets placed on this dashboard</value></data>
+  <data name="Widgets_Configure"><value>Configure</value></data>
+  <data name="Widgets_Resize"><value>Resize</value></data>
+  <data name="Widgets_BusinessUnit"><value>Business Unit</value></data>
+  <data name="Widgets_Metric"><value>Metric</value></data>
+  <data name="Widgets_Threshold"><value>Thresholds</value></data>
+  <data name="Widgets_ThresholdWarning"><value>Warning</value></data>
+  <data name="Widgets_ThresholdCritical"><value>Critical</value></data>
+  <data name="Widgets_Appearance"><value>Appearance</value></data>
+  <data name="Widgets_FontSize"><value>Font Size</value></data>
+  <data name="Widgets_FontSize_Small"><value>Small</value></data>
+  <data name="Widgets_FontSize_Normal"><value>Normal</value></data>
+  <data name="Widgets_FontSize_Large"><value>Large</value></data>
+  <data name="Widgets_FontSize_XLarge"><value>Extra Large</value></data>
+  <data name="Widgets_FontSize_XXLarge"><value>Huge</value></data>
+  <data name="Widgets_BackgroundColor"><value>Background</value></data>
+  <data name="Widgets_FontColor"><value>Text Color</value></data>
+  <data name="Widgets_Thresholds"><value>Threshold Rules</value></data>
+  <data name="Widgets_From"><value>From</value></data>
+  <data name="Widgets_To"><value>To</value></data>
+  <data name="Widgets_AddThreshold"><value>Add threshold rule</value></data>
 
   <!-- ── Users Admin ── -->
   <data name="Users_Title"><value>User Management</value></data>
@@ -237,6 +290,22 @@
   <data name="PG_Selected"><value>Selected</value></data>
   <data name="PG_NoItemsAvailable"><value>No items available</value></data>
 
+  <!-- ── Categories (Dashboard) ── -->
+  <data name="Categories_Title"><value>Dashboard Categories</value></data>
+  <data name="Categories_New"><value>+ New Category</value></data>
+  <data name="Categories_CreateModal"><value>New Category</value></data>
+  <data name="Categories_EditModal"><value>Edit Category</value></data>
+  <data name="Categories_Name"><value>Name</value></data>
+  <data name="Categories_Description"><value>Description</value></data>
+  <data name="Categories_Tenant"><value>Tenant</value></data>
+  <data name="Categories_AllTenants"><value>All Tenants</value></data>
+  <data name="Categories_Dashboards"><value>Dashboards</value></data>
+  <data name="Categories_Empty"><value>No categories found.</value></data>
+  <data name="Categories_CreateButton"><value>Create Category →</value></data>
+  <data name="Categories_DeleteButton"><value>Delete Category</value></data>
+  <data name="Categories_CannotDelete"><value>Cannot delete: category is used by dashboards.</value></data>
+  <data name="Categories_SearchPlaceholder"><value>Search categories...</value></data>
+
   <!-- ── Audit Log ── -->
   <data name="Audit_Title"><value>Audit Log</value></data>
   <data name="Audit_AllTenants"><value>All Tenants</value></data>
@@ -302,6 +371,11 @@
   <data name="Tenants_SlugReadOnly"><value>Slug cannot be changed after creation</value></data>
 
   <!-- ── Common ── -->
+  <data name="Common_Widgets"><value>Widgets</value></data>
+  <data name="Common_Updated"><value>Updated</value></data>
+  <data name="Common_CreatedBy"><value>Created By</value></data>
+  <data name="Common_UpdatedBy"><value>Updated By</value></data>
+  <data name="Common_Actions"><value>Actions</value></data>
   <data name="Common_Save"><value>Save →</value></data>
   <data name="Common_Cancel"><value>Cancel</value></data>
   <data name="Common_Delete"><value>Delete</value></data>
@@ -320,6 +394,11 @@
   <data name="Common_Page"><value>Page</value></data>
   <data name="Common_Of"><value>of</value></data>
   <data name="Common_Records"><value>record(s)</value></data>
+  <data name="Common_All"><value>All</value></data>
+  <data name="Common_Select"><value>Select</value></data>
+  <data name="Common_Selected"><value>Selected</value></data>
+  <data name="Common_NoResults"><value>No results found</value></data>
+  <data name="Common_AndMore"><value>...and {0} more</value></data>
 
   <!-- ── Common shorthand aliases ── -->
   <data name="Cancel"><value>Cancel</value></data>
@@ -354,6 +433,7 @@
   <data name="Sites_SiteIdRequired"><value>Site ID is required.</value></data>
   <data name="Sites_DeleteConfirm"><value>Delete Site</value></data>
   <data name="Sites_DeleteWarning"><value>Delete site</value></data>
+  <data name="Sites_UsedInBU"><value>Cannot delete: used in business units</value></data>
   <data name="Sites_SelectTimeZone"><value>Select time zone</value></data>
 
   <!-- ── Business Units ── -->
@@ -370,6 +450,7 @@
   <data name="BU_NameRequired"><value>Name is required.</value></data>
   <data name="BU_DeleteConfirm"><value>Delete Business Unit</value></data>
   <data name="BU_DeleteWarning"><value>Delete business unit</value></data>
+  <data name="BU_UsedInWidgets"><value>Cannot delete: used in widgets</value></data>
 
   <!-- ── Super Groups ── -->
   <data name="SG_Title"><value>Super Groups</value></data>
@@ -382,6 +463,7 @@
   <data name="SG_NameRequired"><value>Name is required.</value></data>
   <data name="SG_DeleteConfirm"><value>Delete Super Group</value></data>
   <data name="SG_DeleteWarning"><value>Delete super group</value></data>
+  <data name="SG_UsedInBU"><value>Cannot delete: used in business units</value></data>
 
   <!-- ── Metrics ── -->
   <data name="Metrics_Title"><value>Metrics</value></data>

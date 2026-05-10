@@ -46,7 +46,7 @@ public class UpdateDashboardCommandHandlerTests
         };
         _repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns(dashboard);
 
-        var req = new UpdateDashboardRequest(id, "New Name", "New desc", DashboardStatus.Published, true, 0);
+        var req = new UpdateDashboardRequest(id, "New Name", "New desc", null, DashboardStatus.Published, true, 0);
         var result = await _handler.Handle(new UpdateDashboardCommand(req), CancellationToken.None);
 
         result.Name.Should().Be("New Name");
@@ -65,7 +65,7 @@ public class UpdateDashboardCommandHandlerTests
         var dashboard = new Dashboard { Id = id, TenantId = TenantId, Name = "X" };
         _repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns(dashboard);
 
-        var req = new UpdateDashboardRequest(id, "  Trimmed Name  ", "  Trimmed Desc  ", DashboardStatus.Draft, false, 0);
+        var req = new UpdateDashboardRequest(id, "  Trimmed Name  ", "  Trimmed Desc  ", null, DashboardStatus.Draft, false, 0);
         await _handler.Handle(new UpdateDashboardCommand(req), CancellationToken.None);
 
         dashboard.Name.Should().Be("Trimmed Name");
@@ -78,7 +78,7 @@ public class UpdateDashboardCommandHandlerTests
         var id = Guid.NewGuid();
         _repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns((Dashboard?)null);
 
-        var req = new UpdateDashboardRequest(id, "Name", null, DashboardStatus.Draft, false, 0);
+        var req = new UpdateDashboardRequest(id, "Name", null, null, DashboardStatus.Draft, false, 0);
         var act = () => _handler.Handle(new UpdateDashboardCommand(req), CancellationToken.None);
 
         await act.Should().ThrowAsync<NotFoundException>()
@@ -92,7 +92,7 @@ public class UpdateDashboardCommandHandlerTests
         var dashboard = new Dashboard { Id = id, TenantId = TenantId, Name = "X", Description = "Has desc" };
         _repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns(dashboard);
 
-        var req = new UpdateDashboardRequest(id, "Name", null, DashboardStatus.Draft, false, 0);
+        var req = new UpdateDashboardRequest(id, "Name", null, null, DashboardStatus.Draft, false, 0);
         var result = await _handler.Handle(new UpdateDashboardCommand(req), CancellationToken.None);
 
         result.Description.Should().BeNull();

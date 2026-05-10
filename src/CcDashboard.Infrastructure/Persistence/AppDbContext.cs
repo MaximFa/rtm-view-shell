@@ -18,6 +18,7 @@ public class AppDbContext(
     public DbSet<MenuPermission> MenuPermissions => Set<MenuPermission>();
     public DbSet<DashboardPermission> DashboardPermissions => Set<DashboardPermission>();
     public DbSet<Dashboard> Dashboards => Set<Dashboard>();
+    public DbSet<DashboardCategory> DashboardCategories => Set<DashboardCategory>();
     public DbSet<DashboardWidget> DashboardWidgets => Set<DashboardWidget>();
     public DbSet<WidgetCatalogItem> WidgetCatalogItems => Set<WidgetCatalogItem>();
     // Reference tables (ngc_queues, ngc_AgentGroups)
@@ -123,6 +124,18 @@ public class AppDbContext(
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
+        // Dashboard Categories
+        mb.Entity<DashboardCategory>(e =>
+        {
+            e.ToTable("dashboard_categories");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
         // Dashboards
         mb.Entity<Dashboard>(e =>
         {
@@ -134,6 +147,10 @@ public class AppDbContext(
             e.Property(x => x.LayoutJson).HasColumnType("jsonb");
             e.Property(x => x.RowVersion).IsRowVersion().HasColumnName("xmin").HasColumnType("xid");
             e.HasIndex(x => new { x.TenantId, x.Name });
+            e.HasOne(x => x.Category)
+                .WithMany(x => x.Dashboards)
+                .HasForeignKey(x => x.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId && !x.IsDeleted);
         });
 

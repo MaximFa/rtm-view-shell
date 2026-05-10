@@ -33,7 +33,7 @@ public class CreateDashboardCommandHandlerTests
     [Fact]
     public async Task Handle_WithPermissionGroup_CreatesWithFullAccess()
     {
-        var req = new CreateDashboardRequest("My Dashboard", "desc", false);
+        var req = new CreateDashboardRequest("My Dashboard", "desc", null, false);
         Dashboard? saved = null;
         await _dashboards.AddAsync(Arg.Do<Dashboard>(d => saved = d), Arg.Any<CancellationToken>());
 
@@ -55,7 +55,7 @@ public class CreateDashboardCommandHandlerTests
     public async Task Handle_WithoutPermissionGroup_NoPgPermissionAdded()
     {
         _user.PermissionGroupId.Returns((Guid?)null);
-        var req = new CreateDashboardRequest("Public Screen", null, true);
+        var req = new CreateDashboardRequest("Public Screen", null, null, true);
 
         var result = await _handler.Handle(new CreateDashboardCommand(req), CancellationToken.None);
 
@@ -69,7 +69,7 @@ public class CreateDashboardCommandHandlerTests
     [Fact]
     public async Task Handle_SetsTimestampsAndOwnership()
     {
-        var req = new CreateDashboardRequest("Dashboard", null, false);
+        var req = new CreateDashboardRequest("Dashboard", null, null, false);
 
         var result = await _handler.Handle(new CreateDashboardCommand(req), CancellationToken.None);
 

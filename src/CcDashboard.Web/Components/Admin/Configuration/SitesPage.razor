@@ -74,8 +74,7 @@ else
                         <td>@s.TimeZone</td>
                         <td>@s.ClearTime</td>
                         <td class="text-end">
-                            <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => OpenModal(s)">@L["Edit"]</button>
-                            <button class="btn btn-outline-danger btn-sm" @onclick="() => ConfirmDelete(s)">@L["Delete"]</button>
+                            <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenModal(s)">@L["Edit"]</button>
                         </td>
                     </tr>
                 }
@@ -164,6 +163,42 @@ else
                             <input type="time" class="form-control" value="@EditClearTime" @onchange="e => EditClearTime = TrimTime(e.Value?.ToString())" />
                         </div>
                     </div>
+
+                    @if (!IsNew)
+                    {
+                        <hr class="my-3" />
+                        <div class="text-danger">
+                            <strong>@L["Screens_DangerZone"]</strong>
+                            @if (BusUsingSite.Count > 0)
+                            {
+                                <p class="small mt-2 mb-1">@L["Sites_UsedInBU"]:</p>
+                                <ul class="small mb-0">
+                                    @foreach (var bu in BusUsingSite.Take(5))
+                                    {
+                                        <li>@bu</li>
+                                    }
+                                    @if (BusUsingSite.Count > 5)
+                                    {
+                                        <li>@L["Common_AndMore", BusUsingSite.Count - 5]</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-danger ms-3 mt-2"
+                                        @onclick="() => ConfirmDelete = true" disabled="@ConfirmDelete">
+                                    @L["Sites_DeleteConfirm"]
+                                </button>
+                                @if (ConfirmDelete)
+                                {
+                                    <span class="ms-2 small">@L["Screens_AreYouSure"]
+                                        <button class="btn btn-danger btn-sm ms-1" @onclick="ExecuteDelete">@L["Screens_YesDelete"]</button>
+                                        <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">@L["Cancel"]</button>
+                                    </span>
+                                }
+                            }
+                        </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary btn-sm" @onclick="CloseModal">@L["Cancel"]</button>
@@ -171,27 +206,6 @@ else
                         @if (Saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
                         @L["Save"]
                     </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-@if (DeleteTarget is not null)
-{
-    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-site-delete-title">
-        <div class="modal-dialog modal-sm">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modal-site-delete-title">@L["Sites_DeleteConfirm"]</h5>
-                    <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
-                </div>
-                <div class="modal-body">
-                    @L["Sites_DeleteWarning"]: <strong>@DeleteTarget.SiteId</strong>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary btn-sm" @onclick="() => DeleteTarget = null">@L["Cancel"]</button>
-                    <button class="btn btn-danger btn-sm" @onclick="ExecuteDelete">@L["Delete"]</button>
                 </div>
             </div>
         </div>
@@ -215,8 +229,8 @@ else
     private string? EditDescription;
     private string? EditTimeZone;
     private string? EditClearTime;
-
-    private SiteDto? DeleteTarget;
+    private bool ConfirmDelete;
+    private List<string> BusUsingSite = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -236,7 +250,7 @@ else
         finally { Loading = false; }
     }
 
-    private void OpenModal(SiteDto? site)
+    private async Task OpenModal(SiteDto? site)
     {
         IsNew = site is null;
         EditId = site?.SiteId ?? "";
@@ -245,6 +259,12 @@ else
         EditTimeZone = site?.TimeZone;
         EditClearTime = site?.ClearTime;
         ModalError = null;
+        ConfirmDelete = false;
+        BusUsingSite = [];
+        if (site is not null)
+        {
+            BusUsingSite = await Mediator.Send(new GetBusinessUnitsUsingSiteQuery(site.SiteId));
+        }
         ShowModal = true;
     }
 
@@ -266,19 +286,17 @@ else
         finally { Saving = false; }
     }
 
-    private void ConfirmDelete(SiteDto site) => DeleteTarget = site;
-
     private async Task ExecuteDelete()
     {
-        if (DeleteTarget is null) return;
+        if (string.IsNullOrEmpty(EditId)) return;
         try
         {
-            var result = await Mediator.Send(new DeleteSiteCommand(DeleteTarget.SiteId));
-            if (!result.IsSuccess) { Error = result.Error; }
-            DeleteTarget = null;
+            var result = await Mediator.Send(new DeleteSiteCommand(EditId));
+            if (!result.IsSuccess) { ModalError = result.Error; return; }
+            CloseModal();
             await LoadAsync();
         }
-        catch (Exception ex) { Error = SafeError(ex); DeleteTarget = null; }
+        catch (Exception ex) { ModalError = SafeError(ex); }
     }
 
     private static string? TrimTime(string? val) =>

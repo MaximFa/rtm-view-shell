@@ -1,0 +1,107 @@
+@using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+
+<div class="kpi-widget text-center" style="@GetWidgetStyle()">
+    <div class="kpi-value display-5 fw-bold" style="@GetValueStyle()">
+        @if (Config?.Metric?.Contains("Rate") == true || Config?.Metric?.Contains("Level") == true)
+        {
+            @($"{Value:F1}%")
+        }
+        else if (Config?.Metric?.Contains("Time") == true)
+        {
+            @FormatTime(Value)
+        }
+        else
+        {
+            @Value
+        }
+    </div>
+    <div class="kpi-label small mt-1" style="@GetLabelStyle()">
+        @(Config?.Metric ?? L["Widget_KpiDefault"])
+    </div>
+</div>
+
+@code {
+    [Parameter] public WidgetConfig? Config { get; set; }
+
+    private double Value = 85.5;
+
+    protected override void OnInitialized()
+    {
+        var rnd = new Random();
+        var metric = Config?.Metric ?? "";
+
+        Value = metric switch
+        {
+            var m when m.Contains("Rate") => rnd.NextDouble() * 15,
+            var m when m.Contains("Level") => 70 + rnd.NextDouble() * 25,
+            var m when m.Contains("Time") => rnd.Next(30, 300),
+            var m when m.Contains("Waiting") => rnd.Next(0, 50),
+            _ => rnd.Next(50, 100)
+        };
+    }
+
+    private string GetWidgetStyle()
+    {
+        var styles = new List<string>();
+
+        if (!string.IsNullOrEmpty(Config?.BackgroundColor))
+            styles.Add($"background-color: {Config.BackgroundColor}");
+
+        return string.Join("; ", styles);
+    }
+
+    private string GetValueStyle()
+    {
+        var styles = new List<string>();
+
+        // Apply font size
+        var fontSize = Config?.FontSize switch
+        {
+            "small" => "1.5rem",
+            "large" => "2.5rem",
+            "xlarge" => "3.5rem",
+            "xxlarge" => "4.5rem",
+            _ => "2rem"
+        };
+        styles.Add($"font-size: {fontSize}");
+
+        // Check threshold rules for color
+        var rule = FindMatchingThreshold((int)Value);
+        if (rule != null)
+        {
+            if (!string.IsNullOrEmpty(rule.BackgroundColor) && rule.BackgroundColor != "transparent")
+                styles.Add($"background-color: {rule.BackgroundColor}; padding: 0.25rem 0.5rem; border-radius: 4px");
+            if (!string.IsNullOrEmpty(rule.FontColor))
+                styles.Add($"color: {rule.FontColor}");
+        }
+        else if (!string.IsNullOrEmpty(Config?.FontColor))
+        {
+            styles.Add($"color: {Config.FontColor}");
+        }
+
+        return string.Join("; ", styles);
+    }
+
+    private string GetLabelStyle()
+    {
+        if (!string.IsNullOrEmpty(Config?.FontColor))
+            return $"color: {Config.FontColor}; opacity: 0.7";
+        return "";
+    }
+
+    private ThresholdRule? FindMatchingThreshold(int value)
+    {
+        if (Config?.Thresholds == null || Config.Thresholds.Count == 0)
+            return null;
+
+        return Config.Thresholds.FirstOrDefault(t =>
+            value >= (t.From ?? int.MinValue) &&
+            value <= (t.To ?? int.MaxValue));
+    }
+
+    private static string FormatTime(double seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return ts.TotalMinutes >= 1 ? $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}" : $"{(int)seconds}s";
+    }
+}

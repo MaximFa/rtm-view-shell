@@ -22,11 +22,13 @@ public class UpdateDashboardCommandHandler(
 {
     public async Task<DashboardDto> Handle(UpdateDashboardCommand cmd, CancellationToken ct)
     {
-        var dashboard = await dashboards.GetByIdAsync(cmd.Request.Id, ct)
+        var isSuperadmin = currentUser.Role == "Superadmin";
+        var dashboard = await dashboards.GetByIdAsync(cmd.Request.Id, bypassTenantFilter: isSuperadmin, ct)
             ?? throw new NotFoundException(nameof(Dashboard), cmd.Request.Id);
 
         dashboard.Name = cmd.Request.Name.Trim();
         dashboard.Description = cmd.Request.Description?.Trim();
+        dashboard.CategoryId = cmd.Request.CategoryId;
         dashboard.Status = cmd.Request.Status;
         dashboard.IsPublic = cmd.Request.IsPublic;
         dashboard.UpdatedAt = clock.UtcNow;
@@ -35,8 +37,8 @@ public class UpdateDashboardCommandHandler(
         dashboards.Update(dashboard);
 
         return new DashboardDto(
-            dashboard.Id, dashboard.TenantId, dashboard.Name, dashboard.Description,
-            dashboard.Status, dashboard.IsPublic, dashboard.CreatedByUserId, null,
-            dashboard.CreatedAt, dashboard.UpdatedAt);
+            dashboard.Id, dashboard.TenantId, null, dashboard.Name, dashboard.Description,
+            dashboard.CategoryId, null, dashboard.Status, dashboard.IsPublic, dashboard.CreatedByUserId, null,
+            dashboard.CreatedAt, dashboard.UpdatedByUserId, null, dashboard.UpdatedAt);
     }
 }

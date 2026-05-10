@@ -29,6 +29,9 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -80,9 +83,48 @@ namespace CcDashboard.Infrastructure.Migrations.App
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CategoryId");
+
                     b.HasIndex("TenantId", "Name");
 
                     b.ToTable("dashboards", (string)null);
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.DashboardCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("dashboard_categories", (string)null);
                 });
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.DashboardPermission", b =>
@@ -1054,6 +1096,24 @@ namespace CcDashboard.Infrastructure.Migrations.App
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.Dashboard", b =>
                 {
+                    b.HasOne("CcDashboard.Domain.Domain.DashboardCategory", "Category")
+                        .WithMany("Dashboards")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("CcDashboard.Domain.Domain.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.DashboardCategory", b =>
+                {
                     b.HasOne("CcDashboard.Domain.Domain.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
@@ -1286,6 +1346,11 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.Navigation("Permissions");
 
                     b.Navigation("Widgets");
+                });
+
+            modelBuilder.Entity("CcDashboard.Domain.Domain.DashboardCategory", b =>
+                {
+                    b.Navigation("Dashboards");
                 });
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.NgcBusinessUnit", b =>

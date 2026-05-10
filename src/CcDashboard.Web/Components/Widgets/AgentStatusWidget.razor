@@ -1,0 +1,73 @@
+@using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+
+<div class="agent-status-widget" style="@GetWidgetStyle()">
+    <div class="d-flex justify-content-around text-center">
+        <div>
+            <div class="status-dot bg-success mb-1" style="width:12px;height:12px;border-radius:50%;margin:0 auto"></div>
+            <div class="fw-bold text-success" style="@GetValueFontStyle()">@Available</div>
+            <div class="small" style="@GetLabelStyle()">@L["Widget_Available"]</div>
+        </div>
+        <div>
+            <div class="status-dot bg-warning mb-1" style="width:12px;height:12px;border-radius:50%;margin:0 auto"></div>
+            <div class="fw-bold text-warning" style="@GetValueFontStyle()">@OnCall</div>
+            <div class="small" style="@GetLabelStyle()">@L["Widget_OnCall"]</div>
+        </div>
+        <div>
+            <div class="status-dot bg-secondary mb-1" style="width:12px;height:12px;border-radius:50%;margin:0 auto"></div>
+            <div class="fw-bold text-secondary" style="@GetValueFontStyle()">@Away</div>
+            <div class="small" style="@GetLabelStyle()">@L["Widget_Away"]</div>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(Config?.BusinessUnit))
+    {
+        <div class="text-center mt-2">
+            <span class="badge bg-secondary">@Config.BusinessUnit</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public WidgetConfig? Config { get; set; }
+
+    private int Available = 8;
+    private int OnCall = 12;
+    private int Away = 3;
+
+    protected override void OnInitialized()
+    {
+        var rnd = new Random();
+        Available = rnd.Next(2, 15);
+        OnCall = rnd.Next(5, 20);
+        Away = rnd.Next(0, 5);
+    }
+
+    private string GetWidgetStyle()
+    {
+        var styles = new List<string>();
+
+        if (!string.IsNullOrEmpty(Config?.BackgroundColor))
+            styles.Add($"background-color: {Config.BackgroundColor}");
+
+        return string.Join("; ", styles);
+    }
+
+    private string GetValueFontStyle()
+    {
+        var fontSize = Config?.FontSize switch
+        {
+            "small" => "1rem",
+            "large" => "1.5rem",
+            "xlarge" => "2rem",
+            "xxlarge" => "2.5rem",
+            _ => "1.25rem"
+        };
+        return $"font-size: {fontSize}";
+    }
+
+    private string GetLabelStyle()
+    {
+        if (!string.IsNullOrEmpty(Config?.FontColor))
+            return $"color: {Config.FontColor}; opacity: 0.7";
+        return "color: var(--clr-text-muted)";
+    }
+}

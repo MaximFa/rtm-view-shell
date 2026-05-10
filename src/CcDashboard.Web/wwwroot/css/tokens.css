@@ -69,6 +69,24 @@
   --clr-status-pending-bg:   #FEF3C7;
   --clr-status-pending:      #92400E;
 
+  /* ── Threshold colors (dashboard widgets) ──────────────────────────────── */
+  --thr-ok-bg:         #EEF7E8;
+  --thr-ok-text:       #2D5A1B;
+  --thr-ok-accent:     #4E9A34;
+  --thr-ok-badge:      #D8F0CC;
+  --thr-warn-bg:       #FDF3E3;
+  --thr-warn-text:     #7A4A0A;
+  --thr-warn-accent:   #C87E20;
+  --thr-warn-badge:    #F9E4BF;
+  --thr-crit-bg:       #FAECEC;
+  --thr-crit-text:     #882020;
+  --thr-crit-accent:   #C03535;
+  --thr-crit-badge:    #F5D0D0;
+  --thr-null-bg:       #F2F1EF;
+  --thr-null-text:     #666562;
+  --thr-null-accent:   #8F8E89;
+  --thr-null-badge:    #E4E3E0;
+
   /* ── Typography — Enterprise readable sizes ────────────────────────────── */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'SF Mono', 'Consolas', 'Liberation Mono', Menlo, monospace;

@@ -1,0 +1,200 @@
+@page "/screens/{Id:guid}/fullscreen"
+@page "/screens/{Id:guid}/view"
+@page "/screens/{Id:guid}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@using MediatR
+@using CcDashboard.Application.Queries.Dashboards
+@using CcDashboard.Application.Queries.Widgets
+@using CcDashboard.Contracts.DTOs.Dashboards
+@using CcDashboard.Contracts.DTOs.Widgets
+@using Microsoft.AspNetCore.Authorization
+@implements IDisposable
+
+<PageTitle>@(Dashboard?.Name ?? "Dashboard") — Fullscreen</PageTitle>
+
+<div class="fullscreen-dashboard">
+    @if (Loading)
+    {
+        <div class="text-center py-5" aria-busy="true">
+            <span class="spinner-border text-primary"></span>
+        </div>
+    }
+    else if (Dashboard is null)
+    {
+        <div class="alert alert-warning m-4">@L["Screens_NotFound"]</div>
+    }
+    else
+    {
+        <div class="fullscreen-header">
+            <h1 class="fullscreen-title mb-0">@Dashboard.Name</h1>
+            <button class="btn btn-outline-light btn-sm fullscreen-close" @onclick="ExitToList" title="@L["Screens_Back"]">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="fullscreen-canvas" style="position: relative; min-height: calc(100vh - 120px); @(_positionsApplied ? "" : "visibility: hidden;")">
+            @if (PlacedWidgets.Count == 0)
+            {
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-grid-3x3-gap fs-1 mb-3 opacity-50"></i>
+                    <p>@L["Widgets_NoWidgetsPlaced"]</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var widget in PlacedWidgets)
+                {
+                    var config = widget.Config;
+                    var widgetStyle = $"position: absolute; left: {widget.X}px; top: {widget.Y}px; width: {widget.Width}px; height: {widget.Height}px;";
+                    if (!string.IsNullOrEmpty(config?.BackgroundColor))
+                    {
+                        widgetStyle += $" background: {config.BackgroundColor};";
+                    }
+                    <div class="dashboard-widget" data-widget-id="@widget.Id" style="@widgetStyle" @key="widget.Id">
+                        <div class="widget-header" style="@GetHeaderStyle(config)">
+                            @(config?.DisplayName ?? widget.Name)
+                        </div>
+                        <div class="widget-content" style="@GetContentStyle(config)">
+                            <RenderWidget Widget="widget" />
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private DashboardDto? Dashboard;
+    private List<WidgetCatalogItemDto> WidgetCatalog = [];
+    private List<ScreenEditorPage.PlacedWidget> PlacedWidgets = [];
+    private bool Loading = true;
+    private bool _positionsApplied;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Loading = true;
+        try
+        {
+            Dashboard = await Mediator.Send(new GetDashboardByIdQuery(Id), _cts.Token);
+            var categories = await Mediator.Send(new GetWidgetCatalogQuery(), _cts.Token);
+            WidgetCatalog = categories.SelectMany(c => c.Items).ToList();
+
+            if (Dashboard?.Widgets != null)
+            {
+                foreach (var w in Dashboard.Widgets)
+                {
+                    var catalogItem = WidgetCatalog.FirstOrDefault(c => c.Id == w.WidgetCatalogItemId);
+                    if (catalogItem != null)
+                    {
+                        var (width, height, x, y) = ParseWidgetDimensions(w.PositionJson);
+                        var config = ParseWidgetConfig(w.ConfigJson);
+                        PlacedWidgets.Add(new ScreenEditorPage.PlacedWidget
+                        {
+                            Id = w.Id,
+                            CatalogItemId = w.WidgetCatalogItemId,
+                            Name = config?.DisplayName ?? catalogItem.Name,
+                            Category = catalogItem.Category,
+                            Width = width,
+                            Height = height,
+                            X = x,
+                            Y = y,
+                            Config = config
+                        });
+                    }
+                }
+            }
+        }
+        catch { }
+        finally { Loading = false; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_positionsApplied && PlacedWidgets.Count > 0 && !Loading)
+        {
+            var positions = PlacedWidgets.Select(w => new {
+                id = w.Id.ToString(),
+                x = w.X,
+                y = w.Y,
+                width = w.Width,
+                height = w.Height
+            }).ToArray();
+            await JS.InvokeVoidAsync("widgetResize.applyAllWidgetPositions", (object)positions);
+            _positionsApplied = true;
+            StateHasChanged();
+        }
+    }
+
+    private void ExitToList()
+    {
+        Nav.NavigateTo("/screens");
+    }
+
+    private static (int Width, int Height, int X, int Y) ParseWidgetDimensions(string? positionJson)
+    {
+        if (string.IsNullOrEmpty(positionJson)) return (280, 200, 0, 0);
+        try
+        {
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var pos = System.Text.Json.JsonSerializer.Deserialize<PositionData>(positionJson, options);
+            return (pos?.Width ?? 280, pos?.Height ?? 200, pos?.X ?? 0, pos?.Y ?? 0);
+        }
+        catch { }
+        return (280, 200, 0, 0);
+    }
+
+    private class PositionData
+    {
+        public int Width { get; set; } = 280;
+        public int Height { get; set; } = 200;
+        public int X { get; set; }
+        public int Y { get; set; }
+    }
+
+    private static string GetHeaderStyle(ScreenEditorPage.WidgetConfig? config)
+    {
+        if (config is null) return "";
+        var style = "";
+        if (!string.IsNullOrEmpty(config.FontColor)) style += $"color: {config.FontColor};";
+        return style;
+    }
+
+    private static string GetContentStyle(ScreenEditorPage.WidgetConfig? config)
+    {
+        if (config is null) return "";
+        var style = "";
+        if (!string.IsNullOrEmpty(config.FontColor)) style += $"color: {config.FontColor};";
+        if (!string.IsNullOrEmpty(config.FontSize)) style += $"font-size: {GetFontSizePx(config.FontSize)};";
+        return style;
+    }
+
+    private static string GetFontSizePx(string size) => size switch
+    {
+        "small" => "12px",
+        "large" => "18px",
+        "xlarge" => "24px",
+        "xxlarge" => "32px",
+        _ => "14px"
+    };
+
+    private static ScreenEditorPage.WidgetConfig ParseWidgetConfig(string? configJson)
+    {
+        if (string.IsNullOrEmpty(configJson)) return new ScreenEditorPage.WidgetConfig();
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<ScreenEditorPage.WidgetConfig>(configJson)
+                ?? new ScreenEditorPage.WidgetConfig();
+        }
+        catch { return new ScreenEditorPage.WidgetConfig(); }
+    }
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
+}

@@ -1,0 +1,1052 @@
+@page "/screens/{Id:guid}/edit"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Superadmin,Administrator,Editor")]
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@using MediatR
+@using Microsoft.Extensions.Localization
+@using CcDashboard.Application.Commands.Dashboards
+@using CcDashboard.Application.Queries.Dashboards
+@using CcDashboard.Application.Queries.Widgets
+@using CcDashboard.Application.Queries.Configuration
+@using CcDashboard.Contracts.DTOs.Dashboards
+@using CcDashboard.Contracts.DTOs.Widgets
+@using CcDashboard.Contracts.DTOs.Configuration
+@using CcDashboard.Domain.Enums
+@using Microsoft.AspNetCore.Authorization
+@implements IDisposable
+
+<PageTitle>@L["Screens_Edit"] — @(Dashboard?.Name ?? "...") — RTM View Shell</PageTitle>
+
+<div class="editor-fullscreen">
+    @if (Loading)
+    {
+        <div class="text-center py-5" aria-busy="true">
+            <span class="spinner-border text-primary"></span>
+            <p class="mt-2 text-muted">@L["Loading"]</p>
+        </div>
+    }
+    else if (Dashboard is null)
+    {
+        <div class="alert alert-warning m-4">@L["Screens_NotFound"]</div>
+        <a href="/screens" class="btn btn-outline-primary ms-4">@L["Screens_Back"]</a>
+    }
+    else
+    {
+        <!-- Fullscreen Editor Header -->
+        <div class="editor-header">
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-sm btn-outline-light" @onclick="TogglePalette" title="@L["Widgets_Palette"]">
+                    <i class="bi bi-layout-sidebar-inset"></i>
+                </button>
+                <a href="/screens" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary fw-bold" style="width:250px"
+                       @bind="EditName" @bind:event="oninput" maxlength="200" />
+                <span class="badge @(Dashboard.Status == DashboardStatus.Published ? "bg-success" : "bg-warning text-dark")">
+                    @Dashboard.Status
+                </span>
+            </div>
+            <div class="d-flex gap-2">
+                @if (ConfiguringWidget is not null)
+                {
+                    <span class="badge bg-info me-2">Modal: @ConfiguringWidget.Name</span>
+                }
+                @if (Error is not null)
+                {
+                    <span class="text-danger small me-2">@Error</span>
+                }
+                @if (Dashboard.Status == DashboardStatus.Draft)
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="PublishDashboard" disabled="@Saving">
+                        <i class="bi bi-send"></i> @L["Screens_Publish"]
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-warning btn-sm" @onclick="UnpublishDashboard" disabled="@Saving">
+                        <i class="bi bi-archive"></i> @L["Screens_Unpublish"]
+                    </button>
+                }
+                <button class="btn btn-success btn-sm" @onclick="SaveLayout" disabled="@Saving">
+                    @if (Saving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-check-lg"></i> @L["Common_Save"]
+                </button>
+            </div>
+        </div>
+
+        <!-- Slide-out Widget Palette -->
+        <div class="editor-palette @(PaletteOpen ? "open" : "")">
+            <div class="palette-header">
+                <h6 class="mb-0">@L["Widgets_Palette"]</h6>
+                <button class="btn btn-sm btn-link text-muted p-0" @onclick="TogglePalette">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="palette-content">
+                @if (WidgetCatalog.Count == 0)
+                {
+                    <p class="text-muted small">@L["Widgets_NoWidgets"]</p>
+                }
+                else
+                {
+                    @foreach (var category in WidgetCatalog.GroupBy(w => w.Category))
+                    {
+                        <div class="mb-3" @key="category.Key">
+                            <div class="small text-muted text-uppercase mb-2">@category.Key</div>
+                            @foreach (var widget in category)
+                            {
+                                <div class="widget-palette-item"
+                                     draggable="true"
+                                     @key="widget.Id"
+                                     @ondragstart="() => OnDragStart(widget)"
+                                     @ondragend="OnDragEnd">
+                                    <div class="widget-palette-icon">
+                                        <i class="bi @GetWidgetIcon(widget.Name)"></i>
+                                    </div>
+                                    <div class="widget-palette-info">
+                                        <div class="widget-palette-name">@widget.Name</div>
+                                        <div class="widget-palette-desc">@widget.Description</div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Dashboard Canvas (fullscreen) -->
+        <div class="editor-canvas @(IsDragging ? "drag-over" : "")">
+            @if (PlacedWidgets.Count == 0)
+            {
+                <div class="text-center py-5 text-muted" style="pointer-events: none;">
+                    <i class="bi bi-grid-3x3-gap fs-1 mb-3 opacity-50"></i>
+                    <p>@L["Widgets_DragHere"]</p>
+                </div>
+            }
+            <div class="dashboard-canvas-grid"
+                 style="position: relative; min-height: calc(100vh - 60px); @(_positionsApplied || PlacedWidgets.Count == 0 ? "" : "visibility: hidden;")"
+                 @ondragover="OnDragOver"
+                 @ondragover:preventDefault="true"
+                 @ondrop="OnDropAtPosition"
+                 @ondrop:preventDefault="true">
+                @foreach (var widget in PlacedWidgets)
+                {
+                    <div class="dashboard-widget @(SelectedWidgetId == widget.Id ? "selected" : "")"
+                         data-widget-id="@widget.Id"
+                         style="@GetWidgetStyle(widget)"
+                         @key="widget.Id"
+                         @onclick="() => SelectWidget(widget.Id)">
+                        <div class="widget-toolbar">
+                            <button class="widget-toolbar-btn" title="@L["Widgets_Configure"]"
+                                    @onclick="() => OpenWidgetConfig(widget)" @onclick:stopPropagation="true">
+                                <i class="bi bi-gear"></i>
+                            </button>
+                            <button class="widget-toolbar-btn danger" title="@L["Delete"]"
+                                    @onclick="() => RemoveWidget(widget.Id)" @onclick:stopPropagation="true">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div class="widget-header widget-drag-handle"
+                             @onmousedown="e => StartMove(widget.Id, e)"
+                             @onmousedown:stopPropagation="true">
+                            <i class="bi bi-grip-horizontal me-1"></i>@widget.Name
+                        </div>
+                        <div class="widget-content">
+                            <RenderWidget Widget="widget" />
+                        </div>
+                        @* Resize handles *@
+                        <div class="resize-handle resize-e" @onmousedown="e => StartResizeE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-s" @onmousedown="e => StartResizeS(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-se" @onmousedown="e => StartResizeSE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Widget Configuration Modal -->
+@if (ConfiguringWidget is not null)
+{
+    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="widget-config-title">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="widget-config-title">
+                        @L["Widgets_Configure"]: @ConfiguringWidget.Name
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseWidgetConfig"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Widget Name -->
+                    <div class="mb-3">
+                        <label class="form-label">@L["Widgets_Name"]</label>
+                        <input type="text" class="form-control" @bind="ConfigDisplayName" />
+                    </div>
+
+                    <!-- Data Source -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">@L["Widgets_BusinessUnit"]</label>
+                            <div class="searchable-select">
+                                <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                       value="@BuSearchText"
+                                       @oninput="OnBuSearchInput"
+                                       @onfocus="() => BuDropdownOpen = true"
+                                       @onblur="OnBuSearchBlur" />
+                                @if (BuDropdownOpen)
+                                {
+                                    <div class="searchable-dropdown">
+                                        <div class="dropdown-item @(string.IsNullOrEmpty(ConfigBusinessUnit) ? "active" : "")"
+                                             @onmousedown="() => SelectBusinessUnit(null)"
+                                             @onmousedown:preventDefault="true">
+                                            <em>@L["Common_All"]</em>
+                                        </div>
+                                        @foreach (var bu in FilteredBusinessUnits)
+                                        {
+                                            <div class="dropdown-item @(ConfigBusinessUnit == bu.BusinessUnitId.ToString() ? "active" : "")"
+                                                 @onmousedown="() => SelectBusinessUnit(bu)"
+                                                 @onmousedown:preventDefault="true">
+                                                @bu.BusinessUnitName
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">@L["Widgets_Metric"]</label>
+                            <div class="searchable-select">
+                                <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                       value="@MetricSearchText"
+                                       @oninput="OnMetricSearchInput"
+                                       @onfocus="() => MetricDropdownOpen = true"
+                                       @onblur="OnMetricSearchBlur" />
+                                @if (MetricDropdownOpen)
+                                {
+                                    <div class="searchable-dropdown">
+                                        @foreach (var m in FilteredMetrics)
+                                        {
+                                            <div class="dropdown-item @(ConfigMetric == m.MetricId ? "active" : "")"
+                                                 @onmousedown="() => SelectMetric(m)"
+                                                 @onmousedown:preventDefault="true">
+                                                <div>@m.MetricId</div>
+                                                <small class="text-muted">@m.Description</small>
+                                            </div>
+                                        }
+                                        @if (!FilteredMetrics.Any())
+                                        {
+                                            <div class="dropdown-item text-muted">@L["Common_NoResults"]</div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Appearance -->
+                    <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_Appearance"]</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">@L["Widgets_FontSize"]</label>
+                            <select class="form-select" @bind="ConfigFontSize">
+                                <option value="small">@L["Widgets_FontSize_Small"] (12px)</option>
+                                <option value="normal">@L["Widgets_FontSize_Normal"] (14px)</option>
+                                <option value="large">@L["Widgets_FontSize_Large"] (18px)</option>
+                                <option value="xlarge">@L["Widgets_FontSize_XLarge"] (24px)</option>
+                                <option value="xxlarge">@L["Widgets_FontSize_XXLarge"] (32px)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">@L["Widgets_BackgroundColor"]</label>
+                            <div class="color-palette">
+                                @foreach (var color in BackgroundColors)
+                                {
+                                    <span class="clr-swatch @(ConfigBackgroundColor == color.Value ? "selected" : "")"
+                                          title="@color.Name"
+                                          style="@GetColorStyle(color.Value)"
+                                          @onclick="() => ConfigBackgroundColor = color.Value">
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">@L["Widgets_FontColor"]</label>
+                            <div class="color-palette">
+                                @foreach (var color in FontColors)
+                                {
+                                    <span class="clr-swatch @(ConfigFontColor == color.Value ? "selected" : "")"
+                                          title="@color.Name"
+                                          style="@GetColorStyle(color.Value)"
+                                          @onclick="() => ConfigFontColor = color.Value">
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Thresholds -->
+                    <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_Thresholds"]</h6>
+                    <div class="threshold-rules">
+                        @for (int i = 0; i < ConfigThresholds.Count; i++)
+                        {
+                            var idx = i;
+                            var rule = ConfigThresholds[idx];
+                            <div class="threshold-rule mb-2" @key="idx">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-2">
+                                        <label class="form-label small">@L["Widgets_From"]</label>
+                                        <input type="number" class="form-control form-control-sm"
+                                               value="@rule.From"
+                                               @onchange="e => UpdateThresholdFrom(idx, e)" />
+                                    </div>
+                                    <div class="col-2">
+                                        <label class="form-label small">@L["Widgets_To"]</label>
+                                        <input type="number" class="form-control form-control-sm"
+                                               value="@rule.To"
+                                               @onchange="e => UpdateThresholdTo(idx, e)" />
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label small">@L["Widgets_BackgroundColor"]</label>
+                                        <div class="color-palette compact">
+                                            @foreach (var color in ThresholdBackgroundColors)
+                                            {
+                                                <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
+                                                      title="@color.Name"
+                                                      style="@GetColorStyle(color.Value)"
+                                                      @onclick="() => UpdateThresholdBgColor(idx, color.Value)">
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label small">@L["Widgets_FontColor"]</label>
+                                        <div class="color-palette compact">
+                                            @foreach (var color in ThresholdFontColors)
+                                            {
+                                                <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
+                                                      title="@color.Name"
+                                                      style="@GetColorStyle(color.Value)"
+                                                      @onclick="() => UpdateThresholdFontColor(idx, color.Value)">
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="col-2 text-end">
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                @onclick="() => RemoveThreshold(idx)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2"
+                                @onclick="AddThreshold">
+                            <i class="bi bi-plus"></i> @L["Widgets_AddThreshold"]
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseWidgetConfig">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveWidgetConfig">@L["Common_Save"]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="editor-modal-backdrop"></div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private DashboardDto? Dashboard;
+    private List<WidgetCatalogItemDto> WidgetCatalog = [];
+    private List<PlacedWidget> PlacedWidgets = [];
+    private bool Loading = true;
+    private bool Saving;
+    private string? Error;
+    private string EditName = "";
+
+    // Fullscreen editor state
+    private bool PaletteOpen = false;
+    private void TogglePalette() => PaletteOpen = !PaletteOpen;
+
+    // Drag & Drop state
+    private bool IsDragging;
+    private WidgetCatalogItemDto? DraggedWidget;
+    private Guid? SelectedWidgetId;
+
+    // Widget Configuration
+    private PlacedWidget? ConfiguringWidget;
+    private string ConfigDisplayName = "";
+    private string? ConfigBusinessUnit;
+    private string? ConfigMetric;
+    private string ConfigFontSize = "normal";
+    private string ConfigBackgroundColor = "#FFFFFF";
+    private string ConfigFontColor = "#202124";
+    private List<ThresholdRule> ConfigThresholds = [];
+
+    // Reference data from DB
+    private List<BusinessUnitDto> BusinessUnits = [];
+    private List<RtsGridMetricDto> Metrics = [];
+
+    // Search dropdowns state
+    private string BuSearchText = "";
+    private string MetricSearchText = "";
+    private bool BuDropdownOpen;
+    private bool MetricDropdownOpen;
+
+    private IEnumerable<BusinessUnitDto> FilteredBusinessUnits =>
+        string.IsNullOrWhiteSpace(BuSearchText)
+            ? BusinessUnits
+            : BusinessUnits.Where(bu =>
+                (bu.BusinessUnitName?.Contains(BuSearchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                bu.BusinessUnitId.ToString().Contains(BuSearchText));
+
+    private IEnumerable<RtsGridMetricDto> FilteredMetrics =>
+        string.IsNullOrWhiteSpace(MetricSearchText)
+            ? Metrics
+            : Metrics.Where(m =>
+                m.MetricId.Contains(MetricSearchText, StringComparison.OrdinalIgnoreCase) ||
+                (m.Description?.Contains(MetricSearchText, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    // Color palettes — threshold semantic colors
+    private static readonly (string Name, string Value)[] BackgroundColors =
+    [
+        // Neutrals
+        ("White", "#FFFFFF"),
+        ("Null", "#F2F1EF"),
+        ("Null Badge", "#E4E3E0"),
+        ("Dark", "#1A1A1A"),
+        // Threshold backgrounds
+        ("OK", "#EEF7E8"),
+        ("OK Badge", "#D8F0CC"),
+        ("Warning", "#FDF3E3"),
+        ("Warning Badge", "#F9E4BF"),
+        ("Critical", "#FAECEC"),
+        ("Critical Badge", "#F5D0D0")
+    ];
+
+    private static readonly (string Name, string Value)[] FontColors =
+    [
+        // Core text colors
+        ("Dark", "#1A1A1A"),
+        ("Null", "#666562"),
+        ("Null Accent", "#8F8E89"),
+        ("White", "#FFFFFF"),
+        // Threshold text colors
+        ("OK", "#2D5A1B"),
+        ("OK Accent", "#4E9A34"),
+        ("Warning", "#7A4A0A"),
+        ("Warning Accent", "#C87E20"),
+        ("Critical", "#882020"),
+        ("Critical Accent", "#C03535")
+    ];
+
+    private static readonly (string Name, string Value)[] ThresholdBackgroundColors =
+    [
+        ("Transparent", "transparent"),
+        ("White", "#FFFFFF"),
+        ("Null", "#F2F1EF"),
+        ("Null Badge", "#E4E3E0"),
+        ("OK", "#EEF7E8"),
+        ("OK Badge", "#D8F0CC"),
+        ("Warning", "#FDF3E3"),
+        ("Warning Badge", "#F9E4BF"),
+        ("Critical", "#FAECEC"),
+        ("Critical Badge", "#F5D0D0")
+    ];
+
+    private static readonly (string Name, string Value)[] ThresholdFontColors =
+    [
+        ("Dark", "#1A1A1A"),
+        ("White", "#FFFFFF"),
+        ("Null", "#666562"),
+        ("OK", "#2D5A1B"),
+        ("Warning", "#7A4A0A"),
+        ("Critical", "#882020")
+    ];
+
+    // JS interop for resize
+    private DotNetObjectReference<ScreenEditorPage>? _dotNetRef;
+
+    private bool _positionsApplied;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("widgetResize.init", _dotNetRef);
+        }
+
+        // Apply widget positions via JS only once after initial load
+        if (!_positionsApplied && PlacedWidgets.Count > 0 && !Loading)
+        {
+            var widgetPositions = PlacedWidgets.Select(w => new {
+                id = w.Id.ToString(),
+                x = w.X,
+                y = w.Y,
+                width = w.Width,
+                height = w.Height
+            }).ToArray();
+            await JS.InvokeVoidAsync("widgetResize.applyAllWidgetPositions", (object)widgetPositions);
+            _positionsApplied = true;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnWidgetResized(string widgetIdStr, int width, int height)
+    {
+        if (Guid.TryParse(widgetIdStr, out var widgetId))
+        {
+            var widget = PlacedWidgets.FirstOrDefault(w => w.Id == widgetId);
+            if (widget != null)
+            {
+                widget.Width = width;
+                widget.Height = height;
+                StateHasChanged();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Loading = true;
+        try
+        {
+            // Load dashboard first - this is required
+            Dashboard = await Mediator.Send(new GetDashboardByIdQuery(Id), _cts.Token);
+            EditName = Dashboard?.Name ?? "";
+
+            // Load widget catalog - required for drag-drop
+            var categories = await Mediator.Send(new GetWidgetCatalogQuery(), _cts.Token);
+            WidgetCatalog = categories.SelectMany(c => c.Items).ToList();
+
+            // Load reference data - isolated so failures don't break drag-drop
+            Guid? dashboardTenantId = Dashboard?.TenantId;
+            try
+            {
+                BusinessUnits = (await Mediator.Send(new GetBusinessUnitsQuery(dashboardTenantId), _cts.Token)).ToList();
+            }
+            catch { BusinessUnits = []; }
+
+            try
+            {
+                Metrics = (await Mediator.Send(new GetRtsGridMetricsQuery(), _cts.Token)).ToList();
+            }
+            catch { Metrics = []; }
+
+            // Load existing widgets from Dashboard.Widgets if available
+            if (Dashboard?.Widgets != null)
+            {
+                foreach (var w in Dashboard.Widgets)
+                {
+                    var catalogItem = WidgetCatalog.FirstOrDefault(c => c.Id == w.WidgetCatalogItemId);
+                    if (catalogItem != null)
+                    {
+                        var (width, height, x, y) = ParseWidgetDimensions(w.PositionJson);
+                        var config = ParseWidgetConfig(w.ConfigJson);
+                        PlacedWidgets.Add(new PlacedWidget
+                        {
+                            Id = w.Id,
+                            CatalogItemId = w.WidgetCatalogItemId,
+                            Name = config.DisplayName ?? catalogItem.Name,
+                            Category = catalogItem.Category,
+                            Width = width,
+                            Height = height,
+                            X = x,
+                            Y = y,
+                            Config = config
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+        finally
+        {
+            Loading = false;
+        }
+    }
+
+    private void OnDragStart(WidgetCatalogItemDto widget)
+    {
+        DraggedWidget = widget;
+        IsDragging = true;
+    }
+
+    private void OnDragEnd()
+    {
+        IsDragging = false;
+    }
+
+    private void OnDragOver()
+    {
+        // Required for drop to work
+    }
+
+    private void OnDrop()
+    {
+        if (DraggedWidget is null) return;
+
+        // Auto-offset new widgets to avoid stacking
+        var offsetX = (PlacedWidgets.Count % 4) * 300;
+        var offsetY = (PlacedWidgets.Count / 4) * 220;
+
+        PlacedWidgets.Add(new PlacedWidget
+        {
+            Id = Guid.NewGuid(),
+            CatalogItemId = DraggedWidget.Id,
+            Name = DraggedWidget.Name,
+            Category = DraggedWidget.Category,
+            Width = 280,
+            Height = 200,
+            X = offsetX,
+            Y = offsetY,
+            Config = new WidgetConfig()
+        });
+
+        DraggedWidget = null;
+        IsDragging = false;
+    }
+
+    private async Task OnDropAtPosition(DragEventArgs e)
+    {
+        if (DraggedWidget is null) return;
+
+        // Try JS interop for accurate position, fallback to offset calculation
+        int posX, posY;
+        try
+        {
+            var pos = await JS.InvokeAsync<DropPosition>("widgetResize.getDropPosition", e.ClientX, e.ClientY);
+            posX = pos.X;
+            posY = pos.Y;
+        }
+        catch
+        {
+            // Fallback: offset from palette (250px) + grid position
+            posX = 270 + (PlacedWidgets.Count % 3) * 300;
+            posY = 20 + (PlacedWidgets.Count / 3) * 220;
+        }
+
+        var newWidget = new PlacedWidget
+        {
+            Id = Guid.NewGuid(),
+            CatalogItemId = DraggedWidget.Id,
+            Name = DraggedWidget.Name,
+            Category = DraggedWidget.Category,
+            Width = 280,
+            Height = 200,
+            X = posX,
+            Y = posY,
+            Config = new WidgetConfig()
+        };
+        PlacedWidgets.Add(newWidget);
+
+        DraggedWidget = null;
+        IsDragging = false;
+
+        // Apply position via JS after render
+        StateHasChanged();
+        await Task.Delay(50);
+        try
+        {
+            await JS.InvokeVoidAsync("widgetResize.applyWidgetPosition",
+                newWidget.Id.ToString(), newWidget.X, newWidget.Y, newWidget.Width, newWidget.Height);
+        }
+        catch { /* ignore JS errors */ }
+    }
+
+    private record DropPosition(int X, int Y);
+
+    private Task StartResizeE(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "e", e);
+    private Task StartResizeS(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "s", e);
+    private Task StartResizeSE(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "se", e);
+
+    private async Task StartResize(Guid widgetId, string handle, MouseEventArgs e)
+    {
+        await JS.InvokeVoidAsync("widgetResize.startResize", widgetId.ToString(), handle, new { clientX = e.ClientX, clientY = e.ClientY });
+    }
+
+    private async Task StartMove(Guid widgetId, MouseEventArgs e)
+    {
+        await JS.InvokeVoidAsync("widgetResize.startMove", widgetId.ToString(), new { clientX = e.ClientX, clientY = e.ClientY });
+    }
+
+    [JSInvokable]
+    public void OnWidgetMoved(string widgetIdStr, int left, int top)
+    {
+        if (Guid.TryParse(widgetIdStr, out var widgetId))
+        {
+            var widget = PlacedWidgets.FirstOrDefault(w => w.Id == widgetId);
+            if (widget != null)
+            {
+                widget.X = left;
+                widget.Y = top;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private static string GetWidgetStyle(PlacedWidget widget)
+    {
+        return $"left:{widget.X}px; top:{widget.Y}px; width:{widget.Width}px; height:{widget.Height}px;";
+    }
+
+    private void SelectWidget(Guid widgetId)
+    {
+        SelectedWidgetId = SelectedWidgetId == widgetId ? null : widgetId;
+    }
+
+    private void RemoveWidget(Guid widgetId)
+    {
+        PlacedWidgets.RemoveAll(w => w.Id == widgetId);
+        if (SelectedWidgetId == widgetId) SelectedWidgetId = null;
+    }
+
+    private void OpenWidgetConfig(PlacedWidget widget)
+    {
+        Console.WriteLine($"[DEBUG] OpenWidgetConfig called for widget: {widget.Name}");
+        ConfiguringWidget = widget;
+        ConfigDisplayName = widget.Config.DisplayName ?? widget.Name;
+        ConfigBusinessUnit = widget.Config.BusinessUnit;
+        ConfigMetric = widget.Config.Metric;
+        ConfigFontSize = widget.Config.FontSize ?? "normal";
+        ConfigBackgroundColor = widget.Config.BackgroundColor ?? "#FFFFFF";
+        ConfigFontColor = widget.Config.FontColor ?? "#202124";
+        ConfigThresholds = widget.Config.Thresholds?.Select(t => new ThresholdRule
+        {
+            From = t.From,
+            To = t.To,
+            BackgroundColor = t.BackgroundColor,
+            FontColor = t.FontColor
+        }).ToList() ?? [];
+
+        // Initialize search fields with selected values
+        BuSearchText = GetBusinessUnitName(ConfigBusinessUnit);
+        MetricSearchText = ConfigMetric ?? "";
+        BuDropdownOpen = false;
+        MetricDropdownOpen = false;
+    }
+
+    private void CloseWidgetConfig()
+    {
+        ConfiguringWidget = null;
+        ConfigThresholds = [];
+        BuDropdownOpen = false;
+        MetricDropdownOpen = false;
+    }
+
+    // Searchable dropdown helpers
+    private void OnBuSearchInput(ChangeEventArgs e)
+    {
+        BuSearchText = e.Value?.ToString() ?? "";
+        BuDropdownOpen = true;
+    }
+
+    private async Task OnBuSearchBlur()
+    {
+        await Task.Delay(200);
+        BuDropdownOpen = false;
+        StateHasChanged();
+    }
+
+    private void OnMetricSearchInput(ChangeEventArgs e)
+    {
+        MetricSearchText = e.Value?.ToString() ?? "";
+        MetricDropdownOpen = true;
+    }
+
+    private async Task OnMetricSearchBlur()
+    {
+        await Task.Delay(200);
+        MetricDropdownOpen = false;
+        StateHasChanged();
+    }
+
+    private void SelectBusinessUnit(BusinessUnitDto? bu)
+    {
+        ConfigBusinessUnit = bu?.BusinessUnitId.ToString();
+        BuSearchText = bu?.BusinessUnitName ?? "";
+        BuDropdownOpen = false;
+    }
+
+    private void SelectMetric(RtsGridMetricDto m)
+    {
+        ConfigMetric = m.MetricId;
+        MetricSearchText = m.MetricId;
+        MetricDropdownOpen = false;
+    }
+
+    private string GetBusinessUnitName(string? buId)
+    {
+        if (string.IsNullOrEmpty(buId)) return "";
+        if (int.TryParse(buId, out var id))
+        {
+            return BusinessUnits.FirstOrDefault(bu => bu.BusinessUnitId == id)?.BusinessUnitName ?? buId;
+        }
+        return buId;
+    }
+
+    private void SaveWidgetConfig()
+    {
+        if (ConfiguringWidget is null) return;
+
+        ConfiguringWidget.Config = new WidgetConfig
+        {
+            DisplayName = ConfigDisplayName,
+            BusinessUnit = ConfigBusinessUnit,
+            Metric = ConfigMetric,
+            FontSize = ConfigFontSize,
+            BackgroundColor = ConfigBackgroundColor,
+            FontColor = ConfigFontColor,
+            Thresholds = ConfigThresholds.Select(t => new ThresholdRule
+            {
+                From = t.From,
+                To = t.To,
+                BackgroundColor = t.BackgroundColor,
+                FontColor = t.FontColor
+            }).ToList()
+        };
+
+        // Update widget display name
+        if (!string.IsNullOrWhiteSpace(ConfigDisplayName))
+        {
+            ConfiguringWidget.Name = ConfigDisplayName;
+        }
+
+        CloseWidgetConfig();
+    }
+
+    // Threshold management
+    private void AddThreshold()
+    {
+        ConfigThresholds.Add(new ThresholdRule
+        {
+            From = 0,
+            To = 100,
+            BackgroundColor = "#DFFBE6",
+            FontColor = "#0A5D1E"
+        });
+    }
+
+    private void RemoveThreshold(int index)
+    {
+        if (index >= 0 && index < ConfigThresholds.Count)
+            ConfigThresholds.RemoveAt(index);
+    }
+
+    private void UpdateThresholdFrom(int index, ChangeEventArgs e)
+    {
+        if (index >= 0 && index < ConfigThresholds.Count && int.TryParse(e.Value?.ToString(), out var val))
+            ConfigThresholds[index].From = val;
+    }
+
+    private void UpdateThresholdTo(int index, ChangeEventArgs e)
+    {
+        if (index >= 0 && index < ConfigThresholds.Count && int.TryParse(e.Value?.ToString(), out var val))
+            ConfigThresholds[index].To = val;
+    }
+
+    private void UpdateThresholdBgColor(int index, string color)
+    {
+        if (index >= 0 && index < ConfigThresholds.Count)
+            ConfigThresholds[index].BackgroundColor = color;
+    }
+
+    private void UpdateThresholdFontColor(int index, string color)
+    {
+        if (index >= 0 && index < ConfigThresholds.Count)
+            ConfigThresholds[index].FontColor = color;
+    }
+
+    private async Task SaveLayout()
+    {
+        if (Dashboard is null) return;
+        Saving = true;
+        Error = null;
+
+        try
+        {
+            // Save name if changed
+            if (!string.IsNullOrWhiteSpace(EditName) && EditName != Dashboard.Name)
+            {
+                await Mediator.Send(new UpdateDashboardCommand(
+                    new UpdateDashboardRequest(Dashboard.Id, EditName.Trim(), Dashboard.Description,
+                        Dashboard.CategoryId, Dashboard.Status, Dashboard.IsPublic, Dashboard.RowVersion)), _cts.Token);
+            }
+
+            // Save widgets
+            var widgetDtos = PlacedWidgets.Select(w => new DashboardWidgetDto(
+                w.Id,
+                Dashboard.Id,
+                w.CatalogItemId,
+                System.Text.Json.JsonSerializer.Serialize(new { w.Width, w.Height, w.X, w.Y }),
+                System.Text.Json.JsonSerializer.Serialize(w.Config)
+            )).ToList();
+
+            await Mediator.Send(new UpdateDashboardWidgetsCommand(Dashboard.Id, widgetDtos), _cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+        finally
+        {
+            Saving = false;
+        }
+    }
+
+    private void PreviewDashboard()
+    {
+        Nav.NavigateTo($"/screens/{Id}");
+    }
+
+    private async Task PublishDashboard()
+    {
+        if (Dashboard is null) return;
+        Saving = true;
+        Error = null;
+        try
+        {
+            await Mediator.Send(new UpdateDashboardCommand(
+                new UpdateDashboardRequest(Dashboard.Id, Dashboard.Name, Dashboard.Description,
+                    Dashboard.CategoryId, DashboardStatus.Published, Dashboard.IsPublic, Dashboard.RowVersion)), _cts.Token);
+            Dashboard = await Mediator.Send(new GetDashboardByIdQuery(Id), _cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+        finally
+        {
+            Saving = false;
+        }
+    }
+
+    private async Task UnpublishDashboard()
+    {
+        if (Dashboard is null) return;
+        Saving = true;
+        Error = null;
+        try
+        {
+            await Mediator.Send(new UpdateDashboardCommand(
+                new UpdateDashboardRequest(Dashboard.Id, Dashboard.Name, Dashboard.Description,
+                    Dashboard.CategoryId, DashboardStatus.Draft, Dashboard.IsPublic, Dashboard.RowVersion)), _cts.Token);
+            Dashboard = await Mediator.Send(new GetDashboardByIdQuery(Id), _cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+        finally
+        {
+            Saving = false;
+        }
+    }
+
+    private static string GetColorStyle(string colorValue)
+    {
+        return $"background: {colorValue} !important; background-color: {colorValue} !important;";
+    }
+
+    private static string GetWidgetIcon(string widgetName)
+    {
+        var n = widgetName.ToLower();
+        if (n.Contains("queue")) return "bi-people-fill";
+        if (n.Contains("agent")) return "bi-person-badge";
+        if (n.Contains("kpi") || n.Contains("scorecard")) return "bi-speedometer2";
+        if (n.Contains("chart") || n.Contains("trend")) return "bi-graph-up";
+        if (n.Contains("call")) return "bi-telephone";
+        if (n.Contains("sla")) return "bi-bullseye";
+        return "bi-grid-3x3";
+    }
+
+    private static (int Width, int Height, int X, int Y) ParseWidgetDimensions(string? positionJson)
+    {
+        if (string.IsNullOrEmpty(positionJson)) return (280, 200, 0, 0);
+        try
+        {
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var pos = System.Text.Json.JsonSerializer.Deserialize<PositionData>(positionJson, options);
+            return (pos?.Width ?? 280, pos?.Height ?? 200, pos?.X ?? 0, pos?.Y ?? 0);
+        }
+        catch { }
+        return (280, 200, 0, 0);
+    }
+
+    private class PositionData
+    {
+        public int Width { get; set; } = 280;
+        public int Height { get; set; } = 200;
+        public int X { get; set; }
+        public int Y { get; set; }
+    }
+
+    private static WidgetConfig ParseWidgetConfig(string? configJson)
+    {
+        if (string.IsNullOrEmpty(configJson)) return new WidgetConfig();
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<WidgetConfig>(configJson) ?? new WidgetConfig();
+        }
+        catch { return new WidgetConfig(); }
+    }
+
+    private readonly CancellationTokenSource _cts = new();
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _dotNetRef?.Dispose();
+        _ = JS.InvokeVoidAsync("widgetResize.dispose");
+    }
+
+    // Inner classes
+    public class PlacedWidget
+    {
+        public Guid Id { get; set; }
+        public Guid CatalogItemId { get; set; }
+        public string Name { get; set; } = "";
+        public string Category { get; set; } = "";
+        public int Width { get; set; } = 280;
+        public int Height { get; set; } = 200;
+        public int X { get; set; } = 0;
+        public int Y { get; set; } = 0;
+        public WidgetConfig Config { get; set; } = new();
+    }
+
+    public class WidgetConfig
+    {
+        public string? DisplayName { get; set; }
+        public string? BusinessUnit { get; set; }
+        public string? Metric { get; set; }
+        public string? FontSize { get; set; }
+        public string? BackgroundColor { get; set; }
+        public string? FontColor { get; set; }
+        public List<ThresholdRule>? Thresholds { get; set; }
+    }
+
+    public class ThresholdRule
+    {
+        public int? From { get; set; }
+        public int? To { get; set; }
+        public string? BackgroundColor { get; set; }
+        public string? FontColor { get; set; }
+    }
+}

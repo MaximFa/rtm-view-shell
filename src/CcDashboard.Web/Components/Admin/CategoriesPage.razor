@@ -1,0 +1,324 @@
+@page "/admin/categories"
+@rendermode InteractiveServer
+@layout MainLayout
+@attribute [Authorize(Roles = "Superadmin,Administrator")]
+@inject IMediator Mediator
+@inject ICurrentUserAccessor CurrentUser
+@using MediatR
+@using CcDashboard.Application.Commands.Dashboards
+@using CcDashboard.Application.Queries.Dashboards
+@using CcDashboard.Application.Queries.Tenants
+@using CcDashboard.Contracts.DTOs.Dashboards
+@using CcDashboard.Domain.Interfaces
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>@L["Categories_Title"] — RTM View Shell</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">@L["Categories_Title"]</h1>
+    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">@L["Categories_New"]</button>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-md-4">
+        <input class="form-control form-control-sm" placeholder="@L["Categories_SearchPlaceholder"]"
+               @bind="Search" @bind:event="oninput" @onkeyup="OnSearchKey" />
+    </div>
+    @if (IsSuperadmin)
+    {
+        <div class="col-md-3">
+            <select class="form-select form-select-sm" @bind="TenantFilter" @bind:after="LoadAsync">
+                <option value="">@L["Categories_AllTenants"]</option>
+                @foreach (var t in Tenants)
+                {
+                    <option value="@t.Id">@t.Name</option>
+                }
+            </select>
+        </div>
+    }
+</div>
+
+@if (Loading)
+{
+    <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+}
+else if (Categories == null || Categories.Items.Count == 0)
+{
+    <div class="text-center py-5 text-muted">
+        <p>@L["Categories_Empty"]</p>
+        <button class="btn btn-outline-primary btn-sm" @onclick="OpenCreate">@L["Categories_New"]</button>
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 30%;">@L["Categories_Name"]</th>
+                    <th style="width: 35%;">@L["Categories_Description"]</th>
+                    @if (IsSuperadmin)
+                    {
+                        <th style="width: 15%;">@L["Categories_Tenant"]</th>
+                    }
+                    <th style="width: 10%;" class="text-center">@L["Categories_Dashboards"]</th>
+                    <th style="width: 10%;" class="text-end">@L["Common_Actions"]</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Categories.Items)
+                {
+                    <tr @key="c.Id">
+                        <td class="fw-medium">@c.Name</td>
+                        <td class="small text-muted">@(c.Description ?? "—")</td>
+                        @if (IsSuperadmin)
+                        {
+                            <td class="small">@(c.TenantName ?? "—")</td>
+                        }
+                        <td class="text-center">
+                            @if (c.DashboardCount > 0)
+                            {
+                                <span class="badge bg-secondary">@c.DashboardCount</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">0</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-icon" title="@L["Edit"]" @onclick="() => OpenEdit(c)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <span class="text-muted small">@Categories.TotalCount @L["Common_Records"]</span>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(Categories.Page <= 1)"
+                    @onclick="PrevPage">@L["Common_Prev"]</button>
+            <span class="align-self-center small">@L["Common_Page"] @Categories.Page @L["Common_Of"] @Categories.TotalPages</span>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(Categories.Page >= Categories.TotalPages)"
+                    @onclick="NextPage">@L["Common_Next"]</button>
+        </div>
+    </div>
+}
+
+@if (Error is not null)
+{
+    <div class="alert alert-danger alert-dismissible mt-2 py-2" role="alert">
+        @Error <button type="button" class="btn-close btn-sm" @onclick="() => Error = null"></button>
+    </div>
+}
+
+<!-- Create Modal -->
+@if (ShowCreate)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@L["Categories_CreateModal"]</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@SaveError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">@L["Categories_Name"] <span class="text-danger">*</span></label>
+                        <input class="form-control" @bind="CreateName" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Categories_Description"]</label>
+                        <textarea class="form-control" rows="2" @bind="CreateDescription" maxlength="500"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModals">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveCreate" disabled="@Saving">
+                        @(Saving ? L["Common_Saving"].Value : L["Categories_CreateButton"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Edit Modal -->
+@if (ShowEdit && EditCategory is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@L["Categories_EditModal"]</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@SaveError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">@L["Categories_Name"] <span class="text-danger">*</span></label>
+                        <input class="form-control" @bind="EditName" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Categories_Description"]</label>
+                        <textarea class="form-control" rows="2" @bind="EditDescription" maxlength="500"></textarea>
+                    </div>
+                    <hr />
+                    <div class="text-danger">
+                        <strong>@L["Screens_DangerZone"]</strong>
+                        @if (EditCategory.DashboardCount > 0)
+                        {
+                            <p class="small mt-2 mb-0">@L["Categories_CannotDelete"]</p>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-outline-danger ms-3"
+                                    @onclick="() => ConfirmDelete = true" disabled="@ConfirmDelete">
+                                @L["Categories_DeleteButton"]
+                            </button>
+                            @if (ConfirmDelete)
+                            {
+                                <span class="ms-2 small">@L["Screens_AreYouSure"]
+                                    <button class="btn btn-danger btn-sm ms-1" @onclick="DeleteCategory">@L["Screens_YesDelete"]</button>
+                                    <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">@L["Common_Cancel"]</button>
+                                </span>
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModals">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveEdit" disabled="@Saving">
+                        @(Saving ? L["Common_Saving"].Value : L["Common_Save"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private CcDashboard.Contracts.Common.PagedResult<DashboardCategoryDto>? Categories;
+    private bool Loading = true;
+    private string? Search;
+    private string? TenantFilter;
+    private string? Error;
+    private string? SaveError;
+    private bool Saving;
+    private int CurrentPage = 1;
+
+    private bool IsSuperadmin;
+    private IReadOnlyList<CcDashboard.Contracts.DTOs.Tenants.TenantDto> Tenants = [];
+
+    // Create
+    private bool ShowCreate;
+    private string? CreateName;
+    private string? CreateDescription;
+
+    // Edit
+    private bool ShowEdit;
+    private DashboardCategoryDto? EditCategory;
+    private string? EditName;
+    private string? EditDescription;
+    private bool ConfirmDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        IsSuperadmin = CurrentUser.Role == "Superadmin";
+        if (IsSuperadmin)
+        {
+            try { Tenants = await Mediator.Send(new GetTenantsQuery()); }
+            catch { Tenants = []; }
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        Loading = true;
+        try
+        {
+            Guid? tenantId = string.IsNullOrEmpty(TenantFilter) ? null
+                : Guid.TryParse(TenantFilter, out var tid) ? tid : null;
+            Categories = await Mediator.Send(new GetDashboardCategoriesQuery(
+                new DashboardCategoryListRequest(Search, tenantId, CurrentPage, 25)));
+        }
+        catch (Exception ex) { Error = ex.Message; }
+        finally { Loading = false; }
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") { CurrentPage = 1; await LoadAsync(); }
+    }
+
+    private async Task PrevPage() { CurrentPage--; await LoadAsync(); }
+    private async Task NextPage() { CurrentPage++; await LoadAsync(); }
+
+    private void OpenCreate()
+    {
+        CreateName = null; CreateDescription = null;
+        SaveError = null; ShowCreate = true; ShowEdit = false;
+    }
+
+    private void OpenEdit(DashboardCategoryDto c)
+    {
+        EditCategory = c; EditName = c.Name; EditDescription = c.Description;
+        ConfirmDelete = false; SaveError = null; ShowEdit = true; ShowCreate = false;
+    }
+
+    private void CloseModals() { ShowCreate = false; ShowEdit = false; SaveError = null; }
+
+    private async Task SaveCreate()
+    {
+        if (string.IsNullOrWhiteSpace(CreateName)) { SaveError = L["Categories_Name"] + " is required."; return; }
+        Saving = true; SaveError = null;
+        try
+        {
+            await Mediator.Send(new CreateDashboardCategoryCommand(
+                new CreateDashboardCategoryRequest(CreateName.Trim(), CreateDescription?.Trim())));
+            CloseModals(); await LoadAsync();
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task SaveEdit()
+    {
+        if (EditCategory is null || string.IsNullOrWhiteSpace(EditName)) { SaveError = L["Categories_Name"] + " is required."; return; }
+        Saving = true; SaveError = null;
+        try
+        {
+            await Mediator.Send(new UpdateDashboardCategoryCommand(
+                new UpdateDashboardCategoryRequest(EditCategory.Id, EditName.Trim(), EditDescription?.Trim())));
+            CloseModals(); await LoadAsync();
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+
+    private async Task DeleteCategory()
+    {
+        if (EditCategory is null) return;
+        Saving = true;
+        try
+        {
+            await Mediator.Send(new DeleteDashboardCategoryCommand(EditCategory.Id));
+            CloseModals(); await LoadAsync();
+        }
+        catch (Exception ex) { SaveError = ex.Message; }
+        finally { Saving = false; }
+    }
+}

@@ -24,7 +24,10 @@ public class CreateDashboardCommandHandler(
     {
         var now = clock.UtcNow;
         var userId = currentUser.UserId!.Value;
-        var tenantId = currentUser.TenantId!.Value;
+        // Superadmin can specify target tenant; otherwise use current user's tenant
+        var tenantId = currentUser.Role == "Superadmin" && cmd.Request.TenantId.HasValue
+            ? cmd.Request.TenantId.Value
+            : currentUser.TenantId!.Value;
 
         var dashboard = new Dashboard
         {
@@ -32,6 +35,7 @@ public class CreateDashboardCommandHandler(
             TenantId = tenantId,
             Name = cmd.Request.Name.Trim(),
             Description = cmd.Request.Description?.Trim(),
+            CategoryId = cmd.Request.CategoryId,
             IsPublic = cmd.Request.IsPublic,
             CreatedByUserId = userId,
             UpdatedByUserId = userId,
@@ -57,6 +61,6 @@ public class CreateDashboardCommandHandler(
     }
 
     private static DashboardDto MapToDto(Dashboard d) => new(
-        d.Id, d.TenantId, d.Name, d.Description, d.Status, d.IsPublic,
-        d.CreatedByUserId, null, d.CreatedAt, d.UpdatedAt);
+        d.Id, d.TenantId, null, d.Name, d.Description, d.CategoryId, null, d.Status, d.IsPublic,
+        d.CreatedByUserId, null, d.CreatedAt, d.UpdatedByUserId, null, d.UpdatedAt);
 }

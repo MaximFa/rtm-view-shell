@@ -12,7 +12,7 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
         ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
         ctx.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
         ctx.Response.Headers["Content-Security-Policy"] =
-            $"default-src 'self'; script-src 'self' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; " +
+            $"default-src 'self'; script-src 'self' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; " +
             $"img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:; frame-ancestors 'none';";
 
         if (ctx.Request.IsHttps)

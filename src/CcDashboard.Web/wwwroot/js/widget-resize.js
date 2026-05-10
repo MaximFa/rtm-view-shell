@@ -1,0 +1,170 @@
+// Widget resize and move functionality
+window.widgetResize = {
+    activeWidget: null,
+    mode: null, // 'resize' or 'move'
+    startX: 0,
+    startY: 0,
+    startWidth: 0,
+    startHeight: 0,
+    startLeft: 0,
+    startTop: 0,
+    dotNetRef: null,
+
+    init: function (dotNetRef) {
+        this.dotNetRef = dotNetRef;
+        this._onMouseMove = this.onMouseMove.bind(this);
+        this._onMouseUp = this.onMouseUp.bind(this);
+        document.addEventListener('mousemove', this._onMouseMove);
+        document.addEventListener('mouseup', this._onMouseUp);
+    },
+
+    startResize: function (widgetId, handle, coords) {
+        const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
+        if (!widget) return;
+
+        this.activeWidget = { id: widgetId, element: widget, handle: handle };
+        this.mode = 'resize';
+        this.startX = coords.clientX;
+        this.startY = coords.clientY;
+        this.startWidth = widget.offsetWidth;
+        this.startHeight = widget.offsetHeight;
+
+        widget.classList.add('resizing');
+        document.body.style.cursor = this.getCursor(handle);
+        document.body.style.userSelect = 'none';
+    },
+
+    startMove: function (widgetId, coords) {
+        const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
+        if (!widget) return;
+
+        // Get current position from style or computed style
+        const style = window.getComputedStyle(widget);
+        const left = parseInt(style.left) || 0;
+        const top = parseInt(style.top) || 0;
+
+        this.activeWidget = { id: widgetId, element: widget };
+        this.mode = 'move';
+        this.startX = coords.clientX;
+        this.startY = coords.clientY;
+        this.startLeft = left;
+        this.startTop = top;
+
+        widget.classList.add('moving');
+        document.body.style.cursor = 'move';
+        document.body.style.userSelect = 'none';
+    },
+
+    onMouseMove: function (event) {
+        if (!this.activeWidget) return;
+
+        const deltaX = event.clientX - this.startX;
+        const deltaY = event.clientY - this.startY;
+        const widget = this.activeWidget.element;
+
+        if (this.mode === 'resize') {
+            const handle = this.activeWidget.handle;
+            let newWidth = this.startWidth;
+            let newHeight = this.startHeight;
+
+            if (handle.includes('e')) newWidth = Math.max(150, this.startWidth + deltaX);
+            if (handle.includes('s')) newHeight = Math.max(100, this.startHeight + deltaY);
+
+            // Snap to grid (10px)
+            newWidth = Math.round(newWidth / 10) * 10;
+            newHeight = Math.round(newHeight / 10) * 10;
+
+            widget.style.width = newWidth + 'px';
+            widget.style.height = newHeight + 'px';
+        } else if (this.mode === 'move') {
+            let newLeft = this.startLeft + deltaX;
+            let newTop = this.startTop + deltaY;
+
+            // Snap to grid (10px)
+            newLeft = Math.round(newLeft / 10) * 10;
+            newTop = Math.round(newTop / 10) * 10;
+
+            // Constrain to canvas
+            newLeft = Math.max(0, newLeft);
+            newTop = Math.max(0, newTop);
+
+            widget.style.left = newLeft + 'px';
+            widget.style.top = newTop + 'px';
+        }
+    },
+
+    onMouseUp: function (event) {
+        if (!this.activeWidget) return;
+
+        const widget = this.activeWidget.element;
+        const widgetId = this.activeWidget.id;
+
+        widget.classList.remove('resizing', 'moving');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+
+        if (this.dotNetRef) {
+            if (this.mode === 'resize') {
+                this.dotNetRef.invokeMethodAsync('OnWidgetResized', widgetId, widget.offsetWidth, widget.offsetHeight);
+            } else if (this.mode === 'move') {
+                const style = window.getComputedStyle(widget);
+                const left = parseInt(style.left) || 0;
+                const top = parseInt(style.top) || 0;
+                this.dotNetRef.invokeMethodAsync('OnWidgetMoved', widgetId, left, top);
+            }
+        }
+
+        this.activeWidget = null;
+        this.mode = null;
+    },
+
+    getCursor: function (handle) {
+        const cursors = { 'e': 'ew-resize', 's': 'ns-resize', 'se': 'nwse-resize' };
+        return cursors[handle] || 'default';
+    },
+
+    dispose: function () {
+        if (this._onMouseMove) document.removeEventListener('mousemove', this._onMouseMove);
+        if (this._onMouseUp) document.removeEventListener('mouseup', this._onMouseUp);
+        this.dotNetRef = null;
+        this.activeWidget = null;
+    },
+
+    getDropPosition: function (clientX, clientY) {
+        const canvas = document.querySelector('.dashboard-canvas-grid');
+        if (!canvas) return { x: 0, y: 0 };
+
+        const rect = canvas.getBoundingClientRect();
+        let x = clientX - rect.left;
+        let y = clientY - rect.top;
+
+        // Snap to 10px grid
+        x = Math.round(x / 10) * 10;
+        y = Math.round(y / 10) * 10;
+
+        // Ensure non-negative
+        x = Math.max(0, x);
+        y = Math.max(0, y);
+
+        return { x: x, y: y };
+    },
+
+    applyWidgetPosition: function (widgetId, x, y, width, height) {
+        const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
+        if (!widget) return;
+
+        widget.style.position = 'absolute';
+        widget.style.left = x + 'px';
+        widget.style.top = y + 'px';
+        widget.style.width = width + 'px';
+        widget.style.height = height + 'px';
+    },
+
+    applyAllWidgetPositions: function (widgets) {
+        if (!widgets || !widgets.length) return;
+
+        widgets.forEach(w => {
+            this.applyWidgetPosition(w.id, w.x, w.y, w.width, w.height);
+        });
+    }
+};

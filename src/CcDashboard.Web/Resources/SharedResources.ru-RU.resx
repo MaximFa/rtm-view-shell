@@ -112,47 +112,89 @@
   <data name="Nav_Content"><value>Контент</value></data>
   <data name="Nav_Administration"><value>Администрирование</value></data>
   <data name="Nav_Platform"><value>Платформа</value></data>
-  <data name="Nav_Screens"><value>Экраны</value></data>
+  <data name="Nav_Screens"><value>Дашборды</value></data>
   <data name="Nav_WidgetCatalogue"><value>Каталог виджетов</value></data>
   <data name="Nav_Users"><value>Пользователи</value></data>
   <data name="Nav_PermissionGroups"><value>Группы доступа</value></data>
   <data name="Nav_TenantSettings"><value>Настройки тенанта</value></data>
+  <data name="Nav_Categories"><value>Категории</value></data>
   <data name="Nav_AuditLog"><value>Журнал аудита</value></data>
   <data name="Nav_Tenants"><value>Тенанты</value></data>
 
   <!-- ── Screens (Dashboards) ── -->
-  <data name="Screens_Title"><value>Экраны</value></data>
-  <data name="Screens_New"><value>+ Новый экран</value></data>
+  <data name="Screens_Title"><value>Дашборды</value></data>
+  <data name="Screens_New"><value>+ Новый дашборд</value></data>
   <data name="Screens_SearchPlaceholder"><value>Поиск по названию...</value></data>
+  <data name="Screens_Category"><value>Категория</value></data>
+  <data name="Screens_AllCategories"><value>Все категории</value></data>
+  <data name="Screens_Tenant"><value>Тенант</value></data>
+  <data name="Screens_AllTenants"><value>Все тенанты</value></data>
   <data name="Screens_AllStatuses"><value>Все статусы</value></data>
   <data name="Screens_Draft"><value>Черновик</value></data>
   <data name="Screens_Published"><value>Опубликован</value></data>
-  <data name="Screens_NoScreens"><value>Экраны не найдены.</value></data>
-  <data name="Screens_CreateFirst"><value>Создайте первый экран</value></data>
+  <data name="Screens_Publish"><value>Опубликовать</value></data>
+  <data name="Screens_Unpublish"><value>В черновик</value></data>
+  <data name="Screens_NoScreens"><value>Дашборды не найдены.</value></data>
+  <data name="Screens_CreateFirst"><value>Создайте первый дашборд</value></data>
   <data name="Screens_Open"><value>Открыть →</value></data>
   <data name="Screens_Name"><value>Название</value></data>
   <data name="Screens_Description"><value>Описание</value></data>
   <data name="Screens_Status"><value>Статус</value></data>
   <data name="Screens_IsPublic"><value>Видим всем пользователям тенанта (IsPublic)</value></data>
-  <data name="Screens_IsPublicHelp"><value>Если включено, экран доступен всем аутентифицированным пользователям без явного назначения группы [DASH-01]</value></data>
-  <data name="Screens_CreateModal"><value>Новый экран</value></data>
-  <data name="Screens_EditModal"><value>Настройки экрана</value></data>
-  <data name="Screens_CreateButton"><value>Создать экран →</value></data>
+  <data name="Screens_IsPublicHelp"><value>Если включено, дашборд доступен всем аутентифицированным пользователям без явного назначения группы [DASH-01]</value></data>
+  <data name="Screens_CreateModal"><value>Новый дашборд</value></data>
+  <data name="Screens_EditModal"><value>Настройки дашборда</value></data>
+  <data name="Screens_CreateButton"><value>Создать дашборд →</value></data>
   <data name="Screens_DangerZone"><value>Опасная зона</value></data>
-  <data name="Screens_DeleteScreen"><value>Удалить экран</value></data>
+  <data name="Screens_DeleteScreen"><value>Удалить дашборд</value></data>
   <data name="Screens_AreYouSure"><value>Вы уверены?</value></data>
   <data name="Screens_YesDelete"><value>Да, удалить</value></data>
   <data name="Screens_Public"><value>Публичный</value></data>
-  <data name="Screens_NotFound"><value>Экран не найден или у вас нет доступа.</value></data>
+  <data name="Screens_NotFound"><value>Дашборд не найден или у вас нет доступа.</value></data>
   <data name="Screens_AllQueues"><value>Все очереди</value></data>
   <data name="Screens_LiveIndicator"><value>Live · обновление 5с</value></data>
   <data name="Screens_Pause"><value>Пауза</value></data>
   <data name="Screens_Resume"><value>Возобновить</value></data>
   <data name="Screens_Back"><value>← Назад</value></data>
+  <data name="Screens_Trash"><value>Корзина</value></data>
+  <data name="Screens_TrashEmpty"><value>Корзина пуста</value></data>
+  <data name="Screens_TrashInfo"><value>Удалённые дашборды будут окончательно удалены через {0} дней.</value></data>
+  <data name="Screens_DeletedAt"><value>Удалено</value></data>
+  <data name="Screens_DeletedBy"><value>Удалил</value></data>
+  <data name="Screens_DaysRemaining"><value>Дней осталось</value></data>
+  <data name="Screens_Restore"><value>Восстановить</value></data>
+  <data name="Common_Days"><value>дн.</value></data>
 
   <!-- ── Widget Catalogue ── -->
   <data name="WidgetCatalogue_Title"><value>Каталог виджетов</value></data>
   <data name="WidgetCatalogue_Inactive"><value>Неактивен</value></data>
+
+  <!-- ── Widget Editor ── -->
+  <data name="Widgets_Name"><value>Название виджета</value></data>
+  <data name="Widgets_Palette"><value>Виджеты</value></data>
+  <data name="Widgets_NoWidgets"><value>Виджеты недоступны</value></data>
+  <data name="Widgets_DragHere"><value>Перетащите виджеты сюда</value></data>
+  <data name="Widgets_NoWidgetsPlaced"><value>Виджеты не размещены</value></data>
+  <data name="Widgets_Configure"><value>Настроить</value></data>
+  <data name="Widgets_Resize"><value>Изменить размер</value></data>
+  <data name="Widgets_BusinessUnit"><value>Подразделение</value></data>
+  <data name="Widgets_Metric"><value>Метрика</value></data>
+  <data name="Widgets_Threshold"><value>Пороги</value></data>
+  <data name="Widgets_ThresholdWarning"><value>Предупреждение</value></data>
+  <data name="Widgets_ThresholdCritical"><value>Критический</value></data>
+  <data name="Widgets_Appearance"><value>Оформление</value></data>
+  <data name="Widgets_FontSize"><value>Размер шрифта</value></data>
+  <data name="Widgets_FontSize_Small"><value>Маленький</value></data>
+  <data name="Widgets_FontSize_Normal"><value>Обычный</value></data>
+  <data name="Widgets_FontSize_Large"><value>Большой</value></data>
+  <data name="Widgets_FontSize_XLarge"><value>Очень большой</value></data>
+  <data name="Widgets_FontSize_XXLarge"><value>Огромный</value></data>
+  <data name="Widgets_BackgroundColor"><value>Фон</value></data>
+  <data name="Widgets_FontColor"><value>Цвет текста</value></data>
+  <data name="Widgets_Thresholds"><value>Правила порогов</value></data>
+  <data name="Widgets_From"><value>От</value></data>
+  <data name="Widgets_To"><value>До</value></data>
+  <data name="Widgets_AddThreshold"><value>Добавить правило</value></data>
 
   <!-- ── Users Admin ── -->
   <data name="Users_Title"><value>Управление пользователями</value></data>
@@ -226,6 +268,22 @@
   <data name="PG_Selected"><value>Выбрано</value></data>
   <data name="PG_NoItemsAvailable"><value>Нет доступных элементов</value></data>
 
+  <!-- ── Categories (Dashboard) ── -->
+  <data name="Categories_Title"><value>Категории дашбордов</value></data>
+  <data name="Categories_New"><value>+ Новая категория</value></data>
+  <data name="Categories_CreateModal"><value>Новая категория</value></data>
+  <data name="Categories_EditModal"><value>Редактировать категорию</value></data>
+  <data name="Categories_Name"><value>Название</value></data>
+  <data name="Categories_Description"><value>Описание</value></data>
+  <data name="Categories_Tenant"><value>Тенант</value></data>
+  <data name="Categories_AllTenants"><value>Все тенанты</value></data>
+  <data name="Categories_Dashboards"><value>Дашборды</value></data>
+  <data name="Categories_Empty"><value>Категории не найдены.</value></data>
+  <data name="Categories_CreateButton"><value>Создать категорию →</value></data>
+  <data name="Categories_DeleteButton"><value>Удалить категорию</value></data>
+  <data name="Categories_CannotDelete"><value>Невозможно удалить: категория используется дашбордами.</value></data>
+  <data name="Categories_SearchPlaceholder"><value>Поиск категорий...</value></data>
+
   <!-- ── Audit Log ── -->
   <data name="Audit_Title"><value>Журнал аудита</value></data>
   <data name="Audit_AllTenants"><value>Все тенанты</value></data>
@@ -255,7 +313,7 @@
   <data name="TenantSettings_DefaultLocale"><value>Язык по умолчанию</value></data>
   <data name="TenantSettings_DataRetention"><value>Хранение данных</value></data>
   <data name="TenantSettings_AuditRetention"><value>Хранение журнала аудита (дни)</value></data>
-  <data name="TenantSettings_SoftDelete"><value>Включить мягкое удаление экранов</value></data>
+  <data name="TenantSettings_SoftDelete"><value>Включить мягкое удаление дашбордов</value></data>
   <data name="TenantSettings_SoftDeleteRetention"><value>Хранение после мягкого удаления (дни)</value></data>
   <data name="TenantSettings_Licensing"><value>Лицензирование</value></data>
   <data name="TenantSettings_PurchasedLicences"><value>Купленные лицензии</value></data>
@@ -291,6 +349,11 @@
   <data name="Tenants_SlugReadOnly"><value>Слаг нельзя изменить после создания</value></data>
 
   <!-- ── Common ── -->
+  <data name="Common_Widgets"><value>Виджеты</value></data>
+  <data name="Common_Updated"><value>Обновлено</value></data>
+  <data name="Common_CreatedBy"><value>Создал</value></data>
+  <data name="Common_UpdatedBy"><value>Обновил</value></data>
+  <data name="Common_Actions"><value>Действия</value></data>
   <data name="Common_Save"><value>Сохранить →</value></data>
   <data name="Common_Cancel"><value>Отмена</value></data>
   <data name="Common_Delete"><value>Удалить</value></data>
@@ -309,6 +372,7 @@
   <data name="Common_Page"><value>Стр.</value></data>
   <data name="Common_Of"><value>из</value></data>
   <data name="Common_Records"><value>запис.</value></data>
+  <data name="Common_AndMore"><value>...и ещё {0}</value></data>
 
   <!-- ── Common shorthand aliases ── -->
   <data name="Cancel"><value>Отмена</value></data>
@@ -343,6 +407,7 @@
   <data name="Sites_SiteIdRequired"><value>ID сайта обязателен.</value></data>
   <data name="Sites_DeleteConfirm"><value>Удалить сайт</value></data>
   <data name="Sites_DeleteWarning"><value>Удалить сайт</value></data>
+  <data name="Sites_UsedInBU"><value>Нельзя удалить: используется в бизнес-единицах</value></data>
   <data name="Sites_SelectTimeZone"><value>Выберите часовой пояс</value></data>
 
   <!-- ── Business Units ── -->
@@ -359,6 +424,7 @@
   <data name="BU_NameRequired"><value>Название обязательно.</value></data>
   <data name="BU_DeleteConfirm"><value>Удалить бизнес-единицу</value></data>
   <data name="BU_DeleteWarning"><value>Удалить бизнес-единицу</value></data>
+  <data name="BU_UsedInWidgets"><value>Нельзя удалить: используется в виджетах</value></data>
 
   <!-- ── Super Groups ── -->
   <data name="SG_Title"><value>Супергруппы</value></data>
@@ -371,6 +437,7 @@
   <data name="SG_NameRequired"><value>Название обязательно.</value></data>
   <data name="SG_DeleteConfirm"><value>Удалить супергруппу</value></data>
   <data name="SG_DeleteWarning"><value>Удалить супергруппу</value></data>
+  <data name="SG_UsedInBU"><value>Нельзя удалить: используется в бизнес-единицах</value></data>
 
   <!-- ── Metrics ── -->
   <data name="Metrics_Title"><value>Метрики</value></data>

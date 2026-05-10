@@ -75,8 +75,7 @@ else
                         <td><span class="badge bg-secondary">@bu.QueueIds.Count</span></td>
                         <td><span class="badge bg-secondary">@bu.SupergroupIds.Count</span></td>
                         <td class="text-end">
-                            <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => OpenModal(bu)">@L["Edit"]</button>
-                            <button class="btn btn-outline-danger btn-sm" @onclick="() => ConfirmDelete(bu)">@L["Delete"]</button>
+                            <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenModal(bu)">@L["Edit"]</button>
                         </td>
                     </tr>
                 }
@@ -153,6 +152,42 @@ else
                             SelectedIds="@SelectedSupergroupIds"
                             SelectedIdsChanged="@(ids => SelectedSupergroupIds = ids)" />
                     }
+
+                    @if (EditId is not null)
+                    {
+                        <hr class="my-3" />
+                        <div class="text-danger">
+                            <strong>@L["Screens_DangerZone"]</strong>
+                            @if (WidgetsUsingBu.Count > 0)
+                            {
+                                <p class="small mt-2 mb-1">@L["BU_UsedInWidgets"]:</p>
+                                <ul class="small mb-0">
+                                    @foreach (var w in WidgetsUsingBu.Take(5))
+                                    {
+                                        <li>@w</li>
+                                    }
+                                    @if (WidgetsUsingBu.Count > 5)
+                                    {
+                                        <li>@L["Common_AndMore", WidgetsUsingBu.Count - 5]</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-danger ms-3 mt-2"
+                                        @onclick="() => ConfirmDelete = true" disabled="@ConfirmDelete">
+                                    @L["BU_DeleteConfirm"]
+                                </button>
+                                @if (ConfirmDelete)
+                                {
+                                    <span class="ms-2 small">@L["Screens_AreYouSure"]
+                                        <button class="btn btn-danger btn-sm ms-1" @onclick="ExecuteDelete">@L["Screens_YesDelete"]</button>
+                                        <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">@L["Cancel"]</button>
+                                    </span>
+                                }
+                            }
+                        </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary btn-sm" @onclick="CloseModal">@L["Cancel"]</button>
@@ -166,24 +201,6 @@ else
     </div>
 }
 
-@if (DeleteTarget is not null)
-{
-    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-bu-delete-title">
-        <div class="modal-dialog modal-sm">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modal-bu-delete-title">@L["BU_DeleteConfirm"]</h5>
-                    <button class="btn-close" @onclick="() => DeleteTarget = null"></button>
-                </div>
-                <div class="modal-body">@L["BU_DeleteWarning"]: <strong>@DeleteTarget.BusinessUnitName</strong></div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary btn-sm" @onclick="() => DeleteTarget = null">@L["Cancel"]</button>
-                    <button class="btn btn-danger btn-sm" @onclick="ExecuteDelete">@L["Delete"]</button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
 
 @code {
     private IReadOnlyList<BusinessUnitDto> BusinessUnits = [];
@@ -206,8 +223,8 @@ else
     private string? EditSiteId;
     private HashSet<string> SelectedQueueIds = [];
     private HashSet<int> SelectedSupergroupIds = [];
-
-    private BusinessUnitDto? DeleteTarget;
+    private bool ConfirmDelete;
+    private List<string> WidgetsUsingBu = [];
 
     private IReadOnlyList<(string Key, string Label)> QueueItems =>
         AllQueues.Select(q => (q.QueueId, q.Name ?? q.QueueId)).ToList();
@@ -242,7 +259,7 @@ else
         finally { Loading = false; }
     }
 
-    private void OpenModal(BusinessUnitDto? bu)
+    private async Task OpenModal(BusinessUnitDto? bu)
     {
         EditId = bu?.BusinessUnitId;
         EditName = bu?.BusinessUnitName;
@@ -252,6 +269,12 @@ else
         SelectedSupergroupIds = bu?.SupergroupIds.ToHashSet() ?? [];
         ActiveTab = "queues";
         ModalError = null;
+        ConfirmDelete = false;
+        WidgetsUsingBu = [];
+        if (bu is not null)
+        {
+            WidgetsUsingBu = await Mediator.Send(new GetWidgetsUsingBusinessUnitQuery(bu.BusinessUnitId));
+        }
         ShowModal = true;
     }
 
@@ -277,19 +300,17 @@ else
         finally { Saving = false; }
     }
 
-    private void ConfirmDelete(BusinessUnitDto bu) => DeleteTarget = bu;
-
     private async Task ExecuteDelete()
     {
-        if (DeleteTarget is null) return;
+        if (EditId is null) return;
         try
         {
-            var result = await Mediator.Send(new DeleteBusinessUnitCommand(DeleteTarget.BusinessUnitId));
-            if (!result.IsSuccess) Error = result.Error;
-            DeleteTarget = null;
+            var result = await Mediator.Send(new DeleteBusinessUnitCommand(EditId.Value));
+            if (!result.IsSuccess) { ModalError = result.Error; return; }
+            CloseModal();
             await LoadAsync();
         }
-        catch (Exception ex) { Error = SafeError(ex); DeleteTarget = null; }
+        catch (Exception ex) { ModalError = SafeError(ex); }
     }
 
     private static string SafeError(Exception ex) =>

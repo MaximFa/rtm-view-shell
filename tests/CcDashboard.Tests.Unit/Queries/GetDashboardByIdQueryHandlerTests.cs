@@ -2,6 +2,7 @@ using CcDashboard.Application.Interfaces;
 using CcDashboard.Application.Queries.Dashboards;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Enums;
+using CcDashboard.Domain.Interfaces;
 using FluentAssertions;
 using NSubstitute;
 
@@ -10,11 +11,14 @@ namespace CcDashboard.Tests.Unit.Queries;
 public class GetDashboardByIdQueryHandlerTests
 {
     private readonly IDashboardRepository _repo = Substitute.For<IDashboardRepository>();
+    private readonly IUserRepository _users = Substitute.For<IUserRepository>();
+    private readonly ICurrentUserAccessor _currentUser = Substitute.For<ICurrentUserAccessor>();
     private readonly GetDashboardByIdQueryHandler _handler;
 
     public GetDashboardByIdQueryHandlerTests()
     {
-        _handler = new GetDashboardByIdQueryHandler(_repo);
+        _currentUser.Role.Returns("Administrator");
+        _handler = new GetDashboardByIdQueryHandler(_repo, _users, _currentUser);
     }
 
     [Fact]
@@ -34,11 +38,13 @@ public class GetDashboardByIdQueryHandlerTests
             Status = DashboardStatus.Published,
             IsPublic = true,
             CreatedByUserId = userId,
+            UpdatedByUserId = userId,
             CreatedAt = now,
             UpdatedAt = now,
-            RowVersion = 5
+            RowVersion = 5,
+            Widgets = []
         };
-        _repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns(dashboard);
+        _repo.GetByIdWithWidgetsAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(dashboard);
 
         var result = await _handler.Handle(new GetDashboardByIdQuery(id), CancellationToken.None);
 
@@ -53,7 +59,7 @@ public class GetDashboardByIdQueryHandlerTests
     public async Task Handle_NotFound_ReturnsNull()
     {
         var id = Guid.NewGuid();
-        _repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns((Dashboard?)null);
+        _repo.GetByIdWithWidgetsAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns((Dashboard?)null);
 
         var result = await _handler.Handle(new GetDashboardByIdQuery(id), CancellationToken.None);
 

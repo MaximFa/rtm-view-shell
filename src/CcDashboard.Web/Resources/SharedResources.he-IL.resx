@@ -309,6 +309,7 @@
   <data name="Common_Page"><value>עמוד</value></data>
   <data name="Common_Of"><value>מתוך</value></data>
   <data name="Common_Records"><value>רשומות</value></data>
+  <data name="Common_AndMore"><value>...ועוד {0}</value></data>
 
   <!-- ── Errors ── -->
   <data name="Error_NotFound"><value>המשאב המבוקש לא נמצא.</value></data>
@@ -349,6 +350,7 @@
   <data name="Sites_SiteIdRequired"><value>מזהה אתר הוא שדה חובה.</value></data>
   <data name="Sites_DeleteConfirm"><value>מחיקת אתר</value></data>
   <data name="Sites_DeleteWarning"><value>מחק אתר</value></data>
+  <data name="Sites_UsedInBU"><value>לא ניתן למחוק: בשימוש ביחידות עסקיות</value></data>
   <data name="Sites_SelectTimeZone"><value>בחר אזור זמן</value></data>
 
   <!-- ── Business Units ── -->
@@ -365,6 +367,7 @@
   <data name="BU_NameRequired"><value>שם הוא שדה חובה.</value></data>
   <data name="BU_DeleteConfirm"><value>מחיקת יחידה עסקית</value></data>
   <data name="BU_DeleteWarning"><value>מחק יחידה עסקית</value></data>
+  <data name="BU_UsedInWidgets"><value>לא ניתן למחוק: בשימוש בווידג'טים</value></data>
 
   <!-- ── Super Groups ── -->
   <data name="SG_Title"><value>קבוצות-על</value></data>
@@ -377,6 +380,7 @@
   <data name="SG_NameRequired"><value>שם הוא שדה חובה.</value></data>
   <data name="SG_DeleteConfirm"><value>מחיקת קבוצת-על</value></data>
   <data name="SG_DeleteWarning"><value>מחק קבוצת-על</value></data>
+  <data name="SG_UsedInBU"><value>לא ניתן למחוק: בשימוש ביחידות עסקיות</value></data>
 
   <!-- ── Metrics ── -->
   <data name="Metrics_Title"><value>מדדים</value></data>
@@ -396,5 +400,27 @@
   <data name="Metrics_ParameterRequired"><value>פרמטר מדד הוא שדה חובה.</value></data>
   <data name="Metrics_DeleteConfirm"><value>מחיקת מדד</value></data>
   <data name="Metrics_DeleteWarning"><value>מחק מדד</value></data>
+
+  <!-- ── Categories (Dashboard) ── -->
+  <data name="Nav_Categories"><value>קטגוריות</value></data>
+  <data name="Categories_Title"><value>קטגוריות מסכים</value></data>
+  <data name="Categories_New"><value>+ קטגוריה חדשה</value></data>
+  <data name="Categories_CreateModal"><value>קטגוריה חדשה</value></data>
+  <data name="Categories_EditModal"><value>עריכת קטגוריה</value></data>
+  <data name="Categories_Name"><value>שם</value></data>
+  <data name="Categories_Description"><value>תיאור</value></data>
+  <data name="Categories_Tenant"><value>ארגון</value></data>
+  <data name="Categories_AllTenants"><value>כל הארגונים</value></data>
+  <data name="Categories_Dashboards"><value>מסכים</value></data>
+  <data name="Categories_Empty"><value>לא נמצאו קטגוריות.</value></data>
+  <data name="Categories_CreateButton"><value>צור קטגוריה ←</value></data>
+  <data name="Categories_DeleteButton"><value>מחק קטגוריה</value></data>
+  <data name="Categories_CannotDelete"><value>לא ניתן למחוק: הקטגוריה בשימוש במסכים.</value></data>
+  <data name="Categories_SearchPlaceholder"><value>חיפוש קטגוריות...</value></data>
+  <data name="Screens_Category"><value>קטגוריה</value></data>
+  <data name="Screens_AllCategories"><value>כל הקטגוריות</value></data>
+  <data name="Screens_Tenant"><value>ארגון</value></data>
+  <data name="Screens_AllTenants"><value>כל הארגונים</value></data>
+  <data name="Common_Actions"><value>פעולות</value></data>
 </root>
 

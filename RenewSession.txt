@@ -12,3 +12,19 @@ claude --resume 61838cc4-ff59-4536-a4d7-1c1a159ba4f6
   Shell, продолжаем тестирование" — и я прочитаю memory и войду в курс дела за пару секунд.
   
   DB - ccdashboard_user
+  
+  
+  app-cyber-security-expert
+  blazor-server-expert
+  frontend-design
+  program-architector
+  ux-ui-expert
+  
+  
+  contact-center-expert
+  contact-center-shift-manager
+  contact-center-manager
+  contact-center-director
+  contact-center-ceo
+  technical-writer
+  platform-presale

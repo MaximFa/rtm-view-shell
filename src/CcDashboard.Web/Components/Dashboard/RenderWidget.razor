@@ -1,0 +1,29 @@
+@using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+@using CcDashboard.Web.Components.Widgets
+
+@* Widget content renderer - renders placeholder until real widget library is implemented *@
+
+<div class="widget-render">
+    @switch (Widget.Name.ToLower())
+    {
+        case var n when n.Contains("queue") && n.Contains("summary"):
+            <QueueSummaryWidget Config="Widget.Config" />
+            break;
+        case var n when n.Contains("agent") && n.Contains("status"):
+            <AgentStatusWidget Config="Widget.Config" />
+            break;
+        case var n when n.Contains("kpi") || n.Contains("scorecard"):
+            <KpiWidget Config="Widget.Config" />
+            break;
+        default:
+            <div class="text-center text-muted small">
+                <i class="bi bi-puzzle fs-4 mb-2 d-block opacity-50"></i>
+                @Widget.Name
+            </div>
+            break;
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PlacedWidget Widget { get; set; } = null!;
+}

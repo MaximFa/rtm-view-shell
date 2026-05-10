@@ -1,0 +1,12 @@
+● Blazor генерировал правильные inline-стили (left: 390px; top: 100px), они были видны в DevTools в панели Styles, но
+  браузер их игнорировал — в Computed показывало left: 0px.
+
+  Решение: вместо inline-стилей Blazor применять позиции через JavaScript после рендера:
+
+  widget.style.left = x + 'px';
+  widget.style.top = y + 'px';
+
+  Это делается в OnAfterRenderAsync через widgetResize.applyAllWidgetPositions(). Флаг _positionsApplied + visibility:
+  hidden убирают визуальный скачок при загрузке.
+
+  Редкий баг — Blazor inline-стили с позициями не применялись, хотя с размерами (width/height) всё работало.

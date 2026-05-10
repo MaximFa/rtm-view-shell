@@ -21,7 +21,8 @@ public class DeleteDashboardCommandHandler(
 {
     public async Task Handle(DeleteDashboardCommand cmd, CancellationToken ct)
     {
-        var dashboard = await dashboards.GetByIdAsync(cmd.DashboardId, ct)
+        var isSuperadmin = currentUser.Role == "Superadmin";
+        var dashboard = await dashboards.GetByIdAsync(cmd.DashboardId, bypassTenantFilter: isSuperadmin, ct)
             ?? throw new NotFoundException(nameof(Dashboard), cmd.DashboardId);
 
         dashboard.IsDeleted = true;
