@@ -1,0 +1,224 @@
+using SignalRSimulator.Models;
+
+namespace SignalRSimulator.Generators;
+
+public static class AgentDataGenerator
+{
+    private static readonly Random _random = new();
+
+    private static readonly List<(string Id, string Name, string Ext, string Team)> _agentTemplates = new()
+    {
+        ("A001", "Иванов Иван", "1001", "Sales Team"),
+        ("A002", "Петрова Мария", "1002", "Sales Team"),
+        ("A003", "Сидоров Алексей", "1003", "Sales Team"),
+        ("A004", "Козлова Елена", "1004", "Support Team"),
+        ("A005", "Морозов Дмитрий", "1005", "Support Team"),
+        ("A006", "Новикова Анна", "1006", "Sales Team"),
+        ("A007", "Волков Сергей", "1007", "Support Team"),
+        ("A008", "Соколова Ольга", "1008", "VIP Team"),
+        ("A009", "Лебедев Андрей", "1009", "Sales Team"),
+        ("A010", "Федорова Наталья", "1010", "Support Team"),
+        ("A011", "Михайлов Павел", "1011", "VIP Team"),
+        ("A012", "Егорова Татьяна", "1012", "Sales Team"),
+    };
+
+    private static readonly Dictionary<string, AgentState> _agentStates = new();
+    private static readonly Dictionary<string, DateTime> _stateStartTimes = new();
+    private static readonly Dictionary<string, string?> _agentCalls = new();
+
+    public static AgentGridUpdate Generate(Guid gridId)
+    {
+        var now = DateTime.UtcNow;
+        var agents = new List<AgentStatusDto>();
+
+        foreach (var template in _agentTemplates)
+        {
+            // Initialize or potentially change state
+            if (!_agentStates.ContainsKey(template.Id))
+            {
+                _agentStates[template.Id] = GetRandomInitialState();
+                _stateStartTimes[template.Id] = now.AddSeconds(-_random.Next(10, 300));
+                _agentCalls[template.Id] = null;
+            }
+
+            // Randomly change state (10% chance)
+            if (_random.Next(100) < 10)
+            {
+                var oldState = _agentStates[template.Id];
+                var newState = GetNextState(oldState);
+                if (newState != oldState)
+                {
+                    _agentStates[template.Id] = newState;
+                    _stateStartTimes[template.Id] = now;
+
+                    // Handle call lifecycle
+                    if (newState == AgentState.Talking || newState == AgentState.Outbound)
+                        _agentCalls[template.Id] = $"CALL-{_random.Next(1000, 9999)}";
+                    else if (oldState == AgentState.Talking || oldState == AgentState.Hold || oldState == AgentState.Outbound)
+                        _agentCalls[template.Id] = null;
+                }
+            }
+
+            var state = _agentStates[template.Id];
+            var stateStart = _stateStartTimes[template.Id];
+            var stateDuration = (int)(now - stateStart).TotalSeconds;
+            var callId = _agentCalls[template.Id];
+
+            var agent = CreateAgent(template.Id, template.Name, template.Ext, template.Team,
+                state, stateDuration, stateStart, callId, now);
+
+            agents.Add(agent);
+        }
+
+        return new AgentGridUpdate(gridId, now, agents);
+    }
+
+    private static AgentState GetRandomInitialState()
+    {
+        var weights = new[] { 30, 25, 5, 15, 15, 5, 5 }; // Ready, Talking, Hold, Acw, NotReady, Outbound, LoggedOut
+        var total = weights.Sum();
+        var roll = _random.Next(total);
+        var cumulative = 0;
+
+        for (int i = 0; i < weights.Length; i++)
+        {
+            cumulative += weights[i];
+            if (roll < cumulative)
+                return (AgentState)i;
+        }
+
+        return AgentState.Ready;
+    }
+
+    private static AgentState GetNextState(AgentState current)
+    {
+        return current switch
+        {
+            AgentState.Ready => _random.Next(100) < 70 ? AgentState.Talking : AgentState.NotReady,
+            AgentState.Talking => _random.Next(100) switch
+            {
+                < 50 => AgentState.Acw,
+                < 70 => AgentState.Hold,
+                _ => AgentState.Talking
+            },
+            AgentState.Hold => _random.Next(100) < 80 ? AgentState.Talking : AgentState.Acw,
+            AgentState.Acw => AgentState.Ready,
+            AgentState.NotReady => AgentState.Ready,
+            AgentState.Outbound => _random.Next(100) < 70 ? AgentState.Acw : AgentState.Ready,
+            AgentState.LoggedOut => _random.Next(100) < 30 ? AgentState.Ready : AgentState.LoggedOut,
+            _ => AgentState.Ready
+        };
+    }
+
+    private static AgentStatusDto CreateAgent(
+        string agentId, string name, string ext, string team,
+        AgentState state, int stateDuration, DateTime stateStart,
+        string? callId, DateTime now)
+    {
+        // Not Ready reasons
+        string? nrCode = null, nrName = null;
+        if (state == AgentState.NotReady)
+        {
+            var reasons = new[] { ("LUNCH", "Обед"), ("BREAK", "Перерыв"), ("TRAINING", "Обучение"), ("MEETING", "Совещание") };
+            var reason = reasons[_random.Next(reasons.Length)];
+            nrCode = reason.Item1;
+            nrName = reason.Item2;
+        }
+
+        // Call context
+        int? callDuration = null;
+        CallDirection? callDir = null;
+        string? queue = null;
+        string? caller = null;
+
+        if (state == AgentState.Talking || state == AgentState.Hold)
+        {
+            callDuration = _random.Next(30, Math.Max(31, stateDuration));
+            callDir = CallDirection.Inbound;
+            queue = team switch
+            {
+                "Sales Team" => "Sales_RU",
+                "Support Team" => "Support_RU",
+                "VIP Team" => "VIP_RU",
+                _ => "General"
+            };
+            caller = $"+7***{_random.Next(1000, 9999)}";
+        }
+        else if (state == AgentState.Outbound)
+        {
+            callDuration = _random.Next(30, Math.Max(31, stateDuration));
+            callDir = CallDirection.Outbound;
+            caller = $"+7***{_random.Next(1000, 9999)}";
+        }
+
+        // Skills and queues
+        var skills = team switch
+        {
+            "Sales Team" => new[] { "Sales", "Russian" },
+            "Support Team" => new[] { "Technical", "Russian" },
+            "VIP Team" => new[] { "VIP", "Sales", "Russian", "English" },
+            _ => new[] { "General" }
+        };
+
+        var queues = team switch
+        {
+            "Sales Team" => new[] { "Sales_RU", "Sales_EN" },
+            "Support Team" => new[] { "Support_RU", "Support_EN" },
+            "VIP Team" => new[] { "VIP_RU", "VIP_EN" },
+            _ => new[] { "General" }
+        };
+
+        // Metrics
+        var callsToday = _random.Next(15, 45);
+        var aht = _random.Next(180, 360);
+        var acwAvg = _random.Next(45, 120);
+        var occupancy = state == AgentState.LoggedOut ? 0m : _random.Next(700, 950) / 10m;
+        var utilisation = _random.Next(650, 850) / 10m;
+        var adherence = _random.Next(850, 990) / 10m;
+
+        // Alert logic
+        var alertLevel = AlertLevel.None;
+        string? alertReason = null;
+
+        if (state == AgentState.Acw && stateDuration > 300)
+        {
+            alertLevel = AlertLevel.Critical;
+            alertReason = "ACW > 5 min";
+        }
+        else if (state == AgentState.Acw && stateDuration > 180)
+        {
+            alertLevel = AlertLevel.Warning;
+            alertReason = "ACW > 3 min";
+        }
+        else if (state == AgentState.Talking && stateDuration > 1200)
+        {
+            alertLevel = AlertLevel.Critical;
+            alertReason = "Long call > 20 min";
+        }
+        else if (state == AgentState.Talking && stateDuration > 900)
+        {
+            alertLevel = AlertLevel.Warning;
+            alertReason = "Long call > 15 min";
+        }
+        else if (occupancy > 95)
+        {
+            alertLevel = AlertLevel.Critical;
+            alertReason = "Occupancy > 95%";
+        }
+        else if (occupancy > 90)
+        {
+            alertLevel = AlertLevel.Warning;
+            alertReason = "Occupancy > 90%";
+        }
+
+        return new AgentStatusDto(
+            agentId, name, ext, team,
+            state, stateDuration, stateStart, nrCode, nrName,
+            callId, callDuration, callDir, queue, caller,
+            skills, queues,
+            callsToday, aht, acwAvg,
+            occupancy, utilisation, adherence,
+            alertLevel != AlertLevel.None, alertLevel, alertReason
+        );
+    }
+}

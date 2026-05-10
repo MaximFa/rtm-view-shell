@@ -321,6 +321,9 @@
   <data name="TenantSettings_MaxConcurrentConnections"><value>Параллельные подключения</value></data>
   <data name="TenantSettings_ConnectionsHelp"><value>Максимальное количество одновременных сессий на пользователя с разных IP-адресов. 0 = без ограничений.</value></data>
   <data name="TenantSettings_Saved"><value>Настройки сохранены.</value></data>
+  <data name="TenantSettings_SignalR"><value>SignalR виджеты</value></data>
+  <data name="TenantSettings_SignalRUrl"><value>URL подключения SignalR</value></data>
+  <data name="TenantSettings_SignalRUrlHelp"><value>URL для подключения SignalR виджетов (например, http://localhost:5045). Оставьте пустым для значения по умолчанию.</value></data>
 
   <!-- ── Tenants (Platform) ── -->
   <data name="Tenants_Title"><value>Управление тенантами</value></data>
@@ -457,6 +460,30 @@
   <data name="Metrics_ParameterRequired"><value>Параметр метрики обязателен.</value></data>
   <data name="Metrics_DeleteConfirm"><value>Удалить метрику</value></data>
   <data name="Metrics_DeleteWarning"><value>Удалить метрику</value></data>
+
+  <!-- ── Widget: Agent Grid ── -->
+  <data name="Widget_Connecting"><value>Подключение...</value></data>
+  <data name="Widget_Disconnected"><value>Отключено</value></data>
+  <data name="Widget_NoAgents"><value>Нет агентов</value></data>
+  <data name="Widget_Agent"><value>Агент</value></data>
+  <data name="Widget_State"><value>Статус</value></data>
+  <data name="Widget_Duration"><value>Время</value></data>
+  <data name="Widget_Queue"><value>Очередь</value></data>
+  <data name="Widget_Occupancy"><value>Занят%</value></data>
+  <data name="Widget_Adherence"><value>Соотв%</value></data>
+  <data name="Widget_AgentsTotal"><value>агентов</value></data>
+  <data name="Widget_Agents"><value>агентов</value></data>
+  <data name="Widget_ConnectionFailed"><value>Ошибка подключения</value></data>
+  <data name="Widget_Retry"><value>Повторить</value></data>
+  <data name="Widget_Live"><value>Live</value></data>
+  <data name="Widget_Reconnecting"><value>Переподключение...</value></data>
+  <data name="State_Ready"><value>Готов</value></data>
+  <data name="State_Talking"><value>Разговор</value></data>
+  <data name="State_Hold"><value>Удержание</value></data>
+  <data name="State_Outbound"><value>Исходящий</value></data>
+  <data name="State_ACW"><value>Постобработка</value></data>
+  <data name="State_NotReady"><value>Не готов</value></data>
+  <data name="State_LoggedOut"><value>Выход</value></data>
 
   <!-- ── Errors ── -->
   <data name="Error_NotFound"><value>Запрошенный ресурс не найден.</value></data>

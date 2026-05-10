@@ -9,6 +9,9 @@
         case var n when n.Contains("queue") && n.Contains("summary"):
             <QueueSummaryWidget Config="Widget.Config" />
             break;
+        case var n when n.Contains("agent") && n.Contains("grid"):
+            <AgentGridWidget Config="Widget.Config" WidgetId="Widget.Id" />
+            break;
         case var n when n.Contains("agent") && n.Contains("status"):
             <AgentStatusWidget Config="Widget.Config" />
             break;

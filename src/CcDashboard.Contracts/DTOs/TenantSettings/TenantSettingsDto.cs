@@ -10,7 +10,8 @@ public record TenantSettingsDto(
     bool SoftDeleteDashboards,
     int SoftDeleteRetentionDays,
     int PurchasedLicences,
-    int MaxConcurrentConnections);
+    int MaxConcurrentConnections,
+    string? SignalRConnectionUrl);
 
 public record UpdateTenantSettingsRequest(
     int PasswordMinLength,
@@ -21,4 +22,5 @@ public record UpdateTenantSettingsRequest(
     bool SoftDeleteDashboards,
     int SoftDeleteRetentionDays,
     int PurchasedLicences,
-    int MaxConcurrentConnections);
+    int MaxConcurrentConnections,
+    string? SignalRConnectionUrl);

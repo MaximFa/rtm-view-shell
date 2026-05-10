@@ -22,6 +22,7 @@ public class GetTenantSettingsQueryHandler(
             s.TenantId, s.PasswordMinLength, s.PasswordExpireDays,
             s.Require2faForAll, s.AuditRetentionDays, s.DefaultLocale,
             s.SoftDeleteDashboards, s.SoftDeleteRetentionDays,
-            s.PurchasedLicences, s.MaxConcurrentConnections);
+            s.PurchasedLicences, s.MaxConcurrentConnections,
+            s.SignalRConnectionUrl);
     }
 }

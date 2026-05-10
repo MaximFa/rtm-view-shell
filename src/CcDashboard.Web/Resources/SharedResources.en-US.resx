@@ -190,6 +190,28 @@
   <data name="Widget_OnCall"><value>On Call</value></data>
   <data name="Widget_Away"><value>Away</value></data>
   <data name="Widget_KpiDefault"><value>KPI Value</value></data>
+  <data name="Widget_Connecting"><value>Connecting...</value></data>
+  <data name="Widget_Disconnected"><value>Disconnected</value></data>
+  <data name="Widget_NoAgents"><value>No agents available</value></data>
+  <data name="Widget_Agent"><value>Agent</value></data>
+  <data name="Widget_State"><value>State</value></data>
+  <data name="Widget_Duration"><value>Duration</value></data>
+  <data name="Widget_Queue"><value>Queue</value></data>
+  <data name="Widget_Occupancy"><value>Occ%</value></data>
+  <data name="Widget_Adherence"><value>Adh%</value></data>
+  <data name="Widget_AgentsTotal"><value>agents</value></data>
+  <data name="Widget_Agents"><value>agents</value></data>
+  <data name="Widget_ConnectionFailed"><value>Connection failed</value></data>
+  <data name="Widget_Retry"><value>Retry</value></data>
+  <data name="Widget_Live"><value>Live</value></data>
+  <data name="Widget_Reconnecting"><value>Reconnecting...</value></data>
+  <data name="State_Ready"><value>Ready</value></data>
+  <data name="State_Talking"><value>Talking</value></data>
+  <data name="State_Hold"><value>Hold</value></data>
+  <data name="State_Outbound"><value>Outbound</value></data>
+  <data name="State_ACW"><value>ACW</value></data>
+  <data name="State_NotReady"><value>Not Ready</value></data>
+  <data name="State_LoggedOut"><value>Logged Out</value></data>
 
   <!-- ── Widget Editor ── -->
   <data name="Widgets_Name"><value>Widget Name</value></data>
@@ -343,6 +365,9 @@
   <data name="TenantSettings_MaxConcurrentConnections"><value>User connections</value></data>
   <data name="TenantSettings_ConnectionsHelp"><value>Maximum parallel sessions per user from different IP addresses. 0 = unlimited.</value></data>
   <data name="TenantSettings_Saved"><value>Settings saved.</value></data>
+  <data name="TenantSettings_SignalR"><value>SignalR Widgets</value></data>
+  <data name="TenantSettings_SignalRUrl"><value>SignalR Connection URL</value></data>
+  <data name="TenantSettings_SignalRUrlHelp"><value>URL for SignalR widgets to connect (e.g., http://localhost:5045). Leave empty to use default.</value></data>
 
   <!-- ── Tenants (Platform) ── -->
   <data name="Tenants_Title"><value>Tenant Management</value></data>

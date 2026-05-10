@@ -17,5 +17,8 @@ public class TenantSettings
     public int PurchasedLicences { get; set; } = 0;        // 0 = unlimited
     public int MaxConcurrentConnections { get; set; } = 0; // 0 = unlimited
 
+    // SignalR widgets connection
+    public string? SignalRConnectionUrl { get; set; }
+
     public Tenant? Tenant { get; set; }
 }

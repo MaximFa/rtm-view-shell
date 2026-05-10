@@ -1,0 +1,85 @@
+/* ==========================================================================
+   RTM View Shell — Threshold Colour Tokens
+   Usage: apply CSS class or inline style with these custom properties
+   Levels: ok (green) · warn (amber) · crit (red) · null (grey)
+   ========================================================================== */
+
+:root {
+
+  /* ---------------------------------------------------------------------- */
+  /*  OK — green, muted / desaturated                                        */
+  /* ---------------------------------------------------------------------- */
+  --thr-ok-bg:       #EEF7E8;   /* card / row background                   */
+  --thr-ok-text:     #2D5A1B;   /* primary text on ok-bg                   */
+  --thr-ok-accent:   #4E9A34;   /* border, icon, indicator dot             */
+  --thr-ok-badge:    #D8F0CC;   /* badge / pill fill                       */
+
+  /* ---------------------------------------------------------------------- */
+  /*  WARN — amber, muted / desaturated                                      */
+  /* ---------------------------------------------------------------------- */
+  --thr-warn-bg:     #FDF3E3;
+  --thr-warn-text:   #7A4A0A;
+  --thr-warn-accent: #C87E20;
+  --thr-warn-badge:  #F9E4BF;
+
+  /* ---------------------------------------------------------------------- */
+  /*  CRIT — red, muted / desaturated                                        */
+  /* ---------------------------------------------------------------------- */
+  --thr-crit-bg:     #FAECEC;
+  --thr-crit-text:   #882020;
+  --thr-crit-accent: #C03535;
+  --thr-crit-badge:  #F5D0D0;
+
+  /* ---------------------------------------------------------------------- */
+  /*  NULL — grey (no data / unknown / paused)                               */
+  /* ---------------------------------------------------------------------- */
+  --thr-null-bg:     #F2F1EF;
+  --thr-null-text:   #666562;
+  --thr-null-accent: #8F8E89;
+  --thr-null-badge:  #E4E3E0;
+
+}
+
+/* ==========================================================================
+   Utility classes — apply directly to KPI tiles, table rows, badges, dots
+   ========================================================================== */
+
+/* --- Tile / card backgrounds -------------------------------------------- */
+.thr-ok   { background-color: var(--thr-ok-bg);   color: var(--thr-ok-text);   border-left: 3px solid var(--thr-ok-accent);   }
+.thr-warn { background-color: var(--thr-warn-bg); color: var(--thr-warn-text); border-left: 3px solid var(--thr-warn-accent); }
+.thr-crit { background-color: var(--thr-crit-bg); color: var(--thr-crit-text); border-left: 3px solid var(--thr-crit-accent); }
+.thr-null { background-color: var(--thr-null-bg); color: var(--thr-null-text); border-left: 3px solid var(--thr-null-accent); }
+
+/* --- Inline badges / pills ---------------------------------------------- */
+.badge-thr-ok   { background-color: var(--thr-ok-badge);   color: var(--thr-ok-text);   }
+.badge-thr-warn { background-color: var(--thr-warn-badge); color: var(--thr-warn-text); }
+.badge-thr-crit { background-color: var(--thr-crit-badge); color: var(--thr-crit-text); }
+.badge-thr-null { background-color: var(--thr-null-badge); color: var(--thr-null-text); }
+
+/* --- Accent dots (status indicators, legend markers) -------------------- */
+.dot-thr-ok,
+.dot-thr-warn,
+.dot-thr-crit,
+.dot-thr-null {
+  display: inline-block;
+  width:  8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-thr-ok   { background-color: var(--thr-ok-accent);   }
+.dot-thr-warn { background-color: var(--thr-warn-accent); }
+.dot-thr-crit { background-color: var(--thr-crit-accent); }
+.dot-thr-null { background-color: var(--thr-null-accent); }
+
+/* --- Table row highlights ----------------------------------------------- */
+tr.thr-ok   { background-color: var(--thr-ok-bg);   }
+tr.thr-warn { background-color: var(--thr-warn-bg); }
+tr.thr-crit { background-color: var(--thr-crit-bg); }
+tr.thr-null { background-color: var(--thr-null-bg); }
+
+/* --- Text-only colouring (value cells without background) --------------- */
+.text-thr-ok   { color: var(--thr-ok-accent);   }
+.text-thr-warn { color: var(--thr-warn-accent); }
+.text-thr-crit { color: var(--thr-crit-accent); }
+.text-thr-null { color: var(--thr-null-accent); }

@@ -136,8 +136,6 @@ public class DatabaseInitializer(
 
     private async Task SeedWidgetCatalogAsync(CancellationToken ct)
     {
-        if (await db.WidgetCatalogItems.AnyAsync(ct)) return;
-
         var items = new List<WidgetCatalogItem>
         {
             new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "Queue Summary", Description = "Real-time queue metrics snapshot", IsActive = true },
@@ -145,6 +143,7 @@ public class DatabaseInitializer(
             new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "Abandoned Calls", Description = "Abandoned call count and rate", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "SLA Bar", Description = "Service level agreement gauge", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Agent Status", Description = "Live agent state distribution", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Agent Grid", Description = "Real-time agent table with states, durations, metrics and alerts", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Agent List", Description = "Filterable agent roster with states", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Occupancy Gauge", Description = "Agent occupancy percentage gauge", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "KPI Scorecard", Description = "Key performance indicators tile set", IsActive = true },
@@ -153,9 +152,17 @@ public class DatabaseInitializer(
             new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Real-time Ticker", Description = "Live event ticker feed", IsActive = true },
         };
 
-        db.WidgetCatalogItems.AddRange(items);
+        var existingNames = (await db.WidgetCatalogItems
+            .Select(w => w.Name)
+            .ToListAsync(ct))
+            .ToHashSet();
+
+        var newItems = items.Where(i => !existingNames.Contains(i.Name)).ToList();
+        if (newItems.Count == 0) return;
+
+        db.WidgetCatalogItems.AddRange(newItems);
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded {Count} widget catalog items.", items.Count);
+        logger.LogInformation("Seeded {Count} widget catalog items.", newItems.Count);
     }
 
     private async Task SeedSampleCcEntitiesAsync(Tenant tenant, CancellationToken ct)

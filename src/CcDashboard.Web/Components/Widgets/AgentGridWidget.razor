@@ -1,0 +1,290 @@
+@using CcDashboard.Contracts.DTOs.Widgets
+@using CcDashboard.Application.Queries.TenantSettings
+@using Microsoft.AspNetCore.SignalR.Client
+@using MediatR
+@using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+@implements IAsyncDisposable
+
+@* Agent Grid Widget - connects to external SignalR simulator for real-time agent data *@
+
+<div class="agent-grid-widget h-100 d-flex flex-column">
+    @if (_connectionState == ConnectionState.Connecting)
+    {
+        <div class="d-flex align-items-center justify-content-center h-100 text-muted" aria-busy="true">
+            <div class="spinner-border spinner-border-sm me-2" aria-hidden="true"></div>
+            <span>@L["Widget_Connecting"]</span>
+        </div>
+    }
+    else if (_connectionState == ConnectionState.Failed)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <i class="bi bi-wifi-off fs-3 mb-2 text-warning"></i>
+            <span class="small">@L["Widget_ConnectionFailed"]</span>
+            <button class="btn btn-sm btn-link mt-2" @onclick="ReconnectAsync">
+                @L["Widget_Retry"]
+            </button>
+        </div>
+    }
+    else if (_agents.Count == 0)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <i class="bi bi-people fs-3 mb-2 opacity-50"></i>
+            <span class="small">@L["Widget_NoAgents"]</span>
+        </div>
+    }
+    else
+    {
+        <div class="agent-grid-header d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
+            <span class="small text-muted">
+                @_agents.Count @L["Widget_Agents"]
+            </span>
+            <span class="small">
+                @if (_connectionState == ConnectionState.Connected)
+                {
+                    <span class="text-success"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>@L["Widget_Live"]</span>
+                }
+                else if (_connectionState == ConnectionState.Reconnecting)
+                {
+                    <span class="text-warning"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>@L["Widget_Reconnecting"]</span>
+                }
+            </span>
+        </div>
+
+        <div class="agent-grid-body flex-grow-1 overflow-auto">
+            <table class="table table-sm table-hover mb-0 small">
+                <thead class="sticky-top bg-body">
+                    <tr>
+                        <th>@L["Widget_Agent"]</th>
+                        <th>@L["Widget_State"]</th>
+                        <th class="text-end">@L["Widget_Duration"]</th>
+                        <th class="text-end">@L["Widget_Occupancy"]</th>
+                        <th class="text-end">@L["Widget_Adherence"]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var agent in _agents)
+                    {
+                        <tr class="@GetRowClass(agent)">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="agent-avatar me-2 @GetStateColorClass(agent.State)">
+                                        @GetInitials(agent.DisplayName)
+                                    </span>
+                                    <div>
+                                        <div class="fw-medium">@agent.DisplayName</div>
+                                        <div class="text-muted" style="font-size: 0.75rem;">@agent.Extension</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge @GetStateBadgeClass(agent.State)">
+                                    @GetStateLabel(agent.State)
+                                </span>
+                                @if (!string.IsNullOrEmpty(agent.NotReadyReasonName))
+                                {
+                                    <div class="text-muted" style="font-size: 0.7rem;">@agent.NotReadyReasonName</div>
+                                }
+                            </td>
+                            <td class="text-end font-monospace @(agent.IsOverThreshold ? "text-danger fw-bold" : "")">
+                                @FormatDuration(agent.StateDurationSeconds)
+                            </td>
+                            <td class="text-end">
+                                <span class="@GetMetricClass(agent.OccupancyPercent, 80, 60)">
+                                    @agent.OccupancyPercent.ToString("0")%
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <span class="@GetMetricClass(agent.AdherencePercent, 95, 85)">
+                                    @agent.AdherencePercent.ToString("0")%
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public WidgetConfig? Config { get; set; }
+    [Parameter] public Guid WidgetId { get; set; }
+
+    [Inject] private ILogger<AgentGridWidget> Logger { get; set; } = null!;
+    [Inject] private IMediator Mediator { get; set; } = null!;
+
+    private HubConnection? _hub;
+    private List<AgentStatusDto> _agents = new();
+    private ConnectionState _connectionState = ConnectionState.Connecting;
+    private CancellationTokenSource _cts = new();
+
+    private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ConnectAsync();
+    }
+
+    private async Task ConnectAsync()
+    {
+        _connectionState = ConnectionState.Connecting;
+        Logger.LogInformation("AgentGridWidget: Starting connection for widget {WidgetId}", WidgetId);
+
+        try
+        {
+            var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
+            Logger.LogInformation("AgentGridWidget: TenantSettings loaded, SignalRConnectionUrl = '{Url}'",
+                settings?.SignalRConnectionUrl ?? "(null)");
+
+            var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
+            var gridId = WidgetId;
+            var fullUrl = $"{simulatorUrl}/hubs/agent-grid?gridId={gridId}";
+
+            Logger.LogInformation("AgentGridWidget: Connecting to {Url}", fullUrl);
+
+            _hub = new HubConnectionBuilder()
+                .WithUrl(fullUrl)
+                .WithAutomaticReconnect(new[] {
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(5),
+                    TimeSpan.FromSeconds(10),
+                    TimeSpan.FromSeconds(30)
+                })
+                .Build();
+
+            _hub.On<AgentGridUpdate>("AgentGridUpdate", async update =>
+            {
+                _agents = update.Agents;
+                await InvokeAsync(StateHasChanged);
+            });
+
+            _hub.Reconnecting += async _ =>
+            {
+                _connectionState = ConnectionState.Reconnecting;
+                await InvokeAsync(StateHasChanged);
+            };
+
+            _hub.Reconnected += async _ =>
+            {
+                _connectionState = ConnectionState.Connected;
+                await InvokeAsync(StateHasChanged);
+            };
+
+            _hub.Closed += async ex =>
+            {
+                if (ex != null)
+                {
+                    Logger.LogWarning(ex, "SignalR connection closed with error");
+                    _connectionState = ConnectionState.Failed;
+                    await InvokeAsync(StateHasChanged);
+                }
+            };
+
+            await _hub.StartAsync(_cts.Token);
+            _connectionState = ConnectionState.Connected;
+            Logger.LogInformation("Connected to AgentGrid simulator for widget {WidgetId}", WidgetId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AgentGridWidget: Failed to connect. Error: {Message}", ex.Message);
+            _connectionState = ConnectionState.Failed;
+        }
+    }
+
+    private async Task ReconnectAsync()
+    {
+        if (_hub != null)
+        {
+            try { await _hub.DisposeAsync(); } catch { }
+            _hub = null;
+        }
+
+        _agents.Clear();
+        await ConnectAsync();
+    }
+
+    private static string FormatDuration(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return ts.Hours > 0
+            ? $"{ts.Hours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[^1][0]}"
+            : name.Length >= 2 ? name[..2].ToUpper() : name.ToUpper();
+    }
+
+    private string GetStateLabel(AgentState state) => state switch
+    {
+        AgentState.Ready => L["State_Ready"],
+        AgentState.Talking => L["State_Talking"],
+        AgentState.Hold => L["State_Hold"],
+        AgentState.Acw => L["State_ACW"],
+        AgentState.NotReady => L["State_NotReady"],
+        AgentState.Outbound => L["State_Outbound"],
+        AgentState.LoggedOut => L["State_LoggedOut"],
+        _ => state.ToString()
+    };
+
+    private static string GetStateBadgeClass(AgentState state) => state switch
+    {
+        AgentState.Ready => "bg-success",
+        AgentState.Talking => "bg-primary",
+        AgentState.Hold => "bg-warning text-dark",
+        AgentState.Acw => "bg-info text-dark",
+        AgentState.NotReady => "bg-secondary",
+        AgentState.Outbound => "bg-primary",
+        AgentState.LoggedOut => "bg-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string GetStateColorClass(AgentState state) => state switch
+    {
+        AgentState.Ready => "avatar-success",
+        AgentState.Talking or AgentState.Outbound => "avatar-primary",
+        AgentState.Hold => "avatar-warning",
+        AgentState.Acw => "avatar-info",
+        AgentState.NotReady => "avatar-secondary",
+        AgentState.LoggedOut => "avatar-dark",
+        _ => "avatar-secondary"
+    };
+
+    private static string GetRowClass(AgentStatusDto agent)
+    {
+        if (agent.AlertLevel == AlertLevel.Critical)
+            return "table-danger";
+        if (agent.AlertLevel == AlertLevel.Warning)
+            return "table-warning";
+        return "";
+    }
+
+    private static string GetMetricClass(decimal value, decimal good, decimal warn)
+    {
+        if (value >= good) return "text-success";
+        if (value >= warn) return "text-warning";
+        return "text-danger";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _cts.Cancel();
+        if (_hub != null)
+        {
+            try
+            {
+                await _hub.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Error disposing hub connection");
+            }
+        }
+        _cts.Dispose();
+    }
+}

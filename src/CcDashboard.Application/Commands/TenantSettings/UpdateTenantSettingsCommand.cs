@@ -31,6 +31,7 @@ public class UpdateTenantSettingsCommandHandler(
         settings.SoftDeleteRetentionDays = Math.Clamp(r.SoftDeleteRetentionDays, 1, 365);
         settings.PurchasedLicences = Math.Max(0, r.PurchasedLicences);
         settings.MaxConcurrentConnections = Math.Max(0, r.MaxConcurrentConnections);
+        settings.SignalRConnectionUrl = string.IsNullOrWhiteSpace(r.SignalRConnectionUrl) ? null : r.SignalRConnectionUrl.Trim();
 
         await repo.UpsertAsync(settings, ct);
     }
