@@ -31,6 +31,47 @@ public class DashboardCategoryRepository(AppDbContext db) : IDashboardCategoryRe
         return await q.OrderBy(c => c.Name).ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<DashboardCategory>> GetUsedAsync(Guid? tenantId, bool isSuperadmin, CancellationToken ct = default)
+    {
+        IQueryable<Dashboard> dashboards;
+        if (isSuperadmin && tenantId == null)
+        {
+            dashboards = db.Dashboards.IgnoreQueryFilters().Where(d => !d.IsDeleted);
+        }
+        else if (isSuperadmin && tenantId.HasValue)
+        {
+            dashboards = db.Dashboards.IgnoreQueryFilters().Where(d => d.TenantId == tenantId.Value && !d.IsDeleted);
+        }
+        else
+        {
+            dashboards = db.Dashboards.Where(d => !d.IsDeleted);
+        }
+
+        var usedCategoryIds = await dashboards
+            .Where(d => d.CategoryId != null)
+            .Select(d => d.CategoryId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (usedCategoryIds.Count == 0)
+            return [];
+
+        IQueryable<DashboardCategory> categories;
+        if (isSuperadmin)
+        {
+            categories = db.DashboardCategories.IgnoreQueryFilters().AsNoTracking();
+        }
+        else
+        {
+            categories = db.DashboardCategories.AsNoTracking();
+        }
+
+        return await categories
+            .Where(c => usedCategoryIds.Contains(c.Id))
+            .OrderBy(c => c.Name)
+            .ToListAsync(ct);
+    }
+
     public async Task<(IReadOnlyList<DashboardCategory> Items, int Total)> GetPageAsync(
         Guid? tenantId, string? search, bool isSuperadmin,
         int page, int pageSize, CancellationToken ct = default)

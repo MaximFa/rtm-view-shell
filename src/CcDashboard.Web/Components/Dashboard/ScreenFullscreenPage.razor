@@ -16,7 +16,7 @@
 
 <PageTitle>@(Dashboard?.Name ?? "Dashboard") — Fullscreen</PageTitle>
 
-<div class="fullscreen-dashboard">
+<div class="fullscreen-dashboard @(_darkMode ? "dark-mode" : "")">
     @if (Loading)
     {
         <div class="text-center py-5" aria-busy="true">
@@ -31,9 +31,14 @@
     {
         <div class="fullscreen-header">
             <h1 class="fullscreen-title mb-0">@Dashboard.Name</h1>
-            <button class="btn btn-outline-light btn-sm fullscreen-close" @onclick="ExitToList" title="@L["Screens_Back"]">
-                <i class="bi bi-x-lg"></i>
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")" @onclick="ToggleDarkMode" title="@(_darkMode ? "Light mode" : "Dark mode")">
+                    <i class="bi @(_darkMode ? "bi-sun" : "bi-moon")"></i>
+                </button>
+                <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary") fullscreen-close" @onclick="ExitToList" title="@L["Screens_Back"]">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
         </div>
 
         <div class="fullscreen-canvas" style="position: relative; min-height: calc(100vh - 120px); @(_positionsApplied ? "" : "visibility: hidden;")">
@@ -76,6 +81,9 @@
     private List<ScreenEditorPage.PlacedWidget> PlacedWidgets = [];
     private bool Loading = true;
     private bool _positionsApplied;
+    private bool _darkMode = true;
+
+    private void ToggleDarkMode() => _darkMode = !_darkMode;
 
     protected override async Task OnInitializedAsync()
     {

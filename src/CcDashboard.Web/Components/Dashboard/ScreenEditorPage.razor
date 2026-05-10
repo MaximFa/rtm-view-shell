@@ -20,7 +20,7 @@
 
 <PageTitle>@L["Screens_Edit"] — @(Dashboard?.Name ?? "...") — RTM View Shell</PageTitle>
 
-<div class="editor-fullscreen">
+<div class="editor-fullscreen @(_darkMode ? "dark-mode" : "")">
     @if (Loading)
     {
         <div class="text-center py-5" aria-busy="true">
@@ -51,6 +51,9 @@
                 </span>
             </div>
             <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-light" @onclick="ToggleDarkMode" title="@(_darkMode ? "Light mode" : "Dark mode")">
+                    <i class="bi @(_darkMode ? "bi-sun" : "bi-moon")"></i>
+                </button>
                 @if (ConfiguringWidget is not null)
                 {
                     <span class="badge bg-info me-2">Modal: @ConfiguringWidget.Name</span>
@@ -375,10 +378,12 @@
     private bool Saving;
     private string? Error;
     private string EditName = "";
+    private bool _darkMode = true;
 
     // Fullscreen editor state
     private bool PaletteOpen = false;
     private void TogglePalette() => PaletteOpen = !PaletteOpen;
+    private void ToggleDarkMode() => _darkMode = !_darkMode;
 
     // Drag & Drop state
     private bool IsDragging;

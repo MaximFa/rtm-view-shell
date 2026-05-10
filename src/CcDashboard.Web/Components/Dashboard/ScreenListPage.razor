@@ -491,7 +491,7 @@ else if (ActiveTab == "trash")
         }
         try
         {
-            Categories = await Mediator.Send(new GetAllDashboardCategoriesQuery());
+            Categories = await Mediator.Send(new GetUsedDashboardCategoriesQuery());
         }
         catch { Categories = []; }
         await LoadSettingsAsync();

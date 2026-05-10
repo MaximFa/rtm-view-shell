@@ -54,3 +54,23 @@ public class GetAllDashboardCategoriesQueryHandler(
             0, c.CreatedAt, c.UpdatedAt)).ToList();
     }
 }
+
+public record GetUsedDashboardCategoriesQuery(Guid? TenantId = null) : IRequest<IReadOnlyList<DashboardCategoryDto>>;
+
+public class GetUsedDashboardCategoriesQueryHandler(
+    IDashboardCategoryRepository categories,
+    ICurrentUserAccessor currentUser)
+    : IRequestHandler<GetUsedDashboardCategoriesQuery, IReadOnlyList<DashboardCategoryDto>>
+{
+    public async Task<IReadOnlyList<DashboardCategoryDto>> Handle(GetUsedDashboardCategoriesQuery query, CancellationToken ct)
+    {
+        var isSuperadmin = currentUser.Role == "Superadmin";
+        Guid? tenantId = isSuperadmin ? query.TenantId : currentUser.TenantId!.Value;
+
+        var items = await categories.GetUsedAsync(tenantId, isSuperadmin, ct);
+
+        return items.Select(c => new DashboardCategoryDto(
+            c.Id, c.TenantId, c.Tenant?.Name, c.Name, c.Description,
+            0, c.CreatedAt, c.UpdatedAt)).ToList();
+    }
+}

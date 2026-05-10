@@ -6,6 +6,7 @@ public interface IDashboardCategoryRepository
 {
     Task<DashboardCategory?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<DashboardCategory>> GetAllAsync(Guid? tenantId, bool isSuperadmin, CancellationToken ct = default);
+    Task<IReadOnlyList<DashboardCategory>> GetUsedAsync(Guid? tenantId, bool isSuperadmin, CancellationToken ct = default);
     Task<(IReadOnlyList<DashboardCategory> Items, int Total)> GetPageAsync(
         Guid? tenantId, string? search, bool isSuperadmin,
         int page, int pageSize, CancellationToken ct = default);
