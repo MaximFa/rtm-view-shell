@@ -25,7 +25,7 @@
             </button>
         </div>
     }
-    else if (FilteredAgents.Count == 0)
+    else if (_agents.Count == 0)
     {
         <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
             <i class="bi bi-people fs-3 mb-2 opacity-50"></i>
@@ -34,9 +34,10 @@
     }
     else
     {
+        var filteredAgents = FilteredAgents;
         <div class="agent-grid-header d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
             <span class="small text-muted">
-                @FilteredAgents.Count @L["Widget_Agents"]
+                @filteredAgents.Count @L["Widget_Agents"]
             </span>
             <span class="small">
                 @if (_connectionState == ConnectionState.Connected)
@@ -54,79 +55,90 @@
             <table class="table table-sm mb-0 small" style="@GetTableStyle()">
                 <thead class="agent-grid-thead" style="@GetTheadStyle()">
                     <tr style="@GetRowStyle()">
-                        @if (ShowColumn("agent")) { <th>@L["Widget_Agent"]</th> }
-                        @if (ShowColumn("state")) { <th>@L["Widget_State"]</th> }
-                        @if (ShowColumn("duration")) { <th class="text-end">@L["Widget_Duration"]</th> }
-                        @if (ShowColumn("queue")) { <th>@L["Widget_Queue"]</th> }
-                        @if (ShowColumn("occupancy")) { <th class="text-end">@L["Widget_Occupancy"]</th> }
-                        @if (ShowColumn("adherence")) { <th class="text-end">@L["Widget_Adherence"]</th> }
-                        @if (ShowColumn("calls")) { <th class="text-end">Calls</th> }
-                        @if (ShowColumn("aht")) { <th class="text-end">AHT</th> }
+                        @if (ShowColumn("agent")) { @RenderColumnHeader("agent", GetColumnLabel("agent", L["Widget_Agent"]), false) }
+                        @if (ShowColumn("state")) { @RenderColumnHeader("state", GetColumnLabel("state", L["Widget_State"]), false) }
+                        @if (ShowColumn("duration")) { @RenderColumnHeader("duration", GetColumnLabel("duration", L["Widget_Duration"]), true) }
+                        @if (ShowColumn("queue")) { @RenderColumnHeader("queue", GetColumnLabel("queue", L["Widget_Queue"]), false) }
+                        @if (ShowColumn("occupancy")) { @RenderColumnHeader("occupancy", GetColumnLabel("occupancy", L["Widget_Occupancy"]), true) }
+                        @if (ShowColumn("adherence")) { @RenderColumnHeader("adherence", GetColumnLabel("adherence", L["Widget_Adherence"]), true) }
+                        @if (ShowColumn("calls")) { @RenderColumnHeader("calls", GetColumnLabel("calls", "Calls"), true) }
+                        @if (ShowColumn("aht")) { @RenderColumnHeader("aht", GetColumnLabel("aht", "AHT"), true) }
                     </tr>
                 </thead>
                 <tbody style="@GetTableStyle()">
-                    @foreach (var agent in FilteredAgents)
+                    @if (filteredAgents.Count == 0)
                     {
-                        <tr class="@GetRowClass(agent)" style="@GetRowStyle()">
-                            @if (ShowColumn("agent"))
-                            {
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <span class="agent-avatar me-2 @GetStateColorClass(agent.State)">
-                                            @GetInitials(agent.DisplayName)
-                                        </span>
-                                        <div>
-                                            <div class="fw-medium" style="@GetBadgeStyle("agent", agent.DisplayName)">@agent.DisplayName</div>
-                                            <div class="text-muted" style="font-size: 0.75rem;">@agent.Extension</div>
-                                        </div>
-                                    </div>
-                                </td>
-                            }
-                            @if (ShowColumn("state"))
-                            {
-                                var hasStateThreshold = HasThreshold("state", agent.State.ToString());
-                                <td>
-                                    <span class="badge @(hasStateThreshold ? "" : GetStateBadgeClass(agent.State))"
-                                          style="@(hasStateThreshold ? GetBadgeStyle("state", agent.State.ToString()) : "")">
-                                        @GetStateLabel(agent.State)
-                                    </span>
-                                    @if (!string.IsNullOrEmpty(agent.NotReadyReasonName))
-                                    {
-                                        <div class="text-muted" style="font-size: 0.7rem;">@agent.NotReadyReasonName</div>
-                                    }
-                                </td>
-                            }
-                            @if (ShowColumn("duration"))
-                            {
-                                <td class="text-end font-monospace">
-                                    <span style="@GetBadgeStyle("duration", agent.StateDurationSeconds)">@FormatDuration(agent.StateDurationSeconds)</span>
-                                </td>
-                            }
-                            @if (ShowColumn("queue"))
-                            {
-                                <td><span style="@GetBadgeStyle("queue", agent.QueueName ?? "")">@(agent.QueueName ?? "-")</span></td>
-                            }
-                            @if (ShowColumn("occupancy"))
-                            {
-                                <td class="text-end">
-                                    <span style="@GetBadgeStyle("occupancy", agent.OccupancyPercent)">@agent.OccupancyPercent.ToString("0")%</span>
-                                </td>
-                            }
-                            @if (ShowColumn("adherence"))
-                            {
-                                <td class="text-end">
-                                    <span style="@GetBadgeStyle("adherence", agent.AdherencePercent)">@agent.AdherencePercent.ToString("0")%</span>
-                                </td>
-                            }
-                            @if (ShowColumn("calls"))
-                            {
-                                <td class="text-end"><span style="@GetBadgeStyle("calls", agent.CallsHandledToday)">@agent.CallsHandledToday</span></td>
-                            }
-                            @if (ShowColumn("aht"))
-                            {
-                                <td class="text-end font-monospace"><span style="@GetBadgeStyle("aht", agent.AhtSeconds)">@FormatDuration(agent.AhtSeconds)</span></td>
-                            }
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="bi bi-funnel me-1"></i>No results match filter
+                            </td>
                         </tr>
+                    }
+                    else
+                    {
+                        @foreach (var agent in filteredAgents)
+                        {
+                            <tr class="@GetRowClass(agent)" style="@GetRowStyle()">
+                                @if (ShowColumn("agent"))
+                                {
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span class="agent-avatar me-2 @GetStateColorClass(agent.State)">
+                                                @GetInitials(agent.DisplayName)
+                                            </span>
+                                            <div>
+                                                <div class="fw-medium" style="@GetBadgeStyle("agent", agent.DisplayName)">@agent.DisplayName</div>
+                                                <div class="text-muted" style="font-size: 0.75rem;">@agent.Extension</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                }
+                                @if (ShowColumn("state"))
+                                {
+                                    var hasStateThreshold = HasThreshold("state", agent.State.ToString());
+                                    <td>
+                                        <span class="badge @(hasStateThreshold ? "" : GetStateBadgeClass(agent.State))"
+                                              style="@(hasStateThreshold ? GetBadgeStyle("state", agent.State.ToString()) : "")">
+                                            @GetStateLabel(agent.State)
+                                        </span>
+                                        @if (!string.IsNullOrEmpty(agent.NotReadyReasonName))
+                                        {
+                                            <div class="text-muted" style="font-size: 0.7rem;">@agent.NotReadyReasonName</div>
+                                        }
+                                    </td>
+                                }
+                                @if (ShowColumn("duration"))
+                                {
+                                    <td class="text-end font-monospace">
+                                        <span style="@GetBadgeStyle("duration", agent.StateDurationSeconds)">@FormatDuration(agent.StateDurationSeconds)</span>
+                                    </td>
+                                }
+                                @if (ShowColumn("queue"))
+                                {
+                                    <td><span style="@GetBadgeStyle("queue", agent.QueueName ?? "")">@(agent.QueueName ?? "-")</span></td>
+                                }
+                                @if (ShowColumn("occupancy"))
+                                {
+                                    <td class="text-end">
+                                        <span style="@GetBadgeStyle("occupancy", agent.OccupancyPercent)">@agent.OccupancyPercent.ToString("0")%</span>
+                                    </td>
+                                }
+                                @if (ShowColumn("adherence"))
+                                {
+                                    <td class="text-end">
+                                        <span style="@GetBadgeStyle("adherence", agent.AdherencePercent)">@agent.AdherencePercent.ToString("0")%</span>
+                                    </td>
+                                }
+                                @if (ShowColumn("calls"))
+                                {
+                                    <td class="text-end"><span style="@GetBadgeStyle("calls", agent.CallsHandledToday)">@agent.CallsHandledToday</span></td>
+                                }
+                                @if (ShowColumn("aht"))
+                                {
+                                    <td class="text-end font-monospace"><span style="@GetBadgeStyle("aht", agent.AhtSeconds)">@FormatDuration(agent.AhtSeconds)</span></td>
+                                }
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -158,14 +170,410 @@
     private string? _fontColor;
     private string? _tableBackgroundColor;
     private Dictionary<string, List<ColumnThreshold>> _columnThresholds = new();
+    private Dictionary<string, string> _columnNames = new();  // Custom column display names
 
-    // Filtered agents based on config
-    private List<AgentStatusDto> FilteredAgents => _agents
-        .Where(a => _filterTeams.Count == 0 || _filterTeams.Contains(a.TeamName))
-        .Where(a => _filterStates.Count == 0 || _filterStates.Contains(a.State.ToString()))
-        .ToList();
+    // Sorting and filtering state
+    private string? _sortColumn;
+    private bool _sortAscending = true;
+    private string? _activeFilterColumn;
+    private string? _listDropdownOpen;
+    private Dictionary<string, ColumnFilter> _columnFilters = new();
+
+    private class ColumnFilter
+    {
+        public string Mode { get; set; } = ""; // "value" or "list"
+        public string MatchType { get; set; } = "contains";
+        public string TextValue { get; set; } = "";
+        public HashSet<string> SelectedValues { get; set; } = new();
+        public string ListSearch { get; set; } = "";
+    }
+
+    private static bool IsNumericColumn(string column) => column is "duration" or "occupancy" or "adherence" or "calls" or "aht";
+
+    // Filtered and sorted agents
+    private List<AgentStatusDto> FilteredAgents
+    {
+        get
+        {
+            var result = _agents
+                .Where(a => _filterTeams.Count == 0 || _filterTeams.Contains(a.TeamName))
+                .Where(a => _filterStates.Count == 0 || _filterStates.Contains(a.State.ToString()));
+
+            // Apply column filters
+            foreach (var (column, filter) in _columnFilters)
+            {
+                if (!HasActiveFilter(column)) continue;
+                result = result.Where(a => MatchesFilter(a, column, filter));
+            }
+
+            // Apply sorting
+            if (!string.IsNullOrEmpty(_sortColumn))
+            {
+                result = (_sortColumn, _sortAscending) switch
+                {
+                    ("agent", true) => result.OrderBy(a => a.DisplayName),
+                    ("agent", false) => result.OrderByDescending(a => a.DisplayName),
+                    ("state", true) => result.OrderBy(a => a.State),
+                    ("state", false) => result.OrderByDescending(a => a.State),
+                    ("duration", true) => result.OrderBy(a => a.StateDurationSeconds),
+                    ("duration", false) => result.OrderByDescending(a => a.StateDurationSeconds),
+                    ("queue", true) => result.OrderBy(a => a.QueueName),
+                    ("queue", false) => result.OrderByDescending(a => a.QueueName),
+                    ("occupancy", true) => result.OrderBy(a => a.OccupancyPercent),
+                    ("occupancy", false) => result.OrderByDescending(a => a.OccupancyPercent),
+                    ("adherence", true) => result.OrderBy(a => a.AdherencePercent),
+                    ("adherence", false) => result.OrderByDescending(a => a.AdherencePercent),
+                    ("calls", true) => result.OrderBy(a => a.CallsHandledToday),
+                    ("calls", false) => result.OrderByDescending(a => a.CallsHandledToday),
+                    ("aht", true) => result.OrderBy(a => a.AhtSeconds),
+                    ("aht", false) => result.OrderByDescending(a => a.AhtSeconds),
+                    _ => result
+                };
+            }
+
+            return result.ToList();
+        }
+    }
+
+    private bool MatchesFilter(AgentStatusDto agent, string column, ColumnFilter filter)
+    {
+        // List mode - check if value is in selected list
+        if (filter.Mode == "list")
+        {
+            var textValue = column switch
+            {
+                "state" => GetStateLabel(agent.State),
+                _ => GetColumnTextValue(agent, column)
+            };
+            return filter.SelectedValues.Contains(textValue);
+        }
+
+        // Value mode
+        var colTextValue = GetColumnTextValue(agent, column);
+        var numValue = GetColumnNumericValue(agent, column);
+
+        // For numeric comparisons
+        if (filter.MatchType is "greater" or "greaterequal" or "less" or "lessequal")
+        {
+            var compareValue = ParseFilterValue(filter.TextValue);
+            if (compareValue is null) return true;
+
+            return filter.MatchType switch
+            {
+                "greater" => numValue > compareValue,
+                "greaterequal" => numValue >= compareValue,
+                "less" => numValue < compareValue,
+                "lessequal" => numValue <= compareValue,
+                _ => true
+            };
+        }
+
+        // For text comparisons
+        return filter.MatchType switch
+        {
+            "equal" => colTextValue.Equals(filter.TextValue, StringComparison.OrdinalIgnoreCase),
+            "notequal" => !colTextValue.Equals(filter.TextValue, StringComparison.OrdinalIgnoreCase),
+            "contains" => colTextValue.Contains(filter.TextValue, StringComparison.OrdinalIgnoreCase),
+            "notcontains" => !colTextValue.Contains(filter.TextValue, StringComparison.OrdinalIgnoreCase),
+            "startswith" => colTextValue.StartsWith(filter.TextValue, StringComparison.OrdinalIgnoreCase),
+            "endswith" => colTextValue.EndsWith(filter.TextValue, StringComparison.OrdinalIgnoreCase),
+            "empty" => string.IsNullOrEmpty(colTextValue),
+            "notempty" => !string.IsNullOrEmpty(colTextValue),
+            _ => true
+        };
+    }
+
+    private static decimal? ParseFilterValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        // Check if it's a time format (contains ":")
+        if (value.Contains(':'))
+        {
+            var parts = value.Split(':');
+            if (parts.Length == 2)
+            {
+                // Could be M:SS or MM:SS or H:MM
+                if (int.TryParse(parts[0], out var p1) && int.TryParse(parts[1], out var p2))
+                {
+                    // Assume M:SS format (minutes:seconds)
+                    return p1 * 60 + p2;
+                }
+            }
+            else if (parts.Length == 3)
+            {
+                // H:MM:SS format
+                if (int.TryParse(parts[0], out var h) && int.TryParse(parts[1], out var m) && int.TryParse(parts[2], out var s))
+                {
+                    return h * 3600 + m * 60 + s;
+                }
+            }
+            return null;
+        }
+
+        // Remove % if present and parse as number
+        var cleanValue = value.TrimEnd('%').Trim();
+        if (decimal.TryParse(cleanValue, out var num))
+            return num;
+
+        return null;
+    }
+
+    private string GetColumnTextValue(AgentStatusDto agent, string column) => column switch
+    {
+        "agent" => agent.DisplayName,
+        "state" => agent.State.ToString(),
+        "queue" => agent.QueueName ?? "",
+        "duration" => FormatDuration(agent.StateDurationSeconds),
+        "occupancy" => agent.OccupancyPercent.ToString("0"),
+        "adherence" => agent.AdherencePercent.ToString("0"),
+        "calls" => agent.CallsHandledToday.ToString(),
+        "aht" => FormatDuration(agent.AhtSeconds),
+        _ => ""
+    };
+
+    private decimal GetColumnNumericValue(AgentStatusDto agent, string column) => column switch
+    {
+        "duration" => agent.StateDurationSeconds,
+        "occupancy" => agent.OccupancyPercent,
+        "adherence" => agent.AdherencePercent,
+        "calls" => agent.CallsHandledToday,
+        "aht" => agent.AhtSeconds,
+        _ => 0
+    };
 
     private bool ShowColumn(string col) => _visibleColumns.Count == 0 || _visibleColumns.Contains(col);
+
+    private string GetColumnLabel(string column, string defaultLabel)
+    {
+        return _columnNames.TryGetValue(column, out var customName) && !string.IsNullOrEmpty(customName)
+            ? customName
+            : defaultLabel;
+    }
+
+    private RenderFragment RenderColumnHeader(string column, string label, bool alignEnd) => __builder =>
+    {
+        var filter = GetOrCreateFilter(column);
+        var thStyle = $"position: relative; {GetTheadStyle()}";
+        <th class="@(alignEnd ? "text-end" : "") column-header" style="@thStyle">
+            <div class="d-flex align-items-center @(alignEnd ? "justify-content-end" : "") gap-1">
+                <span @onclick="() => ToggleSort(column)" style="cursor: pointer;" class="column-sort-label">
+                    @label
+                    @if (_sortColumn == column)
+                    {
+                        <i class="bi bi-chevron-@(_sortAscending ? "up" : "down") ms-1" style="font-size: 0.65rem;"></i>
+                    }
+                </span>
+                <button class="btn btn-link btn-sm p-0 filter-btn @(HasActiveFilter(column) ? "active" : "")"
+                        @onclick="() => ToggleFilterDropdown(column)"
+                        @onclick:stopPropagation="true"
+                        title="Filter">
+                    <i class="bi bi-funnel@(HasActiveFilter(column) ? "-fill" : "")" style="font-size: 0.7rem;"></i>
+                </button>
+            </div>
+            @if (_activeFilterColumn == column)
+            {
+                <div class="filter-dropdown" @onclick:stopPropagation="true">
+                    <div class="filter-dropdown-header">
+                        <span class="small fw-medium">@label</span>
+                        <button class="btn btn-link btn-sm p-0 text-danger" @onclick="() => ClearColumnFilter(column)">Clear</button>
+                    </div>
+
+                    <div class="filter-block @(filter.Mode == "list" ? "filter-block-disabled" : "")">
+                        <div class="filter-block-title">Value</div>
+                        <select class="form-select form-select-sm mb-2"
+                                value="@filter.MatchType"
+                                disabled="@(filter.Mode == "list")"
+                                @onchange="e => UpdateFilterMatchType(column, e.Value?.ToString())">
+                            @if (IsNumericColumn(column))
+                            {
+                                <option value="greater">Greater than</option>
+                                <option value="greaterequal">Greater or equal</option>
+                                <option value="less">Less than</option>
+                                <option value="lessequal">Less or equal</option>
+                                <option value="equal">Equal to</option>
+                                <option value="notequal">Not equal to</option>
+                            }
+                            else
+                            {
+                                <option value="equal">Equal to</option>
+                                <option value="notequal">Not equal to</option>
+                                <option value="contains">Contains</option>
+                                <option value="notcontains">Not contains</option>
+                                <option value="startswith">Starts with</option>
+                                <option value="endswith">Ends with</option>
+                                <option value="empty">Is empty</option>
+                                <option value="notempty">Is not empty</option>
+                            }
+                        </select>
+                        @if (filter.MatchType != "empty" && filter.MatchType != "notempty")
+                        {
+                            <input type="text" class="form-control form-control-sm"
+                                   placeholder="@(IsNumericColumn(column) ? "e.g. 75 or 1:30" : "Enter value...")"
+                                   value="@filter.TextValue"
+                                   disabled="@(filter.Mode == "list")"
+                                   @onchange="e => UpdateFilterTextValue(column, e.Value?.ToString())" />
+                        }
+                    </div>
+
+                    @if (!IsNumericColumn(column))
+                    {
+                        <div class="filter-block @(filter.Mode == "value" ? "filter-block-disabled" : "")">
+                            <div class="filter-block-title">List</div>
+                            <div class="filter-list-dropdown">
+                                <button type="button"
+                                        class="form-select form-select-sm text-start"
+                                        disabled="@(filter.Mode == "value")"
+                                        @onclick="() => ToggleListDropdown(column)"
+                                        @onclick:stopPropagation="true">
+                                    @if (filter.SelectedValues.Count == 0)
+                                    {
+                                        <span class="text-muted">Select...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@filter.SelectedValues.Count selected</span>
+                                    }
+                                </button>
+                                @if (_listDropdownOpen == column && filter.Mode != "value")
+                                {
+                                    <div class="filter-list-panel" @onclick:stopPropagation="true">
+                                        <input type="text" class="form-control form-control-sm mb-2"
+                                               placeholder="Search..."
+                                               value="@filter.ListSearch"
+                                               @oninput="e => UpdateListSearch(column, e.Value?.ToString())" />
+                                        <div class="filter-list-values">
+                                            @foreach (var value in GetFilteredDistinctValues(column, filter.ListSearch))
+                                            {
+                                                var isChecked = filter.SelectedValues.Contains(value);
+                                                <label class="filter-list-item">
+                                                    <input type="checkbox" checked="@isChecked"
+                                                           @onchange="() => ToggleListValue(column, value)" />
+                                                    <span>@value</span>
+                                                </label>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <div class="filter-actions">
+                        <button class="btn btn-sm btn-primary w-100" @onclick="() => ApplyFilter(column)">Apply</button>
+                    </div>
+                </div>
+            }
+        </th>
+    };
+
+    private void ToggleSort(string column)
+    {
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+    }
+
+    private void ToggleFilterDropdown(string column)
+    {
+        _activeFilterColumn = _activeFilterColumn == column ? null : column;
+    }
+
+    private ColumnFilter GetOrCreateFilter(string column)
+    {
+        if (!_columnFilters.TryGetValue(column, out var filter))
+        {
+            filter = new ColumnFilter();
+            _columnFilters[column] = filter;
+        }
+        return filter;
+    }
+
+    private bool HasActiveFilter(string column)
+    {
+        if (!_columnFilters.TryGetValue(column, out var filter)) return false;
+        if (filter.Mode == "list")
+            return filter.SelectedValues.Count > 0;
+        if (filter.Mode == "value")
+            return !string.IsNullOrEmpty(filter.TextValue) || filter.MatchType == "empty" || filter.MatchType == "notempty";
+        return false;
+    }
+
+    private void UpdateFilterMatchType(string column, string? value)
+    {
+        var filter = GetOrCreateFilter(column);
+        filter.MatchType = value ?? "contains";
+        filter.Mode = "value";
+        filter.SelectedValues.Clear();
+    }
+
+    private void UpdateFilterTextValue(string column, string? value)
+    {
+        var filter = GetOrCreateFilter(column);
+        filter.TextValue = value ?? "";
+        filter.Mode = "value";
+        filter.SelectedValues.Clear();
+    }
+
+    private void UpdateListSearch(string column, string? value)
+    {
+        GetOrCreateFilter(column).ListSearch = value ?? "";
+    }
+
+    private void ToggleListDropdown(string column)
+    {
+        _listDropdownOpen = _listDropdownOpen == column ? null : column;
+    }
+
+    private void ToggleListValue(string column, string value)
+    {
+        var filter = GetOrCreateFilter(column);
+        filter.Mode = "list";
+        filter.TextValue = "";
+
+        if (filter.SelectedValues.Contains(value))
+            filter.SelectedValues.Remove(value);
+        else
+            filter.SelectedValues.Add(value);
+    }
+
+    private IEnumerable<string> GetFilteredDistinctValues(string column, string search)
+    {
+        var values = GetDistinctValues(column);
+        if (!string.IsNullOrEmpty(search))
+            values = values.Where(v => v.Contains(search, StringComparison.OrdinalIgnoreCase));
+        return values.Take(50);
+    }
+
+    private IEnumerable<string> GetDistinctValues(string column)
+    {
+        return column switch
+        {
+            "agent" => _agents.Select(a => a.DisplayName).Distinct().OrderBy(x => x),
+            "state" => _agents.Select(a => GetStateLabel(a.State)).Distinct().OrderBy(x => x),
+            "queue" => _agents.Select(a => a.QueueName ?? "-").Distinct().OrderBy(x => x),
+            _ => Enumerable.Empty<string>()
+        };
+    }
+
+    private void ApplyFilter(string column)
+    {
+        _activeFilterColumn = null;
+        _listDropdownOpen = null;
+    }
+
+    private void ClearColumnFilter(string column)
+    {
+        _columnFilters.Remove(column);
+        _activeFilterColumn = null;
+        _listDropdownOpen = null;
+    }
 
     private string GetWidgetStyle()
     {
@@ -272,10 +680,13 @@
     {
         var styles = new List<string>();
 
-        // Always set background for sticky header - use configured color or fallback
+        // Priority: tableBackgroundColor -> backgroundColor -> CSS variable fallback
         var bgColor = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
             ? _tableBackgroundColor
-            : "var(--clr-surface, #fff)";
+            : !string.IsNullOrEmpty(_backgroundColor) && _backgroundColor != "transparent"
+                ? _backgroundColor
+                : "var(--clr-surface, #fff)";
+
         styles.Add($"background-color: {bgColor}");
 
         if (!string.IsNullOrEmpty(_fontColor))
@@ -368,6 +779,9 @@
 
             // Column thresholds
             _columnThresholds = Config.ColumnThresholds ?? new Dictionary<string, List<ColumnThreshold>>();
+
+            // Custom column names
+            _columnNames = Config.AgentGridColumnNames ?? new Dictionary<string, string>();
         }
     }
 

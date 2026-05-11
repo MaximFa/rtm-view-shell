@@ -1612,10 +1612,6 @@ a:hover {
     z-index: 1;
 }
 
-.agent-grid-widget .agent-grid-thead th {
-    background-color: inherit;
-}
-
 /* Agent Grid Widget - Table Style Override */
 .agent-grid-widget .table {
     --bs-table-bg: transparent;
@@ -1646,6 +1642,150 @@ a:hover {
 
 .agent-grid-widget .badge {
     font-size: inherit;
+}
+
+/* Agent Grid Widget - Column Filter */
+.agent-grid-widget .column-header {
+    white-space: nowrap;
+}
+
+.agent-grid-widget .filter-btn {
+    color: var(--bs-secondary);
+    opacity: 0.5;
+    transition: opacity 0.15s;
+    border: none;
+    background: transparent;
+}
+
+.agent-grid-widget .filter-btn:hover,
+.agent-grid-widget .filter-btn.active {
+    opacity: 1;
+    color: var(--bs-primary);
+}
+
+.agent-grid-widget .filter-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 1000;
+    min-width: 180px;
+    max-width: 250px;
+    background: var(--clr-surface, #fff);
+    border: 1px solid var(--clr-border, rgba(0,0,0,0.15));
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 8px;
+    margin-top: 4px;
+}
+
+.agent-grid-widget .filter-dropdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--clr-border, rgba(0,0,0,0.1));
+    margin-bottom: 6px;
+}
+
+.agent-grid-widget .filter-dropdown-sort {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.agent-grid-widget .filter-dropdown-sort .btn {
+    flex: 1;
+    font-size: 0.7rem;
+    padding: 4px 8px;
+}
+
+.agent-grid-widget .filter-block {
+    padding: 8px;
+    margin-bottom: 8px;
+    background: var(--clr-overlay, rgba(0,0,0,0.03));
+    border-radius: 4px;
+    transition: opacity 0.15s;
+}
+
+.agent-grid-widget .filter-block-disabled {
+    opacity: 0.5;
+}
+
+.agent-grid-widget .filter-block-disabled input,
+.agent-grid-widget .filter-block-disabled select {
+    pointer-events: none;
+}
+
+.agent-grid-widget .filter-block-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary);
+    margin-bottom: 6px;
+}
+
+.agent-grid-widget .filter-block .form-select,
+.agent-grid-widget .filter-block .form-control {
+    font-size: 0.8rem;
+}
+
+.agent-grid-widget .filter-list-dropdown {
+    position: relative;
+}
+
+.agent-grid-widget .filter-list-dropdown button.form-select {
+    width: 100%;
+    background-color: var(--bs-body-bg, #fff);
+}
+
+.agent-grid-widget .filter-list-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: var(--clr-surface, #fff);
+    border: 1px solid var(--clr-border, rgba(0,0,0,0.15));
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    padding: 8px;
+    margin-top: 2px;
+}
+
+.agent-grid-widget .filter-list-values {
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.agent-grid-widget .filter-list-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 2px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.agent-grid-widget .filter-list-item:hover {
+    background: var(--clr-overlay, rgba(0,0,0,0.05));
+}
+
+.agent-grid-widget .filter-list-item input {
+    margin: 0;
+}
+
+.agent-grid-widget .filter-actions {
+    margin-top: 8px;
+}
+
+.agent-grid-widget .filter-actions .btn {
+    font-size: 0.8rem;
+}
+
+.agent-grid-widget .column-sort-label:hover {
+    color: var(--bs-primary);
 }
 
 

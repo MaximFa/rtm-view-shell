@@ -188,135 +188,160 @@
                     </h5>
                     <button type="button" class="btn-close" @onclick="CloseWidgetConfig"></button>
                 </div>
-                <div class="modal-body">
-                    <!-- Widget Name -->
-                    <div class="mb-3">
-                        <label class="form-label">@L["Widgets_Name"]</label>
-                        <input type="text" class="form-control" @bind="ConfigDisplayName" />
-                    </div>
+                <div class="modal-body" style="min-height: 400px;">
+                    <!-- Tabs Navigation -->
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link @(ConfigActiveTab == "general" ? "active" : "")" @onclick='() => ConfigActiveTab = "general"'>General</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(ConfigActiveTab == "appearance" ? "active" : "")" @onclick='() => ConfigActiveTab = "appearance"'>Appearance</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(ConfigActiveTab == "thresholds" ? "active" : "")" @onclick='() => ConfigActiveTab = "thresholds"'>Thresholds</button>
+                        </li>
+                        @if (IsAgentGridWidget(ConfiguringWidget))
+                        {
+                            <li class="nav-item">
+                                <button class="nav-link @(ConfigActiveTab == "columns" ? "active" : "")" @onclick='() => ConfigActiveTab = "columns"'>Columns</button>
+                            </li>
+                        }
+                    </ul>
 
-                    <!-- Data Source -->
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">@L["Widgets_BusinessUnit"]</label>
-                            <div class="searchable-select">
-                                <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
-                                       value="@BuSearchText"
-                                       @oninput="OnBuSearchInput"
-                                       @onfocus="() => BuDropdownOpen = true"
-                                       @onblur="OnBuSearchBlur" />
-                                @if (BuDropdownOpen)
-                                {
-                                    <div class="searchable-dropdown">
-                                        <div class="dropdown-item @(string.IsNullOrEmpty(ConfigBusinessUnit) ? "active" : "")"
-                                             @onmousedown="() => SelectBusinessUnit(null)"
-                                             @onmousedown:preventDefault="true">
-                                            <em>@L["Common_All"]</em>
-                                        </div>
-                                        @foreach (var bu in FilteredBusinessUnits)
-                                        {
-                                            <div class="dropdown-item @(ConfigBusinessUnit == bu.BusinessUnitId.ToString() ? "active" : "")"
-                                                 @onmousedown="() => SelectBusinessUnit(bu)"
-                                                 @onmousedown:preventDefault="true">
-                                                @bu.BusinessUnitName
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">@L["Widgets_Metric"]</label>
-                            <div class="searchable-select">
-                                <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
-                                       value="@MetricSearchText"
-                                       @oninput="OnMetricSearchInput"
-                                       @onfocus="() => MetricDropdownOpen = true"
-                                       @onblur="OnMetricSearchBlur" />
-                                @if (MetricDropdownOpen)
-                                {
-                                    <div class="searchable-dropdown">
-                                        @foreach (var m in FilteredMetrics)
-                                        {
-                                            <div class="dropdown-item @(ConfigMetric == m.MetricId ? "active" : "")"
-                                                 @onmousedown="() => SelectMetric(m)"
-                                                 @onmousedown:preventDefault="true">
-                                                <div>@m.MetricId</div>
-                                                <small class="text-muted">@m.Description</small>
-                                            </div>
-                                        }
-                                        @if (!FilteredMetrics.Any())
-                                        {
-                                            <div class="dropdown-item text-muted">@L["Common_NoResults"]</div>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Appearance -->
-                    <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_Appearance"]</h6>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">@L["Widgets_FontSize"]</label>
-                            <select class="form-select" @bind="ConfigFontSize">
-                                <option value="small">@L["Widgets_FontSize_Small"] (12px)</option>
-                                <option value="normal">@L["Widgets_FontSize_Normal"] (14px)</option>
-                                <option value="large">@L["Widgets_FontSize_Large"] (18px)</option>
-                                <option value="xlarge">@L["Widgets_FontSize_XLarge"] (24px)</option>
-                                <option value="xxlarge">@L["Widgets_FontSize_XXLarge"] (32px)</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">@L["Widgets_BackgroundColor"]</label>
-                            <div class="color-palette">
-                                @foreach (var color in BackgroundColors)
-                                {
-                                    <span class="clr-swatch @(ConfigBackgroundColor == color.Value ? "selected" : "")"
-                                          title="@color.Name"
-                                          style="@GetColorStyle(color.Value)"
-                                          @onclick="() => ConfigBackgroundColor = color.Value">
-                                    </span>
-                                }
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">@L["Widgets_FontColor"]</label>
-                            <div class="color-palette">
-                                @foreach (var color in FontColors)
-                                {
-                                    <span class="clr-swatch @(ConfigFontColor == color.Value ? "selected" : "")"
-                                          title="@color.Name"
-                                          style="@GetColorStyle(color.Value)"
-                                          @onclick="() => ConfigFontColor = color.Value">
-                                    </span>
-                                }
-                            </div>
-                        </div>
-                    </div>
-
-                    @if (IsAgentGridWidget(ConfiguringWidget))
+                    <!-- Tab: General -->
+                    @if (ConfigActiveTab == "general")
                     {
+                        <div class="mb-3">
+                            <label class="form-label">@L["Widgets_Name"]</label>
+                            <input type="text" class="form-control" @bind="ConfigDisplayName" />
+                        </div>
+
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label class="form-label">@L["Widgets_TableBackground"]</label>
-                                <div class="color-palette">
-                                    @foreach (var color in TableBackgroundColors)
+                                <label class="form-label">@L["Widgets_BusinessUnit"]</label>
+                                <div class="searchable-select">
+                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                           value="@BuSearchText"
+                                           @oninput="OnBuSearchInput"
+                                           @onfocus="() => BuDropdownOpen = true"
+                                           @onblur="OnBuSearchBlur" />
+                                    @if (BuDropdownOpen)
                                     {
-                                        <span class="clr-swatch @(ConfigTableBackgroundColor == color.Value ? "selected" : "")"
+                                        <div class="searchable-dropdown">
+                                            <div class="dropdown-item @(string.IsNullOrEmpty(ConfigBusinessUnit) ? "active" : "")"
+                                                 @onmousedown="() => SelectBusinessUnit(null)"
+                                                 @onmousedown:preventDefault="true">
+                                                <em>@L["Common_All"]</em>
+                                            </div>
+                                            @foreach (var bu in FilteredBusinessUnits)
+                                            {
+                                                <div class="dropdown-item @(ConfigBusinessUnit == bu.BusinessUnitId.ToString() ? "active" : "")"
+                                                     @onmousedown="() => SelectBusinessUnit(bu)"
+                                                     @onmousedown:preventDefault="true">
+                                                    @bu.BusinessUnitName
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">@L["Widgets_Metric"]</label>
+                                <div class="searchable-select">
+                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                           value="@MetricSearchText"
+                                           @oninput="OnMetricSearchInput"
+                                           @onfocus="() => MetricDropdownOpen = true"
+                                           @onblur="OnMetricSearchBlur" />
+                                    @if (MetricDropdownOpen)
+                                    {
+                                        <div class="searchable-dropdown">
+                                            @foreach (var m in FilteredMetrics)
+                                            {
+                                                <div class="dropdown-item @(ConfigMetric == m.MetricId ? "active" : "")"
+                                                     @onmousedown="() => SelectMetric(m)"
+                                                     @onmousedown:preventDefault="true">
+                                                    <div>@m.MetricId</div>
+                                                    <small class="text-muted">@m.Description</small>
+                                                </div>
+                                            }
+                                            @if (!FilteredMetrics.Any())
+                                            {
+                                                <div class="dropdown-item text-muted">@L["Common_NoResults"]</div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                    }
+
+                    <!-- Tab: Appearance -->
+                    @if (ConfigActiveTab == "appearance")
+                    {
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">@L["Widgets_FontSize"]</label>
+                                <select class="form-select" @bind="ConfigFontSize">
+                                    <option value="small">@L["Widgets_FontSize_Small"] (12px)</option>
+                                    <option value="normal">@L["Widgets_FontSize_Normal"] (14px)</option>
+                                    <option value="large">@L["Widgets_FontSize_Large"] (18px)</option>
+                                    <option value="xlarge">@L["Widgets_FontSize_XLarge"] (24px)</option>
+                                    <option value="xxlarge">@L["Widgets_FontSize_XXLarge"] (32px)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">@L["Widgets_BackgroundColor"]</label>
+                                <div class="color-palette">
+                                    @foreach (var color in BackgroundColors)
+                                    {
+                                        <span class="clr-swatch @(ConfigBackgroundColor == color.Value ? "selected" : "")"
                                               title="@color.Name"
                                               style="@GetColorStyle(color.Value)"
-                                              @onclick="() => ConfigTableBackgroundColor = color.Value">
+                                              @onclick="() => ConfigBackgroundColor = color.Value">
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">@L["Widgets_FontColor"]</label>
+                                <div class="color-palette">
+                                    @foreach (var color in FontColors)
+                                    {
+                                        <span class="clr-swatch @(ConfigFontColor == color.Value ? "selected" : "")"
+                                              title="@color.Name"
+                                              style="@GetColorStyle(color.Value)"
+                                              @onclick="() => ConfigFontColor = color.Value">
                                         </span>
                                     }
                                 </div>
                             </div>
                         </div>
+
+                        @if (IsAgentGridWidget(ConfiguringWidget))
+                        {
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">@L["Widgets_TableBackground"]</label>
+                                    <div class="color-palette">
+                                        @foreach (var color in TableBackgroundColors)
+                                        {
+                                            <span class="clr-swatch @(ConfigTableBackgroundColor == color.Value ? "selected" : "")"
+                                                  title="@color.Name"
+                                                  style="@GetColorStyle(color.Value)"
+                                                  @onclick="() => ConfigTableBackgroundColor = color.Value">
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
                     }
 
-                    <!-- Thresholds -->
-                    <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_Thresholds"]</h6>
+                    <!-- Tab: Thresholds -->
+                    @if (ConfigActiveTab == "thresholds")
+                    {
                     @if (IsAgentGridWidget(ConfiguringWidget))
                     {
                         <!-- Per-column thresholds for Agent Grid -->
@@ -488,46 +513,12 @@
                             </button>
                         </div>
                     }
+                    }
 
-                    @if (IsAgentGridWidget(ConfiguringWidget))
+                    <!-- Tab: Columns (Agent Grid only) -->
+                    @if (ConfigActiveTab == "columns" && IsAgentGridWidget(ConfiguringWidget))
                     {
-                        <!-- Agent Grid Filters -->
-                        <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_AgentGrid_Filters"]</h6>
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">@L["Widgets_AgentGrid_Teams"]</label>
-                                <div class="filter-checkboxes">
-                                    @foreach (var team in AvailableTeams)
-                                    {
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="team-@team"
-                                                   checked="@ConfigAgentTeams.Contains(team)"
-                                                   @onchange="e => ToggleAgentTeam(team, (bool)(e.Value ?? false))" />
-                                            <label class="form-check-label" for="team-@team">@team</label>
-                                        </div>
-                                    }
-                                </div>
-                                <small class="text-muted">@L["Widgets_AgentGrid_TeamsHelp"]</small>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">@L["Widgets_AgentGrid_States"]</label>
-                                <div class="filter-checkboxes">
-                                    @foreach (var state in AvailableStates)
-                                    {
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="state-@state"
-                                                   checked="@ConfigAgentStates.Contains(state)"
-                                                   @onchange="e => ToggleAgentState(state, (bool)(e.Value ?? false))" />
-                                            <label class="form-check-label" for="state-@state">@L[$"State_{state}"]</label>
-                                        </div>
-                                    }
-                                </div>
-                                <small class="text-muted">@L["Widgets_AgentGrid_StatesHelp"]</small>
-                            </div>
-                        </div>
-
-                        <!-- Agent Grid Columns -->
-                        <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_AgentGrid_Columns"]</h6>
+                        <h6 class="text-muted small text-uppercase mb-3">@L["Widgets_AgentGrid_Columns"]</h6>
                         <div class="row mb-3">
                             <div class="col-12">
                                 <div class="d-flex flex-wrap gap-2">
@@ -544,15 +535,18 @@
                             </div>
                         </div>
 
-                        <!-- Agent Grid Options -->
+                        <h6 class="text-muted small text-uppercase mt-4 mb-3">Column Display Names</h6>
                         <div class="row mb-3">
-                            <div class="col-12">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="showAlerts"
-                                           @bind="ConfigAgentShowAlerts" />
-                                    <label class="form-check-label" for="showAlerts">@L["Widgets_AgentGrid_ShowAlerts"]</label>
+                            @foreach (var colKey in ConfigAgentColumns.OrderBy(c => AvailableColumnKeys.ToList().IndexOf(c)))
+                            {
+                                <div class="col-md-6 col-lg-4 mb-2">
+                                    <label class="form-label small mb-1">@L[$"Widgets_AgentGrid_Col_{char.ToUpper(colKey[0])}{colKey[1..]}"]</label>
+                                    <input type="text" class="form-control form-control-sm"
+                                           placeholder="@L[$"Widgets_AgentGrid_Col_{char.ToUpper(colKey[0])}{colKey[1..]}"]"
+                                           value="@GetColumnDisplayName(colKey)"
+                                           @onchange="e => SetColumnDisplayName(colKey, e.Value?.ToString())" />
                                 </div>
-                            </div>
+                            }
                         </div>
                     }
                 </div>
@@ -590,6 +584,7 @@
 
     // Widget Configuration
     private PlacedWidget? ConfiguringWidget;
+    private string ConfigActiveTab = "general";  // general, appearance, thresholds, columns
     private string ConfigDisplayName = "";
     private string? ConfigBusinessUnit;
     private string? ConfigMetric;
@@ -604,6 +599,7 @@
     private HashSet<string> ConfigAgentStates = new();
     private HashSet<string> ConfigAgentColumns = new() { "agent", "state", "duration", "occupancy", "adherence" };
     private bool ConfigAgentShowAlerts = true;
+    private Dictionary<string, string> ConfigAgentColumnNames = new();  // Custom column names
 
     // Per-column thresholds
     private Dictionary<string, List<ColumnThreshold>> ConfigColumnThresholds = new();
@@ -994,6 +990,7 @@
     private void OpenWidgetConfig(PlacedWidget widget)
     {
         ConfiguringWidget = widget;
+        ConfigActiveTab = "general";
         ConfigDisplayName = widget.Config.DisplayName ?? widget.Name;
         ConfigBusinessUnit = widget.Config.BusinessUnit;
         ConfigMetric = widget.Config.Metric;
@@ -1014,6 +1011,7 @@
         ConfigAgentStates = widget.Config.AgentGridStates?.ToHashSet() ?? new HashSet<string>();
         ConfigAgentColumns = widget.Config.AgentGridColumns?.ToHashSet() ?? new HashSet<string> { "agent", "state", "duration", "occupancy", "adherence" };
         ConfigAgentShowAlerts = widget.Config.AgentGridShowAlerts;
+        ConfigAgentColumnNames = widget.Config.AgentGridColumnNames?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value) ?? new();
 
         // Column thresholds
         ConfigColumnThresholds = widget.Config.ColumnThresholds != null
@@ -1063,6 +1061,19 @@
     {
         if (selected) ConfigAgentColumns.Add(column);
         else ConfigAgentColumns.Remove(column);
+    }
+
+    private string GetColumnDisplayName(string column)
+    {
+        return ConfigAgentColumnNames.TryGetValue(column, out var name) ? name : "";
+    }
+
+    private void SetColumnDisplayName(string column, string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            ConfigAgentColumnNames.Remove(column);
+        else
+            ConfigAgentColumnNames[column] = name;
     }
 
     private void CloseWidgetConfig()
@@ -1151,6 +1162,7 @@
             AgentGridStates = ConfigAgentStates.Count > 0 ? ConfigAgentStates.ToList() : null,
             AgentGridColumns = ConfigAgentColumns.ToList(),
             AgentGridShowAlerts = ConfigAgentShowAlerts,
+            AgentGridColumnNames = ConfigAgentColumnNames.Count > 0 ? ConfigAgentColumnNames : null,
             // Column thresholds
             ColumnThresholds = ConfigColumnThresholds.Count > 0
                 ? ConfigColumnThresholds.Where(kvp => kvp.Value.Count > 0)
@@ -1463,6 +1475,7 @@
         public List<string>? AgentGridStates { get; set; }
         public List<string>? AgentGridColumns { get; set; }
         public bool AgentGridShowAlerts { get; set; } = true;
+        public Dictionary<string, string>? AgentGridColumnNames { get; set; }  // Custom column display names
 
         // Per-column thresholds: key = column name, value = list of rules
         public Dictionary<string, List<ColumnThreshold>>? ColumnThresholds { get; set; }

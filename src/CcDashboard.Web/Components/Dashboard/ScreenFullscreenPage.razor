@@ -198,7 +198,8 @@
         if (string.IsNullOrEmpty(configJson)) return new ScreenEditorPage.WidgetConfig();
         try
         {
-            return System.Text.Json.JsonSerializer.Deserialize<ScreenEditorPage.WidgetConfig>(configJson)
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return System.Text.Json.JsonSerializer.Deserialize<ScreenEditorPage.WidgetConfig>(configJson, options)
                 ?? new ScreenEditorPage.WidgetConfig();
         }
         catch { return new ScreenEditorPage.WidgetConfig(); }
