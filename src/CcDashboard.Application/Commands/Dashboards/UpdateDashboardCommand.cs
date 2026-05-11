@@ -31,6 +31,7 @@ public class UpdateDashboardCommandHandler(
         dashboard.CategoryId = cmd.Request.CategoryId;
         dashboard.Status = cmd.Request.Status;
         dashboard.IsPublic = cmd.Request.IsPublic;
+        dashboard.IsDarkMode = cmd.Request.IsDarkMode;
         dashboard.UpdatedAt = clock.UtcNow;
         dashboard.UpdatedByUserId = currentUser.UserId!.Value;
 
@@ -38,7 +39,7 @@ public class UpdateDashboardCommandHandler(
 
         return new DashboardDto(
             dashboard.Id, dashboard.TenantId, null, dashboard.Name, dashboard.Description,
-            dashboard.CategoryId, null, dashboard.Status, dashboard.IsPublic, dashboard.CreatedByUserId, null,
+            dashboard.CategoryId, null, dashboard.Status, dashboard.IsPublic, dashboard.IsDarkMode, dashboard.CreatedByUserId, null,
             dashboard.CreatedAt, dashboard.UpdatedByUserId, null, dashboard.UpdatedAt);
     }
 }

@@ -7,7 +7,7 @@
 
 @* Agent Grid Widget - connects to external SignalR simulator for real-time agent data *@
 
-<div class="agent-grid-widget h-100 d-flex flex-column">
+<div class="agent-grid-widget h-100 d-flex flex-column" style="@GetWidgetStyle()">
     @if (_connectionState == ConnectionState.Connecting)
     {
         <div class="d-flex align-items-center justify-content-center h-100 text-muted" aria-busy="true">
@@ -25,7 +25,7 @@
             </button>
         </div>
     }
-    else if (_agents.Count == 0)
+    else if (FilteredAgents.Count == 0)
     {
         <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
             <i class="bi bi-people fs-3 mb-2 opacity-50"></i>
@@ -36,7 +36,7 @@
     {
         <div class="agent-grid-header d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
             <span class="small text-muted">
-                @_agents.Count @L["Widget_Agents"]
+                @FilteredAgents.Count @L["Widget_Agents"]
             </span>
             <span class="small">
                 @if (_connectionState == ConnectionState.Connected)
@@ -50,54 +50,82 @@
             </span>
         </div>
 
-        <div class="agent-grid-body flex-grow-1 overflow-auto">
+        <div class="agent-grid-body flex-grow-1 overflow-auto" style="@GetTableStyle()">
             <table class="table table-sm table-hover mb-0 small">
                 <thead class="sticky-top bg-body">
                     <tr>
-                        <th>@L["Widget_Agent"]</th>
-                        <th>@L["Widget_State"]</th>
-                        <th class="text-end">@L["Widget_Duration"]</th>
-                        <th class="text-end">@L["Widget_Occupancy"]</th>
-                        <th class="text-end">@L["Widget_Adherence"]</th>
+                        @if (ShowColumn("agent")) { <th>@L["Widget_Agent"]</th> }
+                        @if (ShowColumn("state")) { <th>@L["Widget_State"]</th> }
+                        @if (ShowColumn("duration")) { <th class="text-end">@L["Widget_Duration"]</th> }
+                        @if (ShowColumn("queue")) { <th>@L["Widget_Queue"]</th> }
+                        @if (ShowColumn("occupancy")) { <th class="text-end">@L["Widget_Occupancy"]</th> }
+                        @if (ShowColumn("adherence")) { <th class="text-end">@L["Widget_Adherence"]</th> }
+                        @if (ShowColumn("calls")) { <th class="text-end">Calls</th> }
+                        @if (ShowColumn("aht")) { <th class="text-end">AHT</th> }
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var agent in _agents)
+                    @foreach (var agent in FilteredAgents)
                     {
                         <tr class="@GetRowClass(agent)">
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <span class="agent-avatar me-2 @GetStateColorClass(agent.State)">
-                                        @GetInitials(agent.DisplayName)
-                                    </span>
-                                    <div>
-                                        <div class="fw-medium">@agent.DisplayName</div>
-                                        <div class="text-muted" style="font-size: 0.75rem;">@agent.Extension</div>
+                            @if (ShowColumn("agent"))
+                            {
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="agent-avatar me-2 @GetStateColorClass(agent.State)">
+                                            @GetInitials(agent.DisplayName)
+                                        </span>
+                                        <div>
+                                            <div class="fw-medium" style="@GetBadgeStyle("agent", agent.DisplayName)">@agent.DisplayName</div>
+                                            <div class="text-muted" style="font-size: 0.75rem;">@agent.Extension</div>
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="badge @GetStateBadgeClass(agent.State)">
-                                    @GetStateLabel(agent.State)
-                                </span>
-                                @if (!string.IsNullOrEmpty(agent.NotReadyReasonName))
-                                {
-                                    <div class="text-muted" style="font-size: 0.7rem;">@agent.NotReadyReasonName</div>
-                                }
-                            </td>
-                            <td class="text-end font-monospace @(agent.IsOverThreshold ? "text-danger fw-bold" : "")">
-                                @FormatDuration(agent.StateDurationSeconds)
-                            </td>
-                            <td class="text-end">
-                                <span class="@GetMetricClass(agent.OccupancyPercent, 80, 60)">
-                                    @agent.OccupancyPercent.ToString("0")%
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                <span class="@GetMetricClass(agent.AdherencePercent, 95, 85)">
-                                    @agent.AdherencePercent.ToString("0")%
-                                </span>
-                            </td>
+                                </td>
+                            }
+                            @if (ShowColumn("state"))
+                            {
+                                var hasStateThreshold = HasThreshold("state", agent.State.ToString());
+                                <td>
+                                    <span class="badge @(hasStateThreshold ? "" : GetStateBadgeClass(agent.State))"
+                                          style="@(hasStateThreshold ? GetBadgeStyle("state", agent.State.ToString()) : "")">
+                                        @GetStateLabel(agent.State)
+                                    </span>
+                                    @if (!string.IsNullOrEmpty(agent.NotReadyReasonName))
+                                    {
+                                        <div class="text-muted" style="font-size: 0.7rem;">@agent.NotReadyReasonName</div>
+                                    }
+                                </td>
+                            }
+                            @if (ShowColumn("duration"))
+                            {
+                                <td class="text-end font-monospace">
+                                    <span style="@GetBadgeStyle("duration", agent.StateDurationSeconds)">@FormatDuration(agent.StateDurationSeconds)</span>
+                                </td>
+                            }
+                            @if (ShowColumn("queue"))
+                            {
+                                <td><span style="@GetBadgeStyle("queue", agent.QueueName ?? "")">@(agent.QueueName ?? "-")</span></td>
+                            }
+                            @if (ShowColumn("occupancy"))
+                            {
+                                <td class="text-end">
+                                    <span style="@GetBadgeStyle("occupancy", agent.OccupancyPercent)">@agent.OccupancyPercent.ToString("0")%</span>
+                                </td>
+                            }
+                            @if (ShowColumn("adherence"))
+                            {
+                                <td class="text-end">
+                                    <span style="@GetBadgeStyle("adherence", agent.AdherencePercent)">@agent.AdherencePercent.ToString("0")%</span>
+                                </td>
+                            }
+                            @if (ShowColumn("calls"))
+                            {
+                                <td class="text-end"><span style="@GetBadgeStyle("calls", agent.CallsHandledToday)">@agent.CallsHandledToday</span></td>
+                            }
+                            @if (ShowColumn("aht"))
+                            {
+                                <td class="text-end font-monospace"><span style="@GetBadgeStyle("aht", agent.AhtSeconds)">@FormatDuration(agent.AhtSeconds)</span></td>
+                            }
                         </tr>
                     }
                 </tbody>
@@ -118,11 +146,166 @@
     private ConnectionState _connectionState = ConnectionState.Connecting;
     private CancellationTokenSource _cts = new();
 
+    // Configuration from widget settings
+    private HashSet<string> _filterTeams = new();
+    private HashSet<string> _filterStates = new();
+    private HashSet<string> _visibleColumns = new() { "agent", "state", "duration", "occupancy", "adherence" };
+    private bool _showAlerts = true;
+
+    // Widget appearance
+    private string? _fontSize;
+    private string? _backgroundColor;
+    private string? _fontColor;
+    private string? _tableBackgroundColor;
+    private Dictionary<string, List<ColumnThreshold>> _columnThresholds = new();
+
+    // Filtered agents based on config
+    private List<AgentStatusDto> FilteredAgents => _agents
+        .Where(a => _filterTeams.Count == 0 || _filterTeams.Contains(a.TeamName))
+        .Where(a => _filterStates.Count == 0 || _filterStates.Contains(a.State.ToString()))
+        .ToList();
+
+    private bool ShowColumn(string col) => _visibleColumns.Count == 0 || _visibleColumns.Contains(col);
+
+    private string GetWidgetStyle()
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(_backgroundColor))
+            styles.Add($"background-color: {_backgroundColor}");
+        if (!string.IsNullOrEmpty(_fontColor))
+            styles.Add($"color: {_fontColor}");
+        if (!string.IsNullOrEmpty(_fontSize))
+        {
+            var size = _fontSize switch
+            {
+                "small" => "0.75rem",
+                "normal" => "0.85rem",
+                "large" => "1rem",
+                "xlarge" => "1.15rem",
+                "xxlarge" => "1.3rem",
+                _ => "0.85rem"
+            };
+            styles.Add($"font-size: {size}");
+        }
+        return string.Join("; ", styles);
+    }
+
+    private ColumnThreshold? FindMatchingThreshold(string column, object? value)
+    {
+        if (!_columnThresholds.TryGetValue(column, out var thresholds) || thresholds.Count == 0)
+            return null;
+
+        foreach (var threshold in thresholds)
+        {
+            bool matches = false;
+
+            if (threshold.MatchType == "text" && value is string textValue)
+            {
+                matches = threshold.TextMatchType switch
+                {
+                    "equal" => textValue.Equals(threshold.TextMatch ?? "", StringComparison.OrdinalIgnoreCase),
+                    "notequal" => !textValue.Equals(threshold.TextMatch ?? "", StringComparison.OrdinalIgnoreCase),
+                    "contains" => !string.IsNullOrEmpty(threshold.TextMatch) && textValue.Contains(threshold.TextMatch, StringComparison.OrdinalIgnoreCase),
+                    "startswith" => !string.IsNullOrEmpty(threshold.TextMatch) && textValue.StartsWith(threshold.TextMatch, StringComparison.OrdinalIgnoreCase),
+                    "endswith" => !string.IsNullOrEmpty(threshold.TextMatch) && textValue.EndsWith(threshold.TextMatch, StringComparison.OrdinalIgnoreCase),
+                    "empty" => string.IsNullOrEmpty(textValue),
+                    "notempty" => !string.IsNullOrEmpty(textValue),
+                    _ => false
+                };
+            }
+            else if (threshold.MatchType == "numeric" && value is not null)
+            {
+                decimal numValue = value switch
+                {
+                    int i => i,
+                    decimal d => d,
+                    double dbl => (decimal)dbl,
+                    float f => (decimal)f,
+                    _ => 0
+                };
+
+                bool fromOk = threshold.From is null || numValue >= threshold.From;
+                bool toOk = threshold.To is null || numValue <= threshold.To;
+                matches = fromOk && toOk;
+            }
+
+            if (matches)
+                return threshold;
+        }
+
+        return null;
+    }
+
+    private string GetTableStyle()
+    {
+        if (!string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent")
+            return $"background-color: {_tableBackgroundColor}";
+        return "";
+    }
+
+    private string GetBadgeStyle(string column, object? value)
+    {
+        var threshold = FindMatchingThreshold(column, value);
+        if (threshold is null) return "";
+
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(threshold.BackgroundColor) && threshold.BackgroundColor != "transparent")
+            styles.Add($"background-color: {threshold.BackgroundColor}");
+        if (!string.IsNullOrEmpty(threshold.FontColor))
+            styles.Add($"color: {threshold.FontColor}");
+        return string.Join("; ", styles);
+    }
+
+    private bool HasThreshold(string column, object? value)
+    {
+        return FindMatchingThreshold(column, value) is not null;
+    }
+
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
     protected override async Task OnInitializedAsync()
     {
+        ApplyConfig();
         await ConnectAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Re-apply config when parameters change (e.g., after saving config modal)
+        ApplyConfig();
+    }
+
+    private void ApplyConfig()
+    {
+        Console.WriteLine($"[DEBUG] AgentGridWidget.ApplyConfig: Config is {(Config == null ? "null" : "not null")}");
+        if (Config is not null)
+        {
+            Console.WriteLine($"[DEBUG]   FontSize={Config.FontSize}, BgColor={Config.BackgroundColor}, FontColor={Config.FontColor}");
+            Console.WriteLine($"[DEBUG]   ColumnThresholds={Config.ColumnThresholds?.Count ?? 0}");
+
+            // Filters
+            _filterTeams = Config.AgentGridTeams?.ToHashSet() ?? new HashSet<string>();
+            _filterStates = Config.AgentGridStates?.ToHashSet() ?? new HashSet<string>();
+            _visibleColumns = Config.AgentGridColumns?.ToHashSet() ?? new HashSet<string> { "agent", "state", "duration", "occupancy", "adherence" };
+            _showAlerts = Config.AgentGridShowAlerts;
+
+            // Appearance
+            _fontSize = Config.FontSize;
+            _backgroundColor = Config.BackgroundColor;
+            _fontColor = Config.FontColor;
+            _tableBackgroundColor = Config.TableBackgroundColor;
+
+            // Column thresholds
+            _columnThresholds = Config.ColumnThresholds ?? new Dictionary<string, List<ColumnThreshold>>();
+            Console.WriteLine($"[DEBUG]   Applied: _fontSize={_fontSize}, _backgroundColor={_backgroundColor}, _columnThresholds={_columnThresholds.Count}");
+            foreach (var kvp in _columnThresholds)
+            {
+                foreach (var t in kvp.Value)
+                {
+                    Console.WriteLine($"[DEBUG]   Threshold for '{kvp.Key}': MatchType={t.MatchType}, TextMatchType={t.TextMatchType}, TextMatch={t.TextMatch}, BgColor={t.BackgroundColor}, FontColor={t.FontColor}");
+                }
+            }
+        }
     }
 
     private async Task ConnectAsync()
@@ -255,8 +438,9 @@
         _ => "avatar-secondary"
     };
 
-    private static string GetRowClass(AgentStatusDto agent)
+    private string GetRowClass(AgentStatusDto agent)
     {
+        if (!_showAlerts) return "";
         if (agent.AlertLevel == AlertLevel.Critical)
             return "table-danger";
         if (agent.AlertLevel == AlertLevel.Warning)

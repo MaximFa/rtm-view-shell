@@ -8,18 +8,18 @@ public static class AgentDataGenerator
 
     private static readonly List<(string Id, string Name, string Ext, string Team)> _agentTemplates = new()
     {
-        ("A001", "Иванов Иван", "1001", "Sales Team"),
-        ("A002", "Петрова Мария", "1002", "Sales Team"),
-        ("A003", "Сидоров Алексей", "1003", "Sales Team"),
-        ("A004", "Козлова Елена", "1004", "Support Team"),
-        ("A005", "Морозов Дмитрий", "1005", "Support Team"),
-        ("A006", "Новикова Анна", "1006", "Sales Team"),
-        ("A007", "Волков Сергей", "1007", "Support Team"),
-        ("A008", "Соколова Ольга", "1008", "VIP Team"),
-        ("A009", "Лебедев Андрей", "1009", "Sales Team"),
-        ("A010", "Федорова Наталья", "1010", "Support Team"),
-        ("A011", "Михайлов Павел", "1011", "VIP Team"),
-        ("A012", "Егорова Татьяна", "1012", "Sales Team"),
+        ("A001", "John Smith", "1001", "Sales Team"),
+        ("A002", "Mary Johnson", "1002", "Sales Team"),
+        ("A003", "Alex Williams", "1003", "Sales Team"),
+        ("A004", "Elena Brown", "1004", "Support Team"),
+        ("A005", "David Miller", "1005", "Support Team"),
+        ("A006", "Anna Davis", "1006", "Sales Team"),
+        ("A007", "Steven Wilson", "1007", "Support Team"),
+        ("A008", "Olivia Taylor", "1008", "VIP Team"),
+        ("A009", "Andrew Moore", "1009", "Sales Team"),
+        ("A010", "Natalie Anderson", "1010", "Support Team"),
+        ("A011", "Paul Thomas", "1011", "VIP Team"),
+        ("A012", "Tanya Jackson", "1012", "Sales Team"),
     };
 
     private static readonly Dictionary<string, AgentState> _agentStates = new();
@@ -119,7 +119,7 @@ public static class AgentDataGenerator
         string? nrCode = null, nrName = null;
         if (state == AgentState.NotReady)
         {
-            var reasons = new[] { ("LUNCH", "Обед"), ("BREAK", "Перерыв"), ("TRAINING", "Обучение"), ("MEETING", "Совещание") };
+            var reasons = new[] { ("LUNCH", "Lunch"), ("BREAK", "Break"), ("TRAINING", "Training"), ("MEETING", "Meeting") };
             var reason = reasons[_random.Next(reasons.Length)];
             nrCode = reason.Item1;
             nrName = reason.Item2;
@@ -137,18 +137,18 @@ public static class AgentDataGenerator
             callDir = CallDirection.Inbound;
             queue = team switch
             {
-                "Sales Team" => "Sales_RU",
-                "Support Team" => "Support_RU",
-                "VIP Team" => "VIP_RU",
+                "Sales Team" => "Sales",
+                "Support Team" => "Support",
+                "VIP Team" => "VIP",
                 _ => "General"
             };
-            caller = $"+7***{_random.Next(1000, 9999)}";
+            caller = $"+1***{_random.Next(1000, 9999)}";
         }
         else if (state == AgentState.Outbound)
         {
             callDuration = _random.Next(30, Math.Max(31, stateDuration));
             callDir = CallDirection.Outbound;
-            caller = $"+7***{_random.Next(1000, 9999)}";
+            caller = $"+1***{_random.Next(1000, 9999)}";
         }
 
         // Skills and queues
@@ -162,9 +162,9 @@ public static class AgentDataGenerator
 
         var queues = team switch
         {
-            "Sales Team" => new[] { "Sales_RU", "Sales_EN" },
-            "Support Team" => new[] { "Support_RU", "Support_EN" },
-            "VIP Team" => new[] { "VIP_RU", "VIP_EN" },
+            "Sales Team" => new[] { "Sales", "Sales Premium" },
+            "Support Team" => new[] { "Support", "Support L2" },
+            "VIP Team" => new[] { "VIP", "VIP Priority" },
             _ => new[] { "General" }
         };
 

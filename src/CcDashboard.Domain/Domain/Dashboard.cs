@@ -11,6 +11,7 @@ public class Dashboard
     public Guid? CategoryId { get; set; }
     public DashboardStatus Status { get; set; } = DashboardStatus.Draft;
     public bool IsPublic { get; set; }
+    public bool IsDarkMode { get; set; }
     public Guid CreatedByUserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

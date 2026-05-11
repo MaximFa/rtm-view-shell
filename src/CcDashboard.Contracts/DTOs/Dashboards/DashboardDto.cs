@@ -12,6 +12,7 @@ public record DashboardDto(
     string? CategoryName,
     DashboardStatus Status,
     bool IsPublic,
+    bool IsDarkMode,
     Guid CreatedByUserId,
     string? CreatedByName,
     DateTime CreatedAt,
@@ -42,6 +43,7 @@ public record UpdateDashboardRequest(
     Guid? CategoryId,
     DashboardStatus Status,
     bool IsPublic,
+    bool IsDarkMode,
     uint RowVersion);
 
 public record DashboardListRequest(

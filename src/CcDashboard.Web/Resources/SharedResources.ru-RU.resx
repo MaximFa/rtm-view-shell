@@ -191,10 +191,25 @@
   <data name="Widgets_FontSize_XXLarge"><value>Огромный</value></data>
   <data name="Widgets_BackgroundColor"><value>Фон</value></data>
   <data name="Widgets_FontColor"><value>Цвет текста</value></data>
+  <data name="Widgets_BadgeBg"><value>Фон бейджа</value></data>
+  <data name="Widgets_BadgeFont"><value>Шрифт бейджа</value></data>
+  <data name="Widgets_TableBackground"><value>Фон таблицы</value></data>
   <data name="Widgets_Thresholds"><value>Правила порогов</value></data>
   <data name="Widgets_From"><value>От</value></data>
   <data name="Widgets_To"><value>До</value></data>
   <data name="Widgets_AddThreshold"><value>Добавить правило</value></data>
+  <data name="Widgets_MatchType"><value>Тип сравнения</value></data>
+  <data name="Widgets_MatchType_Equal"><value>Равно</value></data>
+  <data name="Widgets_MatchType_NotEqual"><value>Не равно</value></data>
+  <data name="Widgets_MatchType_Contains"><value>Содержит</value></data>
+  <data name="Widgets_MatchType_StartsWith"><value>Начинается с</value></data>
+  <data name="Widgets_MatchType_EndsWith"><value>Заканчивается на</value></data>
+  <data name="Widgets_MatchType_Empty"><value>Пусто</value></data>
+  <data name="Widgets_MatchType_NotEmpty"><value>Не пусто</value></data>
+  <data name="Widgets_MatchValue"><value>Значение</value></data>
+  <data name="Widgets_Value"><value>Значение</value></data>
+  <data name="Widgets_MatchValue_Placeholder"><value>Введите текст для сравнения</value></data>
+  <data name="Widgets_MatchValue_Required"><value>Значение обязательно</value></data>
 
   <!-- ── Users Admin ── -->
   <data name="Users_Title"><value>Управление пользователями</value></data>
@@ -484,6 +499,23 @@
   <data name="State_ACW"><value>Постобработка</value></data>
   <data name="State_NotReady"><value>Не готов</value></data>
   <data name="State_LoggedOut"><value>Выход</value></data>
+
+  <!-- ── Agent Grid Config ── -->
+  <data name="Widgets_AgentGrid_Filters"><value>Фильтры</value></data>
+  <data name="Widgets_AgentGrid_Teams"><value>Команды</value></data>
+  <data name="Widgets_AgentGrid_TeamsHelp"><value>Оставьте пустым для отображения всех команд</value></data>
+  <data name="Widgets_AgentGrid_States"><value>Статусы</value></data>
+  <data name="Widgets_AgentGrid_StatesHelp"><value>Оставьте пустым для отображения всех статусов</value></data>
+  <data name="Widgets_AgentGrid_Columns"><value>Видимые колонки</value></data>
+  <data name="Widgets_AgentGrid_ShowAlerts"><value>Подсвечивать агентов с предупреждениями</value></data>
+  <data name="Widgets_AgentGrid_Col_Agent"><value>Агент</value></data>
+  <data name="Widgets_AgentGrid_Col_State"><value>Статус</value></data>
+  <data name="Widgets_AgentGrid_Col_Duration"><value>Время</value></data>
+  <data name="Widgets_AgentGrid_Col_Queue"><value>Очередь</value></data>
+  <data name="Widgets_AgentGrid_Col_Occupancy"><value>Занятость %</value></data>
+  <data name="Widgets_AgentGrid_Col_Adherence"><value>Соответствие %</value></data>
+  <data name="Widgets_AgentGrid_Col_Calls"><value>Звонков сегодня</value></data>
+  <data name="Widgets_AgentGrid_Col_Aht"><value>AHT</value></data>
 
   <!-- ── Errors ── -->
   <data name="Error_NotFound"><value>Запрошенный ресурс не найден.</value></data>

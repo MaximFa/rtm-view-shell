@@ -296,67 +296,265 @@
                         </div>
                     </div>
 
-                    <!-- Thresholds -->
-                    <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_Thresholds"]</h6>
-                    <div class="threshold-rules">
-                        @for (int i = 0; i < ConfigThresholds.Count; i++)
-                        {
-                            var idx = i;
-                            var rule = ConfigThresholds[idx];
-                            <div class="threshold-rule mb-2" @key="idx">
-                                <div class="row g-2 align-items-end">
-                                    <div class="col-2">
-                                        <label class="form-label small">@L["Widgets_From"]</label>
-                                        <input type="number" class="form-control form-control-sm"
-                                               value="@rule.From"
-                                               @onchange="e => UpdateThresholdFrom(idx, e)" />
-                                    </div>
-                                    <div class="col-2">
-                                        <label class="form-label small">@L["Widgets_To"]</label>
-                                        <input type="number" class="form-control form-control-sm"
-                                               value="@rule.To"
-                                               @onchange="e => UpdateThresholdTo(idx, e)" />
-                                    </div>
-                                    <div class="col-3">
-                                        <label class="form-label small">@L["Widgets_BackgroundColor"]</label>
-                                        <div class="color-palette compact">
-                                            @foreach (var color in ThresholdBackgroundColors)
-                                            {
-                                                <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
-                                                      title="@color.Name"
-                                                      style="@GetColorStyle(color.Value)"
-                                                      @onclick="() => UpdateThresholdBgColor(idx, color.Value)">
-                                                </span>
-                                            }
-                                        </div>
-                                    </div>
-                                    <div class="col-3">
-                                        <label class="form-label small">@L["Widgets_FontColor"]</label>
-                                        <div class="color-palette compact">
-                                            @foreach (var color in ThresholdFontColors)
-                                            {
-                                                <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
-                                                      title="@color.Name"
-                                                      style="@GetColorStyle(color.Value)"
-                                                      @onclick="() => UpdateThresholdFontColor(idx, color.Value)">
-                                                </span>
-                                            }
-                                        </div>
-                                    </div>
-                                    <div class="col-2 text-end">
-                                        <button type="button" class="btn btn-outline-danger btn-sm"
-                                                @onclick="() => RemoveThreshold(idx)">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
+                    @if (IsAgentGridWidget(ConfiguringWidget))
+                    {
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">@L["Widgets_TableBackground"]</label>
+                                <div class="color-palette">
+                                    @foreach (var color in TableBackgroundColors)
+                                    {
+                                        <span class="clr-swatch @(ConfigTableBackgroundColor == color.Value ? "selected" : "")"
+                                              title="@color.Name"
+                                              style="@GetColorStyle(color.Value)"
+                                              @onclick="() => ConfigTableBackgroundColor = color.Value">
+                                        </span>
+                                    }
                                 </div>
                             </div>
+                        </div>
+                    }
+
+                    <!-- Thresholds -->
+                    <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_Thresholds"]</h6>
+                    @if (IsAgentGridWidget(ConfiguringWidget))
+                    {
+                        <!-- Per-column thresholds for Agent Grid -->
+                        <div class="mb-3">
+                            <label class="form-label">Column</label>
+                            <select class="form-select form-select-sm" @bind="SelectedThresholdColumn">
+                                <option value="">-- Select column --</option>
+                                @foreach (var col in AvailableColumnKeys)
+                                {
+                                    <option value="@col">@L[$"Widgets_AgentGrid_Col_{char.ToUpper(col[0])}{col[1..]}"]</option>
+                                }
+                            </select>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(SelectedThresholdColumn))
+                        {
+                            var colThresholds = GetColumnThresholds(SelectedThresholdColumn);
+                            var isNumeric = NumericColumns.Contains(SelectedThresholdColumn);
+
+                            @for (int i = 0; i < colThresholds.Count; i++)
+                            {
+                                var idx = i;
+                                var rule = colThresholds[idx];
+                                <div class="threshold-rule mb-2 p-2 border rounded" @key="@($"{SelectedThresholdColumn}_{idx}")">
+                                    <div class="row g-2 align-items-end">
+                                        @if (isNumeric)
+                                        {
+                                            <div class="col-2">
+                                                <label class="form-label small">@L["Widgets_From"]</label>
+                                                <input type="number" class="form-control form-control-sm"
+                                                       value="@rule.From"
+                                                       @onchange="e => UpdateColThresholdFrom(SelectedThresholdColumn, idx, e)" />
+                                            </div>
+                                            <div class="col-2">
+                                                <label class="form-label small">@L["Widgets_To"]</label>
+                                                <input type="number" class="form-control form-control-sm"
+                                                       value="@rule.To"
+                                                       @onchange="e => UpdateColThresholdTo(SelectedThresholdColumn, idx, e)" />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="col-2">
+                                                <label class="form-label small">@L["Widgets_MatchType"]</label>
+                                                <select class="form-select form-select-sm"
+                                                        value="@rule.TextMatchType"
+                                                        @onchange="e => UpdateColThresholdMatchType(SelectedThresholdColumn, idx, e)">
+                                                    <option value="equal">@L["Widgets_MatchType_Equal"]</option>
+                                                    <option value="notequal">@L["Widgets_MatchType_NotEqual"]</option>
+                                                    <option value="contains">@L["Widgets_MatchType_Contains"]</option>
+                                                    <option value="startswith">@L["Widgets_MatchType_StartsWith"]</option>
+                                                    <option value="endswith">@L["Widgets_MatchType_EndsWith"]</option>
+                                                    <option value="empty">@L["Widgets_MatchType_Empty"]</option>
+                                                    <option value="notempty">@L["Widgets_MatchType_NotEmpty"]</option>
+                                                </select>
+                                            </div>
+                                            @if (rule.TextMatchType != "empty" && rule.TextMatchType != "notempty")
+                                            {
+                                                <div class="col-2">
+                                                    <label class="form-label small">@L["Widgets_Value"]</label>
+                                                    <input type="text"
+                                                           class="form-control form-control-sm"
+                                                           value="@rule.TextMatch"
+                                                           @onchange="e => UpdateColThresholdText(SelectedThresholdColumn, idx, e)" />
+                                                </div>
+                                            }
+                                        }
+                                        <div class="col-3">
+                                            <label class="form-label small">@L["Widgets_BadgeBg"]</label>
+                                            <div class="color-palette compact">
+                                                @foreach (var color in ThresholdBackgroundColors)
+                                                {
+                                                    <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => UpdateColThresholdBgColor(SelectedThresholdColumn, idx, color.Value)">
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="col-3">
+                                            <label class="form-label small">@L["Widgets_BadgeFont"]</label>
+                                            <div class="color-palette compact">
+                                                @foreach (var color in ThresholdFontColors)
+                                                {
+                                                    <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => UpdateColThresholdFontColor(SelectedThresholdColumn, idx, color.Value)">
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="col-2 text-end">
+                                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                                    @onclick="() => RemoveColThreshold(SelectedThresholdColumn, idx)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2"
+                                    @onclick="() => AddColThreshold(SelectedThresholdColumn)">
+                                <i class="bi bi-plus"></i> @L["Widgets_AddThreshold"]
+                            </button>
                         }
-                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2"
-                                @onclick="AddThreshold">
-                            <i class="bi bi-plus"></i> @L["Widgets_AddThreshold"]
-                        </button>
-                    </div>
+                    }
+                    else
+                    {
+                        <!-- Standard thresholds for other widgets -->
+                        <div class="threshold-rules">
+                            @for (int i = 0; i < ConfigThresholds.Count; i++)
+                            {
+                                var idx = i;
+                                var rule = ConfigThresholds[idx];
+                                <div class="threshold-rule mb-2" @key="idx">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-2">
+                                            <label class="form-label small">@L["Widgets_From"]</label>
+                                            <input type="number" class="form-control form-control-sm"
+                                                   value="@rule.From"
+                                                   @onchange="e => UpdateThresholdFrom(idx, e)" />
+                                        </div>
+                                        <div class="col-2">
+                                            <label class="form-label small">@L["Widgets_To"]</label>
+                                            <input type="number" class="form-control form-control-sm"
+                                                   value="@rule.To"
+                                                   @onchange="e => UpdateThresholdTo(idx, e)" />
+                                        </div>
+                                        <div class="col-3">
+                                            <label class="form-label small">@L["Widgets_BackgroundColor"]</label>
+                                            <div class="color-palette compact">
+                                                @foreach (var color in ThresholdBackgroundColors)
+                                                {
+                                                    <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => UpdateThresholdBgColor(idx, color.Value)">
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="col-3">
+                                            <label class="form-label small">@L["Widgets_FontColor"]</label>
+                                            <div class="color-palette compact">
+                                                @foreach (var color in ThresholdFontColors)
+                                                {
+                                                    <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => UpdateThresholdFontColor(idx, color.Value)">
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="col-2 text-end">
+                                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                                    @onclick="() => RemoveThreshold(idx)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2"
+                                    @onclick="AddThreshold">
+                                <i class="bi bi-plus"></i> @L["Widgets_AddThreshold"]
+                            </button>
+                        </div>
+                    }
+
+                    @if (IsAgentGridWidget(ConfiguringWidget))
+                    {
+                        <!-- Agent Grid Filters -->
+                        <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_AgentGrid_Filters"]</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">@L["Widgets_AgentGrid_Teams"]</label>
+                                <div class="filter-checkboxes">
+                                    @foreach (var team in AvailableTeams)
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="team-@team"
+                                                   checked="@ConfigAgentTeams.Contains(team)"
+                                                   @onchange="e => ToggleAgentTeam(team, (bool)(e.Value ?? false))" />
+                                            <label class="form-check-label" for="team-@team">@team</label>
+                                        </div>
+                                    }
+                                </div>
+                                <small class="text-muted">@L["Widgets_AgentGrid_TeamsHelp"]</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">@L["Widgets_AgentGrid_States"]</label>
+                                <div class="filter-checkboxes">
+                                    @foreach (var state in AvailableStates)
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="state-@state"
+                                                   checked="@ConfigAgentStates.Contains(state)"
+                                                   @onchange="e => ToggleAgentState(state, (bool)(e.Value ?? false))" />
+                                            <label class="form-check-label" for="state-@state">@L[$"State_{state}"]</label>
+                                        </div>
+                                    }
+                                </div>
+                                <small class="text-muted">@L["Widgets_AgentGrid_StatesHelp"]</small>
+                            </div>
+                        </div>
+
+                        <!-- Agent Grid Columns -->
+                        <h6 class="text-muted small text-uppercase mt-4 mb-3">@L["Widgets_AgentGrid_Columns"]</h6>
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach (var colKey in AvailableColumnKeys)
+                                    {
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" id="col-@colKey"
+                                                   checked="@ConfigAgentColumns.Contains(colKey)"
+                                                   @onchange="e => ToggleAgentColumn(colKey, (bool)(e.Value ?? false))" />
+                                            <label class="form-check-label" for="col-@colKey">@L[$"Widgets_AgentGrid_Col_{char.ToUpper(colKey[0])}{colKey[1..]}"]</label>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Agent Grid Options -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="showAlerts"
+                                           @bind="ConfigAgentShowAlerts" />
+                                    <label class="form-check-label" for="showAlerts">@L["Widgets_AgentGrid_ShowAlerts"]</label>
+                                </div>
+                            </div>
+                        </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="CloseWidgetConfig">@L["Common_Cancel"]</button>
@@ -378,7 +576,7 @@
     private bool Saving;
     private string? Error;
     private string EditName = "";
-    private bool _darkMode = true;
+    private bool _darkMode = false;
 
     // Fullscreen editor state
     private bool PaletteOpen = false;
@@ -398,7 +596,24 @@
     private string ConfigFontSize = "normal";
     private string ConfigBackgroundColor = "#FFFFFF";
     private string ConfigFontColor = "#202124";
+    private string ConfigTableBackgroundColor = "transparent";
     private List<ThresholdRule> ConfigThresholds = [];
+
+    // Agent Grid Configuration
+    private HashSet<string> ConfigAgentTeams = new();
+    private HashSet<string> ConfigAgentStates = new();
+    private HashSet<string> ConfigAgentColumns = new() { "agent", "state", "duration", "occupancy", "adherence" };
+    private bool ConfigAgentShowAlerts = true;
+
+    // Per-column thresholds
+    private Dictionary<string, List<ColumnThreshold>> ConfigColumnThresholds = new();
+    private string SelectedThresholdColumn = "";
+
+    private static readonly string[] AvailableTeams = ["Sales Team", "Support Team", "VIP Team"];
+    private static readonly string[] AvailableStates = ["Ready", "Talking", "Hold", "Acw", "NotReady", "Outbound", "LoggedOut"];
+    private static readonly string[] AvailableColumnKeys = ["agent", "state", "duration", "queue", "occupancy", "adherence", "calls", "aht"];
+    private static readonly string[] NumericColumns = ["duration", "occupancy", "adherence", "calls", "aht"];
+    private static readonly string[] TextColumns = ["agent", "state", "queue"];
 
     // Reference data from DB
     private List<BusinessUnitDto> BusinessUnits = [];
@@ -427,6 +642,7 @@
     // Color palettes — threshold semantic colors
     private static readonly (string Name, string Value)[] BackgroundColors =
     [
+        ("Transparent", "transparent"),
         // Neutrals
         ("White", "#FFFFFF"),
         ("Null", "#F2F1EF"),
@@ -439,6 +655,16 @@
         ("Warning Badge", "#F9E4BF"),
         ("Critical", "#FAECEC"),
         ("Critical Badge", "#F5D0D0")
+    ];
+
+    private static readonly (string Name, string Value)[] TableBackgroundColors =
+    [
+        ("Transparent", "transparent"),
+        ("White", "#FFFFFF"),
+        ("Light Gray", "#F8F9FA"),
+        ("Null", "#F2F1EF"),
+        ("Dark", "#1A1A1A"),
+        ("Dark Gray", "#2D2D2D")
     ];
 
     private static readonly (string Name, string Value)[] FontColors =
@@ -533,6 +759,7 @@
             // Load dashboard first - this is required
             Dashboard = await Mediator.Send(new GetDashboardByIdQuery(Id), _cts.Token);
             EditName = Dashboard?.Name ?? "";
+            _darkMode = Dashboard?.IsDarkMode ?? false;
 
             // Load widget catalog - required for drag-drop
             var categories = await Mediator.Send(new GetWidgetCatalogQuery(), _cts.Token);
@@ -557,13 +784,16 @@
             // Load existing widgets from Dashboard.Widgets if available
             if (Dashboard?.Widgets != null)
             {
+                Console.WriteLine($"[DEBUG] Loading {Dashboard.Widgets.Count} widgets");
                 foreach (var w in Dashboard.Widgets)
                 {
+                    Console.WriteLine($"[DEBUG] Widget {w.Id}: ConfigJson = {w.ConfigJson ?? "(null)"}");
                     var catalogItem = WidgetCatalog.FirstOrDefault(c => c.Id == w.WidgetCatalogItemId);
                     if (catalogItem != null)
                     {
                         var (width, height, x, y) = ParseWidgetDimensions(w.PositionJson);
                         var config = ParseWidgetConfig(w.ConfigJson);
+                        Console.WriteLine($"[DEBUG] Parsed config: ColumnThresholds count = {config.ColumnThresholds?.Count ?? 0}");
                         PlacedWidgets.Add(new PlacedWidget
                         {
                             Id = w.Id,
@@ -735,6 +965,7 @@
         ConfigFontSize = widget.Config.FontSize ?? "normal";
         ConfigBackgroundColor = widget.Config.BackgroundColor ?? "#FFFFFF";
         ConfigFontColor = widget.Config.FontColor ?? "#202124";
+        ConfigTableBackgroundColor = widget.Config.TableBackgroundColor ?? "transparent";
         ConfigThresholds = widget.Config.Thresholds?.Select(t => new ThresholdRule
         {
             From = t.From,
@@ -743,6 +974,39 @@
             FontColor = t.FontColor
         }).ToList() ?? [];
 
+        // Agent Grid specific
+        ConfigAgentTeams = widget.Config.AgentGridTeams?.ToHashSet() ?? new HashSet<string>();
+        ConfigAgentStates = widget.Config.AgentGridStates?.ToHashSet() ?? new HashSet<string>();
+        ConfigAgentColumns = widget.Config.AgentGridColumns?.ToHashSet() ?? new HashSet<string> { "agent", "state", "duration", "occupancy", "adherence" };
+        ConfigAgentShowAlerts = widget.Config.AgentGridShowAlerts;
+
+        // Column thresholds
+        Console.WriteLine($"[DEBUG] OpenWidgetConfig: widget.Config.ColumnThresholds = {(widget.Config.ColumnThresholds == null ? "null" : widget.Config.ColumnThresholds.Count.ToString())}");
+        if (widget.Config.ColumnThresholds != null)
+        {
+            foreach (var kvp in widget.Config.ColumnThresholds)
+            {
+                Console.WriteLine($"[DEBUG]   Column '{kvp.Key}': {kvp.Value.Count} rules");
+            }
+        }
+        ConfigColumnThresholds = widget.Config.ColumnThresholds != null
+            ? widget.Config.ColumnThresholds.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.Select(t => new ColumnThreshold
+                {
+                    MatchType = t.MatchType,
+                    From = t.From,
+                    To = t.To,
+                    TextMatch = t.TextMatch,
+                    TextTo = t.TextTo,
+                    TextMatchType = t.TextMatchType,
+                    BackgroundColor = t.BackgroundColor,
+                    FontColor = t.FontColor
+                }).ToList())
+            : new Dictionary<string, List<ColumnThreshold>>();
+        Console.WriteLine($"[DEBUG] OpenWidgetConfig: ConfigColumnThresholds = {ConfigColumnThresholds.Count}");
+        SelectedThresholdColumn = "";
+
         // Initialize search fields with selected values
         BuSearchText = GetBusinessUnitName(ConfigBusinessUnit);
         MetricSearchText = ConfigMetric ?? "";
@@ -750,10 +1014,37 @@
         MetricDropdownOpen = false;
     }
 
+    private static bool IsAgentGridWidget(PlacedWidget? widget)
+    {
+        if (widget is null) return false;
+        var name = widget.Name.ToLower();
+        return name.Contains("agent") && name.Contains("grid");
+    }
+
+    private void ToggleAgentTeam(string team, bool selected)
+    {
+        if (selected) ConfigAgentTeams.Add(team);
+        else ConfigAgentTeams.Remove(team);
+    }
+
+    private void ToggleAgentState(string state, bool selected)
+    {
+        if (selected) ConfigAgentStates.Add(state);
+        else ConfigAgentStates.Remove(state);
+    }
+
+    private void ToggleAgentColumn(string column, bool selected)
+    {
+        if (selected) ConfigAgentColumns.Add(column);
+        else ConfigAgentColumns.Remove(column);
+    }
+
     private void CloseWidgetConfig()
     {
         ConfiguringWidget = null;
         ConfigThresholds = [];
+        ConfigColumnThresholds = new();
+        SelectedThresholdColumn = "";
         BuDropdownOpen = false;
         MetricDropdownOpen = false;
     }
@@ -813,7 +1104,13 @@
     {
         if (ConfiguringWidget is null) return;
 
-        ConfiguringWidget.Config = new WidgetConfig
+        Console.WriteLine($"[DEBUG] SaveWidgetConfig: ConfigColumnThresholds has {ConfigColumnThresholds.Count} columns");
+        foreach (var kvp in ConfigColumnThresholds)
+        {
+            Console.WriteLine($"[DEBUG]   Column '{kvp.Key}': {kvp.Value.Count} rules");
+        }
+
+        var newConfig = new WidgetConfig
         {
             DisplayName = ConfigDisplayName,
             BusinessUnit = ConfigBusinessUnit,
@@ -821,14 +1118,28 @@
             FontSize = ConfigFontSize,
             BackgroundColor = ConfigBackgroundColor,
             FontColor = ConfigFontColor,
+            TableBackgroundColor = ConfigTableBackgroundColor,
             Thresholds = ConfigThresholds.Select(t => new ThresholdRule
             {
                 From = t.From,
                 To = t.To,
                 BackgroundColor = t.BackgroundColor,
                 FontColor = t.FontColor
-            }).ToList()
+            }).ToList(),
+            // Agent Grid specific
+            AgentGridTeams = ConfigAgentTeams.Count > 0 ? ConfigAgentTeams.ToList() : null,
+            AgentGridStates = ConfigAgentStates.Count > 0 ? ConfigAgentStates.ToList() : null,
+            AgentGridColumns = ConfigAgentColumns.ToList(),
+            AgentGridShowAlerts = ConfigAgentShowAlerts,
+            // Column thresholds
+            ColumnThresholds = ConfigColumnThresholds.Count > 0
+                ? ConfigColumnThresholds.Where(kvp => kvp.Value.Count > 0)
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
+                : null
         };
+
+        Console.WriteLine($"[DEBUG] SaveWidgetConfig: newConfig.ColumnThresholds = {(newConfig.ColumnThresholds == null ? "null" : newConfig.ColumnThresholds.Count.ToString())}");
+        ConfiguringWidget.Config = newConfig;
 
         // Update widget display name
         if (!string.IsNullOrWhiteSpace(ConfigDisplayName))
@@ -837,6 +1148,7 @@
         }
 
         CloseWidgetConfig();
+        StateHasChanged(); // Force re-render to apply new config to widgets
     }
 
     // Threshold management
@@ -881,6 +1193,82 @@
             ConfigThresholds[index].FontColor = color;
     }
 
+    // Column threshold management
+    private List<ColumnThreshold> GetColumnThresholds(string column)
+    {
+        if (!ConfigColumnThresholds.TryGetValue(column, out var thresholds))
+        {
+            thresholds = new List<ColumnThreshold>();
+            ConfigColumnThresholds[column] = thresholds;
+        }
+        return thresholds;
+    }
+
+    private void AddColThreshold(string column)
+    {
+        var thresholds = GetColumnThresholds(column);
+        var isNumeric = NumericColumns.Contains(column);
+        thresholds.Add(new ColumnThreshold
+        {
+            MatchType = isNumeric ? "numeric" : "text",
+            From = isNumeric ? 0 : null,
+            To = isNumeric ? 100 : null,
+            TextMatch = isNumeric ? null : "",
+            BackgroundColor = "#DFFBE6",
+            FontColor = "#0A5D1E"
+        });
+    }
+
+    private void RemoveColThreshold(string column, int index)
+    {
+        if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds.RemoveAt(index);
+    }
+
+    private void UpdateColThresholdFrom(string column, int index, ChangeEventArgs e)
+    {
+        if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
+            if (decimal.TryParse(e.Value?.ToString(), out var val))
+                thresholds[index].From = val;
+    }
+
+    private void UpdateColThresholdTo(string column, int index, ChangeEventArgs e)
+    {
+        if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
+            if (decimal.TryParse(e.Value?.ToString(), out var val))
+                thresholds[index].To = val;
+    }
+
+    private void UpdateColThresholdText(string column, int index, ChangeEventArgs e)
+    {
+        if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].TextMatch = e.Value?.ToString();
+    }
+
+    private void UpdateColThresholdMatchType(string column, int index, ChangeEventArgs e)
+    {
+        if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].TextMatchType = e.Value?.ToString() ?? "equal";
+    }
+
+    private void UpdateColThresholdTextTo(string column, int index, ChangeEventArgs e)
+    {
+        if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].TextTo = e.Value?.ToString();
+    }
+
+    private void UpdateColThresholdBgColor(string column, int index, string color)
+    {
+        if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].BackgroundColor = color;
+    }
+
+    private void UpdateColThresholdFontColor(string column, int index, string color)
+    {
+        if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].FontColor = color;
+    }
+
     private async Task SaveLayout()
     {
         if (Dashboard is null) return;
@@ -889,27 +1277,32 @@
 
         try
         {
-            // Save name if changed
-            if (!string.IsNullOrWhiteSpace(EditName) && EditName != Dashboard.Name)
-            {
-                await Mediator.Send(new UpdateDashboardCommand(
-                    new UpdateDashboardRequest(Dashboard.Id, EditName.Trim(), Dashboard.Description,
-                        Dashboard.CategoryId, Dashboard.Status, Dashboard.IsPublic, Dashboard.RowVersion)), _cts.Token);
-            }
+            // Save dashboard settings (name, dark mode, etc.)
+            var name = string.IsNullOrWhiteSpace(EditName) ? Dashboard.Name : EditName.Trim();
+            await Mediator.Send(new UpdateDashboardCommand(
+                new UpdateDashboardRequest(Dashboard.Id, name, Dashboard.Description,
+                    Dashboard.CategoryId, Dashboard.Status, Dashboard.IsPublic, _darkMode, Dashboard.RowVersion)), _cts.Token);
 
             // Save widgets
-            var widgetDtos = PlacedWidgets.Select(w => new DashboardWidgetDto(
-                w.Id,
-                Dashboard.Id,
-                w.CatalogItemId,
-                System.Text.Json.JsonSerializer.Serialize(new { w.Width, w.Height, w.X, w.Y }),
-                System.Text.Json.JsonSerializer.Serialize(w.Config)
-            )).ToList();
+            var widgetDtos = PlacedWidgets.Select(w => {
+                var configJson = System.Text.Json.JsonSerializer.Serialize(w.Config, _jsonOptions);
+                Console.WriteLine($"[DEBUG] Saving widget {w.Id}: ConfigJson = {configJson}");
+                return new DashboardWidgetDto(
+                    w.Id,
+                    Dashboard.Id,
+                    w.CatalogItemId,
+                    System.Text.Json.JsonSerializer.Serialize(new { w.Width, w.Height, w.X, w.Y }, _jsonOptions),
+                    configJson
+                );
+            }).ToList();
 
+            Console.WriteLine($"[DEBUG] Saving {widgetDtos.Count} widgets for dashboard {Dashboard.Id}");
             await Mediator.Send(new UpdateDashboardWidgetsCommand(Dashboard.Id, widgetDtos), _cts.Token);
+            Console.WriteLine("[DEBUG] SaveLayout completed successfully");
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[DEBUG] SaveLayout error: {ex}");
             Error = ex.Message;
         }
         finally
@@ -932,7 +1325,7 @@
         {
             await Mediator.Send(new UpdateDashboardCommand(
                 new UpdateDashboardRequest(Dashboard.Id, Dashboard.Name, Dashboard.Description,
-                    Dashboard.CategoryId, DashboardStatus.Published, Dashboard.IsPublic, Dashboard.RowVersion)), _cts.Token);
+                    Dashboard.CategoryId, DashboardStatus.Published, Dashboard.IsPublic, _darkMode, Dashboard.RowVersion)), _cts.Token);
             Dashboard = await Mediator.Send(new GetDashboardByIdQuery(Id), _cts.Token);
         }
         catch (Exception ex)
@@ -954,7 +1347,7 @@
         {
             await Mediator.Send(new UpdateDashboardCommand(
                 new UpdateDashboardRequest(Dashboard.Id, Dashboard.Name, Dashboard.Description,
-                    Dashboard.CategoryId, DashboardStatus.Draft, Dashboard.IsPublic, Dashboard.RowVersion)), _cts.Token);
+                    Dashboard.CategoryId, DashboardStatus.Draft, Dashboard.IsPublic, _darkMode, Dashboard.RowVersion)), _cts.Token);
             Dashboard = await Mediator.Send(new GetDashboardByIdQuery(Id), _cts.Token);
         }
         catch (Exception ex)
@@ -1005,12 +1398,18 @@
         public int Y { get; set; }
     }
 
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+    };
+
     private static WidgetConfig ParseWidgetConfig(string? configJson)
     {
         if (string.IsNullOrEmpty(configJson)) return new WidgetConfig();
         try
         {
-            return System.Text.Json.JsonSerializer.Deserialize<WidgetConfig>(configJson) ?? new WidgetConfig();
+            return System.Text.Json.JsonSerializer.Deserialize<WidgetConfig>(configJson, _jsonOptions) ?? new WidgetConfig();
         }
         catch { return new WidgetConfig(); }
     }
@@ -1046,7 +1445,17 @@
         public string? FontSize { get; set; }
         public string? BackgroundColor { get; set; }
         public string? FontColor { get; set; }
+        public string? TableBackgroundColor { get; set; }  // Background for the data table
         public List<ThresholdRule>? Thresholds { get; set; }
+
+        // Agent Grid specific
+        public List<string>? AgentGridTeams { get; set; }
+        public List<string>? AgentGridStates { get; set; }
+        public List<string>? AgentGridColumns { get; set; }
+        public bool AgentGridShowAlerts { get; set; } = true;
+
+        // Per-column thresholds: key = column name, value = list of rules
+        public Dictionary<string, List<ColumnThreshold>>? ColumnThresholds { get; set; }
     }
 
     public class ThresholdRule
@@ -1055,5 +1464,17 @@
         public int? To { get; set; }
         public string? BackgroundColor { get; set; }
         public string? FontColor { get; set; }
+    }
+
+    public class ColumnThreshold
+    {
+        public string MatchType { get; set; } = "numeric"; // "numeric" or "text"
+        public decimal? From { get; set; }
+        public decimal? To { get; set; }
+        public string? TextMatch { get; set; }  // Text "From" value
+        public string? TextTo { get; set; }     // Text "To" value (optional)
+        public string TextMatchType { get; set; } = "equal"; // "equal", "contains", "startswith", "endswith"
+        public string? BackgroundColor { get; set; }       // Badge background
+        public string? FontColor { get; set; }             // Badge font color
     }
 }

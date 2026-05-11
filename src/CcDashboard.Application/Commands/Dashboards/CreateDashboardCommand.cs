@@ -61,6 +61,6 @@ public class CreateDashboardCommandHandler(
     }
 
     private static DashboardDto MapToDto(Dashboard d) => new(
-        d.Id, d.TenantId, null, d.Name, d.Description, d.CategoryId, null, d.Status, d.IsPublic,
+        d.Id, d.TenantId, null, d.Name, d.Description, d.CategoryId, null, d.Status, d.IsPublic, d.IsDarkMode,
         d.CreatedByUserId, null, d.CreatedAt, d.UpdatedByUserId, null, d.UpdatedAt);
 }

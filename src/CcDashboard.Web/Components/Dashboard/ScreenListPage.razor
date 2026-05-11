@@ -632,7 +632,7 @@ else if (ActiveTab == "trash")
                 : Guid.TryParse(EditCategoryId, out var cid) ? cid : null;
             await Mediator.Send(new UpdateDashboardCommand(
                 new UpdateDashboardRequest(EditDashboard.Id, EditName.Trim(), EditDescription?.Trim(),
-                    categoryId, status, EditIsPublic, EditDashboard.RowVersion)));
+                    categoryId, status, EditIsPublic, EditDashboard.IsDarkMode, EditDashboard.RowVersion)));
             CloseModals(); await LoadAsync();
         }
         catch (Exception ex) { SaveError = ex.Message; }

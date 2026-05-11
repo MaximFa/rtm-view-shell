@@ -29,7 +29,7 @@ public class GetDashboardByIdQueryHandler(
         return new DashboardDto(
             d.Id, d.TenantId, d.Tenant?.Name,
             d.Name, d.Description, d.CategoryId, d.Category?.Name, d.Status,
-            d.IsPublic, d.CreatedByUserId,
+            d.IsPublic, d.IsDarkMode, d.CreatedByUserId,
             createdBy != null ? $"{createdBy.FirstName} {createdBy.LastName}".Trim() : null,
             d.CreatedAt,
             d.UpdatedByUserId,

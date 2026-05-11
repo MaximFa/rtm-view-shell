@@ -81,7 +81,7 @@
     private List<ScreenEditorPage.PlacedWidget> PlacedWidgets = [];
     private bool Loading = true;
     private bool _positionsApplied;
-    private bool _darkMode = true;
+    private bool _darkMode = false;
 
     private void ToggleDarkMode() => _darkMode = !_darkMode;
 
@@ -91,6 +91,7 @@
         try
         {
             Dashboard = await Mediator.Send(new GetDashboardByIdQuery(Id), _cts.Token);
+            _darkMode = Dashboard?.IsDarkMode ?? false;
             var categories = await Mediator.Send(new GetWidgetCatalogQuery(), _cts.Token);
             WidgetCatalog = categories.SelectMany(c => c.Items).ToList();
 

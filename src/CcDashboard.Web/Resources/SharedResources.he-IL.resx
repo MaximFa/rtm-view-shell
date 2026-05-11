@@ -422,5 +422,60 @@
   <data name="Screens_Tenant"><value>ארגון</value></data>
   <data name="Screens_AllTenants"><value>כל הארגונים</value></data>
   <data name="Common_Actions"><value>פעולות</value></data>
+
+  <!-- ── Widget: Agent Grid ── -->
+  <data name="Widget_Connecting"><value>מתחבר...</value></data>
+  <data name="Widget_Disconnected"><value>מנותק</value></data>
+  <data name="Widget_NoAgents"><value>אין סוכנים</value></data>
+  <data name="Widget_Agent"><value>סוכן</value></data>
+  <data name="Widget_State"><value>סטטוס</value></data>
+  <data name="Widget_Duration"><value>משך</value></data>
+  <data name="Widget_Queue"><value>תור</value></data>
+  <data name="Widget_Occupancy"><value>תפוסה%</value></data>
+  <data name="Widget_Adherence"><value>עמידה%</value></data>
+  <data name="Widget_Agents"><value>סוכנים</value></data>
+  <data name="Widget_ConnectionFailed"><value>חיבור נכשל</value></data>
+  <data name="Widget_Retry"><value>נסה שוב</value></data>
+  <data name="Widget_Live"><value>חי</value></data>
+  <data name="Widget_Reconnecting"><value>מתחבר מחדש...</value></data>
+  <data name="State_Ready"><value>מוכן</value></data>
+  <data name="State_Talking"><value>משוחח</value></data>
+  <data name="State_Hold"><value>המתנה</value></data>
+  <data name="State_Outbound"><value>יוצא</value></data>
+  <data name="State_ACW"><value>סיכום</value></data>
+  <data name="State_NotReady"><value>לא מוכן</value></data>
+  <data name="State_LoggedOut"><value>מנותק</value></data>
+
+  <!-- ── Agent Grid Config ── -->
+  <data name="Widgets_AgentGrid_Filters"><value>מסננים</value></data>
+  <data name="Widgets_AgentGrid_Teams"><value>צוותים</value></data>
+  <data name="Widgets_AgentGrid_TeamsHelp"><value>השאר ריק להצגת כל הצוותים</value></data>
+  <data name="Widgets_AgentGrid_States"><value>סטטוסים</value></data>
+  <data name="Widgets_AgentGrid_StatesHelp"><value>השאר ריק להצגת כל הסטטוסים</value></data>
+  <data name="Widgets_AgentGrid_Columns"><value>עמודות גלויות</value></data>
+  <data name="Widgets_AgentGrid_ShowAlerts"><value>הדגש סוכנים עם התראות</value></data>
+  <data name="Widgets_AgentGrid_Col_Agent"><value>סוכן</value></data>
+  <data name="Widgets_AgentGrid_Col_State"><value>סטטוס</value></data>
+  <data name="Widgets_AgentGrid_Col_Duration"><value>משך</value></data>
+  <data name="Widgets_AgentGrid_Col_Queue"><value>תור</value></data>
+  <data name="Widgets_AgentGrid_Col_Occupancy"><value>תפוסה %</value></data>
+  <data name="Widgets_AgentGrid_Col_Adherence"><value>עמידה %</value></data>
+  <data name="Widgets_AgentGrid_Col_Calls"><value>שיחות היום</value></data>
+  <data name="Widgets_AgentGrid_Col_Aht"><value>AHT</value></data>
+  <data name="Widgets_MatchType"><value>סוג התאמה</value></data>
+  <data name="Widgets_MatchType_Equal"><value>שווה</value></data>
+  <data name="Widgets_MatchType_NotEqual"><value>לא שווה</value></data>
+  <data name="Widgets_MatchType_Contains"><value>מכיל</value></data>
+  <data name="Widgets_MatchType_StartsWith"><value>מתחיל ב</value></data>
+  <data name="Widgets_MatchType_EndsWith"><value>מסתיים ב</value></data>
+  <data name="Widgets_MatchType_Empty"><value>ריק</value></data>
+  <data name="Widgets_MatchType_NotEmpty"><value>לא ריק</value></data>
+  <data name="Widgets_MatchValue"><value>ערך</value></data>
+  <data name="Widgets_Value"><value>ערך</value></data>
+  <data name="Widgets_BadgeBg"><value>רקע תג</value></data>
+  <data name="Widgets_BadgeFont"><value>גופן תג</value></data>
+  <data name="Widgets_TableBackground"><value>רקע טבלה</value></data>
+  <data name="Widgets_MatchValue_Placeholder"><value>הזן טקסט להתאמה</value></data>
+  <data name="Widgets_MatchValue_Required"><value>ערך נדרש</value></data>
 </root>
 

@@ -43,7 +43,7 @@ public class GetDashboardsQueryHandler(
 
         var dtos = items.Select(d => new DashboardDto(
             d.Id, d.TenantId, d.Tenant?.Name,
-            d.Name, d.Description, d.CategoryId, d.Category?.Name, d.Status, d.IsPublic,
+            d.Name, d.Description, d.CategoryId, d.Category?.Name, d.Status, d.IsPublic, d.IsDarkMode,
             d.CreatedByUserId, userNames.GetValueOrDefault(d.CreatedByUserId),
             d.CreatedAt,
             d.UpdatedByUserId, userNames.GetValueOrDefault(d.UpdatedByUserId),
