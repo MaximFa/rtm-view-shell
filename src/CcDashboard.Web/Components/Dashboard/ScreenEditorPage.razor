@@ -346,13 +346,13 @@
                                         {
                                             <div class="col-2">
                                                 <label class="form-label small">@L["Widgets_From"]</label>
-                                                <input type="number" class="form-control form-control-sm"
+                                                <input type="text" class="form-control form-control-sm"
                                                        value="@rule.From"
                                                        @onchange="e => UpdateColThresholdFrom(SelectedThresholdColumn, idx, e)" />
                                             </div>
                                             <div class="col-2">
                                                 <label class="form-label small">@L["Widgets_To"]</label>
-                                                <input type="number" class="form-control form-control-sm"
+                                                <input type="text" class="form-control form-control-sm"
                                                        value="@rule.To"
                                                        @onchange="e => UpdateColThresholdTo(SelectedThresholdColumn, idx, e)" />
                                             </div>
@@ -437,13 +437,13 @@
                                     <div class="row g-2 align-items-end">
                                         <div class="col-2">
                                             <label class="form-label small">@L["Widgets_From"]</label>
-                                            <input type="number" class="form-control form-control-sm"
+                                            <input type="text" class="form-control form-control-sm"
                                                    value="@rule.From"
                                                    @onchange="e => UpdateThresholdFrom(idx, e)" />
                                         </div>
                                         <div class="col-2">
                                             <label class="form-label small">@L["Widgets_To"]</label>
-                                            <input type="number" class="form-control form-control-sm"
+                                            <input type="text" class="form-control form-control-sm"
                                                    value="@rule.To"
                                                    @onchange="e => UpdateThresholdTo(idx, e)" />
                                         </div>
@@ -664,7 +664,20 @@
         ("Light Gray", "#F8F9FA"),
         ("Null", "#F2F1EF"),
         ("Dark", "#1A1A1A"),
-        ("Dark Gray", "#2D2D2D")
+        ("Dark Gray", "#2D2D2D"),
+        // Vibrant colors
+        ("Blue", "#1E90FF"),
+        ("Navy", "#1A3A5C"),
+        ("Sky Blue", "#87CEEB"),
+        ("Green", "#32CD32"),
+        ("Forest", "#228B22"),
+        ("Teal", "#008B8B"),
+        ("Purple", "#8A2BE2"),
+        ("Violet", "#9932CC"),
+        ("Red", "#DC143C"),
+        ("Orange", "#FF8C00"),
+        ("Gold", "#FFD700"),
+        ("Pink", "#FF69B4")
     ];
 
     private static readonly (string Name, string Value)[] FontColors =
@@ -694,7 +707,22 @@
         ("Warning", "#FDF3E3"),
         ("Warning Badge", "#F9E4BF"),
         ("Critical", "#FAECEC"),
-        ("Critical Badge", "#F5D0D0")
+        ("Critical Badge", "#F5D0D0"),
+        // Vibrant colors
+        ("Green", "#32CD32"),
+        ("Lime", "#00FF00"),
+        ("Forest", "#228B22"),
+        ("Blue", "#1E90FF"),
+        ("Navy", "#1A3A5C"),
+        ("Cyan", "#00FFFF"),
+        ("Red", "#FF0000"),
+        ("Crimson", "#DC143C"),
+        ("Orange", "#FF8C00"),
+        ("Yellow", "#FFD700"),
+        ("Purple", "#8A2BE2"),
+        ("Magenta", "#FF00FF"),
+        ("Pink", "#FF69B4"),
+        ("Teal", "#008B8B")
     ];
 
     private static readonly (string Name, string Value)[] ThresholdFontColors =
@@ -704,7 +732,18 @@
         ("Null", "#666562"),
         ("OK", "#2D5A1B"),
         ("Warning", "#7A4A0A"),
-        ("Critical", "#882020")
+        ("Critical", "#882020"),
+        // Vibrant colors
+        ("Green", "#00AA00"),
+        ("Lime", "#32CD32"),
+        ("Blue", "#0066CC"),
+        ("Cyan", "#00AAAA"),
+        ("Red", "#DD0000"),
+        ("Orange", "#DD6600"),
+        ("Yellow", "#CCAA00"),
+        ("Purple", "#8800CC"),
+        ("Magenta", "#CC00AA"),
+        ("Pink", "#DD5599")
     ];
 
     // JS interop for resize
@@ -784,16 +823,13 @@
             // Load existing widgets from Dashboard.Widgets if available
             if (Dashboard?.Widgets != null)
             {
-                Console.WriteLine($"[DEBUG] Loading {Dashboard.Widgets.Count} widgets");
                 foreach (var w in Dashboard.Widgets)
                 {
-                    Console.WriteLine($"[DEBUG] Widget {w.Id}: ConfigJson = {w.ConfigJson ?? "(null)"}");
                     var catalogItem = WidgetCatalog.FirstOrDefault(c => c.Id == w.WidgetCatalogItemId);
                     if (catalogItem != null)
                     {
                         var (width, height, x, y) = ParseWidgetDimensions(w.PositionJson);
                         var config = ParseWidgetConfig(w.ConfigJson);
-                        Console.WriteLine($"[DEBUG] Parsed config: ColumnThresholds count = {config.ColumnThresholds?.Count ?? 0}");
                         PlacedWidgets.Add(new PlacedWidget
                         {
                             Id = w.Id,
@@ -957,7 +993,6 @@
 
     private void OpenWidgetConfig(PlacedWidget widget)
     {
-        Console.WriteLine($"[DEBUG] OpenWidgetConfig called for widget: {widget.Name}");
         ConfiguringWidget = widget;
         ConfigDisplayName = widget.Config.DisplayName ?? widget.Name;
         ConfigBusinessUnit = widget.Config.BusinessUnit;
@@ -981,14 +1016,6 @@
         ConfigAgentShowAlerts = widget.Config.AgentGridShowAlerts;
 
         // Column thresholds
-        Console.WriteLine($"[DEBUG] OpenWidgetConfig: widget.Config.ColumnThresholds = {(widget.Config.ColumnThresholds == null ? "null" : widget.Config.ColumnThresholds.Count.ToString())}");
-        if (widget.Config.ColumnThresholds != null)
-        {
-            foreach (var kvp in widget.Config.ColumnThresholds)
-            {
-                Console.WriteLine($"[DEBUG]   Column '{kvp.Key}': {kvp.Value.Count} rules");
-            }
-        }
         ConfigColumnThresholds = widget.Config.ColumnThresholds != null
             ? widget.Config.ColumnThresholds.ToDictionary(
                 kvp => kvp.Key,
@@ -1004,7 +1031,6 @@
                     FontColor = t.FontColor
                 }).ToList())
             : new Dictionary<string, List<ColumnThreshold>>();
-        Console.WriteLine($"[DEBUG] OpenWidgetConfig: ConfigColumnThresholds = {ConfigColumnThresholds.Count}");
         SelectedThresholdColumn = "";
 
         // Initialize search fields with selected values
@@ -1104,12 +1130,6 @@
     {
         if (ConfiguringWidget is null) return;
 
-        Console.WriteLine($"[DEBUG] SaveWidgetConfig: ConfigColumnThresholds has {ConfigColumnThresholds.Count} columns");
-        foreach (var kvp in ConfigColumnThresholds)
-        {
-            Console.WriteLine($"[DEBUG]   Column '{kvp.Key}': {kvp.Value.Count} rules");
-        }
-
         var newConfig = new WidgetConfig
         {
             DisplayName = ConfigDisplayName,
@@ -1138,7 +1158,6 @@
                 : null
         };
 
-        Console.WriteLine($"[DEBUG] SaveWidgetConfig: newConfig.ColumnThresholds = {(newConfig.ColumnThresholds == null ? "null" : newConfig.ColumnThresholds.Count.ToString())}");
         ConfiguringWidget.Config = newConfig;
 
         // Update widget display name
@@ -1156,8 +1175,8 @@
     {
         ConfigThresholds.Add(new ThresholdRule
         {
-            From = 0,
-            To = 100,
+            From = "0",
+            To = "100",
             BackgroundColor = "#DFFBE6",
             FontColor = "#0A5D1E"
         });
@@ -1171,14 +1190,14 @@
 
     private void UpdateThresholdFrom(int index, ChangeEventArgs e)
     {
-        if (index >= 0 && index < ConfigThresholds.Count && int.TryParse(e.Value?.ToString(), out var val))
-            ConfigThresholds[index].From = val;
+        if (index >= 0 && index < ConfigThresholds.Count)
+            ConfigThresholds[index].From = e.Value?.ToString();
     }
 
     private void UpdateThresholdTo(int index, ChangeEventArgs e)
     {
-        if (index >= 0 && index < ConfigThresholds.Count && int.TryParse(e.Value?.ToString(), out var val))
-            ConfigThresholds[index].To = val;
+        if (index >= 0 && index < ConfigThresholds.Count)
+            ConfigThresholds[index].To = e.Value?.ToString();
     }
 
     private void UpdateThresholdBgColor(int index, string color)
@@ -1211,8 +1230,8 @@
         thresholds.Add(new ColumnThreshold
         {
             MatchType = isNumeric ? "numeric" : "text",
-            From = isNumeric ? 0 : null,
-            To = isNumeric ? 100 : null,
+            From = isNumeric ? "0" : null,
+            To = isNumeric ? "100" : null,
             TextMatch = isNumeric ? null : "",
             BackgroundColor = "#DFFBE6",
             FontColor = "#0A5D1E"
@@ -1228,15 +1247,13 @@
     private void UpdateColThresholdFrom(string column, int index, ChangeEventArgs e)
     {
         if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
-            if (decimal.TryParse(e.Value?.ToString(), out var val))
-                thresholds[index].From = val;
+            thresholds[index].From = e.Value?.ToString();
     }
 
     private void UpdateColThresholdTo(string column, int index, ChangeEventArgs e)
     {
         if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
-            if (decimal.TryParse(e.Value?.ToString(), out var val))
-                thresholds[index].To = val;
+            thresholds[index].To = e.Value?.ToString();
     }
 
     private void UpdateColThresholdText(string column, int index, ChangeEventArgs e)
@@ -1284,25 +1301,18 @@
                     Dashboard.CategoryId, Dashboard.Status, Dashboard.IsPublic, _darkMode, Dashboard.RowVersion)), _cts.Token);
 
             // Save widgets
-            var widgetDtos = PlacedWidgets.Select(w => {
-                var configJson = System.Text.Json.JsonSerializer.Serialize(w.Config, _jsonOptions);
-                Console.WriteLine($"[DEBUG] Saving widget {w.Id}: ConfigJson = {configJson}");
-                return new DashboardWidgetDto(
-                    w.Id,
-                    Dashboard.Id,
-                    w.CatalogItemId,
-                    System.Text.Json.JsonSerializer.Serialize(new { w.Width, w.Height, w.X, w.Y }, _jsonOptions),
-                    configJson
-                );
-            }).ToList();
+            var widgetDtos = PlacedWidgets.Select(w => new DashboardWidgetDto(
+                w.Id,
+                Dashboard.Id,
+                w.CatalogItemId,
+                System.Text.Json.JsonSerializer.Serialize(new { w.Width, w.Height, w.X, w.Y }, _jsonOptions),
+                System.Text.Json.JsonSerializer.Serialize(w.Config, _jsonOptions)
+            )).ToList();
 
-            Console.WriteLine($"[DEBUG] Saving {widgetDtos.Count} widgets for dashboard {Dashboard.Id}");
             await Mediator.Send(new UpdateDashboardWidgetsCommand(Dashboard.Id, widgetDtos), _cts.Token);
-            Console.WriteLine("[DEBUG] SaveLayout completed successfully");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DEBUG] SaveLayout error: {ex}");
             Error = ex.Message;
         }
         finally
@@ -1460,8 +1470,10 @@
 
     public class ThresholdRule
     {
-        public int? From { get; set; }
-        public int? To { get; set; }
+        [System.Text.Json.Serialization.JsonConverter(typeof(StringOrNumberConverter))]
+        public string? From { get; set; }
+        [System.Text.Json.Serialization.JsonConverter(typeof(StringOrNumberConverter))]
+        public string? To { get; set; }
         public string? BackgroundColor { get; set; }
         public string? FontColor { get; set; }
     }
@@ -1469,12 +1481,36 @@
     public class ColumnThreshold
     {
         public string MatchType { get; set; } = "numeric"; // "numeric" or "text"
-        public decimal? From { get; set; }
-        public decimal? To { get; set; }
+        [System.Text.Json.Serialization.JsonConverter(typeof(StringOrNumberConverter))]
+        public string? From { get; set; }
+        [System.Text.Json.Serialization.JsonConverter(typeof(StringOrNumberConverter))]
+        public string? To { get; set; }
         public string? TextMatch { get; set; }  // Text "From" value
         public string? TextTo { get; set; }     // Text "To" value (optional)
         public string TextMatchType { get; set; } = "equal"; // "equal", "contains", "startswith", "endswith"
         public string? BackgroundColor { get; set; }       // Badge background
         public string? FontColor { get; set; }             // Badge font color
+    }
+
+    public class StringOrNumberConverter : System.Text.Json.Serialization.JsonConverter<string?>
+    {
+        public override string? Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+        {
+            return reader.TokenType switch
+            {
+                System.Text.Json.JsonTokenType.String => reader.GetString(),
+                System.Text.Json.JsonTokenType.Number => reader.TryGetInt64(out var l) ? l.ToString() : reader.GetDecimal().ToString(),
+                System.Text.Json.JsonTokenType.Null => null,
+                _ => null
+            };
+        }
+
+        public override void Write(System.Text.Json.Utf8JsonWriter writer, string? value, System.Text.Json.JsonSerializerOptions options)
+        {
+            if (value == null)
+                writer.WriteNullValue();
+            else
+                writer.WriteStringValue(value);
+        }
     }
 }

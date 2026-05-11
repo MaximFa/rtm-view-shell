@@ -215,17 +215,24 @@
             }
             else if (threshold.MatchType == "numeric" && value is not null)
             {
+                // Try to parse value as decimal
                 decimal numValue = value switch
                 {
                     int i => i,
                     decimal d => d,
                     double dbl => (decimal)dbl,
                     float f => (decimal)f,
+                    string s when decimal.TryParse(s, out var parsed) => parsed,
+                    string s when TryParseTimeToSeconds(s, out var secs) => secs,
                     _ => 0
                 };
 
-                bool fromOk = threshold.From is null || numValue >= threshold.From;
-                bool toOk = threshold.To is null || numValue <= threshold.To;
+                // Parse From/To thresholds (support time format like "0:00" or "10:00")
+                decimal? fromValue = ParseThresholdValue(threshold.From);
+                decimal? toValue = ParseThresholdValue(threshold.To);
+
+                bool fromOk = fromValue is null || numValue >= fromValue;
+                bool toOk = toValue is null || numValue <= toValue;
                 matches = fromOk && toOk;
             }
 
@@ -261,6 +268,28 @@
         return FindMatchingThreshold(column, value) is not null;
     }
 
+    private static decimal? ParseThresholdValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (decimal.TryParse(value, out var dec)) return dec;
+        if (TryParseTimeToSeconds(value, out var secs)) return secs;
+        return null;
+    }
+
+    private static bool TryParseTimeToSeconds(string? value, out decimal seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+
+        // Try parsing as TimeSpan (supports "0:00", "1:30", "10:00", "1:00:00", etc.)
+        if (TimeSpan.TryParse(value, out var ts))
+        {
+            seconds = (decimal)ts.TotalSeconds;
+            return true;
+        }
+        return false;
+    }
+
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
     protected override async Task OnInitializedAsync()
@@ -277,12 +306,8 @@
 
     private void ApplyConfig()
     {
-        Console.WriteLine($"[DEBUG] AgentGridWidget.ApplyConfig: Config is {(Config == null ? "null" : "not null")}");
         if (Config is not null)
         {
-            Console.WriteLine($"[DEBUG]   FontSize={Config.FontSize}, BgColor={Config.BackgroundColor}, FontColor={Config.FontColor}");
-            Console.WriteLine($"[DEBUG]   ColumnThresholds={Config.ColumnThresholds?.Count ?? 0}");
-
             // Filters
             _filterTeams = Config.AgentGridTeams?.ToHashSet() ?? new HashSet<string>();
             _filterStates = Config.AgentGridStates?.ToHashSet() ?? new HashSet<string>();
@@ -297,14 +322,6 @@
 
             // Column thresholds
             _columnThresholds = Config.ColumnThresholds ?? new Dictionary<string, List<ColumnThreshold>>();
-            Console.WriteLine($"[DEBUG]   Applied: _fontSize={_fontSize}, _backgroundColor={_backgroundColor}, _columnThresholds={_columnThresholds.Count}");
-            foreach (var kvp in _columnThresholds)
-            {
-                foreach (var t in kvp.Value)
-                {
-                    Console.WriteLine($"[DEBUG]   Threshold for '{kvp.Key}': MatchType={t.MatchType}, TextMatchType={t.TextMatchType}, TextMatch={t.TextMatch}, BgColor={t.BackgroundColor}, FontColor={t.FontColor}");
-                }
-            }
         }
     }
 

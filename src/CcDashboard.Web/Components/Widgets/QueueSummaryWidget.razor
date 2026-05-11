@@ -93,8 +93,8 @@
             return null;
 
         return Config.Thresholds.FirstOrDefault(t =>
-            value >= (t.From ?? int.MinValue) &&
-            value <= (t.To ?? int.MaxValue));
+            value >= (int.TryParse(t.From, out var from) ? from : int.MinValue) &&
+            value <= (int.TryParse(t.To, out var to) ? to : int.MaxValue));
     }
 
     private static string FormatTime(int seconds)
