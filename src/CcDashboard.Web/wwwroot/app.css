@@ -1523,13 +1523,16 @@ a:hover {
 }
 
 .widget-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    min-height: 60px;
+    flex: 1 1 0;
+    min-height: 0;
     color: var(--clr-text-muted);
     overflow: hidden;
+    position: relative;
+}
+
+.widget-content > * {
+    height: 100%;
+    width: 100%;
 }
 
 /* Widget Resize Handles */
@@ -1584,6 +1587,39 @@ a:hover {
     opacity: 0.9;
     box-shadow: var(--shadow-md);
 }
+
+/* Agent Grid Widget - Table Style Override */
+.agent-grid-widget .table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: transparent;
+    --bs-table-hover-bg: rgba(0, 0, 0, 0.05);
+    --bs-table-color: inherit;
+    color: inherit;
+}
+
+.agent-grid-widget .table > thead,
+.agent-grid-widget .table > tbody,
+.agent-grid-widget .table > thead > tr,
+.agent-grid-widget .table > tbody > tr {
+    background-color: inherit;
+    color: inherit;
+}
+
+.agent-grid-widget .table > tbody > tr > td,
+.agent-grid-widget .table > thead > tr > th {
+    background-color: inherit;
+    color: inherit;
+}
+
+.agent-grid-widget .text-muted {
+    color: inherit !important;
+    opacity: 0.7;
+}
+
+.agent-grid-widget .badge {
+    font-size: inherit;
+}
+
 
 /* Color Palette Swatches */
 .color-palette {

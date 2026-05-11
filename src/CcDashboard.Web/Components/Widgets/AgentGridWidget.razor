@@ -7,7 +7,7 @@
 
 @* Agent Grid Widget - connects to external SignalR simulator for real-time agent data *@
 
-<div class="agent-grid-widget h-100 d-flex flex-column" style="@GetWidgetStyle()">
+<div class="agent-grid-widget" style="@GetWidgetStyle()">
     @if (_connectionState == ConnectionState.Connecting)
     {
         <div class="d-flex align-items-center justify-content-center h-100 text-muted" aria-busy="true">
@@ -50,10 +50,10 @@
             </span>
         </div>
 
-        <div class="agent-grid-body flex-grow-1 overflow-auto" style="@GetTableStyle()">
-            <table class="table table-sm table-hover mb-0 small">
-                <thead class="sticky-top bg-body">
-                    <tr>
+        <div class="agent-grid-body" style="@GetTableStyle()">
+            <table class="table table-sm mb-0 small" style="@GetTableStyle()">
+                <thead class="sticky-top" style="@GetTableStyle()">
+                    <tr style="@GetRowStyle()">
                         @if (ShowColumn("agent")) { <th>@L["Widget_Agent"]</th> }
                         @if (ShowColumn("state")) { <th>@L["Widget_State"]</th> }
                         @if (ShowColumn("duration")) { <th class="text-end">@L["Widget_Duration"]</th> }
@@ -64,10 +64,10 @@
                         @if (ShowColumn("aht")) { <th class="text-end">AHT</th> }
                     </tr>
                 </thead>
-                <tbody>
+                <tbody style="@GetTableStyle()">
                     @foreach (var agent in FilteredAgents)
                     {
-                        <tr class="@GetRowClass(agent)">
+                        <tr class="@GetRowClass(agent)" style="@GetRowStyle()">
                             @if (ShowColumn("agent"))
                             {
                                 <td>
@@ -245,9 +245,39 @@
 
     private string GetTableStyle()
     {
+        var styles = new List<string>();
+
         if (!string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent")
-            return $"background-color: {_tableBackgroundColor}";
-        return "";
+            styles.Add($"background-color: {_tableBackgroundColor}");
+        if (!string.IsNullOrEmpty(_fontColor))
+            styles.Add($"color: {_fontColor}");
+        if (!string.IsNullOrEmpty(_fontSize))
+        {
+            var size = _fontSize switch
+            {
+                "small" => "0.75rem",
+                "normal" => "0.85rem",
+                "large" => "1rem",
+                "xlarge" => "1.15rem",
+                "xxlarge" => "1.3rem",
+                _ => "0.85rem"
+            };
+            styles.Add($"font-size: {size}");
+        }
+
+        return string.Join("; ", styles);
+    }
+
+    private string GetRowStyle()
+    {
+        var styles = new List<string>();
+
+        if (!string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent")
+            styles.Add($"background-color: {_tableBackgroundColor}");
+        if (!string.IsNullOrEmpty(_fontColor))
+            styles.Add($"color: {_fontColor}");
+
+        return string.Join("; ", styles);
     }
 
     private string GetBadgeStyle(string column, object? value)
