@@ -1,32 +1,6 @@
-/* Root container fills parent and enables flex column layout */
+/* Font size - layout handled in app.css */
 .agent-grid-widget {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-    min-height: 0;
-    min-width: 0;
-    overflow: hidden;
     font-size: 0.85rem;
-}
-
-/* Header stays fixed at top, does not shrink */
-::deep .agent-grid-header {
-    flex: 0 0 auto;
-}
-
-/* Body fills remaining space and scrolls both directions */
-::deep .agent-grid-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    min-width: 0;
-    overflow: auto;
-}
-
-/* Table uses natural width for horizontal scroll */
-::deep .agent-grid-body > .table {
-    width: max-content;
-    min-width: 100%;
 }
 
 .agent-avatar {

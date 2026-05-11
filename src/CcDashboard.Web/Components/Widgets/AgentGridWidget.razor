@@ -52,7 +52,7 @@
 
         <div class="agent-grid-body" style="@GetTableStyle()">
             <table class="table table-sm mb-0 small" style="@GetTableStyle()">
-                <thead class="sticky-top" style="@GetTableStyle()">
+                <thead class="agent-grid-thead" style="@GetTheadStyle()">
                     <tr style="@GetRowStyle()">
                         @if (ShowColumn("agent")) { <th>@L["Widget_Agent"]</th> }
                         @if (ShowColumn("state")) { <th>@L["Widget_State"]</th> }
@@ -264,6 +264,22 @@
             };
             styles.Add($"font-size: {size}");
         }
+
+        return string.Join("; ", styles);
+    }
+
+    private string GetTheadStyle()
+    {
+        var styles = new List<string>();
+
+        // Always set background for sticky header - use configured color or fallback
+        var bgColor = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
+            ? _tableBackgroundColor
+            : "var(--clr-surface, #fff)";
+        styles.Add($"background-color: {bgColor}");
+
+        if (!string.IsNullOrEmpty(_fontColor))
+            styles.Add($"color: {_fontColor}");
 
         return string.Join("; ", styles);
     }
