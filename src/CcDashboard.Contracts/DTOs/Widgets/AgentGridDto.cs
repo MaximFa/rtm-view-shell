@@ -24,13 +24,38 @@ public record AgentStatusDto(
     string[] Skills,
     string[] AssignedQueues,
 
-    // Metrics
+    // Core metrics
     int CallsHandledToday,
     int AhtSeconds,
     int AcwAvgSeconds,
     decimal OccupancyPercent,
     decimal UtilisationPercent,
     decimal AdherencePercent,
+
+    // Extended metrics - Call counts
+    int IncomingCalls,
+    int OutgoingCalls,
+    int InternalCalls,
+    int TransferredCalls,
+    int ConferenceCalls,
+    int AbandonedCalls,
+
+    // Extended metrics - Time-based
+    int TalkTimeSeconds,
+    int HoldTimeSeconds,
+    int WrapTimeSeconds,
+    int IdleTimeSeconds,
+    int LoginDurationSeconds,
+    int AvgTalkTimeSeconds,
+    int AvgHoldTimeSeconds,
+    int AvgWrapTimeSeconds,
+
+    // Extended metrics - Performance
+    decimal ServiceLevelPercent,
+    decimal FirstCallResolutionPercent,
+    decimal CustomerSatisfactionPercent,
+    int CallbacksScheduled,
+    int CallbacksCompleted,
 
     // Alerts
     bool IsOverThreshold,

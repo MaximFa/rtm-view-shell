@@ -58,8 +58,8 @@
                         @foreach (var colDef in _columnDefs)
                         {
                             var colKey = MetricIdToColumnKey(colDef.MetricId);
-                            var alignEnd = IsEndAlignedMetric(colDef.MetricId);
-                            @RenderColumnHeader(colKey, colDef.Name, alignEnd)
+                            var alignClass = GetAlignmentClass(colDef.MetricId);
+                            @RenderColumnHeader(colKey, colDef.Name, colDef.MetricId, alignClass)
                         }
                     </tr>
                 </thead>
@@ -308,75 +308,234 @@
         "AgentTeam" => "team",
         "AgentUtilisation" => "utilisation",
         "AgentAcwAvg" => "acwavg",
-        _ => metricId.ToLowerInvariant()
+        _ => metricId // preserve original case for DB MetricIds
     };
 
-    private static bool IsNumericMetric(string metricId) => metricId switch
+    private static bool IsNumericMetric(string metricId)
     {
-        "AgentStateDuration" or "AgentOccupancy" or "AgentAdherence"
-        or "AgentCalls" or "AgentAHT" or "AgentUtilisation" or "AgentAcwAvg" => true,
-        _ => false
-    };
+        // Pattern-based detection for all metrics (existing and future)
+        // Right-aligned: numbers, durations, percentages, counts
 
-    private static bool IsEndAlignedMetric(string metricId) => metricId switch
+        // Explicit exclusions - these are TEXT, not numeric (left-aligned)
+        if (metricId.Contains("TimeStamp", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("Name", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("Extension", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("Station", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("UserId", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("Phone", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("Campaign", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("InteractionId", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("InteractionType", StringComparison.OrdinalIgnoreCase)) return false;
+
+        // Duration patterns
+        if (metricId.Contains("Duration", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Time", StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Count patterns
+        if (metricId.Contains("Number", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Num", StringComparison.OrdinalIgnoreCase) && !metricId.Contains("Phone", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Calls", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Chats", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Callbacks", StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Percentage patterns
+        if (metricId.Contains("Pct", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Percent", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Occupancy", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Adherence", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Utilisation", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("ServiceLevel", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("FCR", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("CSAT", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.EndsWith("CPH", StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Average patterns
+        if (metricId.Contains("Average", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Avg", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Max", StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Explicit list for special cases
+        return metricId is "AgentAHT" or "AgentAcwAvg";
+    }
+
+    private static bool IsCenterAlignedMetric(string metricId)
     {
-        "AgentStateDuration" or "AgentOccupancy" or "AgentAdherence"
-        or "AgentCalls" or "AgentAHT" or "AgentUtilisation" or "AgentAcwAvg" => true,
-        _ => false
-    };
+        // Center-aligned: status badges (State without Duration suffix)
+        if (metricId.Contains("State", StringComparison.OrdinalIgnoreCase) &&
+            !metricId.Contains("Duration", StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private static bool IsEndAlignedMetric(string metricId) => IsNumericMetric(metricId);
+
+    private static string GetAlignmentClass(string metricId)
+    {
+        if (IsCenterAlignedMetric(metricId)) return "text-center";
+        if (IsEndAlignedMetric(metricId)) return "text-end";
+        return ""; // left-aligned by default
+    }
 
     private string GetMetricTextValue(AgentStatusDto agent, string metricId) => metricId switch
     {
-        "AgentName" => agent.DisplayName,
-        "AgentState" => GetStateLabel(agent.State),
-        "AgentStateDuration" => FormatDuration(agent.StateDurationSeconds),
-        "AgentQueue" => agent.QueueName ?? "-",
+        // Core widget fields
+        "AgentName" or "AgentLoginName" => agent.DisplayName,
+        "AgentState" or "MonAgentState" => GetStateLabel(agent.State),
+        "AgentStateDuration" or "MonAgentStateDuration" or "MonAgentTelStateDuration" => FormatDuration(agent.StateDurationSeconds),
+        "AgentQueue" or "MonActiveCampaign" => agent.QueueName ?? "-",
         "AgentOccupancy" => $"{agent.OccupancyPercent:0}%",
         "AgentAdherence" => $"{agent.AdherencePercent:0}%",
-        "AgentCalls" => agent.CallsHandledToday.ToString(),
-        "AgentAHT" => FormatDuration(agent.AhtSeconds),
-        "AgentExtension" => agent.Extension,
+        "AgentCalls" or "MonAgentNumMakeCallsInCompleted" => agent.CallsHandledToday.ToString(),
+        "AgentAHT" or "MonAgentAverageCallDuration" => FormatDuration(agent.AhtSeconds),
+        "AgentExtension" or "MonAgentExtension" or "MonAgentStation" => agent.Extension,
         "AgentTeam" => agent.TeamName,
         "AgentUtilisation" => $"{agent.UtilisationPercent:0}%",
         "AgentAcwAvg" => FormatDuration(agent.AcwAvgSeconds),
-        _ => ""
+        // DB MetricIds - Text fields
+        "MonAgentUserId" => agent.AgentId,
+        "MonAgentStateDesc" => agent.State.ToString(),
+        "MonAgentStateDescDuration" => FormatDuration(agent.StateDurationSeconds),
+        "RemotePhoneNumber" => agent.CallerId ?? "-",
+        "MonInteractionType" => agent.CallDirection?.ToString() ?? "-",
+        "MonAgentTelState" => GetStateLabel(agent.State),
+        "MonAgentActiveInteractionId" => agent.CurrentCallId ?? "-",
+        // DB MetricIds - Call counts
+        "AgentIncomingCalls" or "MonAgentNumberOfInboundCallsOnly" => agent.IncomingCalls.ToString(),
+        "MonAgentNumberOfInboundCallsWithIntercom" => (agent.IncomingCalls + agent.InternalCalls).ToString(),
+        "AgentOutgoingCalls" or "MonAgentNumberOfMakeCalls" => agent.OutgoingCalls.ToString(),
+        "AgentInternalCalls" or "UserNumAllIntercom" => agent.InternalCalls.ToString(),
+        "AgentTransferredCalls" or "MonAgentNumberOfConsultCalls" => agent.TransferredCalls.ToString(),
+        "AgentConferenceCalls" => agent.ConferenceCalls.ToString(),
+        "AgentAbandonedCalls" or "UserNumMissedCalls" => agent.AbandonedCalls.ToString(),
+        "MonAgentProxyCallsNum" or "MonAgentOutgoingCallbacksNum" => agent.CallbacksCompleted.ToString(),
+        "MonAgentNumChatsCompleted" or "MonAgentNumChatsActive" => "0",
+        "MonAgentNumberOfInboundCalls15sec" or "MonAgentNumberOfInboundCalls10Min" => agent.IncomingCalls.ToString(),
+        // DB MetricIds - Time-based (durations)
+        "AgentTalkTime" or "MonAgentTalkDuration" or "MonAgentDurationOfCalls" => FormatDuration(agent.TalkTimeSeconds),
+        "AgentHoldTime" or "MonAgentHeldDuration" => FormatDuration(agent.HoldTimeSeconds),
+        "AgentWrapTime" or "MonAgentWrapUpDuration" => FormatDuration(agent.WrapTimeSeconds),
+        "AgentIdleTime" or "MonAgentBreakDuration" or "MonAgentPaperworkDuration" or "MonAgentUnavailableStateDuration" => FormatDuration(agent.IdleTimeSeconds),
+        "MonAgentAvailableDuration" => FormatDuration(agent.IdleTimeSeconds),
+        "AgentLoginDuration" or "MonAgentLoginTime" or "MonAgentCurrentLoginDuration" => FormatDuration(agent.LoginDurationSeconds),
+        "MonAgentDurationOfCurrentCall" => FormatDuration(agent.CallDurationSeconds ?? 0),
+        "AgentAvgTalkTime" or "MonAgentAverageInboundCallDuration" or "MonAgentAverageMakeCallDuration" => FormatDuration(agent.AvgTalkTimeSeconds),
+        "AgentAvgHoldTime" or "MonAgentAvgHoldTime" => FormatDuration(agent.AvgHoldTimeSeconds),
+        "AgentAvgWrapTime" or "MonAgentAvgWrapTime" => FormatDuration(agent.AvgWrapTimeSeconds),
+        "MonAgentMaxCallDuration" => FormatDuration(agent.TalkTimeSeconds),
+        "MonAgentAverageAgentDialerDuration" => FormatDuration(agent.AvgTalkTimeSeconds),
+        // DB MetricIds - Percent
+        "MonAgentTalkDurationPct" => $"{agent.OccupancyPercent:0}%",
+        // DB MetricIds - Timestamps
+        "MonAgentFirstLoginTimeStamp" or "MonAgentCurrentLoginTimeStamp" => agent.StateStartedAt.ToString("HH:mm:ss"),
+        "MonAgentTodayLogin" => agent.State != AgentState.LoggedOut ? "Yes" : "No",
+        // Extended metrics - Performance
+        "AgentServiceLevel" => $"{agent.ServiceLevelPercent:0}%",
+        "AgentFCR" => $"{agent.FirstCallResolutionPercent:0}%",
+        "AgentCSAT" => $"{agent.CustomerSatisfactionPercent:0}%",
+        "AgentCallbacksScheduled" => agent.CallbacksScheduled.ToString(),
+        "AgentCallbacksCompleted" => agent.CallbacksCompleted.ToString(),
+        "UserCPH" => $"{(agent.CallsHandledToday / Math.Max(1, agent.LoginDurationSeconds / 3600m)):0.0}",
+        _ => $"[{metricId}]"
     };
 
     private decimal GetMetricNumericValue(AgentStatusDto agent, string metricId) => metricId switch
     {
-        "AgentStateDuration" => agent.StateDurationSeconds,
-        "AgentOccupancy" => agent.OccupancyPercent,
+        // Core widget fields
+        "AgentStateDuration" or "MonAgentStateDuration" or "MonAgentTelStateDuration" or "MonAgentStateDescDuration" => agent.StateDurationSeconds,
+        "AgentOccupancy" or "MonAgentTalkDurationPct" => agent.OccupancyPercent,
         "AgentAdherence" => agent.AdherencePercent,
-        "AgentCalls" => agent.CallsHandledToday,
-        "AgentAHT" => agent.AhtSeconds,
+        "AgentCalls" or "MonAgentNumMakeCallsInCompleted" => agent.CallsHandledToday,
+        "AgentAHT" or "MonAgentAverageCallDuration" => agent.AhtSeconds,
         "AgentUtilisation" => agent.UtilisationPercent,
         "AgentAcwAvg" => agent.AcwAvgSeconds,
+        // DB MetricIds - Call counts
+        "AgentIncomingCalls" or "MonAgentNumberOfInboundCallsOnly" or "MonAgentNumberOfInboundCalls15sec" or "MonAgentNumberOfInboundCalls10Min" => agent.IncomingCalls,
+        "MonAgentNumberOfInboundCallsWithIntercom" => agent.IncomingCalls + agent.InternalCalls,
+        "AgentOutgoingCalls" or "MonAgentNumberOfMakeCalls" => agent.OutgoingCalls,
+        "AgentInternalCalls" or "UserNumAllIntercom" => agent.InternalCalls,
+        "AgentTransferredCalls" or "MonAgentNumberOfConsultCalls" => agent.TransferredCalls,
+        "AgentConferenceCalls" => agent.ConferenceCalls,
+        "AgentAbandonedCalls" or "UserNumMissedCalls" => agent.AbandonedCalls,
+        "MonAgentProxyCallsNum" or "MonAgentOutgoingCallbacksNum" => agent.CallbacksCompleted,
+        "MonAgentNumChatsCompleted" or "MonAgentNumChatsActive" => 0,
+        // DB MetricIds - Time-based (durations as seconds)
+        "AgentTalkTime" or "MonAgentTalkDuration" or "MonAgentDurationOfCalls" => agent.TalkTimeSeconds,
+        "AgentHoldTime" or "MonAgentHeldDuration" => agent.HoldTimeSeconds,
+        "AgentWrapTime" or "MonAgentWrapUpDuration" => agent.WrapTimeSeconds,
+        "AgentIdleTime" or "MonAgentBreakDuration" or "MonAgentPaperworkDuration" or "MonAgentUnavailableStateDuration" or "MonAgentAvailableDuration" => agent.IdleTimeSeconds,
+        "AgentLoginDuration" or "MonAgentLoginTime" or "MonAgentCurrentLoginDuration" => agent.LoginDurationSeconds,
+        "MonAgentDurationOfCurrentCall" => agent.CallDurationSeconds ?? 0,
+        "AgentAvgTalkTime" or "MonAgentAverageInboundCallDuration" or "MonAgentAverageMakeCallDuration" or "MonAgentAverageAgentDialerDuration" => agent.AvgTalkTimeSeconds,
+        "AgentAvgHoldTime" => agent.AvgHoldTimeSeconds,
+        "AgentAvgWrapTime" => agent.AvgWrapTimeSeconds,
+        "MonAgentMaxCallDuration" => agent.TalkTimeSeconds,
+        // Extended metrics - Performance
+        "AgentServiceLevel" => agent.ServiceLevelPercent,
+        "AgentFCR" => agent.FirstCallResolutionPercent,
+        "AgentCSAT" => agent.CustomerSatisfactionPercent,
+        "AgentCallbacksScheduled" => agent.CallbacksScheduled,
+        "AgentCallbacksCompleted" => agent.CallbacksCompleted,
+        "UserCPH" => agent.CallsHandledToday / Math.Max(1, agent.LoginDurationSeconds / 3600m),
         _ => 0
     };
 
     private object? GetMetricThresholdValue(AgentStatusDto agent, string metricId) => metricId switch
     {
-        "AgentName" => agent.DisplayName,
-        "AgentState" => agent.State.ToString(),
-        "AgentStateDuration" => agent.StateDurationSeconds,
-        "AgentQueue" => agent.QueueName ?? "",
-        "AgentOccupancy" => agent.OccupancyPercent,
-        "AgentAdherence" => agent.AdherencePercent,
-        "AgentCalls" => agent.CallsHandledToday,
-        "AgentAHT" => agent.AhtSeconds,
-        "AgentExtension" => agent.Extension,
+        // Core widget fields - Text
+        "AgentName" or "AgentLoginName" => agent.DisplayName,
+        "AgentState" or "MonAgentState" or "MonAgentStateDesc" or "MonAgentTelState" => agent.State.ToString(),
+        "AgentQueue" or "MonActiveCampaign" => agent.QueueName ?? "",
+        "AgentExtension" or "MonAgentExtension" or "MonAgentStation" => agent.Extension,
         "AgentTeam" => agent.TeamName,
+        "MonAgentUserId" => agent.AgentId,
+        "RemotePhoneNumber" => agent.CallerId ?? "",
+        "MonInteractionType" => agent.CallDirection?.ToString() ?? "",
+        "MonAgentActiveInteractionId" => agent.CurrentCallId ?? "",
+        // Core widget fields - Numeric (for thresholds)
+        "AgentStateDuration" or "MonAgentStateDuration" or "MonAgentTelStateDuration" or "MonAgentStateDescDuration" => agent.StateDurationSeconds,
+        "AgentOccupancy" or "MonAgentTalkDurationPct" => agent.OccupancyPercent,
+        "AgentAdherence" => agent.AdherencePercent,
+        "AgentCalls" or "MonAgentNumMakeCallsInCompleted" => agent.CallsHandledToday,
+        "AgentAHT" or "MonAgentAverageCallDuration" => agent.AhtSeconds,
         "AgentUtilisation" => agent.UtilisationPercent,
         "AgentAcwAvg" => agent.AcwAvgSeconds,
+        // DB MetricIds - Call counts
+        "AgentIncomingCalls" or "MonAgentNumberOfInboundCallsOnly" or "MonAgentNumberOfInboundCalls15sec" or "MonAgentNumberOfInboundCalls10Min" => agent.IncomingCalls,
+        "MonAgentNumberOfInboundCallsWithIntercom" => agent.IncomingCalls + agent.InternalCalls,
+        "AgentOutgoingCalls" or "MonAgentNumberOfMakeCalls" => agent.OutgoingCalls,
+        "AgentInternalCalls" or "UserNumAllIntercom" => agent.InternalCalls,
+        "AgentTransferredCalls" or "MonAgentNumberOfConsultCalls" => agent.TransferredCalls,
+        "AgentConferenceCalls" => agent.ConferenceCalls,
+        "AgentAbandonedCalls" or "UserNumMissedCalls" => agent.AbandonedCalls,
+        "MonAgentProxyCallsNum" or "MonAgentOutgoingCallbacksNum" => agent.CallbacksCompleted,
+        "MonAgentNumChatsCompleted" or "MonAgentNumChatsActive" => 0,
+        // DB MetricIds - Time-based (durations as seconds for threshold comparison)
+        "AgentTalkTime" or "MonAgentTalkDuration" or "MonAgentDurationOfCalls" => agent.TalkTimeSeconds,
+        "AgentHoldTime" or "MonAgentHeldDuration" => agent.HoldTimeSeconds,
+        "AgentWrapTime" or "MonAgentWrapUpDuration" => agent.WrapTimeSeconds,
+        "AgentIdleTime" or "MonAgentBreakDuration" or "MonAgentPaperworkDuration" or "MonAgentUnavailableStateDuration" or "MonAgentAvailableDuration" => agent.IdleTimeSeconds,
+        "AgentLoginDuration" or "MonAgentLoginTime" or "MonAgentCurrentLoginDuration" => agent.LoginDurationSeconds,
+        "MonAgentDurationOfCurrentCall" => agent.CallDurationSeconds ?? 0,
+        "AgentAvgTalkTime" or "MonAgentAverageInboundCallDuration" or "MonAgentAverageMakeCallDuration" or "MonAgentAverageAgentDialerDuration" => agent.AvgTalkTimeSeconds,
+        "AgentAvgHoldTime" => agent.AvgHoldTimeSeconds,
+        "AgentAvgWrapTime" => agent.AvgWrapTimeSeconds,
+        "MonAgentMaxCallDuration" => agent.TalkTimeSeconds,
+        // Extended metrics - Performance
+        "AgentServiceLevel" => agent.ServiceLevelPercent,
+        "AgentFCR" => agent.FirstCallResolutionPercent,
+        "AgentCSAT" => agent.CustomerSatisfactionPercent,
+        "AgentCallbacksScheduled" => agent.CallbacksScheduled,
+        "AgentCallbacksCompleted" => agent.CallbacksCompleted,
+        "UserCPH" => agent.CallsHandledToday / Math.Max(1, agent.LoginDurationSeconds / 3600m),
         _ => null
     };
 
-    private RenderFragment RenderColumnHeader(string column, string label, bool alignEnd) => __builder =>
+    private RenderFragment RenderColumnHeader(string column, string label, string metricId, string alignClass) => __builder =>
     {
         var filter = GetOrCreateFilter(column);
         var thStyle = $"position: relative; {GetTheadStyle()}";
-        <th class="@(alignEnd ? "text-end" : "") column-header" style="@thStyle">
-            <div class="d-flex align-items-center @(alignEnd ? "justify-content-end" : "") gap-1">
+        var justifyClass = alignClass == "text-end" ? "justify-content-end" : alignClass == "text-center" ? "justify-content-center" : "";
+        <th class="@alignClass column-header" style="@thStyle">
+            <div class="d-flex align-items-center @justifyClass gap-1">
                 <span @onclick="() => ToggleSort(column)" style="cursor: pointer;" class="column-sort-label">
                     @label
                     @if (_sortColumn == column)
@@ -490,13 +649,13 @@
     private RenderFragment RenderCell(AgentStatusDto agent, AgentGridColumnDef colDef) => __builder =>
     {
         var colKey = MetricIdToColumnKey(colDef.MetricId);
-        var alignEnd = IsEndAlignedMetric(colDef.MetricId);
+        var alignClass = GetAlignmentClass(colDef.MetricId);
         var thresholdValue = GetMetricThresholdValue(agent, colDef.MetricId);
         var badgeStyle = GetBadgeStyle(colKey, thresholdValue);
 
         switch (colDef.MetricId)
         {
-            case "AgentName":
+            case "AgentName" or "AgentLoginName":
                 <td>
                     <div class="d-flex align-items-center">
                         <span class="agent-avatar me-2 @GetStateColorClass(agent.State)">
@@ -510,9 +669,9 @@
                 </td>
                 break;
 
-            case "AgentState":
+            case "AgentState" or "MonAgentState" or "MonAgentStateDesc" or "MonAgentTelState":
                 var hasStateThreshold = HasThreshold(colKey, agent.State.ToString());
-                <td>
+                <td class="text-center">
                     <span class="threshold-badge @(hasStateThreshold ? "" : GetStateBadgeClass(agent.State))"
                           style="@(hasStateThreshold ? GetBadgeStyle(colKey, agent.State.ToString()) : "")">
                         @GetStateLabel(agent.State)
@@ -520,25 +679,9 @@
                 </td>
                 break;
 
-            case "AgentStateDuration":
-            case "AgentAHT":
-            case "AgentAcwAvg":
-                <td class="text-end font-monospace">
-                    <span class="@(string.IsNullOrEmpty(badgeStyle) ? "" : "threshold-badge")" style="@badgeStyle">@GetMetricTextValue(agent, colDef.MetricId)</span>
-                </td>
-                break;
-
-            case "AgentOccupancy":
-            case "AgentAdherence":
-            case "AgentUtilisation":
-            case "AgentCalls":
-                <td class="text-end">
-                    <span class="@(string.IsNullOrEmpty(badgeStyle) ? "" : "threshold-badge")" style="@badgeStyle">@GetMetricTextValue(agent, colDef.MetricId)</span>
-                </td>
-                break;
-
             default:
-                <td class="@(alignEnd ? "text-end" : "")">
+                var useMono = IsNumericMetric(colDef.MetricId);
+                <td class="@alignClass @(useMono ? "font-monospace" : "")">
                     <span class="@(string.IsNullOrEmpty(badgeStyle) ? "" : "threshold-badge")" style="@badgeStyle">@GetMetricTextValue(agent, colDef.MetricId)</span>
                 </td>
                 break;
@@ -959,8 +1102,8 @@
     {
         var ts = TimeSpan.FromSeconds(seconds);
         return ts.Hours > 0
-            ? $"{ts.Hours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
-            : $"{ts.Minutes}:{ts.Seconds:D2}";
+            ? $"{ts.Hours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes:D2}:{ts.Seconds:D2}";
     }
 
     private static string GetInitials(string name)
