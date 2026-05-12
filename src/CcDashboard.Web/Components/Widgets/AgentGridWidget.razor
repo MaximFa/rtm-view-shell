@@ -55,21 +55,19 @@
             <table class="table table-sm mb-0 small" style="@GetTableStyle()">
                 <thead class="agent-grid-thead" style="@GetTheadStyle()">
                     <tr style="@GetRowStyle()">
-                        @if (ShowColumn("agent")) { @RenderColumnHeader("agent", GetColumnLabel("agent", L["Widget_Agent"]), false) }
-                        @if (ShowColumn("state")) { @RenderColumnHeader("state", GetColumnLabel("state", L["Widget_State"]), false) }
-                        @if (ShowColumn("duration")) { @RenderColumnHeader("duration", GetColumnLabel("duration", L["Widget_Duration"]), true) }
-                        @if (ShowColumn("queue")) { @RenderColumnHeader("queue", GetColumnLabel("queue", L["Widget_Queue"]), false) }
-                        @if (ShowColumn("occupancy")) { @RenderColumnHeader("occupancy", GetColumnLabel("occupancy", L["Widget_Occupancy"]), true) }
-                        @if (ShowColumn("adherence")) { @RenderColumnHeader("adherence", GetColumnLabel("adherence", L["Widget_Adherence"]), true) }
-                        @if (ShowColumn("calls")) { @RenderColumnHeader("calls", GetColumnLabel("calls", "Calls"), true) }
-                        @if (ShowColumn("aht")) { @RenderColumnHeader("aht", GetColumnLabel("aht", "AHT"), true) }
+                        @foreach (var colDef in _columnDefs)
+                        {
+                            var colKey = MetricIdToColumnKey(colDef.MetricId);
+                            var alignEnd = IsEndAlignedMetric(colDef.MetricId);
+                            @RenderColumnHeader(colKey, colDef.Name, alignEnd)
+                        }
                     </tr>
                 </thead>
                 <tbody style="@GetTableStyle()">
                     @if (filteredAgents.Count == 0)
                     {
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
+                            <td colspan="@_columnDefs.Count" class="text-center text-muted py-4">
                                 <i class="bi bi-funnel me-1"></i>No results match filter
                             </td>
                         </tr>
@@ -79,63 +77,9 @@
                         @foreach (var agent in filteredAgents)
                         {
                             <tr class="@GetRowClass(agent)" style="@GetRowStyle()">
-                                @if (ShowColumn("agent"))
+                                @foreach (var colDef in _columnDefs)
                                 {
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <span class="agent-avatar me-2 @GetStateColorClass(agent.State)">
-                                                @GetInitials(agent.DisplayName)
-                                            </span>
-                                            <div>
-                                                <div class="fw-medium" style="@GetBadgeStyle("agent", agent.DisplayName)">@agent.DisplayName</div>
-                                                <div class="text-muted" style="font-size: 0.75rem;">@agent.Extension</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                }
-                                @if (ShowColumn("state"))
-                                {
-                                    var hasStateThreshold = HasThreshold("state", agent.State.ToString());
-                                    <td>
-                                        <span class="badge @(hasStateThreshold ? "" : GetStateBadgeClass(agent.State))"
-                                              style="@(hasStateThreshold ? GetBadgeStyle("state", agent.State.ToString()) : "")">
-                                            @GetStateLabel(agent.State)
-                                        </span>
-                                        @if (!string.IsNullOrEmpty(agent.NotReadyReasonName))
-                                        {
-                                            <div class="text-muted" style="font-size: 0.7rem;">@agent.NotReadyReasonName</div>
-                                        }
-                                    </td>
-                                }
-                                @if (ShowColumn("duration"))
-                                {
-                                    <td class="text-end font-monospace">
-                                        <span style="@GetBadgeStyle("duration", agent.StateDurationSeconds)">@FormatDuration(agent.StateDurationSeconds)</span>
-                                    </td>
-                                }
-                                @if (ShowColumn("queue"))
-                                {
-                                    <td><span style="@GetBadgeStyle("queue", agent.QueueName ?? "")">@(agent.QueueName ?? "-")</span></td>
-                                }
-                                @if (ShowColumn("occupancy"))
-                                {
-                                    <td class="text-end">
-                                        <span style="@GetBadgeStyle("occupancy", agent.OccupancyPercent)">@agent.OccupancyPercent.ToString("0")%</span>
-                                    </td>
-                                }
-                                @if (ShowColumn("adherence"))
-                                {
-                                    <td class="text-end">
-                                        <span style="@GetBadgeStyle("adherence", agent.AdherencePercent)">@agent.AdherencePercent.ToString("0")%</span>
-                                    </td>
-                                }
-                                @if (ShowColumn("calls"))
-                                {
-                                    <td class="text-end"><span style="@GetBadgeStyle("calls", agent.CallsHandledToday)">@agent.CallsHandledToday</span></td>
-                                }
-                                @if (ShowColumn("aht"))
-                                {
-                                    <td class="text-end font-monospace"><span style="@GetBadgeStyle("aht", agent.AhtSeconds)">@FormatDuration(agent.AhtSeconds)</span></td>
+                                    @RenderCell(agent, colDef)
                                 }
                             </tr>
                         }
@@ -163,6 +107,7 @@
     private HashSet<string> _filterStates = new();
     private HashSet<string> _visibleColumns = new() { "agent", "state", "duration", "occupancy", "adherence" };
     private bool _showAlerts = true;
+    private List<AgentGridColumnDef> _columnDefs = new();  // Dynamic column definitions
 
     // Widget appearance
     private string? _fontSize;
@@ -188,7 +133,7 @@
         public string ListSearch { get; set; } = "";
     }
 
-    private static bool IsNumericColumn(string column) => column is "duration" or "occupancy" or "adherence" or "calls" or "aht";
+    private static bool IsNumericColumn(string column) => IsNumericMetric(ColumnKeyToMetricId(column));
 
     // Filtered and sorted agents
     private List<AgentStatusDto> FilteredAgents
@@ -209,42 +154,48 @@
             // Apply sorting
             if (!string.IsNullOrEmpty(_sortColumn))
             {
-                result = (_sortColumn, _sortAscending) switch
+                var metricId = ColumnKeyToMetricId(_sortColumn);
+                if (IsNumericMetric(metricId))
                 {
-                    ("agent", true) => result.OrderBy(a => a.DisplayName),
-                    ("agent", false) => result.OrderByDescending(a => a.DisplayName),
-                    ("state", true) => result.OrderBy(a => a.State),
-                    ("state", false) => result.OrderByDescending(a => a.State),
-                    ("duration", true) => result.OrderBy(a => a.StateDurationSeconds),
-                    ("duration", false) => result.OrderByDescending(a => a.StateDurationSeconds),
-                    ("queue", true) => result.OrderBy(a => a.QueueName),
-                    ("queue", false) => result.OrderByDescending(a => a.QueueName),
-                    ("occupancy", true) => result.OrderBy(a => a.OccupancyPercent),
-                    ("occupancy", false) => result.OrderByDescending(a => a.OccupancyPercent),
-                    ("adherence", true) => result.OrderBy(a => a.AdherencePercent),
-                    ("adherence", false) => result.OrderByDescending(a => a.AdherencePercent),
-                    ("calls", true) => result.OrderBy(a => a.CallsHandledToday),
-                    ("calls", false) => result.OrderByDescending(a => a.CallsHandledToday),
-                    ("aht", true) => result.OrderBy(a => a.AhtSeconds),
-                    ("aht", false) => result.OrderByDescending(a => a.AhtSeconds),
-                    _ => result
-                };
+                    result = _sortAscending
+                        ? result.OrderBy(a => GetMetricNumericValue(a, metricId))
+                        : result.OrderByDescending(a => GetMetricNumericValue(a, metricId));
+                }
+                else
+                {
+                    result = _sortAscending
+                        ? result.OrderBy(a => GetMetricTextValue(a, metricId))
+                        : result.OrderByDescending(a => GetMetricTextValue(a, metricId));
+                }
             }
 
             return result.ToList();
         }
     }
 
+    private static string ColumnKeyToMetricId(string colKey) => colKey switch
+    {
+        "agent" => "AgentName",
+        "state" => "AgentState",
+        "duration" => "AgentStateDuration",
+        "queue" => "AgentQueue",
+        "occupancy" => "AgentOccupancy",
+        "adherence" => "AgentAdherence",
+        "calls" => "AgentCalls",
+        "aht" => "AgentAHT",
+        "extension" => "AgentExtension",
+        "team" => "AgentTeam",
+        "utilisation" => "AgentUtilisation",
+        "acwavg" => "AgentAcwAvg",
+        _ => colKey
+    };
+
     private bool MatchesFilter(AgentStatusDto agent, string column, ColumnFilter filter)
     {
         // List mode - check if value is in selected list
         if (filter.Mode == "list")
         {
-            var textValue = column switch
-            {
-                "state" => GetStateLabel(agent.State),
-                _ => GetColumnTextValue(agent, column)
-            };
+            var textValue = GetColumnTextValue(agent, column);
             return filter.SelectedValues.Contains(textValue);
         }
 
@@ -319,28 +270,11 @@
         return null;
     }
 
-    private string GetColumnTextValue(AgentStatusDto agent, string column) => column switch
-    {
-        "agent" => agent.DisplayName,
-        "state" => agent.State.ToString(),
-        "queue" => agent.QueueName ?? "",
-        "duration" => FormatDuration(agent.StateDurationSeconds),
-        "occupancy" => agent.OccupancyPercent.ToString("0"),
-        "adherence" => agent.AdherencePercent.ToString("0"),
-        "calls" => agent.CallsHandledToday.ToString(),
-        "aht" => FormatDuration(agent.AhtSeconds),
-        _ => ""
-    };
+    private string GetColumnTextValue(AgentStatusDto agent, string column) =>
+        GetMetricTextValue(agent, ColumnKeyToMetricId(column));
 
-    private decimal GetColumnNumericValue(AgentStatusDto agent, string column) => column switch
-    {
-        "duration" => agent.StateDurationSeconds,
-        "occupancy" => agent.OccupancyPercent,
-        "adherence" => agent.AdherencePercent,
-        "calls" => agent.CallsHandledToday,
-        "aht" => agent.AhtSeconds,
-        _ => 0
-    };
+    private decimal GetColumnNumericValue(AgentStatusDto agent, string column) =>
+        GetMetricNumericValue(agent, ColumnKeyToMetricId(column));
 
     private bool ShowColumn(string col) => _visibleColumns.Count == 0 || _visibleColumns.Contains(col);
 
@@ -350,6 +284,92 @@
             ? customName
             : defaultLabel;
     }
+
+    private static List<AgentGridColumnDef> GetDefaultColumnDefs() => new()
+    {
+        new() { Name = "Agent", MetricId = "AgentName" },
+        new() { Name = "State", MetricId = "AgentState" },
+        new() { Name = "Duration", MetricId = "AgentStateDuration" },
+        new() { Name = "OCC%", MetricId = "AgentOccupancy" },
+        new() { Name = "ADH%", MetricId = "AgentAdherence" }
+    };
+
+    private static string MetricIdToColumnKey(string metricId) => metricId switch
+    {
+        "AgentName" => "agent",
+        "AgentState" => "state",
+        "AgentStateDuration" => "duration",
+        "AgentQueue" => "queue",
+        "AgentOccupancy" => "occupancy",
+        "AgentAdherence" => "adherence",
+        "AgentCalls" => "calls",
+        "AgentAHT" => "aht",
+        "AgentExtension" => "extension",
+        "AgentTeam" => "team",
+        "AgentUtilisation" => "utilisation",
+        "AgentAcwAvg" => "acwavg",
+        _ => metricId.ToLowerInvariant()
+    };
+
+    private static bool IsNumericMetric(string metricId) => metricId switch
+    {
+        "AgentStateDuration" or "AgentOccupancy" or "AgentAdherence"
+        or "AgentCalls" or "AgentAHT" or "AgentUtilisation" or "AgentAcwAvg" => true,
+        _ => false
+    };
+
+    private static bool IsEndAlignedMetric(string metricId) => metricId switch
+    {
+        "AgentStateDuration" or "AgentOccupancy" or "AgentAdherence"
+        or "AgentCalls" or "AgentAHT" or "AgentUtilisation" or "AgentAcwAvg" => true,
+        _ => false
+    };
+
+    private string GetMetricTextValue(AgentStatusDto agent, string metricId) => metricId switch
+    {
+        "AgentName" => agent.DisplayName,
+        "AgentState" => GetStateLabel(agent.State),
+        "AgentStateDuration" => FormatDuration(agent.StateDurationSeconds),
+        "AgentQueue" => agent.QueueName ?? "-",
+        "AgentOccupancy" => $"{agent.OccupancyPercent:0}%",
+        "AgentAdherence" => $"{agent.AdherencePercent:0}%",
+        "AgentCalls" => agent.CallsHandledToday.ToString(),
+        "AgentAHT" => FormatDuration(agent.AhtSeconds),
+        "AgentExtension" => agent.Extension,
+        "AgentTeam" => agent.TeamName,
+        "AgentUtilisation" => $"{agent.UtilisationPercent:0}%",
+        "AgentAcwAvg" => FormatDuration(agent.AcwAvgSeconds),
+        _ => ""
+    };
+
+    private decimal GetMetricNumericValue(AgentStatusDto agent, string metricId) => metricId switch
+    {
+        "AgentStateDuration" => agent.StateDurationSeconds,
+        "AgentOccupancy" => agent.OccupancyPercent,
+        "AgentAdherence" => agent.AdherencePercent,
+        "AgentCalls" => agent.CallsHandledToday,
+        "AgentAHT" => agent.AhtSeconds,
+        "AgentUtilisation" => agent.UtilisationPercent,
+        "AgentAcwAvg" => agent.AcwAvgSeconds,
+        _ => 0
+    };
+
+    private object? GetMetricThresholdValue(AgentStatusDto agent, string metricId) => metricId switch
+    {
+        "AgentName" => agent.DisplayName,
+        "AgentState" => agent.State.ToString(),
+        "AgentStateDuration" => agent.StateDurationSeconds,
+        "AgentQueue" => agent.QueueName ?? "",
+        "AgentOccupancy" => agent.OccupancyPercent,
+        "AgentAdherence" => agent.AdherencePercent,
+        "AgentCalls" => agent.CallsHandledToday,
+        "AgentAHT" => agent.AhtSeconds,
+        "AgentExtension" => agent.Extension,
+        "AgentTeam" => agent.TeamName,
+        "AgentUtilisation" => agent.UtilisationPercent,
+        "AgentAcwAvg" => agent.AcwAvgSeconds,
+        _ => null
+    };
 
     private RenderFragment RenderColumnHeader(string column, string label, bool alignEnd) => __builder =>
     {
@@ -467,6 +487,64 @@
         </th>
     };
 
+    private RenderFragment RenderCell(AgentStatusDto agent, AgentGridColumnDef colDef) => __builder =>
+    {
+        var colKey = MetricIdToColumnKey(colDef.MetricId);
+        var alignEnd = IsEndAlignedMetric(colDef.MetricId);
+        var thresholdValue = GetMetricThresholdValue(agent, colDef.MetricId);
+        var badgeStyle = GetBadgeStyle(colKey, thresholdValue);
+
+        switch (colDef.MetricId)
+        {
+            case "AgentName":
+                <td>
+                    <div class="d-flex align-items-center">
+                        <span class="agent-avatar me-2 @GetStateColorClass(agent.State)">
+                            @GetInitials(agent.DisplayName)
+                        </span>
+                        <div>
+                            <div class="fw-medium" style="@badgeStyle">@agent.DisplayName</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">@agent.Extension</div>
+                        </div>
+                    </div>
+                </td>
+                break;
+
+            case "AgentState":
+                var hasStateThreshold = HasThreshold(colKey, agent.State.ToString());
+                <td>
+                    <span class="threshold-badge @(hasStateThreshold ? "" : GetStateBadgeClass(agent.State))"
+                          style="@(hasStateThreshold ? GetBadgeStyle(colKey, agent.State.ToString()) : "")">
+                        @GetStateLabel(agent.State)
+                    </span>
+                </td>
+                break;
+
+            case "AgentStateDuration":
+            case "AgentAHT":
+            case "AgentAcwAvg":
+                <td class="text-end font-monospace">
+                    <span class="@(string.IsNullOrEmpty(badgeStyle) ? "" : "threshold-badge")" style="@badgeStyle">@GetMetricTextValue(agent, colDef.MetricId)</span>
+                </td>
+                break;
+
+            case "AgentOccupancy":
+            case "AgentAdherence":
+            case "AgentUtilisation":
+            case "AgentCalls":
+                <td class="text-end">
+                    <span class="@(string.IsNullOrEmpty(badgeStyle) ? "" : "threshold-badge")" style="@badgeStyle">@GetMetricTextValue(agent, colDef.MetricId)</span>
+                </td>
+                break;
+
+            default:
+                <td class="@(alignEnd ? "text-end" : "")">
+                    <span class="@(string.IsNullOrEmpty(badgeStyle) ? "" : "threshold-badge")" style="@badgeStyle">@GetMetricTextValue(agent, colDef.MetricId)</span>
+                </td>
+                break;
+        }
+    };
+
     private void ToggleSort(string column)
     {
         if (_sortColumn == column)
@@ -553,13 +631,8 @@
 
     private IEnumerable<string> GetDistinctValues(string column)
     {
-        return column switch
-        {
-            "agent" => _agents.Select(a => a.DisplayName).Distinct().OrderBy(x => x),
-            "state" => _agents.Select(a => GetStateLabel(a.State)).Distinct().OrderBy(x => x),
-            "queue" => _agents.Select(a => a.QueueName ?? "-").Distinct().OrderBy(x => x),
-            _ => Enumerable.Empty<string>()
-        };
+        var metricId = ColumnKeyToMetricId(column);
+        return _agents.Select(a => GetMetricTextValue(a, metricId)).Distinct().OrderBy(x => x);
     }
 
     private void ApplyFilter(string column)
@@ -738,12 +811,21 @@
         seconds = 0;
         if (string.IsNullOrWhiteSpace(value)) return false;
 
-        // Try parsing as TimeSpan (supports "0:00", "1:30", "10:00", "1:00:00", etc.)
-        if (TimeSpan.TryParse(value, out var ts))
+        // First try mm:ss format (e.g., "1:30" = 90 seconds, "10:00" = 600 seconds)
+        var parts = value.Split(':');
+        if (parts.Length == 2 && int.TryParse(parts[0], out var mins) && int.TryParse(parts[1], out var secs))
+        {
+            seconds = mins * 60 + secs;
+            return true;
+        }
+
+        // Fall back to TimeSpan for h:mm:ss format
+        if (parts.Length == 3 && TimeSpan.TryParse(value, out var ts))
         {
             seconds = (decimal)ts.TotalSeconds;
             return true;
         }
+
         return false;
     }
 
@@ -771,6 +853,11 @@
             _visibleColumns = Config.AgentGridColumns?.ToHashSet() ?? new HashSet<string> { "agent", "state", "duration", "occupancy", "adherence" };
             _showAlerts = Config.AgentGridShowAlerts;
 
+            // Column definitions - use configured or defaults
+            _columnDefs = Config.AgentGridColumnDefs?.Count > 0
+                ? Config.AgentGridColumnDefs.ToList()
+                : GetDefaultColumnDefs();
+
             // Appearance
             _fontSize = Config.FontSize;
             _backgroundColor = Config.BackgroundColor;
@@ -782,6 +869,10 @@
 
             // Custom column names
             _columnNames = Config.AgentGridColumnNames ?? new Dictionary<string, string>();
+        }
+        else
+        {
+            _columnDefs = GetDefaultColumnDefs();
         }
     }
 

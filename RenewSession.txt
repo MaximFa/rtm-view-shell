@@ -1,4 +1,4 @@
-claude --resume 61838cc4-ff59-4536-a4d7-1c1a159ba4f6
+claude --resume 85e21c34-61d0-4a8e-84e3-28ccb8192e2b
 
 Ты увидишь это по интерфейсу: при открытии Claude Code показывает список последних сессий по рабочей директории. Нужно
    выбрать ту, что открыта в C:\Users\farbe\Documents\Claude\Projects\RTM View Shell\src\CcDashboard.Web — она будет в
@@ -14,17 +14,17 @@ claude --resume 61838cc4-ff59-4536-a4d7-1c1a159ba4f6
   DB - ccdashboard_user
   
   
-  app-cyber-security-expert
-  blazor-server-expert
-  frontend-design
-  program-architector
-  ux-ui-expert
+  /app-cyber-security-expert
+  /blazor-server-expert
+  /frontend-design
+  /program-architector
+  /ux-ui-expert
   
   
-  contact-center-expert
-  contact-center-shift-manager
-  contact-center-manager
-  contact-center-director
-  contact-center-ceo
-  technical-writer
-  platform-presale
+  /contact-center-expert
+  /contact-center-shift-manager
+  /contact-center-manager
+  /contact-center-director
+  /contact-center-ceo
+  /technical-writer
+  /platform-presale

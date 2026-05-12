@@ -1788,6 +1788,14 @@ a:hover {
     color: var(--bs-primary);
 }
 
+/* Agent Grid Widget - Badge Styling */
+.agent-grid-widget .threshold-badge {
+    font-weight: 500;
+    padding: 0.25em 0.5em;
+    border-radius: 0.25rem;
+    display: inline-block;
+}
+
 
 /* Color Palette Swatches */
 .color-palette {
@@ -1840,6 +1848,101 @@ button.clr-swatch,
                       linear-gradient(-45deg, transparent 75%, #ccc 75%);
     background-size: 8px 8px;
     background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+}
+
+.clr-swatch.clr-swatch-lg {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+}
+
+.color-palette-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1050;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: var(--sp-2);
+    margin-top: 4px;
+    background: var(--clr-bg);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-md);
+    min-width: 180px;
+    max-width: 220px;
+}
+
+/* Appearance Tab */
+.appearance-section {
+    margin-bottom: var(--sp-4);
+}
+
+.section-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--clr-text-muted);
+    margin-bottom: var(--sp-3);
+    padding-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--clr-border);
+}
+
+.color-settings {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+
+.color-setting-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+}
+
+.color-setting-label {
+    min-width: 140px;
+    font-size: 0.875rem;
+    color: var(--clr-text);
+}
+
+/* Columns Tab */
+.columns-tab {
+    min-height: 350px;
+    overflow-x: hidden;
+}
+
+.columns-table-header {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0;
+}
+
+.columns-table-body {
+    border: 1px solid var(--clr-border);
+    border-radius: var(--r-md);
+    overflow-x: hidden;
+    padding-bottom: 200px;
+}
+
+.column-def-row {
+    margin: 0;
+}
+
+.column-def-row:last-child {
+    border-bottom: none !important;
+}
+
+.column-def-row:hover {
+    background-color: var(--clr-overlay);
+}
+
+.column-def-row .btn-link:disabled {
+    opacity: 0.3;
 }
 
 /* Threshold Rules */

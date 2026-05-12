@@ -37,10 +37,4 @@
     padding-block: 0.4rem;
 }
 
-.agent-grid-body .badge {
-    font-size: 0.7rem;
-    font-weight: 500;
-    padding: 0.25em 0.5em;
-}
-
-/* Filter styles moved to app.css for RenderFragment compatibility */
+/* Badge and threshold-badge styles moved to app.css for RenderFragment compatibility */

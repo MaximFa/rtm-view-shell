@@ -188,7 +188,7 @@
                     </h5>
                     <button type="button" class="btn-close" @onclick="CloseWidgetConfig"></button>
                 </div>
-                <div class="modal-body" style="min-height: 400px;">
+                <div class="modal-body" style="min-height: 500px; max-height: 80vh; overflow-x: hidden;" @onscroll="CloseMetricDropdown">
                     <!-- Tabs Navigation -->
                     <ul class="nav nav-tabs mb-3">
                         <li class="nav-item">
@@ -216,62 +216,32 @@
                             <input type="text" class="form-control" @bind="ConfigDisplayName" />
                         </div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">@L["Widgets_BusinessUnit"]</label>
-                                <div class="searchable-select">
-                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
-                                           value="@BuSearchText"
-                                           @oninput="OnBuSearchInput"
-                                           @onfocus="() => BuDropdownOpen = true"
-                                           @onblur="OnBuSearchBlur" />
-                                    @if (BuDropdownOpen)
-                                    {
-                                        <div class="searchable-dropdown">
-                                            <div class="dropdown-item @(string.IsNullOrEmpty(ConfigBusinessUnit) ? "active" : "")"
-                                                 @onmousedown="() => SelectBusinessUnit(null)"
+                        <div class="mb-3">
+                            <label class="form-label">@L["Widgets_BusinessUnit"]</label>
+                            <div class="searchable-select">
+                                <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                       value="@BuSearchText"
+                                       @oninput="OnBuSearchInput"
+                                       @onfocus="() => BuDropdownOpen = true"
+                                       @onblur="OnBuSearchBlur" />
+                                @if (BuDropdownOpen)
+                                {
+                                    <div class="searchable-dropdown">
+                                        <div class="dropdown-item @(string.IsNullOrEmpty(ConfigBusinessUnit) ? "active" : "")"
+                                             @onmousedown="() => SelectBusinessUnit(null)"
+                                             @onmousedown:preventDefault="true">
+                                            <em>@L["Common_All"]</em>
+                                        </div>
+                                        @foreach (var bu in FilteredBusinessUnits)
+                                        {
+                                            <div class="dropdown-item @(ConfigBusinessUnit == bu.BusinessUnitId.ToString() ? "active" : "")"
+                                                 @onmousedown="() => SelectBusinessUnit(bu)"
                                                  @onmousedown:preventDefault="true">
-                                                <em>@L["Common_All"]</em>
+                                                @bu.BusinessUnitName
                                             </div>
-                                            @foreach (var bu in FilteredBusinessUnits)
-                                            {
-                                                <div class="dropdown-item @(ConfigBusinessUnit == bu.BusinessUnitId.ToString() ? "active" : "")"
-                                                     @onmousedown="() => SelectBusinessUnit(bu)"
-                                                     @onmousedown:preventDefault="true">
-                                                    @bu.BusinessUnitName
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">@L["Widgets_Metric"]</label>
-                                <div class="searchable-select">
-                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
-                                           value="@MetricSearchText"
-                                           @oninput="OnMetricSearchInput"
-                                           @onfocus="() => MetricDropdownOpen = true"
-                                           @onblur="OnMetricSearchBlur" />
-                                    @if (MetricDropdownOpen)
-                                    {
-                                        <div class="searchable-dropdown">
-                                            @foreach (var m in FilteredMetrics)
-                                            {
-                                                <div class="dropdown-item @(ConfigMetric == m.MetricId ? "active" : "")"
-                                                     @onmousedown="() => SelectMetric(m)"
-                                                     @onmousedown:preventDefault="true">
-                                                    <div>@m.MetricId</div>
-                                                    <small class="text-muted">@m.Description</small>
-                                                </div>
-                                            }
-                                            @if (!FilteredMetrics.Any())
-                                            {
-                                                <div class="dropdown-item text-muted">@L["Common_NoResults"]</div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
+                                        }
+                                    </div>
+                                }
                             </div>
                         </div>
 
@@ -280,63 +250,112 @@
                     <!-- Tab: Appearance -->
                     @if (ConfigActiveTab == "appearance")
                     {
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label class="form-label">@L["Widgets_FontSize"]</label>
-                                <select class="form-select" @bind="ConfigFontSize">
-                                    <option value="small">@L["Widgets_FontSize_Small"] (12px)</option>
-                                    <option value="normal">@L["Widgets_FontSize_Normal"] (14px)</option>
-                                    <option value="large">@L["Widgets_FontSize_Large"] (18px)</option>
-                                    <option value="xlarge">@L["Widgets_FontSize_XLarge"] (24px)</option>
-                                    <option value="xxlarge">@L["Widgets_FontSize_XXLarge"] (32px)</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">@L["Widgets_BackgroundColor"]</label>
-                                <div class="color-palette">
-                                    @foreach (var color in BackgroundColors)
-                                    {
-                                        <span class="clr-swatch @(ConfigBackgroundColor == color.Value ? "selected" : "")"
-                                              title="@color.Name"
-                                              style="@GetColorStyle(color.Value)"
-                                              @onclick="() => ConfigBackgroundColor = color.Value">
-                                        </span>
-                                    }
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">@L["Widgets_FontColor"]</label>
-                                <div class="color-palette">
-                                    @foreach (var color in FontColors)
-                                    {
-                                        <span class="clr-swatch @(ConfigFontColor == color.Value ? "selected" : "")"
-                                              title="@color.Name"
-                                              style="@GetColorStyle(color.Value)"
-                                              @onclick="() => ConfigFontColor = color.Value">
-                                        </span>
-                                    }
+                        <!-- Typography Section -->
+                        <div class="appearance-section mb-4">
+                            <h6 class="section-label">Typography</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-1">Font Size</label>
+                                    <select class="form-select form-select-sm" @bind="ConfigFontSize">
+                                        <option value="small">@L["Widgets_FontSize_Small"] (12px)</option>
+                                        <option value="normal">@L["Widgets_FontSize_Normal"] (14px)</option>
+                                        <option value="large">@L["Widgets_FontSize_Large"] (18px)</option>
+                                        <option value="xlarge">@L["Widgets_FontSize_XLarge"] (24px)</option>
+                                        <option value="xxlarge">@L["Widgets_FontSize_XXLarge"] (32px)</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
 
-                        @if (IsAgentGridWidget(ConfiguringWidget))
-                        {
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">@L["Widgets_TableBackground"]</label>
-                                    <div class="color-palette">
-                                        @foreach (var color in TableBackgroundColors)
+                        <!-- Colors Section -->
+                        <div class="appearance-section">
+                            <h6 class="section-label">Colors</h6>
+                            <div class="color-settings">
+                                <!-- Widget Header Background -->
+                                <div class="color-setting-row">
+                                    <span class="color-setting-label">Widget Header</span>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(ConfigBackgroundColor, BackgroundColors)"
+                                              style="@GetColorStyle(ConfigBackgroundColor); cursor: pointer;"
+                                              @onclick="ToggleBgColorPalette"
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "bg")
                                         {
-                                            <span class="clr-swatch @(ConfigTableBackgroundColor == color.Value ? "selected" : "")"
-                                                  title="@color.Name"
-                                                  style="@GetColorStyle(color.Value)"
-                                                  @onclick="() => ConfigTableBackgroundColor = color.Value">
-                                            </span>
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in BackgroundColors)
+                                                {
+                                                    <span class="clr-swatch @(ConfigBackgroundColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => SelectBackgroundColor(color.Value)"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
                                         }
                                     </div>
                                 </div>
+
+                                <!-- Text Color -->
+                                <div class="color-setting-row">
+                                    <span class="color-setting-label">Text Color</span>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(ConfigFontColor, FontColors)"
+                                              style="@GetColorStyle(ConfigFontColor); cursor: pointer;"
+                                              @onclick="ToggleFontColorPalette"
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "font")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in FontColors)
+                                                {
+                                                    <span class="clr-swatch @(ConfigFontColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => SelectFontColor(color.Value)"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                @if (IsAgentGridWidget(ConfiguringWidget))
+                                {
+                                    <!-- Table Background -->
+                                    <div class="color-setting-row">
+                                        <span class="color-setting-label">Table Background</span>
+                                        <div class="position-relative">
+                                            <span class="clr-swatch clr-swatch-lg"
+                                                  title="@GetColorName(ConfigTableBackgroundColor, TableBackgroundColors)"
+                                                  style="@GetColorStyle(ConfigTableBackgroundColor); cursor: pointer;"
+                                                  @onclick="ToggleTableColorPalette"
+                                                  @onclick:stopPropagation></span>
+                                            @if (_openColorPalette == "table")
+                                            {
+                                                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                     @onclick="CloseColorPalette"></div>
+                                                <div class="color-palette-dropdown">
+                                                    @foreach (var color in TableBackgroundColors)
+                                                    {
+                                                        <span class="clr-swatch @(ConfigTableBackgroundColor == color.Value ? "selected" : "")"
+                                                              title="@color.Name"
+                                                              style="@GetColorStyle(color.Value)"
+                                                              @onclick="() => SelectTableBackgroundColor(color.Value)"
+                                                              @onclick:stopPropagation></span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
                             </div>
-                        }
+                        </div>
                     }
 
                     <!-- Tab: Thresholds -->
@@ -409,29 +428,57 @@
                                                 </div>
                                             }
                                         }
-                                        <div class="col-3">
+                                        @{
+                                            var colBgKey = $"col-{SelectedThresholdColumn}-{idx}-bg";
+                                            var colFontKey = $"col-{SelectedThresholdColumn}-{idx}-font";
+                                        }
+                                        <div class="col-auto">
                                             <label class="form-label small">@L["Widgets_BadgeBg"]</label>
-                                            <div class="color-palette compact">
-                                                @foreach (var color in ThresholdBackgroundColors)
+                                            <div class="position-relative">
+                                                <span class="clr-swatch"
+                                                      title="@GetColorName(rule.BackgroundColor ?? "#198754", ThresholdBackgroundColors)"
+                                                      style="@GetColorStyle(rule.BackgroundColor ?? "#198754"); cursor: pointer;"
+                                                      @onclick="() => ToggleThresholdPalette(colBgKey)"
+                                                      @onclick:stopPropagation></span>
+                                                @if (_openThresholdPalette == colBgKey)
                                                 {
-                                                    <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
-                                                          title="@color.Name"
-                                                          style="@GetColorStyle(color.Value)"
-                                                          @onclick="() => UpdateColThresholdBgColor(SelectedThresholdColumn, idx, color.Value)">
-                                                    </span>
+                                                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                         @onclick="() => _openThresholdPalette = null"></div>
+                                                    <div class="color-palette-dropdown">
+                                                        @foreach (var color in ThresholdBackgroundColors)
+                                                        {
+                                                            <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
+                                                                  title="@color.Name"
+                                                                  style="@GetColorStyle(color.Value)"
+                                                                  @onclick="() => SelectColThresholdBgColor(SelectedThresholdColumn, idx, color.Value)"
+                                                                  @onclick:stopPropagation></span>
+                                                        }
+                                                    </div>
                                                 }
                                             </div>
                                         </div>
-                                        <div class="col-3">
+                                        <div class="col-auto">
                                             <label class="form-label small">@L["Widgets_BadgeFont"]</label>
-                                            <div class="color-palette compact">
-                                                @foreach (var color in ThresholdFontColors)
+                                            <div class="position-relative">
+                                                <span class="clr-swatch"
+                                                      title="@GetColorName(rule.FontColor ?? "#ffffff", ThresholdFontColors)"
+                                                      style="@GetColorStyle(rule.FontColor ?? "#ffffff"); cursor: pointer;"
+                                                      @onclick="() => ToggleThresholdPalette(colFontKey)"
+                                                      @onclick:stopPropagation></span>
+                                                @if (_openThresholdPalette == colFontKey)
                                                 {
-                                                    <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
-                                                          title="@color.Name"
-                                                          style="@GetColorStyle(color.Value)"
-                                                          @onclick="() => UpdateColThresholdFontColor(SelectedThresholdColumn, idx, color.Value)">
-                                                    </span>
+                                                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                         @onclick="() => _openThresholdPalette = null"></div>
+                                                    <div class="color-palette-dropdown">
+                                                        @foreach (var color in ThresholdFontColors)
+                                                        {
+                                                            <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
+                                                                  title="@color.Name"
+                                                                  style="@GetColorStyle(color.Value)"
+                                                                  @onclick="() => SelectColThresholdFontColor(SelectedThresholdColumn, idx, color.Value)"
+                                                                  @onclick:stopPropagation></span>
+                                                        }
+                                                    </div>
                                                 }
                                             </div>
                                         </div>
@@ -472,29 +519,57 @@
                                                    value="@rule.To"
                                                    @onchange="e => UpdateThresholdTo(idx, e)" />
                                         </div>
-                                        <div class="col-3">
+                                        @{
+                                            var stdBgKey = $"std-{idx}-bg";
+                                            var stdFontKey = $"std-{idx}-font";
+                                        }
+                                        <div class="col-auto">
                                             <label class="form-label small">@L["Widgets_BackgroundColor"]</label>
-                                            <div class="color-palette compact">
-                                                @foreach (var color in ThresholdBackgroundColors)
+                                            <div class="position-relative">
+                                                <span class="clr-swatch"
+                                                      title="@GetColorName(rule.BackgroundColor ?? "#198754", ThresholdBackgroundColors)"
+                                                      style="@GetColorStyle(rule.BackgroundColor ?? "#198754"); cursor: pointer;"
+                                                      @onclick="() => ToggleThresholdPalette(stdBgKey)"
+                                                      @onclick:stopPropagation></span>
+                                                @if (_openThresholdPalette == stdBgKey)
                                                 {
-                                                    <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
-                                                          title="@color.Name"
-                                                          style="@GetColorStyle(color.Value)"
-                                                          @onclick="() => UpdateThresholdBgColor(idx, color.Value)">
-                                                    </span>
+                                                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                         @onclick="() => _openThresholdPalette = null"></div>
+                                                    <div class="color-palette-dropdown">
+                                                        @foreach (var color in ThresholdBackgroundColors)
+                                                        {
+                                                            <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
+                                                                  title="@color.Name"
+                                                                  style="@GetColorStyle(color.Value)"
+                                                                  @onclick="() => SelectThresholdBgColor(idx, color.Value)"
+                                                                  @onclick:stopPropagation></span>
+                                                        }
+                                                    </div>
                                                 }
                                             </div>
                                         </div>
-                                        <div class="col-3">
+                                        <div class="col-auto">
                                             <label class="form-label small">@L["Widgets_FontColor"]</label>
-                                            <div class="color-palette compact">
-                                                @foreach (var color in ThresholdFontColors)
+                                            <div class="position-relative">
+                                                <span class="clr-swatch"
+                                                      title="@GetColorName(rule.FontColor ?? "#ffffff", ThresholdFontColors)"
+                                                      style="@GetColorStyle(rule.FontColor ?? "#ffffff"); cursor: pointer;"
+                                                      @onclick="() => ToggleThresholdPalette(stdFontKey)"
+                                                      @onclick:stopPropagation></span>
+                                                @if (_openThresholdPalette == stdFontKey)
                                                 {
-                                                    <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
-                                                          title="@color.Name"
-                                                          style="@GetColorStyle(color.Value)"
-                                                          @onclick="() => UpdateThresholdFontColor(idx, color.Value)">
-                                                    </span>
+                                                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                         @onclick="() => _openThresholdPalette = null"></div>
+                                                    <div class="color-palette-dropdown">
+                                                        @foreach (var color in ThresholdFontColors)
+                                                        {
+                                                            <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
+                                                                  title="@color.Name"
+                                                                  style="@GetColorStyle(color.Value)"
+                                                                  @onclick="() => SelectThresholdFontColor(idx, color.Value)"
+                                                                  @onclick:stopPropagation></span>
+                                                        }
+                                                    </div>
                                                 }
                                             </div>
                                         </div>
@@ -518,33 +593,104 @@
                     <!-- Tab: Columns (Agent Grid only) -->
                     @if (ConfigActiveTab == "columns" && IsAgentGridWidget(ConfiguringWidget))
                     {
-                        <h6 class="text-muted small text-uppercase mb-3">@L["Widgets_AgentGrid_Columns"]</h6>
-                        <div class="row mb-3">
-                            <div class="col-12">
-                                <div class="d-flex flex-wrap gap-2">
-                                    @foreach (var colKey in AvailableColumnKeys)
+                        <div class="columns-tab">
+                            <!-- Header with Add button -->
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small">@ConfigAgentColumnDefs.Count columns</span>
+                                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddColumnDef">
+                                    <i class="bi bi-plus"></i> Add Column
+                                </button>
+                            </div>
+
+                            @if (ConfigAgentColumnDefs.Count > 0)
+                            {
+                                <!-- Table header -->
+                                <div class="columns-table-header row g-2 mb-1 px-2 py-1 bg-light rounded-top small text-muted fw-medium">
+                                    <div class="col-auto" style="width: 40px;"></div>
+                                    <div class="col">Name</div>
+                                    <div class="col">Metric</div>
+                                    <div class="col-auto" style="width: 40px;"></div>
+                                </div>
+
+                                <!-- Scrollable list - fixed height for ~20 rows -->
+                                <div class="columns-table-body" style="height: 400px; overflow-y: scroll;" @onscroll="CloseMetricDropdown">
+                                    @for (int i = 0; i < ConfigAgentColumnDefs.Count; i++)
                                     {
-                                        <div class="form-check form-check-inline">
-                                            <input class="form-check-input" type="checkbox" id="col-@colKey"
-                                                   checked="@ConfigAgentColumns.Contains(colKey)"
-                                                   @onchange="e => ToggleAgentColumn(colKey, (bool)(e.Value ?? false))" />
-                                            <label class="form-check-label" for="col-@colKey">@L[$"Widgets_AgentGrid_Col_{char.ToUpper(colKey[0])}{colKey[1..]}"]</label>
+                                        var col = ConfigAgentColumnDefs[i];
+                                        var colId = col.Id;
+                                        var isFirst = i == 0;
+                                        var isLast = i == ConfigAgentColumnDefs.Count - 1;
+
+                                        <div class="column-def-row row g-2 align-items-center py-1 px-2 border-bottom" @key="colId">
+                                            <div class="col-auto" style="width: 40px;">
+                                                <div class="btn-group-vertical btn-group-sm">
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                                                            disabled="@isFirst"
+                                                            @onclick="() => MoveColumnDef(colId, -1)"
+                                                            title="Move up">
+                                                        <i class="bi bi-chevron-up"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                                                            disabled="@isLast"
+                                                            @onclick="() => MoveColumnDef(colId, 1)"
+                                                            title="Move down">
+                                                        <i class="bi bi-chevron-down"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="col">
+                                                <input type="text" class="form-control form-control-sm"
+                                                       value="@col.Name"
+                                                       @onchange="e => UpdateColumnDefName(colId, e.Value?.ToString())" />
+                                            </div>
+                                            <div class="col">
+                                                <div class="position-relative">
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           placeholder="Select metric..."
+                                                           value="@(_activeMetricDropdown == colId ? _metricSearchText : GetMetricDescription(col.MetricId))"
+                                                           @onclick="() => OpenMetricDropdown(colId)"
+                                                           @onclick:stopPropagation
+                                                           @oninput="e => OnMetricSearch(e.Value?.ToString())" />
+                                                    @if (_activeMetricDropdown == colId)
+                                                    {
+                                                        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                             @onclick="CloseMetricDropdown"></div>
+                                                        <div class="dropdown-menu show w-100" style="max-height: 200px; overflow-y: auto; position: absolute; top: 100%; left: 0; z-index: 1050;"
+                                                             @onclick:stopPropagation>
+                                                            @foreach (var metric in GetFilteredMetrics())
+                                                            {
+                                                                <button type="button" class="dropdown-item small"
+                                                                        @onclick="() => SelectMetric(colId, metric.MetricId)">
+                                                                    @metric.Description
+                                                                </button>
+                                                            }
+                                                            @if (!GetFilteredMetrics().Any())
+                                                            {
+                                                                <span class="dropdown-item-text text-muted small">No matches</span>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                            <div class="col-auto" style="width: 40px;">
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-danger"
+                                                        @onclick="() => RemoveColumnDef(colId)"
+                                                        title="Remove column">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     }
                                 </div>
-                            </div>
-                        </div>
-
-                        <h6 class="text-muted small text-uppercase mt-4 mb-3">Column Display Names</h6>
-                        <div class="row mb-3">
-                            @foreach (var colKey in ConfigAgentColumns.OrderBy(c => AvailableColumnKeys.ToList().IndexOf(c)))
+                            }
+                            else
                             {
-                                <div class="col-md-6 col-lg-4 mb-2">
-                                    <label class="form-label small mb-1">@L[$"Widgets_AgentGrid_Col_{char.ToUpper(colKey[0])}{colKey[1..]}"]</label>
-                                    <input type="text" class="form-control form-control-sm"
-                                           placeholder="@L[$"Widgets_AgentGrid_Col_{char.ToUpper(colKey[0])}{colKey[1..]}"]"
-                                           value="@GetColumnDisplayName(colKey)"
-                                           @onchange="e => SetColumnDisplayName(colKey, e.Value?.ToString())" />
+                                <div class="text-center text-muted py-5">
+                                    <i class="bi bi-columns-gap fs-1 mb-3 d-block opacity-50"></i>
+                                    <p class="mb-3">No columns defined yet.</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddColumnDef">
+                                        <i class="bi bi-plus"></i> Add first column
+                                    </button>
                                 </div>
                             }
                         </div>
@@ -571,6 +717,16 @@
     private string? Error;
     private string EditName = "";
     private bool _darkMode = false;
+
+    // Threshold color palette dropdown state
+    private string? _openThresholdPalette;
+
+    // Color palette dropdown state
+    private string? _openColorPalette;
+
+    // Metric dropdown state
+    private string? _activeMetricDropdown;
+    private string _metricSearchText = "";
 
     // Fullscreen editor state
     private bool PaletteOpen = false;
@@ -599,7 +755,8 @@
     private HashSet<string> ConfigAgentStates = new();
     private HashSet<string> ConfigAgentColumns = new() { "agent", "state", "duration", "occupancy", "adherence" };
     private bool ConfigAgentShowAlerts = true;
-    private Dictionary<string, string> ConfigAgentColumnNames = new();  // Custom column names
+    private Dictionary<string, string> ConfigAgentColumnNames = new();  // Legacy
+    private List<AgentGridColumnDef> ConfigAgentColumnDefs = new();  // New column definitions
 
     // Per-column thresholds
     private Dictionary<string, List<ColumnThreshold>> ConfigColumnThresholds = new();
@@ -769,6 +926,7 @@
             _positionsApplied = true;
             StateHasChanged();
         }
+
     }
 
     [JSInvokable]
@@ -1012,6 +1170,12 @@
         ConfigAgentColumns = widget.Config.AgentGridColumns?.ToHashSet() ?? new HashSet<string> { "agent", "state", "duration", "occupancy", "adherence" };
         ConfigAgentShowAlerts = widget.Config.AgentGridShowAlerts;
         ConfigAgentColumnNames = widget.Config.AgentGridColumnNames?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value) ?? new();
+        ConfigAgentColumnDefs = widget.Config.AgentGridColumnDefs?.Select(c => new AgentGridColumnDef
+        {
+            Id = c.Id,
+            Name = c.Name,
+            MetricId = c.MetricId
+        }).ToList() ?? GetDefaultColumnDefs();
 
         // Column thresholds
         ConfigColumnThresholds = widget.Config.ColumnThresholds != null
@@ -1074,6 +1238,112 @@
             ConfigAgentColumnNames.Remove(column);
         else
             ConfigAgentColumnNames[column] = name;
+    }
+
+    // Column definitions management
+    private List<AgentGridColumnDef> GetDefaultColumnDefs()
+    {
+        return new List<AgentGridColumnDef>
+        {
+            new() { Name = "Agent", MetricId = "AgentName" },
+            new() { Name = "State", MetricId = "AgentState" },
+            new() { Name = "Duration", MetricId = "AgentStateDuration" },
+            new() { Name = "OCC%", MetricId = "AgentOccupancy" },
+            new() { Name = "ADH%", MetricId = "AgentAdherence" }
+        };
+    }
+
+    private IEnumerable<RtsGridMetricDto> GetAgentMetrics()
+    {
+        return Metrics.Where(m => m.Description?.StartsWith("Agent", StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    private IEnumerable<RtsGridMetricDto> GetFilteredAgentMetrics(string? search)
+    {
+        var metrics = GetAgentMetrics();
+        if (string.IsNullOrWhiteSpace(search)) return metrics;
+        return metrics.Where(m =>
+            (m.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) == true) ||
+            (m.MetricId?.Contains(search, StringComparison.OrdinalIgnoreCase) == true));
+    }
+
+    private string GetMetricDescription(string? metricId)
+    {
+        if (string.IsNullOrEmpty(metricId)) return "";
+        var metric = Metrics.FirstOrDefault(m => m.MetricId == metricId);
+        return metric?.Description ?? metricId;
+    }
+
+    private void OpenMetricDropdown(string colId)
+    {
+        _activeMetricDropdown = colId;
+        _metricSearchText = "";
+    }
+
+    private void OnMetricSearch(string? text)
+    {
+        _metricSearchText = text ?? "";
+    }
+
+    private void CloseMetricDropdown()
+    {
+        _activeMetricDropdown = null;
+        _metricSearchText = "";
+    }
+
+    private void SelectMetric(string colId, string metricId)
+    {
+        UpdateColumnDefMetric(colId, metricId);
+        _activeMetricDropdown = null;
+        _metricSearchText = "";
+    }
+
+    private IEnumerable<RtsGridMetricDto> GetFilteredMetrics()
+    {
+        var metrics = GetAgentMetrics();
+        if (string.IsNullOrWhiteSpace(_metricSearchText)) return metrics;
+        return metrics.Where(m =>
+            m.Description?.Contains(_metricSearchText, StringComparison.OrdinalIgnoreCase) == true ||
+            m.MetricId?.Contains(_metricSearchText, StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    private void AddColumnDef()
+    {
+        ConfigAgentColumnDefs.Add(new AgentGridColumnDef
+        {
+            Name = "New Column",
+            MetricId = ""
+        });
+    }
+
+    private void RemoveColumnDef(string id)
+    {
+        ConfigAgentColumnDefs.RemoveAll(c => c.Id == id);
+    }
+
+    private void MoveColumnDef(string id, int direction)
+    {
+        var index = ConfigAgentColumnDefs.FindIndex(c => c.Id == id);
+        if (index < 0) return;
+
+        var newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= ConfigAgentColumnDefs.Count) return;
+
+        var item = ConfigAgentColumnDefs[index];
+        ConfigAgentColumnDefs.RemoveAt(index);
+        ConfigAgentColumnDefs.Insert(newIndex, item);
+    }
+
+    private void UpdateColumnDefName(string id, string? name)
+    {
+        var col = ConfigAgentColumnDefs.FirstOrDefault(c => c.Id == id);
+        if (col != null) col.Name = name ?? "";
+    }
+
+    private void UpdateColumnDefMetric(string id, string? metricId)
+    {
+        var col = ConfigAgentColumnDefs.FirstOrDefault(c => c.Id == id);
+        if (col != null) col.MetricId = metricId ?? "";
     }
 
     private void CloseWidgetConfig()
@@ -1163,6 +1433,7 @@
             AgentGridColumns = ConfigAgentColumns.ToList(),
             AgentGridShowAlerts = ConfigAgentShowAlerts,
             AgentGridColumnNames = ConfigAgentColumnNames.Count > 0 ? ConfigAgentColumnNames : null,
+            AgentGridColumnDefs = ConfigAgentColumnDefs.Count > 0 ? ConfigAgentColumnDefs : null,
             // Column thresholds
             ColumnThresholds = ConfigColumnThresholds.Count > 0
                 ? ConfigColumnThresholds.Where(kvp => kvp.Value.Count > 0)
@@ -1222,6 +1493,23 @@
     {
         if (index >= 0 && index < ConfigThresholds.Count)
             ConfigThresholds[index].FontColor = color;
+    }
+
+    private void ToggleThresholdPalette(string key)
+    {
+        _openThresholdPalette = _openThresholdPalette == key ? null : key;
+    }
+
+    private void SelectThresholdBgColor(int index, string color)
+    {
+        UpdateThresholdBgColor(index, color);
+        _openThresholdPalette = null;
+    }
+
+    private void SelectThresholdFontColor(int index, string color)
+    {
+        UpdateThresholdFontColor(index, color);
+        _openThresholdPalette = null;
     }
 
     // Column threshold management
@@ -1296,6 +1584,18 @@
     {
         if (ConfigColumnThresholds.TryGetValue(column, out var thresholds) && index >= 0 && index < thresholds.Count)
             thresholds[index].FontColor = color;
+    }
+
+    private void SelectColThresholdBgColor(string column, int index, string color)
+    {
+        UpdateColThresholdBgColor(column, index, color);
+        _openThresholdPalette = null;
+    }
+
+    private void SelectColThresholdFontColor(string column, int index, string color)
+    {
+        UpdateColThresholdFontColor(column, index, color);
+        _openThresholdPalette = null;
     }
 
     private async Task SaveLayout()
@@ -1387,6 +1687,35 @@
         return $"background: {colorValue} !important; background-color: {colorValue} !important;";
     }
 
+    private void ToggleBgColorPalette() => _openColorPalette = _openColorPalette == "bg" ? null : "bg";
+    private void ToggleFontColorPalette() => _openColorPalette = _openColorPalette == "font" ? null : "font";
+    private void ToggleTableColorPalette() => _openColorPalette = _openColorPalette == "table" ? null : "table";
+    private void CloseColorPalette() => _openColorPalette = null;
+
+    private void SelectBackgroundColor(string color)
+    {
+        ConfigBackgroundColor = color;
+        _openColorPalette = null;
+    }
+
+    private void SelectFontColor(string color)
+    {
+        ConfigFontColor = color;
+        _openColorPalette = null;
+    }
+
+    private void SelectTableBackgroundColor(string color)
+    {
+        ConfigTableBackgroundColor = color;
+        _openColorPalette = null;
+    }
+
+    private static string GetColorName(string colorValue, (string Name, string Value)[] colors)
+    {
+        var color = colors.FirstOrDefault(c => c.Value == colorValue);
+        return color.Name ?? colorValue;
+    }
+
     private static string GetWidgetIcon(string widgetName)
     {
         var n = widgetName.ToLower();
@@ -1473,12 +1802,20 @@
         // Agent Grid specific
         public List<string>? AgentGridTeams { get; set; }
         public List<string>? AgentGridStates { get; set; }
-        public List<string>? AgentGridColumns { get; set; }
+        public List<string>? AgentGridColumns { get; set; }  // Legacy - kept for backward compatibility
         public bool AgentGridShowAlerts { get; set; } = true;
-        public Dictionary<string, string>? AgentGridColumnNames { get; set; }  // Custom column display names
+        public Dictionary<string, string>? AgentGridColumnNames { get; set; }  // Legacy - kept for backward compatibility
+        public List<AgentGridColumnDef>? AgentGridColumnDefs { get; set; }  // New column definitions
 
         // Per-column thresholds: key = column name, value = list of rules
         public Dictionary<string, List<ColumnThreshold>>? ColumnThresholds { get; set; }
+    }
+
+    public class AgentGridColumnDef
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique ID for reordering
+        public string Name { get; set; } = "";  // Display name
+        public string MetricId { get; set; } = "";  // Reference to RtsGridMetric.MetricId
     }
 
     public class ThresholdRule

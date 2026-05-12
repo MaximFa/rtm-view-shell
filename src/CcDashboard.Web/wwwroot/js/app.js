@@ -34,3 +34,16 @@ window.focusElement = function (element) {
         element.focus();
     }
 };
+
+window.getElementPosition = function (element) {
+    if (!element) return null;
+    const rect = element.getBoundingClientRect();
+    return {
+        top: rect.top,
+        left: rect.left,
+        bottom: rect.bottom,
+        right: rect.right,
+        width: rect.width,
+        height: rect.height
+    };
+};
