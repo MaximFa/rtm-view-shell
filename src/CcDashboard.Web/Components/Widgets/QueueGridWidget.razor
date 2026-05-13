@@ -1,13 +1,13 @@
-@using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Application.Queries.TenantSettings
+@using CcDashboard.Contracts.DTOs.Widgets
 @using Microsoft.AspNetCore.SignalR.Client
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @implements IAsyncDisposable
 
-@* Agent Grid Widget - connects to external SignalR simulator for real-time data *@
+@* Queue Grid Widget - connects to external SignalR simulator for real-time data *@
 
-<div class="agent-grid-widget" style="@GetWidgetStyle()">
+<div class="queue-grid-widget" style="@GetWidgetStyle()">
     @if (GridId == 0)
     {
         <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
@@ -35,25 +35,15 @@
     else if (_rows.Count == 0)
     {
         <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
-            <i class="bi bi-people fs-3 mb-2 opacity-50"></i>
-            <span class="small">@L["Widget_NoAgents"]</span>
+            <i class="bi bi-collection fs-3 mb-2 opacity-50"></i>
+            <span class="small">@L["Widget_NoQueues"]</span>
         </div>
     }
     else
     {
-        var pagedRows = GetPagedRows();
-        <div class="agent-grid-header d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
+        <div class="queue-grid-header d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
             <span class="small text-muted">
-                @if (TotalPages > 1)
-                {
-                    var startIdx = (_currentPage - 1) * _pageSize + 1;
-                    var endIdx = Math.Min(_currentPage * _pageSize, _rows.Count);
-                    <text>@startIdx-@endIdx / @_rows.Count @L["Widget_Agents"]</text>
-                }
-                else
-                {
-                    <text>@_rows.Count @L["Widget_Agents"]</text>
-                }
+                @_rows.Count @L["Widget_Queues"]
             </span>
             <span class="small">
                 @if (_connectionState == ConnectionState.Connected)
@@ -67,59 +57,29 @@
             </span>
         </div>
 
-        <div class="agent-grid-body" style="@GetTableStyle()">
+        <div class="queue-grid-body" style="@GetTableStyle()">
             <table class="table table-sm mb-0 small" style="@GetTableStyle()">
-                <thead class="agent-grid-thead" style="@GetTheadStyle()">
-                    <tr style="@GetRowStyle()">
+                <thead class="queue-grid-thead" style="@GetTheadStyle()">
+                    <tr style="@GetRowStyle(null, null)">
                         @foreach (var colDef in _columnDefs)
                         {
-                            <th class="text-start" @onclick="() => ToggleSort(colDef.MetricId)" style="cursor: pointer;">
-                                @colDef.Name
-                                @if (_sortColumn == colDef.MetricId)
-                                {
-                                    <i class="bi @(_sortAscending ? "bi-caret-up-fill" : "bi-caret-down-fill") ms-1"></i>
-                                }
-                            </th>
+                            <th class="text-start">@colDef.Name</th>
                         }
                     </tr>
                 </thead>
                 <tbody style="@GetTableStyle()">
-                    @if (pagedRows.Count == 0)
+                    @foreach (var row in _rows)
                     {
-                        <tr>
-                            <td colspan="@_columnDefs.Count" class="text-center text-muted py-4">
-                                <i class="bi bi-funnel me-1"></i>No data
-                            </td>
+                        <tr style="@GetRowStyle(row.BackgroundColor, row.FontColor)">
+                            @foreach (var colDef in _columnDefs)
+                            {
+                                <td class="text-start font-monospace">@GetMetricValue(row.Metrics, colDef.MetricId)</td>
+                            }
                         </tr>
-                    }
-                    else
-                    {
-                        @foreach (var row in pagedRows)
-                        {
-                            <tr style="@GetRowStyle()">
-                                @foreach (var colDef in _columnDefs)
-                                {
-                                    <td class="text-start font-monospace">@GetMetricValue(row.Metrics, colDef.MetricId)</td>
-                                }
-                            </tr>
-                        }
                     }
                 </tbody>
             </table>
         </div>
-
-        @if (TotalPages > 1)
-        {
-            <div class="agent-grid-footer d-flex align-items-center justify-content-center gap-2 py-1 border-top">
-                <button class="btn btn-sm btn-link p-0" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">
-                    <i class="bi bi-chevron-left"></i>
-                </button>
-                <span class="small text-muted">@_currentPage / @TotalPages</span>
-                <button class="btn btn-sm btn-link p-0" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">
-                    <i class="bi bi-chevron-right"></i>
-                </button>
-            </div>
-        }
     }
 </div>
 
@@ -127,36 +87,33 @@
     [Parameter] public WidgetConfig? Config { get; set; }
     [Parameter] public int GridId { get; set; }
 
-    [Inject] private ILogger<AgentGridWidget> Logger { get; set; } = null!;
+    [Inject] private ILogger<QueueGridWidget> Logger { get; set; } = null!;
     [Inject] private IMediator Mediator { get; set; } = null!;
 
     private HubConnection? _hub;
-    private List<AgentRowData> _rows = new();
+    private List<QueueRowData> _rows = new();
     private ConnectionState _connectionState = ConnectionState.Connecting;
     private CancellationTokenSource _cts = new();
 
-    // Configuration
-    private List<AgentGridColumnDef> _columnDefs = new();
-    private int _pageSize = 20;
-    private int _currentPage = 1;
-    private string? _sortColumn;
-    private bool _sortAscending = true;
+    // Configuration from widget settings
+    private List<QueueGridColumnDef> _columnDefs = new();
+    private List<QueueGridRowDef> _rowDefs = new();
 
-    // Appearance
+    // Widget appearance
     private string? _fontSize;
     private string? _backgroundColor;
     private string? _fontColor;
     private string? _tableBackgroundColor;
 
-    private class AgentRowData
+    private class QueueRowData
     {
         public string RowId { get; set; } = "";
+        public string? BackgroundColor { get; set; }
+        public string? FontColor { get; set; }
         public Dictionary<string, string> Metrics { get; set; } = new();
     }
 
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
-
-    private int TotalPages => Math.Max(1, (int)Math.Ceiling(_rows.Count / (double)_pageSize));
 
     protected override async Task OnInitializedAsync()
     {
@@ -186,7 +143,17 @@
             _backgroundColor = Config.BackgroundColor;
             _fontColor = Config.FontColor;
             _tableBackgroundColor = Config.TableBackgroundColor;
-            _columnDefs = Config.AgentGridColumnDefs?.ToList() ?? new();
+
+            _rowDefs = Config.QueueGridRows?.ToList() ?? new();
+            _columnDefs = Config.QueueGridColumnDefs?.ToList() ?? new();
+
+            // Initialize rows from row definitions
+            _rows = _rowDefs.Select(r => new QueueRowData
+            {
+                RowId = r.Id,
+                BackgroundColor = r.BackgroundColor,
+                FontColor = r.FontColor
+            }).ToList();
         }
     }
 
@@ -194,12 +161,12 @@
     {
         if (GridId == 0)
         {
-            Logger.LogWarning("AgentGridWidget: GridId is 0, skipping connection");
+            Logger.LogWarning("QueueGridWidget: GridId is 0, skipping connection");
             return;
         }
 
         _connectionState = ConnectionState.Connecting;
-        Logger.LogInformation("AgentGridWidget: Starting connection for GridId {GridId}", GridId);
+        Logger.LogInformation("QueueGridWidget: Starting connection for GridId {GridId}", GridId);
 
         await Task.Delay(Random.Shared.Next(100, 500), _cts.Token);
 
@@ -207,9 +174,9 @@
         {
             var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
             var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var fullUrl = $"{simulatorUrl}/hubs/agent-grid?gridId={GridId}";
+            var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={GridId}";
 
-            Logger.LogInformation("AgentGridWidget: Connecting to {Url}", fullUrl);
+            Logger.LogInformation("QueueGridWidget: Connecting to {Url}", fullUrl);
 
             _hub = new HubConnectionBuilder()
                 .WithUrl(fullUrl)
@@ -222,13 +189,17 @@
                 })
                 .Build();
 
-            _hub.On<GridUpdate>("AgentGridUpdate", async update =>
+            _hub.On<GridUpdate>("QueueGridUpdate", async update =>
             {
-                _rows = update.Rows.Select(r => new AgentRowData
+                // Merge incoming data with our row definitions
+                foreach (var incomingRow in update.Rows)
                 {
-                    RowId = r.RowId,
-                    Metrics = r.Metrics
-                }).ToList();
+                    var existingRow = _rows.FirstOrDefault(r => r.RowId == incomingRow.RowId);
+                    if (existingRow != null)
+                    {
+                        existingRow.Metrics = incomingRow.Metrics;
+                    }
+                }
                 await InvokeAsync(StateHasChanged);
             });
 
@@ -241,6 +212,7 @@
             _hub.Reconnected += async _ =>
             {
                 _connectionState = ConnectionState.Connected;
+                await SendRowConfig();
                 await InvokeAsync(StateHasChanged);
             };
 
@@ -257,12 +229,34 @@
             await _hub.StartAsync(_cts.Token);
             _connectionState = ConnectionState.Connected;
 
-            Logger.LogInformation("Connected to AgentGrid simulator for GridId {GridId}", GridId);
+            await SendRowConfig();
+
+            Logger.LogInformation("Connected to QueueGrid simulator for GridId {GridId}", GridId);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "AgentGridWidget: Failed to connect. Error: {Message}", ex.Message);
+            Logger.LogError(ex, "QueueGridWidget: Failed to connect. Error: {Message}", ex.Message);
             _connectionState = ConnectionState.Failed;
+        }
+    }
+
+    private async Task SendRowConfig()
+    {
+        if (_hub is null || _hub.State != HubConnectionState.Connected) return;
+
+        var rowConfigs = _rowDefs.Select((r, idx) => new RowConfig(
+            RowId: r.Id,
+            RowIndex: idx,
+            DisplayName: r.QueueName ?? r.BusinessUnitName ?? $"Queue {idx + 1}"
+        )).ToList();
+
+        try
+        {
+            await _hub.SendAsync("UpdateRowConfig", GridId, rowConfigs, _cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to send row config");
         }
     }
 
@@ -273,48 +267,15 @@
             try { await _hub.DisposeAsync(); } catch { }
             _hub = null;
         }
-        _rows.Clear();
+
+        _rows = _rowDefs.Select(r => new QueueRowData
+        {
+            RowId = r.Id,
+            BackgroundColor = r.BackgroundColor,
+            FontColor = r.FontColor
+        }).ToList();
+
         await ConnectAsync();
-    }
-
-    private List<AgentRowData> GetPagedRows()
-    {
-        var sorted = _rows.AsEnumerable();
-
-        if (!string.IsNullOrEmpty(_sortColumn))
-        {
-            sorted = _sortAscending
-                ? sorted.OrderBy(r => GetMetricValue(r.Metrics, _sortColumn))
-                : sorted.OrderByDescending(r => GetMetricValue(r.Metrics, _sortColumn));
-        }
-
-        return sorted
-            .Skip((_currentPage - 1) * _pageSize)
-            .Take(_pageSize)
-            .ToList();
-    }
-
-    private void ToggleSort(string column)
-    {
-        if (_sortColumn == column)
-        {
-            _sortAscending = !_sortAscending;
-        }
-        else
-        {
-            _sortColumn = column;
-            _sortAscending = true;
-        }
-    }
-
-    private void PreviousPage()
-    {
-        if (_currentPage > 1) _currentPage--;
-    }
-
-    private void NextPage()
-    {
-        if (_currentPage < TotalPages) _currentPage++;
     }
 
     private static string GetMetricValue(Dictionary<string, string> metrics, string metricId)
@@ -388,14 +349,17 @@
         return string.Join("; ", styles);
     }
 
-    private string GetRowStyle()
+    private string GetRowStyle(string? bgColor, string? fontColor)
     {
         var styles = new List<string>();
 
-        if (!string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent")
-            styles.Add($"background-color: {_tableBackgroundColor}");
-        if (!string.IsNullOrEmpty(_fontColor))
-            styles.Add($"color: {_fontColor}");
+        var effectiveBg = bgColor ?? (_tableBackgroundColor != "transparent" ? _tableBackgroundColor : null);
+        var effectiveFont = fontColor ?? _fontColor;
+
+        if (!string.IsNullOrEmpty(effectiveBg) && effectiveBg != "transparent")
+            styles.Add($"background-color: {effectiveBg}");
+        if (!string.IsNullOrEmpty(effectiveFont))
+            styles.Add($"color: {effectiveFont}");
 
         return string.Join("; ", styles);
     }

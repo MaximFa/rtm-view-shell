@@ -210,6 +210,15 @@
                                 <button class="nav-link @(ConfigActiveTab == "columns" ? "active" : "")" @onclick='() => ConfigActiveTab = "columns"'>Columns</button>
                             </li>
                         }
+                        @if (IsQueueGridWidget(ConfiguringWidget))
+                        {
+                            <li class="nav-item">
+                                <button class="nav-link @(ConfigActiveTab == "rows" ? "active" : "")" @onclick='() => ConfigActiveTab = "rows"'>Rows</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link @(ConfigActiveTab == "queuecolumns" ? "active" : "")" @onclick='() => ConfigActiveTab = "queuecolumns"'>Columns</button>
+                            </li>
+                        }
                     </ul>
 
                     <!-- Tab: General -->
@@ -796,6 +805,276 @@
                             }
                         </div>
                     }
+
+                    <!-- Tab: Rows (Queue Grid only) -->
+                    @if (ConfigActiveTab == "rows" && IsQueueGridWidget(ConfiguringWidget))
+                    {
+                        <div class="rows-tab">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small">@ConfigQueueGridRows.Count rows</span>
+                                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddQueueGridRow">
+                                    <i class="bi bi-plus"></i> @L["Common_Add"]
+                                </button>
+                            </div>
+
+                            @if (ConfigQueueGridRows.Count > 0)
+                            {
+                                <div class="row row-header mb-1 small text-muted fw-medium">
+                                    <div class="col-auto" style="width: 50px;"></div>
+                                    <div class="col">Business Unit</div>
+                                    <div class="col">Queue Name</div>
+                                    <div class="col-auto" style="width: 120px;">Colors</div>
+                                    <div class="col-auto" style="width: 40px;"></div>
+                                </div>
+
+                                <div class="rows-list">
+                                    @foreach (var row in ConfigQueueGridRows)
+                                    {
+                                        var rowIdx = ConfigQueueGridRows.IndexOf(row);
+                                        var rowId = row.Id;
+                                        var isFirst = rowIdx == 0;
+                                        var isLast = rowIdx == ConfigQueueGridRows.Count - 1;
+
+                                        <div class="row align-items-center mb-2 row-item @(rowIdx % 2 == 0 ? "bg-light" : "")" @key="row.Id">
+                                            <div class="col-auto" style="width: 50px;">
+                                                <div class="d-flex flex-column align-items-center gap-1">
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                                                            disabled="@isFirst"
+                                                            @onclick="() => MoveQueueGridRow(rowId, -1)"
+                                                            title="Move up">
+                                                        <i class="bi bi-chevron-up"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                                                            disabled="@isLast"
+                                                            @onclick="() => MoveQueueGridRow(rowId, 1)"
+                                                            title="Move down">
+                                                        <i class="bi bi-chevron-down"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="col">
+                                                <div class="position-relative">
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           placeholder="Select Business Unit..."
+                                                           value="@(_queueRowBuDropdownOpenFor == rowIdx ? _queueRowBuSearchText : row.BusinessUnitName ?? "")"
+                                                           @onclick="() => OpenQueueRowBuDropdown(rowIdx)"
+                                                           @onclick:stopPropagation
+                                                           @oninput="e => OnQueueRowBuSearch(e.Value?.ToString())" />
+                                                    @if (_queueRowBuDropdownOpenFor == rowIdx)
+                                                    {
+                                                        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                             @onclick="CloseQueueRowBuDropdown"></div>
+                                                        <div class="dropdown-menu show w-100" style="max-height: 200px; overflow-y: auto; position: absolute; top: 100%; left: 0; z-index: 1050;"
+                                                             @onclick:stopPropagation>
+                                                            @foreach (var bu in GetFilteredQueueRowBus())
+                                                            {
+                                                                <button type="button" class="dropdown-item small"
+                                                                        @onclick="() => SelectQueueRowBu(rowId, bu)">
+                                                                    @bu.BusinessUnitName
+                                                                </button>
+                                                            }
+                                                            @if (!GetFilteredQueueRowBus().Any())
+                                                            {
+                                                                <span class="dropdown-item-text text-muted small">No matches</span>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                            <div class="col">
+                                                <input type="text" class="form-control form-control-sm"
+                                                       placeholder="(defaults to BU name)"
+                                                       value="@row.QueueName"
+                                                       @onchange="e => UpdateQueueGridRowName(rowId, e.Value?.ToString())" />
+                                            </div>
+                                            <div class="col-auto" style="width: 120px;">
+                                                <div class="d-flex gap-1 align-items-center">
+                                                    <div class="position-relative">
+                                                        <span class="clr-swatch clr-swatch-sm"
+                                                              title="@(string.IsNullOrEmpty(row.BackgroundColor) ? "Default" : row.BackgroundColor)"
+                                                              style="@GetColorStyle(row.BackgroundColor ?? "transparent"); cursor: pointer;"
+                                                              @onclick="() => ToggleQueueRowBgPalette(rowIdx)"
+                                                              @onclick:stopPropagation></span>
+                                                        @if (_queueRowBgPaletteOpenFor == rowIdx)
+                                                        {
+                                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                                 @onclick="CloseQueueRowPalette"></div>
+                                                            <div class="color-palette-dropdown" @onclick:stopPropagation>
+                                                                <div class="color-palette-grid">
+                                                                    <div class="color-palette-swatch @(string.IsNullOrEmpty(row.BackgroundColor) ? "selected" : "")"
+                                                                         style="background: transparent; border: 1px dashed #ccc;"
+                                                                         title="Default"
+                                                                         @onclick="() => SelectQueueRowBgColor(rowId, null)">
+                                                                        <span class="small text-muted">D</span>
+                                                                    </div>
+                                                                    @foreach (var color in BackgroundColors.Where(c => c.Value != "transparent"))
+                                                                    {
+                                                                        <div class="color-palette-swatch @(row.BackgroundColor?.Equals(color.Value, StringComparison.OrdinalIgnoreCase) == true ? "selected" : "")"
+                                                                             style="background: @color.Value"
+                                                                             title="@color.Name"
+                                                                             @onclick="() => SelectQueueRowBgColor(rowId, color.Value)"></div>
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                    <div class="position-relative">
+                                                        <span class="clr-swatch clr-swatch-sm"
+                                                              title="@(string.IsNullOrEmpty(row.FontColor) ? "Default" : row.FontColor)"
+                                                              style="@GetColorStyle(row.FontColor ?? "#333"); cursor: pointer;"
+                                                              @onclick="() => ToggleQueueRowFontPalette(rowIdx)"
+                                                              @onclick:stopPropagation></span>
+                                                        @if (_queueRowFontPaletteOpenFor == rowIdx)
+                                                        {
+                                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                                 @onclick="CloseQueueRowPalette"></div>
+                                                            <div class="color-palette-dropdown" @onclick:stopPropagation>
+                                                                <div class="color-palette-grid">
+                                                                    <div class="color-palette-swatch @(string.IsNullOrEmpty(row.FontColor) ? "selected" : "")"
+                                                                         style="background: #333; border: 1px dashed #ccc;"
+                                                                         title="Default"
+                                                                         @onclick="() => SelectQueueRowFontColor(rowId, null)">
+                                                                        <span class="small text-white">D</span>
+                                                                    </div>
+                                                                    @foreach (var color in FontColors)
+                                                                    {
+                                                                        <div class="color-palette-swatch @(row.FontColor?.Equals(color.Value, StringComparison.OrdinalIgnoreCase) == true ? "selected" : "")"
+                                                                             style="background: @color.Value"
+                                                                             title="@color.Name"
+                                                                             @onclick="() => SelectQueueRowFontColor(rowId, color.Value)"></div>
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-auto" style="width: 40px;">
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-danger"
+                                                        @onclick="() => RemoveQueueGridRow(rowId)"
+                                                        title="Remove row">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center text-muted py-5">
+                                    <i class="bi bi-list-ul fs-1 mb-3 d-block opacity-50"></i>
+                                    <p class="mb-3">No rows defined yet.</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddQueueGridRow">
+                                        <i class="bi bi-plus"></i> Add first row
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <!-- Tab: Columns (Queue Grid only) -->
+                    @if (ConfigActiveTab == "queuecolumns" && IsQueueGridWidget(ConfiguringWidget))
+                    {
+                        <div class="columns-tab">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small">@ConfigQueueGridColumnDefs.Count columns (QM / Agent Group metrics)</span>
+                                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddQueueGridColumnDef">
+                                    <i class="bi bi-plus"></i> @L["Common_Add"]
+                                </button>
+                            </div>
+
+                            @if (ConfigQueueGridColumnDefs.Count > 0)
+                            {
+                                <div class="row row-header mb-1 small text-muted fw-medium">
+                                    <div class="col-auto" style="width: 50px;"></div>
+                                    <div class="col">Name</div>
+                                    <div class="col">Metric</div>
+                                    <div class="col-auto" style="width: 40px;"></div>
+                                </div>
+
+                                <div class="columns-list">
+                                    @foreach (var col in ConfigQueueGridColumnDefs)
+                                    {
+                                        var colIdx = ConfigQueueGridColumnDefs.IndexOf(col);
+                                        var colId = col.Id;
+                                        var isFirst = colIdx == 0;
+                                        var isLast = colIdx == ConfigQueueGridColumnDefs.Count - 1;
+
+                                        <div class="row align-items-center mb-2 column-item @(colIdx % 2 == 0 ? "bg-light" : "")" @key="col.Id">
+                                            <div class="col-auto" style="width: 50px;">
+                                                <div class="d-flex flex-column align-items-center gap-1">
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                                                            disabled="@isFirst"
+                                                            @onclick="() => MoveQueueGridColumnDef(colId, -1)"
+                                                            title="Move up">
+                                                        <i class="bi bi-chevron-up"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                                                            disabled="@isLast"
+                                                            @onclick="() => MoveQueueGridColumnDef(colId, 1)"
+                                                            title="Move down">
+                                                        <i class="bi bi-chevron-down"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="col">
+                                                <input type="text" class="form-control form-control-sm"
+                                                       value="@col.Name"
+                                                       @onchange="e => UpdateQueueGridColumnDefName(colId, e.Value?.ToString())" />
+                                            </div>
+                                            <div class="col">
+                                                <div class="position-relative">
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           placeholder="Select metric..."
+                                                           value="@(_activeQueueMetricDropdown == colId ? _queueColumnMetricSearch : GetMetricDescription(col.MetricId))"
+                                                           @onclick="() => OpenQueueMetricDropdown(colId)"
+                                                           @onclick:stopPropagation
+                                                           @oninput="e => OnQueueMetricSearch(e.Value?.ToString())" />
+                                                    @if (_activeQueueMetricDropdown == colId)
+                                                    {
+                                                        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                             @onclick="CloseQueueMetricDropdown"></div>
+                                                        <div class="dropdown-menu show w-100" style="max-height: 200px; overflow-y: auto; position: absolute; top: 100%; left: 0; z-index: 1050;"
+                                                             @onclick:stopPropagation>
+                                                            @foreach (var metric in FilteredQueueGridMetrics)
+                                                            {
+                                                                <button type="button" class="dropdown-item small"
+                                                                        @onclick="() => SelectQueueMetric(colId, metric.MetricId)">
+                                                                    @metric.Description
+                                                                </button>
+                                                            }
+                                                            @if (!FilteredQueueGridMetrics.Any())
+                                                            {
+                                                                <span class="dropdown-item-text text-muted small">No matches</span>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                            <div class="col-auto" style="width: 40px;">
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-danger"
+                                                        @onclick="() => RemoveQueueGridColumnDef(colId)"
+                                                        title="Remove column">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center text-muted py-5">
+                                    <i class="bi bi-columns-gap fs-1 mb-3 d-block opacity-50"></i>
+                                    <p class="mb-3">No columns defined yet.</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddQueueGridColumnDef">
+                                        <i class="bi bi-plus"></i> Add first column
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="CloseWidgetConfig">@L["Common_Cancel"]</button>
@@ -899,6 +1178,12 @@
     // Table filters (saved row filters)
     private List<TableFilterRule> ConfigTableFilters = new();
 
+    // Queue Grid Configuration
+    private List<QueueGridRowDef> ConfigQueueGridRows = new();
+    private List<QueueGridColumnDef> ConfigQueueGridColumnDefs = new();
+    private string _queueRowBuSearchText = "";
+    private int? _queueRowBuDropdownOpenFor;  // Row index for which BU dropdown is open
+
     // Widget deletion confirmation
     private PlacedWidget? WidgetToDelete;
     private bool DeletingWidget;
@@ -932,6 +1217,178 @@
             : Metrics.Where(m =>
                 m.MetricId.Contains(MetricSearchText, StringComparison.OrdinalIgnoreCase) ||
                 (m.Description?.Contains(MetricSearchText, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    // Queue Grid metrics - filter by "QM" or "Agent Group" description prefix
+    private IEnumerable<RtsGridMetricDto> QueueGridMetrics => Metrics.Where(m =>
+        (m.Description?.StartsWith("QM", StringComparison.OrdinalIgnoreCase) ?? false) ||
+        (m.Description?.StartsWith("Agent Group", StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private IEnumerable<RtsGridMetricDto> FilteredQueueGridMetrics =>
+        string.IsNullOrWhiteSpace(_queueColumnMetricSearch)
+            ? QueueGridMetrics
+            : QueueGridMetrics.Where(m =>
+                m.MetricId.Contains(_queueColumnMetricSearch, StringComparison.OrdinalIgnoreCase) ||
+                (m.Description?.Contains(_queueColumnMetricSearch, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private string _queueColumnMetricSearch = "";
+    private string? _activeQueueMetricDropdown;
+    private int? _queueRowBgPaletteOpenFor;
+    private int? _queueRowFontPaletteOpenFor;
+
+    // Queue Grid Row methods
+    private void AddQueueGridRow()
+    {
+        ConfigQueueGridRows.Add(new QueueGridRowDef());
+    }
+
+    private void RemoveQueueGridRow(string rowId)
+    {
+        ConfigQueueGridRows.RemoveAll(r => r.Id == rowId);
+    }
+
+    private void MoveQueueGridRow(string rowId, int direction)
+    {
+        var idx = ConfigQueueGridRows.FindIndex(r => r.Id == rowId);
+        if (idx < 0) return;
+        var newIdx = idx + direction;
+        if (newIdx < 0 || newIdx >= ConfigQueueGridRows.Count) return;
+        var item = ConfigQueueGridRows[idx];
+        ConfigQueueGridRows.RemoveAt(idx);
+        ConfigQueueGridRows.Insert(newIdx, item);
+    }
+
+    private void UpdateQueueGridRowName(string rowId, string? name)
+    {
+        var row = ConfigQueueGridRows.FirstOrDefault(r => r.Id == rowId);
+        if (row != null) row.QueueName = name;
+    }
+
+    private void OpenQueueRowBuDropdown(int rowIdx)
+    {
+        _queueRowBuDropdownOpenFor = rowIdx;
+        _queueRowBuSearchText = "";
+    }
+
+    private void CloseQueueRowBuDropdown()
+    {
+        _queueRowBuDropdownOpenFor = null;
+    }
+
+    private void OnQueueRowBuSearch(string? text)
+    {
+        _queueRowBuSearchText = text ?? "";
+    }
+
+    private IEnumerable<BusinessUnitDto> GetFilteredQueueRowBus()
+    {
+        return string.IsNullOrWhiteSpace(_queueRowBuSearchText)
+            ? BusinessUnits
+            : BusinessUnits.Where(bu =>
+                (bu.BusinessUnitName?.Contains(_queueRowBuSearchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                bu.BusinessUnitId.ToString().Contains(_queueRowBuSearchText));
+    }
+
+    private void SelectQueueRowBu(string rowId, BusinessUnitDto bu)
+    {
+        var row = ConfigQueueGridRows.FirstOrDefault(r => r.Id == rowId);
+        if (row != null)
+        {
+            row.BusinessUnitId = bu.BusinessUnitId;
+            row.BusinessUnitName = bu.BusinessUnitName;
+        }
+        _queueRowBuDropdownOpenFor = null;
+    }
+
+    private void ToggleQueueRowBgPalette(int rowIdx)
+    {
+        _queueRowBgPaletteOpenFor = _queueRowBgPaletteOpenFor == rowIdx ? null : rowIdx;
+        _queueRowFontPaletteOpenFor = null;
+    }
+
+    private void ToggleQueueRowFontPalette(int rowIdx)
+    {
+        _queueRowFontPaletteOpenFor = _queueRowFontPaletteOpenFor == rowIdx ? null : rowIdx;
+        _queueRowBgPaletteOpenFor = null;
+    }
+
+    private void CloseQueueRowPalette()
+    {
+        _queueRowBgPaletteOpenFor = null;
+        _queueRowFontPaletteOpenFor = null;
+    }
+
+    private void SelectQueueRowBgColor(string rowId, string? color)
+    {
+        var row = ConfigQueueGridRows.FirstOrDefault(r => r.Id == rowId);
+        if (row != null) row.BackgroundColor = color;
+        _queueRowBgPaletteOpenFor = null;
+    }
+
+    private void SelectQueueRowFontColor(string rowId, string? color)
+    {
+        var row = ConfigQueueGridRows.FirstOrDefault(r => r.Id == rowId);
+        if (row != null) row.FontColor = color;
+        _queueRowFontPaletteOpenFor = null;
+    }
+
+    // Queue Grid Column methods
+    private void AddQueueGridColumnDef()
+    {
+        ConfigQueueGridColumnDefs.Add(new QueueGridColumnDef());
+    }
+
+    private void RemoveQueueGridColumnDef(string colId)
+    {
+        ConfigQueueGridColumnDefs.RemoveAll(c => c.Id == colId);
+    }
+
+    private void MoveQueueGridColumnDef(string colId, int direction)
+    {
+        var idx = ConfigQueueGridColumnDefs.FindIndex(c => c.Id == colId);
+        if (idx < 0) return;
+        var newIdx = idx + direction;
+        if (newIdx < 0 || newIdx >= ConfigQueueGridColumnDefs.Count) return;
+        var item = ConfigQueueGridColumnDefs[idx];
+        ConfigQueueGridColumnDefs.RemoveAt(idx);
+        ConfigQueueGridColumnDefs.Insert(newIdx, item);
+    }
+
+    private void UpdateQueueGridColumnDefName(string colId, string? name)
+    {
+        var col = ConfigQueueGridColumnDefs.FirstOrDefault(c => c.Id == colId);
+        if (col != null) col.Name = name ?? "";
+    }
+
+    private void OpenQueueMetricDropdown(string colId)
+    {
+        _activeQueueMetricDropdown = colId;
+        _queueColumnMetricSearch = "";
+    }
+
+    private void CloseQueueMetricDropdown()
+    {
+        _activeQueueMetricDropdown = null;
+    }
+
+    private void OnQueueMetricSearch(string? text)
+    {
+        _queueColumnMetricSearch = text ?? "";
+    }
+
+    private void SelectQueueMetric(string colId, string metricId)
+    {
+        var col = ConfigQueueGridColumnDefs.FirstOrDefault(c => c.Id == colId);
+        if (col != null)
+        {
+            col.MetricId = metricId;
+            if (string.IsNullOrEmpty(col.Name))
+            {
+                var metric = Metrics.FirstOrDefault(m => m.MetricId == metricId);
+                col.Name = metric?.Description ?? metricId;
+            }
+        }
+        _activeQueueMetricDropdown = null;
+    }
 
     // Tenant color palettes - loaded from tenant settings
     private List<string> _tenantBackgroundColors = [];
@@ -1361,6 +1818,24 @@
             Connector = f.Connector
         }).ToList() ?? new List<TableFilterRule>();
 
+        // Queue Grid specific
+        ConfigQueueGridRows = widget.Config.QueueGridRows?.Select(r => new QueueGridRowDef
+        {
+            Id = r.Id,
+            BusinessUnitId = r.BusinessUnitId,
+            BusinessUnitName = r.BusinessUnitName,
+            QueueName = r.QueueName,
+            BackgroundColor = r.BackgroundColor,
+            FontColor = r.FontColor
+        }).ToList() ?? new List<QueueGridRowDef>();
+
+        ConfigQueueGridColumnDefs = widget.Config.QueueGridColumnDefs?.Select(c => new QueueGridColumnDef
+        {
+            Id = c.Id,
+            Name = c.Name,
+            MetricId = c.MetricId
+        }).ToList() ?? GetDefaultQueueGridColumnDefs();
+
         // Initialize search fields with selected values
         BuSearchText = GetBusinessUnitName(ConfigBusinessUnit);
         MetricSearchText = ConfigMetric ?? "";
@@ -1368,11 +1843,39 @@
         MetricDropdownOpen = false;
     }
 
+    private List<QueueGridColumnDef> GetDefaultQueueGridColumnDefs()
+    {
+        // Return default columns for Queue Grid - select first few QM metrics
+        var qmMetrics = QueueGridMetrics.Take(5).ToList();
+        if (qmMetrics.Count == 0)
+        {
+            return new List<QueueGridColumnDef>
+            {
+                new() { Name = "Queue", MetricId = "QueueName" },
+                new() { Name = "Waiting", MetricId = "QMCallsWaiting" },
+                new() { Name = "Available", MetricId = "QMAgentsAvailable" },
+                new() { Name = "SLA", MetricId = "QMServiceLevel" }
+            };
+        }
+        return qmMetrics.Select(m => new QueueGridColumnDef
+        {
+            Name = m.Description ?? m.MetricId,
+            MetricId = m.MetricId
+        }).ToList();
+    }
+
     private static bool IsAgentGridWidget(PlacedWidget? widget)
     {
         if (widget is null) return false;
         var name = widget.Name.ToLower();
         return name.Contains("agent") && name.Contains("grid");
+    }
+
+    private static bool IsQueueGridWidget(PlacedWidget? widget)
+    {
+        if (widget is null) return false;
+        var name = widget.Name.ToLower();
+        return name.Contains("queue") && name.Contains("grid");
     }
 
     private void ToggleAgentTeam(string team, bool selected)
@@ -1421,7 +1924,10 @@
 
     private IEnumerable<RtsGridMetricDto> GetAgentMetrics()
     {
-        return Metrics.Where(m => m.Description?.StartsWith("Agent", StringComparison.OrdinalIgnoreCase) == true);
+        // Agent Grid: Description starts with "Agent" but NOT "Agent Group"
+        return Metrics.Where(m =>
+            m.Description?.StartsWith("Agent", StringComparison.OrdinalIgnoreCase) == true &&
+            !m.Description.StartsWith("Agent Group", StringComparison.OrdinalIgnoreCase));
     }
 
     private IEnumerable<RtsGridMetricDto> GetFilteredAgentMetrics(string? search)
@@ -1670,7 +2176,10 @@
             // Table filters (only include rules with non-empty MetricId)
             TableFilters = ConfigTableFilters.Where(f => !string.IsNullOrEmpty(f.MetricId)).ToList() is { Count: > 0 } filters
                 ? filters
-                : null
+                : null,
+            // Queue Grid specific
+            QueueGridRows = ConfigQueueGridRows.Count > 0 ? ConfigQueueGridRows : null,
+            QueueGridColumnDefs = ConfigQueueGridColumnDefs.Count > 0 ? ConfigQueueGridColumnDefs : null
         };
 
         ConfiguringWidget.Config = newConfig;
@@ -2229,6 +2738,27 @@
 
         // RTS table IDs (persisted after first save)
         public int? ColumnsSetId { get; set; }
+
+        // Queue Grid specific
+        public List<QueueGridRowDef>? QueueGridRows { get; set; }
+        public List<QueueGridColumnDef>? QueueGridColumnDefs { get; set; }
+    }
+
+    public class QueueGridRowDef
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique ID for reordering
+        public int? BusinessUnitId { get; set; }  // Reference to NGC_BusinessUnit.BusinessUnitId
+        public string? BusinessUnitName { get; set; }  // Cached name for display
+        public string? QueueName { get; set; }  // Optional custom queue name (defaults to BU description)
+        public string? BackgroundColor { get; set; }  // Row-level background color, null = Default
+        public string? FontColor { get; set; }  // Row-level font color, null = Default
+    }
+
+    public class QueueGridColumnDef
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique ID for reordering
+        public string Name { get; set; } = "";  // Display name
+        public string MetricId { get; set; } = "";  // Reference to RtsGridMetric.MetricId
     }
 
     public class AgentGridColumnDef

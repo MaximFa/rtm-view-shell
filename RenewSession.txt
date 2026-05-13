@@ -19,6 +19,7 @@ claude --resume 85e21c34-61d0-4a8e-84e3-28ccb8192e2b
   /frontend-design
   /program-architector
   /ux-ui-expert
+  используй все скилы для решения задач и их анализа
   
   
   /contact-center-expert
@@ -28,3 +29,6 @@ claude --resume 85e21c34-61d0-4a8e-84e3-28ccb8192e2b
   /contact-center-ceo
   /technical-writer
   /platform-presale
+  
+  
+  перезапусти все в бэкграунде

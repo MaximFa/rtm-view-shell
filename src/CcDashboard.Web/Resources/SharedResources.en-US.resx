@@ -203,6 +203,9 @@
   <data name="Widget_Agents"><value>agents</value></data>
   <data name="Widget_ConnectionFailed"><value>Connection failed</value></data>
   <data name="Widget_SaveConfigFirst"><value>Save widget config to connect</value></data>
+  <data name="Widget_NoQueues"><value>No queues configured</value></data>
+  <data name="Widget_Queues"><value>queues</value></data>
+  <data name="Widget_QueueName"><value>Queue</value></data>
   <data name="Widget_Retry"><value>Retry</value></data>
   <data name="Widget_Live"><value>Live</value></data>
   <data name="Widget_Reconnecting"><value>Reconnecting...</value></data>

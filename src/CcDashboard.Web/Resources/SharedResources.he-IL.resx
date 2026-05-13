@@ -443,6 +443,10 @@
   <data name="Widget_Adherence"><value>עמידה%</value></data>
   <data name="Widget_Agents"><value>סוכנים</value></data>
   <data name="Widget_ConnectionFailed"><value>חיבור נכשל</value></data>
+  <data name="Widget_SaveConfigFirst"><value>שמור את הגדרות הווידג'ט</value></data>
+  <data name="Widget_NoQueues"><value>לא הוגדרו תורים</value></data>
+  <data name="Widget_Queues"><value>תורים</value></data>
+  <data name="Widget_QueueName"><value>תור</value></data>
   <data name="Widget_Retry"><value>נסה שוב</value></data>
   <data name="Widget_Live"><value>חי</value></data>
   <data name="Widget_Reconnecting"><value>מתחבר מחדש...</value></data>

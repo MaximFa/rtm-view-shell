@@ -144,6 +144,7 @@ public class DatabaseInitializer(
             new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "SLA Bar", Description = "Service level agreement gauge", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Agent Status", Description = "Live agent state distribution", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Agent Grid", Description = "Real-time agent table with states, durations, metrics and alerts", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "Queue Grid", Description = "Real-time queue metrics table with customizable rows and columns", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Agent List", Description = "Filterable agent roster with states", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Occupancy Gauge", Description = "Agent occupancy percentage gauge", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "KPI Scorecard", Description = "Key performance indicators tile set", IsActive = true },

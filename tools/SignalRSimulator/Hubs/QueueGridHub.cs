@@ -1,21 +1,23 @@
 using Microsoft.AspNetCore.SignalR;
 using SignalRSimulator.Generators;
+using SignalRSimulator.Models;
 
 namespace SignalRSimulator.Hubs;
 
-public class AgentGridHub : Hub
+public class QueueGridHub : Hub
 {
     private static readonly Dictionary<int, CancellationTokenSource> _activeGrids = new();
     private static readonly Dictionary<int, HashSet<string>> _gridConnections = new();
+    private static readonly Dictionary<int, List<RowConfig>> _gridRowConfigs = new();
     private static readonly object _lock = new();
-    private readonly IHubContext<AgentGridHub> _hubContext;
-    private readonly ILogger<AgentGridHub> _logger;
-    private readonly AgentDataGenerator _dataGenerator;
+    private readonly IHubContext<QueueGridHub> _hubContext;
+    private readonly ILogger<QueueGridHub> _logger;
+    private readonly QueueDataGenerator _dataGenerator;
 
-    public AgentGridHub(
-        IHubContext<AgentGridHub> hubContext,
-        ILogger<AgentGridHub> logger,
-        AgentDataGenerator dataGenerator)
+    public QueueGridHub(
+        IHubContext<QueueGridHub> hubContext,
+        ILogger<QueueGridHub> logger,
+        QueueDataGenerator dataGenerator)
     {
         _hubContext = hubContext;
         _logger = logger;
@@ -27,7 +29,7 @@ public class AgentGridHub : Hub
         var httpContext = Context.GetHttpContext();
         var gridIdStr = httpContext?.Request.Query["gridId"].FirstOrDefault();
 
-        _logger.LogInformation("Client connecting. GridId from query: {GridId}", gridIdStr);
+        _logger.LogInformation("QueueGrid client connecting. GridId from query: {GridId}", gridIdStr);
 
         if (string.IsNullOrEmpty(gridIdStr) || !int.TryParse(gridIdStr, out var gridId))
         {
@@ -46,7 +48,7 @@ public class AgentGridHub : Hub
             _gridConnections[gridId].Add(Context.ConnectionId);
         }
 
-        _logger.LogInformation("Client {ConnectionId} connected to grid {GridId}", Context.ConnectionId, gridId);
+        _logger.LogInformation("QueueGrid client {ConnectionId} connected to grid {GridId}", Context.ConnectionId, gridId);
 
         StartDataGeneration(gridId);
 
@@ -72,15 +74,30 @@ public class AgentGridHub : Hub
                 }
             }
 
-            _logger.LogInformation("Client {ConnectionId} disconnected from grid {GridId}", Context.ConnectionId, gridId);
+            _logger.LogInformation("QueueGrid client {ConnectionId} disconnected from grid {GridId}", Context.ConnectionId, gridId);
         }
 
         await base.OnDisconnectedAsync(exception);
     }
 
+    public async Task UpdateRowConfig(int gridId, List<RowConfig> rowConfigs)
+    {
+        _logger.LogInformation("QueueGrid {GridId} updating row config with {Count} rows", gridId, rowConfigs.Count);
+
+        lock (_lock)
+        {
+            _gridRowConfigs[gridId] = rowConfigs;
+        }
+
+        QueueDataGenerator.UpdateConfig(gridId, rowConfigs);
+
+        var update = await _dataGenerator.GenerateAsync(gridId, rowConfigs);
+        await _hubContext.Clients.Group($"grid:{gridId}").SendAsync("QueueGridUpdate", update);
+    }
+
     public async Task SubscribeToGrid(int gridId)
     {
-        _logger.LogInformation("Client {ConnectionId} subscribing to grid {GridId}", Context.ConnectionId, gridId);
+        _logger.LogInformation("QueueGrid client {ConnectionId} subscribing to grid {GridId}", Context.ConnectionId, gridId);
 
         if (Context.Items.TryGetValue("GridId", out var oldGridIdObj) && oldGridIdObj is int oldGridId && oldGridId != gridId)
         {
@@ -100,26 +117,6 @@ public class AgentGridHub : Hub
         StartDataGeneration(gridId);
     }
 
-    public async Task UnsubscribeFromGrid(int gridId)
-    {
-        _logger.LogInformation("Client {ConnectionId} unsubscribing from grid {GridId}", Context.ConnectionId, gridId);
-
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"grid:{gridId}");
-
-        lock (_lock)
-        {
-            if (_gridConnections.TryGetValue(gridId, out var connections))
-            {
-                connections.Remove(Context.ConnectionId);
-                if (connections.Count == 0)
-                {
-                    _gridConnections.Remove(gridId);
-                    StopDataGeneration(gridId);
-                }
-            }
-        }
-    }
-
     private void StartDataGeneration(int gridId)
     {
         lock (_lock)
@@ -130,7 +127,7 @@ public class AgentGridHub : Hub
             var cts = new CancellationTokenSource();
             _activeGrids[gridId] = cts;
 
-            _logger.LogInformation("Starting data generation for grid {GridId}", gridId);
+            _logger.LogInformation("Starting queue data generation for grid {GridId}", gridId);
 
             _ = GenerateDataAsync(gridId, cts.Token);
         }
@@ -142,7 +139,7 @@ public class AgentGridHub : Hub
         {
             if (_activeGrids.TryGetValue(gridId, out var cts))
             {
-                _logger.LogInformation("Stopping data generation for grid {GridId}", gridId);
+                _logger.LogInformation("Stopping queue data generation for grid {GridId}", gridId);
                 cts.Cancel();
                 _activeGrids.Remove(gridId);
             }
@@ -157,12 +154,18 @@ public class AgentGridHub : Hub
         {
             try
             {
-                var update = await _dataGenerator.GenerateAsync(gridId, ct);
+                List<RowConfig>? rowConfigs;
+                lock (_lock)
+                {
+                    _gridRowConfigs.TryGetValue(gridId, out rowConfigs);
+                }
+
+                var update = await _dataGenerator.GenerateAsync(gridId, rowConfigs, ct);
 
                 await _hubContext.Clients.Group($"grid:{gridId}")
-                    .SendAsync("AgentGridUpdate", update, ct);
+                    .SendAsync("QueueGridUpdate", update, ct);
 
-                _logger.LogDebug("Sent update to grid {GridId}: {RowCount} rows", gridId, update.Rows.Count);
+                _logger.LogDebug("Sent queue update to grid {GridId}: {RowCount} rows", gridId, update.Rows.Count);
 
                 await Task.Delay(5000, ct);
             }
@@ -172,7 +175,7 @@ public class AgentGridHub : Hub
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating data for grid {GridId}", gridId);
+                _logger.LogError(ex, "Error generating queue data for grid {GridId}", gridId);
                 await Task.Delay(5000, ct);
             }
         }

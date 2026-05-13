@@ -495,6 +495,9 @@
   <data name="Widget_Agents"><value>агентов</value></data>
   <data name="Widget_ConnectionFailed"><value>Ошибка подключения</value></data>
   <data name="Widget_SaveConfigFirst"><value>Сохраните конфиг виджета</value></data>
+  <data name="Widget_NoQueues"><value>Очереди не настроены</value></data>
+  <data name="Widget_Queues"><value>очередей</value></data>
+  <data name="Widget_QueueName"><value>Очередь</value></data>
   <data name="Widget_Retry"><value>Повторить</value></data>
   <data name="Widget_Live"><value>Live</value></data>
   <data name="Widget_Reconnecting"><value>Переподключение...</value></data>

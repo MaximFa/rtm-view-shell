@@ -12,6 +12,9 @@
         case var n when n.Contains("agent") && n.Contains("grid"):
             <AgentGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" />
             break;
+        case var n when n.Contains("queue") && n.Contains("grid"):
+            <QueueGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" />
+            break;
         case var n when n.Contains("agent") && n.Contains("status"):
             <AgentStatusWidget Config="Widget.Config" />
             break;
