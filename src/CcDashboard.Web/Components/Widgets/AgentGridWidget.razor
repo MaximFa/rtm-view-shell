@@ -10,7 +10,7 @@
 
 @* Agent Grid Widget - connects to external SignalR simulator for real-time data *@
 
-<div class="agent-grid-widget @(_showRowHover ? "row-hover-enabled" : "")" style="@GetWidgetStyle()" @onkeydown="HandleKeyDown" tabindex="0">
+<div class="agent-grid-widget" style="@GetWidgetStyle()" @onkeydown="HandleKeyDown" tabindex="0">
     @* Reconnecting banner - P0 *@
     @if (_connectionState == ConnectionState.Reconnecting)
     {
@@ -65,10 +65,11 @@
             @* Active filters toolbar - P1 *@
             @if (activeFilterCount > 0)
             {
-                <div class="d-flex align-items-center gap-2 px-2 py-1 border-bottom small" style="background: var(--clr-primary-subtle, #e6f1fb);">
-                    <span class="badge bg-primary rounded-pill">@activeFilterCount</span>
-                    <span class="text-muted">@L["Widget_ActiveFilters"]</span>
-                    <button class="btn btn-link btn-sm p-0 ms-auto text-danger"
+                <div class="d-flex align-items-center gap-2 px-2 py-1 border-bottom small" style="@GetTableStyle(); border-color: currentColor !important; opacity: 0.9;">
+                    <span class="badge rounded-pill" style="@GetBadgeInvertStyle()">@activeFilterCount</span>
+                    <span>@L["Widget_ActiveFilters"]</span>
+                    <button class="btn btn-link btn-sm p-0 ms-auto"
+                            style="@GetFontColorStyle() text-decoration: none;"
                             @onclick="ClearAllFilters"
                             aria-label="@L["Widget_ClearAllFilters"]">
                         @L["Widget_ClearAllFilters"]
@@ -76,7 +77,7 @@
                 </div>
             }
 
-            <table class="table table-sm mb-0 small agent-grid-table" style="@GetTableStyle()">
+            <table class="table table-sm table-hover mb-0 small agent-grid-table" style="@GetTableStyle()">
                 <thead class="agent-grid-thead" style="@GetTheadStyle()">
                     <tr style="@GetRowStyle()">
                         @foreach (var colDef in _columnDefs)
@@ -202,9 +203,9 @@
             </div>
 
             @* Pagination *@
-            @if (TotalPages > 1)
-            {
-                <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2">
+                @if (TotalPages > 1)
+                {
                     <button class="btn btn-sm btn-link p-0"
                             disabled="@(_currentPage <= 1)"
                             @onclick="PreviousPage"
@@ -218,19 +219,25 @@
                             aria-label="@L["Widget_NextPage"]">
                         <i class="bi bi-chevron-right" aria-hidden="true"></i>
                     </button>
-                </div>
-            }
-            else
-            {
-                <div></div>
-            }
+                }
+            </div>
 
-            @* Row count *@
-            <span class="text-muted small">@filteredRows.Count @L["Widget_Agents"]</span>
+            @* Page size + Row count *@
+            <div class="d-flex align-items-center gap-1">
+                <input type="number" class="form-control form-control-sm page-size-input"
+                       style="width: 50px; background: transparent; border: 1px solid currentColor; color: inherit; text-align: center; @GetFontColorStyle()"
+                       min="1" max="500"
+                       value="@_pageSize"
+                       @onchange="OnPageSizeInputChanged"
+                       title="@L["Widget_RowsPerPage"]" />
+                <span style="@GetFontColorStyle()">/ @filteredRows.Count</span>
+            </div>
         </div>
     }
 
 </div>
+
+@inject IJSRuntime JS
 
 @code {
     [Parameter] public WidgetConfig? Config { get; set; }
@@ -265,10 +272,6 @@
     private string _scoreStarColor = "#ffc107";
     private List<ScoreFormulaRule> _scoreFormula = new();
 
-    // Row hover
-    private bool _showRowHover = false;
-    private string? _rowHoverColor;
-
     // Column thresholds (case-insensitive keys)
     private Dictionary<string, List<ColumnThreshold>> _columnThresholds = new(StringComparer.OrdinalIgnoreCase);
 
@@ -297,6 +300,21 @@
         public HashSet<string> SelectedValues { get; set; } = new();
     }
 
+    // Persisted widget state (localStorage)
+    private class WidgetState
+    {
+        public int PageSize { get; set; } = 20;
+        public Dictionary<string, ColumnFilterState> Filters { get; set; } = new();
+    }
+
+    private class ColumnFilterState
+    {
+        public string Mode { get; set; } = "";
+        public string Operator { get; set; } = "contains";
+        public string TextValue { get; set; } = "";
+        public List<string> SelectedValues { get; set; } = new();
+    }
+
     private class AgentRowData
     {
         public string RowId { get; set; } = "";
@@ -308,10 +326,22 @@
     private int FilteredRowCount => GetFilteredRows().Count;
     private int TotalPages => Math.Max(1, (int)Math.Ceiling(FilteredRowCount / (double)_pageSize));
 
+    private bool _stateLoaded;
+
     protected override async Task OnInitializedAsync()
     {
         ApplyConfig();
         await ConnectAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && GridId != 0 && !_stateLoaded)
+        {
+            _stateLoaded = true;
+            await LoadWidgetStateAsync();
+            StateHasChanged();
+        }
     }
 
     private int _previousGridId;
@@ -342,8 +372,6 @@
             _showAvatar = Config.ShowAvatar;
             _avatarBgColor = Config.AvatarBgColor ?? "#1e3461";
             _avatarFontColor = Config.AvatarFontColor ?? "#FFFFFF";
-            _showRowHover = Config.ShowRowHover;
-            _rowHoverColor = Config.RowHoverColor;
             _showScore = Config.ShowScore;
             _scoreStarColor = Config.ScoreStarColor ?? "#ffc107";
             _scoreFormula = Config.ScoreFormula?
@@ -649,12 +677,13 @@
         return _columnFilters.Count(kv => kv.Value.Mode != "");
     }
 
-    private void ClearAllFilters()
+    private async Task ClearAllFilters()
     {
         _columnFilters.Clear();
         _activeFilterColumn = null;
         _listDropdownOpen = null;
         _currentPage = 1;
+        await SaveWidgetStateAsync();
     }
 
     private void CloseFilterDropdown()
@@ -857,7 +886,7 @@
         return filter;
     }
 
-    private void ClearFilter(string metricId)
+    private async Task ClearFilter(string metricId)
     {
         if (_columnFilters.ContainsKey(metricId))
         {
@@ -866,6 +895,7 @@
         _activeFilterColumn = null;
         _listDropdownOpen = null;
         _currentPage = 1;
+        await SaveWidgetStateAsync();
     }
 
     private void UpdateFilterOperator(string metricId, ChangeEventArgs e)
@@ -874,7 +904,7 @@
         filter.Operator = e.Value?.ToString() ?? "contains";
     }
 
-    private void ApplyValueFilter(string metricId)
+    private async Task ApplyValueFilter(string metricId)
     {
         var filter = GetOrCreateFilter(metricId);
         if (!string.IsNullOrEmpty(filter.TextValue))
@@ -885,9 +915,10 @@
         _activeFilterColumn = null;
         _listDropdownOpen = null;
         _currentPage = 1;
+        await SaveWidgetStateAsync();
     }
 
-    private void ToggleListValue(string metricId, string value)
+    private async Task ToggleListValue(string metricId, string value)
     {
         var filter = GetOrCreateFilter(metricId);
 
@@ -901,6 +932,7 @@
 
         filter.Mode = filter.SelectedValues.Count > 0 ? "list" : "";
         _currentPage = 1;
+        await SaveWidgetStateAsync();
     }
 
     private void OnValueInput(string metricId)
@@ -946,7 +978,7 @@
         var distinctValues = isNumeric ? new List<string>() : GetDistinctValues(colDef.MetricId);
 
         <div class="filter-dropdown position-absolute rounded shadow-lg p-3"
-             style="top: 100%; inset-inline-start: 0; min-width: 220px; z-index: 1050; background: var(--clr-surface, #fff); color: var(--clr-text, #1a1a1a); border: 1px solid var(--clr-border, rgba(0,0,0,0.1)); text-transform: none;"
+             style="top: 100%; inset-inline-start: 0; min-width: 220px; z-index: 1050; @GetFilterDropdownStyle()"
              @onclick:stopPropagation="true">
 
             <!-- Clear -->
@@ -958,9 +990,9 @@
 
             <!-- VALUE section -->
             <div class="mb-2">
-                <div class="small mb-2" style="color: var(--clr-text-muted, #666);">Value</div>
+                <div class="small mb-2 opacity-75">Value</div>
                 <select class="form-select form-select-sm mb-2"
-                        style="background: #fff; color: #333; border-color: var(--clr-border-md, #ccc);"
+                        style="@GetFilterInputStyle()"
                         value="@filter.Operator"
                         @onchange="e => UpdateFilterOperator(colDef.MetricId, e)">
                     @if (isNumeric)
@@ -980,7 +1012,7 @@
                     }
                 </select>
                 <input type="text" class="form-control form-control-sm mb-2"
-                       style="background: #fff; color: #333; border-color: var(--clr-border-md, #ccc);"
+                       style="@GetFilterInputStyle()"
                        @bind="filter.TextValue"
                        @bind:event="oninput"
                        @bind:after="() => OnValueInput(colDef.MetricId)"
@@ -993,11 +1025,13 @@
             @if (!isNumeric && distinctValues.Count > 0)
             {
                 <!-- LIST section as dropdown -->
-                <div class="border-top pt-3 mt-3" style="border-color: var(--clr-border, rgba(0,0,0,0.1)) !important;">
-                    <div class="small mb-2" style="color: var(--clr-text-muted, #666);">List</div>
+                <div class="border-top pt-3 mt-3" style="border-color: currentColor; opacity: 0.3;">
+                </div>
+                <div style="opacity: 1;">
+                    <div class="small mb-2 opacity-75">List</div>
                     <div class="position-relative">
                         <button class="btn btn-sm w-100 d-flex justify-content-between align-items-center"
-                                style="background: #fff; color: #333; border: 1px solid var(--clr-border-md, #ccc);"
+                                style="@GetFilterInputStyle()"
                                 @onclick="() => ToggleListDropdown(colDef.MetricId)"
                                 @onclick:stopPropagation="true">
                             <span>@GetListButtonLabel(filter)</span>
@@ -1006,15 +1040,15 @@
                         @if (_listDropdownOpen == colDef.MetricId)
                         {
                             <div class="position-absolute w-100 rounded shadow-sm mt-1"
-                                 style="background: #fff; border: 1px solid var(--clr-border-md, #ccc); z-index: 1060; max-height: 180px; overflow-y: auto;">
+                                 style="@GetFilterDropdownStyle() z-index: 1060; max-height: 180px; overflow-y: auto;">
                                 @foreach (var val in distinctValues)
                                 {
                                     var isChecked = filter.SelectedValues.Contains(val);
-                                    <div class="d-flex align-items-center gap-2 px-2 py-1" style="border-bottom: 1px solid #eee;">
+                                    <div class="d-flex align-items-center gap-2 px-2 py-1" style="border-bottom: 1px solid currentColor; opacity: 0.8;">
                                         <input type="checkbox" class="form-check-input m-0" style="flex-shrink: 0;"
                                                checked="@isChecked"
                                                @onchange="() => ToggleListValue(colDef.MetricId, val)" />
-                                        <span class="small" style="color: #333; text-transform: none;">@val</span>
+                                        <span class="small" style="text-transform: none;">@val</span>
                                     </div>
                                 }
                             </div>
@@ -1048,6 +1082,16 @@
         if (_currentPage < TotalPages) _currentPage++;
     }
 
+    private async Task OnPageSizeInputChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size) && size > 0 && size <= 500)
+        {
+            _pageSize = size;
+            _currentPage = 1;
+            await SaveWidgetStateAsync();
+        }
+    }
+
     private static string GetMetricValue(Dictionary<string, string> metrics, string metricId)
     {
         return metrics.TryGetValue(metricId, out var value) ? value : "-";
@@ -1073,9 +1117,6 @@
             };
             styles.Add($"font-size: {size}");
         }
-        // Row hover color CSS variable
-        if (_showRowHover && !string.IsNullOrEmpty(_rowHoverColor))
-            styles.Add($"--row-hover-color: {_rowHoverColor}");
         return string.Join("; ", styles);
     }
 
@@ -1132,6 +1173,97 @@
             styles.Add($"color: {_fontColor}");
 
         return string.Join("; ", styles);
+    }
+
+    private string GetFontColorStyle()
+    {
+        return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
+    }
+
+    private string GetBadgeInvertStyle()
+    {
+        var bg = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        var fg = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
+            ? _tableBackgroundColor
+            : "#1e3a5f";
+        return $"background-color: {bg}; color: {fg};";
+    }
+
+    private string GetFilterDropdownStyle()
+    {
+        var bg = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
+            ? _tableBackgroundColor
+            : "#1e3a5f";
+        var fg = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        return $"background: {bg}; color: {fg}; border: 1px solid {fg}33;";
+    }
+
+    private string GetFilterInputStyle()
+    {
+        var bg = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
+            ? _tableBackgroundColor
+            : "#1e3a5f";
+        var fg = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        return $"background: {bg}; color: {fg}; border: 1px solid {fg}66;";
+    }
+
+    private string GetStorageKey() => $"agentGrid_{GridId}_state";
+
+    private async Task SaveWidgetStateAsync()
+    {
+        if (GridId == 0) return;
+        try
+        {
+            var state = new WidgetState
+            {
+                PageSize = _pageSize,
+                Filters = _columnFilters.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => new ColumnFilterState
+                    {
+                        Mode = kvp.Value.Mode,
+                        Operator = kvp.Value.Operator,
+                        TextValue = kvp.Value.TextValue,
+                        SelectedValues = kvp.Value.SelectedValues.ToList()
+                    })
+            };
+            var json = System.Text.Json.JsonSerializer.Serialize(state);
+            await JS.InvokeVoidAsync("localStorage.setItem", GetStorageKey(), json);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to save widget state");
+        }
+    }
+
+    private async Task LoadWidgetStateAsync()
+    {
+        if (GridId == 0) return;
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", GetStorageKey());
+            if (!string.IsNullOrEmpty(json))
+            {
+                var state = System.Text.Json.JsonSerializer.Deserialize<WidgetState>(json);
+                if (state != null)
+                {
+                    _pageSize = state.PageSize > 0 ? state.PageSize : 20;
+                    _columnFilters = state.Filters.ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => new ColumnFilter
+                        {
+                            Mode = kvp.Value.Mode,
+                            Operator = kvp.Value.Operator,
+                            TextValue = kvp.Value.TextValue,
+                            SelectedValues = kvp.Value.SelectedValues.ToHashSet()
+                        });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to load widget state");
+        }
     }
 
     public async ValueTask DisposeAsync()

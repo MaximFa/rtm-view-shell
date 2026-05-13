@@ -495,6 +495,8 @@
   <data name="Widget_Adherence"><value>Соотв%</value></data>
   <data name="Widget_AgentsTotal"><value>агентов</value></data>
   <data name="Widget_Agents"><value>агентов</value></data>
+  <data name="Widget_RowsPerPage"><value>Строк на странице</value></data>
+  <data name="Widget_CustomRowCount"><value>Своё кол-во строк</value></data>
   <data name="Widget_ConnectionFailed"><value>Ошибка подключения</value></data>
   <data name="Widget_SaveConfigFirst"><value>Сохраните конфиг виджета</value></data>
   <data name="Widget_NoQueues"><value>Очереди не настроены</value></data>
@@ -555,6 +557,7 @@
   <data name="Widgets_AgentGrid_ScorePreview"><value>Предпросмотр</value></data>
   <data name="Widgets_AgentGrid_ScoreExample"><value>пример: 3 правила выполнено</value></data>
   <data name="Common_SelectMetric"><value>Выберите метрику</value></data>
+  <data name="Common_SelectColumn"><value>Выберите колонку</value></data>
   <data name="Common_Value"><value>Значение</value></data>
   <data name="Common_Remove"><value>Удалить</value></data>
 

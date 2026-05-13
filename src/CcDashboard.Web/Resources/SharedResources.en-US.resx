@@ -201,6 +201,8 @@
   <data name="Widget_Adherence"><value>Adh%</value></data>
   <data name="Widget_AgentsTotal"><value>agents</value></data>
   <data name="Widget_Agents"><value>agents</value></data>
+  <data name="Widget_RowsPerPage"><value>Rows per page</value></data>
+  <data name="Widget_CustomRowCount"><value>Custom row count</value></data>
   <data name="Widget_ConnectionFailed"><value>Connection failed</value></data>
   <data name="Widget_SaveConfigFirst"><value>Save widget config to connect</value></data>
   <data name="Widget_NoQueues"><value>No queues configured</value></data>
@@ -301,6 +303,7 @@
   <data name="Widgets_AgentGrid_ScorePreview"><value>Preview</value></data>
   <data name="Widgets_AgentGrid_ScoreExample"><value>example: 3 rules met</value></data>
   <data name="Common_SelectMetric"><value>Select metric</value></data>
+  <data name="Common_SelectColumn"><value>Select column</value></data>
   <data name="Common_Value"><value>Value</value></data>
   <data name="Common_Remove"><value>Remove</value></data>
 

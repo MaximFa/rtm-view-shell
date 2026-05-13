@@ -444,6 +444,8 @@
   <data name="Widget_Occupancy"><value>תפוסה%</value></data>
   <data name="Widget_Adherence"><value>עמידה%</value></data>
   <data name="Widget_Agents"><value>סוכנים</value></data>
+  <data name="Widget_RowsPerPage"><value>שורות בעמוד</value></data>
+  <data name="Widget_CustomRowCount"><value>מספר שורות מותאם</value></data>
   <data name="Widget_ConnectionFailed"><value>חיבור נכשל</value></data>
   <data name="Widget_SaveConfigFirst"><value>שמור את הגדרות הווידג'ט</value></data>
   <data name="Widget_NoQueues"><value>לא הוגדרו תורים</value></data>
@@ -501,6 +503,7 @@
   <data name="Widgets_AgentGrid_ScorePreview"><value>תצוגה מקדימה</value></data>
   <data name="Widgets_AgentGrid_ScoreExample"><value>דוגמה: 3 כללים התקיימו</value></data>
   <data name="Common_SelectMetric"><value>בחר מדד</value></data>
+  <data name="Common_SelectColumn"><value>בחר עמודה</value></data>
   <data name="Common_Value"><value>ערך</value></data>
   <data name="Common_Remove"><value>הסר</value></data>
   <data name="Widgets_MatchType"><value>סוג התאמה</value></data>

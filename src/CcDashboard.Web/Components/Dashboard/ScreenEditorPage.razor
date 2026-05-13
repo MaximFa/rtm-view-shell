@@ -448,16 +448,6 @@
                                             }
                                         </div>
                                     </div>
-
-                                    <!-- Row Hover -->
-                                    <div class="color-setting-row">
-                                        <span class="color-setting-label">
-                                            <div class="form-check form-switch mb-0">
-                                                <input class="form-check-input" type="checkbox" id="showRowHover" @bind="ConfigShowRowHover" />
-                                                <label class="form-check-label" for="showRowHover">Row Hover</label>
-                                            </div>
-                                        </span>
-                                    </div>
                                 }
                             </div>
                         </div>
@@ -936,15 +926,15 @@
                                                 var ruleIdx = i;
 
                                                 <div class="score-rule-row d-flex gap-2 align-items-center mb-2 p-2 bg-light rounded" @key="ruleId">
-                                                    <!-- Metric Selection -->
+                                                    <!-- Metric Selection (from configured columns) -->
                                                     <div class="flex-grow-1" style="min-width: 200px;">
                                                         <select class="form-select form-select-sm"
                                                                 value="@rule.MetricId"
                                                                 @onchange="e => UpdateScoreRuleMetric(ruleId, e.Value?.ToString())">
-                                                            <option value="">-- @L["Common_SelectMetric"] --</option>
-                                                            @foreach (var metric in GetNumericAgentMetrics())
+                                                            <option value="">-- @L["Common_SelectColumn"] --</option>
+                                                            @foreach (var col in ConfigAgentColumnDefs)
                                                             {
-                                                                <option value="@metric.MetricId">@metric.Description</option>
+                                                                <option value="@col.MetricId">@col.Name</option>
                                                             }
                                                         </select>
                                                     </div>
@@ -1392,10 +1382,6 @@
     private bool ConfigShowScore = false;
     private string? ConfigScoreStarColor;
     private List<ScoreFormulaRule> ConfigScoreFormula = new();
-
-    // Row hover settings
-    private bool ConfigShowRowHover = false;
-    private string? ConfigRowHoverColor;
 
     // Per-column thresholds
     private Dictionary<string, List<ColumnThreshold>> ConfigColumnThresholds = new();
@@ -2065,8 +2051,6 @@
         ConfigShowAvatar = widget.Config.ShowAvatar;
         ConfigAvatarBgColor = widget.Config.AvatarBgColor ?? "#1e3461";
         ConfigAvatarFontColor = widget.Config.AvatarFontColor ?? "#FFFFFF";
-        ConfigShowRowHover = widget.Config.ShowRowHover;
-        ConfigRowHoverColor = widget.Config.RowHoverColor;
         ConfigShowScore = widget.Config.ShowScore;
         ConfigScoreStarColor = widget.Config.ScoreStarColor ?? "#ffc107";
         ConfigScoreFormula = widget.Config.ScoreFormula?.Select(r => new ScoreFormulaRule
@@ -2479,8 +2463,6 @@
             ShowAvatar = ConfigShowAvatar,
             AvatarBgColor = ConfigAvatarBgColor,
             AvatarFontColor = ConfigAvatarFontColor,
-            ShowRowHover = ConfigShowRowHover,
-            RowHoverColor = ConfigRowHoverColor,
             ShowScore = ConfigShowScore,
             ScoreStarColor = ConfigScoreStarColor,
             ScoreFormula = ConfigScoreFormula.Where(r => !string.IsNullOrEmpty(r.MetricId)).ToList() is { Count: > 0 } scoreRules
@@ -3056,10 +3038,6 @@
         public bool ShowAvatar { get; set; } = false;
         public string? AvatarBgColor { get; set; }
         public string? AvatarFontColor { get; set; }
-
-        // Row hover settings (Agent Grid)
-        public bool ShowRowHover { get; set; } = false;
-        public string? RowHoverColor { get; set; }
 
         // Score settings (Agent Grid)
         public bool ShowScore { get; set; } = false;
