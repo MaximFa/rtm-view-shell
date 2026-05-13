@@ -44,7 +44,7 @@ public static class AgentDataGenerator
     private static readonly Dictionary<string, DateTime> _stateStartTimes = new();
     private static readonly Dictionary<string, string?> _agentCalls = new();
 
-    public static AgentGridUpdate Generate(Guid gridId)
+    public static AgentGridUpdate Generate(int gridId)
     {
         var now = DateTime.UtcNow;
         var agents = new List<AgentStatusDto>();

@@ -159,6 +159,7 @@ public class AppDbContext(
             e.ToTable("dashboard_widgets");
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.GridId).UseIdentityAlwaysColumn();  // Auto-increment for SignalR
             e.Property(x => x.PositionJson).HasColumnType("jsonb");
             e.Property(x => x.ConfigJson).HasColumnType("jsonb");
             // Match the parent Dashboard GQF so widgets are never orphaned by the soft-delete filter

@@ -489,6 +489,7 @@
   <data name="Widget_AgentsTotal"><value>агентов</value></data>
   <data name="Widget_Agents"><value>агентов</value></data>
   <data name="Widget_ConnectionFailed"><value>Ошибка подключения</value></data>
+  <data name="Widget_SaveConfigFirst"><value>Сохраните конфиг виджета</value></data>
   <data name="Widget_Retry"><value>Повторить</value></data>
   <data name="Widget_Live"><value>Live</value></data>
   <data name="Widget_Reconnecting"><value>Переподключение...</value></data>

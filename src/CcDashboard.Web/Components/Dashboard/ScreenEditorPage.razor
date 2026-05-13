@@ -211,6 +211,17 @@
                     <!-- Tab: General -->
                     @if (ConfigActiveTab == "general")
                     {
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Widget ID</label>
+                                <input type="text" class="form-control form-control-sm font-monospace" value="@ConfiguringWidget?.Id" readonly />
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Grid ID</label>
+                                <input type="text" class="form-control form-control-sm font-monospace" value="@ConfiguringWidget?.GridId" readonly />
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label">@L["Widgets_Name"]</label>
                             <input type="text" class="form-control" @bind="ConfigDisplayName" />
@@ -698,7 +709,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="CloseWidgetConfig">@L["Common_Cancel"]</button>
-                    <button class="btn btn-primary" @onclick="SaveWidgetConfig">@L["Common_Save"]</button>
+                    <button class="btn btn-primary" @onclick="async () => await SaveWidgetConfig()">@L["Common_Save"]</button>
                 </div>
             </div>
         </div>
@@ -987,6 +998,7 @@
                         PlacedWidgets.Add(new PlacedWidget
                         {
                             Id = w.Id,
+                            GridId = w.GridId,
                             CatalogItemId = w.WidgetCatalogItemId,
                             Name = config.DisplayName ?? catalogItem.Name,
                             Category = catalogItem.Category,
@@ -1407,9 +1419,9 @@
         return buId;
     }
 
-    private void SaveWidgetConfig()
+    private async Task SaveWidgetConfig()
     {
-        if (ConfiguringWidget is null) return;
+        if (ConfiguringWidget is null || Dashboard is null) return;
 
         var newConfig = new WidgetConfig
         {
@@ -1449,8 +1461,28 @@
             ConfiguringWidget.Name = ConfigDisplayName;
         }
 
+        // Save widget to database and get GridId (auto-generated for new widgets)
+        try
+        {
+            var widgetDto = new DashboardWidgetDto(
+                ConfiguringWidget.Id,
+                ConfiguringWidget.GridId,
+                Dashboard.Id,
+                ConfiguringWidget.CatalogItemId,
+                System.Text.Json.JsonSerializer.Serialize(new { ConfiguringWidget.Width, ConfiguringWidget.Height, ConfiguringWidget.X, ConfiguringWidget.Y }, _jsonOptions),
+                System.Text.Json.JsonSerializer.Serialize(newConfig, _jsonOptions)
+            );
+
+            var gridId = await Mediator.Send(new SaveDashboardWidgetCommand(Dashboard.Id, widgetDto), _cts.Token);
+            ConfiguringWidget.GridId = gridId;
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+
         CloseWidgetConfig();
-        StateHasChanged(); // Force re-render to apply new config to widgets
+        StateHasChanged();
     }
 
     // Threshold management
@@ -1615,6 +1647,7 @@
             // Save widgets
             var widgetDtos = PlacedWidgets.Select(w => new DashboardWidgetDto(
                 w.Id,
+                w.GridId,  // Auto-incremented by DB for new widgets (GridId = 0)
                 Dashboard.Id,
                 w.CatalogItemId,
                 System.Text.Json.JsonSerializer.Serialize(new { w.Width, w.Height, w.X, w.Y }, _jsonOptions),
@@ -1778,6 +1811,7 @@
     public class PlacedWidget
     {
         public Guid Id { get; set; }
+        public int GridId { get; set; }  // Auto-incremented DB field for SignalR communication
         public Guid CatalogItemId { get; set; }
         public string Name { get; set; } = "";
         public string Category { get; set; } = "";

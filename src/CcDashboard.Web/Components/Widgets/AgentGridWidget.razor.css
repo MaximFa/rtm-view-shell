@@ -38,3 +38,25 @@
 }
 
 /* Badge and threshold-badge styles moved to app.css for RenderFragment compatibility */
+
+/* Pagination */
+.agent-grid-pagination {
+    background-color: inherit;
+    flex-shrink: 0;
+}
+
+.pagination-select {
+    width: auto;
+    padding: 0.15rem 1.5rem 0.15rem 0.4rem;
+    font-size: 0.75rem;
+}
+
+.pagination-btn {
+    padding: 0.15rem 0.35rem;
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.4;
+}

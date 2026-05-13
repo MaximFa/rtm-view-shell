@@ -8,7 +8,14 @@
 @* Agent Grid Widget - connects to external SignalR simulator for real-time agent data *@
 
 <div class="agent-grid-widget" style="@GetWidgetStyle()">
-    @if (_connectionState == ConnectionState.Connecting)
+    @if (GridId == 0)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <i class="bi bi-gear fs-3 mb-2 opacity-50"></i>
+            <span class="small">@L["Widget_SaveConfigFirst"]</span>
+        </div>
+    }
+    else if (_connectionState == ConnectionState.Connecting)
     {
         <div class="d-flex align-items-center justify-content-center h-100 text-muted" aria-busy="true">
             <div class="spinner-border spinner-border-sm me-2" aria-hidden="true"></div>
@@ -34,10 +41,20 @@
     }
     else
     {
-        var filteredAgents = FilteredAgents;
+        var allFiltered = AllFilteredAgents;
+        var pagedAgents = FilteredAgents;
         <div class="agent-grid-header d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
             <span class="small text-muted">
-                @filteredAgents.Count @L["Widget_Agents"]
+                @if (TotalPages > 1)
+                {
+                    var startIdx = (_currentPage - 1) * _pageSize + 1;
+                    var endIdx = Math.Min(_currentPage * _pageSize, allFiltered.Count);
+                    <text>@startIdx-@endIdx / @allFiltered.Count @L["Widget_Agents"]</text>
+                }
+                else
+                {
+                    <text>@allFiltered.Count @L["Widget_Agents"]</text>
+                }
             </span>
             <span class="small">
                 @if (_connectionState == ConnectionState.Connected)
@@ -64,7 +81,7 @@
                     </tr>
                 </thead>
                 <tbody style="@GetTableStyle()">
-                    @if (filteredAgents.Count == 0)
+                    @if (pagedAgents.Count == 0)
                     {
                         <tr>
                             <td colspan="@_columnDefs.Count" class="text-center text-muted py-4">
@@ -74,7 +91,7 @@
                     }
                     else
                     {
-                        @foreach (var agent in filteredAgents)
+                        @foreach (var agent in pagedAgents)
                         {
                             <tr class="@GetRowClass(agent)" style="@GetRowStyle()">
                                 @foreach (var colDef in _columnDefs)
@@ -87,12 +104,57 @@
                 </tbody>
             </table>
         </div>
+
+        @* Pagination controls *@
+        @if (TotalPages > 1 || allFiltered.Count > PageSizes[0])
+        {
+            <div class="agent-grid-pagination d-flex align-items-center justify-content-between px-2 py-1 border-top">
+                <div class="d-flex align-items-center gap-2">
+                    <select class="form-select form-select-sm pagination-select"
+                            value="@_pageSize"
+                            @onchange="OnPageSizeChanged">
+                        @foreach (var size in PageSizes)
+                        {
+                            <option value="@size">@size</option>
+                        }
+                    </select>
+                    <span class="small text-muted">per page</span>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <button class="btn btn-sm btn-outline-secondary pagination-btn"
+                            disabled="@(_currentPage <= 1)"
+                            @onclick="() => GoToPage(1)"
+                            title="First">
+                        <i class="bi bi-chevron-bar-left"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary pagination-btn"
+                            disabled="@(_currentPage <= 1)"
+                            @onclick="() => GoToPage(_currentPage - 1)"
+                            title="Previous">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span class="small px-2">@_currentPage / @TotalPages</span>
+                    <button class="btn btn-sm btn-outline-secondary pagination-btn"
+                            disabled="@(_currentPage >= TotalPages)"
+                            @onclick="() => GoToPage(_currentPage + 1)"
+                            title="Next">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary pagination-btn"
+                            disabled="@(_currentPage >= TotalPages)"
+                            @onclick="() => GoToPage(TotalPages)"
+                            title="Last">
+                        <i class="bi bi-chevron-bar-right"></i>
+                    </button>
+                </div>
+            </div>
+        }
     }
 </div>
 
 @code {
     [Parameter] public WidgetConfig? Config { get; set; }
-    [Parameter] public Guid WidgetId { get; set; }
+    [Parameter] public int GridId { get; set; }
 
     [Inject] private ILogger<AgentGridWidget> Logger { get; set; } = null!;
     [Inject] private IMediator Mediator { get; set; } = null!;
@@ -124,6 +186,11 @@
     private string? _listDropdownOpen;
     private Dictionary<string, ColumnFilter> _columnFilters = new();
 
+    // Pagination
+    private int _currentPage = 1;
+    private int _pageSize = 15;
+    private static readonly int[] PageSizes = { 15, 45, 100, 200 };
+
     private class ColumnFilter
     {
         public string Mode { get; set; } = ""; // "value" or "list"
@@ -135,8 +202,8 @@
 
     private static bool IsNumericColumn(string column) => IsNumericMetric(ColumnKeyToMetricId(column));
 
-    // Filtered and sorted agents
-    private List<AgentStatusDto> FilteredAgents
+    // Filtered, sorted, and paginated agents
+    private List<AgentStatusDto> AllFilteredAgents
     {
         get
         {
@@ -172,6 +239,13 @@
             return result.ToList();
         }
     }
+
+    private int TotalPages => (int)Math.Ceiling((double)AllFilteredAgents.Count / _pageSize);
+
+    private List<AgentStatusDto> FilteredAgents => AllFilteredAgents
+        .Skip((_currentPage - 1) * _pageSize)
+        .Take(_pageSize)
+        .ToList();
 
     private static string ColumnKeyToMetricId(string colKey) => colKey switch
     {
@@ -699,6 +773,7 @@
             _sortColumn = column;
             _sortAscending = true;
         }
+        _currentPage = 1; // Reset to first page when sorting changes
     }
 
     private void ToggleFilterDropdown(string column)
@@ -782,6 +857,7 @@
     {
         _activeFilterColumn = null;
         _listDropdownOpen = null;
+        _currentPage = 1; // Reset to first page when filter applied
     }
 
     private void ClearColumnFilter(string column)
@@ -789,6 +865,21 @@
         _columnFilters.Remove(column);
         _activeFilterColumn = null;
         _listDropdownOpen = null;
+        _currentPage = 1; // Reset to first page when filter cleared
+    }
+
+    private void OnPageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size))
+        {
+            _pageSize = size;
+            _currentPage = 1; // Reset to first page when page size changes
+        }
+    }
+
+    private void GoToPage(int page)
+    {
+        _currentPage = Math.Clamp(page, 1, Math.Max(1, TotalPages));
     }
 
     private string GetWidgetStyle()
@@ -1021,8 +1112,18 @@
 
     private async Task ConnectAsync()
     {
+        // Don't connect if GridId is not set
+        if (GridId == 0)
+        {
+            Logger.LogWarning("AgentGridWidget: GridId is 0, skipping connection");
+            return;
+        }
+
         _connectionState = ConnectionState.Connecting;
-        Logger.LogInformation("AgentGridWidget: Starting connection for widget {WidgetId}", WidgetId);
+        Logger.LogInformation("AgentGridWidget: Starting connection for GridId {GridId}", GridId);
+
+        // Small random delay to stagger connections from multiple widgets
+        await Task.Delay(Random.Shared.Next(100, 500), _cts.Token);
 
         try
         {
@@ -1031,8 +1132,7 @@
                 settings?.SignalRConnectionUrl ?? "(null)");
 
             var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var gridId = WidgetId;
-            var fullUrl = $"{simulatorUrl}/hubs/agent-grid?gridId={gridId}";
+            var fullUrl = $"{simulatorUrl}/hubs/agent-grid?gridId={GridId}";
 
             Logger.LogInformation("AgentGridWidget: Connecting to {Url}", fullUrl);
 
@@ -1077,7 +1177,7 @@
 
             await _hub.StartAsync(_cts.Token);
             _connectionState = ConnectionState.Connected;
-            Logger.LogInformation("Connected to AgentGrid simulator for widget {WidgetId}", WidgetId);
+            Logger.LogInformation("Connected to AgentGrid simulator for GridId {GridId}", GridId);
         }
         catch (Exception ex)
         {

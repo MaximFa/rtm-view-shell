@@ -28,7 +28,7 @@ var app = builder.Build();
 
 app.UseCors();
 
-app.MapGet("/", () => "SignalR Simulator is running.\n\nAvailable hubs:\n- /hubs/agent-grid?gridId={guid}");
+app.MapGet("/", () => "SignalR Simulator is running.\n\nAvailable hubs:\n- /hubs/agent-grid?gridId={int}");
 
 // Widget Hubs
 app.MapHub<AgentGridHub>("/hubs/agent-grid");

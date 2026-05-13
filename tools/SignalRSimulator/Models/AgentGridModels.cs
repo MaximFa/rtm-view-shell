@@ -89,7 +89,7 @@ public enum AlertLevel
 }
 
 public record AgentGridUpdate(
-    Guid GridId,
+    int GridId,
     DateTime Timestamp,
     List<AgentStatusDto> Agents
 );

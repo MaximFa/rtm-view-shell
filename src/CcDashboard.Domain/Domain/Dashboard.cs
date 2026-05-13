@@ -31,6 +31,7 @@ public class Dashboard
 public class DashboardWidget
 {
     public Guid Id { get; set; }
+    public int GridId { get; set; }  // Auto-incremented, used for SignalR communication
     public Guid DashboardId { get; set; }
     public Guid TenantId { get; set; }
     public Guid WidgetCatalogItemId { get; set; }

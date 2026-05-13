@@ -49,7 +49,7 @@ public class GetDashboardsQueryHandler(
             d.UpdatedByUserId, userNames.GetValueOrDefault(d.UpdatedByUserId),
             d.UpdatedAt, d.RowVersion,
             d.Widgets.Select(w => new DashboardWidgetDto(
-                w.Id, w.DashboardId, w.WidgetCatalogItemId, w.PositionJson, w.ConfigJson)).ToList())).ToList();
+                w.Id, w.GridId, w.DashboardId, w.WidgetCatalogItemId, w.PositionJson, w.ConfigJson)).ToList())).ToList();
 
         return new PagedResult<DashboardDto>(dtos, total, req.Page, req.PageSize);
     }

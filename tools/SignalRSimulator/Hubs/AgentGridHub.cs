@@ -6,8 +6,8 @@ namespace SignalRSimulator.Hubs;
 
 public class AgentGridHub : Hub
 {
-    private static readonly Dictionary<Guid, CancellationTokenSource> _activeGrids = new();
-    private static readonly Dictionary<Guid, HashSet<string>> _gridConnections = new();
+    private static readonly Dictionary<int, CancellationTokenSource> _activeGrids = new();
+    private static readonly Dictionary<int, HashSet<string>> _gridConnections = new();
     private static readonly object _lock = new();
     private readonly IHubContext<AgentGridHub> _hubContext;
     private readonly ILogger<AgentGridHub> _logger;
@@ -25,7 +25,7 @@ public class AgentGridHub : Hub
 
         _logger.LogInformation("Client connecting. GridId from query: {GridId}", gridIdStr);
 
-        if (string.IsNullOrEmpty(gridIdStr) || !Guid.TryParse(gridIdStr, out var gridId))
+        if (string.IsNullOrEmpty(gridIdStr) || !int.TryParse(gridIdStr, out var gridId))
         {
             _logger.LogWarning("Connection rejected: invalid or missing gridId");
             Context.Abort();
@@ -51,7 +51,7 @@ public class AgentGridHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        if (Context.Items.TryGetValue("GridId", out var gridIdObj) && gridIdObj is Guid gridId)
+        if (Context.Items.TryGetValue("GridId", out var gridIdObj) && gridIdObj is int gridId)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"grid:{gridId}");
 
@@ -74,11 +74,11 @@ public class AgentGridHub : Hub
         await base.OnDisconnectedAsync(exception);
     }
 
-    public async Task SubscribeToGrid(Guid gridId)
+    public async Task SubscribeToGrid(int gridId)
     {
         _logger.LogInformation("Client {ConnectionId} subscribing to grid {GridId}", Context.ConnectionId, gridId);
 
-        if (Context.Items.TryGetValue("GridId", out var oldGridIdObj) && oldGridIdObj is Guid oldGridId && oldGridId != gridId)
+        if (Context.Items.TryGetValue("GridId", out var oldGridIdObj) && oldGridIdObj is int oldGridId && oldGridId != gridId)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"grid:{oldGridId}");
         }
@@ -96,7 +96,7 @@ public class AgentGridHub : Hub
         StartDataGeneration(gridId);
     }
 
-    public async Task UnsubscribeFromGrid(Guid gridId)
+    public async Task UnsubscribeFromGrid(int gridId)
     {
         _logger.LogInformation("Client {ConnectionId} unsubscribing from grid {GridId}", Context.ConnectionId, gridId);
 
@@ -116,7 +116,7 @@ public class AgentGridHub : Hub
         }
     }
 
-    private void StartDataGeneration(Guid gridId)
+    private void StartDataGeneration(int gridId)
     {
         lock (_lock)
         {
@@ -132,7 +132,7 @@ public class AgentGridHub : Hub
         }
     }
 
-    private void StopDataGeneration(Guid gridId)
+    private void StopDataGeneration(int gridId)
     {
         lock (_lock)
         {
@@ -145,7 +145,7 @@ public class AgentGridHub : Hub
         }
     }
 
-    private async Task GenerateDataAsync(Guid gridId, CancellationToken ct)
+    private async Task GenerateDataAsync(int gridId, CancellationToken ct)
     {
         await Task.Delay(500, ct);
 

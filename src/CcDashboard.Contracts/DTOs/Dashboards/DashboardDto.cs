@@ -24,6 +24,7 @@ public record DashboardDto(
 
 public record DashboardWidgetDto(
     Guid Id,
+    int GridId,
     Guid DashboardId,
     Guid WidgetCatalogItemId,
     string? PositionJson,

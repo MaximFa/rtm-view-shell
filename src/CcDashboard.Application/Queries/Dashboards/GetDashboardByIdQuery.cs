@@ -23,7 +23,7 @@ public class GetDashboardByIdQueryHandler(
         var updatedBy = await users.GetByIdAsync(d.UpdatedByUserId, ct);
 
         var widgets = d.Widgets.Select(w => new DashboardWidgetDto(
-            w.Id, w.DashboardId, w.WidgetCatalogItemId, w.PositionJson, w.ConfigJson
+            w.Id, w.GridId, w.DashboardId, w.WidgetCatalogItemId, w.PositionJson, w.ConfigJson
         )).ToList();
 
         return new DashboardDto(
