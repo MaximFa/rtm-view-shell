@@ -211,7 +211,17 @@
                 .Where(a => _filterTeams.Count == 0 || _filterTeams.Contains(a.TeamName))
                 .Where(a => _filterStates.Count == 0 || _filterStates.Contains(a.State.ToString()));
 
-            // Apply column filters
+            // Apply saved table filters from config (before interactive filters)
+            if (Config?.TableFilters is { Count: > 0 } tableFilters)
+            {
+                var validRules = tableFilters.Where(r => !string.IsNullOrEmpty(r.MetricId)).ToList();
+                if (validRules.Count > 0)
+                {
+                    result = result.Where(a => EvaluateTableFilters(a, validRules));
+                }
+            }
+
+            // Apply interactive column filters
             foreach (var (column, filter) in _columnFilters)
             {
                 if (!HasActiveFilter(column)) continue;
@@ -306,6 +316,44 @@
             "notempty" => !string.IsNullOrEmpty(colTextValue),
             _ => true
         };
+    }
+
+    private bool EvaluateTableFilters(AgentStatusDto agent, List<TableFilterRule> rules)
+    {
+        if (rules.Count == 0) return true;
+
+        // Evaluate first rule
+        bool result = EvaluateSingleTableFilter(agent, rules[0]);
+
+        // Combine with subsequent rules using their connectors
+        for (int i = 1; i < rules.Count; i++)
+        {
+            var rule = rules[i];
+            var ruleResult = EvaluateSingleTableFilter(agent, rule);
+
+            if (rule.Connector == "OR")
+                result = result || ruleResult;
+            else // AND
+                result = result && ruleResult;
+        }
+
+        return result;
+    }
+
+    private bool EvaluateSingleTableFilter(AgentStatusDto agent, TableFilterRule rule)
+    {
+        // Get column key from MetricId
+        var colKey = MetricIdToColumnKey(rule.MetricId);
+
+        // Use existing MatchesFilter by constructing a temporary ColumnFilter
+        var tempFilter = new ColumnFilter
+        {
+            Mode = "value",
+            MatchType = rule.Operator,
+            TextValue = rule.Value
+        };
+
+        return MatchesFilter(agent, colKey, tempFilter);
     }
 
     private static decimal? ParseFilterValue(string? value)
@@ -1071,10 +1119,20 @@
         await ConnectAsync();
     }
 
-    protected override void OnParametersSet()
+    private int _previousGridId;
+
+    protected override async Task OnParametersSetAsync()
     {
         // Re-apply config when parameters change (e.g., after saving config modal)
         ApplyConfig();
+
+        // If GridId changed from 0 to a valid value, connect
+        if (GridId != 0 && _previousGridId == 0 && _hub is null)
+        {
+            _previousGridId = GridId;
+            await ConnectAsync();
+        }
+        _previousGridId = GridId;
     }
 
     private void ApplyConfig()

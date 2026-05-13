@@ -37,6 +37,10 @@ public class AppDbContext(
     public DbSet<NgcBusinessUnitSupergroup> NgcBusinessUnitSupergroups => Set<NgcBusinessUnitSupergroup>();
     public DbSet<NgcSupergroupAgentgroup> NgcSupergroupAgentgroups => Set<NgcSupergroupAgentgroup>();
     public DbSet<RtsGridMetric> RtsGridMetrics => Set<RtsGridMetric>();
+    // RTS UserGrid tables (compatibility with external SignalR server)
+    public DbSet<RtsUserGridGrid> RtsUserGridGrids => Set<RtsUserGridGrid>();
+    public DbSet<RtsUserGridColumnsSet> RtsUserGridColumnsSets => Set<RtsUserGridColumnsSet>();
+    public DbSet<RtsUserGridColumn> RtsUserGridColumns => Set<RtsUserGridColumn>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<TwoFactorCode> TwoFactorCodes => Set<TwoFactorCode>();
@@ -159,7 +163,7 @@ public class AppDbContext(
             e.ToTable("dashboard_widgets");
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).ValueGeneratedNever();
-            e.Property(x => x.GridId).UseIdentityAlwaysColumn();  // Auto-increment for SignalR
+            e.Property(x => x.GridId).UseIdentityByDefaultColumn();  // BY DEFAULT allows explicit insert from RTS save
             e.Property(x => x.PositionJson).HasColumnType("jsonb");
             e.Property(x => x.ConfigJson).HasColumnType("jsonb");
             // Match the parent Dashboard GQF so widgets are never orphaned by the soft-delete filter
@@ -313,6 +317,39 @@ public class AppDbContext(
             e.Property(x => x.MetricFormat).HasMaxLength(100);
             e.Property(x => x.DefaultValue).HasMaxLength(100);
             // Cross-tenant entity: no GQF, metrics are shared across all tenants
+        });
+
+        // RTS UserGrid tables (compatibility with external SignalR server)
+        mb.Entity<RtsUserGridGrid>(e =>
+        {
+            e.ToTable("RTSUserGrid_Grid");
+            e.HasKey(x => x.GridId);
+            e.Property(x => x.GridId).UseIdentityAlwaysColumn();
+            e.Property(x => x.Title).HasMaxLength(100).IsRequired();
+            e.Property(x => x.RowsFilter).HasMaxLength(300);
+            e.Property(x => x.RowsFilterNew).HasMaxLength(300);
+            e.Property(x => x.TextDirection).HasMaxLength(5);
+            e.Property(x => x.ThresholdScript).HasColumnType("text");
+            e.Property(x => x.NoRecordsText).HasColumnType("text");
+        });
+
+        mb.Entity<RtsUserGridColumnsSet>(e =>
+        {
+            e.ToTable("RTSUserGrid_ColumnsSet");
+            e.HasKey(x => x.ColumnsSetId);
+            e.Property(x => x.ColumnsSetId).UseIdentityAlwaysColumn();
+            e.Property(x => x.Title).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Description).HasColumnType("text");
+            e.Property(x => x.Direction).HasMaxLength(10);
+        });
+
+        mb.Entity<RtsUserGridColumn>(e =>
+        {
+            e.ToTable("RTSUserGrid_Column");
+            e.HasKey(x => x.ColumnId);
+            e.Property(x => x.ColumnId).UseIdentityAlwaysColumn();
+            e.Property(x => x.Title).HasMaxLength(100).IsRequired();
+            e.Property(x => x.MetricId).HasMaxLength(100);
         });
     }
 

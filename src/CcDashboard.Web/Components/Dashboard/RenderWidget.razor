@@ -10,7 +10,7 @@
             <QueueSummaryWidget Config="Widget.Config" />
             break;
         case var n when n.Contains("agent") && n.Contains("grid"):
-            <AgentGridWidget Config="Widget.Config" GridId="Widget.GridId" />
+            <AgentGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" />
             break;
         case var n when n.Contains("agent") && n.Contains("status"):
             <AgentStatusWidget Config="Widget.Config" />

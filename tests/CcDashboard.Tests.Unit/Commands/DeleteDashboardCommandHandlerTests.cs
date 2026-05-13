@@ -38,7 +38,7 @@ public class DeleteDashboardCommandHandlerTests
             Name = "To Delete",
             IsDeleted = false
         };
-        _repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns(dashboard);
+        _repo.GetByIdAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(dashboard);
 
         await _handler.Handle(new DeleteDashboardCommand(id), CancellationToken.None);
 
@@ -52,7 +52,7 @@ public class DeleteDashboardCommandHandlerTests
     public async Task Handle_DashboardNotFound_ThrowsNotFoundException()
     {
         var id = Guid.NewGuid();
-        _repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns((Dashboard?)null);
+        _repo.GetByIdAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns((Dashboard?)null);
 
         var act = () => _handler.Handle(new DeleteDashboardCommand(id), CancellationToken.None);
 
@@ -72,7 +72,7 @@ public class DeleteDashboardCommandHandlerTests
             IsDeleted = true,
             DeletedAt = Now.AddDays(-1)
         };
-        _repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns(dashboard);
+        _repo.GetByIdAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(dashboard);
 
         await _handler.Handle(new DeleteDashboardCommand(id), CancellationToken.None);
 

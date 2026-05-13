@@ -493,6 +493,9 @@
   <data name="Widget_Retry"><value>Повторить</value></data>
   <data name="Widget_Live"><value>Live</value></data>
   <data name="Widget_Reconnecting"><value>Переподключение...</value></data>
+  <data name="Widget_DeleteConfirm"><value>Удалить виджет</value></data>
+  <data name="Widget_DeleteMessage"><value>Вы уверены, что хотите удалить "{0}"?</value></data>
+  <data name="Widget_DeleteRtsWarning"><value>Также будет удалена связанная конфигурация сетки.</value></data>
   <data name="State_Ready"><value>Готов</value></data>
   <data name="State_Talking"><value>Разговор</value></data>
   <data name="State_Hold"><value>Удержание</value></data>

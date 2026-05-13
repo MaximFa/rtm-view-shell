@@ -107,6 +107,9 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<INgcQueueRepository, NgcQueueRepository>();
         services.AddScoped<INgcAgentGroupRepository, NgcAgentGroupRepository>();
 
+        // RTS repositories
+        services.AddScoped<IRtsRepository, RtsRepository>();
+
         // API hook (no-op until CC-platform API is available)
         services.AddScoped<IConfigurationApiHook, NoOpConfigurationApiHook>();
 

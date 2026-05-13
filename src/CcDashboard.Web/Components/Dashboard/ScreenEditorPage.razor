@@ -126,7 +126,11 @@
         </div>
 
         <!-- Dashboard Canvas (fullscreen) -->
-        <div class="editor-canvas @(IsDragging ? "drag-over" : "")">
+        <div class="editor-canvas @(IsDragging ? "drag-over" : "")"
+             @ondragover="OnDragOver"
+             @ondragover:preventDefault="true"
+             @ondrop="OnDropAtPosition"
+             @ondrop:preventDefault="true">
             @if (PlacedWidgets.Count == 0)
             {
                 <div class="text-center py-5 text-muted" style="pointer-events: none;">
@@ -135,11 +139,7 @@
                 </div>
             }
             <div class="dashboard-canvas-grid"
-                 style="position: relative; min-height: calc(100vh - 60px); @(_positionsApplied || PlacedWidgets.Count == 0 ? "" : "visibility: hidden;")"
-                 @ondragover="OnDragOver"
-                 @ondragover:preventDefault="true"
-                 @ondrop="OnDropAtPosition"
-                 @ondrop:preventDefault="true">
+                 style="position: relative; min-height: calc(100vh - 60px); @(_positionsApplied || PlacedWidgets.Count == 0 ? "" : "visibility: hidden;")">
                 @foreach (var widget in PlacedWidgets)
                 {
                     <div class="dashboard-widget @(SelectedWidgetId == widget.Id ? "selected" : "")"
@@ -202,6 +202,9 @@
                         </li>
                         @if (IsAgentGridWidget(ConfiguringWidget))
                         {
+                            <li class="nav-item">
+                                <button class="nav-link @(ConfigActiveTab == "filters" ? "active" : "")" @onclick='() => ConfigActiveTab = "filters"'>Filters</button>
+                            </li>
                             <li class="nav-item">
                                 <button class="nav-link @(ConfigActiveTab == "columns" ? "active" : "")" @onclick='() => ConfigActiveTab = "columns"'>Columns</button>
                             </li>
@@ -601,6 +604,92 @@
                     }
                     }
 
+                    <!-- Tab: Filters (Agent Grid only) -->
+                    @if (ConfigActiveTab == "filters" && IsAgentGridWidget(ConfiguringWidget))
+                    {
+                        <div class="filters-tab">
+                            <!-- Header with Add button -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="text-muted small">Row filter — applied before display</span>
+                                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddTableFilterRule">
+                                    <i class="bi bi-plus"></i> Add condition
+                                </button>
+                            </div>
+
+                            @if (ConfigTableFilters.Count == 0)
+                            {
+                                <div class="text-center text-muted py-4">
+                                    <i class="bi bi-funnel fs-3 mb-2 d-block opacity-50"></i>
+                                    <p class="small mb-0">No filter conditions defined.</p>
+                                    <p class="small text-muted">Add conditions to filter rows before display.</p>
+                                </div>
+                            }
+                            else
+                            {
+                                @for (int i = 0; i < ConfigTableFilters.Count; i++)
+                                {
+                                    var idx = i;
+                                    var rule = ConfigTableFilters[idx];
+                                    var isFirst = idx == 0;
+
+                                    @if (!isFirst)
+                                    {
+                                        <div class="text-center my-2">
+                                            <select class="form-select form-select-sm d-inline-block" style="width: 80px;"
+                                                    value="@rule.Connector"
+                                                    @onchange="e => UpdateTableFilterConnector(idx, e.Value?.ToString() ?? string.Empty)">
+                                                <option value="AND">AND</option>
+                                                <option value="OR">OR</option>
+                                            </select>
+                                        </div>
+                                    }
+
+                                    <div class="filter-rule d-flex align-items-center gap-2 p-2 border rounded mb-2" @key="@idx">
+                                        <!-- Column select -->
+                                        <select class="form-select form-select-sm" style="width: 180px;"
+                                                value="@rule.MetricId"
+                                                @onchange="e => UpdateTableFilterMetricId(idx, e.Value?.ToString() ?? string.Empty)">
+                                            <option value="">-- Select column --</option>
+                                            @foreach (var col in ConfigAgentColumnDefs)
+                                            {
+                                                <option value="@col.MetricId">@col.Name</option>
+                                            }
+                                        </select>
+
+                                        <!-- Operator select -->
+                                        <select class="form-select form-select-sm" style="width: 160px;"
+                                                value="@rule.Operator"
+                                                @onchange="e => UpdateTableFilterOperator(idx, e.Value?.ToString() ?? string.Empty)">
+                                            @foreach (var op in GetOperatorsForMetric(rule.MetricId))
+                                            {
+                                                <option value="@op.Value">@op.Label</option>
+                                            }
+                                        </select>
+
+                                        <!-- Value input (hidden for empty/notempty operators) -->
+                                        @if (rule.Operator != "empty" && rule.Operator != "notempty")
+                                        {
+                                            <input type="text" class="form-control form-control-sm" style="flex: 1;"
+                                                   placeholder="Value..."
+                                                   value="@rule.Value"
+                                                   @onchange="e => UpdateTableFilterValue(idx, e.Value?.ToString() ?? string.Empty)" />
+                                        }
+                                        else
+                                        {
+                                            <div style="flex: 1;"></div>
+                                        }
+
+                                        <!-- Remove button -->
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                @onclick="() => RemoveTableFilterRule(idx)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+
                     <!-- Tab: Columns (Agent Grid only) -->
                     @if (ConfigActiveTab == "columns" && IsAgentGridWidget(ConfiguringWidget))
                     {
@@ -717,6 +806,39 @@
     <div class="editor-modal-backdrop"></div>
 }
 
+<!-- Widget Delete Confirmation Modal -->
+@if (WidgetToDelete is not null)
+{
+    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="delete-widget-title">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="delete-widget-title">@L["Widget_DeleteConfirm"]</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDeleteWidget" aria-label="@L["Common_Close"]"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@L["Widget_DeleteMessage", WidgetToDelete.Name]</p>
+                    @if (IsAgentGridWidget(WidgetToDelete) && WidgetToDelete.GridId > 0)
+                    {
+                        <p class="text-muted small">@L["Widget_DeleteRtsWarning"]</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelDeleteWidget" disabled="@DeletingWidget">@L["Common_Cancel"]</button>
+                    <button class="btn btn-danger" @onclick="ConfirmDeleteWidget" disabled="@DeletingWidget">
+                        @if (DeletingWidget)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        @L["Common_Delete"]
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="editor-modal-backdrop"></div>
+}
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -772,6 +894,13 @@
     // Per-column thresholds
     private Dictionary<string, List<ColumnThreshold>> ConfigColumnThresholds = new();
     private string SelectedThresholdColumn = "";
+
+    // Table filters (saved row filters)
+    private List<TableFilterRule> ConfigTableFilters = new();
+
+    // Widget deletion confirmation
+    private PlacedWidget? WidgetToDelete;
+    private bool DeletingWidget;
 
     private static readonly string[] AvailableTeams = ["Sales Team", "Support Team", "VIP Team"];
     private static readonly string[] AvailableStates = ["Ready", "Talking", "Hold", "Acw", "NotReady", "Outbound", "LoggedOut"];
@@ -1153,8 +1282,44 @@
 
     private void RemoveWidget(Guid widgetId)
     {
-        PlacedWidgets.RemoveAll(w => w.Id == widgetId);
-        if (SelectedWidgetId == widgetId) SelectedWidgetId = null;
+        var widget = PlacedWidgets.FirstOrDefault(w => w.Id == widgetId);
+        if (widget is null) return;
+
+        // Show confirmation dialog
+        WidgetToDelete = widget;
+    }
+
+    private void CancelDeleteWidget()
+    {
+        WidgetToDelete = null;
+        DeletingWidget = false;
+    }
+
+    private async Task ConfirmDeleteWidget()
+    {
+        if (WidgetToDelete is null) return;
+
+        DeletingWidget = true;
+        try
+        {
+            // If it's an AgentGrid widget with a valid GridId, delete RTS records
+            if (IsAgentGridWidget(WidgetToDelete) && WidgetToDelete.GridId > 0)
+            {
+                await Mediator.Send(new DeleteAgentGridRtsCommand(WidgetToDelete.GridId), _cts.Token);
+            }
+
+            PlacedWidgets.RemoveAll(w => w.Id == WidgetToDelete.Id);
+            if (SelectedWidgetId == WidgetToDelete.Id) SelectedWidgetId = null;
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+        finally
+        {
+            WidgetToDelete = null;
+            DeletingWidget = false;
+        }
     }
 
     private void OpenWidgetConfig(PlacedWidget widget)
@@ -1186,7 +1351,8 @@
         {
             Id = c.Id,
             Name = c.Name,
-            MetricId = c.MetricId
+            MetricId = c.MetricId,
+            DbColumnId = c.DbColumnId  // Preserve RTS column reference
         }).ToList() ?? GetDefaultColumnDefs();
 
         // Column thresholds
@@ -1206,6 +1372,15 @@
                 }).ToList())
             : new Dictionary<string, List<ColumnThreshold>>();
         SelectedThresholdColumn = "";
+
+        // Table filters (saved row filters)
+        ConfigTableFilters = widget.Config.TableFilters?.Select(f => new TableFilterRule
+        {
+            MetricId = f.MetricId,
+            Operator = f.Operator,
+            Value = f.Value,
+            Connector = f.Connector
+        }).ToList() ?? new List<TableFilterRule>();
 
         // Initialize search fields with selected values
         BuSearchText = GetBusinessUnitName(ConfigBusinessUnit);
@@ -1364,6 +1539,7 @@
         ConfigThresholds = [];
         ConfigColumnThresholds = new();
         SelectedThresholdColumn = "";
+        ConfigTableFilters = new();
         BuDropdownOpen = false;
         MetricDropdownOpen = false;
     }
@@ -1423,6 +1599,65 @@
     {
         if (ConfiguringWidget is null || Dashboard is null) return;
 
+        int? preassignedGridId = null;
+        int? columnsSetId = null;
+
+        // For AgentGrid widgets, save to RTS tables first
+        if (IsAgentGridWidget(ConfiguringWidget))
+        {
+            try
+            {
+                // Get the existing ColumnsSetId from config (if editing)
+                var existingColumnsSetId = ConfiguringWidget.Config?.ColumnsSetId;
+
+                // Build rows filter string from table filters
+                var validFilters = ConfigTableFilters.Where(f => !string.IsNullOrEmpty(f.MetricId)).ToList();
+                var rowsFilter = BuildRowsFilter(validFilters);
+
+                // Build column inputs for RTS command
+                var columnInputs = ConfigAgentColumnDefs.Select((col, idx) => new RtsColumnInput(
+                    col.DbColumnId,  // null for new columns
+                    col.Name,        // Column display name
+                    col.MetricId,
+                    idx  // columnsOrder
+                )).ToList();
+
+                // Save to RTS tables
+                var rtsResult = await Mediator.Send(new SaveAgentGridRtsCommand(
+                    ConfiguringWidget.GridId,  // 0 for new widget
+                    existingColumnsSetId,      // null for new widget
+                    ConfigDisplayName ?? ConfiguringWidget.Name,
+                    string.IsNullOrEmpty(ConfigBusinessUnit) ? null : int.TryParse(ConfigBusinessUnit, out var buId) ? buId : null,
+                    rowsFilter,
+                    columnInputs
+                ), _cts.Token);
+
+                // Use GridId from RTS for new widgets
+                if (ConfiguringWidget.GridId == 0)
+                {
+                    preassignedGridId = rtsResult.GridId;
+                    ConfiguringWidget.GridId = rtsResult.GridId;
+                }
+
+                columnsSetId = rtsResult.ColumnsSetId;
+
+                // Update column DbColumnIds from RTS result
+                foreach (var (title, dbColumnId) in rtsResult.SavedColumns)
+                {
+                    var colDef = ConfigAgentColumnDefs.FirstOrDefault(c => c.Name == title);
+                    if (colDef != null)
+                    {
+                        colDef.DbColumnId = dbColumnId;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Error = $"RTS save failed: {ex.Message}";
+                return;
+            }
+        }
+
         var newConfig = new WidgetConfig
         {
             DisplayName = ConfigDisplayName,
@@ -1446,10 +1681,16 @@
             AgentGridShowAlerts = ConfigAgentShowAlerts,
             AgentGridColumnNames = ConfigAgentColumnNames.Count > 0 ? ConfigAgentColumnNames : null,
             AgentGridColumnDefs = ConfigAgentColumnDefs.Count > 0 ? ConfigAgentColumnDefs : null,
+            // RTS references
+            ColumnsSetId = columnsSetId,
             // Column thresholds
             ColumnThresholds = ConfigColumnThresholds.Count > 0
                 ? ConfigColumnThresholds.Where(kvp => kvp.Value.Count > 0)
                     .ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
+                : null,
+            // Table filters (only include rules with non-empty MetricId)
+            TableFilters = ConfigTableFilters.Where(f => !string.IsNullOrEmpty(f.MetricId)).ToList() is { Count: > 0 } filters
+                ? filters
                 : null
         };
 
@@ -1461,7 +1702,7 @@
             ConfiguringWidget.Name = ConfigDisplayName;
         }
 
-        // Save widget to database and get GridId (auto-generated for new widgets)
+        // Save widget to database
         try
         {
             var widgetDto = new DashboardWidgetDto(
@@ -1473,7 +1714,7 @@
                 System.Text.Json.JsonSerializer.Serialize(newConfig, _jsonOptions)
             );
 
-            var gridId = await Mediator.Send(new SaveDashboardWidgetCommand(Dashboard.Id, widgetDto), _cts.Token);
+            var gridId = await Mediator.Send(new SaveDashboardWidgetCommand(Dashboard.Id, widgetDto, preassignedGridId), _cts.Token);
             ConfiguringWidget.GridId = gridId;
         }
         catch (Exception ex)
@@ -1628,6 +1869,166 @@
     {
         UpdateColThresholdFontColor(column, index, color);
         _openThresholdPalette = null;
+    }
+
+    // Table filter management
+    private void AddTableFilterRule()
+    {
+        var firstMetricId = ConfigAgentColumnDefs.FirstOrDefault()?.MetricId ?? "";
+        var isNumeric = IsNumericMetricForFilter(firstMetricId);
+        ConfigTableFilters.Add(new TableFilterRule
+        {
+            MetricId = firstMetricId,
+            Operator = isNumeric ? "greater" : "contains",
+            Value = "",
+            Connector = "AND"
+        });
+    }
+
+    private void RemoveTableFilterRule(int index)
+    {
+        if (index >= 0 && index < ConfigTableFilters.Count)
+            ConfigTableFilters.RemoveAt(index);
+    }
+
+    private void UpdateTableFilterMetricId(int index, string metricId)
+    {
+        if (index >= 0 && index < ConfigTableFilters.Count)
+        {
+            ConfigTableFilters[index].MetricId = metricId;
+            // Reset operator to appropriate default for the new metric type
+            var isNumeric = IsNumericMetricForFilter(metricId);
+            ConfigTableFilters[index].Operator = isNumeric ? "greater" : "contains";
+            ConfigTableFilters[index].Value = "";
+        }
+    }
+
+    private void UpdateTableFilterOperator(int index, string op)
+    {
+        if (index >= 0 && index < ConfigTableFilters.Count)
+            ConfigTableFilters[index].Operator = op;
+    }
+
+    private void UpdateTableFilterValue(int index, string value)
+    {
+        if (index >= 0 && index < ConfigTableFilters.Count)
+            ConfigTableFilters[index].Value = value;
+    }
+
+    private void UpdateTableFilterConnector(int index, string connector)
+    {
+        if (index >= 0 && index < ConfigTableFilters.Count)
+            ConfigTableFilters[index].Connector = connector;
+    }
+
+    private static bool IsNumericMetricForFilter(string metricId)
+    {
+        if (string.IsNullOrEmpty(metricId)) return false;
+        // Pattern-based detection (same logic as AgentGridWidget)
+        if (metricId.Contains("Name", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("Extension", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("State", StringComparison.OrdinalIgnoreCase) &&
+            !metricId.Contains("Duration", StringComparison.OrdinalIgnoreCase)) return false;
+        if (metricId.Contains("Queue", StringComparison.OrdinalIgnoreCase) &&
+            !metricId.Contains("Duration", StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (metricId.Contains("Duration", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Time", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Occupancy", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Adherence", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Calls", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("AHT", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Pct", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Avg", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Number", StringComparison.OrdinalIgnoreCase)) return true;
+        if (metricId.Contains("Num", StringComparison.OrdinalIgnoreCase)) return true;
+
+        return false;
+    }
+
+    private static IEnumerable<(string Value, string Label)> GetOperatorsForMetric(string metricId)
+    {
+        if (IsNumericMetricForFilter(metricId))
+        {
+            return new[]
+            {
+                ("greater", "> Greater than"),
+                ("greaterequal", ">= Greater or equal"),
+                ("less", "< Less than"),
+                ("lessequal", "<= Less or equal"),
+                ("equal", "= Equal"),
+                ("notequal", "!= Not equal"),
+                ("empty", "Is empty"),
+                ("notempty", "Is not empty")
+            };
+        }
+        else
+        {
+            return new[]
+            {
+                ("contains", "Contains"),
+                ("notcontains", "Does not contain"),
+                ("equal", "Equals"),
+                ("notequal", "Not equals"),
+                ("startswith", "Starts with"),
+                ("endswith", "Ends with"),
+                ("empty", "Is empty"),
+                ("notempty", "Is not empty")
+            };
+        }
+    }
+
+    private string? BuildRowsFilter(List<TableFilterRule> filters)
+    {
+        if (filters.Count == 0) return null;
+
+        var parts = new List<string>();
+        for (int i = 0; i < filters.Count; i++)
+        {
+            var f = filters[i];
+            if (string.IsNullOrEmpty(f.MetricId)) continue;
+
+            // Build filter expression: [MetricId] == "Value" or [MetricId] > 123
+            var expr = BuildFilterExpression(f.MetricId, f.Operator, f.Value ?? string.Empty);
+            if (!string.IsNullOrEmpty(expr))
+            {
+                parts.Add(expr);
+
+                // Add connector if not the last filter
+                if (i < filters.Count - 1 && !string.IsNullOrEmpty(f.Connector))
+                {
+                    parts.Add(f.Connector.ToUpperInvariant() == "OR" ? "||" : "&&");
+                }
+            }
+        }
+
+        return parts.Count > 0 ? string.Join(string.Empty, parts) : null;
+    }
+
+    private string? BuildFilterExpression(string metricId, string op, string value)
+    {
+        var isNumeric = IsNumericMetricForFilter(metricId);
+        var fieldRef = $"[{metricId}]";
+
+        // Format value: quoted for text, unquoted for numeric
+        string formattedValue = isNumeric ? value : $"\"{value}\"";
+
+        return op switch
+        {
+            "equal" => $"{fieldRef} == {formattedValue}",
+            "notequal" => $"{fieldRef} != {formattedValue}",
+            "greater" => $"{fieldRef} > {value}",
+            "greaterequal" => $"{fieldRef} >= {value}",
+            "less" => $"{fieldRef} < {value}",
+            "lessequal" => $"{fieldRef} <= {value}",
+            "contains" => $"{fieldRef}.Contains(\"{value}\")",
+            "notcontains" => $"!{fieldRef}.Contains(\"{value}\")",
+            "startswith" => $"{fieldRef}.StartsWith(\"{value}\")",
+            "endswith" => $"{fieldRef}.EndsWith(\"{value}\")",
+            "empty" => $"string.IsNullOrEmpty({fieldRef})",
+            "notempty" => $"!string.IsNullOrEmpty({fieldRef})",
+            _ => null
+        };
     }
 
     private async Task SaveLayout()
@@ -1843,6 +2244,12 @@
 
         // Per-column thresholds: key = column name, value = list of rules
         public Dictionary<string, List<ColumnThreshold>>? ColumnThresholds { get; set; }
+
+        // Saved row filters applied before display
+        public List<TableFilterRule>? TableFilters { get; set; }
+
+        // RTS table IDs (persisted after first save)
+        public int? ColumnsSetId { get; set; }
     }
 
     public class AgentGridColumnDef
@@ -1850,6 +2257,7 @@
         public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique ID for reordering
         public string Name { get; set; } = "";  // Display name
         public string MetricId { get; set; } = "";  // Reference to RtsGridMetric.MetricId
+        public int? DbColumnId { get; set; }  // RTSUserGrid_Column.ColumnId, null if not yet inserted
     }
 
     public class ThresholdRule
@@ -1874,6 +2282,14 @@
         public string TextMatchType { get; set; } = "equal"; // "equal", "contains", "startswith", "endswith"
         public string? BackgroundColor { get; set; }       // Badge background
         public string? FontColor { get; set; }             // Badge font color
+    }
+
+    public class TableFilterRule
+    {
+        public string MetricId { get; set; } = "";  // References AgentGridColumnDef.MetricId
+        public string Operator { get; set; } = "contains";  // MatchType strings: contains, equal, greater, etc.
+        public string Value { get; set; } = "";  // Filter value as text
+        public string Connector { get; set; } = "AND";  // "AND" or "OR" — logical connector before this rule
     }
 
     public class StringOrNumberConverter : System.Text.Json.Serialization.JsonConverter<string?>

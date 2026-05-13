@@ -206,6 +206,9 @@
   <data name="Widget_Retry"><value>Retry</value></data>
   <data name="Widget_Live"><value>Live</value></data>
   <data name="Widget_Reconnecting"><value>Reconnecting...</value></data>
+  <data name="Widget_DeleteConfirm"><value>Delete Widget</value></data>
+  <data name="Widget_DeleteMessage"><value>Are you sure you want to delete "{0}"?</value></data>
+  <data name="Widget_DeleteRtsWarning"><value>This will also delete the associated grid configuration.</value></data>
   <data name="State_Ready"><value>Ready</value></data>
   <data name="State_Talking"><value>Talking</value></data>
   <data name="State_Hold"><value>Hold</value></data>
