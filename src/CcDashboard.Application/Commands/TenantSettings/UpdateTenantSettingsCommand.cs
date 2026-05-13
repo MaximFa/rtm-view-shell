@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CcDashboard.Application.Behaviors;
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Contracts.DTOs.TenantSettings;
@@ -33,6 +34,17 @@ public class UpdateTenantSettingsCommandHandler(
         settings.MaxConcurrentConnections = Math.Max(0, r.MaxConcurrentConnections);
         settings.SignalRConnectionUrl = string.IsNullOrWhiteSpace(r.SignalRConnectionUrl) ? null : r.SignalRConnectionUrl.Trim();
 
+        // Appearance settings
+        settings.BackgroundColorPalette = SerializeList(r.BackgroundColorPalette);
+        settings.FontColorPalette = SerializeList(r.FontColorPalette);
+        settings.FontSizes = SerializeList(r.FontSizes);
+
         await repo.UpsertAsync(settings, ct);
+    }
+
+    private static string? SerializeList(List<string>? list)
+    {
+        if (list is null || list.Count == 0) return null;
+        return JsonSerializer.Serialize(list);
     }
 }

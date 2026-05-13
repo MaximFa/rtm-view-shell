@@ -263,6 +263,12 @@
   <data name="TenantSettings_MaxConcurrentConnections"><value>חיבורי משתמש</value></data>
   <data name="TenantSettings_ConnectionsHelp"><value>מספר סשנים מקבילים מקסימלי למשתמש מכתובות IP שונות. 0 = ללא הגבלה.</value></data>
   <data name="TenantSettings_Saved"><value>ההגדרות נשמרו.</value></data>
+  <data name="TenantSettings_SignalR"><value>SignalR ווידג'טים</value></data>
+  <data name="TenantSettings_SignalRUrl"><value>כתובת חיבור SignalR</value></data>
+  <data name="TenantSettings_SignalRUrlHelp"><value>כתובת לחיבור ווידג'טים של SignalR (למשל, http://localhost:5045). השאר ריק לברירת מחדל.</value></data>
+  <data name="TenantSettings_BackgroundColors"><value>לוח צבעי רקע</value></data>
+  <data name="TenantSettings_FontColors"><value>לוח צבעי גופן</value></data>
+  <data name="TenantSettings_FontSizes"><value>גדלי גופן</value></data>
 
   <!-- ── Tenants (Platform) ── -->
   <data name="Tenants_Title"><value>ניהול ארגונים</value></data>
@@ -288,6 +294,7 @@
   <data name="Tenants_EditButton"><value>שמור שינויים ←</value></data>
   <data name="Tenants_TabGeneral"><value>כללי</value></data>
   <data name="Tenants_TabSettings"><value>הגדרות</value></data>
+  <data name="Tenants_TabAppearance"><value>מראה</value></data>
   <data name="Tenants_SlugReadOnly"><value>לא ניתן לשנות מזהה לאחר היצירה</value></data>
 
   <!-- ── Common ── -->
@@ -295,6 +302,7 @@
   <data name="Common_Cancel"><value>ביטול</value></data>
   <data name="Common_Delete"><value>מחק</value></data>
   <data name="Common_Create"><value>צור</value></data>
+  <data name="Common_Add"><value>הוסף</value></data>
   <data name="Common_Edit"><value>ערוך</value></data>
   <data name="Common_Search"><value>חיפוש</value></data>
   <data name="Common_Loading"><value>טוען...</value></data>

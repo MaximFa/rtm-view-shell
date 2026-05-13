@@ -2547,3 +2547,82 @@ button.clr-swatch,
     background-color: #3D3D3D;
     border-color: var(--clr-primary);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TENANT APPEARANCE SETTINGS — Color/Font Swatches
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.color-swatch-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.color-swatch {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-md);
+    border: 2px solid var(--clr-border-solid);
+    position: relative;
+    cursor: pointer;
+    transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+}
+
+.color-swatch:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-sm);
+}
+
+.color-remove-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--clr-danger);
+    color: #fff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--dur-fast);
+    padding: 0;
+    line-height: 1;
+}
+
+.color-swatch:hover .color-remove-btn {
+    opacity: 1;
+}
+
+.color-code {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    font-family: monospace;
+}
+
+.font-size-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background-color: var(--clr-overlay);
+    border: 1px solid var(--clr-border-solid);
+    border-radius: var(--r-pill);
+    font-size: var(--text-sm);
+}
+
+.font-size-badge .btn-close {
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    font-size: 10px;
+}
+
+.font-size-badge .btn-close::before {
+    font-size: 12px;
+}

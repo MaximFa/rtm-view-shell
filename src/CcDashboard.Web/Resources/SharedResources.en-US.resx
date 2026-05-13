@@ -402,6 +402,9 @@
   <data name="TenantSettings_SignalR"><value>SignalR Widgets</value></data>
   <data name="TenantSettings_SignalRUrl"><value>SignalR Connection URL</value></data>
   <data name="TenantSettings_SignalRUrlHelp"><value>URL for SignalR widgets to connect (e.g., http://localhost:5045). Leave empty to use default.</value></data>
+  <data name="TenantSettings_BackgroundColors"><value>Background Color Palette</value></data>
+  <data name="TenantSettings_FontColors"><value>Font Color Palette</value></data>
+  <data name="TenantSettings_FontSizes"><value>Font Sizes</value></data>
 
   <!-- ── Tenants (Platform) ── -->
   <data name="Tenants_Title"><value>Tenant Management</value></data>
@@ -427,6 +430,7 @@
   <data name="Tenants_EditButton"><value>Save changes →</value></data>
   <data name="Tenants_TabGeneral"><value>General</value></data>
   <data name="Tenants_TabSettings"><value>Settings</value></data>
+  <data name="Tenants_TabAppearance"><value>Appearance</value></data>
   <data name="Tenants_SlugReadOnly"><value>Slug cannot be changed after creation</value></data>
 
   <!-- ── Common ── -->
@@ -439,6 +443,7 @@
   <data name="Common_Cancel"><value>Cancel</value></data>
   <data name="Common_Delete"><value>Delete</value></data>
   <data name="Common_Create"><value>Create</value></data>
+  <data name="Common_Add"><value>Add</value></data>
   <data name="Common_Edit"><value>Edit</value></data>
   <data name="Common_Search"><value>Search</value></data>
   <data name="Common_Loading"><value>Loading...</value></data>

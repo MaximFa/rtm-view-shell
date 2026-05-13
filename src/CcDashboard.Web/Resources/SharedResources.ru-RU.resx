@@ -339,6 +339,9 @@
   <data name="TenantSettings_SignalR"><value>SignalR виджеты</value></data>
   <data name="TenantSettings_SignalRUrl"><value>URL подключения SignalR</value></data>
   <data name="TenantSettings_SignalRUrlHelp"><value>URL для подключения SignalR виджетов (например, http://localhost:5045). Оставьте пустым для значения по умолчанию.</value></data>
+  <data name="TenantSettings_BackgroundColors"><value>Палитра фоновых цветов</value></data>
+  <data name="TenantSettings_FontColors"><value>Палитра цветов шрифта</value></data>
+  <data name="TenantSettings_FontSizes"><value>Размеры шрифта</value></data>
 
   <!-- ── Tenants (Platform) ── -->
   <data name="Tenants_Title"><value>Управление тенантами</value></data>
@@ -364,6 +367,7 @@
   <data name="Tenants_EditButton"><value>Сохранить изменения →</value></data>
   <data name="Tenants_TabGeneral"><value>Общее</value></data>
   <data name="Tenants_TabSettings"><value>Настройки</value></data>
+  <data name="Tenants_TabAppearance"><value>Внешний вид</value></data>
   <data name="Tenants_SlugReadOnly"><value>Слаг нельзя изменить после создания</value></data>
 
   <!-- ── Common ── -->
@@ -376,6 +380,7 @@
   <data name="Common_Cancel"><value>Отмена</value></data>
   <data name="Common_Delete"><value>Удалить</value></data>
   <data name="Common_Create"><value>Создать</value></data>
+  <data name="Common_Add"><value>Добавить</value></data>
   <data name="Common_Edit"><value>Редактировать</value></data>
   <data name="Common_Search"><value>Поиск</value></data>
   <data name="Common_Loading"><value>Загрузка...</value></data>

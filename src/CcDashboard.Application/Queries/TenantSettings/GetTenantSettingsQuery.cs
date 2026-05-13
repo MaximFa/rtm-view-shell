@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Contracts.DTOs.TenantSettings;
 using CcDashboard.Domain.Interfaces;
@@ -12,6 +13,8 @@ public class GetTenantSettingsQueryHandler(
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetTenantSettingsQuery, TenantSettingsDto?>
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     public async Task<TenantSettingsDto?> Handle(GetTenantSettingsQuery query, CancellationToken ct)
     {
         var tenantId = query.TenantId ?? currentUser.TenantId!.Value;
@@ -23,6 +26,16 @@ public class GetTenantSettingsQueryHandler(
             s.Require2faForAll, s.AuditRetentionDays, s.DefaultLocale,
             s.SoftDeleteDashboards, s.SoftDeleteRetentionDays,
             s.PurchasedLicences, s.MaxConcurrentConnections,
-            s.SignalRConnectionUrl);
+            s.SignalRConnectionUrl,
+            ParseJsonList(s.BackgroundColorPalette),
+            ParseJsonList(s.FontColorPalette),
+            ParseJsonList(s.FontSizes));
+    }
+
+    private static List<string>? ParseJsonList(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+        try { return JsonSerializer.Deserialize<List<string>>(json, JsonOptions); }
+        catch { return null; }
     }
 }

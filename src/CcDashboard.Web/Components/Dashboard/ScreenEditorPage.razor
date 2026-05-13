@@ -15,6 +15,7 @@
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Contracts.DTOs.Configuration
 @using CcDashboard.Domain.Enums
+@using CcDashboard.Application.Queries.TenantSettings
 @using Microsoft.AspNetCore.Authorization
 @implements IDisposable
 
@@ -285,9 +286,9 @@
                         <div class="appearance-section">
                             <h6 class="section-label">Colors</h6>
                             <div class="color-settings">
-                                <!-- Widget Header Background -->
+                                <!-- Widget Background -->
                                 <div class="color-setting-row">
-                                    <span class="color-setting-label">Widget Header</span>
+                                    <span class="color-setting-label">Widget Background</span>
                                     <div class="position-relative">
                                         <span class="clr-swatch clr-swatch-lg"
                                               title="@GetColorName(ConfigBackgroundColor, BackgroundColors)"
@@ -932,111 +933,68 @@
                 m.MetricId.Contains(MetricSearchText, StringComparison.OrdinalIgnoreCase) ||
                 (m.Description?.Contains(MetricSearchText, StringComparison.OrdinalIgnoreCase) ?? false));
 
-    // Color palettes — threshold semantic colors
-    private static readonly (string Name, string Value)[] BackgroundColors =
+    // Tenant color palettes - loaded from tenant settings
+    private List<string> _tenantBackgroundColors = [];
+    private List<string> _tenantFontColors = [];
+
+    // Color palettes built from tenant settings
+    private (string Name, string Value)[] BackgroundColors => BuildBackgroundColors();
+    private (string Name, string Value)[] TableBackgroundColors => BuildTableBackgroundColors();
+    private (string Name, string Value)[] FontColors => BuildFontColors();
+    private (string Name, string Value)[] ThresholdBackgroundColors => BuildThresholdBackgroundColors();
+
+    private (string Name, string Value)[] BuildBackgroundColors()
+    {
+        var colors = new List<(string, string)> { ("Transparent", "transparent") };
+        foreach (var c in _tenantBackgroundColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    private (string Name, string Value)[] BuildTableBackgroundColors()
+    {
+        var colors = new List<(string, string)> { ("Transparent", "transparent") };
+        foreach (var c in _tenantBackgroundColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    private (string Name, string Value)[] BuildFontColors()
+    {
+        var colors = new List<(string, string)>();
+        foreach (var c in _tenantFontColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    private (string Name, string Value)[] BuildThresholdBackgroundColors()
+    {
+        var colors = new List<(string, string)> { ("Transparent", "transparent") };
+        foreach (var c in _tenantBackgroundColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    private (string Name, string Value)[] ThresholdFontColors => BuildThresholdFontColors();
+
+    private (string Name, string Value)[] BuildThresholdFontColors()
+    {
+        var colors = new List<(string, string)>();
+        foreach (var c in _tenantFontColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    private static List<string> GetDefaultBackgroundColors() =>
     [
-        ("Transparent", "transparent"),
-        // Neutrals
-        ("White", "#FFFFFF"),
-        ("Null", "#F2F1EF"),
-        ("Null Badge", "#E4E3E0"),
-        ("Dark", "#1A1A1A"),
-        // Threshold backgrounds
-        ("OK", "#EEF7E8"),
-        ("OK Badge", "#D8F0CC"),
-        ("Warning", "#FDF3E3"),
-        ("Warning Badge", "#F9E4BF"),
-        ("Critical", "#FAECEC"),
-        ("Critical Badge", "#F5D0D0")
+        "#FFFFFF", "#F5F5F5", "#E8F5E9", "#FFF3E0", "#FFEBEE",
+        "#E3F2FD", "#F3E5F5", "#FFFDE7", "#E0F7FA", "#FBE9E7"
     ];
 
-    private static readonly (string Name, string Value)[] TableBackgroundColors =
+    private static List<string> GetDefaultFontColors() =>
     [
-        ("Transparent", "transparent"),
-        ("White", "#FFFFFF"),
-        ("Light Gray", "#F8F9FA"),
-        ("Null", "#F2F1EF"),
-        ("Dark", "#1A1A1A"),
-        ("Dark Gray", "#2D2D2D"),
-        // Vibrant colors
-        ("Blue", "#1E90FF"),
-        ("Navy", "#1A3A5C"),
-        ("Sky Blue", "#87CEEB"),
-        ("Green", "#32CD32"),
-        ("Forest", "#228B22"),
-        ("Teal", "#008B8B"),
-        ("Purple", "#8A2BE2"),
-        ("Violet", "#9932CC"),
-        ("Red", "#DC143C"),
-        ("Orange", "#FF8C00"),
-        ("Gold", "#FFD700"),
-        ("Pink", "#FF69B4")
-    ];
-
-    private static readonly (string Name, string Value)[] FontColors =
-    [
-        // Core text colors
-        ("Dark", "#1A1A1A"),
-        ("Null", "#666562"),
-        ("Null Accent", "#8F8E89"),
-        ("White", "#FFFFFF"),
-        // Threshold text colors
-        ("OK", "#2D5A1B"),
-        ("OK Accent", "#4E9A34"),
-        ("Warning", "#7A4A0A"),
-        ("Warning Accent", "#C87E20"),
-        ("Critical", "#882020"),
-        ("Critical Accent", "#C03535")
-    ];
-
-    private static readonly (string Name, string Value)[] ThresholdBackgroundColors =
-    [
-        ("Transparent", "transparent"),
-        ("White", "#FFFFFF"),
-        ("Null", "#F2F1EF"),
-        ("Null Badge", "#E4E3E0"),
-        ("OK", "#EEF7E8"),
-        ("OK Badge", "#D8F0CC"),
-        ("Warning", "#FDF3E3"),
-        ("Warning Badge", "#F9E4BF"),
-        ("Critical", "#FAECEC"),
-        ("Critical Badge", "#F5D0D0"),
-        // Vibrant colors
-        ("Green", "#32CD32"),
-        ("Lime", "#00FF00"),
-        ("Forest", "#228B22"),
-        ("Blue", "#1E90FF"),
-        ("Navy", "#1A3A5C"),
-        ("Cyan", "#00FFFF"),
-        ("Red", "#FF0000"),
-        ("Crimson", "#DC143C"),
-        ("Orange", "#FF8C00"),
-        ("Yellow", "#FFD700"),
-        ("Purple", "#8A2BE2"),
-        ("Magenta", "#FF00FF"),
-        ("Pink", "#FF69B4"),
-        ("Teal", "#008B8B")
-    ];
-
-    private static readonly (string Name, string Value)[] ThresholdFontColors =
-    [
-        ("Dark", "#1A1A1A"),
-        ("White", "#FFFFFF"),
-        ("Null", "#666562"),
-        ("OK", "#2D5A1B"),
-        ("Warning", "#7A4A0A"),
-        ("Critical", "#882020"),
-        // Vibrant colors
-        ("Green", "#00AA00"),
-        ("Lime", "#32CD32"),
-        ("Blue", "#0066CC"),
-        ("Cyan", "#00AAAA"),
-        ("Red", "#DD0000"),
-        ("Orange", "#DD6600"),
-        ("Yellow", "#CCAA00"),
-        ("Purple", "#8800CC"),
-        ("Magenta", "#CC00AA"),
-        ("Pink", "#DD5599")
+        "#000000", "#333333", "#666666", "#1976D2", "#388E3C",
+        "#D32F2F", "#7B1FA2", "#F57C00", "#0097A7", "#5D4037"
     ];
 
     // JS interop for resize
@@ -1106,6 +1064,27 @@
                     BusinessUnits = (await Mediator.Send(new GetBusinessUnitsQuery(Dashboard.TenantId), _cts.Token)).ToList();
                 }
                 catch { BusinessUnits = []; }
+
+                // Load tenant color palettes
+                try
+                {
+                    var tenantSettings = await Mediator.Send(new GetTenantSettingsQuery(Dashboard.TenantId), _cts.Token);
+                    if (tenantSettings is not null)
+                    {
+                        _tenantBackgroundColors = tenantSettings.BackgroundColorPalette ?? GetDefaultBackgroundColors();
+                        _tenantFontColors = tenantSettings.FontColorPalette ?? GetDefaultFontColors();
+                    }
+                    else
+                    {
+                        _tenantBackgroundColors = GetDefaultBackgroundColors();
+                        _tenantFontColors = GetDefaultFontColors();
+                    }
+                }
+                catch
+                {
+                    _tenantBackgroundColors = GetDefaultBackgroundColors();
+                    _tenantFontColors = GetDefaultFontColors();
+                }
             }
 
             try

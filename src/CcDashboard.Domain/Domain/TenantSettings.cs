@@ -20,5 +20,10 @@ public class TenantSettings
     // SignalR widgets connection
     public string? SignalRConnectionUrl { get; set; }
 
+    // Appearance settings (JSON arrays)
+    public string? BackgroundColorPalette { get; set; }  // JSON array of hex colors
+    public string? FontColorPalette { get; set; }        // JSON array of hex colors
+    public string? FontSizes { get; set; }               // JSON array of font size options
+
     public Tenant? Tenant { get; set; }
 }

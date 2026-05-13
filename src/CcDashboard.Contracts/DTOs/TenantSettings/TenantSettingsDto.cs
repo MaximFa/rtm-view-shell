@@ -11,7 +11,10 @@ public record TenantSettingsDto(
     int SoftDeleteRetentionDays,
     int PurchasedLicences,
     int MaxConcurrentConnections,
-    string? SignalRConnectionUrl);
+    string? SignalRConnectionUrl,
+    List<string>? BackgroundColorPalette,
+    List<string>? FontColorPalette,
+    List<string>? FontSizes);
 
 public record UpdateTenantSettingsRequest(
     int PasswordMinLength,
@@ -23,4 +26,7 @@ public record UpdateTenantSettingsRequest(
     int SoftDeleteRetentionDays,
     int PurchasedLicences,
     int MaxConcurrentConnections,
-    string? SignalRConnectionUrl);
+    string? SignalRConnectionUrl,
+    List<string>? BackgroundColorPalette,
+    List<string>? FontColorPalette,
+    List<string>? FontSizes);

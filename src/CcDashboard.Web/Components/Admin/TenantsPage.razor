@@ -166,6 +166,12 @@ else
                                 @L["Tenants_TabSettings"]
                             </button>
                         </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(EditTab == "appearance" ? "active" : "")"
+                                    @onclick='() => EditTab = "appearance"'>
+                                @L["Tenants_TabAppearance"]
+                            </button>
+                        </li>
                     </ul>
 
                     @if (EditTab == "general")
@@ -184,7 +190,7 @@ else
                             <div>@StatusBadge(EditTenant.Status)</div>
                         </div>
                     }
-                    else
+                    else if (EditTab == "settings")
                     {
                         @if (EditSettingsLoading)
                         {
@@ -244,6 +250,16 @@ else
                                         </div>
                                     </div>
                                 </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_SignalR"]</div>
+                                        <div class="card-body">
+                                            <label class="form-label small">@L["TenantSettings_SignalRUrl"]</label>
+                                            <input type="text" class="form-control form-control-sm" placeholder="http://localhost:5045" @bind="EditSignalRConnectionUrl" />
+                                            <div class="form-text">@L["TenantSettings_SignalRUrlHelp"]</div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="col-12">
                                     <div class="card">
                                         <div class="card-header fw-semibold small">@L["TenantSettings_DataRetention"]</div>
@@ -268,22 +284,104 @@ else
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-12">
-                                    <div class="card">
-                                        <div class="card-header fw-semibold small">@L["TenantSettings_SignalR"]</div>
-                                        <div class="card-body">
-                                            <div class="row g-2">
-                                                <div class="col-md-6">
-                                                    <label class="form-label small">@L["TenantSettings_SignalRUrl"]</label>
-                                                    <input type="text" class="form-control form-control-sm" placeholder="http://localhost:5045" @bind="EditSignalRConnectionUrl" />
-                                                    <div class="form-text">@L["TenantSettings_SignalRUrlHelp"]</div>
+                            </div>
+                        }
+                    }
+                    else if (EditTab == "appearance")
+                    {
+                        <div class="row g-3">
+                            <!-- Background Colors -->
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header fw-semibold small d-flex justify-content-between align-items-center">
+                                        @L["TenantSettings_BackgroundColors"]
+                                        <span class="badge bg-secondary">@EditBackgroundColors.Count</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex flex-wrap gap-2 mb-3">
+                                            @foreach (var color in EditBackgroundColors)
+                                            {
+                                                <div class="color-swatch-wrapper">
+                                                    <div class="color-swatch" style="background-color: @color;" title="@color">
+                                                        <button class="color-remove-btn" @onclick="() => EditBackgroundColors.Remove(color)">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                    </div>
+                                                    <span class="color-code">@color</span>
                                                 </div>
-                                            </div>
+                                            }
+                                        </div>
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <input type="color" class="form-control form-control-color" @bind="NewBackgroundColor" />
+                                            <input type="text" class="form-control form-control-sm" style="width: 100px;" @bind="NewBackgroundColor" maxlength="7" />
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="AddBackgroundColor">
+                                                <i class="bi bi-plus"></i> @L["Common_Add"]
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        }
+
+                            <!-- Font Colors -->
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header fw-semibold small d-flex justify-content-between align-items-center">
+                                        @L["TenantSettings_FontColors"]
+                                        <span class="badge bg-secondary">@EditFontColors.Count</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex flex-wrap gap-2 mb-3">
+                                            @foreach (var color in EditFontColors)
+                                            {
+                                                <div class="color-swatch-wrapper">
+                                                    <div class="color-swatch" style="background-color: @color;" title="@color">
+                                                        <button class="color-remove-btn" @onclick="() => EditFontColors.Remove(color)">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                    </div>
+                                                    <span class="color-code">@color</span>
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <input type="color" class="form-control form-control-color" @bind="NewFontColor" />
+                                            <input type="text" class="form-control form-control-sm" style="width: 100px;" @bind="NewFontColor" maxlength="7" />
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="AddFontColor">
+                                                <i class="bi bi-plus"></i> @L["Common_Add"]
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Font Sizes -->
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header fw-semibold small d-flex justify-content-between align-items-center">
+                                        @L["TenantSettings_FontSizes"]
+                                        <span class="badge bg-secondary">@EditFontSizes.Count</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex flex-wrap gap-2 mb-3">
+                                            @foreach (var size in EditFontSizes)
+                                            {
+                                                <div class="font-size-badge">
+                                                    <span>@size px</span>
+                                                    <button class="btn-close btn-close-sm ms-1" @onclick="() => EditFontSizes.Remove(size)"></button>
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <input type="number" class="form-control form-control-sm" style="width: 80px;" @bind="NewFontSize" min="8" max="72" />
+                                            <span class="text-muted small">px</span>
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="AddFontSize">
+                                                <i class="bi bi-plus"></i> @L["Common_Add"]
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     }
                 </div>
                 <div class="modal-footer">
@@ -330,6 +428,14 @@ else
     private int EditPurchasedLicences = 0;
     private int EditMaxConcurrentConnections = 0;
     private string? EditSignalRConnectionUrl;
+
+    // Appearance settings
+    private List<string> EditBackgroundColors = new();
+    private List<string> EditFontColors = new();
+    private List<string> EditFontSizes = new();
+    private string NewBackgroundColor = "#FFFFFF";
+    private string NewFontColor = "#000000";
+    private string NewFontSize = "14";
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -405,9 +511,58 @@ else
             EditPurchasedLicences = s?.PurchasedLicences ?? 0;
             EditMaxConcurrentConnections = s?.MaxConcurrentConnections ?? 0;
             EditSignalRConnectionUrl = s?.SignalRConnectionUrl;
+            EditBackgroundColors = s?.BackgroundColorPalette?.ToList() ?? GetDefaultBackgroundColors();
+            EditFontColors = s?.FontColorPalette?.ToList() ?? GetDefaultFontColors();
+            EditFontSizes = s?.FontSizes?.ToList() ?? GetDefaultFontSizes();
         }
         catch { /* use defaults */ }
         finally { EditSettingsLoading = false; }
+    }
+
+    private static List<string> GetDefaultBackgroundColors() => new()
+    {
+        "#FFFFFF", "#F5F5F5", "#E8F5E9", "#FFF3E0", "#FFEBEE",
+        "#E3F2FD", "#F3E5F5", "#FFFDE7", "#E0F7FA", "#FBE9E7"
+    };
+
+    private static List<string> GetDefaultFontColors() => new()
+    {
+        "#000000", "#333333", "#666666", "#1976D2", "#388E3C",
+        "#D32F2F", "#7B1FA2", "#F57C00", "#0097A7", "#5D4037"
+    };
+
+    private static List<string> GetDefaultFontSizes() => new()
+    {
+        "10", "11", "12", "13", "14", "16", "18", "20", "24", "28", "32"
+    };
+
+    private void AddBackgroundColor()
+    {
+        var color = NewBackgroundColor?.Trim().ToUpperInvariant();
+        if (!string.IsNullOrEmpty(color) && !EditBackgroundColors.Contains(color))
+        {
+            EditBackgroundColors.Add(color);
+            NewBackgroundColor = "#FFFFFF";
+        }
+    }
+
+    private void AddFontColor()
+    {
+        var color = NewFontColor?.Trim().ToUpperInvariant();
+        if (!string.IsNullOrEmpty(color) && !EditFontColors.Contains(color))
+        {
+            EditFontColors.Add(color);
+            NewFontColor = "#000000";
+        }
+    }
+
+    private void AddFontSize()
+    {
+        if (!string.IsNullOrEmpty(NewFontSize) && !EditFontSizes.Contains(NewFontSize))
+        {
+            EditFontSizes.Add(NewFontSize);
+            NewFontSize = "14";
+        }
     }
 
     private async Task SaveEdit()
@@ -426,7 +581,8 @@ else
                     EditAuditRetentionDays, EditDefaultLocale,
                     EditSoftDelete, EditSoftDeleteRetentionDays,
                     EditPurchasedLicences, EditMaxConcurrentConnections,
-                    EditSignalRConnectionUrl),
+                    EditSignalRConnectionUrl,
+                    EditBackgroundColors, EditFontColors, EditFontSizes),
                 EditTenant.Id));
             EditSaveSuccess = true;
             await LoadAsync();
