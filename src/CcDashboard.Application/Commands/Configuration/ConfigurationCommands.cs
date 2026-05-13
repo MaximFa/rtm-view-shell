@@ -281,7 +281,9 @@ public class SaveRtsGridMetricCommandHandler(
                 MetricFunction = req.MetricFunction.Trim(),
                 MetricParameter = req.MetricParameter.Trim(),
                 MetricFormat = req.MetricFormat?.Trim(),
-                DefaultValue = req.DefaultValue?.Trim()
+                DefaultValue = req.DefaultValue?.Trim(),
+                ValueType = req.ValueType?.Trim() ?? "String",
+                MetricType = req.MetricType?.Trim() ?? "Agent"
             }, ct);
         }
         else
@@ -294,6 +296,8 @@ public class SaveRtsGridMetricCommandHandler(
             metric.MetricParameter = req.MetricParameter.Trim();
             metric.MetricFormat = req.MetricFormat?.Trim();
             metric.DefaultValue = req.DefaultValue?.Trim();
+            metric.ValueType = req.ValueType?.Trim() ?? "String";
+            metric.MetricType = req.MetricType?.Trim() ?? "Agent";
             repo.Update(metric);
         }
 

@@ -2248,6 +2248,14 @@ button.clr-swatch,
     z-index: 100;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   AGENT GRID WIDGET — Row Hover
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.agent-grid-widget.row-hover-enabled .agent-grid-row:hover td {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
 .editor-header .form-control {
     background-color: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);

@@ -77,13 +77,45 @@ public class DatabaseInitializer(
             logger.LogInformation("Created platform tenant: {Id}", tenant.Id);
         }
 
-        var hasSettings = await db.TenantSettings.IgnoreQueryFilters()
-            .AnyAsync(s => s.TenantId == tenant.Id, ct);
-        if (!hasSettings)
+        var settings = await db.TenantSettings.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TenantId == tenant.Id, ct);
+
+        if (settings == null)
         {
-            db.TenantSettings.Add(new TenantSettings { TenantId = tenant.Id });
-            await db.SaveChangesAsync(ct);
+            settings = new TenantSettings { TenantId = tenant.Id };
+            db.TenantSettings.Add(settings);
         }
+
+        // Seed default color palettes if not set
+        if (string.IsNullOrEmpty(settings.BackgroundColorPalette))
+        {
+            // Enterprise palette: Widget backgrounds + Status badge backgrounds
+            settings.BackgroundColorPalette = """
+            [
+                "#FFFFFF", "#F8F9FA", "#F5F5F5", "#EEEEEE", "#E0E0E0",
+                "#1A237E", "#0D47A1", "#01579B", "#006064", "#004D40",
+                "#1B5E20", "#33691E", "#827717", "#F57F17", "#E65100",
+                "#BF360C", "#3E2723", "#263238", "#212121", "#000000",
+                "#E8F5E9", "#E3F2FD", "#FFF8E1", "#E0F7FA", "#ECEFF1",
+                "#FFEBEE", "#F3E5F5", "#EDE7F6"
+            ]
+            """;
+        }
+
+        if (string.IsNullOrEmpty(settings.FontColorPalette))
+        {
+            // Enterprise palette: Text colors + Status badge text colors
+            settings.FontColorPalette = """
+            [
+                "#212121", "#424242", "#616161", "#757575", "#9E9E9E",
+                "#FFFFFF", "#F5F5F5", "#EEEEEE",
+                "#2E7D32", "#1565C0", "#F57F17", "#00838F", "#5D4037",
+                "#C62828", "#6A1B9A", "#283593"
+            ]
+            """;
+        }
+
+        await db.SaveChangesAsync(ct);
 
         return tenant;
     }

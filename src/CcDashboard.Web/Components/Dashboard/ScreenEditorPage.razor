@@ -209,6 +209,9 @@
                             <li class="nav-item">
                                 <button class="nav-link @(ConfigActiveTab == "columns" ? "active" : "")" @onclick='() => ConfigActiveTab = "columns"'>Columns</button>
                             </li>
+                            <li class="nav-item">
+                                <button class="nav-link @(ConfigActiveTab == "score" ? "active" : "")" @onclick='() => ConfigActiveTab = "score"'>Score</button>
+                            </li>
                         }
                         @if (IsQueueGridWidget(ConfiguringWidget))
                         {
@@ -268,6 +271,74 @@
                                 }
                             </div>
                         </div>
+
+                        @if (IsAgentGridWidget(ConfiguringWidget))
+                        {
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="showAvatar" @bind="ConfigShowAvatar" />
+                                        <label class="form-check-label" for="showAvatar">@L["Widgets_AgentGrid_ShowAvatar"]</label>
+                                    </div>
+                                    @if (ConfigShowAvatar)
+                                    {
+                                        <!-- Avatar BG Color -->
+                                        <div class="d-flex align-items-center gap-1">
+                                            <span class="small text-muted">BG:</span>
+                                            <div class="position-relative">
+                                                <span class="clr-swatch"
+                                                      title="Avatar Background"
+                                                      style="@GetColorStyle(ConfigAvatarBgColor ?? "#1e3461"); cursor: pointer;"
+                                                      @onclick='() => ToggleAvatarColorPalette("avatarBg")'
+                                                      @onclick:stopPropagation></span>
+                                                @if (_openColorPalette == "avatarBg")
+                                                {
+                                                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                         @onclick="CloseColorPalette"></div>
+                                                    <div class="color-palette-dropdown">
+                                                        @foreach (var color in BackgroundColors.Where(c => c.Value != "transparent"))
+                                                        {
+                                                            <span class="clr-swatch @(ConfigAvatarBgColor == color.Value ? "selected" : "")"
+                                                                  title="@color.Name"
+                                                                  style="@GetColorStyle(color.Value)"
+                                                                  @onclick="() => { ConfigAvatarBgColor = color.Value; CloseColorPalette(); }"
+                                                                  @onclick:stopPropagation></span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                        <!-- Avatar Font Color -->
+                                        <div class="d-flex align-items-center gap-1">
+                                            <span class="small text-muted">Font:</span>
+                                            <div class="position-relative">
+                                                <span class="clr-swatch"
+                                                      title="Avatar Font"
+                                                      style="@GetColorStyle(ConfigAvatarFontColor ?? "#FFFFFF"); cursor: pointer;"
+                                                      @onclick='() => ToggleAvatarColorPalette("avatarFont")'
+                                                      @onclick:stopPropagation></span>
+                                                @if (_openColorPalette == "avatarFont")
+                                                {
+                                                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                         @onclick="CloseColorPalette"></div>
+                                                    <div class="color-palette-dropdown">
+                                                        @foreach (var color in FontColors)
+                                                        {
+                                                            <span class="clr-swatch @(ConfigAvatarFontColor == color.Value ? "selected" : "")"
+                                                                  title="@color.Name"
+                                                                  style="@GetColorStyle(color.Value)"
+                                                                  @onclick="() => { ConfigAvatarFontColor = color.Value; CloseColorPalette(); }"
+                                                                  @onclick:stopPropagation></span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="form-text text-muted small">@L["Widgets_AgentGrid_ShowAvatar_Help"]</div>
+                            </div>
+                        }
 
                     }
 
@@ -377,6 +448,16 @@
                                             }
                                         </div>
                                     </div>
+
+                                    <!-- Row Hover -->
+                                    <div class="color-setting-row">
+                                        <span class="color-setting-label">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" id="showRowHover" @bind="ConfigShowRowHover" />
+                                                <label class="form-check-label" for="showRowHover">Row Hover</label>
+                                            </div>
+                                        </span>
+                                    </div>
                                 }
                             </div>
                         </div>
@@ -392,9 +473,9 @@
                             <label class="form-label">Column</label>
                             <select class="form-select form-select-sm" @bind="SelectedThresholdColumn">
                                 <option value="">-- Select column --</option>
-                                @foreach (var col in AvailableColumnKeys)
+                                @foreach (var col in ConfigAgentColumnDefs)
                                 {
-                                    <option value="@col">@L[$"Widgets_AgentGrid_Col_{char.ToUpper(col[0])}{col[1..]}"]</option>
+                                    <option value="@col.MetricId">@col.Name</option>
                                 }
                             </select>
                         </div>
@@ -402,7 +483,7 @@
                         @if (!string.IsNullOrEmpty(SelectedThresholdColumn))
                         {
                             var colThresholds = GetColumnThresholds(SelectedThresholdColumn);
-                            var isNumeric = NumericColumns.Contains(SelectedThresholdColumn);
+                            var isNumeric = IsNumericMetric(SelectedThresholdColumn);
 
                             @for (int i = 0; i < colThresholds.Count; i++)
                             {
@@ -806,6 +887,139 @@
                         </div>
                     }
 
+                    <!-- Tab: Score (Agent Grid only) -->
+                    @if (ConfigActiveTab == "score" && IsAgentGridWidget(ConfiguringWidget))
+                    {
+                        <div class="score-tab">
+                            <!-- Score Enable/Disable -->
+                            <div class="mb-4">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="showScore" @bind="ConfigShowScore" />
+                                    <label class="form-check-label fw-medium" for="showScore">@L["Widgets_AgentGrid_ShowScore"]</label>
+                                </div>
+                                <div class="form-text text-muted small">@L["Widgets_AgentGrid_ShowScore_Help"]</div>
+                            </div>
+
+                            @if (ConfigShowScore)
+                            {
+                                <!-- Star Color Selection -->
+                                <div class="mb-4">
+                                    <label class="form-label small fw-medium">@L["Widgets_AgentGrid_ScoreStarColor"]</label>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        @foreach (var color in ScoreStarColors)
+                                        {
+                                            <span class="clr-swatch clr-swatch-lg @(ConfigScoreStarColor == color.Value ? "selected" : "")"
+                                                  title="@color.Name"
+                                                  style="background-color: @color.Value; cursor: pointer; @(ConfigScoreStarColor == color.Value ? "box-shadow: 0 0 0 2px #fff, 0 0 0 4px " + color.Value + ";" : "")"
+                                                  @onclick="() => ConfigScoreStarColor = color.Value"></span>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Formula Builder -->
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label small fw-medium mb-0">@L["Widgets_AgentGrid_ScoreFormula"]</label>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddScoreFormulaRule">
+                                            <i class="bi bi-plus"></i> @L["Common_Add"]
+                                        </button>
+                                    </div>
+                                    <p class="text-muted small mb-3">@L["Widgets_AgentGrid_ScoreFormula_Help"]</p>
+
+                                    @if (ConfigScoreFormula.Count > 0)
+                                    {
+                                        <div class="score-formula-list border rounded p-2" style="max-height: 300px; overflow-y: auto;">
+                                            @for (int i = 0; i < ConfigScoreFormula.Count; i++)
+                                            {
+                                                var rule = ConfigScoreFormula[i];
+                                                var ruleId = rule.Id;
+                                                var ruleIdx = i;
+
+                                                <div class="score-rule-row d-flex gap-2 align-items-center mb-2 p-2 bg-light rounded" @key="ruleId">
+                                                    <!-- Metric Selection -->
+                                                    <div class="flex-grow-1" style="min-width: 200px;">
+                                                        <select class="form-select form-select-sm"
+                                                                value="@rule.MetricId"
+                                                                @onchange="e => UpdateScoreRuleMetric(ruleId, e.Value?.ToString())">
+                                                            <option value="">-- @L["Common_SelectMetric"] --</option>
+                                                            @foreach (var metric in GetNumericAgentMetrics())
+                                                            {
+                                                                <option value="@metric.MetricId">@metric.Description</option>
+                                                            }
+                                                        </select>
+                                                    </div>
+
+                                                    <!-- Operator Selection -->
+                                                    <div style="width: 80px;">
+                                                        <select class="form-select form-select-sm"
+                                                                value="@rule.Operator"
+                                                                @onchange="e => UpdateScoreRuleOperator(ruleId, e.Value?.ToString())">
+                                                            <option value=">=">≥</option>
+                                                            <option value="<=">≤</option>
+                                                            <option value=">">&gt;</option>
+                                                            <option value="<">&lt;</option>
+                                                            <option value="==">==</option>
+                                                            <option value="!=">≠</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <!-- Value Input -->
+                                                    <div style="width: 100px;">
+                                                        <input type="text" class="form-control form-control-sm"
+                                                               placeholder="@L["Common_Value"]"
+                                                               value="@rule.Value"
+                                                               @onchange="e => UpdateScoreRuleValue(ruleId, e.Value?.ToString())" />
+                                                    </div>
+
+                                                    <!-- Remove Button -->
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-danger"
+                                                            @onclick="() => RemoveScoreFormulaRule(ruleId)"
+                                                            title="@L["Common_Remove"]">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+
+                                                @if (i < ConfigScoreFormula.Count - 1)
+                                                {
+                                                    <div class="text-center text-muted small my-1">AND</div>
+                                                }
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-center text-muted py-4 border rounded">
+                                            <i class="bi bi-calculator fs-2 mb-2 d-block opacity-50"></i>
+                                            <p class="mb-2 small">@L["Widgets_AgentGrid_NoScoreRules"]</p>
+                                            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddScoreFormulaRule">
+                                                <i class="bi bi-plus"></i> @L["Widgets_AgentGrid_AddFirstRule"]
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- Score Preview -->
+                                <div class="score-preview mt-4 p-3 border rounded bg-light">
+                                    <label class="form-label small fw-medium">@L["Widgets_AgentGrid_ScorePreview"]</label>
+                                    <div class="d-flex gap-1 align-items-center">
+                                        @{
+                                            var starColor = ConfigScoreStarColor ?? "#ffc107";
+                                            var previewScore = ConfigScoreFormula.Count > 0
+                                                ? Math.Round((3.0 / ConfigScoreFormula.Count) * 5.0, 1)
+                                                : 3.5;
+                                        }
+                                        <i class="bi bi-star-fill" style="color: @starColor; font-size: 1.25rem;"></i>
+                                        <i class="bi bi-star-fill" style="color: @starColor; font-size: 1.25rem;"></i>
+                                        <i class="bi bi-star-fill" style="color: @starColor; font-size: 1.25rem;"></i>
+                                        <i class="bi bi-star-half" style="color: @starColor; font-size: 1.25rem;"></i>
+                                        <i class="bi bi-star" style="color: @starColor; font-size: 1.25rem;"></i>
+                                        <span class="ms-2 text-muted small">3.5 / 5 (70%)</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
                     <!-- Tab: Rows (Queue Grid only) -->
                     @if (ConfigActiveTab == "rows" && IsQueueGridWidget(ConfiguringWidget))
                     {
@@ -1171,6 +1385,18 @@
     private Dictionary<string, string> ConfigAgentColumnNames = new();  // Legacy
     private List<AgentGridColumnDef> ConfigAgentColumnDefs = new();  // New column definitions
 
+    // Avatar and Score settings
+    private bool ConfigShowAvatar = false;
+    private string? ConfigAvatarBgColor;
+    private string? ConfigAvatarFontColor;
+    private bool ConfigShowScore = false;
+    private string? ConfigScoreStarColor;
+    private List<ScoreFormulaRule> ConfigScoreFormula = new();
+
+    // Row hover settings
+    private bool ConfigShowRowHover = false;
+    private string? ConfigRowHoverColor;
+
     // Per-column thresholds
     private Dictionary<string, List<ColumnThreshold>> ConfigColumnThresholds = new();
     private string SelectedThresholdColumn = "";
@@ -1190,9 +1416,6 @@
 
     private static readonly string[] AvailableTeams = ["Sales Team", "Support Team", "VIP Team"];
     private static readonly string[] AvailableStates = ["Ready", "Talking", "Hold", "Acw", "NotReady", "Outbound", "LoggedOut"];
-    private static readonly string[] AvailableColumnKeys = ["agent", "state", "duration", "queue", "occupancy", "adherence", "calls", "aht"];
-    private static readonly string[] NumericColumns = ["duration", "occupancy", "adherence", "calls", "aht"];
-    private static readonly string[] TextColumns = ["agent", "state", "queue"];
 
     // Reference data from DB
     private List<BusinessUnitDto> BusinessUnits = [];
@@ -1218,10 +1441,9 @@
                 m.MetricId.Contains(MetricSearchText, StringComparison.OrdinalIgnoreCase) ||
                 (m.Description?.Contains(MetricSearchText, StringComparison.OrdinalIgnoreCase) ?? false));
 
-    // Queue Grid metrics - filter by "QM" or "Agent Group" description prefix
+    // Queue Grid metrics - filter by MetricType = "Data"
     private IEnumerable<RtsGridMetricDto> QueueGridMetrics => Metrics.Where(m =>
-        (m.Description?.StartsWith("QM", StringComparison.OrdinalIgnoreCase) ?? false) ||
-        (m.Description?.StartsWith("Agent Group", StringComparison.OrdinalIgnoreCase) ?? false));
+        m.MetricType == "Data");
 
     private IEnumerable<RtsGridMetricDto> FilteredQueueGridMetrics =>
         string.IsNullOrWhiteSpace(_queueColumnMetricSearch)
@@ -1438,6 +1660,26 @@
     {
         var colors = new List<(string, string)>();
         foreach (var c in _tenantFontColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    // Score star colors from tenant palette (background colors work well for stars)
+    private (string Name, string Value)[] ScoreStarColors => BuildScoreStarColors();
+
+    private (string Name, string Value)[] BuildScoreStarColors()
+    {
+        var colors = new List<(string, string)>
+        {
+            ("Gold (Default)", "#ffc107"),
+            ("Green", "#28a745"),
+            ("Blue", "#007bff"),
+            ("Orange", "#fd7e14"),
+            ("Red", "#dc3545"),
+            ("Purple", "#6f42c1")
+        };
+        // Add tenant custom colors
+        foreach (var c in _tenantFontColors.Where(c => !colors.Any(x => x.Item2.Equals(c, StringComparison.OrdinalIgnoreCase))))
             colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
         return colors.ToArray();
     }
@@ -1788,10 +2030,11 @@
             Id = c.Id,
             Name = c.Name,
             MetricId = c.MetricId,
-            DbColumnId = c.DbColumnId  // Preserve RTS column reference
+            DbColumnId = c.DbColumnId,  // Preserve RTS column reference
+            DataType = c.DataType ?? "text"  // Preserve detected data type
         }).ToList() ?? GetDefaultColumnDefs();
 
-        // Column thresholds
+        // Column thresholds - exact MetricId keys only
         ConfigColumnThresholds = widget.Config.ColumnThresholds != null
             ? widget.Config.ColumnThresholds.ToDictionary(
                 kvp => kvp.Key,
@@ -1817,6 +2060,22 @@
             Value = f.Value,
             Connector = f.Connector
         }).ToList() ?? new List<TableFilterRule>();
+
+        // Avatar and Score settings
+        ConfigShowAvatar = widget.Config.ShowAvatar;
+        ConfigAvatarBgColor = widget.Config.AvatarBgColor ?? "#1e3461";
+        ConfigAvatarFontColor = widget.Config.AvatarFontColor ?? "#FFFFFF";
+        ConfigShowRowHover = widget.Config.ShowRowHover;
+        ConfigRowHoverColor = widget.Config.RowHoverColor;
+        ConfigShowScore = widget.Config.ShowScore;
+        ConfigScoreStarColor = widget.Config.ScoreStarColor ?? "#ffc107";
+        ConfigScoreFormula = widget.Config.ScoreFormula?.Select(r => new ScoreFormulaRule
+        {
+            Id = r.Id,
+            MetricId = r.MetricId,
+            Operator = r.Operator,
+            Value = r.Value
+        }).ToList() ?? new List<ScoreFormulaRule>();
 
         // Queue Grid specific
         ConfigQueueGridRows = widget.Config.QueueGridRows?.Select(r => new QueueGridRowDef
@@ -1924,10 +2183,15 @@
 
     private IEnumerable<RtsGridMetricDto> GetAgentMetrics()
     {
-        // Agent Grid: Description starts with "Agent" but NOT "Agent Group"
-        return Metrics.Where(m =>
-            m.Description?.StartsWith("Agent", StringComparison.OrdinalIgnoreCase) == true &&
-            !m.Description.StartsWith("Agent Group", StringComparison.OrdinalIgnoreCase));
+        // Agent Grid: MetricType = "Agent"
+        return Metrics.Where(m => m.MetricType == "Agent");
+    }
+
+    private IEnumerable<RtsGridMetricDto> GetNumericAgentMetrics()
+    {
+        // Score formula: Agent metrics with numeric ValueType (Number or Time)
+        return Metrics.Where(m => m.MetricType == "Agent" &&
+            (m.ValueType == "Number" || m.ValueType == "Time"));
     }
 
     private IEnumerable<RtsGridMetricDto> GetFilteredAgentMetrics(string? search)
@@ -2016,6 +2280,40 @@
     {
         var col = ConfigAgentColumnDefs.FirstOrDefault(c => c.Id == id);
         if (col != null) col.MetricId = metricId ?? "";
+    }
+
+    // Score formula management
+    private void AddScoreFormulaRule()
+    {
+        ConfigScoreFormula.Add(new ScoreFormulaRule
+        {
+            MetricId = "",
+            Operator = ">=",
+            Value = ""
+        });
+    }
+
+    private void RemoveScoreFormulaRule(string id)
+    {
+        ConfigScoreFormula.RemoveAll(r => r.Id == id);
+    }
+
+    private void UpdateScoreRuleMetric(string id, string? metricId)
+    {
+        var rule = ConfigScoreFormula.FirstOrDefault(r => r.Id == id);
+        if (rule != null) rule.MetricId = metricId ?? "";
+    }
+
+    private void UpdateScoreRuleOperator(string id, string? op)
+    {
+        var rule = ConfigScoreFormula.FirstOrDefault(r => r.Id == id);
+        if (rule != null) rule.Operator = op ?? ">=";
+    }
+
+    private void UpdateScoreRuleValue(string id, string? value)
+    {
+        var rule = ConfigScoreFormula.FirstOrDefault(r => r.Id == id);
+        if (rule != null) rule.Value = value ?? "";
     }
 
     private void CloseWidgetConfig()
@@ -2177,6 +2475,17 @@
             TableFilters = ConfigTableFilters.Where(f => !string.IsNullOrEmpty(f.MetricId)).ToList() is { Count: > 0 } filters
                 ? filters
                 : null,
+            // Avatar and Score settings
+            ShowAvatar = ConfigShowAvatar,
+            AvatarBgColor = ConfigAvatarBgColor,
+            AvatarFontColor = ConfigAvatarFontColor,
+            ShowRowHover = ConfigShowRowHover,
+            RowHoverColor = ConfigRowHoverColor,
+            ShowScore = ConfigShowScore,
+            ScoreStarColor = ConfigScoreStarColor,
+            ScoreFormula = ConfigScoreFormula.Where(r => !string.IsNullOrEmpty(r.MetricId)).ToList() is { Count: > 0 } scoreRules
+                ? scoreRules
+                : null,
             // Queue Grid specific
             QueueGridRows = ConfigQueueGridRows.Count > 0 ? ConfigQueueGridRows : null,
             QueueGridColumnDefs = ConfigQueueGridColumnDefs.Count > 0 ? ConfigQueueGridColumnDefs : null
@@ -2274,6 +2583,22 @@
     }
 
     // Column threshold management
+    private bool IsNumericMetric(string metricId)
+    {
+        // Check ValueType from the metric definition in database
+        var metric = Metrics.FirstOrDefault(m => m.MetricId == metricId);
+        if (metric != null && !string.IsNullOrEmpty(metric.ValueType))
+        {
+            return metric.ValueType == "Number" || metric.ValueType == "Time";
+        }
+        // Fallback to pattern matching if metric not found
+        if (string.IsNullOrEmpty(metricId)) return false;
+        var id = metricId.ToLowerInvariant();
+        return id.Contains("duration") || id.Contains("occupancy") || id.Contains("adherence") ||
+               id.Contains("calls") || id.Contains("aht") || id.Contains("time") || id.Contains("percent") ||
+               id.Contains("pct") || id.Contains("total") || id.Contains("avg") || id.Contains("count");
+    }
+
     private List<ColumnThreshold> GetColumnThresholds(string column)
     {
         if (!ConfigColumnThresholds.TryGetValue(column, out var thresholds))
@@ -2287,7 +2612,7 @@
     private void AddColThreshold(string column)
     {
         var thresholds = GetColumnThresholds(column);
-        var isNumeric = NumericColumns.Contains(column);
+        var isNumeric = IsNumericMetric(column);  // Check ValueType from database
         thresholds.Add(new ColumnThreshold
         {
             MatchType = isNumeric ? "numeric" : "text",
@@ -2409,32 +2734,28 @@
             ConfigTableFilters[index].Connector = connector;
     }
 
-    private static bool IsNumericMetricForFilter(string metricId)
+    private bool IsNumericMetricForFilter(string metricId)
     {
         if (string.IsNullOrEmpty(metricId)) return false;
-        // Pattern-based detection (same logic as AgentGridWidget)
+        // Check ValueType from database
+        var metric = Metrics.FirstOrDefault(m => m.MetricId == metricId);
+        if (metric != null && !string.IsNullOrEmpty(metric.ValueType))
+        {
+            return metric.ValueType == "Number" || metric.ValueType == "Time";
+        }
+        // Fallback to pattern matching if metric not found in database
         if (metricId.Contains("Name", StringComparison.OrdinalIgnoreCase)) return false;
         if (metricId.Contains("Extension", StringComparison.OrdinalIgnoreCase)) return false;
         if (metricId.Contains("State", StringComparison.OrdinalIgnoreCase) &&
             !metricId.Contains("Duration", StringComparison.OrdinalIgnoreCase)) return false;
-        if (metricId.Contains("Queue", StringComparison.OrdinalIgnoreCase) &&
-            !metricId.Contains("Duration", StringComparison.OrdinalIgnoreCase)) return false;
-
         if (metricId.Contains("Duration", StringComparison.OrdinalIgnoreCase)) return true;
         if (metricId.Contains("Time", StringComparison.OrdinalIgnoreCase)) return true;
-        if (metricId.Contains("Occupancy", StringComparison.OrdinalIgnoreCase)) return true;
-        if (metricId.Contains("Adherence", StringComparison.OrdinalIgnoreCase)) return true;
-        if (metricId.Contains("Calls", StringComparison.OrdinalIgnoreCase)) return true;
-        if (metricId.Contains("AHT", StringComparison.OrdinalIgnoreCase)) return true;
         if (metricId.Contains("Pct", StringComparison.OrdinalIgnoreCase)) return true;
-        if (metricId.Contains("Avg", StringComparison.OrdinalIgnoreCase)) return true;
-        if (metricId.Contains("Number", StringComparison.OrdinalIgnoreCase)) return true;
         if (metricId.Contains("Num", StringComparison.OrdinalIgnoreCase)) return true;
-
         return false;
     }
 
-    private static IEnumerable<(string Value, string Label)> GetOperatorsForMetric(string metricId)
+    private IEnumerable<(string Value, string Label)> GetOperatorsForMetric(string metricId)
     {
         if (IsNumericMetricForFilter(metricId))
         {
@@ -2612,6 +2933,7 @@
     private void ToggleBgColorPalette() => _openColorPalette = _openColorPalette == "bg" ? null : "bg";
     private void ToggleFontColorPalette() => _openColorPalette = _openColorPalette == "font" ? null : "font";
     private void ToggleTableColorPalette() => _openColorPalette = _openColorPalette == "table" ? null : "table";
+    private void ToggleAvatarColorPalette(string key) => _openColorPalette = _openColorPalette == key ? null : key;
     private void CloseColorPalette() => _openColorPalette = null;
 
     private void SelectBackgroundColor(string color)
@@ -2730,6 +3052,20 @@
         public Dictionary<string, string>? AgentGridColumnNames { get; set; }  // Legacy - kept for backward compatibility
         public List<AgentGridColumnDef>? AgentGridColumnDefs { get; set; }  // New column definitions
 
+        // Avatar settings (Agent Grid)
+        public bool ShowAvatar { get; set; } = false;
+        public string? AvatarBgColor { get; set; }
+        public string? AvatarFontColor { get; set; }
+
+        // Row hover settings (Agent Grid)
+        public bool ShowRowHover { get; set; } = false;
+        public string? RowHoverColor { get; set; }
+
+        // Score settings (Agent Grid)
+        public bool ShowScore { get; set; } = false;
+        public string? ScoreStarColor { get; set; }  // Color from tenant palette
+        public List<ScoreFormulaRule>? ScoreFormula { get; set; }  // Formula rules
+
         // Per-column thresholds: key = column name, value = list of rules
         public Dictionary<string, List<ColumnThreshold>>? ColumnThresholds { get; set; }
 
@@ -2767,6 +3103,7 @@
         public string Name { get; set; } = "";  // Display name
         public string MetricId { get; set; } = "";  // Reference to RtsGridMetric.MetricId
         public int? DbColumnId { get; set; }  // RTSUserGrid_Column.ColumnId, null if not yet inserted
+        public string DataType { get; set; } = "text";  // "text", "time", "number" - detected from actual data
     }
 
     public class ThresholdRule
@@ -2799,6 +3136,14 @@
         public string Operator { get; set; } = "contains";  // MatchType strings: contains, equal, greater, etc.
         public string Value { get; set; } = "";  // Filter value as text
         public string Connector { get; set; } = "AND";  // "AND" or "OR" — logical connector before this rule
+    }
+
+    public class ScoreFormulaRule
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string MetricId { get; set; } = "";  // References RtsGridMetric.MetricId
+        public string Operator { get; set; } = ">=";  // >=, <=, >, <, ==, !=
+        public string Value { get; set; } = "";  // Threshold value
     }
 
     public class StringOrNumberConverter : System.Text.Json.Serialization.JsonConverter<string?>

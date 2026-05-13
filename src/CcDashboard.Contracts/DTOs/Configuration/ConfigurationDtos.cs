@@ -32,7 +32,9 @@ public record RtsGridMetricDto(
     string MetricFunction,
     string MetricParameter,
     string? MetricFormat,
-    string? DefaultValue);
+    string? DefaultValue,
+    string ValueType,   // String, Time, Number
+    string MetricType); // Agent, Data
 
 // ── Request records ──────────────────────────────────────────────────────────
 
@@ -66,4 +68,6 @@ public record SaveRtsGridMetricRequest(
     string MetricParameter,
     string? MetricFormat,
     string? DefaultValue,
+    string ValueType,   // String, Time, Number
+    string MetricType,  // Agent, Data
     bool IsNew);

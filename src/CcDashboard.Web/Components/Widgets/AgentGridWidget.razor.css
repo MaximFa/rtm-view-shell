@@ -16,12 +16,13 @@
     flex-shrink: 0;
 }
 
-.avatar-success { background-color: #198754; }
-.avatar-primary { background-color: #0d6efd; }
-.avatar-warning { background-color: #ffc107; color: #212529; }
-.avatar-info { background-color: #0dcaf0; color: #212529; }
-.avatar-secondary { background-color: #6c757d; }
-.avatar-dark { background-color: #212529; }
+/* Avatar colors - matching enterprise badge scheme */
+.avatar-success { background-color: #43A047; }
+.avatar-primary { background-color: #1976D2; }
+.avatar-warning { background-color: #FFA000; color: #212529; }
+.avatar-info { background-color: #00ACC1; }
+.avatar-secondary { background-color: #78909C; }
+.avatar-meeting { background-color: #8E24AA; }
 
 .agent-grid-body table th {
     font-weight: 500;
@@ -37,7 +38,14 @@
     padding-block: 0.4rem;
 }
 
-/* Badge and threshold-badge styles moved to app.css for RenderFragment compatibility */
+/* Threshold badge - inline badge with rounded corners */
+.threshold-badge {
+    display: inline-block;
+    padding: 0.15em 0.5em;
+    border-radius: 4px;
+    font-weight: 500;
+    white-space: nowrap;
+}
 
 /* Pagination */
 .agent-grid-pagination {
@@ -59,4 +67,90 @@
 
 .pagination-btn:disabled {
     opacity: 0.4;
+}
+
+/* Live indicator dot */
+.live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.live-dot.connected {
+    background-color: #198754;
+    animation: pulse-green 2s infinite;
+}
+
+.live-dot.disconnected {
+    background-color: #dc3545;
+}
+
+@keyframes pulse-green {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4); }
+    50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(25, 135, 84, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-dot.connected {
+        animation: none;
+    }
+}
+
+/* Row hover effect moved to app.css (global, unscoped) */
+
+/* Enterprise-grade status badges - muted, professional */
+.badge-status {
+    font-weight: 500;
+    padding: 0.2em 0.5em;
+    border-radius: 4px;
+    white-space: nowrap;
+    /* No font-size - inherits from Appearance configuration */
+}
+
+/* Light badges with dark text - enterprise default */
+.badge-available {
+    background-color: #E8F5E9;
+    color: #2E7D32;
+}
+
+.badge-oncall {
+    background-color: #E3F2FD;
+    color: #1565C0;
+}
+
+.badge-break {
+    background-color: #FFF8E1;
+    color: #F57F17;
+}
+
+.badge-acw {
+    background-color: #E0F7FA;
+    color: #00838F;
+}
+
+.badge-unavailable {
+    background-color: #ECEFF1;
+    color: #546E7A;
+}
+
+.badge-meeting {
+    background-color: #F3E5F5;
+    color: #7B1FA2;
+}
+
+.badge-default {
+    background-color: #F5F5F5;
+    color: #616161;
+}
+
+/* Filter dropdown z-index fix */
+.filter-dropdown {
+    z-index: 1050 !important;
+}
+
+/* Filter overlay - transparent click catcher */
+.filter-overlay {
+    background: transparent;
+    cursor: default;
 }

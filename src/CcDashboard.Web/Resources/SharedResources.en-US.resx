@@ -209,6 +209,19 @@
   <data name="Widget_Retry"><value>Retry</value></data>
   <data name="Widget_Live"><value>Live</value></data>
   <data name="Widget_Reconnecting"><value>Reconnecting...</value></data>
+  <data name="Widget_ReloadPage"><value>Reload page</value></data>
+  <data name="Widget_ActiveFilters"><value>active filters</value></data>
+  <data name="Widget_ClearAllFilters"><value>Clear all</value></data>
+  <data name="Widget_ClearFilters"><value>Clear filters</value></data>
+  <data name="Widget_NoMatchingAgents"><value>No agents match filters</value></data>
+  <data name="Widget_SortBy"><value>Sort by {0}</value></data>
+  <data name="Widget_SortedAsc"><value>Sorted ascending</value></data>
+  <data name="Widget_SortedDesc"><value>Sorted descending</value></data>
+  <data name="Widget_FilterColumn"><value>Filter {0}</value></data>
+  <data name="Widget_Filter"><value>Filter</value></data>
+  <data name="Widget_PreviousPage"><value>Previous page</value></data>
+  <data name="Widget_NextPage"><value>Next page</value></data>
+  <data name="Widget_LiveDataUpdating"><value>Live data, updating every 5 seconds</value></data>
   <data name="Widget_DeleteConfirm"><value>Delete Widget</value></data>
   <data name="Widget_DeleteMessage"><value>Are you sure you want to delete "{0}"?</value></data>
   <data name="Widget_DeleteRtsWarning"><value>This will also delete the associated grid configuration.</value></data>
@@ -276,6 +289,20 @@
   <data name="Widgets_AgentGrid_Col_Adherence"><value>Adherence %</value></data>
   <data name="Widgets_AgentGrid_Col_Calls"><value>Calls Today</value></data>
   <data name="Widgets_AgentGrid_Col_Aht"><value>AHT</value></data>
+  <data name="Widgets_AgentGrid_ShowAvatar"><value>Show Avatar</value></data>
+  <data name="Widgets_AgentGrid_ShowAvatar_Help"><value>Display initials avatar before agent name</value></data>
+  <data name="Widgets_AgentGrid_ShowScore"><value>Show Score</value></data>
+  <data name="Widgets_AgentGrid_ShowScore_Help"><value>Display performance score as stars below agent name</value></data>
+  <data name="Widgets_AgentGrid_ScoreStarColor"><value>Star Color</value></data>
+  <data name="Widgets_AgentGrid_ScoreFormula"><value>Score Formula</value></data>
+  <data name="Widgets_AgentGrid_ScoreFormula_Help"><value>Stars = percentage of matching rules. All rules = 100% = 5 stars. Conditions combined with AND.</value></data>
+  <data name="Widgets_AgentGrid_NoScoreRules"><value>No formula rules defined</value></data>
+  <data name="Widgets_AgentGrid_AddFirstRule"><value>Add first rule</value></data>
+  <data name="Widgets_AgentGrid_ScorePreview"><value>Preview</value></data>
+  <data name="Widgets_AgentGrid_ScoreExample"><value>example: 3 rules met</value></data>
+  <data name="Common_SelectMetric"><value>Select metric</value></data>
+  <data name="Common_Value"><value>Value</value></data>
+  <data name="Common_Remove"><value>Remove</value></data>
 
   <!-- ── Users Admin ── -->
   <data name="Users_Title"><value>User Management</value></data>
@@ -539,6 +566,8 @@
   <data name="Metrics_MetricId"><value>Metric ID</value></data>
   <data name="Metrics_Description"><value>Description</value></data>
   <data name="Metrics_DataType"><value>Data Type</value></data>
+  <data name="Metrics_ValueType"><value>Value Type</value></data>
+  <data name="Metrics_MetricType"><value>Metric Type</value></data>
   <data name="Metrics_Function"><value>Metric Function</value></data>
   <data name="Metrics_Parameter"><value>Metric Parameter</value></data>
   <data name="Metrics_Format"><value>Format</value></data>

@@ -127,7 +127,7 @@ public class GetRtsGridMetricsQueryHandler(IRtsGridMetricRepository repo)
     {
         var items = await repo.GetAllAsync(ct);
         return items.Select(m => new RtsGridMetricDto(m.MetricId, m.Description, m.DataType,
-            m.MetricFunction, m.MetricParameter, m.MetricFormat, m.DefaultValue)).ToList();
+            m.MetricFunction, m.MetricParameter, m.MetricFormat, m.DefaultValue, m.ValueType, m.MetricType)).ToList();
     }
 }
 

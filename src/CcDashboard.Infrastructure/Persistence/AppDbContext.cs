@@ -316,6 +316,8 @@ public class AppDbContext(
             e.Property(x => x.MetricParameter).HasMaxLength(200).IsRequired();
             e.Property(x => x.MetricFormat).HasMaxLength(100);
             e.Property(x => x.DefaultValue).HasMaxLength(100);
+            e.Property(x => x.ValueType).HasMaxLength(20).HasDefaultValue("String");
+            e.Property(x => x.MetricType).HasMaxLength(20).HasDefaultValue("Agent");
             // Cross-tenant entity: no GQF, metrics are shared across all tenants
         });
 

@@ -45,17 +45,21 @@ else
     <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover align-middle" style="table-layout:fixed; width:100%;">
             <colgroup>
-                <col style="width:22%" />
-                <col style="width:35%" />
-                <col style="width:15%" />
                 <col style="width:18%" />
+                <col style="width:25%" />
                 <col style="width:10%" />
+                <col style="width:8%" />
+                <col style="width:8%" />
+                <col style="width:18%" />
+                <col style="width:13%" />
             </colgroup>
             <thead class="table-light">
                 <tr>
                     <th>@L["Metrics_MetricId"]</th>
                     <th>@L["Metrics_Description"]</th>
                     <th>@L["Metrics_DataType"]</th>
+                    <th>@L["Metrics_ValueType"]</th>
+                    <th>@L["Metrics_MetricType"]</th>
                     <th>@L["Metrics_Function"]</th>
                     <th></th>
                 </tr>
@@ -67,6 +71,8 @@ else
                         <td class="small text-truncate" title="@m.MetricId">@m.MetricId</td>
                         <td class="small text-truncate" title="@m.Description">@m.Description</td>
                         <td class="small text-truncate">@m.DataType</td>
+                        <td class="small text-truncate">@m.ValueType</td>
+                        <td class="small text-truncate">@m.MetricType</td>
                         <td class="small text-truncate" title="@m.MetricFunction">@m.MetricFunction</td>
                         <td class="text-end text-nowrap">
                             <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => OpenModal(m)">@L["Edit"]</button>
@@ -76,7 +82,7 @@ else
                 }
                 @if (TotalFiltered == 0)
                 {
-                    <tr><td colspan="5" class="text-center text-muted py-3">@L["Metrics_Empty"]</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-3">@L["Metrics_Empty"]</td></tr>
                 }
             </tbody>
         </table>
@@ -148,6 +154,21 @@ else
                         <div class="col-md-4">
                             <label class="form-label">@L["Metrics_Format"]</label>
                             <input class="form-control" @bind="EditMetricFormat" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">@L["Metrics_ValueType"] *</label>
+                            <select class="form-select" @bind="EditValueType">
+                                <option value="String">String</option>
+                                <option value="Time">Time</option>
+                                <option value="Number">Number</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">@L["Metrics_MetricType"] *</label>
+                            <select class="form-select" @bind="EditMetricType">
+                                <option value="Agent">Agent</option>
+                                <option value="Data">Data</option>
+                            </select>
                         </div>
                         <div class="col-12">
                             <label class="form-label">@L["Metrics_Parameter"] *</label>
@@ -223,6 +244,8 @@ else
     private string EditMetricParameter = "";
     private string? EditMetricFormat;
     private string? EditDefaultValue;
+    private string EditValueType = "String";
+    private string EditMetricType = "Agent";
 
     private RtsGridMetricDto? DeleteTarget;
 
@@ -246,6 +269,8 @@ else
         EditMetricParameter = m?.MetricParameter ?? "";
         EditMetricFormat = m?.MetricFormat;
         EditDefaultValue = m?.DefaultValue;
+        EditValueType = m?.ValueType ?? "String";
+        EditMetricType = m?.MetricType ?? "Agent";
         ModalError = null;
         ShowModal = true;
     }
@@ -265,7 +290,7 @@ else
                 new SaveRtsGridMetricRequest(
                     EditMetricId, EditDescription, EditDataType,
                     EditMetricFunction, EditMetricParameter,
-                    EditMetricFormat, EditDefaultValue, IsNew)));
+                    EditMetricFormat, EditDefaultValue, EditValueType, EditMetricType, IsNew)));
             if (!result.IsSuccess) { ModalError = result.Error; return; }
             CloseModal();
             await LoadAsync();

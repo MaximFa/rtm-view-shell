@@ -469,6 +469,8 @@
   <data name="Metrics_MetricId"><value>ID метрики</value></data>
   <data name="Metrics_Description"><value>Описание</value></data>
   <data name="Metrics_DataType"><value>Тип данных</value></data>
+  <data name="Metrics_ValueType"><value>Тип значения</value></data>
+  <data name="Metrics_MetricType"><value>Тип метрики</value></data>
   <data name="Metrics_Function"><value>Функция метрики</value></data>
   <data name="Metrics_Parameter"><value>Параметр метрики</value></data>
   <data name="Metrics_Format"><value>Формат</value></data>
@@ -501,6 +503,19 @@
   <data name="Widget_Retry"><value>Повторить</value></data>
   <data name="Widget_Live"><value>Live</value></data>
   <data name="Widget_Reconnecting"><value>Переподключение...</value></data>
+  <data name="Widget_ReloadPage"><value>Обновить страницу</value></data>
+  <data name="Widget_ActiveFilters"><value>активных фильтров</value></data>
+  <data name="Widget_ClearAllFilters"><value>Сбросить все</value></data>
+  <data name="Widget_ClearFilters"><value>Сбросить фильтры</value></data>
+  <data name="Widget_NoMatchingAgents"><value>Нет агентов по фильтру</value></data>
+  <data name="Widget_SortBy"><value>Сортировать по {0}</value></data>
+  <data name="Widget_SortedAsc"><value>По возрастанию</value></data>
+  <data name="Widget_SortedDesc"><value>По убыванию</value></data>
+  <data name="Widget_FilterColumn"><value>Фильтр {0}</value></data>
+  <data name="Widget_Filter"><value>Фильтр</value></data>
+  <data name="Widget_PreviousPage"><value>Предыдущая страница</value></data>
+  <data name="Widget_NextPage"><value>Следующая страница</value></data>
+  <data name="Widget_LiveDataUpdating"><value>Данные обновляются каждые 5 секунд</value></data>
   <data name="Widget_DeleteConfirm"><value>Удалить виджет</value></data>
   <data name="Widget_DeleteMessage"><value>Вы уверены, что хотите удалить "{0}"?</value></data>
   <data name="Widget_DeleteRtsWarning"><value>Также будет удалена связанная конфигурация сетки.</value></data>
@@ -528,6 +543,20 @@
   <data name="Widgets_AgentGrid_Col_Adherence"><value>Соответствие %</value></data>
   <data name="Widgets_AgentGrid_Col_Calls"><value>Звонков сегодня</value></data>
   <data name="Widgets_AgentGrid_Col_Aht"><value>AHT</value></data>
+  <data name="Widgets_AgentGrid_ShowAvatar"><value>Показать аватар</value></data>
+  <data name="Widgets_AgentGrid_ShowAvatar_Help"><value>Отображать аватар с инициалами перед именем агента</value></data>
+  <data name="Widgets_AgentGrid_ShowScore"><value>Показать оценку</value></data>
+  <data name="Widgets_AgentGrid_ShowScore_Help"><value>Отображать оценку производительности в виде звёзд под именем агента</value></data>
+  <data name="Widgets_AgentGrid_ScoreStarColor"><value>Цвет звёзд</value></data>
+  <data name="Widgets_AgentGrid_ScoreFormula"><value>Формула оценки</value></data>
+  <data name="Widgets_AgentGrid_ScoreFormula_Help"><value>Звёзды = процент выполненных правил. Все правила = 100% = 5 звёзд. Условия объединяются через AND.</value></data>
+  <data name="Widgets_AgentGrid_NoScoreRules"><value>Правила формулы не заданы</value></data>
+  <data name="Widgets_AgentGrid_AddFirstRule"><value>Добавить первое правило</value></data>
+  <data name="Widgets_AgentGrid_ScorePreview"><value>Предпросмотр</value></data>
+  <data name="Widgets_AgentGrid_ScoreExample"><value>пример: 3 правила выполнено</value></data>
+  <data name="Common_SelectMetric"><value>Выберите метрику</value></data>
+  <data name="Common_Value"><value>Значение</value></data>
+  <data name="Common_Remove"><value>Удалить</value></data>
 
   <!-- ── Errors ── -->
   <data name="Error_NotFound"><value>Запрошенный ресурс не найден.</value></data>
