@@ -548,83 +548,7 @@ else if (_rows.Count == 0)
 
 ---
 
-## 14. CRITICAL: CSS in app.css
-
-### Bootstrap Table Override (REQUIRED)
-**Without these CSS rules, the widget header will show white background instead of config colors.**
-
-Add to `src/CcDashboard.Web/wwwroot/app.css`:
-
-```css
-/* {Name} Grid Widget - Layout */
-.{name}-grid-widget {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-}
-
-.{name}-grid-widget .{name}-grid-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
-}
-
-.{name}-grid-widget .{name}-grid-thead {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-
-/* {Name} Grid Widget - Table Style Override */
-.{name}-grid-widget .table {
-    --bs-table-bg: transparent;
-    --bs-table-striped-bg: transparent;
-    --bs-table-hover-bg: rgba(0, 0, 0, 0.05);
-    background-color: transparent;
-    color: inherit;
-}
-
-.{name}-grid-widget .table > thead,
-.{name}-grid-widget .table > tbody,
-.{name}-grid-widget .table > thead > tr,
-.{name}-grid-widget .table > tbody > tr {
-    background-color: inherit;
-    color: inherit;
-}
-
-.{name}-grid-widget .table > tbody > tr > td,
-.{name}-grid-widget .table > thead > tr > th {
-    background-color: inherit;
-    color: inherit;
-}
-
-.{name}-grid-widget .text-muted {
-    color: inherit !important;
-    opacity: 0.7;
-}
-
-.{name}-grid-widget .badge {
-    font-size: inherit;
-}
-
-/* {Name} Grid Widget - Badge Styling */
-.{name}-grid-widget .threshold-badge {
-    font-weight: 500;
-    padding: 0.25em 0.5em;
-    border-radius: 0.25rem;
-    display: inline-block;
-}
-```
-
-**Why this is needed:**
-- Bootstrap's `.table` class sets `--bs-table-bg: white` which overrides inline styles
-- Without `background-color: inherit` on thead/tbody/tr/td, colors won't propagate from parent
-- The widget relies on parent container (`.{name}-grid-body`) having the background color set via `style="@GetTableStyle()"`
-
----
-
-## 15. Checklist for New Widget
+## 14. Checklist for New Widget
 
 1. [ ] Create `{Name}Widget.razor` with correct dependencies
 2. [ ] Add `GridId` and `Config` parameters
@@ -634,16 +558,15 @@ Add to `src/CcDashboard.Web/wwwroot/app.css`:
 6. [ ] Add filter system with localStorage persistence
 7. [ ] Add pagination with free input
 8. [ ] Implement threshold system with MatchType detection
-9. [ ] **Add CSS rules to app.css** (Bootstrap table override - see section 14)
-10. [ ] Add to `RenderWidget.razor` switch statement
-11. [ ] Add to `ScreenEditorPage.razor` modal tabs (incl. Table Background in Appearance)
-12. [ ] Ensure `GridId` is passed in `ScreenFullscreenPage.razor`
-13. [ ] Add localization keys to all .resx files
-14. [ ] Test RTL layout
+9. [ ] Add to `RenderWidget.razor` switch statement
+10. [ ] Add to `ScreenEditorPage.razor` modal tabs
+11. [ ] Ensure `GridId` is passed in `ScreenFullscreenPage.razor`
+12. [ ] Add localization keys to all .resx files
+13. [ ] Test RTL layout
 
 ---
 
-## 16. Queue Grid Specifics
+## 15. Queue Grid Specifics
 
 For Queue Grid, follow same patterns but:
 - Use `MetricType = "Queue"` when loading metrics
@@ -651,5 +574,3 @@ For Queue Grid, follow same patterns but:
 - Metrics like: `queue_name`, `calls_waiting`, `sla_percent`, `abandon_rate`, `avg_wait_time`
 - No Avatar/Score features (Agent-specific)
 - Storage key: `queueGrid_{GridId}_state`
-- CSS class prefix: `.queue-grid-widget` (see section 14 for required CSS)
-- Queue Name is always-first column (hardcoded, not configurable)

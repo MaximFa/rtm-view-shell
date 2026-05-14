@@ -495,6 +495,7 @@
   <data name="Widgets_AgentGrid_ShowAvatar_Help"><value>הצג אווטאר עם ראשי תיבות לפני שם הסוכן</value></data>
   <data name="Widgets_AgentGrid_ShowScore"><value>הצג ניקוד</value></data>
   <data name="Widgets_AgentGrid_ShowScore_Help"><value>הצג ניקוד ביצועים בצורת כוכבים מתחת לשם הסוכן</value></data>
+  <data name="Widgets_ShowPagination"><value>הצג עימוד</value></data>
   <data name="Widgets_AgentGrid_ScoreStarColor"><value>צבע כוכבים</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula"><value>נוסחת ניקוד</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula_Help"><value>כל כלל שמתקיים מוסיף כוכב אחד (מקסימום 5). כל התנאים משולבים עם AND.</value></data>

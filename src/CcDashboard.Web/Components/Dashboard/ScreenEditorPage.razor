@@ -243,100 +243,35 @@
                             <input type="text" class="form-control" @bind="ConfigDisplayName" />
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">@L["Widgets_BusinessUnit"]</label>
-                            <div class="searchable-select">
-                                <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
-                                       value="@BuSearchText"
-                                       @oninput="OnBuSearchInput"
-                                       @onfocus="() => BuDropdownOpen = true"
-                                       @onblur="OnBuSearchBlur" />
-                                @if (BuDropdownOpen)
-                                {
-                                    <div class="searchable-dropdown">
-                                        <div class="dropdown-item @(string.IsNullOrEmpty(ConfigBusinessUnit) ? "active" : "")"
-                                             @onmousedown="() => SelectBusinessUnit(null)"
-                                             @onmousedown:preventDefault="true">
-                                            <em>@L["Common_All"]</em>
-                                        </div>
-                                        @foreach (var bu in FilteredBusinessUnits)
-                                        {
-                                            <div class="dropdown-item @(ConfigBusinessUnit == bu.BusinessUnitId.ToString() ? "active" : "")"
-                                                 @onmousedown="() => SelectBusinessUnit(bu)"
-                                                 @onmousedown:preventDefault="true">
-                                                @bu.BusinessUnitName
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        </div>
-
-                        @if (IsAgentGridWidget(ConfiguringWidget))
+                        @if (!IsQueueGridWidget(ConfiguringWidget))
                         {
                             <div class="mb-3">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="form-check form-switch mb-0">
-                                        <input class="form-check-input" type="checkbox" id="showAvatar" @bind="ConfigShowAvatar" />
-                                        <label class="form-check-label" for="showAvatar">@L["Widgets_AgentGrid_ShowAvatar"]</label>
-                                    </div>
-                                    @if (ConfigShowAvatar)
+                                <label class="form-label">@L["Widgets_BusinessUnit"]</label>
+                                <div class="searchable-select">
+                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                           value="@BuSearchText"
+                                           @oninput="OnBuSearchInput"
+                                           @onfocus="() => BuDropdownOpen = true"
+                                           @onblur="OnBuSearchBlur" />
+                                    @if (BuDropdownOpen)
                                     {
-                                        <!-- Avatar BG Color -->
-                                        <div class="d-flex align-items-center gap-1">
-                                            <span class="small text-muted">BG:</span>
-                                            <div class="position-relative">
-                                                <span class="clr-swatch"
-                                                      title="Avatar Background"
-                                                      style="@GetColorStyle(ConfigAvatarBgColor ?? "#1e3461"); cursor: pointer;"
-                                                      @onclick='() => ToggleAvatarColorPalette("avatarBg")'
-                                                      @onclick:stopPropagation></span>
-                                                @if (_openColorPalette == "avatarBg")
-                                                {
-                                                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
-                                                         @onclick="CloseColorPalette"></div>
-                                                    <div class="color-palette-dropdown">
-                                                        @foreach (var color in BackgroundColors.Where(c => c.Value != "transparent"))
-                                                        {
-                                                            <span class="clr-swatch @(ConfigAvatarBgColor == color.Value ? "selected" : "")"
-                                                                  title="@color.Name"
-                                                                  style="@GetColorStyle(color.Value)"
-                                                                  @onclick="() => { ConfigAvatarBgColor = color.Value; CloseColorPalette(); }"
-                                                                  @onclick:stopPropagation></span>
-                                                        }
-                                                    </div>
-                                                }
+                                        <div class="searchable-dropdown">
+                                            <div class="dropdown-item @(string.IsNullOrEmpty(ConfigBusinessUnit) ? "active" : "")"
+                                                 @onmousedown="() => SelectBusinessUnit(null)"
+                                                 @onmousedown:preventDefault="true">
+                                                <em>@L["Common_All"]</em>
                                             </div>
-                                        </div>
-                                        <!-- Avatar Font Color -->
-                                        <div class="d-flex align-items-center gap-1">
-                                            <span class="small text-muted">Font:</span>
-                                            <div class="position-relative">
-                                                <span class="clr-swatch"
-                                                      title="Avatar Font"
-                                                      style="@GetColorStyle(ConfigAvatarFontColor ?? "#FFFFFF"); cursor: pointer;"
-                                                      @onclick='() => ToggleAvatarColorPalette("avatarFont")'
-                                                      @onclick:stopPropagation></span>
-                                                @if (_openColorPalette == "avatarFont")
-                                                {
-                                                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
-                                                         @onclick="CloseColorPalette"></div>
-                                                    <div class="color-palette-dropdown">
-                                                        @foreach (var color in FontColors)
-                                                        {
-                                                            <span class="clr-swatch @(ConfigAvatarFontColor == color.Value ? "selected" : "")"
-                                                                  title="@color.Name"
-                                                                  style="@GetColorStyle(color.Value)"
-                                                                  @onclick="() => { ConfigAvatarFontColor = color.Value; CloseColorPalette(); }"
-                                                                  @onclick:stopPropagation></span>
-                                                        }
-                                                    </div>
-                                                }
-                                            </div>
+                                            @foreach (var bu in FilteredBusinessUnits)
+                                            {
+                                                <div class="dropdown-item @(ConfigBusinessUnit == bu.BusinessUnitId.ToString() ? "active" : "")"
+                                                     @onmousedown="() => SelectBusinessUnit(bu)"
+                                                     @onmousedown:preventDefault="true">
+                                                    @bu.BusinessUnitName
+                                                </div>
+                                            }
                                         </div>
                                     }
                                 </div>
-                                <div class="form-text text-muted small">@L["Widgets_AgentGrid_ShowAvatar_Help"]</div>
                             </div>
                         }
 
@@ -420,7 +355,7 @@
                                     </div>
                                 </div>
 
-                                @if (IsAgentGridWidget(ConfiguringWidget))
+                                @if (IsAgentGridWidget(ConfiguringWidget) || IsQueueGridWidget(ConfiguringWidget))
                                 {
                                     <!-- Table Background -->
                                     <div class="color-setting-row">
@@ -451,21 +386,111 @@
                                 }
                             </div>
                         </div>
+
+                        @if (IsAgentGridWidget(ConfiguringWidget) || IsQueueGridWidget(ConfiguringWidget))
+                        {
+                            <!-- Display Options Section -->
+                            <div class="appearance-section mt-4">
+                                <h6 class="section-label">Display Options</h6>
+
+                                @if (IsAgentGridWidget(ConfiguringWidget))
+                                {
+                                    <!-- Show Avatar -->
+                                    <div class="d-flex align-items-center gap-3 mb-3">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="showAvatarAppearance" @bind="ConfigShowAvatar" />
+                                            <label class="form-check-label" for="showAvatarAppearance">@L["Widgets_AgentGrid_ShowAvatar"]</label>
+                                        </div>
+                                        @if (ConfigShowAvatar)
+                                        {
+                                            <!-- Avatar BG Color -->
+                                            <div class="d-flex align-items-center gap-1">
+                                                <span class="small text-muted">BG:</span>
+                                                <div class="position-relative">
+                                                    <span class="clr-swatch"
+                                                          title="@GetColorName(ConfigAvatarBgColor, BackgroundColors)"
+                                                          style="@GetColorStyle(ConfigAvatarBgColor); cursor: pointer;"
+                                                          @onclick="ToggleAvatarBgColorPalette"
+                                                          @onclick:stopPropagation></span>
+                                                    @if (_openColorPalette == "avatarBg")
+                                                    {
+                                                        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                             @onclick="CloseColorPalette"></div>
+                                                        <div class="color-palette-dropdown">
+                                                            @foreach (var color in BackgroundColors.Where(c => c.Value != "transparent"))
+                                                            {
+                                                                <span class="clr-swatch @(ConfigAvatarBgColor == color.Value ? "selected" : "")"
+                                                                      title="@color.Name"
+                                                                      style="@GetColorStyle(color.Value)"
+                                                                      @onclick="() => SelectAvatarBgColor(color.Value)"
+                                                                      @onclick:stopPropagation></span>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                            <!-- Avatar Font Color -->
+                                            <div class="d-flex align-items-center gap-1">
+                                                <span class="small text-muted">Text:</span>
+                                                <div class="position-relative">
+                                                    <span class="clr-swatch"
+                                                          title="@GetColorName(ConfigAvatarFontColor, FontColors)"
+                                                          style="@GetColorStyle(ConfigAvatarFontColor); cursor: pointer;"
+                                                          @onclick="ToggleAvatarFontColorPalette"
+                                                          @onclick:stopPropagation></span>
+                                                    @if (_openColorPalette == "avatarFont")
+                                                    {
+                                                        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                             @onclick="CloseColorPalette"></div>
+                                                        <div class="color-palette-dropdown">
+                                                            @foreach (var color in FontColors)
+                                                            {
+                                                                <span class="clr-swatch @(ConfigAvatarFontColor == color.Value ? "selected" : "")"
+                                                                      title="@color.Name"
+                                                                      style="@GetColorStyle(color.Value)"
+                                                                      @onclick="() => SelectAvatarFontColor(color.Value)"
+                                                                      @onclick:stopPropagation></span>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                <!-- Show Pagination -->
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="showPagination" @bind="ConfigShowPagination" />
+                                    <label class="form-check-label" for="showPagination">@L["Widgets_ShowPagination"]</label>
+                                </div>
+                            </div>
+                        }
                     }
 
                     <!-- Tab: Thresholds -->
                     @if (ConfigActiveTab == "thresholds")
                     {
-                    @if (IsAgentGridWidget(ConfiguringWidget))
+                    @if (IsAgentGridWidget(ConfiguringWidget) || IsQueueGridWidget(ConfiguringWidget))
                     {
-                        <!-- Per-column thresholds for Agent Grid -->
+                        <!-- Per-column thresholds for Agent Grid / Queue Grid -->
                         <div class="mb-3">
                             <label class="form-label">Column</label>
                             <select class="form-select form-select-sm" @bind="SelectedThresholdColumn">
                                 <option value="">-- Select column --</option>
-                                @foreach (var col in ConfigAgentColumnDefs)
+                                @if (IsAgentGridWidget(ConfiguringWidget))
                                 {
-                                    <option value="@col.MetricId">@col.Name</option>
+                                    @foreach (var col in ConfigAgentColumnDefs)
+                                    {
+                                        <option value="@col.MetricId">@col.Name</option>
+                                    }
+                                }
+                                else
+                                {
+                                    @foreach (var col in ConfigQueueGridColumnDefs)
+                                    {
+                                        <option value="@col.MetricId">@col.Name</option>
+                                    }
                                 }
                             </select>
                         </div>
@@ -1380,6 +1405,7 @@
     private string? ConfigAvatarBgColor;
     private string? ConfigAvatarFontColor;
     private bool ConfigShowScore = false;
+    private bool ConfigShowPagination = true;
     private string? ConfigScoreStarColor;
     private List<ScoreFormulaRule> ConfigScoreFormula = new();
 
@@ -1588,10 +1614,11 @@
         var col = ConfigQueueGridColumnDefs.FirstOrDefault(c => c.Id == colId);
         if (col != null)
         {
+            var metric = Metrics.FirstOrDefault(m => m.MetricId == metricId);
             col.MetricId = metricId;
+            col.ValueType = metric?.ValueType ?? "String";
             if (string.IsNullOrEmpty(col.Name))
             {
-                var metric = Metrics.FirstOrDefault(m => m.MetricId == metricId);
                 col.Name = metric?.Description ?? metricId;
             }
         }
@@ -2052,6 +2079,7 @@
         ConfigAvatarBgColor = widget.Config.AvatarBgColor ?? "#1e3461";
         ConfigAvatarFontColor = widget.Config.AvatarFontColor ?? "#FFFFFF";
         ConfigShowScore = widget.Config.ShowScore;
+        ConfigShowPagination = widget.Config.ShowPagination;
         ConfigScoreStarColor = widget.Config.ScoreStarColor ?? "#ffc107";
         ConfigScoreFormula = widget.Config.ScoreFormula?.Select(r => new ScoreFormulaRule
         {
@@ -2076,7 +2104,8 @@
         {
             Id = c.Id,
             Name = c.Name,
-            MetricId = c.MetricId
+            MetricId = c.MetricId,
+            ValueType = c.ValueType
         }).ToList() ?? GetDefaultQueueGridColumnDefs();
 
         // Initialize search fields with selected values
@@ -2094,16 +2123,17 @@
         {
             return new List<QueueGridColumnDef>
             {
-                new() { Name = "Queue", MetricId = "QueueName" },
-                new() { Name = "Waiting", MetricId = "QMCallsWaiting" },
-                new() { Name = "Available", MetricId = "QMAgentsAvailable" },
-                new() { Name = "SLA", MetricId = "QMServiceLevel" }
+                new() { Name = "Queue", MetricId = "QueueName", ValueType = "String" },
+                new() { Name = "Waiting", MetricId = "QMCallsWaiting", ValueType = "Number" },
+                new() { Name = "Available", MetricId = "QMAgentsAvailable", ValueType = "Number" },
+                new() { Name = "SLA", MetricId = "QMServiceLevel", ValueType = "Number" }
             };
         }
         return qmMetrics.Select(m => new QueueGridColumnDef
         {
             Name = m.Description ?? m.MetricId,
-            MetricId = m.MetricId
+            MetricId = m.MetricId,
+            ValueType = m.ValueType
         }).ToList();
     }
 
@@ -2464,6 +2494,7 @@
             AvatarBgColor = ConfigAvatarBgColor,
             AvatarFontColor = ConfigAvatarFontColor,
             ShowScore = ConfigShowScore,
+            ShowPagination = ConfigShowPagination,
             ScoreStarColor = ConfigScoreStarColor,
             ScoreFormula = ConfigScoreFormula.Where(r => !string.IsNullOrEmpty(r.MetricId)).ToList() is { Count: > 0 } scoreRules
                 ? scoreRules
@@ -2916,6 +2947,8 @@
     private void ToggleFontColorPalette() => _openColorPalette = _openColorPalette == "font" ? null : "font";
     private void ToggleTableColorPalette() => _openColorPalette = _openColorPalette == "table" ? null : "table";
     private void ToggleAvatarColorPalette(string key) => _openColorPalette = _openColorPalette == key ? null : key;
+    private void ToggleAvatarBgColorPalette() => _openColorPalette = _openColorPalette == "avatarBg" ? null : "avatarBg";
+    private void ToggleAvatarFontColorPalette() => _openColorPalette = _openColorPalette == "avatarFont" ? null : "avatarFont";
     private void CloseColorPalette() => _openColorPalette = null;
 
     private void SelectBackgroundColor(string color)
@@ -2933,6 +2966,18 @@
     private void SelectTableBackgroundColor(string color)
     {
         ConfigTableBackgroundColor = color;
+        _openColorPalette = null;
+    }
+
+    private void SelectAvatarBgColor(string color)
+    {
+        ConfigAvatarBgColor = color;
+        _openColorPalette = null;
+    }
+
+    private void SelectAvatarFontColor(string color)
+    {
+        ConfigAvatarFontColor = color;
         _openColorPalette = null;
     }
 
@@ -3044,6 +3089,9 @@
         public string? ScoreStarColor { get; set; }  // Color from tenant palette
         public List<ScoreFormulaRule>? ScoreFormula { get; set; }  // Formula rules
 
+        // Display options (Agent Grid and Queue Grid)
+        public bool ShowPagination { get; set; } = true;
+
         // Per-column thresholds: key = column name, value = list of rules
         public Dictionary<string, List<ColumnThreshold>>? ColumnThresholds { get; set; }
 
@@ -3073,6 +3121,7 @@
         public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique ID for reordering
         public string Name { get; set; } = "";  // Display name
         public string MetricId { get; set; } = "";  // Reference to RtsGridMetric.MetricId
+        public string? ValueType { get; set; }  // "String" | "Number" | "Time"
     }
 
     public class AgentGridColumnDef

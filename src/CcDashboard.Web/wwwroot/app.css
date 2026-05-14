@@ -1794,6 +1794,70 @@ a:hover {
     padding: 0.25em 0.5em;
     border-radius: 0.25rem;
     display: inline-block;
+    min-width: 3em;
+    text-align: center;
+}
+
+/* Queue Grid Widget - Layout */
+.queue-grid-widget {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.queue-grid-widget .queue-grid-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.queue-grid-widget .queue-grid-thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+/* Queue Grid Widget - Table Style Override */
+.queue-grid-widget .table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: transparent;
+    --bs-table-hover-bg: rgba(0, 0, 0, 0.05);
+    background-color: transparent;
+    color: inherit;
+}
+
+.queue-grid-widget .table > thead,
+.queue-grid-widget .table > tbody,
+.queue-grid-widget .table > thead > tr,
+.queue-grid-widget .table > tbody > tr {
+    background-color: inherit;
+    color: inherit;
+}
+
+.queue-grid-widget .table > tbody > tr > td,
+.queue-grid-widget .table > thead > tr > th {
+    background-color: inherit;
+    color: inherit;
+}
+
+.queue-grid-widget .text-muted {
+    color: inherit !important;
+    opacity: 0.7;
+}
+
+.queue-grid-widget .badge {
+    font-size: inherit;
+}
+
+/* Queue Grid Widget - Badge Styling */
+.queue-grid-widget .threshold-badge {
+    font-weight: 500;
+    padding: 0.25em 0.5em;
+    border-radius: 0.25rem;
+    display: inline-block;
+    min-width: 3em;
+    text-align: center;
 }
 
 

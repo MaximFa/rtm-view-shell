@@ -1,0 +1,66 @@
+.queue-grid-widget {
+    font-size: 0.85rem;
+}
+
+.queue-grid-body table th {
+    font-weight: 500;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom-width: 1px;
+}
+
+.queue-grid-body table td {
+    vertical-align: middle;
+    padding-block: 0.4rem;
+}
+
+.threshold-badge {
+    display: inline-block;
+    padding: 0.15em 0.5em;
+    border-radius: 4px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.queue-grid-pagination {
+    background-color: inherit;
+    flex-shrink: 0;
+}
+
+.pagination-btn {
+    padding: 0.15rem 0.35rem;
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.4;
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.live-dot.connected {
+    background-color: #198754;
+    animation: pulse-green 2s infinite;
+}
+
+.live-dot.disconnected {
+    background-color: #dc3545;
+}
+
+@keyframes pulse-green {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4); }
+    50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(25, 135, 84, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-dot.connected {
+        animation: none;
+    }
+}

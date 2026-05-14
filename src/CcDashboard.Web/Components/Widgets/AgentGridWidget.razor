@@ -84,7 +84,7 @@
                         {
                             var hasFilter = HasActiveFilter(colDef.MetricId);
                             var isFilterOpen = _activeFilterColumn == colDef.MetricId;
-                            <th scope="col" class="text-start position-relative" style="white-space: nowrap;">
+                            <th scope="col" class="text-start position-relative" style="@GetTheadCellStyle()">
                                 <span style="cursor: pointer;"
                                       @onclick="() => ToggleSort(colDef.MetricId)"
                                       role="button"
@@ -96,7 +96,8 @@
                                            aria-label="@(_sortAscending ? L["Widget_SortedAsc"] : L["Widget_SortedDesc"])"></i>
                                     }
                                 </span>
-                                <button class="btn btn-link btn-sm p-0 ms-1 @(hasFilter ? "text-primary" : "text-muted")"
+                                <button class="btn btn-link btn-sm p-0 ms-1"
+                                        style="@GetFilterButtonStyle(hasFilter)"
                                         @onclick="() => ToggleFilterDropdown(colDef.MetricId)"
                                         @onclick:stopPropagation="true"
                                         aria-label="@L["Widget_FilterColumn", colDef.Name]"
@@ -202,36 +203,39 @@
                 </span>
             </div>
 
-            @* Pagination *@
-            <div class="d-flex align-items-center gap-2">
-                @if (TotalPages > 1)
-                {
-                    <button class="btn btn-sm btn-link p-0"
-                            disabled="@(_currentPage <= 1)"
-                            @onclick="PreviousPage"
-                            aria-label="@L["Widget_PreviousPage"]">
-                        <i class="bi bi-chevron-left" aria-hidden="true"></i>
-                    </button>
-                    <span class="text-muted" aria-live="polite">@_currentPage / @TotalPages</span>
-                    <button class="btn btn-sm btn-link p-0"
-                            disabled="@(_currentPage >= TotalPages)"
-                            @onclick="NextPage"
-                            aria-label="@L["Widget_NextPage"]">
-                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                    </button>
-                }
-            </div>
+            @if (_showPagination)
+            {
+                @* Pagination *@
+                <div class="d-flex align-items-center gap-2">
+                    @if (TotalPages > 1)
+                    {
+                        <button class="btn btn-sm btn-link p-0"
+                                disabled="@(_currentPage <= 1)"
+                                @onclick="PreviousPage"
+                                aria-label="@L["Widget_PreviousPage"]">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                        </button>
+                        <span class="text-muted" aria-live="polite">@_currentPage / @TotalPages</span>
+                        <button class="btn btn-sm btn-link p-0"
+                                disabled="@(_currentPage >= TotalPages)"
+                                @onclick="NextPage"
+                                aria-label="@L["Widget_NextPage"]">
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </button>
+                    }
+                </div>
 
-            @* Page size + Row count *@
-            <div class="d-flex align-items-center gap-1">
-                <input type="number" class="form-control form-control-sm page-size-input"
-                       style="width: 50px; background: transparent; border: 1px solid currentColor; color: inherit; text-align: center; @GetFontColorStyle()"
-                       min="1" max="500"
-                       value="@_pageSize"
-                       @onchange="OnPageSizeInputChanged"
-                       title="@L["Widget_RowsPerPage"]" />
-                <span style="@GetFontColorStyle()">/ @filteredRows.Count</span>
-            </div>
+                @* Page size + Row count *@
+                <div class="d-flex align-items-center gap-1">
+                    <input type="number" class="form-control form-control-sm page-size-input"
+                           style="width: 50px; background: transparent; border: 1px solid currentColor; color: inherit; text-align: center; @GetFontColorStyle()"
+                           min="1" max="500"
+                           value="@_pageSize"
+                           @onchange="OnPageSizeInputChanged"
+                           title="@L["Widget_RowsPerPage"]" />
+                    <span style="@GetFontColorStyle()">/ @filteredRows.Count</span>
+                </div>
+            }
         </div>
     }
 
@@ -266,6 +270,7 @@
 
     // Avatar and Score
     private bool _showAvatar;
+    private bool _showPagination = true;
     private string _avatarBgColor = "#1e3461";
     private string _avatarFontColor = "#FFFFFF";
     private bool _showScore;
@@ -368,8 +373,9 @@
             _tableBackgroundColor = Config.TableBackgroundColor;
             _columnDefs = Config.AgentGridColumnDefs?.ToList() ?? new();
 
-            // Avatar and Score
+            // Avatar, Score, Pagination
             _showAvatar = Config.ShowAvatar;
+            _showPagination = Config.ShowPagination;
             _avatarBgColor = Config.AvatarBgColor ?? "#1e3461";
             _avatarFontColor = Config.AvatarFontColor ?? "#FFFFFF";
             _showScore = Config.ShowScore;
@@ -977,21 +983,29 @@
         var isNumeric = IsNumericColumn(colDef.MetricId);
         var distinctValues = isNumeric ? new List<string>() : GetDistinctValues(colDef.MetricId);
 
-        <div class="filter-dropdown position-absolute rounded shadow-lg p-3"
-             style="top: 100%; inset-inline-start: 0; min-width: 220px; z-index: 1050; @GetFilterDropdownStyle()"
+        <div class="filter-dropdown position-absolute rounded shadow-lg p-2"
+             style="top: 100%; inset-inline-start: 0; min-width: 200px; z-index: 1050; @GetFilterDropdownStyle()"
              @onclick:stopPropagation="true">
 
-            <!-- Clear -->
-            <div class="text-end mb-3">
-                <button class="btn btn-link btn-sm p-0" style="color: var(--clr-danger, #dc3545); text-decoration: none;" @onclick="() => ClearFilter(colDef.MetricId)">
-                    Clear
-                </button>
+            <!-- Header with label and icons -->
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small opacity-75">Value</span>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-success, #198754);" title="Apply" @onclick="() => ApplyValueFilter(colDef.MetricId)">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-danger, #dc3545);" title="Clear" @onclick="() => ClearFilter(colDef.MetricId)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <button class="btn btn-link btn-sm p-0" style="@GetFontColorStyle()" title="Close" @onclick="CloseFilterDropdown">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- VALUE section -->
-            <div class="mb-2">
-                <div class="small mb-2 opacity-75">Value</div>
-                <select class="form-select form-select-sm mb-2"
+            <div class="mb-1">
+                <select class="form-select form-select-sm mb-1"
                         style="@GetFilterInputStyle()"
                         value="@filter.Operator"
                         @onchange="e => UpdateFilterOperator(colDef.MetricId, e)">
@@ -1011,15 +1025,12 @@
                         <option value="endsWith">Ends with</option>
                     }
                 </select>
-                <input type="text" class="form-control form-control-sm mb-2"
+                <input type="text" class="form-control form-control-sm"
                        style="@GetFilterInputStyle()"
                        @bind="filter.TextValue"
                        @bind:event="oninput"
                        @bind:after="() => OnValueInput(colDef.MetricId)"
                        placeholder="@(isNumeric ? "e.g. 30:00" : "Filter value...")" />
-                <button class="btn btn-primary btn-sm w-100" @onclick="() => ApplyValueFilter(colDef.MetricId)">
-                    Apply
-                </button>
             </div>
 
             @if (!isNumeric && distinctValues.Count > 0)
@@ -1161,6 +1172,19 @@
             styles.Add($"color: {_fontColor}");
 
         return string.Join("; ", styles);
+    }
+
+    private string GetTheadCellStyle()
+    {
+        var color = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        return $"white-space: nowrap; color: {color};";
+    }
+
+    private string GetFilterButtonStyle(bool hasFilter)
+    {
+        var color = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        var opacity = hasFilter ? "1" : "0.6";
+        return $"color: {color}; opacity: {opacity};";
     }
 
     private string GetRowStyle()

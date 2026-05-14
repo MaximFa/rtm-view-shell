@@ -1,84 +1,227 @@
-@using CcDashboard.Application.Queries.TenantSettings
 @using CcDashboard.Contracts.DTOs.Widgets
+@using CcDashboard.Application.Queries.TenantSettings
 @using Microsoft.AspNetCore.SignalR.Client
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+@using Microsoft.Extensions.Localization
 @implements IAsyncDisposable
+
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject IJSRuntime JS
 
 @* Queue Grid Widget - connects to external SignalR simulator for real-time data *@
 
-<div class="queue-grid-widget" style="@GetWidgetStyle()">
+<div class="queue-grid-widget" style="@GetWidgetStyle()" @onkeydown="HandleKeyDown" tabindex="0">
+    @* Reconnecting banner *@
+    @if (_connectionState == ConnectionState.Reconnecting)
+    {
+        <div class="alert alert-warning alert-sm d-flex align-items-center gap-2 py-1 px-2 mb-0 rounded-0"
+             role="alert" style="position: sticky; top: 0; z-index: 1040;">
+            <div class="spinner-border spinner-border-sm" aria-hidden="true"></div>
+            <span class="small">@L["Widget_Reconnecting"]</span>
+            <button class="btn btn-sm btn-link p-0 ms-auto" @onclick="ReconnectAsync" aria-label="@L["Widget_ReloadPage"]">
+                @L["Widget_ReloadPage"]
+            </button>
+        </div>
+    }
+
     @if (GridId == 0)
     {
         <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
-            <i class="bi bi-gear fs-3 mb-2 opacity-50"></i>
+            <i class="bi bi-gear fs-3 mb-2 opacity-50" aria-hidden="true"></i>
             <span class="small">@L["Widget_SaveConfigFirst"]</span>
         </div>
     }
     else if (_connectionState == ConnectionState.Connecting)
     {
-        <div class="d-flex align-items-center justify-content-center h-100 text-muted" aria-busy="true">
+        <div class="d-flex align-items-center justify-content-center h-100 text-muted" aria-busy="true" aria-live="polite">
             <div class="spinner-border spinner-border-sm me-2" aria-hidden="true"></div>
             <span>@L["Widget_Connecting"]</span>
         </div>
     }
     else if (_connectionState == ConnectionState.Failed)
     {
-        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
-            <i class="bi bi-wifi-off fs-3 mb-2 text-warning"></i>
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" role="alert">
+            <i class="bi bi-wifi-off fs-3 mb-2 text-warning" aria-hidden="true"></i>
             <span class="small">@L["Widget_ConnectionFailed"]</span>
-            <button class="btn btn-sm btn-link mt-2" @onclick="ReconnectAsync">
+            <button class="btn btn-sm btn-link mt-2" @onclick="ReconnectAsync" aria-label="@L["Widget_Retry"]">
                 @L["Widget_Retry"]
             </button>
         </div>
     }
     else if (_rows.Count == 0)
     {
-        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
-            <i class="bi bi-collection fs-3 mb-2 opacity-50"></i>
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" role="status">
+            <i class="bi bi-collection fs-3 mb-2 opacity-50" aria-hidden="true"></i>
             <span class="small">@L["Widget_NoQueues"]</span>
         </div>
     }
     else
     {
-        <div class="queue-grid-header d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
-            <span class="small text-muted">
-                @_rows.Count @L["Widget_Queues"]
-            </span>
-            <span class="small">
-                @if (_connectionState == ConnectionState.Connected)
-                {
-                    <span class="text-success"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>@L["Widget_Live"]</span>
-                }
-                else if (_connectionState == ConnectionState.Reconnecting)
-                {
-                    <span class="text-warning"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>@L["Widget_Reconnecting"]</span>
-                }
-            </span>
-        </div>
+        var filteredRows = GetFilteredRows();
+        var pagedRows = GetPagedRows(filteredRows);
+        var activeFilterCount = GetActiveFilterCount();
 
         <div class="queue-grid-body" style="@GetTableStyle()">
-            <table class="table table-sm mb-0 small" style="@GetTableStyle()">
+            @* Active filters toolbar *@
+            @if (activeFilterCount > 0)
+            {
+                <div class="d-flex align-items-center gap-2 px-2 py-1 border-bottom small" style="@GetTableStyle(); border-color: currentColor !important; opacity: 0.9;">
+                    <span class="badge rounded-pill" style="@GetBadgeInvertStyle()">@activeFilterCount</span>
+                    <span>@L["Widget_ActiveFilters"]</span>
+                    <button class="btn btn-link btn-sm p-0 ms-auto"
+                            style="@GetFontColorStyle() text-decoration: none;"
+                            @onclick="ClearAllFilters"
+                            aria-label="@L["Widget_ClearAllFilters"]">
+                        @L["Widget_ClearAllFilters"]
+                    </button>
+                </div>
+            }
+
+            <table class="table table-sm table-hover mb-0 small queue-grid-table" style="@GetTableStyle()">
                 <thead class="queue-grid-thead" style="@GetTheadStyle()">
-                    <tr style="@GetRowStyle(null, null)">
+                    <tr style="@GetRowStyle()">
+                        @* Queue Name - always first column *@
+                        @{
+                            var queueNameHasFilter = HasActiveFilter("_queueName");
+                            var queueNameFilterOpen = _activeFilterColumn == "_queueName";
+                        }
+                        <th scope="col" class="text-start position-relative" style="@GetTheadCellStyle()">
+                            <span style="cursor: pointer;"
+                                  @onclick='() => ToggleSort("_queueName")'
+                                  role="button">
+                                @L["Widget_QueueName"]
+                                @if (_sortColumn == "_queueName")
+                                {
+                                    <i class="bi @(_sortAscending ? "bi-caret-up-fill" : "bi-caret-down-fill") ms-1"></i>
+                                }
+                            </span>
+                            <button class="btn btn-link btn-sm p-0 ms-1"
+                                    style="@GetFilterButtonStyle(queueNameHasFilter)"
+                                    @onclick='() => ToggleFilterDropdown("_queueName")'
+                                    @onclick:stopPropagation="true"
+                                    aria-expanded="@queueNameFilterOpen"
+                                    aria-label="@L["Widget_FilterColumn", L["Widget_QueueName"]]">
+                                <i class="bi bi-funnel@(queueNameHasFilter ? "-fill" : "")"></i>
+                            </button>
+                            @if (queueNameFilterOpen)
+                            {
+                                @RenderQueueNameFilterDropdown()
+                            }
+                        </th>
                         @foreach (var colDef in _columnDefs)
                         {
-                            <th class="text-start">@colDef.Name</th>
+                            var hasFilter = HasActiveFilter(colDef.MetricId);
+                            var isFilterOpen = _activeFilterColumn == colDef.MetricId;
+                            <th scope="col" class="text-start position-relative" style="@GetTheadCellStyle()">
+                                <span style="cursor: pointer;"
+                                      @onclick="() => ToggleSort(colDef.MetricId)"
+                                      role="button"
+                                      aria-label="@L["Widget_SortBy", colDef.Name]">
+                                    @colDef.Name
+                                    @if (_sortColumn == colDef.MetricId)
+                                    {
+                                        <i class="bi @(_sortAscending ? "bi-caret-up-fill" : "bi-caret-down-fill") ms-1"
+                                           aria-label="@(_sortAscending ? L["Widget_SortedAsc"] : L["Widget_SortedDesc"])"></i>
+                                    }
+                                </span>
+                                <button class="btn btn-link btn-sm p-0 ms-1"
+                                        style="@GetFilterButtonStyle(hasFilter)"
+                                        @onclick="() => ToggleFilterDropdown(colDef.MetricId)"
+                                        @onclick:stopPropagation="true"
+                                        aria-expanded="@isFilterOpen"
+                                        aria-label="@L["Widget_FilterColumn", colDef.Name]">
+                                    <i class="bi bi-funnel@(hasFilter ? "-fill" : "")"></i>
+                                </button>
+                                @if (isFilterOpen)
+                                {
+                                    @RenderFilterDropdown(colDef)
+                                }
+                            </th>
                         }
                     </tr>
                 </thead>
-                <tbody style="@GetTableStyle()">
-                    @foreach (var row in _rows)
+                <tbody style="@GetTableStyle()" @onclick="CloseFilterDropdown">
+                    @foreach (var row in pagedRows)
                     {
-                        <tr style="@GetRowStyle(row.BackgroundColor, row.FontColor)">
+                        <tr class="queue-grid-row" style="@GetRowStyle()">
+                            @* Queue Name - always first cell *@
+                            <td class="text-start">@row.QueueName</td>
                             @foreach (var colDef in _columnDefs)
                             {
-                                <td class="text-start font-monospace">@GetMetricValue(row.Metrics, colDef.MetricId)</td>
+                                var cellValue = GetMetricValue(row.Metrics, colDef.MetricId);
+                                var useMono = IsNumericColumn(colDef.MetricId);
+                                var (thresholdBg, thresholdFg) = GetThresholdStyle(colDef.MetricId, cellValue);
+                                var hasThreshold = !string.IsNullOrEmpty(thresholdBg) || !string.IsNullOrEmpty(thresholdFg);
+
+                                <td class="text-start @(useMono ? "font-monospace" : "")">
+                                    @if (hasThreshold)
+                                    {
+                                        <span class="threshold-badge" style="@GetBadgeStyle(thresholdBg, thresholdFg)">@cellValue</span>
+                                    }
+                                    else
+                                    {
+                                        @cellValue
+                                    }
+                                </td>
                             }
                         </tr>
                     }
                 </tbody>
             </table>
+        </div>
+
+        @* Footer with pagination and connection status *@
+        <div class="queue-grid-footer d-flex align-items-center justify-content-between px-2 py-1 border-top small" style="@GetTableStyle()">
+            @* Live indicator *@
+            <div class="d-flex align-items-center gap-1" aria-label="@L["Widget_LiveDataUpdating"]">
+                <span class="live-dot @(_connectionState == ConnectionState.Connected ? "connected" : "disconnected")"
+                      aria-hidden="true"></span>
+                <span class="small" style="opacity: 0.7;">
+                    @if (_connectionState == ConnectionState.Connected)
+                    {
+                        @L["Widget_Live"]
+                    }
+                    else
+                    {
+                        @L["Widget_Disconnected"]
+                    }
+                </span>
+            </div>
+
+            @if (_showPagination)
+            {
+                @* Pagination *@
+                <div class="d-flex align-items-center gap-2">
+                    @if (TotalPages > 1)
+                    {
+                        <button class="btn btn-sm btn-link p-0"
+                                disabled="@(_currentPage <= 1)"
+                                @onclick="PreviousPage"
+                                aria-label="@L["Widget_PreviousPage"]">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                        </button>
+                        <span style="opacity: 0.7;" aria-live="polite">@_currentPage / @TotalPages</span>
+                        <button class="btn btn-sm btn-link p-0"
+                                disabled="@(_currentPage >= TotalPages)"
+                                @onclick="NextPage"
+                                aria-label="@L["Widget_NextPage"]">
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </button>
+                    }
+                </div>
+
+                @* Page size + Row count *@
+                <div class="d-flex align-items-center gap-1">
+                    <input type="number" class="form-control form-control-sm"
+                           style="width: 50px; background: transparent; border: 1px solid currentColor; color: inherit; text-align: center; @GetFontColorStyle()"
+                           min="1" max="500"
+                           value="@_pageSize"
+                           @onchange="OnPageSizeInputChanged"
+                           title="@L["Widget_RowsPerPage"]" />
+                    <span style="@GetFontColorStyle()">/ @filteredRows.Count</span>
+                </div>
+            }
         </div>
     }
 </div>
@@ -95,30 +238,93 @@
     private ConnectionState _connectionState = ConnectionState.Connecting;
     private CancellationTokenSource _cts = new();
 
-    // Configuration from widget settings
+    // Configuration
     private List<QueueGridColumnDef> _columnDefs = new();
     private List<QueueGridRowDef> _rowDefs = new();
+    private int _pageSize = 20;
+    private int _currentPage = 1;
+    private string? _sortColumn;
+    private bool _sortAscending = true;
 
-    // Widget appearance
+    // Appearance
     private string? _fontSize;
     private string? _backgroundColor;
     private string? _fontColor;
     private string? _tableBackgroundColor;
+    private bool _showPagination = true;
+
+    // Detected column data types (from actual values)
+    private Dictionary<string, string> _detectedDataTypes = new();
+
+    // Column thresholds
+    private Dictionary<string, List<ColumnThreshold>> _columnThresholds = new(StringComparer.OrdinalIgnoreCase);
+
+    private record ColumnThreshold(
+        string? MatchType,
+        string? From,
+        string? To,
+        string? TextMatch,
+        string? TextTo,
+        string? BackgroundColor,
+        string? FontColor
+    );
+
+    // Filters
+    private string? _activeFilterColumn;
+    private string? _listDropdownOpen;
+    private Dictionary<string, ColumnFilter> _columnFilters = new();
+
+    private class ColumnFilter
+    {
+        public string Mode { get; set; } = "";
+        public string Operator { get; set; } = "contains";
+        public string TextValue { get; set; } = "";
+        public HashSet<string> SelectedValues { get; set; } = new();
+    }
+
+    // Persisted widget state (localStorage)
+    private class WidgetState
+    {
+        public int PageSize { get; set; } = 20;
+        public Dictionary<string, ColumnFilterState> Filters { get; set; } = new();
+    }
+
+    private class ColumnFilterState
+    {
+        public string Mode { get; set; } = "";
+        public string Operator { get; set; } = "contains";
+        public string TextValue { get; set; } = "";
+        public List<string> SelectedValues { get; set; } = new();
+    }
 
     private class QueueRowData
     {
         public string RowId { get; set; } = "";
-        public string? BackgroundColor { get; set; }
-        public string? FontColor { get; set; }
+        public string QueueName { get; set; } = "";
         public Dictionary<string, string> Metrics { get; set; } = new();
     }
 
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
+    private int FilteredRowCount => GetFilteredRows().Count;
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(FilteredRowCount / (double)_pageSize));
+
+    private bool _stateLoaded;
+
     protected override async Task OnInitializedAsync()
     {
         ApplyConfig();
         await ConnectAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && GridId != 0 && !_stateLoaded)
+        {
+            _stateLoaded = true;
+            await LoadWidgetStateAsync();
+            StateHasChanged();
+        }
     }
 
     private int _previousGridId;
@@ -143,16 +349,32 @@
             _backgroundColor = Config.BackgroundColor;
             _fontColor = Config.FontColor;
             _tableBackgroundColor = Config.TableBackgroundColor;
+            _showPagination = Config.ShowPagination;
 
             _rowDefs = Config.QueueGridRows?.ToList() ?? new();
             _columnDefs = Config.QueueGridColumnDefs?.ToList() ?? new();
+
+            // Column thresholds
+            _columnThresholds = Config.ColumnThresholds?
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.Select(t => new ColumnThreshold(
+                        t.MatchType,
+                        t.From,
+                        t.To,
+                        t.TextMatch,
+                        t.TextTo,
+                        t.BackgroundColor,
+                        t.FontColor
+                    )).ToList(),
+                    StringComparer.OrdinalIgnoreCase
+                ) ?? new(StringComparer.OrdinalIgnoreCase);
 
             // Initialize rows from row definitions
             _rows = _rowDefs.Select(r => new QueueRowData
             {
                 RowId = r.Id,
-                BackgroundColor = r.BackgroundColor,
-                FontColor = r.FontColor
+                QueueName = r.QueueName ?? r.BusinessUnitName ?? ""
             }).ToList();
         }
     }
@@ -191,7 +413,8 @@
 
             _hub.On<GridUpdate>("QueueGridUpdate", async update =>
             {
-                // Merge incoming data with our row definitions
+                var isFirstData = _rows.All(r => r.Metrics.Count == 0);
+
                 foreach (var incomingRow in update.Rows)
                 {
                     var existingRow = _rows.FirstOrDefault(r => r.RowId == incomingRow.RowId);
@@ -200,6 +423,13 @@
                         existingRow.Metrics = incomingRow.Metrics;
                     }
                 }
+
+                // Detect column data types on first data received
+                if (isFirstData)
+                {
+                    DetectColumnDataTypes();
+                }
+
                 await InvokeAsync(StateHasChanged);
             });
 
@@ -271,18 +501,592 @@
         _rows = _rowDefs.Select(r => new QueueRowData
         {
             RowId = r.Id,
-            BackgroundColor = r.BackgroundColor,
-            FontColor = r.FontColor
+            QueueName = r.QueueName ?? r.BusinessUnitName ?? ""
         }).ToList();
 
         await ConnectAsync();
     }
 
+    // Filtering
+    private List<QueueRowData> GetFilteredRows()
+    {
+        var rows = _rows.AsEnumerable();
+
+        foreach (var (metricId, filter) in _columnFilters)
+        {
+            if (string.IsNullOrEmpty(filter.Mode)) continue;
+
+            // Special case: Queue Name column
+            if (metricId == "_queueName")
+            {
+                if (filter.Mode == "value" && !string.IsNullOrEmpty(filter.TextValue))
+                {
+                    rows = rows.Where(r => MatchesValueFilter(r.QueueName, filter));
+                }
+                else if (filter.Mode == "list" && filter.SelectedValues.Count > 0)
+                {
+                    rows = rows.Where(r => filter.SelectedValues.Contains(r.QueueName));
+                }
+            }
+            else
+            {
+                if (filter.Mode == "value" && !string.IsNullOrEmpty(filter.TextValue))
+                {
+                    rows = rows.Where(r => MatchesValueFilter(GetMetricValue(r.Metrics, metricId), filter));
+                }
+                else if (filter.Mode == "list" && filter.SelectedValues.Count > 0)
+                {
+                    rows = rows.Where(r => filter.SelectedValues.Contains(GetMetricValue(r.Metrics, metricId)));
+                }
+            }
+        }
+
+        // Sorting
+        if (!string.IsNullOrEmpty(_sortColumn))
+        {
+            var isNumeric = IsNumericColumn(_sortColumn);
+            rows = _sortAscending
+                ? rows.OrderBy(r => GetSortValue(r, _sortColumn, isNumeric))
+                : rows.OrderByDescending(r => GetSortValue(r, _sortColumn, isNumeric));
+        }
+
+        return rows.ToList();
+    }
+
+    private static bool MatchesValueFilter(string value, ColumnFilter filter)
+    {
+        var filterValue = filter.TextValue;
+        return filter.Operator switch
+        {
+            "contains" => value.Contains(filterValue, StringComparison.OrdinalIgnoreCase),
+            "equal" => value.Equals(filterValue, StringComparison.OrdinalIgnoreCase),
+            "startsWith" => value.StartsWith(filterValue, StringComparison.OrdinalIgnoreCase),
+            "endsWith" => value.EndsWith(filterValue, StringComparison.OrdinalIgnoreCase),
+            "less" => CompareNumeric(value, filterValue) < 0,
+            "lessOrEqual" => CompareNumeric(value, filterValue) <= 0,
+            "greater" => CompareNumeric(value, filterValue) > 0,
+            "greaterOrEqual" => CompareNumeric(value, filterValue) >= 0,
+            _ => true
+        };
+    }
+
+    private static int CompareNumeric(string a, string b)
+    {
+        var aVal = ParseToSeconds(a) ?? 0;
+        var bVal = ParseToSeconds(b) ?? 0;
+        return aVal.CompareTo(bVal);
+    }
+
+    private object GetSortValue(QueueRowData row, string metricId, bool isNumeric)
+    {
+        // Special case: Queue Name column
+        if (metricId == "_queueName")
+        {
+            return row.QueueName;
+        }
+
+        var value = GetMetricValue(row.Metrics, metricId);
+        if (isNumeric)
+        {
+            return ParseToSeconds(value) ?? 0;
+        }
+        return value;
+    }
+
+    private List<QueueRowData> GetPagedRows(List<QueueRowData> filtered)
+    {
+        return filtered
+            .Skip((_currentPage - 1) * _pageSize)
+            .Take(_pageSize)
+            .ToList();
+    }
+
+    private bool HasActiveFilter(string metricId)
+    {
+        if (!_columnFilters.TryGetValue(metricId, out var filter)) return false;
+        return filter.Mode == "value" && !string.IsNullOrEmpty(filter.TextValue)
+            || filter.Mode == "list" && filter.SelectedValues.Count > 0;
+    }
+
+    private int GetActiveFilterCount()
+    {
+        return _columnFilters.Count(kvp =>
+            kvp.Value.Mode == "value" && !string.IsNullOrEmpty(kvp.Value.TextValue)
+            || kvp.Value.Mode == "list" && kvp.Value.SelectedValues.Count > 0);
+    }
+
+    private async Task ClearAllFilters()
+    {
+        _columnFilters.Clear();
+        _activeFilterColumn = null;
+        _listDropdownOpen = null;
+        _currentPage = 1;
+        await SaveWidgetStateAsync();
+    }
+
+    private void CloseFilterDropdown()
+    {
+        _activeFilterColumn = null;
+        _listDropdownOpen = null;
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            CloseFilterDropdown();
+        }
+    }
+
+    private List<string> GetDistinctValues(string metricId)
+    {
+        return _rows
+            .Select(r => GetMetricValue(r.Metrics, metricId))
+            .Where(v => v != "-")
+            .Distinct()
+            .OrderBy(v => v)
+            .Take(50)
+            .ToList();
+    }
+
+    private ColumnFilter GetOrCreateFilter(string metricId)
+    {
+        if (!_columnFilters.TryGetValue(metricId, out var filter))
+        {
+            filter = new ColumnFilter();
+            _columnFilters[metricId] = filter;
+        }
+        return filter;
+    }
+
+    private void ToggleFilterDropdown(string metricId)
+    {
+        if (_activeFilterColumn == metricId)
+        {
+            _activeFilterColumn = null;
+            _listDropdownOpen = null;
+        }
+        else
+        {
+            _activeFilterColumn = metricId;
+            _listDropdownOpen = null;
+            if (!_columnFilters.ContainsKey(metricId))
+            {
+                _columnFilters[metricId] = new ColumnFilter();
+            }
+        }
+    }
+
+    private async Task ClearFilter(string metricId)
+    {
+        if (_columnFilters.ContainsKey(metricId))
+        {
+            _columnFilters[metricId] = new ColumnFilter();
+        }
+        _activeFilterColumn = null;
+        _listDropdownOpen = null;
+        _currentPage = 1;
+        await SaveWidgetStateAsync();
+    }
+
+    private void UpdateFilterOperator(string metricId, ChangeEventArgs e)
+    {
+        var filter = GetOrCreateFilter(metricId);
+        filter.Operator = e.Value?.ToString() ?? "contains";
+    }
+
+    private async Task ApplyValueFilter(string metricId)
+    {
+        var filter = GetOrCreateFilter(metricId);
+        if (!string.IsNullOrEmpty(filter.TextValue))
+        {
+            filter.Mode = "value";
+            filter.SelectedValues.Clear();
+        }
+        _activeFilterColumn = null;
+        _listDropdownOpen = null;
+        _currentPage = 1;
+        await SaveWidgetStateAsync();
+    }
+
+    private async Task ToggleListValue(string metricId, string value)
+    {
+        var filter = GetOrCreateFilter(metricId);
+        filter.TextValue = "";
+
+        if (filter.SelectedValues.Contains(value))
+            filter.SelectedValues.Remove(value);
+        else
+            filter.SelectedValues.Add(value);
+
+        filter.Mode = filter.SelectedValues.Count > 0 ? "list" : "";
+        _currentPage = 1;
+        await SaveWidgetStateAsync();
+    }
+
+    private static string GetListButtonLabel(ColumnFilter filter)
+    {
+        if (filter.SelectedValues.Count == 0) return "Select values...";
+        if (filter.SelectedValues.Count == 1) return filter.SelectedValues.First();
+        return $"{filter.SelectedValues.Count} selected";
+    }
+
+    private void ToggleListDropdown(string metricId)
+    {
+        _listDropdownOpen = _listDropdownOpen == metricId ? null : metricId;
+    }
+
+    private void OnValueInput(string metricId)
+    {
+        var filter = GetOrCreateFilter(metricId);
+        if (string.IsNullOrEmpty(filter.TextValue))
+        {
+            filter.Mode = "";
+        }
+    }
+
+    private RenderFragment RenderFilterDropdown(QueueGridColumnDef colDef) => __builder =>
+    {
+        var filter = GetOrCreateFilter(colDef.MetricId);
+        var isNumeric = IsNumericColumn(colDef.MetricId);
+        var distinctValues = isNumeric ? new List<string>() : GetDistinctValues(colDef.MetricId);
+
+        <div class="filter-dropdown position-absolute rounded shadow-lg p-2"
+             style="top: 100%; inset-inline-start: 0; min-width: 200px; z-index: 1050; @GetFilterDropdownStyle()"
+             @onclick:stopPropagation="true">
+
+            <!-- Header with label and icons -->
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small opacity-75">Value</span>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-success, #198754);" title="Apply" @onclick="() => ApplyValueFilter(colDef.MetricId)">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-danger, #dc3545);" title="Clear" @onclick="() => ClearFilter(colDef.MetricId)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <button class="btn btn-link btn-sm p-0" style="@GetFontColorStyle()" title="Close" @onclick="CloseFilterDropdown">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- VALUE section -->
+            <div class="mb-1">
+                <select class="form-select form-select-sm mb-1"
+                        style="@GetFilterInputStyle()"
+                        value="@filter.Operator"
+                        @onchange="e => UpdateFilterOperator(colDef.MetricId, e)">
+                    @if (isNumeric)
+                    {
+                        <option value="less">Less than</option>
+                        <option value="lessOrEqual">Less or equal</option>
+                        <option value="greater">Greater than</option>
+                        <option value="greaterOrEqual">Greater or equal</option>
+                        <option value="equal">Equal</option>
+                    }
+                    else
+                    {
+                        <option value="contains">Contains</option>
+                        <option value="equal">Equal</option>
+                        <option value="startsWith">Starts with</option>
+                        <option value="endsWith">Ends with</option>
+                    }
+                </select>
+                <input type="text" class="form-control form-control-sm"
+                       style="@GetFilterInputStyle()"
+                       @bind="filter.TextValue"
+                       @bind:event="oninput"
+                       @bind:after="() => OnValueInput(colDef.MetricId)"
+                       placeholder="@(isNumeric ? "e.g. 30:00" : "Filter value...")" />
+            </div>
+
+            @if (!isNumeric && distinctValues.Count > 0)
+            {
+                <div class="border-top pt-3 mt-3" style="border-color: currentColor; opacity: 0.3;">
+                </div>
+                <div style="opacity: 1;">
+                    <div class="small mb-2 opacity-75">List</div>
+                    <div class="position-relative">
+                        <button class="btn btn-sm w-100 d-flex justify-content-between align-items-center"
+                                style="@GetFilterInputStyle()"
+                                @onclick="() => ToggleListDropdown(colDef.MetricId)"
+                                @onclick:stopPropagation="true">
+                            <span>@GetListButtonLabel(filter)</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        @if (_listDropdownOpen == colDef.MetricId)
+                        {
+                            <div class="position-absolute w-100 rounded shadow-sm mt-1"
+                                 style="@GetFilterDropdownStyle() z-index: 1060; max-height: 180px; overflow-y: auto;">
+                                @foreach (var val in distinctValues)
+                                {
+                                    var isChecked = filter.SelectedValues.Contains(val);
+                                    <div class="d-flex align-items-center gap-2 px-2 py-1" style="border-bottom: 1px solid currentColor; opacity: 0.8;">
+                                        <input type="checkbox" class="form-check-input m-0" style="flex-shrink: 0;"
+                                               checked="@isChecked"
+                                               @onchange="() => ToggleListValue(colDef.MetricId, val)" />
+                                        <span class="small" style="text-transform: none;">@val</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment RenderQueueNameFilterDropdown() => __builder =>
+    {
+        var filter = GetOrCreateFilter("_queueName");
+        var distinctValues = GetDistinctQueueNames();
+
+        <div class="filter-dropdown position-absolute rounded shadow-lg p-2"
+             style="top: 100%; inset-inline-start: 0; min-width: 200px; z-index: 1050; @GetFilterDropdownStyle()"
+             @onclick:stopPropagation="true">
+
+            <!-- Header with label and icons -->
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small opacity-75">Value</span>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-success, #198754);" title="Apply" @onclick='() => ApplyValueFilter("_queueName")'>
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-danger, #dc3545);" title="Clear" @onclick='() => ClearFilter("_queueName")'>
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <button class="btn btn-link btn-sm p-0" style="@GetFontColorStyle()" title="Close" @onclick="CloseFilterDropdown">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- VALUE section -->
+            <div class="mb-1">
+                <select class="form-select form-select-sm mb-1"
+                        style="@GetFilterInputStyle()"
+                        value="@filter.Operator"
+                        @onchange='e => UpdateFilterOperator("_queueName", e)'>
+                    <option value="contains">Contains</option>
+                    <option value="equal">Equal</option>
+                    <option value="startsWith">Starts with</option>
+                    <option value="endsWith">Ends with</option>
+                </select>
+                <input type="text" class="form-control form-control-sm"
+                       style="@GetFilterInputStyle()"
+                       @bind="filter.TextValue"
+                       @bind:event="oninput"
+                       @bind:after='() => OnValueInput("_queueName")'
+                       placeholder="Filter value..." />
+            </div>
+
+            @if (distinctValues.Count > 0)
+            {
+                <div class="border-top pt-3 mt-3" style="border-color: currentColor; opacity: 0.3;">
+                </div>
+                <div style="opacity: 1;">
+                    <div class="small mb-2 opacity-75">List</div>
+                    <div class="position-relative">
+                        <button class="btn btn-sm w-100 d-flex justify-content-between align-items-center"
+                                style="@GetFilterInputStyle()"
+                                @onclick='() => ToggleListDropdown("_queueName")'
+                                @onclick:stopPropagation="true">
+                            <span>@GetListButtonLabel(filter)</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        @if (_listDropdownOpen == "_queueName")
+                        {
+                            <div class="position-absolute w-100 rounded shadow-sm mt-1"
+                                 style="@GetFilterDropdownStyle() z-index: 1060; max-height: 180px; overflow-y: auto;">
+                                @foreach (var val in distinctValues)
+                                {
+                                    var isChecked = filter.SelectedValues.Contains(val);
+                                    <div class="d-flex align-items-center gap-2 px-2 py-1" style="border-bottom: 1px solid currentColor; opacity: 0.8;">
+                                        <input type="checkbox" class="form-check-input m-0" style="flex-shrink: 0;"
+                                               checked="@isChecked"
+                                               @onchange='() => ToggleListValue("_queueName", val)' />
+                                        <span class="small" style="text-transform: none;">@val</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    private List<string> GetDistinctQueueNames()
+    {
+        return _rows
+            .Select(r => r.QueueName)
+            .Where(v => !string.IsNullOrEmpty(v))
+            .Distinct()
+            .OrderBy(v => v)
+            .Take(50)
+            .ToList();
+    }
+
+    // Sorting
+    private void ToggleSort(string column)
+    {
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+    }
+
+    // Pagination
+    private void PreviousPage()
+    {
+        if (_currentPage > 1) _currentPage--;
+    }
+
+    private void NextPage()
+    {
+        if (_currentPage < TotalPages) _currentPage++;
+    }
+
+    private async Task OnPageSizeInputChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size) && size > 0 && size <= 500)
+        {
+            _pageSize = size;
+            _currentPage = 1;
+            await SaveWidgetStateAsync();
+        }
+    }
+
+    // Helpers
     private static string GetMetricValue(Dictionary<string, string> metrics, string metricId)
     {
         return metrics.TryGetValue(metricId, out var value) ? value : "-";
     }
 
+    private bool IsNumericColumn(string metricId)
+    {
+        // First check detected data type from actual values
+        if (_detectedDataTypes.TryGetValue(metricId, out var dataType))
+        {
+            return dataType == "number" || dataType == "time";
+        }
+        // Fallback to pattern matching on metric ID
+        var id = metricId.ToLowerInvariant();
+        return id.Contains("duration") || id.Contains("occupancy") || id.Contains("adherence") ||
+               id.Contains("calls") || id.Contains("aht") || id.Contains("time") || id.Contains("percent") ||
+               id.Contains("total") || id.Contains("avg") || id.Contains("count") || id.Contains("waiting") ||
+               id.Contains("available") || id.Contains("level") || id.Contains("abandon");
+    }
+
+    private static string DetectDataType(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value == "-") return "text";
+
+        // Check for time format: MM:SS or HH:MM:SS
+        var parts = value.Split(':');
+        if (parts.Length == 2 || parts.Length == 3)
+        {
+            if (parts.All(p => int.TryParse(p, out _)))
+                return "time";
+        }
+
+        // Check for number (including percentages)
+        var numStr = value.TrimEnd('%');
+        if (double.TryParse(numStr, out _))
+            return "number";
+
+        return "text";
+    }
+
+    private void DetectColumnDataTypes()
+    {
+        if (_rows.Count == 0 || _columnDefs.Count == 0) return;
+
+        var firstRow = _rows.FirstOrDefault(r => r.Metrics.Count > 0);
+        if (firstRow == null) return;
+
+        foreach (var colDef in _columnDefs)
+        {
+            if (string.IsNullOrEmpty(colDef.MetricId)) continue;
+
+            var sampleValue = GetMetricValue(firstRow.Metrics, colDef.MetricId);
+            var detectedType = DetectDataType(sampleValue);
+            _detectedDataTypes[colDef.MetricId] = detectedType;
+        }
+
+        Logger.LogInformation("Detected column types: {Types}",
+            string.Join(", ", _detectedDataTypes.Select(kvp => $"{kvp.Key}={kvp.Value}")));
+    }
+
+    private static double? ParseToSeconds(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return null;
+        if (double.TryParse(value, out var num)) return num;
+
+        var parts = value.Split(':');
+        try
+        {
+            if (parts.Length == 3)
+                return int.Parse(parts[0]) * 3600 + int.Parse(parts[1]) * 60 + int.Parse(parts[2]);
+            if (parts.Length == 2)
+                return int.Parse(parts[0]) * 60 + int.Parse(parts[1]);
+        }
+        catch { }
+        return null;
+    }
+
+    // Thresholds
+    private (string? bg, string? fg) GetThresholdStyle(string metricId, string cellValue)
+    {
+        if (!_columnThresholds.TryGetValue(metricId, out var thresholds) || thresholds.Count == 0)
+            return (null, null);
+
+        foreach (var t in thresholds)
+        {
+            if (t.MatchType == "text")
+            {
+                if (string.Equals(cellValue, t.TextMatch, StringComparison.OrdinalIgnoreCase))
+                    return (t.BackgroundColor, t.FontColor);
+            }
+            else // numeric
+            {
+                var numericValue = ParseToSeconds(cellValue);
+                var from = ParseToSeconds(t.From);
+                var to = ParseToSeconds(t.To);
+
+                if (numericValue.HasValue && from.HasValue)
+                {
+                    if (to.HasValue)
+                    {
+                        if (numericValue >= from && numericValue <= to)
+                            return (t.BackgroundColor, t.FontColor);
+                    }
+                    else
+                    {
+                        if (numericValue >= from)
+                            return (t.BackgroundColor, t.FontColor);
+                    }
+                }
+            }
+        }
+        return (null, null);
+    }
+
+    private static string GetBadgeStyle(string? bg, string? fg)
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(bg)) styles.Add($"background-color: {bg}");
+        if (!string.IsNullOrEmpty(fg)) styles.Add($"color: {fg}");
+        return string.Join("; ", styles);
+    }
+
+    // Styles - copied from AgentGridWidget
     private string GetWidgetStyle()
     {
         var styles = new List<string>();
@@ -349,19 +1153,121 @@
         return string.Join("; ", styles);
     }
 
-    private string GetRowStyle(string? bgColor, string? fontColor)
+    private string GetTheadCellStyle()
+    {
+        var color = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        return $"white-space: nowrap; color: {color};";
+    }
+
+    private string GetFilterButtonStyle(bool hasFilter)
+    {
+        var color = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        var opacity = hasFilter ? "1" : "0.6";
+        return $"color: {color}; opacity: {opacity};";
+    }
+
+    private string GetRowStyle()
     {
         var styles = new List<string>();
 
-        var effectiveBg = bgColor ?? (_tableBackgroundColor != "transparent" ? _tableBackgroundColor : null);
-        var effectiveFont = fontColor ?? _fontColor;
-
-        if (!string.IsNullOrEmpty(effectiveBg) && effectiveBg != "transparent")
-            styles.Add($"background-color: {effectiveBg}");
-        if (!string.IsNullOrEmpty(effectiveFont))
-            styles.Add($"color: {effectiveFont}");
+        if (!string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent")
+            styles.Add($"background-color: {_tableBackgroundColor}");
+        if (!string.IsNullOrEmpty(_fontColor))
+            styles.Add($"color: {_fontColor}");
 
         return string.Join("; ", styles);
+    }
+
+    private string GetFontColorStyle()
+    {
+        return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
+    }
+
+    private string GetBadgeInvertStyle()
+    {
+        var bg = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        var fg = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
+            ? _tableBackgroundColor
+            : "#1e3a5f";
+        return $"background-color: {bg}; color: {fg};";
+    }
+
+    private string GetFilterDropdownStyle()
+    {
+        var bg = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
+            ? _tableBackgroundColor
+            : "#1e3a5f";
+        var fg = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        return $"background: {bg}; color: {fg}; border: 1px solid {fg}33;";
+    }
+
+    private string GetFilterInputStyle()
+    {
+        var bg = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
+            ? _tableBackgroundColor
+            : "#1e3a5f";
+        var fg = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        return $"background: {bg}; color: {fg}; border: 1px solid {fg}66;";
+    }
+
+    // State persistence
+    private string GetStorageKey() => $"queueGrid_{GridId}_state";
+
+    private async Task SaveWidgetStateAsync()
+    {
+        if (GridId == 0) return;
+        try
+        {
+            var state = new WidgetState
+            {
+                PageSize = _pageSize,
+                Filters = _columnFilters.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => new ColumnFilterState
+                    {
+                        Mode = kvp.Value.Mode,
+                        Operator = kvp.Value.Operator,
+                        TextValue = kvp.Value.TextValue,
+                        SelectedValues = kvp.Value.SelectedValues.ToList()
+                    })
+            };
+            var json = System.Text.Json.JsonSerializer.Serialize(state);
+            await JS.InvokeVoidAsync("localStorage.setItem", GetStorageKey(), json);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to save widget state");
+        }
+    }
+
+    private async Task LoadWidgetStateAsync()
+    {
+        if (GridId == 0) return;
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", GetStorageKey());
+            if (!string.IsNullOrEmpty(json))
+            {
+                var state = System.Text.Json.JsonSerializer.Deserialize<WidgetState>(json);
+                if (state != null)
+                {
+                    _pageSize = state.PageSize > 0 ? state.PageSize : 20;
+                    _columnFilters = state.Filters.ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => new ColumnFilter
+                        {
+                            Mode = kvp.Value.Mode,
+                            Operator = kvp.Value.Operator,
+                            TextValue = kvp.Value.TextValue,
+                            SelectedValues = kvp.Value.SelectedValues.ToHashSet()
+                        });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to load widget state");
+        }
     }
 
     public async ValueTask DisposeAsync()

@@ -549,6 +549,7 @@
   <data name="Widgets_AgentGrid_ShowAvatar_Help"><value>Отображать аватар с инициалами перед именем агента</value></data>
   <data name="Widgets_AgentGrid_ShowScore"><value>Показать оценку</value></data>
   <data name="Widgets_AgentGrid_ShowScore_Help"><value>Отображать оценку производительности в виде звёзд под именем агента</value></data>
+  <data name="Widgets_ShowPagination"><value>Показать пагинацию</value></data>
   <data name="Widgets_AgentGrid_ScoreStarColor"><value>Цвет звёзд</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula"><value>Формула оценки</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula_Help"><value>Звёзды = процент выполненных правил. Все правила = 100% = 5 звёзд. Условия объединяются через AND.</value></data>

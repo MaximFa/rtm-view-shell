@@ -295,6 +295,7 @@
   <data name="Widgets_AgentGrid_ShowAvatar_Help"><value>Display initials avatar before agent name</value></data>
   <data name="Widgets_AgentGrid_ShowScore"><value>Show Score</value></data>
   <data name="Widgets_AgentGrid_ShowScore_Help"><value>Display performance score as stars below agent name</value></data>
+  <data name="Widgets_ShowPagination"><value>Show Pagination</value></data>
   <data name="Widgets_AgentGrid_ScoreStarColor"><value>Star Color</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula"><value>Score Formula</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula_Help"><value>Stars = percentage of matching rules. All rules = 100% = 5 stars. Conditions combined with AND.</value></data>
