@@ -183,6 +183,7 @@ public class DatabaseInitializer(
             new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Calls Per Hour", Description = "Hourly call volume bar chart", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "AHT Chart", Description = "Average handle time trend", IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Real-time Ticker", Description = "Live event ticker feed", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Data Slot", Description = "Single metric display with target comparison", IsActive = true },
         };
 
         var existingNames = (await db.WidgetCatalogItems

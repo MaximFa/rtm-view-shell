@@ -55,15 +55,19 @@
                 {
                     var config = widget.Config;
                     var effectiveBg = GetEffectiveBackgroundColor(config);
+                    var isHeaderHidden = config?.HideHeader == true;
                     var widgetStyle = $"position: absolute; left: {widget.X}px; top: {widget.Y}px; width: {widget.Width}px; height: {widget.Height}px;";
                     if (!string.IsNullOrEmpty(effectiveBg))
                     {
-                        widgetStyle += $" background: {effectiveBg};";
+                        widgetStyle += $" background: {effectiveBg} !important;";
                     }
-                    <div class="dashboard-widget" data-widget-id="@widget.Id" style="@widgetStyle" @key="widget.Id">
-                        <div class="widget-header" style="@GetHeaderStyle(config)">
-                            @(config?.DisplayName ?? widget.Name)
-                        </div>
+                    <div class="dashboard-widget @(isHeaderHidden ? "header-hidden" : "")" data-widget-id="@widget.Id" style="@widgetStyle" @key="widget.Id">
+                        @if (!isHeaderHidden)
+                        {
+                            <div class="widget-header" style="@GetHeaderStyle(config)">
+                                @(config?.DisplayName ?? widget.Name)
+                            </div>
+                        }
                         <div class="widget-content" style="@GetContentStyle(config)">
                             <RenderWidget Widget="widget" DarkMode="_darkMode" />
                         </div>
@@ -121,6 +125,7 @@
                             GridId = w.GridId,
                             CatalogItemId = w.WidgetCatalogItemId,
                             Name = config?.DisplayName ?? catalogItem.Name,
+                            OriginalWidgetName = catalogItem.Name,
                             Category = catalogItem.Category,
                             Width = width,
                             Height = height,
@@ -181,19 +186,47 @@
 
     private string GetHeaderStyle(ScreenEditorPage.WidgetConfig? config)
     {
-        var style = "";
-        var textColor = GetEffectiveTextColor(config);
-        if (!string.IsNullOrEmpty(textColor)) style += $"color: {textColor};";
-        return style;
+        var styles = new List<string>();
+
+        // Header background color
+        var headerBg = _darkMode ? config?.DarkHeaderBackgroundColor : config?.HeaderBackgroundColor;
+        if (!string.IsNullOrEmpty(headerBg) && !string.Equals(headerBg, "default", StringComparison.OrdinalIgnoreCase))
+        {
+            styles.Add($"background-color: {headerBg} !important");
+        }
+
+        // Header font color
+        var headerFont = _darkMode ? config?.DarkHeaderFontColor : config?.HeaderFontColor;
+        if (!string.IsNullOrEmpty(headerFont) && !string.Equals(headerFont, "default", StringComparison.OrdinalIgnoreCase))
+        {
+            styles.Add($"color: {headerFont} !important");
+        }
+        else
+        {
+            // Fallback to general text color if no header font specified
+            var textColor = GetEffectiveTextColor(config);
+            if (!string.IsNullOrEmpty(textColor)) styles.Add($"color: {textColor}");
+        }
+
+        return styles.Count > 0 ? string.Join("; ", styles) + ";" : "";
     }
 
     private string GetContentStyle(ScreenEditorPage.WidgetConfig? config)
     {
-        var style = "";
+        var styles = new List<string>();
+
+        // Table/content background color
+        var tableBg = _darkMode ? config?.DarkTableBackgroundColor : config?.TableBackgroundColor;
+        if (!string.IsNullOrEmpty(tableBg) && tableBg != "transparent")
+        {
+            styles.Add($"background-color: {tableBg} !important");
+        }
+
         var textColor = GetEffectiveTextColor(config);
-        if (!string.IsNullOrEmpty(textColor)) style += $"color: {textColor};";
-        if (!string.IsNullOrEmpty(config?.FontSize)) style += $"font-size: {GetFontSizePx(config.FontSize)};";
-        return style;
+        if (!string.IsNullOrEmpty(textColor)) styles.Add($"color: {textColor}");
+        if (!string.IsNullOrEmpty(config?.FontSize)) styles.Add($"font-size: {GetFontSizePx(config.FontSize)}");
+
+        return styles.Count > 0 ? string.Join("; ", styles) + ";" : "";
     }
 
     private static string GetFontSizePx(string size) => size switch

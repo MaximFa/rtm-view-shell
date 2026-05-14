@@ -39,6 +39,12 @@ public class SaveDashboardWidgetCommandHandler(
             existing.PositionJson = dto.PositionJson;
             existing.ConfigJson = dto.ConfigJson;
 
+            // Update GridId if PreassignedGridId is provided (from RTS save)
+            if (cmd.PreassignedGridId.HasValue && cmd.PreassignedGridId.Value > 0)
+            {
+                existing.GridId = cmd.PreassignedGridId.Value;
+            }
+
             dashboard.UpdatedAt = clock.UtcNow;
             dashboard.UpdatedByUserId = currentUser.UserId!.Value;
             dashboards.Update(dashboard);

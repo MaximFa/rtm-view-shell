@@ -522,6 +522,19 @@
   <data name="Widget_DeleteConfirm"><value>Удалить виджет</value></data>
   <data name="Widget_DeleteMessage"><value>Вы уверены, что хотите удалить "{0}"?</value></data>
   <data name="Widget_DeleteRtsWarning"><value>Также будет удалена связанная конфигурация сетки.</value></data>
+  <data name="Widget_ConfigureDataSlot"><value>Настройте метрику для отображения</value></data>
+  <data name="Widget_ToTarget"><value>к цели</value></data>
+  <data name="Widget_OnTarget"><value>Цель достигнута</value></data>
+  <data name="Widget_DataSlotTitle"><value>Заголовок</value></data>
+  <data name="Widget_DataSlotMetric"><value>Метрика</value></data>
+  <data name="Widget_DataSlotBusinessUnit"><value>Бизнес-юнит</value></data>
+  <data name="Widget_DataSlotTarget"><value>Целевое значение</value></data>
+  <data name="Widget_DataSlotTargetMode"><value>Режим цели</value></data>
+  <data name="Widget_DataSlotTargetLabel"><value>Подпись цели</value></data>
+  <data name="Widget_DataSlotTargetLess"><value>Меньше — лучше</value></data>
+  <data name="Widget_DataSlotTargetGreater"><value>Больше — лучше</value></data>
+  <data name="Widget_DataSlotTitleHint"><value>Оставьте пустым для использования имени виджета</value></data>
+  <data name="Widget_DataSlotTargetLabelHint"><value>Подпись под значением</value></data>
   <data name="State_Ready"><value>Готов</value></data>
   <data name="State_Talking"><value>Разговор</value></data>
   <data name="State_Hold"><value>Удержание</value></data>
@@ -551,6 +564,17 @@
   <data name="Widgets_AgentGrid_ShowScore"><value>Показать оценку</value></data>
   <data name="Widgets_AgentGrid_ShowScore_Help"><value>Отображать оценку производительности в виде звёзд под именем агента</value></data>
   <data name="Widgets_ShowPagination"><value>Показать пагинацию</value></data>
+  <data name="Widgets_HideHeader"><value>Скрыть заголовок</value></data>
+  <data name="Widgets_HideHeaderHint"><value>Панель инструментов появляется при наведении, перетаскивание за любую точку</value></data>
+  <data name="Widgets_DisplayOptions"><value>Опции отображения</value></data>
+  <data name="Widgets_Bold"><value>Жирный</value></data>
+  <data name="Widgets_Alignment"><value>Выравнивание</value></data>
+  <data name="Widgets_Align_Left"><value>Слева</value></data>
+  <data name="Widgets_Align_Center"><value>По центру</value></data>
+  <data name="Widgets_Align_Right"><value>Справа</value></data>
+  <data name="Widgets_ShowTargetLabel"><value>Показать надпись Target</value></data>
+  <data name="Widgets_ShowArrow"><value>Показать стрелку</value></data>
+  <data name="Widgets_ShowDeltaArrow"><value>Показать стрелку дельты</value></data>
   <data name="Widgets_AgentGrid_ScoreStarColor"><value>Цвет звёзд</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula"><value>Формула оценки</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula_Help"><value>Звёзды = процент выполненных правил. Все правила = 100% = 5 звёзд. Условия объединяются через AND.</value></data>

@@ -1,0 +1,392 @@
+@using CcDashboard.Application.Queries.TenantSettings
+@using Microsoft.AspNetCore.SignalR.Client
+@using MediatR
+@using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+@using Microsoft.Extensions.Localization
+@implements IAsyncDisposable
+
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject ISender Mediator
+
+<div class="data-slot-widget" style="@GetWidgetStyle()">
+    @if (GridId == 0)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <i class="bi bi-gear fs-3 mb-2 opacity-50" aria-hidden="true"></i>
+            <span class="small">@L["Widget_SaveConfigFirst"]</span>
+        </div>
+    }
+    else if (_connectionState == ConnectionState.Connecting)
+    {
+        <div class="d-flex align-items-center justify-content-center h-100 text-muted" aria-busy="true">
+            <div class="spinner-border spinner-border-sm me-2" aria-hidden="true"></div>
+            <span>@L["Widget_Connecting"]</span>
+        </div>
+    }
+    else if (_connectionState == ConnectionState.Failed)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <i class="bi bi-wifi-off fs-3 mb-2 text-warning" aria-hidden="true"></i>
+            <span class="small">@L["Widget_ConnectionFailed"]</span>
+            <button class="btn btn-sm btn-link mt-2" @onclick="ReconnectAsync">
+                @L["Widget_Retry"]
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="data-slot-content" style="@GetContentAlignStyle()">
+            @if (!string.IsNullOrEmpty(_title))
+            {
+                <div class="data-slot-title" style="@GetFontColorStyle()">@_title</div>
+            }
+
+            <div class="data-slot-value" style="@GetValueStyle()">@_displayValue</div>
+
+            @if (_showTargetLabel && !string.IsNullOrEmpty(_targetLabel))
+            {
+                <div class="data-slot-target" style="@GetMutedFontColorStyle()">@_targetLabel</div>
+            }
+
+            @if (_showArrow && _showDelta && _target.HasValue)
+            {
+                <div class="data-slot-delta" style="@GetDeltaStyle()">
+                    @_deltaIcon @_deltaText
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public WidgetConfig? Config { get; set; }
+    [Parameter] public int GridId { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+
+    // Local record types matching SignalR simulator
+    private record GridRowData(string RowId, Dictionary<string, string> Metrics);
+    private record GridUpdate(int GridId, DateTime Timestamp, List<GridRowData> Rows);
+
+    private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
+
+    private HubConnection? _hub;
+    private ConnectionState _connectionState = ConnectionState.Connecting;
+
+    // Config values
+    private string? _title;
+    private string? _metricId;
+    private decimal? _target;
+    private string? _targetMode;
+    private string? _targetLabel;
+
+    // Display options
+    private bool _bold = false;
+    private string _align = "center";
+    private bool _showTargetLabel = true;
+    private bool _showArrow = true;
+
+    // Colors (base from config)
+    private string _backgroundColor = "";
+    private string _fontColor = "";
+    private string _darkBackgroundColor = "#1e3a5f";
+    private string _darkFontColor = "#ffffff";
+
+    // Threshold-applied colors (override base when threshold matches)
+    private string? _thresholdBgColor;
+    private string? _thresholdFontColor;
+
+    // Thresholds list
+    private List<ThresholdRule>? _thresholds;
+
+    // Runtime values
+    private decimal? _currentValue;
+    private string _displayValue = "--";
+    private string _deltaText = "";
+    private string _deltaIcon = "";
+    private bool _showDelta = false;
+    private bool _isWorseThanTarget = false;
+
+    // Base colors (without threshold) - for title, labels
+    private string BaseFontColor => DarkMode ? _darkFontColor : _fontColor;
+
+    // Effective colors based on DarkMode and thresholds - for value display
+    private string EffectiveBackgroundColor => _thresholdBgColor ?? (DarkMode ? _darkBackgroundColor : _backgroundColor);
+    private string EffectiveFontColor => _thresholdFontColor ?? BaseFontColor;
+
+    // Simple threshold rule class
+    private class ThresholdRule
+    {
+        public string? From { get; set; }
+        public string? To { get; set; }
+        public string? BackgroundColor { get; set; }
+        public string? FontColor { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        ApplyConfig();
+        if (GridId > 0)
+        {
+            await ConnectAsync();
+        }
+        else
+        {
+            _connectionState = ConnectionState.Connected;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        ApplyConfig();
+    }
+
+    private void ApplyConfig()
+    {
+        if (Config is null) return;
+
+        _title = Config.DataSlotTitle ?? Config.DisplayName;
+        _metricId = Config.DataSlotMetricId;
+        _target = Config.DataSlotTarget;
+        _targetMode = Config.DataSlotTargetMode ?? "less";
+        _targetLabel = Config.DataSlotTargetLabel;
+
+        // Display options
+        _bold = Config.DataSlotBold;
+        _align = Config.DataSlotAlign ?? "center";
+        _showTargetLabel = Config.DataSlotShowTargetLabel;
+        _showArrow = Config.DataSlotShowArrow;
+
+        // Colors
+        _backgroundColor = Config.BackgroundColor ?? "";
+        _fontColor = Config.FontColor ?? "";
+        _darkBackgroundColor = Config.DarkBackgroundColor ?? "#1e3a5f";
+        _darkFontColor = Config.DarkFontColor ?? "#ffffff";
+
+        // Load thresholds
+        _thresholds = Config.Thresholds?.Select(t => new ThresholdRule
+        {
+            From = t.From,
+            To = t.To,
+            BackgroundColor = t.BackgroundColor,
+            FontColor = t.FontColor
+        }).ToList();
+    }
+
+    private void ApplyThresholds()
+    {
+        // Reset threshold colors
+        _thresholdBgColor = null;
+        _thresholdFontColor = null;
+
+        if (_thresholds == null || _thresholds.Count == 0 || !_currentValue.HasValue)
+            return;
+
+        var value = _currentValue.Value;
+
+        foreach (var rule in _thresholds)
+        {
+            var from = decimal.TryParse(rule.From, out var f) ? f : decimal.MinValue;
+            var to = decimal.TryParse(rule.To, out var t) ? t : decimal.MaxValue;
+
+            if (value >= from && value <= to)
+            {
+                // "default" means use base config color (don't override)
+                // "transparent" is a valid color value
+                if (!string.IsNullOrEmpty(rule.BackgroundColor) &&
+                    !rule.BackgroundColor.Equals("default", StringComparison.OrdinalIgnoreCase))
+                {
+                    _thresholdBgColor = rule.BackgroundColor;
+                }
+
+                if (!string.IsNullOrEmpty(rule.FontColor) &&
+                    !rule.FontColor.Equals("default", StringComparison.OrdinalIgnoreCase))
+                {
+                    _thresholdFontColor = rule.FontColor;
+                }
+                break; // First matching rule wins
+            }
+        }
+    }
+
+    private async Task ConnectAsync()
+    {
+        try
+        {
+            var settings = await Mediator.Send(new GetTenantSettingsQuery());
+            var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
+            var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={GridId}";
+
+            _hub = new HubConnectionBuilder()
+                .WithUrl(fullUrl)
+                .WithAutomaticReconnect()
+                .Build();
+
+            // Same handler as QueueGrid - receives GridUpdate
+            _hub.On<GridUpdate>("QueueGridUpdate", OnQueueGridUpdate);
+
+            _hub.Reconnecting += _ => { _connectionState = ConnectionState.Reconnecting; return InvokeAsync(StateHasChanged); };
+            _hub.Reconnected += _ => { _connectionState = ConnectionState.Connected; return InvokeAsync(StateHasChanged); };
+            _hub.Closed += _ => { _connectionState = ConnectionState.Failed; return InvokeAsync(StateHasChanged); };
+
+            await _hub.StartAsync();
+            _connectionState = ConnectionState.Connected;
+
+            // Subscribe to grid updates (same as QueueGrid)
+            await _hub.InvokeAsync("SubscribeToGrid", GridId);
+        }
+        catch
+        {
+            _connectionState = ConnectionState.Failed;
+        }
+    }
+
+    private async Task ReconnectAsync()
+    {
+        _connectionState = ConnectionState.Connecting;
+        StateHasChanged();
+        await ConnectAsync();
+        StateHasChanged();
+    }
+
+    private void OnQueueGridUpdate(GridUpdate update)
+    {
+        // Data Slot has 1 row and 1 column - get the first value
+        var row = update.Rows.FirstOrDefault();
+        if (row is null) return;
+
+        // Get value for our metric, or the first metric if not specified
+        string? value = null;
+        if (!string.IsNullOrEmpty(_metricId) && row.Metrics.TryGetValue(_metricId, out var metricValue))
+        {
+            value = metricValue;
+        }
+        else if (row.Metrics.Count > 0)
+        {
+            value = row.Metrics.Values.First();
+        }
+
+        if (value is null) return;
+
+        if (decimal.TryParse(value.TrimEnd('%').Replace(",", ""), out var numValue))
+        {
+            _currentValue = numValue;
+            _displayValue = value;
+            CalculateDelta();
+            ApplyThresholds();
+        }
+        else
+        {
+            _currentValue = null;
+            _displayValue = value;
+            _showDelta = false;
+            ApplyThresholds();
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void CalculateDelta()
+    {
+        if (!_currentValue.HasValue || !_target.HasValue)
+        {
+            _showDelta = false;
+            return;
+        }
+
+        var delta = _currentValue.Value - _target.Value;
+        var absString = Math.Abs(delta).ToString("0.#") + "%";
+
+        // Determine if current value is worse than target
+        if (_targetMode == "less")
+        {
+            _isWorseThanTarget = _currentValue.Value > _target.Value;
+        }
+        else
+        {
+            _isWorseThanTarget = _currentValue.Value < _target.Value;
+        }
+
+        if (delta > 0)
+        {
+            _deltaIcon = "▲";
+            _deltaText = $"+{absString} " + L["Widget_ToTarget"];
+        }
+        else if (delta < 0)
+        {
+            _deltaIcon = "▼";
+            _deltaText = $"-{absString} " + L["Widget_ToTarget"];
+        }
+        else
+        {
+            _deltaIcon = "●";
+            _deltaText = L["Widget_OnTarget"];
+            _isWorseThanTarget = false;
+        }
+
+        _showDelta = true;
+    }
+
+    // Style methods
+    private string GetWidgetStyle()
+    {
+        var bg = EffectiveBackgroundColor;
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(bg)) styles.Add($"background-color: {bg}");
+        return string.Join("; ", styles);
+    }
+
+    private string GetContentAlignStyle()
+    {
+        var align = _align switch
+        {
+            "left" => "start",
+            "right" => "end",
+            _ => "center"
+        };
+        return $"align-items: {align}; text-align: {_align};";
+    }
+
+    private string GetFontColorStyle()
+    {
+        // Title uses base font color (not affected by thresholds)
+        var fg = BaseFontColor;
+        return !string.IsNullOrEmpty(fg) ? $"color: {fg};" : "";
+    }
+
+    private string GetValueStyle()
+    {
+        // Value uses effective font color (includes threshold override)
+        var fg = EffectiveFontColor;
+        var styles = new List<string> { "font-family: var(--font-monospace)" };
+        if (!string.IsNullOrEmpty(fg)) styles.Add($"color: {fg}");
+        if (_bold) styles.Add("font-weight: bold");
+        return string.Join("; ", styles) + ";";
+    }
+
+    private string GetMutedFontColorStyle()
+    {
+        // Target label uses base font color (not affected by thresholds)
+        var fg = BaseFontColor;
+        return !string.IsNullOrEmpty(fg) ? $"color: {fg}; opacity: 0.6;" : "opacity: 0.6;";
+    }
+
+    private string GetDeltaStyle()
+    {
+        if (_isWorseThanTarget)
+        {
+            return "color: #ff6b6b;";  // Red for worse
+        }
+        else
+        {
+            return "color: #51cf66;";  // Green for better/on target
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub is not null)
+        {
+            await _hub.DisposeAsync();
+        }
+    }
+}

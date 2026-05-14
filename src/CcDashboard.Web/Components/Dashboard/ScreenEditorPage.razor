@@ -184,11 +184,13 @@
                  style="position: relative; min-height: calc(100vh - 60px); @(_positionsApplied || PlacedWidgets.Count == 0 ? "" : "visibility: hidden;")">
                 @foreach (var widget in PlacedWidgets)
                 {
-                    <div class="dashboard-widget @(SelectedWidgetId == widget.Id ? "selected" : "")"
+                    <div class="dashboard-widget @(SelectedWidgetId == widget.Id ? "selected" : "") @(widget.Config?.HideHeader == true ? "header-hidden" : "")"
                          data-widget-id="@widget.Id"
                          style="@GetWidgetStyle(widget)"
                          @key="widget.Id"
-                         @onclick="() => SelectWidget(widget.Id)">
+                         @onclick="() => SelectWidget(widget.Id)"
+                         @onmousedown="e => { if (widget.Config?.HideHeader == true) StartMove(widget.Id, e); }"
+                         @onmousedown:stopPropagation="@(widget.Config?.HideHeader == true)">
                         <div class="widget-toolbar">
                             <button class="widget-toolbar-btn" title="Save as template"
                                     @onclick="() => OpenSaveAsTemplate(widget)" @onclick:stopPropagation="true">
@@ -203,11 +205,14 @@
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
-                        <div class="widget-header widget-drag-handle"
-                             @onmousedown="e => StartMove(widget.Id, e)"
-                             @onmousedown:stopPropagation="true">
-                            <i class="bi bi-grip-horizontal me-1"></i>@widget.Name
-                        </div>
+                        @if (widget.Config?.HideHeader != true)
+                        {
+                            <div class="widget-header widget-drag-handle"
+                                 @onmousedown="e => StartMove(widget.Id, e)"
+                                 @onmousedown:stopPropagation="true">
+                                <i class="bi bi-grip-horizontal me-1"></i>@widget.Name
+                            </div>
+                        }
                         <div class="widget-content">
                             <RenderWidget Widget="widget" DarkMode="_darkMode" />
                         </div>
@@ -320,6 +325,71 @@
                             </div>
                         }
 
+                        @if (IsDataSlotWidget(ConfiguringWidget))
+                        {
+                            <!-- Data Slot: Title -->
+                            <div class="mb-3">
+                                <label class="form-label">@L["Widget_DataSlotTitle"]</label>
+                                <input type="text" class="form-control" @bind="ConfigDataSlotTitle"
+                                       placeholder="@L["Common_Optional"]" />
+                                <small class="text-muted">@L["Widget_DataSlotTitleHint"]</small>
+                            </div>
+
+                            <!-- Data Slot: Metric -->
+                            <div class="mb-3">
+                                <label class="form-label">@L["Widget_DataSlotMetric"]</label>
+                                <div class="searchable-select">
+                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                           value="@DataSlotMetricSearchText"
+                                           @oninput="e => DataSlotMetricSearchText = e.Value?.ToString() ?? string.Empty"
+                                           @onfocus="() => DataSlotMetricDropdownOpen = true"
+                                           @onblur="() => { Task.Delay(150).ContinueWith(_ => InvokeAsync(() => { DataSlotMetricDropdownOpen = false; StateHasChanged(); })); }" />
+                                    @if (DataSlotMetricDropdownOpen)
+                                    {
+                                        <div class="searchable-dropdown">
+                                            @foreach (var metric in Metrics.Where(m =>
+                                                string.IsNullOrEmpty(DataSlotMetricSearchText) ||
+                                                (m.Description?.Contains(DataSlotMetricSearchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                                m.MetricId.Contains(DataSlotMetricSearchText, StringComparison.OrdinalIgnoreCase)))
+                                            {
+                                                <div class="dropdown-item @(ConfigDataSlotMetricId == metric.MetricId ? "active" : "")"
+                                                     @onmousedown="() => { ConfigDataSlotMetricId = metric.MetricId; DataSlotMetricSearchText = metric.Description ?? metric.MetricId; DataSlotMetricDropdownOpen = false; }"
+                                                     @onmousedown:preventDefault="true">
+                                                    @(metric.Description ?? metric.MetricId)
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Data Slot: Target -->
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">@L["Widget_DataSlotTarget"]</label>
+                                    <input type="number" step="0.01" class="form-control"
+                                           value="@ConfigDataSlotTarget"
+                                           @onchange="e => ConfigDataSlotTarget = decimal.TryParse(e.Value?.ToString(), out var v) ? v : null" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">@L["Widget_DataSlotTargetMode"]</label>
+                                    <select class="form-select" @bind="ConfigDataSlotTargetMode">
+                                        <option value="less">@L["Widget_DataSlotTargetLess"]</option>
+                                        <option value="greater">@L["Widget_DataSlotTargetGreater"]</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Data Slot: Target Label -->
+                            <div class="mb-3">
+                                <label class="form-label">@L["Widget_DataSlotTargetLabel"]</label>
+                                <input type="text" class="form-control" @bind="ConfigDataSlotTargetLabel"
+                                       placeholder="Goal < 5%" />
+                                <small class="text-muted">@L["Widget_DataSlotTargetLabelHint"]</small>
+                            </div>
+
+                        }
+
                     }
 
                     <!-- Tab: Appearance -->
@@ -328,7 +398,7 @@
                         <!-- Typography Section -->
                         <div class="appearance-section mb-4">
                             <h6 class="section-label">Typography</h6>
-                            <div class="row">
+                            <div class="row align-items-end">
                                 <div class="col-md-6">
                                     <label class="form-label small text-muted mb-1">Font Size</label>
                                     <select class="form-select form-select-sm" @bind="ConfigFontSize">
@@ -339,8 +409,50 @@
                                         <option value="xxlarge">@L["Widgets_FontSize_XXLarge"] (32px)</option>
                                     </select>
                                 </div>
+                                @if (IsDataSlotWidget(ConfiguringWidget))
+                                {
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" id="dataSlotBoldTypo" @bind="ConfigDataSlotBold" />
+                                            <label class="form-check-label" for="dataSlotBoldTypo">@L["Widgets_Bold"]</label>
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         </div>
+
+                        @if (IsDataSlotWidget(ConfiguringWidget))
+                        {
+                            <!-- Data Slot Display Options -->
+                            <div class="appearance-section mb-4">
+                                <h6 class="section-label">@L["Widgets_DisplayOptions"]</h6>
+                                <div class="row mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">@L["Widgets_Alignment"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigDataSlotAlign">
+                                            <option value="left">@L["Common_Left"]</option>
+                                            <option value="center">@L["Common_Center"]</option>
+                                            <option value="right">@L["Common_Right"]</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-wrap gap-4 mt-3">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input" id="dataSlotShowTarget" @bind="ConfigDataSlotShowTargetLabel" />
+                                        <label class="form-check-label" for="dataSlotShowTarget">@L["Widgets_ShowTargetLabel"]</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input" id="dataSlotShowArrow" @bind="ConfigDataSlotShowArrow" />
+                                        <label class="form-check-label" for="dataSlotShowArrow">@L["Widgets_ShowDeltaArrow"]</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input" id="dataSlotHideHeader" @bind="ConfigHideHeader" />
+                                        <label class="form-check-label" for="dataSlotHideHeader">@L["Widgets_HideHeader"]</label>
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-2">@L["Widgets_HideHeaderHint"]</small>
+                            </div>
+                        }
 
                         <!-- Colors Section -->
                         <div class="appearance-section">
@@ -444,6 +556,55 @@
                                                           title="@color.Name"
                                                           style="@GetColorStyle(color.Value)"
                                                           @onclick="() => SelectDarkFontColor(color.Value)"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Header Text Color -->
+                                <div class="color-setting-row-dual">
+                                    <span class="color-setting-label">Header Text</span>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(ConfigHeaderFontColor, HeaderFontColors)"
+                                              style="@GetColorStyle(ConfigHeaderFontColor); cursor: pointer;"
+                                              @onclick="ToggleHeaderFontColorPalette"
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "headerFont")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in HeaderFontColors)
+                                                {
+                                                    <span class="clr-swatch @(ConfigHeaderFontColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => { ConfigHeaderFontColor = color.Value; CloseColorPalette(); }"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(ConfigDarkHeaderFontColor, HeaderFontColors)"
+                                              style="@GetColorStyle(ConfigDarkHeaderFontColor); cursor: pointer;"
+                                              @onclick="ToggleDarkHeaderFontColorPalette"
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "darkHeaderFont")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in HeaderFontColors)
+                                                {
+                                                    <span class="clr-swatch @(ConfigDarkHeaderFontColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => { ConfigDarkHeaderFontColor = color.Value; CloseColorPalette(); }"
                                                           @onclick:stopPropagation></span>
                                                 }
                                             </div>
@@ -1572,6 +1733,11 @@
     private string ConfigDarkBackgroundColor = "#333333";
     private string ConfigDarkFontColor = "#FFFFFF";
     private string ConfigDarkTableBackgroundColor = "#333333";
+    // Header colors
+    private string ConfigHeaderBackgroundColor = "default";
+    private string ConfigHeaderFontColor = "default";
+    private string ConfigDarkHeaderBackgroundColor = "default";
+    private string ConfigDarkHeaderFontColor = "default";
     private List<ThresholdRule> ConfigThresholds = [];
 
     // Agent Grid Configuration
@@ -1603,6 +1769,24 @@
     private List<QueueGridColumnDef> ConfigQueueGridColumnDefs = new();
     private string _queueRowBuSearchText = "";
     private int? _queueRowBuDropdownOpenFor;  // Row index for which BU dropdown is open
+
+    // Data Slot Configuration
+    private string ConfigDataSlotTitle = "";
+    private string? ConfigDataSlotMetricId;
+    private int? ConfigDataSlotBusinessUnitId;
+    private decimal? ConfigDataSlotTarget;
+    private string ConfigDataSlotTargetMode = "less";
+    private string ConfigDataSlotTargetLabel = "";
+    private bool ConfigDataSlotBold = false;
+    private string ConfigDataSlotAlign = "center";
+    private bool ConfigDataSlotShowTargetLabel = true;
+    private bool ConfigDataSlotShowArrow = true;
+    private bool ConfigHideHeader = false;
+    private string DataSlotMetricSearchText = "";
+    private bool DataSlotMetricDropdownOpen = false;
+    private int? _dataSlotColumnId;
+    private int? _dataSlotRowId;
+    private Dictionary<string, int?>? _dataSlotCellIds;
 
     // Widget deletion confirmation
     private PlacedWidget? WidgetToDelete;
@@ -1877,6 +2061,26 @@
         return colors.ToArray();
     }
 
+    // Header color palettes with "Default" option
+    private (string Name, string Value)[] HeaderBackgroundColors => BuildHeaderBackgroundColors();
+    private (string Name, string Value)[] HeaderFontColors => BuildHeaderFontColors();
+
+    private (string Name, string Value)[] BuildHeaderBackgroundColors()
+    {
+        var colors = new List<(string, string)> { ("Default", "default"), ("Transparent", "transparent") };
+        foreach (var c in _tenantBackgroundColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    private (string Name, string Value)[] BuildHeaderFontColors()
+    {
+        var colors = new List<(string, string)> { ("Default", "default") };
+        foreach (var c in _tenantFontColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
     // Score star colors from tenant palette (background colors work well for stars)
     private (string Name, string Value)[] ScoreStarColors => BuildScoreStarColors();
 
@@ -2024,6 +2228,7 @@
                             GridId = w.GridId,
                             CatalogItemId = w.WidgetCatalogItemId,
                             Name = config.DisplayName ?? catalogItem.Name,
+                            OriginalWidgetName = catalogItem.Name,
                             Category = catalogItem.Category,
                             Width = width,
                             Height = height,
@@ -2074,6 +2279,7 @@
             Id = Guid.NewGuid(),
             CatalogItemId = DraggedWidget.Id,
             Name = DraggedWidget.Name,
+            OriginalWidgetName = DraggedWidget.Name,
             Category = DraggedWidget.Category,
             Width = 280,
             Height = 200,
@@ -2117,6 +2323,7 @@
             Id = Guid.NewGuid(),
             CatalogItemId = DraggedWidget.Id,
             Name = DraggedWidget.Name,
+            OriginalWidgetName = DraggedWidget.Name,
             Category = DraggedWidget.Category,
             Width = 280,
             Height = 200,
@@ -2171,9 +2378,18 @@
         }
     }
 
-    private static string GetWidgetStyle(PlacedWidget widget)
+    private string GetWidgetStyle(PlacedWidget widget)
     {
-        return $"left:{widget.X}px; top:{widget.Y}px; width:{widget.Width}px; height:{widget.Height}px;";
+        var style = $"left:{widget.X}px; top:{widget.Y}px; width:{widget.Width}px; height:{widget.Height}px;";
+
+        // Apply background color from config
+        var bgColor = _darkMode ? widget.Config?.DarkBackgroundColor : widget.Config?.BackgroundColor;
+        if (!string.IsNullOrEmpty(bgColor) && !string.Equals(bgColor, "default", StringComparison.OrdinalIgnoreCase))
+        {
+            style += $" background-color: {bgColor} !important;";
+        }
+
+        return style;
     }
 
     private void SelectWidget(Guid widgetId)
@@ -2243,6 +2459,11 @@
         ConfigDarkBackgroundColor = widget.Config.DarkBackgroundColor ?? "#333333";
         ConfigDarkFontColor = widget.Config.DarkFontColor ?? "#FFFFFF";
         ConfigDarkTableBackgroundColor = widget.Config.DarkTableBackgroundColor ?? "#333333";
+        // Header colors
+        ConfigHeaderBackgroundColor = widget.Config.HeaderBackgroundColor ?? "default";
+        ConfigHeaderFontColor = widget.Config.HeaderFontColor ?? "default";
+        ConfigDarkHeaderBackgroundColor = widget.Config.DarkHeaderBackgroundColor ?? "default";
+        ConfigDarkHeaderFontColor = widget.Config.DarkHeaderFontColor ?? "default";
         ConfigThresholds = widget.Config.Thresholds?.Select(t => new ThresholdRule
         {
             From = t.From,
@@ -2330,6 +2551,23 @@
             ValueType = c.ValueType
         }).ToList() ?? GetDefaultQueueGridColumnDefs();
 
+        // Data Slot specific
+        ConfigDataSlotTitle = widget.Config.DataSlotTitle ?? "";
+        ConfigDataSlotMetricId = widget.Config.DataSlotMetricId;
+        ConfigDataSlotBusinessUnitId = widget.Config.DataSlotBusinessUnitId;
+        ConfigDataSlotTarget = widget.Config.DataSlotTarget;
+        ConfigDataSlotTargetMode = widget.Config.DataSlotTargetMode ?? "less";
+        ConfigDataSlotTargetLabel = widget.Config.DataSlotTargetLabel ?? "";
+        ConfigDataSlotBold = widget.Config.DataSlotBold;
+        ConfigDataSlotAlign = widget.Config.DataSlotAlign ?? "center";
+        ConfigDataSlotShowTargetLabel = widget.Config.DataSlotShowTargetLabel;
+        ConfigDataSlotShowArrow = widget.Config.DataSlotShowArrow;
+        ConfigHideHeader = widget.Config.HideHeader;
+        _dataSlotColumnId = widget.Config.DataSlotColumnId;
+        _dataSlotRowId = widget.Config.DataSlotRowId;
+        _dataSlotCellIds = widget.Config.DataSlotCellIds;
+        DataSlotMetricSearchText = Metrics.FirstOrDefault(m => m.MetricId == ConfigDataSlotMetricId)?.Description ?? "";
+
         // Initialize search fields with selected values
         BuSearchText = GetBusinessUnitName(ConfigBusinessUnit);
         MetricSearchText = ConfigMetric ?? "";
@@ -2371,6 +2609,13 @@
         if (widget is null) return false;
         var name = widget.Name.ToLower();
         return name.Contains("queue") && name.Contains("grid");
+    }
+
+    private static bool IsDataSlotWidget(PlacedWidget? widget)
+    {
+        if (widget is null) return false;
+        var name = widget.OriginalWidgetName?.ToLower() ?? widget.Name.ToLower();
+        return name.Contains("data") && name.Contains("slot");
     }
 
     private void ToggleAgentTeam(string team, bool selected)
@@ -2782,6 +3027,11 @@
             DarkBackgroundColor = ConfigDarkBackgroundColor,
             DarkFontColor = ConfigDarkFontColor,
             DarkTableBackgroundColor = ConfigDarkTableBackgroundColor,
+            // Header colors
+            HeaderBackgroundColor = ConfigHeaderBackgroundColor,
+            HeaderFontColor = ConfigHeaderFontColor,
+            DarkHeaderBackgroundColor = ConfigDarkHeaderBackgroundColor,
+            DarkHeaderFontColor = ConfigDarkHeaderFontColor,
             Thresholds = ConfigThresholds.Select(t => new ThresholdRule
             {
                 From = t.From,
@@ -2823,7 +3073,22 @@
             // Queue Grid RTS IDs
             GridId = queueGridId,
             HeaderRowId = headerRowId,
-            HeaderCellIds = savedHeaderCellIds ?? new Dictionary<string, int?>()
+            HeaderCellIds = savedHeaderCellIds ?? new Dictionary<string, int?>(),
+            // Data Slot specific
+            DataSlotTitle = !string.IsNullOrEmpty(ConfigDataSlotTitle) ? ConfigDataSlotTitle : null,
+            DataSlotMetricId = ConfigDataSlotMetricId,
+            DataSlotBusinessUnitId = ConfigDataSlotBusinessUnitId,
+            DataSlotTarget = ConfigDataSlotTarget,
+            DataSlotTargetMode = ConfigDataSlotTargetMode,
+            DataSlotTargetLabel = !string.IsNullOrEmpty(ConfigDataSlotTargetLabel) ? ConfigDataSlotTargetLabel : null,
+            DataSlotBold = ConfigDataSlotBold,
+            DataSlotAlign = ConfigDataSlotAlign,
+            DataSlotShowTargetLabel = ConfigDataSlotShowTargetLabel,
+            DataSlotShowArrow = ConfigDataSlotShowArrow,
+            HideHeader = ConfigHideHeader,
+            DataSlotColumnId = _dataSlotColumnId,
+            DataSlotRowId = _dataSlotRowId,
+            DataSlotCellIds = _dataSlotCellIds
         };
 
         ConfiguringWidget.Config = newConfig;
@@ -3290,6 +3555,16 @@
 
     private static string GetColorStyle(string colorValue)
     {
+        if (string.Equals(colorValue, "default", StringComparison.OrdinalIgnoreCase))
+        {
+            // Diagonal stripe pattern indicating "use CSS default"
+            return "background: linear-gradient(135deg, #e0e0e0 25%, #f5f5f5 25%, #f5f5f5 50%, #e0e0e0 50%, #e0e0e0 75%, #f5f5f5 75%) !important; background-size: 8px 8px !important;";
+        }
+        if (string.Equals(colorValue, "transparent", StringComparison.OrdinalIgnoreCase))
+        {
+            // Checkerboard pattern for transparent
+            return "background: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%); background-size: 8px 8px; background-position: 0 0, 4px 4px;";
+        }
         return $"background: {colorValue} !important; background-color: {colorValue} !important;";
     }
 
@@ -3302,6 +3577,11 @@
     private void ToggleAvatarColorPalette(string key) => _openColorPalette = _openColorPalette == key ? null : key;
     private void ToggleAvatarBgColorPalette() => _openColorPalette = _openColorPalette == "avatarBg" ? null : "avatarBg";
     private void ToggleAvatarFontColorPalette() => _openColorPalette = _openColorPalette == "avatarFont" ? null : "avatarFont";
+    private void ToggleHeaderBgColorPalette() => _openColorPalette = _openColorPalette == "headerBg" ? null : "headerBg";
+    private void ToggleDarkHeaderBgColorPalette() => _openColorPalette = _openColorPalette == "darkHeaderBg" ? null : "darkHeaderBg";
+    private void ToggleHeaderFontColorPalette() => _openColorPalette = _openColorPalette == "headerFont" ? null : "headerFont";
+    private void ToggleDarkHeaderFontColorPalette() => _openColorPalette = _openColorPalette == "darkHeaderFont" ? null : "darkHeaderFont";
+    private void ToggleColorPalette(string key) => _openColorPalette = _openColorPalette == key ? null : key;
     private void CloseColorPalette() => _openColorPalette = null;
 
     private void SelectBackgroundColor(string color)
@@ -3423,6 +3703,7 @@
         public int GridId { get; set; }  // Auto-incremented DB field for SignalR communication
         public Guid CatalogItemId { get; set; }
         public string Name { get; set; } = "";
+        public string OriginalWidgetName { get; set; } = "";  // Original catalog name for widget type detection
         public string Category { get; set; } = "";
         public int Width { get; set; } = 280;
         public int Height { get; set; } = 200;
@@ -3446,6 +3727,12 @@
         public string? DarkFontColor { get; set; }
         public string? DarkTableBackgroundColor { get; set; }
 
+        // Header colors
+        public string? HeaderBackgroundColor { get; set; }
+        public string? HeaderFontColor { get; set; }
+        public string? DarkHeaderBackgroundColor { get; set; }
+        public string? DarkHeaderFontColor { get; set; }
+
         public List<ThresholdRule>? Thresholds { get; set; }
 
         // Agent Grid specific
@@ -3468,6 +3755,7 @@
 
         // Display options (Agent Grid and Queue Grid)
         public bool ShowPagination { get; set; } = true;
+        public bool HideHeader { get; set; } = false;
 
         // Per-column thresholds: key = column name, value = list of rules
         public Dictionary<string, List<ColumnThreshold>>? ColumnThresholds { get; set; }
@@ -3484,6 +3772,21 @@
         // Queue Grid specific
         public List<QueueGridRowDef>? QueueGridRows { get; set; }
         public List<QueueGridColumnDef>? QueueGridColumnDefs { get; set; }
+
+        // Data Slot specific
+        public string? DataSlotTitle { get; set; }
+        public string? DataSlotMetricId { get; set; }
+        public int? DataSlotBusinessUnitId { get; set; }
+        public decimal? DataSlotTarget { get; set; }
+        public string? DataSlotTargetMode { get; set; }
+        public string? DataSlotTargetLabel { get; set; }
+        public bool DataSlotBold { get; set; }
+        public string? DataSlotAlign { get; set; }
+        public bool DataSlotShowTargetLabel { get; set; } = true;
+        public bool DataSlotShowArrow { get; set; } = true;
+        public int? DataSlotColumnId { get; set; }
+        public int? DataSlotRowId { get; set; }
+        public Dictionary<string, int?>? DataSlotCellIds { get; set; }
     }
 
     public class QueueGridRowDef
@@ -3720,6 +4023,7 @@
             Id = Guid.NewGuid(),
             CatalogItemId = DraggedTemplate.WidgetCatalogItemId,
             Name = DraggedTemplate.Name,
+            OriginalWidgetName = catalogItem?.Name ?? DraggedTemplate.Name,
             Category = catalogItem?.Category ?? "",
             Width = 280,
             Height = 200,

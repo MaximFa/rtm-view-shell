@@ -198,7 +198,7 @@ public class RtsRepository(AppDbContext db) : IRtsRepository
                                 RETURNING ""RowId""";
             cmd.Parameters.Add(new NpgsqlParameter("@gridId", gridId));
             cmd.Parameters.Add(new NpgsqlParameter("@rowNumber", rowNumber));
-            cmd.Parameters.Add(new NpgsqlParameter("@unionId", unionId ?? (object)DBNull.Value));
+            cmd.Parameters.Add(new NpgsqlParameter("@unionId", NpgsqlTypes.NpgsqlDbType.Integer) { Value = unionId.HasValue ? unionId.Value : DBNull.Value });
             var result = await cmd.ExecuteScalarAsync(ct);
             return Convert.ToInt32(result);
         }
@@ -210,8 +210,8 @@ public class RtsRepository(AppDbContext db) : IRtsRepository
 
     public async Task UpdateQueueGridRowAsync(int rowId, int rowNumber, int? unionId, CancellationToken ct = default)
     {
-        var sql = @"UPDATE ""RTSGrid_Row"" SET ""RowNumber"" = @p0, ""UnionId"" = @p1 WHERE ""RowId"" = @p2";
-        await db.Database.ExecuteSqlRawAsync(sql, [rowNumber, unionId ?? (object)DBNull.Value, rowId], ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $@"UPDATE ""RTSGrid_Row"" SET ""RowNumber"" = {rowNumber}, ""UnionId"" = {unionId} WHERE ""RowId"" = {rowId}", ct);
     }
 
     public async Task DeleteQueueGridRowAsync(int rowId, CancellationToken ct = default)

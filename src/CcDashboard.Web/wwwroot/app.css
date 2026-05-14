@@ -1476,6 +1476,27 @@ a:hover {
     box-shadow: 0 0 0 2px var(--clr-primary-subtle);
 }
 
+/* Header hidden mode - hide header, show toolbar on hover, drag from anywhere */
+.dashboard-widget.header-hidden {
+    cursor: move;
+}
+
+.dashboard-widget.header-hidden .widget-header {
+    display: none;
+}
+
+.dashboard-widget.header-hidden .widget-toolbar {
+    opacity: 0;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: var(--r-sm);
+    padding: var(--sp-1);
+}
+
+.dashboard-widget.header-hidden:hover .widget-toolbar {
+    opacity: 1;
+}
+
 .widget-toolbar {
     position: absolute;
     inset-block-start: var(--sp-2);
@@ -1549,6 +1570,23 @@ a:hover {
 .widget-content > * {
     height: 100%;
     width: 100%;
+}
+
+.widget-render {
+    display: flex;
+    flex-direction: column;
+}
+
+.widget-render > * {
+    flex: 1;
+}
+
+/* Data Slot Widget - content aligned to top */
+.data-slot-widget {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start !important;
+    padding: var(--sp-1) var(--sp-3) 0 !important;
 }
 
 /* Widget Resize Handles */

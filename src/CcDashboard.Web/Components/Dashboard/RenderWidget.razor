@@ -4,7 +4,7 @@
 @* Widget content renderer - renders placeholder until real widget library is implemented *@
 
 <div class="widget-render">
-    @switch (Widget.Name.ToLower())
+    @switch ((Widget.OriginalWidgetName ?? Widget.Name).ToLower())
     {
         case var n when n.Contains("queue") && n.Contains("summary"):
             <QueueSummaryWidget Config="Widget.Config" DarkMode="DarkMode" />
@@ -20,6 +20,9 @@
             break;
         case var n when n.Contains("kpi") || n.Contains("scorecard"):
             <KpiWidget Config="Widget.Config" DarkMode="DarkMode" />
+            break;
+        case var n when n.Contains("data") && n.Contains("slot"):
+            <DataSlotWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
             break;
         default:
             <div class="text-center text-muted small">
