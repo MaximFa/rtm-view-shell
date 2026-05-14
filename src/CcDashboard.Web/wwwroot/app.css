@@ -1973,6 +1973,36 @@ button.clr-swatch,
     color: var(--clr-text);
 }
 
+/* Dual-column color settings (Light Mode / Dark Mode) */
+.color-settings-dual {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+.color-dual-header {
+    display: grid;
+    grid-template-columns: 140px 1fr 1fr;
+    gap: var(--sp-3);
+    align-items: center;
+    margin-bottom: var(--sp-1);
+}
+
+.color-mode-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--clr-text-muted);
+    text-align: start;
+}
+
+.color-setting-row-dual {
+    display: grid;
+    grid-template-columns: 140px 1fr 1fr;
+    gap: var(--sp-3);
+    align-items: center;
+}
+
 /* Columns Tab */
 .columns-tab {
     min-height: 350px;

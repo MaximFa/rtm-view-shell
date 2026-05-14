@@ -164,7 +164,7 @@
                             <i class="bi bi-grip-horizontal me-1"></i>@widget.Name
                         </div>
                         <div class="widget-content">
-                            <RenderWidget Widget="widget" />
+                            <RenderWidget Widget="widget" DarkMode="_darkMode" />
                         </div>
                         @* Resize handles *@
                         <div class="resize-handle resize-e" @onmousedown="e => StartResizeE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
@@ -300,9 +300,16 @@
                         <!-- Colors Section -->
                         <div class="appearance-section">
                             <h6 class="section-label">Colors</h6>
-                            <div class="color-settings">
+                            <div class="color-settings-dual">
+                                <!-- Header row -->
+                                <div class="color-dual-header">
+                                    <span class="color-setting-label"></span>
+                                    <span class="color-mode-label">Light Mode</span>
+                                    <span class="color-mode-label">Dark Mode</span>
+                                </div>
+
                                 <!-- Widget Background -->
-                                <div class="color-setting-row">
+                                <div class="color-setting-row-dual">
                                     <span class="color-setting-label">Widget Background</span>
                                     <div class="position-relative">
                                         <span class="clr-swatch clr-swatch-lg"
@@ -326,10 +333,32 @@
                                             </div>
                                         }
                                     </div>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(ConfigDarkBackgroundColor, BackgroundColors)"
+                                              style="@GetColorStyle(ConfigDarkBackgroundColor); cursor: pointer;"
+                                              @onclick="ToggleDarkBgColorPalette"
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "darkBg")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in BackgroundColors)
+                                                {
+                                                    <span class="clr-swatch @(ConfigDarkBackgroundColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => SelectDarkBackgroundColor(color.Value)"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
 
                                 <!-- Text Color -->
-                                <div class="color-setting-row">
+                                <div class="color-setting-row-dual">
                                     <span class="color-setting-label">Text Color</span>
                                     <div class="position-relative">
                                         <span class="clr-swatch clr-swatch-lg"
@@ -353,12 +382,34 @@
                                             </div>
                                         }
                                     </div>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(ConfigDarkFontColor, FontColors)"
+                                              style="@GetColorStyle(ConfigDarkFontColor); cursor: pointer;"
+                                              @onclick="ToggleDarkFontColorPalette"
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "darkFont")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in FontColors)
+                                                {
+                                                    <span class="clr-swatch @(ConfigDarkFontColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => SelectDarkFontColor(color.Value)"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
 
                                 @if (IsAgentGridWidget(ConfiguringWidget) || IsQueueGridWidget(ConfiguringWidget))
                                 {
                                     <!-- Table Background -->
-                                    <div class="color-setting-row">
+                                    <div class="color-setting-row-dual">
                                         <span class="color-setting-label">Table Background</span>
                                         <div class="position-relative">
                                             <span class="clr-swatch clr-swatch-lg"
@@ -377,6 +428,28 @@
                                                               title="@color.Name"
                                                               style="@GetColorStyle(color.Value)"
                                                               @onclick="() => SelectTableBackgroundColor(color.Value)"
+                                                              @onclick:stopPropagation></span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="position-relative">
+                                            <span class="clr-swatch clr-swatch-lg"
+                                                  title="@GetColorName(ConfigDarkTableBackgroundColor, TableBackgroundColors)"
+                                                  style="@GetColorStyle(ConfigDarkTableBackgroundColor); cursor: pointer;"
+                                                  @onclick="ToggleDarkTableColorPalette"
+                                                  @onclick:stopPropagation></span>
+                                            @if (_openColorPalette == "darkTable")
+                                            {
+                                                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                     @onclick="CloseColorPalette"></div>
+                                                <div class="color-palette-dropdown">
+                                                    @foreach (var color in TableBackgroundColors)
+                                                    {
+                                                        <span class="clr-swatch @(ConfigDarkTableBackgroundColor == color.Value ? "selected" : "")"
+                                                              title="@color.Name"
+                                                              style="@GetColorStyle(color.Value)"
+                                                              @onclick="() => SelectDarkTableBackgroundColor(color.Value)"
                                                               @onclick:stopPropagation></span>
                                                     }
                                                 </div>
@@ -1390,6 +1463,10 @@
     private string ConfigBackgroundColor = "#FFFFFF";
     private string ConfigFontColor = "#202124";
     private string ConfigTableBackgroundColor = "transparent";
+    // Dark mode colors
+    private string ConfigDarkBackgroundColor = "#333333";
+    private string ConfigDarkFontColor = "#FFFFFF";
+    private string ConfigDarkTableBackgroundColor = "#333333";
     private List<ThresholdRule> ConfigThresholds = [];
 
     // Agent Grid Configuration
@@ -2035,6 +2112,10 @@
         ConfigBackgroundColor = widget.Config.BackgroundColor ?? "#FFFFFF";
         ConfigFontColor = widget.Config.FontColor ?? "#202124";
         ConfigTableBackgroundColor = widget.Config.TableBackgroundColor ?? "transparent";
+        // Dark mode colors
+        ConfigDarkBackgroundColor = widget.Config.DarkBackgroundColor ?? "#333333";
+        ConfigDarkFontColor = widget.Config.DarkFontColor ?? "#FFFFFF";
+        ConfigDarkTableBackgroundColor = widget.Config.DarkTableBackgroundColor ?? "#333333";
         ConfigThresholds = widget.Config.Thresholds?.Select(t => new ThresholdRule
         {
             From = t.From,
@@ -2567,6 +2648,10 @@
             BackgroundColor = ConfigBackgroundColor,
             FontColor = ConfigFontColor,
             TableBackgroundColor = ConfigTableBackgroundColor,
+            // Dark mode colors
+            DarkBackgroundColor = ConfigDarkBackgroundColor,
+            DarkFontColor = ConfigDarkFontColor,
+            DarkTableBackgroundColor = ConfigDarkTableBackgroundColor,
             Thresholds = ConfigThresholds.Select(t => new ThresholdRule
             {
                 From = t.From,
@@ -3053,6 +3138,9 @@
     private void ToggleBgColorPalette() => _openColorPalette = _openColorPalette == "bg" ? null : "bg";
     private void ToggleFontColorPalette() => _openColorPalette = _openColorPalette == "font" ? null : "font";
     private void ToggleTableColorPalette() => _openColorPalette = _openColorPalette == "table" ? null : "table";
+    private void ToggleDarkBgColorPalette() => _openColorPalette = _openColorPalette == "darkBg" ? null : "darkBg";
+    private void ToggleDarkFontColorPalette() => _openColorPalette = _openColorPalette == "darkFont" ? null : "darkFont";
+    private void ToggleDarkTableColorPalette() => _openColorPalette = _openColorPalette == "darkTable" ? null : "darkTable";
     private void ToggleAvatarColorPalette(string key) => _openColorPalette = _openColorPalette == key ? null : key;
     private void ToggleAvatarBgColorPalette() => _openColorPalette = _openColorPalette == "avatarBg" ? null : "avatarBg";
     private void ToggleAvatarFontColorPalette() => _openColorPalette = _openColorPalette == "avatarFont" ? null : "avatarFont";
@@ -3067,6 +3155,24 @@
     private void SelectFontColor(string color)
     {
         ConfigFontColor = color;
+        _openColorPalette = null;
+    }
+
+    private void SelectDarkBackgroundColor(string color)
+    {
+        ConfigDarkBackgroundColor = color;
+        _openColorPalette = null;
+    }
+
+    private void SelectDarkFontColor(string color)
+    {
+        ConfigDarkFontColor = color;
+        _openColorPalette = null;
+    }
+
+    private void SelectDarkTableBackgroundColor(string color)
+    {
+        ConfigDarkTableBackgroundColor = color;
         _openColorPalette = null;
     }
 
@@ -3176,6 +3282,12 @@
         public string? BackgroundColor { get; set; }
         public string? FontColor { get; set; }
         public string? TableBackgroundColor { get; set; }  // Background for the data table
+
+        // Dark Mode colors
+        public string? DarkBackgroundColor { get; set; }
+        public string? DarkFontColor { get; set; }
+        public string? DarkTableBackgroundColor { get; set; }
+
         public List<ThresholdRule>? Thresholds { get; set; }
 
         // Agent Grid specific

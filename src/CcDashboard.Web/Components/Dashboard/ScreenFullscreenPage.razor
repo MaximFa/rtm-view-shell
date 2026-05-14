@@ -54,17 +54,18 @@
                 @foreach (var widget in PlacedWidgets)
                 {
                     var config = widget.Config;
+                    var effectiveBg = GetEffectiveBackgroundColor(config);
                     var widgetStyle = $"position: absolute; left: {widget.X}px; top: {widget.Y}px; width: {widget.Width}px; height: {widget.Height}px;";
-                    if (!string.IsNullOrEmpty(config?.BackgroundColor))
+                    if (!string.IsNullOrEmpty(effectiveBg))
                     {
-                        widgetStyle += $" background: {config.BackgroundColor};";
+                        widgetStyle += $" background: {effectiveBg};";
                     }
                     <div class="dashboard-widget" data-widget-id="@widget.Id" style="@widgetStyle" @key="widget.Id">
                         <div class="widget-header" style="@GetHeaderStyle(config)">
                             @(config?.DisplayName ?? widget.Name)
                         </div>
                         <div class="widget-content" style="@GetContentStyle(config)">
-                            <RenderWidget Widget="widget" />
+                            <RenderWidget Widget="widget" DarkMode="_darkMode" />
                         </div>
                     </div>
                 }
@@ -84,6 +85,16 @@
     private bool _darkMode = false;
 
     private void ToggleDarkMode() => _darkMode = !_darkMode;
+
+    // Effective colors - use dark mode colors from config when in dark mode
+    private string GetEffectiveBackgroundColor(ScreenEditorPage.WidgetConfig? config)
+        => _darkMode ? (config?.DarkBackgroundColor ?? "#333333") : (config?.BackgroundColor ?? "");
+
+    private string GetEffectiveTextColor(ScreenEditorPage.WidgetConfig? config)
+        => _darkMode ? (config?.DarkFontColor ?? "#FFFFFF") : (config?.FontColor ?? "");
+
+    private string GetEffectiveTableBackgroundColor(ScreenEditorPage.WidgetConfig? config)
+        => _darkMode ? (config?.DarkTableBackgroundColor ?? "#333333") : (config?.TableBackgroundColor ?? "");
 
     protected override async Task OnInitializedAsync()
     {
@@ -168,20 +179,20 @@
         public int Y { get; set; }
     }
 
-    private static string GetHeaderStyle(ScreenEditorPage.WidgetConfig? config)
+    private string GetHeaderStyle(ScreenEditorPage.WidgetConfig? config)
     {
-        if (config is null) return "";
         var style = "";
-        if (!string.IsNullOrEmpty(config.FontColor)) style += $"color: {config.FontColor};";
+        var textColor = GetEffectiveTextColor(config);
+        if (!string.IsNullOrEmpty(textColor)) style += $"color: {textColor};";
         return style;
     }
 
-    private static string GetContentStyle(ScreenEditorPage.WidgetConfig? config)
+    private string GetContentStyle(ScreenEditorPage.WidgetConfig? config)
     {
-        if (config is null) return "";
         var style = "";
-        if (!string.IsNullOrEmpty(config.FontColor)) style += $"color: {config.FontColor};";
-        if (!string.IsNullOrEmpty(config.FontSize)) style += $"font-size: {GetFontSizePx(config.FontSize)};";
+        var textColor = GetEffectiveTextColor(config);
+        if (!string.IsNullOrEmpty(textColor)) style += $"color: {textColor};";
+        if (!string.IsNullOrEmpty(config?.FontSize)) style += $"font-size: {GetFontSizePx(config.FontSize)};";
         return style;
     }
 

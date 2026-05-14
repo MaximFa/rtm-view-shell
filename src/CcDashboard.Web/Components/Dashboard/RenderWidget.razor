@@ -7,19 +7,19 @@
     @switch (Widget.Name.ToLower())
     {
         case var n when n.Contains("queue") && n.Contains("summary"):
-            <QueueSummaryWidget Config="Widget.Config" />
+            <QueueSummaryWidget Config="Widget.Config" DarkMode="DarkMode" />
             break;
         case var n when n.Contains("agent") && n.Contains("grid"):
-            <AgentGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" />
+            <AgentGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
             break;
         case var n when n.Contains("queue") && n.Contains("grid"):
-            <QueueGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" />
+            <QueueGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
             break;
         case var n when n.Contains("agent") && n.Contains("status"):
-            <AgentStatusWidget Config="Widget.Config" />
+            <AgentStatusWidget Config="Widget.Config" DarkMode="DarkMode" />
             break;
         case var n when n.Contains("kpi") || n.Contains("scorecard"):
-            <KpiWidget Config="Widget.Config" />
+            <KpiWidget Config="Widget.Config" DarkMode="DarkMode" />
             break;
         default:
             <div class="text-center text-muted small">
@@ -32,4 +32,5 @@
 
 @code {
     [Parameter, EditorRequired] public PlacedWidget Widget { get; set; } = null!;
+    [Parameter] public bool DarkMode { get; set; }
 }

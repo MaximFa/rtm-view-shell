@@ -23,6 +23,14 @@
 
 @code {
     [Parameter] public WidgetConfig? Config { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+
+    // Dark mode colors (from Config, with sensible defaults)
+    private string DarkBackgroundColor => Config?.DarkBackgroundColor ?? "#333333";
+    private string DarkFontColor => Config?.DarkFontColor ?? "#FFFFFF";
+
+    private string EffectiveBackgroundColor => DarkMode ? DarkBackgroundColor : (Config?.BackgroundColor ?? "");
+    private string EffectiveFontColor => DarkMode ? DarkFontColor : (Config?.FontColor ?? "");
 
     private int CallsWaiting = 12;
     private int AvgWaitTime = 45;
@@ -38,8 +46,8 @@
     {
         var styles = new List<string>();
 
-        if (!string.IsNullOrEmpty(Config?.BackgroundColor))
-            styles.Add($"background-color: {Config.BackgroundColor}");
+        if (!string.IsNullOrEmpty(EffectiveBackgroundColor))
+            styles.Add($"background-color: {EffectiveBackgroundColor}");
 
         return string.Join("; ", styles);
     }
@@ -68,9 +76,9 @@
             if (!string.IsNullOrEmpty(rule.FontColor))
                 styles.Add($"color: {rule.FontColor}");
         }
-        else if (!string.IsNullOrEmpty(Config?.FontColor))
+        else if (!string.IsNullOrEmpty(EffectiveFontColor))
         {
-            styles.Add($"color: {Config.FontColor}");
+            styles.Add($"color: {EffectiveFontColor}");
         }
         else
         {
@@ -82,8 +90,8 @@
 
     private string GetLabelStyle()
     {
-        if (!string.IsNullOrEmpty(Config?.FontColor))
-            return $"color: {Config.FontColor}; opacity: 0.7";
+        if (!string.IsNullOrEmpty(EffectiveFontColor))
+            return $"color: {EffectiveFontColor}; opacity: 0.7";
         return "color: var(--clr-text-muted)";
     }
 

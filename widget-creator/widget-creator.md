@@ -566,11 +566,297 @@ else if (_rows.Count == 0)
 
 ---
 
-## 15. Queue Grid Specifics
+## 15. Queue Grid Implementation
 
-For Queue Grid, follow same patterns but:
-- Use `MetricType = "Queue"` when loading metrics
-- Column definitions: `QueueGridColumnDefs`
-- Metrics like: `queue_name`, `calls_waiting`, `sla_percent`, `abandon_rate`, `avg_wait_time`
-- No Avatar/Score features (Agent-specific)
-- Storage key: `queueGrid_{GridId}_state`
+Queue Grid differs from Agent Grid — it has **row-based configuration** where each row represents a Business Unit.
+
+### 15.1 Row Definition Structure
+```csharp
+public class QueueGridRowDef
+{
+    public string LocalId { get; set; } = "";        // Client-side UUID for new rows
+    public int? DbRowId { get; set; }                // RTS_GridRow.Id after save
+    public int? BusinessUnitId { get; set; }         // FK to business_units table
+    public string? BusinessUnitName { get; set; }    // Display name
+    public string? BackgroundColor { get; set; }     // Row-level override
+    public string? FontColor { get; set; }           // Row-level override
+    public Dictionary<string, int?> CellIds { get; set; } = new();  // MetricId → RTS_GridCell.Id
+}
+```
+
+### 15.2 RTS Tables for Queue Grid
+
+**RTSGrid_Grid** — Grid header
+```sql
+Id INT IDENTITY PRIMARY KEY,
+DashboardWidgetId UNIQUEIDENTIFIER,
+MetricType NVARCHAR(50) DEFAULT 'Queue'
+```
+
+**RTSGrid_Column** — Column definitions (shared across rows)
+```sql
+Id INT IDENTITY PRIMARY KEY,
+GridId INT FK → RTSGrid_Grid,
+Name NVARCHAR(200),
+MetricId NVARCHAR(100),
+ColumnNumber INT
+```
+
+**RTSGrid_Row** — Data rows (one per Business Unit)
+```sql
+Id INT IDENTITY PRIMARY KEY,
+GridId INT FK → RTSGrid_Grid,
+BusinessUnitId INT NULL,
+RowNumber INT
+```
+
+**RTSGrid_Cell** — Individual cells (intersection of row × column)
+```sql
+Id INT IDENTITY PRIMARY KEY,
+GridId INT FK,
+RowId INT FK → RTSGrid_Row,
+ColumnId INT FK → RTSGrid_Column
+```
+
+### 15.3 Cascade Delete Pattern
+All child tables have `ON DELETE CASCADE` from GridId:
+- Delete Grid → auto-deletes all Columns, Rows, Cells
+- Simplifies cleanup when widget is removed
+
+### 15.4 SaveQueueGridRtsCommand Pattern
+```csharp
+public record SaveQueueGridRtsCommand(
+    Guid DashboardWidgetId,
+    int? ExistingGridId,
+    List<QueueGridColumnInput> Columns,
+    List<QueueGridRowInput> Rows
+) : IRequest<Result<SaveQueueGridRtsResult>>;
+
+public record SaveQueueGridRtsResult(
+    int GridId,
+    int HeaderRowId,
+    Dictionary<string, int> SavedColumnIds,      // LocalId → DbId
+    Dictionary<string, int> SavedRowIds,         // LocalId → DbId  
+    Dictionary<string, Dictionary<string, int>> SavedCellIds  // RowLocalId → {ColLocalId → CellId}
+);
+```
+
+### 15.5 Row Configuration UI
+```razor
+@foreach (var row in ConfigQueueGridRows)
+{
+    <div class="row-config-item">
+        <select @bind="row.BusinessUnitId">
+            @foreach (var bu in AvailableBusinessUnits)
+            {
+                <option value="@bu.Id">@bu.Name</option>
+            }
+        </select>
+        <ColorPicker @bind-Value="row.BackgroundColor" />
+        <ColorPicker @bind-Value="row.FontColor" />
+        <button @onclick="() => RemoveRow(row)">×</button>
+    </div>
+}
+<button @onclick="AddRow">+ Add Row</button>
+```
+
+### 15.6 SignalR Data Reception
+Queue Grid receives data per Business Unit:
+```csharp
+_hub.On<List<QueueRowData>>("ReceiveQueueGridData", data =>
+{
+    foreach (var incoming in data)
+    {
+        var existingRow = _rows.FirstOrDefault(r => r.BusinessUnitId == incoming.BusinessUnitId);
+        if (existingRow != null)
+            existingRow.Metrics = incoming.Metrics;
+    }
+    InvokeAsync(StateHasChanged);
+});
+```
+
+---
+
+## 16. Dark Mode Implementation
+
+### 16.1 Two-Column Color Configuration
+
+Widget config stores **both** Light Mode and Dark Mode colors:
+```csharp
+public class WidgetConfig
+{
+    // Light Mode colors
+    public string? BackgroundColor { get; set; }
+    public string? FontColor { get; set; }
+    public string? TableBackgroundColor { get; set; }
+    
+    // Dark Mode colors
+    public string? DarkBackgroundColor { get; set; }
+    public string? DarkFontColor { get; set; }
+    public string? DarkTableBackgroundColor { get; set; }
+}
+```
+
+### 16.2 Configuration UI — Dual Columns
+```razor
+<div class="color-settings-dual">
+    <div class="color-dual-header">
+        <span class="color-setting-label"></span>
+        <span class="color-mode-label">Light Mode</span>
+        <span class="color-mode-label">Dark Mode</span>
+    </div>
+    
+    <div class="color-setting-row-dual">
+        <span class="color-setting-label">Widget Background</span>
+        <ColorPicker @bind-Value="ConfigBackgroundColor" />
+        <ColorPicker @bind-Value="ConfigDarkBackgroundColor" />
+    </div>
+    <!-- Repeat for FontColor, TableBackgroundColor -->
+</div>
+```
+
+### 16.3 CSS for Dual-Column Layout
+```css
+.color-settings-dual {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+.color-dual-header,
+.color-setting-row-dual {
+    display: grid;
+    grid-template-columns: 140px 1fr 1fr;
+    gap: var(--sp-3);
+    align-items: center;
+}
+
+.color-mode-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--clr-text-muted);
+}
+```
+
+### 16.4 DarkMode Parameter — CRITICAL
+
+**Every widget MUST receive DarkMode parameter:**
+```csharp
+[Parameter] public bool DarkMode { get; set; }
+```
+
+**Parent components MUST pass it:**
+```razor
+<!-- ScreenEditorPage.razor -->
+<RenderWidget Widget="widget" DarkMode="_darkMode" />
+
+<!-- ScreenFullscreenPage.razor -->
+<RenderWidget Widget="widget" DarkMode="_darkMode" />
+```
+
+### 16.5 Effective Color Properties Pattern
+
+**Never use hardcoded dark mode colors.** Use computed properties:
+```csharp
+// Load from config with defaults
+private string _darkBackgroundColor = "#333333";
+private string _darkFontColor = "#FFFFFF";
+private string _darkTableBackgroundColor = "#333333";
+
+// Effective properties — check DarkMode at render time
+private string EffectiveBackgroundColor 
+    => DarkMode ? _darkBackgroundColor : (_backgroundColor ?? "");
+    
+private string EffectiveFontColor 
+    => DarkMode ? _darkFontColor : (_fontColor ?? "");
+    
+private string EffectiveTableBackgroundColor 
+    => DarkMode ? _darkTableBackgroundColor : (_tableBackgroundColor ?? "");
+```
+
+### 16.6 Apply Config — Load Dark Mode Colors
+```csharp
+private void ApplyConfig()
+{
+    if (Config is null) return;
+    
+    // Light mode
+    _backgroundColor = Config.BackgroundColor;
+    _fontColor = Config.FontColor;
+    _tableBackgroundColor = Config.TableBackgroundColor;
+    
+    // Dark mode (with fallback defaults)
+    _darkBackgroundColor = Config.DarkBackgroundColor ?? "#333333";
+    _darkFontColor = Config.DarkFontColor ?? "#FFFFFF";
+    _darkTableBackgroundColor = Config.DarkTableBackgroundColor ?? "#333333";
+}
+```
+
+### 16.7 Update Style Methods to Use Effective Colors
+```csharp
+private string GetWidgetStyle()
+{
+    var styles = new List<string>();
+    var bg = EffectiveBackgroundColor;  // <-- Use Effective, not raw
+    var fg = EffectiveFontColor;
+    
+    if (!string.IsNullOrEmpty(bg))
+        styles.Add($"background-color: {bg}");
+    if (!string.IsNullOrEmpty(fg))
+        styles.Add($"color: {fg}");
+    return string.Join("; ", styles);
+}
+
+private string GetTableStyle()
+{
+    var styles = new List<string>();
+    var tableBg = EffectiveTableBackgroundColor;  // <-- Use Effective
+    var fg = EffectiveFontColor;
+    
+    if (!string.IsNullOrEmpty(tableBg) && tableBg != "transparent")
+        styles.Add($"background-color: {tableBg}");
+    if (!string.IsNullOrEmpty(fg))
+        styles.Add($"color: {fg}");
+    return string.Join("; ", styles);
+}
+```
+
+### 16.8 Common Dark Mode Mistake
+
+**WRONG — Widget doesn't respond to dark mode toggle:**
+```razor
+<!-- Missing DarkMode parameter! -->
+<RenderWidget Widget="widget" />
+```
+
+**CORRECT:**
+```razor
+<RenderWidget Widget="widget" DarkMode="_darkMode" />
+```
+
+If dark mode toggle doesn't work, check:
+1. Is `DarkMode` parameter passed from parent?
+2. Is `_darkMode` variable in parent component?
+3. Does widget use `Effective*` properties in style methods?
+
+---
+
+## 17. Updated Checklist for New Widget
+
+1. [ ] Create `{Name}Widget.razor` with correct dependencies
+2. [ ] Add `GridId`, `Config`, and **`DarkMode`** parameters
+3. [ ] Implement SignalR connection with state handling
+4. [ ] **Load dark mode colors in ApplyConfig()**
+5. [ ] **Use Effective* properties for ALL color references**
+6. [ ] Use config colors for ALL UI elements (no hardcoded colors)
+7. [ ] Implement column configuration loading
+8. [ ] Add filter system with localStorage persistence
+9. [ ] Add pagination with free input
+10. [ ] Implement threshold system with MatchType detection
+11. [ ] Add to `RenderWidget.razor` — **pass DarkMode**
+12. [ ] Add to `ScreenEditorPage.razor` modal tabs — **pass DarkMode**
+13. [ ] Ensure `GridId` is passed in `ScreenFullscreenPage.razor`
+14. [ ] Add localization keys to all .resx files
+15. [ ] Test RTL layout
+16. [ ] **Test dark mode toggle in both editor and fullscreen**

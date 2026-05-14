@@ -229,6 +229,17 @@
 @code {
     [Parameter] public WidgetConfig? Config { get; set; }
     [Parameter] public int GridId { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+
+    // Dark mode colors (from Config, with sensible defaults)
+    private string _darkBackgroundColor = "#333333";
+    private string _darkFontColor = "#FFFFFF";
+    private string _darkTableBackgroundColor = "#333333";
+
+    // Effective colors (respecting dark mode)
+    private string EffectiveBackgroundColor => DarkMode ? _darkBackgroundColor : (_backgroundColor ?? "");
+    private string EffectiveFontColor => DarkMode ? _darkFontColor : (_fontColor ?? "");
+    private string EffectiveTableBackgroundColor => DarkMode ? _darkTableBackgroundColor : (_tableBackgroundColor ?? "");
 
     [Inject] private ILogger<QueueGridWidget> Logger { get; set; } = null!;
     [Inject] private IMediator Mediator { get; set; } = null!;
@@ -349,6 +360,10 @@
             _backgroundColor = Config.BackgroundColor;
             _fontColor = Config.FontColor;
             _tableBackgroundColor = Config.TableBackgroundColor;
+            // Dark mode colors from config
+            _darkBackgroundColor = Config.DarkBackgroundColor ?? "#333333";
+            _darkFontColor = Config.DarkFontColor ?? "#FFFFFF";
+            _darkTableBackgroundColor = Config.DarkTableBackgroundColor ?? "#333333";
             _showPagination = Config.ShowPagination;
 
             _rowDefs = Config.QueueGridRows?.ToList() ?? new();
@@ -1086,14 +1101,16 @@
         return string.Join("; ", styles);
     }
 
-    // Styles - copied from AgentGridWidget
+    // Styles - using effective colors (respecting dark mode)
     private string GetWidgetStyle()
     {
         var styles = new List<string>();
-        if (!string.IsNullOrEmpty(_backgroundColor))
-            styles.Add($"background-color: {_backgroundColor}");
-        if (!string.IsNullOrEmpty(_fontColor))
-            styles.Add($"color: {_fontColor}");
+        var bg = EffectiveBackgroundColor;
+        var fg = EffectiveFontColor;
+        if (!string.IsNullOrEmpty(bg))
+            styles.Add($"background-color: {bg}");
+        if (!string.IsNullOrEmpty(fg))
+            styles.Add($"color: {fg}");
         if (!string.IsNullOrEmpty(_fontSize))
         {
             var size = _fontSize switch
@@ -1113,11 +1130,13 @@
     private string GetTableStyle()
     {
         var styles = new List<string>();
+        var tableBg = EffectiveTableBackgroundColor;
+        var fg = EffectiveFontColor;
 
-        if (!string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent")
-            styles.Add($"background-color: {_tableBackgroundColor}");
-        if (!string.IsNullOrEmpty(_fontColor))
-            styles.Add($"color: {_fontColor}");
+        if (!string.IsNullOrEmpty(tableBg) && tableBg != "transparent")
+            styles.Add($"background-color: {tableBg}");
+        if (!string.IsNullOrEmpty(fg))
+            styles.Add($"color: {fg}");
         if (!string.IsNullOrEmpty(_fontSize))
         {
             var size = _fontSize switch
@@ -1138,30 +1157,33 @@
     private string GetTheadStyle()
     {
         var styles = new List<string>();
+        var tableBg = EffectiveTableBackgroundColor;
+        var widgetBg = EffectiveBackgroundColor;
+        var fg = EffectiveFontColor;
 
-        var bgColor = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
-            ? _tableBackgroundColor
-            : !string.IsNullOrEmpty(_backgroundColor) && _backgroundColor != "transparent"
-                ? _backgroundColor
+        var bgColor = !string.IsNullOrEmpty(tableBg) && tableBg != "transparent"
+            ? tableBg
+            : !string.IsNullOrEmpty(widgetBg) && widgetBg != "transparent"
+                ? widgetBg
                 : "var(--clr-surface, #fff)";
 
         styles.Add($"background-color: {bgColor}");
 
-        if (!string.IsNullOrEmpty(_fontColor))
-            styles.Add($"color: {_fontColor}");
+        if (!string.IsNullOrEmpty(fg))
+            styles.Add($"color: {fg}");
 
         return string.Join("; ", styles);
     }
 
     private string GetTheadCellStyle()
     {
-        var color = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "#ffffff";
         return $"white-space: nowrap; color: {color};";
     }
 
     private string GetFilterButtonStyle(bool hasFilter)
     {
-        var color = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
+        var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "#ffffff";
         var opacity = hasFilter ? "1" : "0.6";
         return $"color: {color}; opacity: {opacity};";
     }
@@ -1169,45 +1191,54 @@
     private string GetRowStyle()
     {
         var styles = new List<string>();
+        var tableBg = EffectiveTableBackgroundColor;
+        var fg = EffectiveFontColor;
 
-        if (!string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent")
-            styles.Add($"background-color: {_tableBackgroundColor}");
-        if (!string.IsNullOrEmpty(_fontColor))
-            styles.Add($"color: {_fontColor}");
+        if (!string.IsNullOrEmpty(tableBg) && tableBg != "transparent")
+            styles.Add($"background-color: {tableBg}");
+        if (!string.IsNullOrEmpty(fg))
+            styles.Add($"color: {fg}");
 
         return string.Join("; ", styles);
     }
 
     private string GetFontColorStyle()
     {
-        return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
+        var fg = EffectiveFontColor;
+        return !string.IsNullOrEmpty(fg) ? $"color: {fg};" : "";
     }
 
     private string GetBadgeInvertStyle()
     {
-        var bg = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
-        var fg = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
-            ? _tableBackgroundColor
+        var fg = EffectiveFontColor;
+        var tableBg = EffectiveTableBackgroundColor;
+        var bg = !string.IsNullOrEmpty(fg) ? fg : "#ffffff";
+        var fgColor = !string.IsNullOrEmpty(tableBg) && tableBg != "transparent"
+            ? tableBg
             : "#1e3a5f";
-        return $"background-color: {bg}; color: {fg};";
+        return $"background-color: {bg}; color: {fgColor};";
     }
 
     private string GetFilterDropdownStyle()
     {
-        var bg = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
-            ? _tableBackgroundColor
+        var tableBg = EffectiveTableBackgroundColor;
+        var fg = EffectiveFontColor;
+        var bg = !string.IsNullOrEmpty(tableBg) && tableBg != "transparent"
+            ? tableBg
             : "#1e3a5f";
-        var fg = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
-        return $"background: {bg}; color: {fg}; border: 1px solid {fg}33;";
+        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "#ffffff";
+        return $"background: {bg}; color: {fgColor}; border: 1px solid {fgColor}33;";
     }
 
     private string GetFilterInputStyle()
     {
-        var bg = !string.IsNullOrEmpty(_tableBackgroundColor) && _tableBackgroundColor != "transparent"
-            ? _tableBackgroundColor
+        var tableBg = EffectiveTableBackgroundColor;
+        var fg = EffectiveFontColor;
+        var bg = !string.IsNullOrEmpty(tableBg) && tableBg != "transparent"
+            ? tableBg
             : "#1e3a5f";
-        var fg = !string.IsNullOrEmpty(_fontColor) ? _fontColor : "#ffffff";
-        return $"background: {bg}; color: {fg}; border: 1px solid {fg}66;";
+        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "#ffffff";
+        return $"background: {bg}; color: {fgColor}; border: 1px solid {fgColor}66;";
     }
 
     // State persistence
