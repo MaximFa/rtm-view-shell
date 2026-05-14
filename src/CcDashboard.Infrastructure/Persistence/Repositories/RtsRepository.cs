@@ -1,6 +1,7 @@
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Domain;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace CcDashboard.Infrastructure.Persistence.Repositories;
 
@@ -104,15 +105,26 @@ public class RtsRepository(AppDbContext db) : IRtsRepository
         await db.SaveChangesAsync(ct);
     }
 
-    // ========== Queue Grid (RTSGrid_*) - Raw SQL ==========
+    // ========== Queue Grid (RTSGrid_*) - Raw ADO.NET for RETURNING ==========
 
     public async Task<int> InsertQueueGridAsync(string title, CancellationToken ct = default)
     {
-        var sql = @"INSERT INTO ""RTSGrid_Grid"" (""UnionId"", ""StyleId"", ""Title"", ""ThresholdScript"")
-                    VALUES (-1, 1, @p0, NULL)
-                    RETURNING ""GridId""";
-        var result = await db.Database.SqlQueryRaw<int>(sql, title).ToListAsync(ct);
-        return result.First();
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync(ct);
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT INTO ""RTSGrid_Grid"" (""UnionId"", ""StyleId"", ""Title"", ""ThresholdScript"")
+                                VALUES (-1, 1, @title, NULL)
+                                RETURNING ""GridId""";
+            cmd.Parameters.Add(new NpgsqlParameter("@title", title));
+            var result = await cmd.ExecuteScalarAsync(ct);
+            return Convert.ToInt32(result);
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
     }
 
     public async Task UpdateQueueGridAsync(int gridId, string title, CancellationToken ct = default)
@@ -123,24 +135,37 @@ public class RtsRepository(AppDbContext db) : IRtsRepository
 
     public async Task DeleteQueueGridAsync(int gridId, CancellationToken ct = default)
     {
-        // CASCADE will delete columns, rows, and cells
         var sql = @"DELETE FROM ""RTSGrid_Grid"" WHERE ""GridId"" = @p0";
         await db.Database.ExecuteSqlRawAsync(sql, [gridId], ct);
     }
 
     public async Task<int> InsertQueueGridColumnAsync(int gridId, int columnNumber, CancellationToken ct = default)
     {
-        var sql = @"INSERT INTO ""RTSGrid_Column"" (""GridId"", ""ColumnNumber"", ""CellTemplateId"")
-                    VALUES (@p0, @p1, NULL)
-                    RETURNING ""ColumnId""";
-        var result = await db.Database.SqlQueryRaw<int>(sql, gridId, columnNumber).ToListAsync(ct);
-        var columnId = result.First();
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync(ct);
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT INTO ""RTSGrid_Column"" (""GridId"", ""ColumnNumber"", ""CellTemplateId"")
+                                VALUES (@gridId, @columnNumber, NULL)
+                                RETURNING ""ColumnId""";
+            cmd.Parameters.Add(new NpgsqlParameter("@gridId", gridId));
+            cmd.Parameters.Add(new NpgsqlParameter("@columnNumber", columnNumber));
+            var result = await cmd.ExecuteScalarAsync(ct);
+            var columnId = Convert.ToInt32(result);
 
-        // Update CellTemplateId to match ColumnId (self-reference)
-        var updateSql = @"UPDATE ""RTSGrid_Column"" SET ""CellTemplateId"" = @p0 WHERE ""ColumnId"" = @p0";
-        await db.Database.ExecuteSqlRawAsync(updateSql, [columnId], ct);
+            // Update CellTemplateId to match ColumnId (self-reference)
+            await using var updateCmd = conn.CreateCommand();
+            updateCmd.CommandText = @"UPDATE ""RTSGrid_Column"" SET ""CellTemplateId"" = @colId WHERE ""ColumnId"" = @colId";
+            updateCmd.Parameters.Add(new NpgsqlParameter("@colId", columnId));
+            await updateCmd.ExecuteNonQueryAsync(ct);
 
-        return columnId;
+            return columnId;
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
     }
 
     public async Task UpdateQueueGridColumnAsync(int columnId, int columnNumber, CancellationToken ct = default)
@@ -151,7 +176,6 @@ public class RtsRepository(AppDbContext db) : IRtsRepository
 
     public async Task DeleteQueueGridColumnAsync(int columnId, CancellationToken ct = default)
     {
-        // CASCADE will delete cells referencing this column
         var sql = @"DELETE FROM ""RTSGrid_Column"" WHERE ""ColumnId"" = @p0";
         await db.Database.ExecuteSqlRawAsync(sql, [columnId], ct);
     }
@@ -164,11 +188,24 @@ public class RtsRepository(AppDbContext db) : IRtsRepository
 
     public async Task<int> InsertQueueGridRowAsync(int gridId, int rowNumber, int? unionId, CancellationToken ct = default)
     {
-        var sql = @"INSERT INTO ""RTSGrid_Row"" (""GridId"", ""RowNumber"", ""UnionId"", ""StyleId"", ""ThresholdScript"", ""OldRowId"")
-                    VALUES (@p0, @p1, @p2, 1, NULL, NULL)
-                    RETURNING ""RowId""";
-        var result = await db.Database.SqlQueryRaw<int>(sql, gridId, rowNumber, unionId ?? (object)DBNull.Value).ToListAsync(ct);
-        return result.First();
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync(ct);
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT INTO ""RTSGrid_Row"" (""GridId"", ""RowNumber"", ""UnionId"", ""StyleId"", ""ThresholdScript"", ""OldRowId"")
+                                VALUES (@gridId, @rowNumber, @unionId, 1, NULL, NULL)
+                                RETURNING ""RowId""";
+            cmd.Parameters.Add(new NpgsqlParameter("@gridId", gridId));
+            cmd.Parameters.Add(new NpgsqlParameter("@rowNumber", rowNumber));
+            cmd.Parameters.Add(new NpgsqlParameter("@unionId", unionId ?? (object)DBNull.Value));
+            var result = await cmd.ExecuteScalarAsync(ct);
+            return Convert.ToInt32(result);
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
     }
 
     public async Task UpdateQueueGridRowAsync(int rowId, int rowNumber, int? unionId, CancellationToken ct = default)
@@ -179,7 +216,6 @@ public class RtsRepository(AppDbContext db) : IRtsRepository
 
     public async Task DeleteQueueGridRowAsync(int rowId, CancellationToken ct = default)
     {
-        // CASCADE will delete cells
         var sql = @"DELETE FROM ""RTSGrid_Row"" WHERE ""RowId"" = @p0";
         await db.Database.ExecuteSqlRawAsync(sql, [rowId], ct);
     }
@@ -192,11 +228,26 @@ public class RtsRepository(AppDbContext db) : IRtsRepository
 
     public async Task<int> InsertQueueGridCellAsync(int rowId, int columnId, int colNumber, string cellType, string? value, CancellationToken ct = default)
     {
-        var sql = @"INSERT INTO ""RTSGrid_Cell"" (""RowId"", ""ColumnId"", ""ColNumber"", ""UnionId"", ""StyleId"", ""CellType"", ""Value"", ""Tooltip"", ""OnClick"", ""ThresholdSetId"", ""NewRowId"", ""OldRowId"")
-                    VALUES (@p0, @p1, @p2, -1, 3, @p3, @p4, NULL, NULL, 0, NULL, NULL)
-                    RETURNING ""CellId""";
-        var result = await db.Database.SqlQueryRaw<int>(sql, rowId, columnId, colNumber, cellType, value ?? (object)DBNull.Value).ToListAsync(ct);
-        return result.First();
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync(ct);
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT INTO ""RTSGrid_Cell"" (""RowId"", ""ColumnId"", ""ColNumber"", ""UnionId"", ""StyleId"", ""CellType"", ""Value"", ""Tooltip"", ""OnClick"", ""ThresholdSetId"", ""NewRowId"", ""OldRowId"")
+                                VALUES (@rowId, @columnId, @colNumber, -1, 3, @cellType, @value, NULL, NULL, 0, NULL, NULL)
+                                RETURNING ""CellId""";
+            cmd.Parameters.Add(new NpgsqlParameter("@rowId", rowId));
+            cmd.Parameters.Add(new NpgsqlParameter("@columnId", columnId));
+            cmd.Parameters.Add(new NpgsqlParameter("@colNumber", colNumber));
+            cmd.Parameters.Add(new NpgsqlParameter("@cellType", cellType));
+            cmd.Parameters.Add(new NpgsqlParameter("@value", value ?? (object)DBNull.Value));
+            var result = await cmd.ExecuteScalarAsync(ct);
+            return Convert.ToInt32(result);
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
     }
 
     public async Task UpdateQueueGridCellAsync(int cellId, string cellType, string? value, CancellationToken ct = default)

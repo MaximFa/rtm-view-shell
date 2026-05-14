@@ -17,6 +17,8 @@ public class DeleteQueueGridRtsCommandHandler(
         // CASCADE DELETE handles columns, rows, and cells automatically
         await rtsRepository.DeleteQueueGridAsync(cmd.GridId, ct);
 
+        // API hook placeholder
+        // TODO: replace NoOp with real REST or SignalR call to CC platform — TBD
         await apiHook.NotifyAsync("QueueGridRts.Deleted", new { GridId = cmd.GridId }, ct);
 
         return true;

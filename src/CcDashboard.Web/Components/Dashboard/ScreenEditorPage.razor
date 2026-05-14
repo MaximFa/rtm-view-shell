@@ -16,6 +16,8 @@
 @using CcDashboard.Contracts.DTOs.Configuration
 @using CcDashboard.Domain.Enums
 @using CcDashboard.Application.Queries.TenantSettings
+@using CcDashboard.Application.Queries.WidgetTemplates
+@using CcDashboard.Application.Commands.WidgetTemplates
 @using Microsoft.AspNetCore.Authorization
 @implements IDisposable
 
@@ -123,6 +125,38 @@
                         </div>
                     }
                 }
+
+                <!-- Templates Section -->
+                @if (WidgetTemplates.Count > 0)
+                {
+                    <div class="mt-4 pt-3 border-top">
+                        <div class="small text-muted text-uppercase mb-2">
+                            <i class="bi bi-bookmark me-1"></i>Templates
+                        </div>
+                        @foreach (var template in WidgetTemplates)
+                        {
+                            <div class="widget-palette-item template-item"
+                                 draggable="true"
+                                 @key="template.Id"
+                                 @ondragstart="() => OnTemplateDragStart(template)"
+                                 @ondragend="OnDragEnd">
+                                <div class="widget-palette-icon">
+                                    <i class="bi @GetWidgetIcon(template.WidgetName ?? "")"></i>
+                                </div>
+                                <div class="widget-palette-info flex-grow-1">
+                                    <div class="widget-palette-name">@template.Name</div>
+                                    <div class="widget-palette-desc">@template.WidgetName</div>
+                                </div>
+                                <button class="btn btn-link btn-sm p-0 text-danger ms-1"
+                                        @onclick="() => ConfirmDeleteTemplate(template)"
+                                        @onclick:stopPropagation
+                                        title="Delete template">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
         </div>
 
@@ -149,6 +183,10 @@
                          @key="widget.Id"
                          @onclick="() => SelectWidget(widget.Id)">
                         <div class="widget-toolbar">
+                            <button class="widget-toolbar-btn" title="Save as template"
+                                    @onclick="() => OpenSaveAsTemplate(widget)" @onclick:stopPropagation="true">
+                                <i class="bi bi-bookmark-plus"></i>
+                            </button>
                             <button class="widget-toolbar-btn" title="@L["Widgets_Configure"]"
                                     @onclick="() => OpenWidgetConfig(widget)" @onclick:stopPropagation="true">
                                 <i class="bi bi-gear"></i>
@@ -1421,6 +1459,65 @@
     <div class="editor-modal-backdrop"></div>
 }
 
+<!-- Save As Template Modal -->
+@if (WidgetToSaveAsTemplate is not null)
+{
+    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="save-template-title">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="save-template-title">Save as Template</h5>
+                    <button type="button" class="btn-close" @onclick="CancelSaveAsTemplate" aria-label="@L["Common_Close"]"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Save "<strong>@WidgetToSaveAsTemplate.Name</strong>" as a reusable template with all its configuration.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">Template Name</label>
+                        <input type="text" class="form-control" @bind="TemplateName" maxlength="200"
+                               placeholder="Enter template name..." />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="CancelSaveAsTemplate">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveAsTemplate" disabled="@(SavingTemplate || string.IsNullOrWhiteSpace(TemplateName))">
+                        @if (SavingTemplate)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Save Template
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="editor-modal-backdrop"></div>
+}
+
+<!-- Delete Template Confirmation Modal -->
+@if (TemplateToDelete is not null)
+{
+    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="delete-template-title">Delete Template</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDeleteTemplate" aria-label="@L["Common_Close"]"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the template "<strong>@TemplateToDelete.Name</strong>"?</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="CancelDeleteTemplate">Cancel</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DeleteTemplate">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="editor-modal-backdrop"></div>
+}
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -1502,6 +1599,13 @@
     // Widget deletion confirmation
     private PlacedWidget? WidgetToDelete;
     private bool DeletingWidget;
+
+    // Widget Templates
+    private List<WidgetTemplateDto> WidgetTemplates = [];
+    private PlacedWidget? WidgetToSaveAsTemplate;
+    private string TemplateName = "";
+    private bool SavingTemplate;
+    private WidgetTemplateDto? TemplateToDelete;
 
     private static readonly string[] AvailableTeams = ["Sales Team", "Support Team", "VIP Team"];
     private static readonly string[] AvailableStates = ["Ready", "Talking", "Hold", "Acw", "NotReady", "Outbound", "LoggedOut"];
@@ -1893,6 +1997,9 @@
             }
             catch { Metrics = []; }
 
+            // Load widget templates
+            await LoadWidgetTemplates();
+
             // Load existing widgets from Dashboard.Widgets if available
             if (Dashboard?.Widgets != null)
             {
@@ -1973,6 +2080,13 @@
 
     private async Task OnDropAtPosition(DragEventArgs e)
     {
+        // Handle template drop
+        if (DraggedTemplate is not null)
+        {
+            await OnDropTemplateAtPosition(e);
+            return;
+        }
+
         if (DraggedWidget is null) return;
 
         // Try JS interop for accurate position, fallback to offset calculation
@@ -2085,6 +2199,11 @@
             if (IsAgentGridWidget(WidgetToDelete) && WidgetToDelete.GridId > 0)
             {
                 await Mediator.Send(new DeleteAgentGridRtsCommand(WidgetToDelete.GridId), _cts.Token);
+            }
+            // If it's a QueueGrid widget with a valid GridId, delete RTS records
+            else if (IsQueueGridWidget(WidgetToDelete) && WidgetToDelete.Config?.GridId > 0)
+            {
+                await Mediator.Send(new DeleteQueueGridRtsCommand(WidgetToDelete.Config.GridId.Value), _cts.Token);
             }
 
             PlacedWidgets.RemoveAll(w => w.Id == WidgetToDelete.Id);
@@ -3418,5 +3537,160 @@
             else
                 writer.WriteStringValue(value);
         }
+    }
+
+    // Widget Template methods
+    private WidgetTemplateDto? DraggedTemplate;
+
+    private void OnTemplateDragStart(WidgetTemplateDto template)
+    {
+        DraggedTemplate = template;
+        DraggedWidget = null;
+        IsDragging = true;
+    }
+
+    private void OpenSaveAsTemplate(PlacedWidget widget)
+    {
+        WidgetToSaveAsTemplate = widget;
+        TemplateName = widget.Name;
+    }
+
+    private void CancelSaveAsTemplate()
+    {
+        WidgetToSaveAsTemplate = null;
+        TemplateName = "";
+    }
+
+    private async Task SaveAsTemplate()
+    {
+        if (WidgetToSaveAsTemplate is null || string.IsNullOrWhiteSpace(TemplateName)) return;
+
+        SavingTemplate = true;
+        try
+        {
+            var configJson = System.Text.Json.JsonSerializer.Serialize(WidgetToSaveAsTemplate.Config, _jsonOptions);
+            var result = await Mediator.Send(new CreateWidgetTemplateCommand(
+                TemplateName.Trim(),
+                WidgetToSaveAsTemplate.CatalogItemId,
+                configJson), _cts.Token);
+
+            WidgetTemplates.Add(result);
+            CancelSaveAsTemplate();
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+        finally
+        {
+            SavingTemplate = false;
+        }
+    }
+
+    private void ConfirmDeleteTemplate(WidgetTemplateDto template)
+    {
+        TemplateToDelete = template;
+    }
+
+    private void CancelDeleteTemplate()
+    {
+        TemplateToDelete = null;
+    }
+
+    private async Task DeleteTemplate()
+    {
+        if (TemplateToDelete is null) return;
+
+        try
+        {
+            await Mediator.Send(new DeleteWidgetTemplateCommand(TemplateToDelete.Id), _cts.Token);
+            WidgetTemplates.RemoveAll(t => t.Id == TemplateToDelete.Id);
+            TemplateToDelete = null;
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+    }
+
+    private async Task LoadWidgetTemplates()
+    {
+        try
+        {
+            var templates = await Mediator.Send(new GetWidgetTemplatesQuery(), _cts.Token);
+            WidgetTemplates = templates.ToList();
+        }
+        catch
+        {
+            WidgetTemplates = [];
+        }
+    }
+
+    private async Task OnDropTemplateAtPosition(DragEventArgs e)
+    {
+        if (DraggedTemplate is null) return;
+
+        int posX, posY;
+        try
+        {
+            var pos = await JS.InvokeAsync<DropPosition>("widgetResize.getDropPosition", e.ClientX, e.ClientY);
+            posX = pos.X;
+            posY = pos.Y;
+        }
+        catch
+        {
+            posX = 270 + (PlacedWidgets.Count % 3) * 300;
+            posY = 20 + (PlacedWidgets.Count / 3) * 220;
+        }
+
+        var catalogItem = WidgetCatalog.FirstOrDefault(c => c.Id == DraggedTemplate.WidgetCatalogItemId);
+        var config = !string.IsNullOrEmpty(DraggedTemplate.ConfigJson)
+            ? ParseWidgetConfig(DraggedTemplate.ConfigJson)
+            : new WidgetConfig();
+
+        // Reset all RTS IDs - this is a NEW widget, not a copy of the original
+        config.GridId = null;
+        config.HeaderRowId = null;
+        config.HeaderCellIds = new Dictionary<string, int?>();
+        config.ColumnsSetId = null;
+
+        // Reset column IDs for Queue Grid (keep column definitions, clear IDs)
+        if (config.QueueGridColumnDefs != null)
+        {
+            foreach (var col in config.QueueGridColumnDefs)
+            {
+                col.ColumnId = null;
+                col.Id = Guid.NewGuid().ToString();
+            }
+        }
+
+        // Clear rows for Queue Grid - templates copy only columns and settings, not rows
+        config.QueueGridRows = null;
+
+        // Reset column IDs for Agent Grid
+        if (config.AgentGridColumnDefs != null)
+        {
+            foreach (var col in config.AgentGridColumnDefs)
+            {
+                col.DbColumnId = null;
+            }
+        }
+
+        var newWidget = new PlacedWidget
+        {
+            Id = Guid.NewGuid(),
+            CatalogItemId = DraggedTemplate.WidgetCatalogItemId,
+            Name = DraggedTemplate.Name,
+            Category = catalogItem?.Category ?? "",
+            Width = 280,
+            Height = 200,
+            X = posX,
+            Y = posY,
+            Config = config
+        };
+
+        PlacedWidgets.Add(newWidget);
+        DraggedTemplate = null;
+        IsDragging = false;
     }
 }

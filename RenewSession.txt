@@ -11,14 +11,13 @@ claude --resume 85e21c34-61d0-4a8e-84e3-28ccb8192e2b
 cd "C:\Users\farbe\Documents\Claude\Projects\RTM View Shell"
 
   Если откроешь новую сессию случайно — я не буду знать контекст сразу, но достаточно написать: 
-  "это проект RTM View Shell, продолжаем тестирование" 
+ это проект RTM View Shell, продолжаем тестирование
   — и я прочитаю memory и войду в курс дела за пару секунд.
   
   DB - ccdashboard_user
   
- это проект RTM View
-  Shell, продолжаем тестирование
-
+ это проект RTM View Shell, продолжаем тестирование
+ 
 загрузи следующие скилы  
   /widget-creator
   /app-cyber-security-expert
@@ -29,7 +28,7 @@ cd "C:\Users\farbe\Documents\Claude\Projects\RTM View Shell"
  
  используй все скилы для решения задач и их анализа
  
- всегда запускай веб и симулятор в бэкграунде
+ всегда запускай веб и симулятор без новых окон
  
  
    

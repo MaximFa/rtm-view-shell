@@ -1368,6 +1368,22 @@ a:hover {
     cursor: grabbing;
 }
 
+.widget-palette-item.template-item {
+    background-color: var(--clr-success-subtle);
+    border-color: var(--clr-success);
+    border-style: dashed;
+}
+
+.widget-palette-item.template-item:hover {
+    background-color: var(--clr-success-subtle);
+    box-shadow: 0 0 0 2px var(--clr-success);
+}
+
+.widget-palette-item.template-item .widget-palette-icon {
+    background-color: var(--clr-success-subtle);
+    color: var(--clr-success);
+}
+
 .widget-palette-icon {
     width: 40px;
     height: 40px;
@@ -2561,6 +2577,16 @@ button.clr-swatch,
 
 .editor-fullscreen.dark-mode .widget-palette-desc {
     color: #71717A !important;
+}
+
+.editor-fullscreen.dark-mode .widget-palette-item.template-item {
+    background-color: #1a3a2a !important;
+    border-color: #28a745 !important;
+}
+
+.editor-fullscreen.dark-mode .widget-palette-item.template-item:hover {
+    background-color: #254a35 !important;
+    box-shadow: 0 0 0 2px #28a745;
 }
 
 .editor-fullscreen.dark-mode .dashboard-widget {

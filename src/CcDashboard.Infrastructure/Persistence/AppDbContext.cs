@@ -21,6 +21,7 @@ public class AppDbContext(
     public DbSet<DashboardCategory> DashboardCategories => Set<DashboardCategory>();
     public DbSet<DashboardWidget> DashboardWidgets => Set<DashboardWidget>();
     public DbSet<WidgetCatalogItem> WidgetCatalogItems => Set<WidgetCatalogItem>();
+    public DbSet<WidgetTemplate> WidgetTemplates => Set<WidgetTemplate>();
     // Reference tables (ngc_queues, ngc_AgentGroups)
     public DbSet<NgcQueue> NgcQueues => Set<NgcQueue>();
     public DbSet<NgcAgentGroup> NgcAgentGroups => Set<NgcAgentGroup>();
@@ -178,6 +179,20 @@ public class AppDbContext(
             e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.Category).HasMaxLength(100).IsRequired();
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        });
+
+        // Widget templates (tenant-scoped)
+        mb.Entity<WidgetTemplate>(e =>
+        {
+            e.ToTable("widget_templates");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.ConfigJson).HasColumnType("jsonb");
+            e.HasOne(x => x.CatalogItem).WithMany().HasForeignKey(x => x.WidgetCatalogItemId);
+            e.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId);
+            e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
         // Reference tables (tenant-scoped resource catalogue synced from CC platform)

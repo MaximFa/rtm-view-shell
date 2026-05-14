@@ -206,7 +206,17 @@ public class SaveQueueGridRtsCommandHandler(
         }
 
         // API hook placeholder
-        await apiHook.NotifyAsync("QueueGridRts.Saved", new { GridId = gridId }, ct);
+        // TODO: replace NoOp with real REST or SignalR call to CC platform — TBD
+        await apiHook.NotifyAsync("QueueGridRts.Saved", new
+        {
+            GridId = gridId,
+            HeaderRowId = headerRowId,
+            Title = cmd.Title,
+            ColumnCount = savedColumnIds.Count,
+            RowCount = savedRowIds.Count,
+            ColumnIds = savedColumnIds.Values.ToList(),
+            RowIds = savedRowIds.Values.ToList()
+        }, ct);
 
         return new SaveQueueGridRtsResult(
             gridId,
