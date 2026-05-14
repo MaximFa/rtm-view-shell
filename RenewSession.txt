@@ -8,20 +8,31 @@ claude --resume 85e21c34-61d0-4a8e-84e3-28ccb8192e2b
   1. В начале разговора мне подгружается история предыдущих сообщений (или их сжатое резюме, как в начале этой сессии)
   2. Мне автоматически загружается MEMORY.md с указателями на файлы памяти — там записано всё о проекте
 
-  Если откроешь новую сессию случайно — я не буду знать контекст сразу, но достаточно написать: "это проект RTM View
-  Shell, продолжаем тестирование" — и я прочитаю memory и войду в курс дела за пару секунд.
+cd "C:\Users\farbe\Documents\Claude\Projects\RTM View Shell"
+
+  Если откроешь новую сессию случайно — я не буду знать контекст сразу, но достаточно написать: 
+  "это проект RTM View Shell, продолжаем тестирование" 
+  — и я прочитаю memory и войду в курс дела за пару секунд.
   
   DB - ccdashboard_user
   
-  
+ это проект RTM View
+  Shell, продолжаем тестирование
+
+загрузи следующие скилы  
+  /widget-creator
   /app-cyber-security-expert
   /blazor-server-expert
   /frontend-design
   /program-architector
   /ux-ui-expert
-  используй все скилы для решения задач и их анализа
-  
-  
+ 
+ используй все скилы для решения задач и их анализа
+ 
+ всегда запускай веб и симулятор в бэкграунде
+ 
+ 
+   
   /contact-center-expert
   /contact-center-shift-manager
   /contact-center-manager
@@ -29,6 +40,3 @@ claude --resume 85e21c34-61d0-4a8e-84e3-28ccb8192e2b
   /contact-center-ceo
   /technical-writer
   /platform-presale
-  
-  
-  перезапусти все в бэкграунде

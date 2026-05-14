@@ -51,36 +51,10 @@ else
                         <td>@StatusBadge(t.Status)</td>
                         <td class="small">@t.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</td>
                         <td>
-                            <div class="d-flex gap-1 flex-wrap">
-                                <button class="btn btn-sm btn-outline-primary me-1"
-                                        @onclick="() => OpenEdit(t)">
-                                    @L["Edit"]
-                                </button>
-                                @if (t.Status == TenantStatus.Suspended)
-                                {
-                                    <button class="btn btn-sm btn-outline-success"
-                                            @onclick="() => SetStatus(t.Id, TenantStatus.Active)">
-                                        @L["Tenants_Activate"]
-                                    </button>
-                                }
-                                @if (t.Status != TenantStatus.Deleted)
-                                {
-                                    <button class="btn btn-sm btn-outline-danger"
-                                            @onclick="() => ConfirmDeleteId = t.Id">
-                                        @L["Tenants_Delete"]
-                                    </button>
-                                }
-                            </div>
-                            @if (ConfirmDeleteId == t.Id)
-                            {
-                                <div class="small mt-1 text-danger">
-                                    @L["Tenants_ConfirmDelete"]
-                                    <button class="btn btn-danger btn-sm ms-1"
-                                            @onclick="() => SetStatus(t.Id, TenantStatus.Deleted)">@L["Common_Yes"]</button>
-                                    <button class="btn btn-secondary btn-sm ms-1"
-                                            @onclick="() => ConfirmDeleteId = null">@L["Common_No"]</button>
-                                </div>
-                            }
+                            <button class="btn btn-sm btn-outline-primary"
+                                    @onclick="() => OpenEdit(t)">
+                                @L["Edit"]
+                            </button>
                         </td>
                     </tr>
                 }
@@ -383,6 +357,56 @@ else
                             </div>
                         </div>
                     }
+
+                    <!-- Danger Zone (not for platform tenant) -->
+                    @if (EditTenant.Status != TenantStatus.Deleted && EditTenant.Slug != "platform")
+                    {
+                        <div class="mt-4 pt-3 border-top border-danger">
+                            <h6 class="text-danger mb-3">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                @L["Screens_DangerZone"]
+                            </h6>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                @if (EditTenant.Status == TenantStatus.Active)
+                                {
+                                    <button class="btn btn-outline-warning btn-sm"
+                                            @onclick="() => SetStatusFromModal(TenantStatus.Suspended)">
+                                        <i class="bi bi-pause-circle me-1"></i>
+                                        @L["Tenants_Suspend"]
+                                    </button>
+                                }
+                                else if (EditTenant.Status == TenantStatus.Suspended)
+                                {
+                                    <button class="btn btn-outline-success btn-sm"
+                                            @onclick="() => SetStatusFromModal(TenantStatus.Active)">
+                                        <i class="bi bi-play-circle me-1"></i>
+                                        @L["Tenants_Activate"]
+                                    </button>
+                                }
+
+                                @if (!ConfirmDeleteInModal)
+                                {
+                                    <button class="btn btn-outline-danger btn-sm"
+                                            @onclick="() => ConfirmDeleteInModal = true">
+                                        <i class="bi bi-trash me-1"></i>
+                                        @L["Tenants_Delete"]
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-danger small me-2">@L["Tenants_ConfirmDelete"]</span>
+                                    <button class="btn btn-danger btn-sm"
+                                            @onclick="DeleteFromModal">
+                                        @L["Common_Yes"]
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm"
+                                            @onclick="() => ConfirmDeleteInModal = false">
+                                        @L["Common_No"]
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="CloseEdit">@L["Common_Cancel"]</button>
@@ -406,7 +430,7 @@ else
     private bool ShowCreate;
     private string? NewName;
     private string? NewSlug;
-    private Guid? ConfirmDeleteId;
+    private bool ConfirmDeleteInModal;
 
     // Edit state
     private TenantDto? EditTenant;
@@ -467,15 +491,31 @@ else
         finally { Saving = false; }
     }
 
-    private async Task SetStatus(Guid id, TenantStatus status)
+    private async Task SetStatusFromModal(TenantStatus status)
     {
-        ConfirmDeleteId = null; ActionError = null;
+        if (EditTenant is null) return;
+        EditSaveError = null;
         try
         {
-            await Mediator.Send(new SetTenantStatusCommand(id, status));
+            await Mediator.Send(new SetTenantStatusCommand(EditTenant.Id, status));
             await LoadAsync();
+            EditTenant = Tenants.FirstOrDefault(t => t.Id == EditTenant.Id);
+            ConfirmDeleteInModal = false;
         }
-        catch (Exception ex) { ActionError = ex.Message; }
+        catch (Exception ex) { EditSaveError = ex.Message; }
+    }
+
+    private async Task DeleteFromModal()
+    {
+        if (EditTenant is null) return;
+        EditSaveError = null;
+        try
+        {
+            await Mediator.Send(new SetTenantStatusCommand(EditTenant.Id, TenantStatus.Deleted));
+            await LoadAsync();
+            CloseEdit();
+        }
+        catch (Exception ex) { EditSaveError = ex.Message; }
     }
 
     private async Task OpenEdit(TenantDto t)
@@ -485,6 +525,7 @@ else
         EditTab = "general";
         EditSaveError = null;
         EditSaveSuccess = false;
+        ConfirmDeleteInModal = false;
         await LoadEditSettings(t.Id);
     }
 

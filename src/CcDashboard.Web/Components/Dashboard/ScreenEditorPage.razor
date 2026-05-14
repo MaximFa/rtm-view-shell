@@ -1573,7 +1573,18 @@
 
     private void RemoveQueueGridColumnDef(string colId)
     {
+        // Get the MetricId before removing
+        var col = ConfigQueueGridColumnDefs.FirstOrDefault(c => c.Id == colId);
+        var metricId = col?.MetricId;
+
+        // Remove the column
         ConfigQueueGridColumnDefs.RemoveAll(c => c.Id == colId);
+
+        // Cleanup thresholds for this column
+        if (!string.IsNullOrEmpty(metricId))
+        {
+            ConfigColumnThresholds.Remove(metricId);
+        }
     }
 
     private void MoveQueueGridColumnDef(string colId, int direction)
@@ -2268,7 +2279,25 @@
 
     private void RemoveColumnDef(string id)
     {
+        // Get the MetricId before removing
+        var col = ConfigAgentColumnDefs.FirstOrDefault(c => c.Id == id);
+        var metricId = col?.MetricId;
+
+        // Remove the column
         ConfigAgentColumnDefs.RemoveAll(c => c.Id == id);
+
+        // Cleanup related data if MetricId was set
+        if (!string.IsNullOrEmpty(metricId))
+        {
+            // Remove thresholds for this column
+            ConfigColumnThresholds.Remove(metricId);
+
+            // Remove score formula rules referencing this column
+            ConfigScoreFormula.RemoveAll(r => r.MetricId == metricId);
+
+            // Remove table filters referencing this column
+            ConfigTableFilters.RemoveAll(f => f.MetricId == metricId);
+        }
     }
 
     private void MoveColumnDef(string id, int direction)
@@ -2455,6 +2484,80 @@
             }
         }
 
+        // For QueueGrid widgets, save to RTS tables (RTSGrid_*)
+        int? queueGridId = null;
+        int? headerRowId = null;
+        Dictionary<string, int?>? savedHeaderCellIds = null;
+        if (IsQueueGridWidget(ConfiguringWidget))
+        {
+            try
+            {
+                var existingGridId = ConfiguringWidget.Config?.GridId;
+                var existingHeaderRowId = ConfiguringWidget.Config?.HeaderRowId;
+                var existingHeaderCellIds = ConfiguringWidget.Config?.HeaderCellIds ?? new Dictionary<string, int?>();
+
+                // Build column inputs (1-based ColumnNumber)
+                var columnInputs = ConfigQueueGridColumnDefs.Select((col, idx) => new QueueGridColumnInput(
+                    col.Id,
+                    col.ColumnId,
+                    col.Name,
+                    col.MetricId,
+                    idx + 1
+                )).ToList();
+
+                // Build row inputs (2-based RowNumber, 1 is header)
+                var rowInputs = ConfigQueueGridRows.Select((row, idx) => new QueueGridRowInput(
+                    row.Id,
+                    row.RowId,
+                    row.BusinessUnitId,
+                    idx + 2,
+                    row.CellIds
+                )).ToList();
+
+                var rtsResult = await Mediator.Send(new SaveQueueGridRtsCommand(
+                    existingGridId,
+                    existingHeaderRowId,
+                    ConfigDisplayName ?? ConfiguringWidget.Name,
+                    columnInputs,
+                    rowInputs,
+                    existingHeaderCellIds
+                ), _cts.Token);
+
+                queueGridId = rtsResult.GridId;
+                headerRowId = rtsResult.HeaderRowId;
+                savedHeaderCellIds = rtsResult.HeaderCellIds.ToDictionary(kvp => kvp.Key, kvp => (int?)kvp.Value);
+
+                // Update column ColumnIds from result
+                foreach (var (localId, dbColumnId) in rtsResult.SavedColumnIds)
+                {
+                    var colDef = ConfigQueueGridColumnDefs.FirstOrDefault(c => c.Id == localId);
+                    if (colDef != null)
+                    {
+                        colDef.ColumnId = dbColumnId;
+                    }
+                }
+
+                // Update row RowIds and CellIds from result
+                foreach (var (localId, dbRowId) in rtsResult.SavedRowIds)
+                {
+                    var rowDef = ConfigQueueGridRows.FirstOrDefault(r => r.Id == localId);
+                    if (rowDef != null)
+                    {
+                        rowDef.RowId = dbRowId;
+                        if (rtsResult.SavedCellIds.TryGetValue(localId, out var cellIds))
+                        {
+                            rowDef.CellIds = cellIds.ToDictionary(kvp => kvp.Key, kvp => (int?)kvp.Value);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Error = $"Queue Grid RTS save failed: {ex.Message}";
+                return;
+            }
+        }
+
         var newConfig = new WidgetConfig
         {
             DisplayName = ConfigDisplayName,
@@ -2501,7 +2604,11 @@
                 : null,
             // Queue Grid specific
             QueueGridRows = ConfigQueueGridRows.Count > 0 ? ConfigQueueGridRows : null,
-            QueueGridColumnDefs = ConfigQueueGridColumnDefs.Count > 0 ? ConfigQueueGridColumnDefs : null
+            QueueGridColumnDefs = ConfigQueueGridColumnDefs.Count > 0 ? ConfigQueueGridColumnDefs : null,
+            // Queue Grid RTS IDs
+            GridId = queueGridId,
+            HeaderRowId = headerRowId,
+            HeaderCellIds = savedHeaderCellIds ?? new Dictionary<string, int?>()
         };
 
         ConfiguringWidget.Config = newConfig;
@@ -3099,7 +3206,10 @@
         public List<TableFilterRule>? TableFilters { get; set; }
 
         // RTS table IDs (persisted after first save)
-        public int? ColumnsSetId { get; set; }
+        public int? ColumnsSetId { get; set; }  // RTSUserGrid_ColumnsSet.ColumnsSetId (Agent Grid)
+        public int? GridId { get; set; }  // RTSGrid_Grid.GridId (Queue Grid)
+        public int? HeaderRowId { get; set; }  // RTSGrid_Row.RowId for header row (RowNumber=1, CellType=Text)
+        public Dictionary<string, int?> HeaderCellIds { get; set; } = new();  // Header cell IDs (key = QueueGridColumnDef.Id)
 
         // Queue Grid specific
         public List<QueueGridRowDef>? QueueGridRows { get; set; }
@@ -3109,16 +3219,19 @@
     public class QueueGridRowDef
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique ID for reordering
+        public int? RowId { get; set; }  // RTSGrid_Row.RowId, null if not yet inserted
         public int? BusinessUnitId { get; set; }  // Reference to NGC_BusinessUnit.BusinessUnitId
         public string? BusinessUnitName { get; set; }  // Cached name for display
         public string? QueueName { get; set; }  // Optional custom queue name (defaults to BU description)
         public string? BackgroundColor { get; set; }  // Row-level background color, null = Default
         public string? FontColor { get; set; }  // Row-level font color, null = Default
+        public Dictionary<string, int?> CellIds { get; set; } = new();  // Cell IDs per column (key = QueueGridColumnDef.Id)
     }
 
     public class QueueGridColumnDef
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique ID for reordering
+        public int? ColumnId { get; set; }  // RTSGrid_Column.ColumnId, null if not yet inserted
         public string Name { get; set; } = "";  // Display name
         public string MetricId { get; set; } = "";  // Reference to RtsGridMetric.MetricId
         public string? ValueType { get; set; }  // "String" | "Number" | "Time"
