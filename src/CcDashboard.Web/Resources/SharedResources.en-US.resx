@@ -162,6 +162,7 @@
   <data name="Screens_Connected"><value>Blazor Server · SignalR connected</value></data>
   <data name="Screens_FullScreen"><value>Full Screen</value></data>
   <data name="Screens_Settings"><value>Settings</value></data>
+  <data name="Screens_Clone"><value>Clone Dashboard</value></data>
   <data name="Screens_Edit"><value>Edit Dashboard</value></data>
   <data name="Screens_Preview"><value>Preview</value></data>
   <data name="Screens_ExitFullscreen"><value>Exit Fullscreen</value></data>

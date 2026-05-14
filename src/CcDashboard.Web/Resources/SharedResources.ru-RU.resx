@@ -144,6 +144,7 @@
   <data name="Screens_IsPublicHelp"><value>Если включено, дашборд доступен всем аутентифицированным пользователям без явного назначения группы [DASH-01]</value></data>
   <data name="Screens_CreateModal"><value>Новый дашборд</value></data>
   <data name="Screens_EditModal"><value>Настройки дашборда</value></data>
+  <data name="Screens_Clone"><value>Клонировать дашборд</value></data>
   <data name="Screens_CreateButton"><value>Создать дашборд →</value></data>
   <data name="Screens_DangerZone"><value>Опасная зона</value></data>
   <data name="Screens_DeleteScreen"><value>Удалить дашборд</value></data>

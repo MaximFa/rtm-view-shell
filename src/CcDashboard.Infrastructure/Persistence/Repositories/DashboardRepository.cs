@@ -27,6 +27,7 @@ public class DashboardRepository(AppDbContext db) : IDashboardRepository
             .Include(d => d.Category)
             .Include(d => d.Permissions)
             .Include(d => d.Widgets.Where(w => !w.IsDeleted))
+                .ThenInclude(w => w.CatalogItem)
             .FirstOrDefaultAsync(d => d.Id == id, ct);
     }
 
@@ -73,6 +74,12 @@ public class DashboardRepository(AppDbContext db) : IDashboardRepository
             q = q.Where(d => d.CreatedByUserId == createdBy.Value);
         if (isPublic.HasValue)
             q = q.Where(d => d.IsPublic == isPublic.Value);
+
+        // Draft dashboards visible only to admin/superadmin or creator
+        if (!isSuperadminOrAdmin)
+        {
+            q = q.Where(d => d.Status == DashboardStatus.Published || d.CreatedByUserId == userId);
+        }
 
         if (!isSuperadminOrAdmin)
         {

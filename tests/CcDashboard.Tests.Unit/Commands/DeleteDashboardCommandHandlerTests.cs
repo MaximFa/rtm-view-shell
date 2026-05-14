@@ -11,6 +11,7 @@ namespace CcDashboard.Tests.Unit.Commands;
 public class DeleteDashboardCommandHandlerTests
 {
     private readonly IDashboardRepository _repo = Substitute.For<IDashboardRepository>();
+    private readonly IRtsRepository _rtsRepo = Substitute.For<IRtsRepository>();
     private readonly ICurrentUserAccessor _user = Substitute.For<ICurrentUserAccessor>();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
     private readonly DeleteDashboardCommandHandler _handler;
@@ -24,7 +25,7 @@ public class DeleteDashboardCommandHandlerTests
         _user.UserId.Returns(UserId);
         _user.TenantId.Returns(TenantId);
         _clock.UtcNow.Returns(Now);
-        _handler = new DeleteDashboardCommandHandler(_repo, _user, _clock);
+        _handler = new DeleteDashboardCommandHandler(_repo, _rtsRepo, _user, _clock);
     }
 
     [Fact]
@@ -38,7 +39,7 @@ public class DeleteDashboardCommandHandlerTests
             Name = "To Delete",
             IsDeleted = false
         };
-        _repo.GetByIdAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(dashboard);
+        _repo.GetByIdWithWidgetsAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(dashboard);
 
         await _handler.Handle(new DeleteDashboardCommand(id), CancellationToken.None);
 
@@ -52,7 +53,7 @@ public class DeleteDashboardCommandHandlerTests
     public async Task Handle_DashboardNotFound_ThrowsNotFoundException()
     {
         var id = Guid.NewGuid();
-        _repo.GetByIdAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns((Dashboard?)null);
+        _repo.GetByIdWithWidgetsAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns((Dashboard?)null);
 
         var act = () => _handler.Handle(new DeleteDashboardCommand(id), CancellationToken.None);
 
@@ -72,7 +73,7 @@ public class DeleteDashboardCommandHandlerTests
             IsDeleted = true,
             DeletedAt = Now.AddDays(-1)
         };
-        _repo.GetByIdAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(dashboard);
+        _repo.GetByIdWithWidgetsAsync(id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(dashboard);
 
         await _handler.Handle(new DeleteDashboardCommand(id), CancellationToken.None);
 

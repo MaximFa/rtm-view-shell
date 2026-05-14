@@ -137,6 +137,7 @@
   <data name="Screens_IsPublicHelp"><value>אם מופעל, נגיש לכל המשתמשים המאומתים ללא הקצאת קבוצה מפורשת [DASH-01]</value></data>
   <data name="Screens_CreateModal"><value>מסך חדש</value></data>
   <data name="Screens_EditModal"><value>הגדרות מסך</value></data>
+  <data name="Screens_Clone"><value>שכפל מסך</value></data>
   <data name="Screens_CreateButton"><value>צור מסך ←</value></data>
   <data name="Screens_DangerZone"><value>אזור מסוכן</value></data>
   <data name="Screens_DeleteScreen"><value>מחק מסך</value></data>

@@ -77,6 +77,13 @@
                         <i class="bi bi-archive"></i> @L["Screens_Unpublish"]
                     </button>
                 }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="CloneScreen" disabled="@(Saving || Cloning)" title="@L["Screens_Clone"]">
+                    @if (Cloning)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-copy"></i> @L["Screens_Clone"]
+                </button>
                 <button class="btn btn-success btn-sm" @onclick="SaveLayout" disabled="@Saving">
                     @if (Saving)
                     {
@@ -1526,6 +1533,7 @@
     private List<PlacedWidget> PlacedWidgets = [];
     private bool Loading = true;
     private bool Saving;
+    private bool Cloning;
     private string? Error;
     private string EditName = "";
     private bool _darkMode = false;
@@ -2304,16 +2312,19 @@
         ConfigQueueGridRows = widget.Config.QueueGridRows?.Select(r => new QueueGridRowDef
         {
             Id = r.Id,
+            RowId = r.RowId,
             BusinessUnitId = r.BusinessUnitId,
             BusinessUnitName = r.BusinessUnitName,
             QueueName = r.QueueName,
             BackgroundColor = r.BackgroundColor,
-            FontColor = r.FontColor
+            FontColor = r.FontColor,
+            CellIds = r.CellIds ?? new Dictionary<string, int?>()
         }).ToList() ?? new List<QueueGridRowDef>();
 
         ConfigQueueGridColumnDefs = widget.Config.QueueGridColumnDefs?.Select(c => new QueueGridColumnDef
         {
             Id = c.Id,
+            ColumnId = c.ColumnId,
             Name = c.Name,
             MetricId = c.MetricId,
             ValueType = c.ValueType
@@ -3197,6 +3208,34 @@
         finally
         {
             Saving = false;
+        }
+    }
+
+    private async Task CloneScreen()
+    {
+        if (Dashboard is null) return;
+        Cloning = true;
+        Error = null;
+
+        try
+        {
+            // First save current changes
+            await SaveLayout();
+
+            // Clone the dashboard
+            var newDashboardId = await Mediator.Send(
+                new CloneDashboardCommand(Dashboard.Id, $"Copy of {Dashboard.Name}"), _cts.Token);
+
+            // Navigate to the cloned dashboard
+            Nav.NavigateTo($"/screens/{newDashboardId}/edit");
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+        finally
+        {
+            Cloning = false;
         }
     }
 
