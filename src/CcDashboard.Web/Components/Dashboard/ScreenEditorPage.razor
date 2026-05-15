@@ -372,9 +372,14 @@
                             <div class="row mb-3">
                                 <div class="col-6">
                                     <label class="form-label">@L["Widget_DataSlotTarget"]</label>
-                                    <input type="number" step="0.01" class="form-control"
-                                           value="@ConfigDataSlotTarget"
-                                           @onchange="e => ConfigDataSlotTarget = decimal.TryParse(e.Value?.ToString(), out var v) ? v : null" />
+                                    <input type="text" class="form-control @(_dataSlotTargetError != null ? "is-invalid" : "")"
+                                           value="@_dataSlotTargetText"
+                                           @oninput="OnDataSlotTargetInput"
+                                           placeholder="0.00" />
+                                    @if (_dataSlotTargetError != null)
+                                    {
+                                        <div class="invalid-feedback">@_dataSlotTargetError</div>
+                                    }
                                 </div>
                                 <div class="col-6">
                                     <label class="form-label">@L["Widget_DataSlotTargetMode"]</label>
@@ -1789,6 +1794,8 @@
     private bool ConfigHideHeader = false;
     private string DataSlotMetricSearchText = "";
     private bool DataSlotMetricDropdownOpen = false;
+    private string _dataSlotTargetText = "";
+    private string? _dataSlotTargetError;
     private int? _dataSlotColumnId;
     private int? _dataSlotRowId;
     private Dictionary<string, int?>? _dataSlotCellIds;
@@ -2561,6 +2568,8 @@
         ConfigDataSlotMetricId = widget.Config.DataSlotMetricId;
         ConfigDataSlotBusinessUnitId = widget.Config.DataSlotBusinessUnitId;
         ConfigDataSlotTarget = widget.Config.DataSlotTarget;
+        _dataSlotTargetText = widget.Config.DataSlotTargetText ?? widget.Config.DataSlotTarget?.ToString() ?? "";
+        _dataSlotTargetError = null;
         ConfigDataSlotTargetMode = widget.Config.DataSlotTargetMode ?? "less";
         ConfigDataSlotTargetLabel = widget.Config.DataSlotTargetLabel ?? "";
         ConfigDataSlotBold = widget.Config.DataSlotBold;
@@ -2621,6 +2630,70 @@
         if (widget is null) return false;
         var name = widget.OriginalWidgetName?.ToLower() ?? widget.Name.ToLower();
         return name.Contains("data") && name.Contains("slot");
+    }
+
+    private void OnDataSlotTargetInput(ChangeEventArgs e)
+    {
+        var text = e.Value?.ToString()?.Trim() ?? "";
+        _dataSlotTargetText = text;
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            ConfigDataSlotTarget = null;
+            _dataSlotTargetError = null;
+            return;
+        }
+
+        // Try parse as time format HH:MM:SS or MM:SS
+        if (TryParseTimeFormat(text, out var seconds))
+        {
+            ConfigDataSlotTarget = seconds;
+            _dataSlotTargetError = null;
+            return;
+        }
+
+        // Replace comma with dot for decimal parsing
+        var normalized = text.Replace(",", ".");
+        if (decimal.TryParse(normalized, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var value))
+        {
+            ConfigDataSlotTarget = value;
+            _dataSlotTargetError = null;
+        }
+        else
+        {
+            ConfigDataSlotTarget = null;
+            _dataSlotTargetError = L["Widget_InvalidFormat"];
+        }
+    }
+
+    private static bool TryParseTimeFormat(string text, out decimal seconds)
+    {
+        seconds = 0;
+        var parts = text.Split(':');
+
+        if (parts.Length == 2)
+        {
+            // MM:SS format
+            if (int.TryParse(parts[0], out var minutes) && int.TryParse(parts[1], out var secs)
+                && minutes >= 0 && secs >= 0 && secs < 60)
+            {
+                seconds = minutes * 60 + secs;
+                return true;
+            }
+        }
+        else if (parts.Length == 3)
+        {
+            // HH:MM:SS format
+            if (int.TryParse(parts[0], out var hours) && int.TryParse(parts[1], out var minutes) && int.TryParse(parts[2], out var secs)
+                && hours >= 0 && minutes >= 0 && minutes < 60 && secs >= 0 && secs < 60)
+            {
+                seconds = hours * 3600 + minutes * 60 + secs;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void ToggleAgentTeam(string team, bool selected)
@@ -3084,6 +3157,7 @@
             DataSlotMetricId = ConfigDataSlotMetricId,
             DataSlotBusinessUnitId = ConfigDataSlotBusinessUnitId,
             DataSlotTarget = ConfigDataSlotTarget,
+            DataSlotTargetText = !string.IsNullOrEmpty(_dataSlotTargetText) ? _dataSlotTargetText : null,
             DataSlotTargetMode = ConfigDataSlotTargetMode,
             DataSlotTargetLabel = !string.IsNullOrEmpty(ConfigDataSlotTargetLabel) ? ConfigDataSlotTargetLabel : null,
             DataSlotBold = ConfigDataSlotBold,
@@ -3783,6 +3857,7 @@
         public string? DataSlotMetricId { get; set; }
         public int? DataSlotBusinessUnitId { get; set; }
         public decimal? DataSlotTarget { get; set; }
+        public string? DataSlotTargetText { get; set; }
         public string? DataSlotTargetMode { get; set; }
         public string? DataSlotTargetLabel { get; set; }
         public bool DataSlotBold { get; set; }

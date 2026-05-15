@@ -537,6 +537,8 @@
   <data name="Widget_DataSlotTargetGreater"><value>Больше — лучше</value></data>
   <data name="Widget_DataSlotTitleHint"><value>Оставьте пустым для использования имени виджета</value></data>
   <data name="Widget_DataSlotTargetLabelHint"><value>Подпись под значением</value></data>
+  <data name="Widget_InvalidNumber"><value>Введите корректное число</value></data>
+  <data name="Widget_InvalidFormat"><value>Введите число или время (MM:SS, HH:MM:SS)</value></data>
   <data name="State_Ready"><value>Готов</value></data>
   <data name="State_Talking"><value>Разговор</value></data>
   <data name="State_Hold"><value>Удержание</value></data>

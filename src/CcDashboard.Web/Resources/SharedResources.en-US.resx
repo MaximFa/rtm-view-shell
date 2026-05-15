@@ -241,6 +241,8 @@
   <data name="Widget_DataSlotTargetGreater"><value>Higher is better</value></data>
   <data name="Widget_DataSlotTitleHint"><value>Leave empty to use widget name</value></data>
   <data name="Widget_DataSlotTargetLabelHint"><value>Custom label shown below value</value></data>
+  <data name="Widget_InvalidNumber"><value>Please enter a valid number</value></data>
+  <data name="Widget_InvalidFormat"><value>Enter a number or time (MM:SS, HH:MM:SS)</value></data>
   <data name="Widgets_DisplayOptions"><value>Display Options</value></data>
   <data name="Widgets_Alignment"><value>Alignment</value></data>
   <data name="Widgets_Bold"><value>Bold</value></data>

@@ -3,9 +3,102 @@ using CcDashboard.Application.Commands.Dashboards;
 using CcDashboard.Application.Commands.PermissionGroups;
 using CcDashboard.Application.Commands.Tenants;
 using CcDashboard.Application.Commands.TenantSettings;
+using CcDashboard.Contracts.DTOs.Users;
 using FluentValidation;
 
 namespace CcDashboard.Application.Validators;
+
+// ── Security: Safe text pattern — no HTML/script injection chars ──────────────
+// Used for names, descriptions, and other user-visible text fields [CODE-02]
+internal static class SecurityPatterns
+{
+    /// <summary>
+    /// Allows letters (any script), digits, spaces, and common punctuation.
+    /// Blocks: &lt; &gt; " ' ; &amp; | ` $ { } [ ] \
+    /// </summary>
+    public const string SafeTextPattern = @"^[^<>""';`&|$\{\}\[\]\\]*$";
+    public const string SafeTextMessage = "Field contains invalid characters (< > \" ' ; & | ` $ { } [ ] \\ are not allowed).";
+
+    /// <summary>
+    /// Username: letters, digits, underscore, hyphen, dot, @
+    /// </summary>
+    public const string UsernamePattern = @"^[a-zA-Z0-9._\-@]+$";
+    public const string UsernameMessage = "Username may only contain letters, digits, dots, underscores, hyphens, and @.";
+
+    /// <summary>
+    /// Safe name pattern for display names (allows Unicode letters, spaces, hyphens, apostrophes)
+    /// </summary>
+    public const string PersonNamePattern = @"^[\p{L}\p{M}' \-\.]+$";
+    public const string PersonNameMessage = "Name may only contain letters, spaces, hyphens, apostrophes, and dots.";
+}
+
+// ── Users [CODE-02] ───────────────────────────────────────────────────────────
+
+public class CreateUserRequestValidator : AbstractValidator<CreateUserRequest>
+{
+    public CreateUserRequestValidator()
+    {
+        RuleFor(x => x.UserName)
+            .NotEmpty().WithMessage("Username is required.")
+            .MinimumLength(2).WithMessage("Username must be at least 2 characters.")
+            .MaximumLength(256).WithMessage("Username cannot exceed 256 characters.")
+            .Matches(SecurityPatterns.UsernamePattern).WithMessage(SecurityPatterns.UsernameMessage);
+
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("Email is required.")
+            .EmailAddress().WithMessage("Invalid email format.")
+            .MaximumLength(256).WithMessage("Email cannot exceed 256 characters.");
+
+        RuleFor(x => x.FirstName)
+            .MaximumLength(100).WithMessage("First name cannot exceed 100 characters.")
+            .Matches(SecurityPatterns.PersonNamePattern).WithMessage(SecurityPatterns.PersonNameMessage)
+            .When(x => !string.IsNullOrEmpty(x.FirstName));
+
+        RuleFor(x => x.LastName)
+            .MaximumLength(100).WithMessage("Last name cannot exceed 100 characters.")
+            .Matches(SecurityPatterns.PersonNamePattern).WithMessage(SecurityPatterns.PersonNameMessage)
+            .When(x => !string.IsNullOrEmpty(x.LastName));
+
+        RuleFor(x => x.Role)
+            .NotEmpty().WithMessage("Role is required.")
+            .Must(r => r is "Superadmin" or "Administrator" or "Editor" or "Viewer")
+            .WithMessage("Invalid role. Must be Superadmin, Administrator, Editor, or Viewer.");
+    }
+}
+
+public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
+{
+    public UpdateUserRequestValidator()
+    {
+        RuleFor(x => x.Id)
+            .NotEmpty().WithMessage("User ID is required.");
+
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("Email is required.")
+            .EmailAddress().WithMessage("Invalid email format.")
+            .MaximumLength(256).WithMessage("Email cannot exceed 256 characters.");
+
+        RuleFor(x => x.FirstName)
+            .MaximumLength(100).WithMessage("First name cannot exceed 100 characters.")
+            .Matches(SecurityPatterns.PersonNamePattern).WithMessage(SecurityPatterns.PersonNameMessage)
+            .When(x => !string.IsNullOrEmpty(x.FirstName));
+
+        RuleFor(x => x.LastName)
+            .MaximumLength(100).WithMessage("Last name cannot exceed 100 characters.")
+            .Matches(SecurityPatterns.PersonNamePattern).WithMessage(SecurityPatterns.PersonNameMessage)
+            .When(x => !string.IsNullOrEmpty(x.LastName));
+
+        RuleFor(x => x.Role)
+            .NotEmpty().WithMessage("Role is required.")
+            .Must(r => r is "Superadmin" or "Administrator" or "Editor" or "Viewer")
+            .WithMessage("Invalid role.");
+
+        RuleFor(x => x.PreferredLocale)
+            .MaximumLength(10).WithMessage("Locale cannot exceed 10 characters.")
+            .Matches(@"^[a-z]{2}-[A-Z]{2}$").WithMessage("Locale must be in format xx-XX (e.g., en-US).")
+            .When(x => !string.IsNullOrEmpty(x.PreferredLocale));
+    }
+}
 
 // ── Dashboards ────────────────────────────────────────────────────────────────
 
@@ -15,10 +108,13 @@ public class CreateDashboardCommandValidator : AbstractValidator<CreateDashboard
     {
         RuleFor(x => x.Request.Name)
             .NotEmpty().WithMessage("Dashboard name is required.")
-            .MaximumLength(200).WithMessage("Dashboard name cannot exceed 200 characters.");
+            .MaximumLength(200).WithMessage("Dashboard name cannot exceed 200 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage);
 
         RuleFor(x => x.Request.Description)
-            .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.");
+            .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage)
+            .When(x => !string.IsNullOrEmpty(x.Request.Description));
     }
 }
 
@@ -28,10 +124,13 @@ public class UpdateDashboardCommandValidator : AbstractValidator<UpdateDashboard
     {
         RuleFor(x => x.Request.Name)
             .NotEmpty().WithMessage("Dashboard name is required.")
-            .MaximumLength(200).WithMessage("Dashboard name cannot exceed 200 characters.");
+            .MaximumLength(200).WithMessage("Dashboard name cannot exceed 200 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage);
 
         RuleFor(x => x.Request.Description)
-            .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.");
+            .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage)
+            .When(x => !string.IsNullOrEmpty(x.Request.Description));
     }
 }
 

@@ -84,6 +84,7 @@
     private string _align = "center";
     private bool _showTargetLabel = true;
     private bool _showArrow = true;
+    private string _fontSize = "normal";
 
     // Colors (base from config)
     private string _backgroundColor = "";
@@ -105,6 +106,7 @@
     private string _deltaIcon = "";
     private bool _showDelta = false;
     private bool _isWorseThanTarget = false;
+    private bool _isTimeFormat = false;
 
     // Base colors (without threshold) - for title, labels
     private string BaseFontColor => DarkMode ? _darkFontColor : _fontColor;
@@ -155,6 +157,7 @@
         _align = Config.DataSlotAlign ?? "center";
         _showTargetLabel = Config.DataSlotShowTargetLabel;
         _showArrow = Config.DataSlotShowArrow;
+        _fontSize = Config.FontSize ?? "normal";
 
         // Colors
         _backgroundColor = Config.BackgroundColor ?? "";
@@ -185,27 +188,44 @@
 
         foreach (var rule in _thresholds)
         {
-            var from = decimal.TryParse(rule.From, out var f) ? f : decimal.MinValue;
-            var to = decimal.TryParse(rule.To, out var t) ? t : decimal.MaxValue;
+            var from = ParseThresholdValue(rule.From, decimal.MinValue);
+            var to = ParseThresholdValue(rule.To, decimal.MaxValue);
 
             if (value >= from && value <= to)
             {
-                // "default" means use base config color (don't override)
-                // "transparent" is a valid color value
+                // "default" and "transparent" mean use base config color (don't override)
                 if (!string.IsNullOrEmpty(rule.BackgroundColor) &&
-                    !rule.BackgroundColor.Equals("default", StringComparison.OrdinalIgnoreCase))
+                    !rule.BackgroundColor.Equals("default", StringComparison.OrdinalIgnoreCase) &&
+                    !rule.BackgroundColor.Equals("transparent", StringComparison.OrdinalIgnoreCase))
                 {
                     _thresholdBgColor = rule.BackgroundColor;
                 }
 
                 if (!string.IsNullOrEmpty(rule.FontColor) &&
-                    !rule.FontColor.Equals("default", StringComparison.OrdinalIgnoreCase))
+                    !rule.FontColor.Equals("default", StringComparison.OrdinalIgnoreCase) &&
+                    !rule.FontColor.Equals("transparent", StringComparison.OrdinalIgnoreCase))
                 {
                     _thresholdFontColor = rule.FontColor;
                 }
                 break; // First matching rule wins
             }
         }
+    }
+
+    private static decimal ParseThresholdValue(string? text, decimal defaultValue)
+    {
+        if (string.IsNullOrEmpty(text)) return defaultValue;
+
+        // Try parse as time format first
+        if (TryParseTimeFormat(text, out var seconds))
+            return seconds;
+
+        // Try parse as decimal
+        if (decimal.TryParse(text.Replace(",", "."), System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var value))
+            return value;
+
+        return defaultValue;
     }
 
     private async Task ConnectAsync()
@@ -267,10 +287,20 @@
 
         if (value is null) return;
 
-        if (decimal.TryParse(value.TrimEnd('%').Replace(",", ""), out var numValue))
+        // Try parse as time format first (HH:MM:SS or MM:SS)
+        if (TryParseTimeFormat(value, out var timeSeconds))
+        {
+            _currentValue = timeSeconds;
+            _displayValue = value;
+            _isTimeFormat = true;
+            CalculateDelta();
+            ApplyThresholds();
+        }
+        else if (decimal.TryParse(value.TrimEnd('%').Replace(",", ""), out var numValue))
         {
             _currentValue = numValue;
             _displayValue = value;
+            _isTimeFormat = false;
             CalculateDelta();
             ApplyThresholds();
         }
@@ -285,6 +315,50 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private static bool TryParseTimeFormat(string text, out decimal seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrEmpty(text)) return false;
+
+        var parts = text.Split(':');
+
+        if (parts.Length == 2)
+        {
+            // MM:SS format
+            if (int.TryParse(parts[0], out var minutes) && int.TryParse(parts[1], out var secs)
+                && minutes >= 0 && secs >= 0 && secs < 60)
+            {
+                seconds = minutes * 60 + secs;
+                return true;
+            }
+        }
+        else if (parts.Length == 3)
+        {
+            // HH:MM:SS format
+            if (int.TryParse(parts[0], out var hours) && int.TryParse(parts[1], out var minutes) && int.TryParse(parts[2], out var secs)
+                && hours >= 0 && minutes >= 0 && minutes < 60 && secs >= 0 && secs < 60)
+            {
+                seconds = hours * 3600 + minutes * 60 + secs;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string FormatSecondsAsTime(int totalSeconds)
+    {
+        var hours = totalSeconds / 3600;
+        var minutes = (totalSeconds % 3600) / 60;
+        var seconds = totalSeconds % 60;
+
+        if (hours > 0)
+        {
+            return $"{hours:D2}:{minutes:D2}:{seconds:D2}";
+        }
+        return $"{minutes:D2}:{seconds:D2}";
+    }
+
     private void CalculateDelta()
     {
         if (!_currentValue.HasValue || !_target.HasValue)
@@ -294,7 +368,18 @@
         }
 
         var delta = _currentValue.Value - _target.Value;
-        var absString = Math.Abs(delta).ToString("0.#") + "%";
+        var absSeconds = (int)Math.Abs(delta);
+
+        // Format delta as time or number
+        string absString;
+        if (_isTimeFormat)
+        {
+            absString = FormatSecondsAsTime(absSeconds);
+        }
+        else
+        {
+            absString = Math.Abs(delta).ToString("0.#") + "%";
+        }
 
         // Determine if current value is worse than target
         if (_targetMode == "less")
@@ -360,6 +445,18 @@
         var styles = new List<string> { "font-family: var(--font-monospace)" };
         if (!string.IsNullOrEmpty(fg)) styles.Add($"color: {fg}");
         if (_bold) styles.Add("font-weight: bold");
+
+        // Apply font size
+        var fontSize = _fontSize switch
+        {
+            "small" => "12px",
+            "large" => "18px",
+            "xlarge" => "24px",
+            "xxlarge" => "32px",
+            _ => "14px" // normal
+        };
+        styles.Add($"font-size: {fontSize}");
+
         return string.Join("; ", styles) + ";";
     }
 

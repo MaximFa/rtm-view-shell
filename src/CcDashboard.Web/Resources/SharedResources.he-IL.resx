@@ -483,6 +483,8 @@
   <data name="Widget_DataSlotTargetGreater"><value>יותר זה טוב יותר</value></data>
   <data name="Widget_DataSlotTitleHint"><value>השאר ריק לשימוש בשם הווידג'ט</value></data>
   <data name="Widget_DataSlotTargetLabelHint"><value>תווית מתחת לערך</value></data>
+  <data name="Widget_InvalidNumber"><value>הזן מספר תקין</value></data>
+  <data name="Widget_InvalidFormat"><value>הזן מספר או זמן (MM:SS, HH:MM:SS)</value></data>
   <data name="State_Ready"><value>מוכן</value></data>
   <data name="State_Talking"><value>משוחח</value></data>
   <data name="State_Hold"><value>המתנה</value></data>
