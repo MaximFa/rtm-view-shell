@@ -319,6 +319,8 @@
   <data name="Common_Of"><value>מתוך</value></data>
   <data name="Common_Records"><value>רשומות</value></data>
   <data name="Common_AndMore"><value>...ועוד {0}</value></data>
+  <data name="Common_DragToMove"><value>גרור להזזה</value></data>
+  <data name="Common_ResizeModal"><value>שנה גודל</value></data>
 
   <!-- ── Errors ── -->
   <data name="Error_NotFound"><value>המשאב המבוקש לא נמצא.</value></data>

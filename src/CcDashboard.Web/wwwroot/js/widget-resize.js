@@ -1,7 +1,8 @@
 // Widget resize and move functionality
 window.widgetResize = {
     activeWidget: null,
-    mode: null, // 'resize' or 'move'
+    activeModal: null,
+    mode: null, // 'resize' or 'move' or 'modal-resize' or 'modal-move'
     startX: 0,
     startY: 0,
     startWidth: 0,
@@ -16,6 +17,12 @@ window.widgetResize = {
         this._onMouseUp = this.onMouseUp.bind(this);
         document.addEventListener('mousemove', this._onMouseMove);
         document.addEventListener('mouseup', this._onMouseUp);
+
+        // Watch for modal appearing and set up drag/resize
+        const observer = new MutationObserver(() => {
+            this.setupModalDragResize();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
     },
 
     startResize: function (widgetId, handle, coords) {
@@ -55,7 +62,105 @@ window.widgetResize = {
         document.body.style.userSelect = 'none';
     },
 
+    // Setup modal drag/resize - called via MutationObserver
+    setupModalDragResize: function () {
+        const dragHandle = document.querySelector('.editor-modal .modal-drag-handle');
+        const resizeHandle = document.querySelector('.editor-modal .modal-resize-handle');
+
+        if (dragHandle && !dragHandle._dragSetup) {
+            dragHandle._dragSetup = true;
+            dragHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                this.startModalMove(e);
+            });
+        }
+
+        if (resizeHandle && !resizeHandle._resizeSetup) {
+            resizeHandle._resizeSetup = true;
+            resizeHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                this.startModalResize(e);
+            });
+        }
+    },
+
+    // Modal drag start
+    startModalMove: function (e) {
+        const modal = document.querySelector('.editor-modal .modal-dialog');
+        if (!modal) return;
+
+        const rect = modal.getBoundingClientRect();
+
+        // Switch to fixed positioning at current visual position
+        modal.classList.add('modal-dragging');
+        modal.style.left = rect.left + 'px';
+        modal.style.top = rect.top + 'px';
+        modal.style.width = rect.width + 'px';
+
+        this.activeModal = { element: modal };
+        this.mode = 'modal-move';
+        this.startX = e.clientX;
+        this.startY = e.clientY;
+        this.startLeft = rect.left;
+        this.startTop = rect.top;
+
+        document.body.style.cursor = 'move';
+        document.body.style.userSelect = 'none';
+    },
+
+    // Modal resize start (width only - height is auto based on content)
+    startModalResize: function (e) {
+        const modal = document.querySelector('.editor-modal .modal-dialog');
+        if (!modal) return;
+
+        const rect = modal.getBoundingClientRect();
+
+        // Switch to fixed positioning at current visual position
+        modal.classList.add('modal-dragging');
+        modal.style.left = rect.left + 'px';
+        modal.style.top = rect.top + 'px';
+        modal.style.width = rect.width + 'px';
+        // Don't set height - let it be auto based on content
+
+        this.activeModal = { element: modal, handle: 'e' }; // Width only
+        this.mode = 'modal-resize';
+        this.startX = e.clientX;
+        this.startY = e.clientY;
+        this.startWidth = rect.width;
+        this.startLeft = rect.left;
+
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+    },
+
     onMouseMove: function (event) {
+        // Handle modal operations
+        if (this.activeModal) {
+            const deltaX = event.clientX - this.startX;
+            const deltaY = event.clientY - this.startY;
+            const modal = this.activeModal.element;
+
+            if (this.mode === 'modal-move') {
+                let newLeft = this.startLeft + deltaX;
+                let newTop = this.startTop + deltaY;
+
+                // Constrain to viewport
+                const maxLeft = window.innerWidth - modal.offsetWidth - 20;
+                const maxTop = window.innerHeight - modal.offsetHeight - 20;
+                newLeft = Math.max(20, Math.min(newLeft, maxLeft));
+                newTop = Math.max(20, Math.min(newTop, maxTop));
+
+                modal.style.left = newLeft + 'px';
+                modal.style.top = newTop + 'px';
+            } else if (this.mode === 'modal-resize') {
+                // Width only - height is auto based on content
+                let newWidth = Math.max(450, this.startWidth + deltaX);
+                newWidth = Math.min(newWidth, window.innerWidth - 40);
+                modal.style.width = newWidth + 'px';
+            }
+            return;
+        }
+
         if (!this.activeWidget) return;
 
         const deltaX = event.clientX - this.startX;
@@ -94,6 +199,15 @@ window.widgetResize = {
     },
 
     onMouseUp: function (event) {
+        // Handle modal operations - keep modal-dragging class to maintain position
+        if (this.activeModal) {
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            this.activeModal = null;
+            this.mode = null;
+            return;
+        }
+
         if (!this.activeWidget) return;
 
         const widget = this.activeWidget.element;
@@ -119,7 +233,16 @@ window.widgetResize = {
     },
 
     getCursor: function (handle) {
-        const cursors = { 'e': 'ew-resize', 's': 'ns-resize', 'se': 'nwse-resize' };
+        const cursors = {
+            'e': 'ew-resize',
+            'w': 'ew-resize',
+            's': 'ns-resize',
+            'n': 'ns-resize',
+            'se': 'nwse-resize',
+            'nw': 'nwse-resize',
+            'sw': 'nesw-resize',
+            'ne': 'nesw-resize'
+        };
         return cursors[handle] || 'default';
     },
 

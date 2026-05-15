@@ -397,6 +397,8 @@
   <data name="Common_Of"><value>из</value></data>
   <data name="Common_Records"><value>запис.</value></data>
   <data name="Common_AndMore"><value>...и ещё {0}</value></data>
+  <data name="Common_DragToMove"><value>Перетащите для перемещения</value></data>
+  <data name="Common_ResizeModal"><value>Изменить размер</value></data>
 
   <!-- ── Common shorthand aliases ── -->
   <data name="Cancel"><value>Отмена</value></data>

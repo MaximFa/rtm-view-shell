@@ -230,16 +230,21 @@
 <!-- Widget Configuration Modal -->
 @if (ConfiguringWidget is not null)
 {
-    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="widget-config-title">
+    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="widget-config-title" data-modal-id="widget-config">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
+                    <div class="modal-drag-handle" title="@L["Common_DragToMove"]">
+                        <i class="bi bi-grip-vertical"></i>
+                    </div>
                     <h5 class="modal-title" id="widget-config-title">
                         @L["Widgets_Configure"]: @ConfiguringWidget.Name
                     </h5>
                     <button type="button" class="btn-close" @onclick="CloseWidgetConfig"></button>
                 </div>
-                <div class="modal-body" style="min-height: 500px; max-height: 80vh; overflow-x: hidden;" @onscroll="CloseMetricDropdown">
+                <!-- Resize Handle (bottom-right corner) -->
+                <div class="modal-resize-handle"></div>
+                <div class="modal-body" style="height: 700px; overflow-y: auto; overflow-x: hidden;" @onscroll="CloseMetricDropdown">
                     <!-- Tabs Navigation -->
                     <ul class="nav nav-tabs mb-3">
                         <li class="nav-item">

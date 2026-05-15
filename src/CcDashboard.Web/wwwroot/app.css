@@ -2708,6 +2708,87 @@ button.clr-swatch,
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   MODAL DRAG & RESIZE — Draggable and Resizable Modals
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* When modal is being dragged/resized, use fixed positioning */
+.editor-modal .modal-dialog.modal-dragging {
+    position: fixed !important;
+    margin: 0 !important;
+    transform: none !important;
+}
+
+/* Drag handle in header */
+.editor-modal .modal-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin-inline-end: var(--sp-2);
+    background: var(--clr-overlay);
+    color: var(--clr-text-muted);
+    cursor: move;
+    border-radius: var(--r-sm);
+    transition: background-color var(--dur-fast), color var(--dur-fast);
+    flex-shrink: 0;
+}
+
+.editor-modal .modal-drag-handle:hover {
+    background: var(--clr-border-md);
+    color: var(--clr-text);
+}
+
+.editor-modal .modal-drag-handle i {
+    font-size: 16px;
+}
+
+/* Resize handle on right edge (width only) */
+.editor-modal .modal-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 60px;
+    cursor: ew-resize;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--dur-fast);
+}
+
+.editor-modal .modal-resize-handle::before {
+    content: '';
+    width: 4px;
+    height: 40px;
+    background: var(--clr-text-muted);
+    border-radius: 2px;
+    opacity: 0.5;
+}
+
+.editor-modal .modal-content:hover .modal-resize-handle {
+    opacity: 1;
+}
+
+/* Modal content needs relative for resize handle positioning */
+.editor-modal .modal-content {
+    position: relative;
+}
+
+/* Fixed height for modal body - prevents size change on tab switch */
+.editor-modal .modal-body {
+    height: 700px !important;
+    min-height: 700px !important;
+    max-height: 700px !important;
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    TENANT APPEARANCE SETTINGS — Color/Font Swatches
    ═══════════════════════════════════════════════════════════════════════════ */
 

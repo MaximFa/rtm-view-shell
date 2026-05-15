@@ -525,6 +525,8 @@
   <data name="Common_Selected"><value>Selected</value></data>
   <data name="Common_NoResults"><value>No results found</value></data>
   <data name="Common_AndMore"><value>...and {0} more</value></data>
+  <data name="Common_DragToMove"><value>Drag to move</value></data>
+  <data name="Common_ResizeModal"><value>Resize</value></data>
 
   <!-- ── Common shorthand aliases ── -->
   <data name="Cancel"><value>Cancel</value></data>
