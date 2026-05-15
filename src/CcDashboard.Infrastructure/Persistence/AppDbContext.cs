@@ -196,8 +196,8 @@ public class AppDbContext(
         });
 
         // Reference tables (tenant-scoped resource catalogue synced from CC platform)
-        ConfigureReferenceTable<NgcQueue>(mb, "ngc_queues");
-        ConfigureReferenceTable<NgcAgentGroup>(mb, "ngc_AgentGroups");
+        ConfigureReferenceTable<NgcQueue>(mb, "NGC_Queues");
+        ConfigureReferenceTable<NgcAgentGroup>(mb, "NGC_AgentGroups");
 
         // PG resource join tables
         mb.Entity<PgQueue>(e => { e.ToTable("pg_queues"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
