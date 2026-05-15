@@ -129,6 +129,7 @@ try
     app.UseStaticFiles();
     app.UseRouting();
     app.UseRateLimiter();
+    app.UseMiddleware<LoginRateLimitMiddleware>();  // [BFP-02] Rate limit login attempts
     app.UseAuthentication();
     app.UseAuthorization();
     app.UseAntiforgery();

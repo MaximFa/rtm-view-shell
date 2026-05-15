@@ -148,7 +148,8 @@ public class CreateTenantCommandValidator : AbstractValidator<CreateTenantComman
 
         RuleFor(x => x.Request.Name)
             .NotEmpty().WithMessage("Tenant name is required.")
-            .MaximumLength(200).WithMessage("Tenant name cannot exceed 200 characters.");
+            .MaximumLength(200).WithMessage("Tenant name cannot exceed 200 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage);
     }
 }
 
@@ -161,7 +162,8 @@ public class UpdateTenantCommandValidator : AbstractValidator<UpdateTenantComman
 
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Tenant name is required.")
-            .MaximumLength(200).WithMessage("Tenant name cannot exceed 200 characters.");
+            .MaximumLength(200).WithMessage("Tenant name cannot exceed 200 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage);
     }
 }
 
@@ -173,10 +175,13 @@ public class CreatePermissionGroupCommandValidator : AbstractValidator<CreatePer
     {
         RuleFor(x => x.Request.Name)
             .NotEmpty().WithMessage("Permission group name is required.")
-            .MaximumLength(200).WithMessage("Name cannot exceed 200 characters.");
+            .MaximumLength(200).WithMessage("Name cannot exceed 200 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage);
 
         RuleFor(x => x.Request.Description)
-            .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.");
+            .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage)
+            .When(x => !string.IsNullOrEmpty(x.Request.Description));
     }
 }
 
@@ -189,10 +194,13 @@ public class UpdatePermissionGroupCommandValidator : AbstractValidator<UpdatePer
 
         RuleFor(x => x.Request.Name)
             .NotEmpty().WithMessage("Permission group name is required.")
-            .MaximumLength(200).WithMessage("Name cannot exceed 200 characters.");
+            .MaximumLength(200).WithMessage("Name cannot exceed 200 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage);
 
         RuleFor(x => x.Request.Description)
-            .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.");
+            .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.")
+            .Matches(SecurityPatterns.SafeTextPattern).WithMessage(SecurityPatterns.SafeTextMessage)
+            .When(x => !string.IsNullOrEmpty(x.Request.Description));
 
         RuleFor(x => x.Request.AllowedQueueIds)
             .Must(ids => ids == null || ids.Count <= 1000)

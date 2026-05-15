@@ -25,6 +25,7 @@ public class UserManagementService(
         Guid tenantId, CreateUserRequest req, CancellationToken ct = default)
     {
         // [LIC-01] Check purchased licence limit
+        // [ARCH-01] IgnoreQueryFilters for cross-tenant licence check — explicit TenantId filter applied
         var settings = await db.TenantSettings.IgnoreQueryFilters()
             .FirstOrDefaultAsync(s => s.TenantId == tenantId, ct);
         if (settings?.PurchasedLicences > 0)
