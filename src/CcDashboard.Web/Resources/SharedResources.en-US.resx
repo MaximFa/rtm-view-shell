@@ -375,6 +375,9 @@
   <data name="Users_SelectRole"><value>— select role —</value></data>
   <data name="Users_SelectGroup"><value>— select group —</value></data>
   <data name="Users_Locale"><value>Preferred Locale</value></data>
+  <data name="Users_DevModePassword"><value>Development Mode - Temporary Password</value></data>
+  <data name="Users_DevModePasswordWarning"><value>This password is shown only in Development mode. In Production, it would be sent via email.</value></data>
+  <data name="Users_TempPassword"><value>Temporary Password</value></data>
 
   <!-- ── Permission Groups ── -->
   <data name="PG_Title"><value>Permission Groups</value></data>
@@ -517,6 +520,10 @@
   <data name="Common_Inactive"><value>Inactive</value></data>
   <data name="Common_Yes"><value>Yes</value></data>
   <data name="Common_No"><value>No</value></data>
+  <data name="Common_Left"><value>Left</value></data>
+  <data name="Common_Center"><value>Center</value></data>
+  <data name="Common_Right"><value>Right</value></data>
+  <data name="Common_Optional"><value>Optional</value></data>
   <data name="Common_Prev"><value>‹ Prev</value></data>
   <data name="Common_Next"><value>Next ›</value></data>
   <data name="Common_Page"><value>Page</value></data>

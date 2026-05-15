@@ -323,7 +323,7 @@ public class AppDbContext(
 
         mb.Entity<RtsGridMetric>(e =>
         {
-            e.ToTable("rtsgrid_metric");
+            e.ToTable("RTSGrid_Metric");
             e.HasKey(x => x.MetricId);
             e.Property(x => x.MetricId).HasMaxLength(100);
             e.Property(x => x.DataType).HasMaxLength(50).IsRequired();

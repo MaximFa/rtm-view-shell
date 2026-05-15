@@ -192,6 +192,9 @@
   <data name="Users_SelectRole"><value>— בחר תפקיד —</value></data>
   <data name="Users_SelectGroup"><value>— בחר קבוצה —</value></data>
   <data name="Users_Locale"><value>שפה מועדפת</value></data>
+  <data name="Users_DevModePassword"><value>מצב פיתוח - סיסמה זמנית</value></data>
+  <data name="Users_DevModePasswordWarning"><value>סיסמה זו מוצגת רק במצב פיתוח. בפרודקשן היא תישלח באימייל.</value></data>
+  <data name="Users_TempPassword"><value>סיסמה זמנית</value></data>
 
   <!-- ── Permission Groups ── -->
   <data name="PG_Title"><value>קבוצות הרשאות</value></data>
@@ -313,6 +316,10 @@
   <data name="Common_Inactive"><value>לא פעיל</value></data>
   <data name="Common_Yes"><value>כן</value></data>
   <data name="Common_No"><value>לא</value></data>
+  <data name="Common_Left"><value>שמאל</value></data>
+  <data name="Common_Center"><value>מרכז</value></data>
+  <data name="Common_Right"><value>ימין</value></data>
+  <data name="Common_Optional"><value>אופציונלי</value></data>
   <data name="Common_Prev"><value>‹ הקודם</value></data>
   <data name="Common_Next"><value>הבא ›</value></data>
   <data name="Common_Page"><value>עמוד</value></data>

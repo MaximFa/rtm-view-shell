@@ -319,6 +319,40 @@ else
     </div>
 }
 
+@* Dev-mode: Show created user password *@
+@if (ShowCreatedPassword)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog">
+            <div class="modal-content border-warning">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        @L["Users_DevModePassword"]
+                    </h5>
+                    <button class="btn-close" @onclick="() => ShowCreatedPassword = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning mb-3">
+                        <small>@L["Users_DevModePasswordWarning"]</small>
+                    </div>
+                    <div class="mb-2">
+                        <strong>@L["Users_Username"]:</strong> <code>@CreatedUserName</code>
+                    </div>
+                    <div class="mb-2">
+                        <strong>@L["Users_TempPassword"]:</strong>
+                        <code class="bg-light px-2 py-1 rounded user-select-all">@CreatedPassword</code>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-warning" @onclick="() => ShowCreatedPassword = false">@L["Common_Close"]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
 @code {
     private static readonly string[] Roles = ["Superadmin", "Administrator", "Editor", "Viewer"];
     private bool IsSuperadmin => CurrentUser.Role == "Superadmin";
@@ -354,6 +388,11 @@ else
     private bool EIsActive, E2fa;
     private bool ConfirmDelete;
     private UserDto? DeleteTarget;
+
+    // Dev-mode: show created password
+    private bool ShowCreatedPassword;
+    private string? CreatedUserName;
+    private string? CreatedPassword;
 
     protected override async Task OnInitializedAsync()
     {
@@ -435,9 +474,20 @@ else
         {
             var pgId = Guid.TryParse(CPgId, out var g) ? g : (Guid?)null;
             var tenantId = SelectedTenantId ?? CurrentUser.TenantId!.Value;
-            var (ok, err, _) = await UserMgmt.CreateAsync(tenantId,
+            var (ok, err, _, tempPassword) = await UserMgmt.CreateAsync(tenantId,
                 new CreateUserRequest(CUserName!, CEmail!, CFirst ?? "", CLast ?? "", CRole, pgId));
-            if (ok) { CloseModals(); await LoadAsync(); }
+            if (ok)
+            {
+                // Show temp password in dev mode
+                if (!string.IsNullOrEmpty(tempPassword))
+                {
+                    CreatedUserName = CUserName;
+                    CreatedPassword = tempPassword;
+                    ShowCreatedPassword = true;
+                }
+                CloseModals();
+                await LoadAsync();
+            }
             else SaveError = err;
         }
         catch (Exception ex) { SaveError = ex.Message; }

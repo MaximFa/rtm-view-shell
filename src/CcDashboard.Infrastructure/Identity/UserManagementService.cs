@@ -5,6 +5,7 @@ using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using UUIDNext;
@@ -18,10 +19,11 @@ public class UserManagementService(
     IDateTimeProvider clock,
     IAuditService audit,
     ICurrentUserAccessor currentUser,
+    IHostEnvironment env,
     ILogger<UserManagementService> logger)
     : IUserManagementService
 {
-    public async Task<(bool Succeeded, string? Error, Guid UserId)> CreateAsync(
+    public async Task<(bool Succeeded, string? Error, Guid UserId, string? TempPassword)> CreateAsync(
         Guid tenantId, CreateUserRequest req, CancellationToken ct = default)
     {
         // [LIC-01] Check purchased licence limit
@@ -33,7 +35,7 @@ public class UserManagementService(
             var userCount = await db.Users.IgnoreQueryFilters()
                 .CountAsync(u => u.TenantId == tenantId, ct);
             if (userCount >= settings.PurchasedLicences)
-                return (false, $"Licence limit reached ({settings.PurchasedLicences} users). Cannot create more users.", Guid.Empty);
+                return (false, $"Licence limit reached ({settings.PurchasedLicences} users). Cannot create more users.", Guid.Empty, null);
         }
 
         var user = new ApplicationUser
@@ -56,7 +58,7 @@ public class UserManagementService(
         var tempPassword = GenerateTempPassword();
         var result = await userManager.CreateAsync(user, tempPassword);
         if (!result.Succeeded)
-            return (false, string.Join(" ", result.Errors.Select(e => e.Description)), Guid.Empty);
+            return (false, string.Join(" ", result.Errors.Select(e => e.Description)), Guid.Empty, null);
 
         var roleResult = await userManager.AddToRoleAsync(user, req.Role);
         if (!roleResult.Succeeded)
@@ -81,7 +83,9 @@ public class UserManagementService(
             // [MAINT-02] Never log passwords — admin must re-trigger password reset if email fails
         }
 
-        return (true, null, user.Id);
+        // Return temp password only in Development for testing (never in Production)
+        var returnPassword = env.IsDevelopment() ? tempPassword : null;
+        return (true, null, user.Id, returnPassword);
     }
 
     public async Task<(bool Succeeded, string? Error)> UpdateAsync(UpdateUserRequest req, CancellationToken ct = default)

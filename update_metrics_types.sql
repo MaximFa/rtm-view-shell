@@ -1,26 +1,26 @@
 -- Update MetricType based on Description prefix
 -- Agent - * → Agent
-UPDATE rtsgrid_metric SET "MetricType" = 'Agent' WHERE "Description" LIKE 'Agent -%';
+UPDATE "RTSGrid_Metric" SET "MetricType" = 'Agent' WHERE "Description" LIKE 'Agent -%';
 
 -- QM - * → Data
-UPDATE rtsgrid_metric SET "MetricType" = 'Data' WHERE "Description" LIKE 'QM -%';
+UPDATE "RTSGrid_Metric" SET "MetricType" = 'Data' WHERE "Description" LIKE 'QM -%';
 
 -- Agent Group - * → Data
-UPDATE rtsgrid_metric SET "MetricType" = 'Data' WHERE "Description" LIKE 'Agent Group -%';
+UPDATE "RTSGrid_Metric" SET "MetricType" = 'Data' WHERE "Description" LIKE 'Agent Group -%';
 
 -- Special case: Change (weird description)
-UPDATE rtsgrid_metric SET "MetricType" = 'Agent' WHERE "Description" LIKE 'Change -%';
+UPDATE "RTSGrid_Metric" SET "MetricType" = 'Agent' WHERE "Description" LIKE 'Change -%';
 
 -- Update ValueType based on Description content
 
 -- Time values: Duration, Time, TimeStamp
-UPDATE rtsgrid_metric SET "ValueType" = 'Time' WHERE
+UPDATE "RTSGrid_Metric" SET "ValueType" = 'Time' WHERE
     "Description" ILIKE '%Duration%'
     OR "Description" ILIKE '%Time%'
     OR "Description" ILIKE '%TimeStamp%';
 
 -- Number values: Number of, Num, Count, Percent, Pct, Avg, Average, Max, CPH
-UPDATE rtsgrid_metric SET "ValueType" = 'Number' WHERE
+UPDATE "RTSGrid_Metric" SET "ValueType" = 'Number' WHERE
     "Description" ILIKE '%Number of%'
     OR "Description" ILIKE '%Num %'
     OR "Description" ILIKE '%Percent%'
@@ -29,7 +29,7 @@ UPDATE rtsgrid_metric SET "ValueType" = 'Number' WHERE
 
 -- String values: Name, ID, Phone, Extension, Station, State, Status, Group, Type, Queue
 -- (These override the Time/Number if they match - so run last)
-UPDATE rtsgrid_metric SET "ValueType" = 'String' WHERE
+UPDATE "RTSGrid_Metric" SET "ValueType" = 'String' WHERE
     "Description" ILIKE '% Name%'
     OR "Description" ILIKE '% ID%'
     OR "Description" ILIKE '%Phone Number%'
@@ -42,7 +42,7 @@ UPDATE rtsgrid_metric SET "ValueType" = 'String' WHERE
     OR ("Description" ILIKE '%Queue Name%');
 
 -- Special cases that need String but got Time/Number
-UPDATE rtsgrid_metric SET "ValueType" = 'String' WHERE "MetricId" IN (
+UPDATE "RTSGrid_Metric" SET "ValueType" = 'String' WHERE "MetricId" IN (
     'AgentLoginName',          -- Agent - Login Name
     'MonAgentUserId',          -- Agent - User ID
     'MonAgentStation',         -- Agent - Station ID

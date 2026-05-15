@@ -249,6 +249,9 @@
   <data name="Users_SelectRole"><value>— выберите роль —</value></data>
   <data name="Users_SelectGroup"><value>— выберите группу —</value></data>
   <data name="Users_Locale"><value>Предпочтительный язык</value></data>
+  <data name="Users_DevModePassword"><value>Режим разработки - Временный пароль</value></data>
+  <data name="Users_DevModePasswordWarning"><value>Этот пароль показан только в режиме разработки. В продакшене он будет отправлен по email.</value></data>
+  <data name="Users_TempPassword"><value>Временный пароль</value></data>
 
   <!-- ── Permission Groups ── -->
   <data name="PG_Title"><value>Группы доступа</value></data>
@@ -391,6 +394,10 @@
   <data name="Common_Inactive"><value>Неактивен</value></data>
   <data name="Common_Yes"><value>Да</value></data>
   <data name="Common_No"><value>Нет</value></data>
+  <data name="Common_Left"><value>Слева</value></data>
+  <data name="Common_Center"><value>По центру</value></data>
+  <data name="Common_Right"><value>Справа</value></data>
+  <data name="Common_Optional"><value>Опционально</value></data>
   <data name="Common_Prev"><value>‹ Назад</value></data>
   <data name="Common_Next"><value>Вперёд ›</value></data>
   <data name="Common_Page"><value>Стр.</value></data>
