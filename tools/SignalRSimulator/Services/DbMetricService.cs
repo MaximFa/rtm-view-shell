@@ -37,7 +37,7 @@ public class DbMetricService : IDbMetricService
 
         const string sql = @"
             SELECT ""MetricId"", ""Description"", ""DataType"", ""MetricFormat"", ""DefaultValue""
-            FROM rtsgrid_metric
+            FROM ""RTSGrid_Metric""
             ORDER BY ""MetricId""";
 
         await using var cmd = new NpgsqlCommand(sql, conn);

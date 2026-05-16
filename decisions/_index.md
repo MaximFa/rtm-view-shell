@@ -12,6 +12,14 @@ This is the authoritative registry of all Architecture Decision Records.
 
 | ID | Title | Tags | Owner | Date |
 |---|---|---|---|---|
+| [ADR-001](ADR-001-widget-catalogue-scope.md) | Widget Catalogue scope — entity yes, admin CRUD screen no | scope, ui, permissions | TBD | 2026-05-15 |
+| [ADR-002](ADR-002-navigation-menu-redesign.md) | Navigation menu redesign — new groups + new menu keys + tenant-settings folding | ui, permissions | TBD | 2026-05-15 |
+| [ADR-003](ADR-003-per-tenant-licensing.md) | Per-tenant licensing model — Purchased licences + User connections | commercial, security, audit | TBD | 2026-05-15 |
+| [ADR-004](ADR-004-signalr-widget-feed-seam.md) | External widget data feed seam — per-tenant SignalR Connection URL | integration, multi-tenancy | TBD | 2026-05-15 |
+| [ADR-005](ADR-005-per-tenant-theme-palette.md) | Per-tenant theme palette — background/font colours + font-size presets | ui, theming, i18n | TBD | 2026-05-15 |
+| [ADR-006](ADR-006-permission-groups-model-redesign.md) | Permission Groups model redesign — drop Skills, split SG/AG, AccessLevel, MenuPermissions extension | permissions, data-model | TBD | 2026-05-15 |
+| [ADR-007](ADR-007-database-boundary.md) | Database boundary — shell tables vs backend tables in shared `RTMViewDB`; naming; dev emulation | architecture, persistence, deployment | TBD | 2026-05-15 |
+| [ADR-008](ADR-008-dual-write-pattern.md) | Dual-write pattern — DB + Backend API notification for categories 3 & 4; replaces NoOpConfigurationApiHook | integration, reliability | TBD | 2026-05-15 |
 
 ## Accepted
 
