@@ -56,7 +56,7 @@ hybrid audit assertion, `[Trait("Req","...")]`, shared fixtures). Only T3-specif
 - **Recommendation: A** — keeps fixture reuse simple; PWD-03 (hash iterations) needs
   real `UserManager` to verify. Mark as `[Trait("Req","PWD-01")]` etc.
 
-`Decision:`
+`Decision: A — Integration (Testcontainers + real UserManager)`
 
 ### MC-T3-2. TenantResolutionMiddleware tests — unit or WAF?
 - **A. Unit** (inject `HttpContext` mock, test middleware in isolation): fast, no WAF
@@ -65,7 +65,7 @@ hybrid audit assertion, `[Trait("Req","...")]`, shared fixtures). Only T3-specif
 - **Recommendation: A** — middleware has a clean `InvokeAsync(HttpContext)` signature;
   unit test is sufficient and runs 10× faster
 
-`Decision:`
+`Decision: A — Unit test (InvokeAsync isolation)`
 
 ### MC-T3-3. JWT claims test approach — unit or integration?
 - **A. Unit** (call `TokenService.GenerateAccessToken(user, tenant)` directly): tests
@@ -75,7 +75,7 @@ hybrid audit assertion, `[Trait("Req","...")]`, shared fixtures). Only T3-specif
 - **Recommendation: A** — AUTH-API-01 is about claim *content*, not HTTP mechanics;
   that's already covered by T1 AUTH-API-02 tests
 
-`Decision:`
+`Decision: A — Unit (TokenService directly)`
 
 ### MC-T3-4. NGC junction tables — investigate GQF gap before or during sprint?
 - **A. Pre-sprint audit** (read `AppDbContext.OnModelCreating` for junction table
@@ -86,7 +86,7 @@ hybrid audit assertion, `[Trait("Req","...")]`, shared fixtures). Only T3-specif
   NgcBusinessUnitSupergroup) in §5 key-file pass, document finding in DoD-3 assertion.
   If gap found → fix + tag as SF-008
 
-`Decision:`
+`Decision: A — Pre-sprint GQF audit as first task`
 
 ### MC-T3-5. BeDb seeding pattern for NGC data
 - **A. Use `PostgresFixture.CreateBackendEmulationDbContext()`** to seed NgcSite/BU/
@@ -95,7 +95,7 @@ hybrid audit assertion, `[Trait("Req","...")]`, shared fixtures). Only T3-specif
 - **Recommendation: A** — `BeDb` is the purpose of B1 #11; this validates the fixture
   works as designed
 
-`Decision:`
+`Decision: A — BeDb for seeding, AppDbContext for GQF assertion`
 
 ---
 
