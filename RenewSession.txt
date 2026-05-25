@@ -19,7 +19,7 @@ cd "C:\Users\farbe\Documents\Claude\Projects\RTM View Shell"
  это проект RTM View Shell, продолжаем тестирование
  
 загрузи следующие скилы  
-  /widget-creator
+  /widget-creator (C:\Users\farbe\Documents\Claude\Projects\RTM View Shell\widget-creator)
   /app-cyber-security-expert
   /blazor-server-expert
   /frontend-design
@@ -39,3 +39,11 @@ cd "C:\Users\farbe\Documents\Claude\Projects\RTM View Shell"
   /contact-center-ceo
   /technical-writer
   /platform-presale
+
+
+
+
+
+  Resume command after Docker install:
+  git stash pop   # restore ADRs/docs if needed
+  dotnet test tests/CcDashboard.Tests.Security --logger "console;verbosity=detailed"

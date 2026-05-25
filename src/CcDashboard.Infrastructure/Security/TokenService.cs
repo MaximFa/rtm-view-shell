@@ -195,6 +195,10 @@ public class TokenService(
 
     public async Task RevokeJtiAsync(string jti, Guid tenantId, TimeSpan remaining, CancellationToken ct = default)
     {
+        // Skip if token already expired — no need to add to revocation list
+        if (remaining <= TimeSpan.Zero)
+            return;
+
         await _cache.StringSetAsync($"{tenantId}:revoked_jti:{jti}", "1", remaining);
     }
 }
