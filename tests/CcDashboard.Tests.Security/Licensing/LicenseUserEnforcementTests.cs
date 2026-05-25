@@ -290,6 +290,8 @@ public class LicenseUserEnforcementTests : IAsyncLifetime
         var currentUserMock = new Mock<ICurrentUserAccessor>();
         currentUserMock.Setup(c => c.UserId).Returns(_fixture.SuperadminId);
         currentUserMock.Setup(c => c.UserName).Returns("superadmin@platform.local");
+        currentUserMock.Setup(c => c.Role).Returns("Superadmin");
+        currentUserMock.Setup(c => c.TenantId).Returns(_fixture.PlatformTenantId);
 
         var envMock = new Mock<IHostEnvironment>();
         envMock.Setup(e => e.EnvironmentName).Returns("Development");

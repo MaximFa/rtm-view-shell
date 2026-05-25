@@ -33,14 +33,45 @@ public class PermissionGroupDeletionTests
     [Trait("Req", "PG-06")]
     public async Task DeletePermissionGroup_WithAssignedUsers_ReturnsFailureWithUserCount()
     {
-        // Arrange - PgAId has UserAId assigned in the seed data
+        // Arrange - create an isolated PG with exactly 1 user to avoid interference from other tests
         await using var db = _fixture.CreateDbContext(_fixture.TenantAId);
+
+        var isolatedPgId = Uuid.NewSequential();
+        var isolatedPg = new PermissionGroup
+        {
+            Id = isolatedPgId,
+            TenantId = _fixture.TenantAId,
+            Name = "Isolated PG for Delete Test",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            CreatedByUserId = _fixture.UserAId,
+            UpdatedByUserId = _fixture.UserAId
+        };
+        db.PermissionGroups.Add(isolatedPg);
+
+        var isolatedUser = new CcDashboard.Infrastructure.Identity.ApplicationUser
+        {
+            Id = Uuid.NewSequential(),
+            TenantId = _fixture.TenantAId,
+            UserName = $"isolated_{Uuid.NewSequential():N}@test.local",
+            Email = $"isolated_{Uuid.NewSequential():N}@test.local",
+            NormalizedUserName = $"ISOLATED_{Uuid.NewSequential():N}@TEST.LOCAL",
+            NormalizedEmail = $"ISOLATED_{Uuid.NewSequential():N}@TEST.LOCAL",
+            EmailConfirmed = true,
+            FirstName = "Isolated",
+            LastName = "User",
+            IsActive = true,
+            PermissionGroupId = isolatedPgId
+        };
+        db.Users.Add(isolatedUser);
+        await db.SaveChangesAsync();
 
         var repo = new PermissionGroupRepository(db);
         var apiHook = new Mock<IConfigurationApiHook>();
 
         var handler = new DeletePermissionGroupCommandHandler(repo, apiHook.Object);
-        var command = new DeletePermissionGroupCommand(_fixture.PgAId);
+        var command = new DeletePermissionGroupCommand(isolatedPgId);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -179,14 +210,49 @@ public class PermissionGroupDeletionTests
     [Trait("Req", "PG-06")]
     public async Task CountUsersAsync_ReturnsCorrectCount()
     {
-        // Arrange
+        // Arrange - create isolated PG with known user count to avoid interference
         await using var db = _fixture.CreateDbContext(_fixture.TenantAId);
+
+        var isolatedPgId = Uuid.NewSequential();
+        var isolatedPg = new PermissionGroup
+        {
+            Id = isolatedPgId,
+            TenantId = _fixture.TenantAId,
+            Name = "Count Test PG",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            CreatedByUserId = _fixture.UserAId,
+            UpdatedByUserId = _fixture.UserAId
+        };
+        db.PermissionGroups.Add(isolatedPg);
+
+        for (int i = 0; i < 2; i++)
+        {
+            var user = new CcDashboard.Infrastructure.Identity.ApplicationUser
+            {
+                Id = Uuid.NewSequential(),
+                TenantId = _fixture.TenantAId,
+                UserName = $"counttest{i}_{Uuid.NewSequential():N}@test.local",
+                Email = $"counttest{i}_{Uuid.NewSequential():N}@test.local",
+                NormalizedUserName = $"COUNTTEST{i}_{Uuid.NewSequential():N}@TEST.LOCAL",
+                NormalizedEmail = $"COUNTTEST{i}_{Uuid.NewSequential():N}@TEST.LOCAL",
+                EmailConfirmed = true,
+                FirstName = "Count",
+                LastName = i.ToString(),
+                IsActive = true,
+                PermissionGroupId = isolatedPgId
+            };
+            db.Users.Add(user);
+        }
+        await db.SaveChangesAsync();
+
         var repo = new PermissionGroupRepository(db);
 
-        // Act - PgAId has 1 user (UserA)
-        var count = await repo.CountUsersAsync(_fixture.PgAId, CancellationToken.None);
+        // Act
+        var count = await repo.CountUsersAsync(isolatedPgId, CancellationToken.None);
 
         // Assert
-        count.Should().Be(1, "PgA should have exactly 1 user assigned (UserA)");
+        count.Should().Be(2, "Isolated PG should have exactly 2 users assigned");
     }
 }

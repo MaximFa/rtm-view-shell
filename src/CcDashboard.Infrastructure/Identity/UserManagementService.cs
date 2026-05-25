@@ -50,6 +50,20 @@ public class UserManagementService(
                 }
             }
 
+            // [USR-05] Only Superadmin can create Superadmin users
+            if (req.Role == "Superadmin" && currentUser.Role != "Superadmin")
+            {
+                await transaction.RollbackAsync(ct);
+                return (false, "Only Superadmin can create Superadmin users.", Guid.Empty, null);
+            }
+
+            // [USR-05] Administrator cannot create users in a different tenant
+            if (currentUser.Role != "Superadmin" && currentUser.TenantId != tenantId)
+            {
+                await transaction.RollbackAsync(ct);
+                return (false, "Cannot create users in a different tenant.", Guid.Empty, null);
+            }
+
             var user = new ApplicationUser
             {
                 Id = Uuid.NewSequential(),
@@ -115,6 +129,18 @@ public class UserManagementService(
         var user = await userManager.FindByIdAsync(req.Id.ToString());
         if (user == null) return (false, "User not found.");
 
+        // [GAP-T6-02] Cross-tenant mutation guard — Superadmin can access any tenant
+        if (currentUser.Role != "Superadmin" && user.TenantId != currentUser.TenantId)
+            return (false, "User not found.");
+
+        // [GAP-T6-01] Capture old values for granular audit events
+        var oldRole = (await userManager.GetRolesAsync(user)).FirstOrDefault();
+        var oldPgId = user.PermissionGroupId;
+
+        // [GAP-T6-03] Admin cannot change own role (USR-08)
+        if (currentUser.UserId == req.Id && currentUser.Role != "Superadmin" && oldRole != req.Role)
+            return (false, "Cannot change own role.");
+
         user.FirstName = req.FirstName;
         user.LastName = req.LastName;
         user.Email = req.Email;
@@ -140,6 +166,22 @@ public class UserManagementService(
             user.TenantId, currentUser.UserId, currentUser.UserName,
             details: new { TargetUserId = user.Id, user.UserName }, ct: ct);
 
+        // [GAP-T6-01] Emit User.RoleChanged if role changed (USR-07)
+        if (oldRole != req.Role)
+        {
+            await audit.LogAsync("User.RoleChanged", AuditEventResult.Success,
+                user.TenantId, currentUser.UserId, currentUser.UserName,
+                details: new { TargetUserId = user.Id, OldRole = oldRole, NewRole = req.Role }, ct: ct);
+        }
+
+        // [GAP-T6-01] Emit User.PermissionGroupChanged if PG changed
+        if (oldPgId != req.PermissionGroupId)
+        {
+            await audit.LogAsync("User.PermissionGroupChanged", AuditEventResult.Success,
+                user.TenantId, currentUser.UserId, currentUser.UserName,
+                details: new { TargetUserId = user.Id, OldPermissionGroupId = oldPgId, NewPermissionGroupId = req.PermissionGroupId }, ct: ct);
+        }
+
         return (true, null);
     }
 
@@ -147,6 +189,10 @@ public class UserManagementService(
     {
         var user = await userManager.FindByIdAsync(userId.ToString());
         if (user == null) return (false, "User not found.");
+
+        // [GAP-T6-02] Cross-tenant mutation guard
+        if (currentUser.Role != "Superadmin" && user.TenantId != currentUser.TenantId)
+            return (false, "User not found.");
 
         user.IsActive = isActive;
         if (!isActive)
@@ -167,6 +213,10 @@ public class UserManagementService(
     {
         var user = await userManager.FindByIdAsync(userId.ToString());
         if (user == null) return (false, "User not found.");
+
+        // [GAP-T6-02] Cross-tenant mutation guard
+        if (currentUser.Role != "Superadmin" && user.TenantId != currentUser.TenantId)
+            return (false, "User not found.");
 
         // [USR-11] generate reset token, build clickable link, send email
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
@@ -190,14 +240,23 @@ public class UserManagementService(
     public async Task ForceLogoutAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await userManager.FindByIdAsync(userId.ToString());
-        if (user != null)
-            await userManager.UpdateSecurityStampAsync(user);  // [USR-09]
+        if (user == null) return;
+
+        // [GAP-T6-02] Cross-tenant mutation guard
+        if (currentUser.Role != "Superadmin" && user.TenantId != currentUser.TenantId)
+            return;
+
+        await userManager.UpdateSecurityStampAsync(user);  // [USR-09]
     }
 
     public async Task<(bool Succeeded, string? Error)> DeleteAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await userManager.FindByIdAsync(userId.ToString());
         if (user == null) return (false, "User not found.");
+
+        // [GAP-T6-02] Cross-tenant mutation guard
+        if (currentUser.Role != "Superadmin" && user.TenantId != currentUser.TenantId)
+            return (false, "User not found.");
 
         var result = await userManager.DeleteAsync(user);
         if (result.Succeeded)
