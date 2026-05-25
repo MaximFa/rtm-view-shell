@@ -57,4 +57,25 @@ public class AuditLogRepository(AuditDbContext db) : IAuditLogRepository
             .OrderBy(t => t)
             .ToListAsync(ct);
     }
+
+    public async Task<int> CountAsync(
+        Guid? tenantId,
+        string? eventType = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        CancellationToken ct = default)
+    {
+        var q = db.AuditLogs.AsNoTracking();
+
+        if (tenantId.HasValue)
+            q = q.Where(l => l.TenantId == tenantId);
+        if (!string.IsNullOrEmpty(eventType))
+            q = q.Where(l => l.EventType == eventType);
+        if (from.HasValue)
+            q = q.Where(l => l.CreatedAt >= from.Value);
+        if (to.HasValue)
+            q = q.Where(l => l.CreatedAt <= to.Value);
+
+        return await q.CountAsync(ct);
+    }
 }

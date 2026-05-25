@@ -1,5 +1,6 @@
 using CcDashboard.Application.Extensions;
 using Microsoft.AspNetCore.Components.Server.Circuits;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Extensions;
@@ -85,6 +86,15 @@ try
     services.AddAuthorization();
     services.AddHttpContextAccessor();
 
+    // [AUD-04] Configure ForwardedHeaders for correct client IP extraction behind reverse proxy
+    services.Configure<ForwardedHeadersOptions>(opts =>
+    {
+        opts.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        // In production, configure known proxy IPs in appsettings; clear defaults for testing
+        opts.KnownNetworks.Clear();
+        opts.KnownProxies.Clear();
+    });
+
     // [I18N-01..03] Localization — add new language = new .resx file, no code change
     services.AddLocalization();
     services.Configure<RequestLocalizationOptions>(opts =>
@@ -122,6 +132,9 @@ try
         var initializer = scope.ServiceProvider.GetRequiredService<IDatabaseInitializer>();
         await initializer.InitializeAsync();
     }
+
+    // [AUD-04] ForwardedHeaders must be early in pipeline to set correct RemoteIpAddress
+    app.UseForwardedHeaders();
 
     if (!isDev) app.UseHttpsRedirection();
 

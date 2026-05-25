@@ -15,4 +15,15 @@ public interface IAuditLogRepository
         CancellationToken ct = default);
 
     Task<IReadOnlyList<string>> GetDistinctEventTypesAsync(Guid? tenantId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Counts audit log records matching the filter criteria.
+    /// Used for CSV export boundary checks (AUD-08).
+    /// </summary>
+    Task<int> CountAsync(
+        Guid? tenantId,
+        string? eventType = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        CancellationToken ct = default);
 }
