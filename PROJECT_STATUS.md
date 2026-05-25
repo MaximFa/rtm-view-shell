@@ -46,8 +46,9 @@ check; see below).
 | **T3** | Multi-tenancy integration | **✅ CLOSED (commit `7b85269`, 2026-05-25). 36 new tests, no SF-008 (OQ-1 resolved). 204 Tests.Security, 285 solution-wide.** | Sprint done; pick next |
 | **T4** | PG authorization semantics | **✅ CLOSED (commit `cb7af32`, 46 tests, SF-005 Critical fixed). 146 / 146 Tests.Security pass. PD-003 resolved via Backlog #14.** | Sprint done; pick next |
 | **T5** | Widget framework | **✅ CLOSED (commit `fbf89fd`, 2026-05-25). 28 new tests, OQ-16 verified, no SF. 313 / 313 solution-wide pass.** | Sprint done |
+| **T6** | User Management + Audit Trail | **📋 BRIEF READY (2026-05-25). Phase A (USR-01..14, ~32 tests) + Phase B (AUD-01..08, ~22 tests). 3 production GAPs pre-identified.** | Hand off to Claude Code |
 
-Briefs live in `docs/sprints/T{1..5}-*.md`.
+Briefs live in `docs/sprints/T{1..6}-*.md`.
 
 ---
 
@@ -298,8 +299,9 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: **T6** (TBD). All backlogs closed. D1: `b16d2e5`. #13: `80645f1`. T5: `fbf89fd`.
-T1 ✅ → T2 ✅ → B1 #11 ✅ → T3 ✅ → T4 ✅ → T5 ✅
+Next: **T6 Phase A** (User Management). Brief: `docs/sprints/T6-user-audit.md`. All backlogs closed.
+D1: `b16d2e5` · #13: `80645f1` · T5: `fbf89fd`
+T1 ✅ → T2 ✅ → B1 #11 ✅ → T3 ✅ → T4 ✅ → T5 ✅ → T6 📋
 
 ## D1 — Documentation Catch-up Results
 
