@@ -56,7 +56,7 @@ Briefs live in `docs/sprints/T{1..5}-*.md`.
 | ID | Task | Prompt status | Unblocks |
 |---|---|---|---|
 | **B1 (#11)** | Introduce `BackendEmulationDbContext` per ADR-007 | Prompt ready (see session 2026-05-17 log) | T3, T5 Phase B |
-| **#12** | Widget-creator skill MetricType drift fix | Prompt ready (~15 min Claude Code task) | None |
+| **#12** | Widget-creator skill MetricType drift fix | **✅ CLOSED** (commit `5eab846`, 2026-05-25) | — |
 | **#13** | `DatabaseInitializer` → `IDatabaseInitializer` interface (replace `virtual`) | Pending; spawned by PD-002 (T1 Phase C). Low priority, refactor only. | None |
 | **#14** | `WebFixture`: disable `LoginRateLimitMiddleware` in test pipeline | **✅ CLOSED.** Reflection-based clearing of middleware static state. 146/146 tests pass. | — |
 | **D1** | Documentation catch-up: TS v1.3 EN docx, CHANGELOG v1.2→v1.3, ADR-001..008 files (currently only `_index.md` placeholders), stakeholder summary, widget architecture, CLAUDE.md frontmatter bump to v1.3 | Pending; created 2026-05-25 after sanity-check finding (see Current state §). Sizing rough ~70h depending on TS depth. Architect decision required: full doc catch-up vs partial (just CHANGELOG + minimal ADR skeletons) vs defer until external review demands it. | External v1.3 review readiness; T5 (widget architecture is input) |
@@ -157,9 +157,8 @@ Details: `docs/sprints/T2-gap-analysis.md`, `analysis/security-findings.md` (SF-
    "how we work" rules and project invariants.
 3. **Find current pending action:**
    - T1 fully closed; T4 fully closed; T2 fully closed.
-   - Pick next: **B1 #11** to unblock T3 / T5 Phase B, or
-     **#12** (15-min skill drift fix), or **T5** Phase A (can start
-     without B1).
+   - Pick next: **B1 #11** to unblock T3 / T5 Phase B (confirmed sequence:
+     B1 #11 → T3 → T5). #12 closed `5eab846`.
    - Apply learning from PD-001..005 when authoring the next
      sprint's hand-off prompt:
      * Whitelist `partial class Program {}` for WAF-using sprints
@@ -170,13 +169,13 @@ Details: `docs/sprints/T2-gap-analysis.md`, `analysis/security-findings.md` (SF-
      * Require `docs/sprints/T{N}-gap-analysis.md` as the **first**
        close-out artefact, not the last (PD-004).
      * After session recovery: check for truncated files before
-       resuming work (PD-005).
+       resuming work; use Python for file edits; see §0 CLAUDE.md (PD-005).
 4. **For each sprint to start:** architect (Max) signs `Decision:`
    lines in §2 of the brief, then Claude Code runs Phase A handover
    prompt from §7.
-5. **For B1 / #12 / #13:** copy the prompt from session log;
-   if lost, regenerate from ADR-007 / CLR-15 / PD-002
-   respectively. (#14 closed — see `docs/sprints/backlog-14-gap-note.md`)
+5. **For B1 / #13:** copy the prompt from session log;
+   if lost, regenerate from ADR-007 / PD-002 respectively.
+   (#12 closed `5eab846`; #14 closed — see `docs/sprints/backlog-14-gap-note.md`)
 
 ---
 
@@ -223,6 +222,5 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: pick **T3** (Multi-tenancy — blocked by B1 #11), **T5** (Widget framework),
-**B1 #11** (refactor that unblocks T3 / T5 Phase B), or **#12** (widget-creator
-drift, 15-min context switch).
+Next: pick **B1 #11** (refactor that unblocks T3 / T5 Phase B), then **T3** (Multi-tenancy),
+then **T5** (Widget framework). Sequence confirmed 2026-05-25.
