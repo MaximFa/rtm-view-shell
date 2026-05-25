@@ -142,8 +142,8 @@ After T1 Phase A + Phase B + Phase C + T4 (commits `ca0ccd9` + `b846f1b` + `77e1
 - **Phase B tests:** 30 passing
 - **Phase C tests:** 18 passing
 - **T4 Authorization tests:** 46 passing (9 test files in Authorization/)
-- **Total `Tests.Security` count:** 126+ passing
-- **`CcDashboard.Infrastructure` line coverage:** ~87% (T1 baseline)
+- **Total `Tests.Security` count:** 146 passing (PD-003 resolved via backlog #14)
+- **`CcDashboard.Infrastructure` line coverage:** 87.88% (T1 baseline; T4 adds Application coverage)
 
 Remaining sections to be populated by T2..T5:
 - PWD-01..05 (T1 left unscoped; consider T2)
@@ -157,4 +157,4 @@ Remaining sections to be populated by T2..T5:
 - ARCH-02, ARCH-03, ARCH-07..10 (T3 / T5)
 - USR-01..14, I18N-01..06, NFR, DEPLOY, CODE, DATA (TBD)
 
-Updated: 2026-05-25 (T4 — PG authorization semantics completed)
+Updated: 2026-05-25 (Backlog #14 — WebFixture rate-limit isolation fix; 146/146 tests passing)

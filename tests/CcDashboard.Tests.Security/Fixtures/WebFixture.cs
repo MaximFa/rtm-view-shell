@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Reflection;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Enums;
 using CcDashboard.Domain.Interfaces;
@@ -5,6 +7,7 @@ using CcDashboard.Infrastructure.Audit;
 using CcDashboard.Infrastructure.Identity;
 using CcDashboard.Infrastructure.Persistence;
 using CcDashboard.Infrastructure.Seeding;
+using CcDashboard.Web.Middleware;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -86,6 +89,12 @@ public class WebFixture : IAsyncLifetime
         PostgresConnectionString = _postgresContainer.GetConnectionString();
         RedisConnectionString = _redisContainer.GetConnectionString();
         _redisConnection = await ConnectionMultiplexer.ConnectAsync($"{RedisConnectionString},allowAdmin=true");
+
+        // [Backlog #14] Clear LoginRateLimitMiddleware static state to prevent rate-limit
+        // exhaustion when multiple test collections run sequentially. The middleware uses
+        // a static ConcurrentDictionary keyed by IP; all WAF tests share loopback IP,
+        // so without clearing, tests fail with 429 after ~10 cumulative logins.
+        ClearLoginRateLimitState();
 
         // Initialize database schema and seed data
         await InitializeDatabaseAsync();
@@ -323,6 +332,23 @@ public class WebFixture : IAsyncLifetime
     }
 
     /// <summary>
+    /// Clears the static rate-limit state in LoginRateLimitMiddleware [Backlog #14].
+    /// The middleware uses a static ConcurrentDictionary to track login attempts per IP.
+    /// Because all WebApplicationFactory tests share the loopback IP (127.0.0.1 / ::1),
+    /// cumulative logins across tests exhaust the 10-per-minute budget and cause 429 errors.
+    /// This method uses reflection to clear that dictionary, ensuring test isolation.
+    /// </summary>
+    public static void ClearLoginRateLimitState()
+    {
+        var middlewareType = typeof(LoginRateLimitMiddleware);
+        var entriesField = middlewareType.GetField("_entries", BindingFlags.NonPublic | BindingFlags.Static);
+        if (entriesField?.GetValue(null) is System.Collections.IDictionary dict)
+        {
+            dict.Clear();
+        }
+    }
+
+    /// <summary>
     /// Creates an HttpClient with cookies enabled (default behavior per MC-C2).
     /// Each test should call this to get a fresh client.
     /// </summary>
@@ -362,6 +388,10 @@ public class WebFixture : IAsyncLifetime
     /// <returns>A tuple containing the HttpClient (with cookies), the login response, and whether a redirect occurred.</returns>
     public async Task<LoginResult> LoginAsync(string username, string password, string? tenantSlug = null)
     {
+        // [Backlog #14] Clear rate-limit state before each login to prevent 429 errors
+        // when multiple tests use LoginAsync within the same test run.
+        ClearLoginRateLimitState();
+
         var client = CreateClientNoRedirect();
 
         // Set host header if a specific tenant is requested
@@ -425,6 +455,10 @@ public class WebFixture : IAsyncLifetime
     /// </summary>
     public async Task<LoginResult> LoginAsync(string username, string password, string? tenantSlug, string ipAddress)
     {
+        // [Backlog #14] Clear rate-limit state before each login to prevent 429 errors
+        // when multiple tests use LoginAsync within the same test run.
+        ClearLoginRateLimitState();
+
         var client = CreateClientNoRedirect();
 
         // Set host header if a specific tenant is requested

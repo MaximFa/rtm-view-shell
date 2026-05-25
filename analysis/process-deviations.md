@@ -145,12 +145,128 @@ even when the change feels small.
 
 ---
 
+## PD-003 — T4: 2 failing E2E tests due to shared rate-limiter state on loopback IP
+
+**Detected:** Sprint T4 (commit `cb7af32`, 2026-05-25)
+**Resolved:** Backlog #14 (2026-05-25)
+**Severity:** 🟠 **Medium** (sprint cannot close as "all green")
+**Sprint:** T4
+**Agreement clause violated:** §3 DoD-11: "Zero skipped tests." (Implicitly: zero failing tests too — a failing test is worse than a skipped one.)
+
+### What happened
+
+`Tests.Security/Authorization/AuthorizationE2ETests` has 4 tests, 3
+of which call `WebFixture.LoginAsync(...)`. When the full
+`Tests.Security` suite runs (144 tests after T4), `LoginAsync`
+hammers the `/login` endpoint and trips the
+`LoginRateLimitMiddleware` BFP-02 throttle (10 login/min per IP).
+Because all WAF traffic shares the loopback IP `127.0.0.1`,
+non-isolated runs exhaust the budget. Result: 2 of the 3
+login-using E2E tests return `429 TooManyRequests` instead of the
+expected `403`/`Redirect`, and assertions fail.
+
+In isolation (running `AuthorizationE2ETests` alone, or after a
+Redis flush), the tests pass.
+
+Reported by executor in T4 hand-off: "144 passing, 2 failing —
+E2E isolation issue with rate limiting when run with other
+login-heavy tests — pass in isolation."
+
+### Disposition
+
+**Resolved via Backlog #14.** Original disposition was to accept
+the failing state for T4 with a caveat pending the fix.
+
+**Fix applied:** `WebFixture.ClearLoginRateLimitState()` — uses
+reflection to clear the static `ConcurrentDictionary` in
+`LoginRateLimitMiddleware` before each `LoginAsync()` call and at
+fixture initialization. Production code unchanged.
+
+**Verification:** 146/146 tests pass on consecutive runs.
+See `docs/sprints/backlog-14-gap-note.md` for full details.
+
+**Original reasoning for accepting T4 caveat:**
+
+1. The production code under test (`AuthorizationBehavior`,
+   `IPermissionService`) is correct — SF-005 fix verified by all
+   non-E2E tests + E2E tests in isolation.
+2. The rate-limit middleware itself works as specified by BFP-02 —
+   one IP exceeding 10 login/min should be throttled. The test is
+   noisy because the test harness shares an IP, not because the
+   production code is wrong.
+3. Reverting T4 to "hide" the failing tests would discard SF-005
+   fix and 44 working tests.
+
+### Lesson
+
+Future sprints introducing `WebFixture`-based tests must check the
+T1 / Phase C / T4 shared-state surface for middleware that holds
+state in Redis. The pattern: any middleware keyed on `RemoteIp`
+needs a test-time override. Candidate list:
+- `LoginRateLimitMiddleware` (already known)
+- Any future `JtiRevocationMiddleware` using Redis sets
+- Any anti-replay middleware
+
+The hand-off prompt template for sprints with WAF/E2E tests should
+include a "test-pipeline middleware override" checklist item.
+
+---
+
+## PD-004 — T4: separate gap-analysis file not created
+
+**Detected:** Sprint T4 (commit `cb7af32`, 2026-05-25)
+**Severity:** 🟡 **Low** (process regression; data is present elsewhere)
+**Sprint:** T4
+**Agreement clause violated:** §8 sprint close-out checklist, item 1: "File `docs/sprints/T4-gap-analysis.md` using `_gap-analysis-template.md`."
+
+### What happened
+
+Phase A / Phase B / Phase C each produced a distinct
+`docs/sprints/T1-gap-analysis-phase-{a,b,c}.md` file with a DoD
+verification table, test counts, and close-out decision tick. For
+T4, no such file exists in the repository. The gap-analysis data
+is present, but distributed across:
+
+- The commit message (DoD-1..12 status lines)
+- Inline updates to `analysis/security-findings.md` (SF-005)
+- Inline updates to `docs/traceability-matrix.md`
+- The hand-off summary the executor returned to chat
+
+### Disposition
+
+**Accept the existing distribution; backfill not required.** The
+information needed for sprint audit is present and discoverable.
+But this is a regression in process discipline — Phase A/B/C set
+the bar at "one file per sprint phase". T4 dropped it.
+
+### Lesson
+
+The hand-off prompt for the next sprint must restate §8 item 1 as
+a non-negotiable: a single file at
+`docs/sprints/T{N}-gap-analysis.md` (or
+`docs/sprints/T{N}-gap-analysis-phase-{x}.md` for phased sprints)
+is required even when the data exists in commit messages and
+update diffs.
+
+Pattern to embed in next hand-off:
+
+> "On completion, the FIRST file you write at sprint close-out is
+> `docs/sprints/T{N}-gap-analysis.md` using
+> `docs/sprints/_gap-analysis-template.md`. Do this before any
+> traceability-matrix or security-findings updates. The gap
+> analysis file is the durable audit trail; downstream updates
+> reference it."
+
+---
+
 ## Summary table
 
 | ID | Severity | Sprint | Disposition | Backlog item |
 |---|---|---|---|---|
 | PD-001 | 🟡 Low | T1 Phase C | Accept; refine clause | — |
 | PD-002 | 🟡 Low | T1 Phase C | Accept; backlog refactor | #13 (DatabaseInitializer → interface) |
+| PD-003 | 🟠 Medium | T4 | ✅ **Resolved** | #14 (closed — WebFixture rate-limit clearing) |
+| PD-004 | 🟡 Low | T4 | Accept; tighten next hand-off | — |
 
 ## Pattern note
 
