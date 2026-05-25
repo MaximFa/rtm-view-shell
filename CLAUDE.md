@@ -56,15 +56,23 @@ with open(path, "w", encoding="utf-8") as f:
     f.write(text)
 ```
 
-After every write (Edit or Python), verify immediately:
+**After every Python write — NO EXCEPTIONS — run both checks before doing anything else:**
 
 ```bash
-tail -3 <path>          # must end with proper closing line
+tail -3 <path>          # must end with proper closing line (closing brace, sentence, backtick)
 wc -l <path>            # compare against expected line count
 ```
 
+Recommended pattern — combine write + verify in one shell block:
+
+```bash
+python3 /tmp/write_x.py && \
+tail -3 <path> && wc -l <path>
+```
+
 If the file is truncated: restore from HEAD (`git show HEAD:<path> > <path>`)
-and retry via Python.
+and retry via Python. Do NOT proceed with git staging or further edits until
+`tail -3` shows a proper closing line.
 
 ### §0.4 Git `index.lock` workaround
 
