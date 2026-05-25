@@ -261,9 +261,9 @@ Pattern to embed in next hand-off:
 
 ## PD-005 — Cowork session interruption left 8 working-tree files truncated mid-write
 
-**Detected:** 2026-05-25, during T2 startup verification
-**Severity:** 🟠 **Medium** (broke build state; required manual recovery; risk of corrupted commit if not caught)
-**Sprint:** T2 (during execution by a prior session)
+**Detected:** 2026-05-25, during T2 startup verification (incident #1); same session post-commit (incident #2); same session mid-PD-update (incident #3)
+**Severity:** 🔴 **High (recurring — 3 incidents in one session 2026-05-25)** (broke build state; required manual recovery each time; in incident #3 the Edit-tool success return decoupled from filesystem reality)
+**Sprint:** T2 (pre-execution interrupted, post-commit close-out, mid-PD-update — all same day 2026-05-25)
 **Agreement clause violated:** None directly — this is an environment failure mode, not a contract breach. Logged here because the recovery procedure and detection pattern are reusable.
 
 ### What happened
@@ -336,6 +336,79 @@ working-tree corruption from session interruption; the sanity-check
 is about long-term documentation drift. Both belong in every
 session-resume checklist.
 
+## PD-005 incident #2 (same day, 2026-05-25)
+
+After Sprint T2 was successfully committed (`d562845`), the working tree
+was checked again per PD-005 procedure — **7 of the same family of files
+were truncated again**, including `UserManagementService.cs` in the
+critical position (`if (user` — unclosed statement in production code).
+The commit itself was valid (HEAD contains full correct files); the
+corruption was post-commit, while the session was performing close-out
+doc updates (PROJECT_STATUS, traceability matrix, security-findings).
+
+**Truncated files (working tree size → HEAD size):**
+- `PROJECT_STATUS.md` (10931 → 12336)
+- `analysis/process-deviations.md` (11067 → 14741)
+- `analysis/security-findings.md` (13658 → 18703)
+- `docs/traceability-matrix.md` (8159 → 9496)
+- `src/CcDashboard.Infrastructure/Identity/UserManagementService.cs` (11314 → 12635) — **production code, mid-statement**
+- `tests/CcDashboard.Tests.Security/Fixtures/WebFixture.cs` (24581 → 25841)
+- `tests/CcDashboard.Tests.Security/Licensing/LicenseUserAuditTests.cs` (10604 → 10611)
+
+**Recovery:** same `git show HEAD:<file> > <file>` procedure as incident #1.
+All 7 files restored to HEAD state. Working tree clean after.
+
+---
+
+## PD-005 incident #3 (same day, 2026-05-25)
+
+After recovery from incident #2, an attempt was made to add this very
+"incident #2" note to `analysis/process-deviations.md` via the Edit tool.
+The tool returned success, but `tail -5` showed the file was re-truncated
+with the added text ending mid-sentence at `"After Sprint T2 was
+successfully committed (\`d562845\`), the"`. `wc -c` confirmed the file
+remained at 14741 bytes — the same size as immediately after recovery,
+meaning the edit **did not actually persist**. Shortly after, `git status`
+began failing with `unable to unlink '.git/index.lock': Operation not
+permitted`, indicating git lock files were also affected.
+
+**This is the most serious symptom:** the Edit tool's success return does
+not guarantee filesystem reality. Tool acknowledgement and persistence
+have decoupled.
+
+**Disposition:** session terminated. PD-005 update deferred to a fresh
+session (this one) where environment is presumed stable.
+
+---
+
+## Conclusion from three incidents in one session
+
+This is no longer a single-incident pattern — it is a **recurring
+environmental failure mode** with measurable impact:
+
+- Three independent partial-write incidents in one calendar day
+- Each requiring manual recovery via `git show HEAD:<file> > <file>` workaround
+- One incident (#3) blocked further documentation work in the same session
+- Production code (`UserManagementService.cs`) was the target in 2 of 3 incidents
+
+**Severity upgraded from Medium → High.**
+
+**Mandatory practice going forward** (encode in every hand-off prompt):
+
+1. After every `git status` showing `M` files: `tail -3` each file to
+   detect truncation signature (unclosed statements, mid-comment endings).
+2. After every successful Edit / Write on a critical file: verify
+   immediately via `tail -3` (do not trust tool success return alone).
+3. If truncated: restore via `git show HEAD:<path> > <path>` (never
+   `git checkout` — fails on Cowork mount with permission error).
+4. If `.git/index.lock` Operation-not-permitted errors appear, terminate
+   the session — environment is no longer trustworthy. Continue in a
+   fresh process.
+
+**Backlog item (new):** raise the issue with Anthropic — recurring
+post-write truncation in Cowork mounted folder, with Edit-tool success
+returns that do not correspond to filesystem state.
+
 ---
 
 ## Summary table
@@ -346,7 +419,7 @@ session-resume checklist.
 | PD-002 | 🟡 Low | T1 Phase C | Accept; backlog refactor | #13 (DatabaseInitializer → interface) |
 | PD-003 | 🟠 Medium | T4 | ✅ **Resolved** | #14 (closed — WebFixture rate-limit clearing) |
 | PD-004 | 🟡 Low | T4 | Accept; tighten next hand-off | — |
-| PD-005 | 🟠 Medium | T2 (interrupted) | ✅ **Recovered** (working tree restored via shell-redirect from HEAD) | — |
+| PD-005 | 🔴 High (recurring — 3 incidents 2026-05-25) | T2 (pre-execution + post-commit + mid-PD-update) | ✅ Recovered ×2; incident #3 required session restart | Backlog: raise Cowork file-write reliability with Anthropic team |
 
 ## Pattern note
 
