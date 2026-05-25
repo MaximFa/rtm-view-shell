@@ -42,7 +42,7 @@ src/CcDashboard.Web/Components/Widgets/
 ```sql
 Id INT IDENTITY PRIMARY KEY,
 Name NVARCHAR(200),
-MetricType NVARCHAR(50),  -- 'Agent' | 'Queue' | etc.
+MetricType NVARCHAR(20),  -- 'Agent' | 'Data'
 TenantId UNIQUEIDENTIFIER
 ```
 
@@ -51,7 +51,7 @@ TenantId UNIQUEIDENTIFIER
 Id INT IDENTITY PRIMARY KEY,
 MetricId NVARCHAR(100),      -- e.g. 'agent_name', 'duration', 'state'
 Description NVARCHAR(500),
-MetricType NVARCHAR(50),     -- 'Agent' | 'Queue'
+MetricType NVARCHAR(20),     -- 'Agent' | 'Data'
 ValueType NVARCHAR(20),      -- 'String' | 'Number' | 'Time'
 IsActive BIT
 ```
@@ -65,7 +65,7 @@ Columns NVARCHAR(MAX)  -- JSON array of column definitions
 
 ### MetricType Values
 - `Agent` — Agent-related metrics (name, state, duration, talk%, etc.)
-- `Queue` — Queue metrics (calls waiting, SLA, abandon rate, etc.)
+- `Data` — Data metrics (calls waiting, SLA, abandon rate, etc.)
 
 ### ValueType Values
 - `String` — Text values (agent name, state name)
@@ -590,7 +590,7 @@ public class QueueGridRowDef
 ```sql
 Id INT IDENTITY PRIMARY KEY,
 DashboardWidgetId UNIQUEIDENTIFIER,
-MetricType NVARCHAR(50) DEFAULT 'Queue'
+MetricType NVARCHAR(20) DEFAULT 'Agent'
 ```
 
 **RTSGrid_Column** — Column definitions (shared across rows)
