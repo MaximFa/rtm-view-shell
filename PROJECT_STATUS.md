@@ -57,7 +57,7 @@ Briefs live in `docs/sprints/T{1..5}-*.md`.
 |---|---|---|---|
 | **B1 (#11)** | Introduce `BackendEmulationDbContext` per ADR-007 | **✅ CLOSED** (commit `80974b0`, 2026-05-25) | — |
 | **#12** | Widget-creator skill MetricType drift fix | **✅ CLOSED** (commit `5eab846`, 2026-05-25) | — |
-| **#13** | `DatabaseInitializer` → `IDatabaseInitializer` interface (replace `virtual`) | Pending; spawned by PD-002 (T1 Phase C). Low priority, refactor only. | None |
+| **#13** | `DatabaseInitializer` → `IDatabaseInitializer` interface | **✅ CLOSED** commit `80645f1` (2026-05-25) | Closed |
 | **#14** | `WebFixture`: disable `LoginRateLimitMiddleware` in test pipeline | **✅ CLOSED.** Reflection-based clearing of middleware static state. 146/146 tests pass. | — |
 | **D1** | Documentation catch-up: TS v1.3 EN docx, CHANGELOG v1.2→v1.3, ADR-001..008 files, stakeholder summary, widget architecture, CLAUDE.md frontmatter bump to v1.3 | **✅ CLOSED (commit `b16d2e5`, 2026-05-25). 1,378 insertions across 13 files. All 6 deliverables delivered.** | Done |
 
@@ -298,7 +298,7 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: **Backlog #13** (IDatabaseInitializer interface, low priority) or **T6** (TBD). D1 closed `b16d2e5`. T5 closed `fbf89fd`.
+Next: **T6** (TBD). All backlogs closed. D1: `b16d2e5`. #13: `80645f1`. T5: `fbf89fd`.
 T1 ✅ → T2 ✅ → B1 #11 ✅ → T3 ✅ → T4 ✅ → T5 ✅
 
 ## D1 — Documentation Catch-up Results
