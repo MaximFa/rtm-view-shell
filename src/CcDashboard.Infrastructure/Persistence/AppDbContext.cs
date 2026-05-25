@@ -64,13 +64,14 @@ public class AppDbContext(
         mb.Entity<Microsoft.AspNetCore.Identity.IdentityRoleClaim<Guid>>().ToTable("role_claims", "identity");
         mb.Entity<Microsoft.AspNetCore.Identity.IdentityUserToken<Guid>>().ToTable("user_tokens", "identity");
 
-        // ApplicationUser extensions
+        // ApplicationUser extensions (multi-tenant with GQF per ARCH-01)
         mb.Entity<ApplicationUser>(e =>
         {
             e.HasIndex(x => new { x.NormalizedEmail, x.TenantId }).IsUnique().HasFilter("\"IsActive\" = true");
             e.Property(x => x.FirstName).HasMaxLength(100);
             e.Property(x => x.LastName).HasMaxLength(100);
             e.Property(x => x.PreferredLocale).HasMaxLength(10).HasDefaultValue("en-US");
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
         // Tenants

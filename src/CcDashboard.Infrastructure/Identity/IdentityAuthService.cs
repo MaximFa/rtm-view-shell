@@ -28,11 +28,12 @@ public class IdentityAuthService(
         string ipAddress, string userAgent,
         CancellationToken ct = default)
     {
+        // Find user across ALL tenants (ARCH-04: verify TenantId match separately)
+        var normalizedInput = userName.ToUpperInvariant();
         var user = await db.Set<ApplicationUser>()
             .IgnoreQueryFilters()
-            .Where(u => u.TenantId == tenantId &&
-                        (u.NormalizedUserName == userName.ToUpperInvariant() ||
-                         u.NormalizedEmail == userName.ToUpperInvariant()))
+            .Where(u => u.NormalizedUserName == normalizedInput ||
+                        u.NormalizedEmail == normalizedInput)
             .FirstOrDefaultAsync(ct);
 
         if (user == null)
@@ -43,6 +44,7 @@ public class IdentityAuthService(
             return new IdentitySignInResult(IdentitySignInStatus.InvalidCredentials);
         }
 
+        // ARCH-04: Verify user belongs to the resolved tenant
         if (user.TenantId != tenantId)
         {
             await audit.LogAsync("Login.Failure", AuditEventResult.Failure,
@@ -59,14 +61,25 @@ public class IdentityAuthService(
             return new IdentitySignInResult(IdentitySignInStatus.AccountInactive);
         }
 
+        // ARCH-06: Check tenant status (Suspended / Deleted block login)
         var tenant = await db.Tenants.IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
+
         if (tenant?.Status == TenantStatus.Suspended)
         {
             await audit.LogAsync("Login.Failure", AuditEventResult.Failure,
                 tenantId, user.Id, user.UserName, ipAddress, userAgent,
                 new { Subtype = "TenantSuspended" }, ct);
             return new IdentitySignInResult(IdentitySignInStatus.TenantSuspended);
+        }
+
+        // ARCH-06 + BFP-03: Deleted tenant = invisible to auth, return generic error
+        if (tenant?.Status == TenantStatus.Deleted || tenant == null)
+        {
+            await audit.LogAsync("Login.Failure", AuditEventResult.Failure,
+                tenantId, user.Id, user.UserName, ipAddress, userAgent,
+                new { Subtype = "TenantDeleted" }, ct);
+            return new IdentitySignInResult(IdentitySignInStatus.InvalidCredentials);
         }
 
         var checkResult = await signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
