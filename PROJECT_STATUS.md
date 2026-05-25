@@ -43,9 +43,9 @@ check; see below).
 |---|---|---|---|
 | **T1** | Security & cross-tenant isolation | **✅ FULLY CLOSED. Phase A + B + C complete (79 tests, 0 skips, 87.88% Infrastructure coverage, 4 SF + 2 PD found).** | Sprint done; pick next |
 | **T2** | Licensing enforcement | **✅ CLOSED (2026-05-25). 20 new tests, SF-006 + SF-007 fixed. 166 / 166 Tests.Security pass.** | Sprint done; pick next |
-| **T3** | Multi-tenancy integration (~30 tests) | Brief draft, §2 + **blocked by B1 #11** | Complete B1, sign §2 |
+| **T3** | Multi-tenancy integration (~30 tests) | Brief draft, §2 — **B1 #11 UNBLOCKED** | Sign §2, start Phase A |
 | **T4** | PG authorization semantics | **✅ CLOSED (commit `cb7af32`, 46 tests, SF-005 Critical fixed). 146 / 146 Tests.Security pass. PD-003 resolved via Backlog #14.** | Sprint done; pick next |
-| **T5** | Widget framework (~30 tests) | Brief draft, §2 + Phase B blocked by B1 #11 | Sign §2; Phase A can start without B1 |
+| **T5** | Widget framework (~30 tests) | Brief draft, §2 — Phase B **unblocked** | Sign §2; start after T3 |
 
 Briefs live in `docs/sprints/T{1..5}-*.md`.
 
@@ -55,7 +55,7 @@ Briefs live in `docs/sprints/T{1..5}-*.md`.
 
 | ID | Task | Prompt status | Unblocks |
 |---|---|---|---|
-| **B1 (#11)** | Introduce `BackendEmulationDbContext` per ADR-007 | Prompt ready (see session 2026-05-17 log) | T3, T5 Phase B |
+| **B1 (#11)** | Introduce `BackendEmulationDbContext` per ADR-007 | **✅ CLOSED** (commit `80974b0`, 2026-05-25) | — |
 | **#12** | Widget-creator skill MetricType drift fix | **✅ CLOSED** (commit `5eab846`, 2026-05-25) | — |
 | **#13** | `DatabaseInitializer` → `IDatabaseInitializer` interface (replace `virtual`) | Pending; spawned by PD-002 (T1 Phase C). Low priority, refactor only. | None |
 | **#14** | `WebFixture`: disable `LoginRateLimitMiddleware` in test pipeline | **✅ CLOSED.** Reflection-based clearing of middleware static state. 146/146 tests pass. | — |
@@ -149,6 +149,17 @@ Details: `docs/sprints/T2-gap-analysis.md`, `analysis/security-findings.md` (SF-
 
 ---
 
+## B1 #11 results — quick reference
+
+### B1 #11 — commit `80974b0` (2026-05-25)
+- **Files added:** `BackendEmulationDbContext.cs`, `Migrations/BackendEmulation/InitialBackendSchema` (+snapshot), `InfrastructureServiceExtensions` updated, `DatabaseInitializer` updated, `PostgresFixture` updated
+- **DoD:** 7/7 ✅
+- **Tests:** 247 / 247 pass (no regressions); 0 build warnings
+- **Unblocks:** T3 (fully), T5 Phase B
+- **Note:** Brief listed 11 DbSets, implementation includes 12 (all entities enumerated in brief §2 were included)
+
+---
+
 ## How to resume in a new session
 
 1. **Read this file first** (you're doing it).
@@ -157,8 +168,8 @@ Details: `docs/sprints/T2-gap-analysis.md`, `analysis/security-findings.md` (SF-
    "how we work" rules and project invariants.
 3. **Find current pending action:**
    - T1 fully closed; T4 fully closed; T2 fully closed.
-   - Pick next: **B1 #11** to unblock T3 / T5 Phase B (confirmed sequence:
-     B1 #11 → T3 → T5). #12 closed `5eab846`.
+   - Pick next: **T3** (Multi-tenancy). B1 #11 closed `80974b0`; #12 closed `5eab846`.
+     Confirmed sequence: T3 → T5.
    - Apply learning from PD-001..005 when authoring the next
      sprint's hand-off prompt:
      * Whitelist `partial class Program {}` for WAF-using sprints
@@ -173,9 +184,8 @@ Details: `docs/sprints/T2-gap-analysis.md`, `analysis/security-findings.md` (SF-
 4. **For each sprint to start:** architect (Max) signs `Decision:`
    lines in §2 of the brief, then Claude Code runs Phase A handover
    prompt from §7.
-5. **For B1 / #13:** copy the prompt from session log;
-   if lost, regenerate from ADR-007 / PD-002 respectively.
-   (#12 closed `5eab846`; #14 closed — see `docs/sprints/backlog-14-gap-note.md`)
+5. **For #13:** regenerate from PD-002 if needed (low priority refactor).
+   (B1 closed `80974b0`; #12 closed `5eab846`; #14 closed — see `docs/sprints/backlog-14-gap-note.md`)
 
 ---
 
@@ -222,5 +232,5 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: pick **B1 #11** (refactor that unblocks T3 / T5 Phase B), then **T3** (Multi-tenancy),
-then **T5** (Widget framework). Sequence confirmed 2026-05-25.
+Next: **T3** (Multi-tenancy integration). B1 #11 closed `80974b0`.
+Confirmed sequence: T3 → T5.
