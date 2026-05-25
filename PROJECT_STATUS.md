@@ -1,4 +1,4 @@
-# RTM View Shell — Project Status (session snapshot 2026-05-25)
+# RTM View Shell — Project Status (session snapshot 2026-05-26)
 
 **Purpose:** quick orientation for any contributor (human or agent)
 resuming work. Read this first, then drill into the linked artefacts.
@@ -46,7 +46,7 @@ check; see below).
 | **T3** | Multi-tenancy integration | **✅ CLOSED (commit `7b85269`, 2026-05-25). 36 new tests, no SF-008 (OQ-1 resolved). 204 Tests.Security, 285 solution-wide.** | Sprint done; pick next |
 | **T4** | PG authorization semantics | **✅ CLOSED (commit `cb7af32`, 46 tests, SF-005 Critical fixed). 146 / 146 Tests.Security pass. PD-003 resolved via Backlog #14.** | Sprint done; pick next |
 | **T5** | Widget framework | **✅ CLOSED (commit `fbf89fd`, 2026-05-25). 28 new tests, OQ-16 verified, no SF. 313 / 313 solution-wide pass.** | Sprint done |
-| **T6** | User Management + Audit Trail | **📋 BRIEF READY (2026-05-25). Phase A (USR-01..14, ~32 tests) + Phase B (AUD-01..08, ~22 tests). 3 production GAPs pre-identified.** | Hand off to Claude Code |
+| **T6** | User Management + Audit Trail | **✅ CLOSED (commits `22b087a`, `119b5a9`, 2026-05-26). Phase A: 35 tests (USR-01..14, GAP-T6-01..04 fixed). Phase B: 44 tests (AUD-01..08). 392 / 392 solution-wide pass.** | Sprint done |
 
 Briefs live in `docs/sprints/T{1..6}-*.md`.
 

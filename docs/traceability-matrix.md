@@ -102,7 +102,13 @@ Updated as part of every sprint close-out.
 
 | Req ID | ADR | Implementation | Test |
 |---|---|---|---|
-| AUD-01 | ADR-TBD | `AuditBehavior` + `AuditService` (separate DbContext, fire-and-forget) | `Tests.Security/Authorization/PermissionGroupAuditTests` (4 tests — PermissionGroup.Created/Updated/Deleted/PermissionChanged) |
+| AUD-01 | ADR-TBD | `AuditService` (separate `AuditDbContext`, immediate write) | `Tests.Security/Audit/AuditIsolationTests` (5 tests: TX rollback survival, separate context, schema, UoW independence) + `Authorization/PermissionGroupAuditTests` (4 tests) — T6 |
+| AUD-02 | ADR-TBD | `AuditDbContext` (INSERT-only, no Update/Delete exposed) | `Tests.Security/Audit/AuditInsertOnlyTests` (5 tests: no Update/Remove methods, no soft-delete, DbSet type) — T6 |
+| AUD-03 | ADR-TBD | `TenantSettings.AuditRetentionDays` (default 365) | `Tests.Security/Audit/AuditRetentionTests` (6 tests: property exists, default value, persistence, custom values) — T6 |
+| AUD-04 | ADR-TBD | `Program.cs` `UseForwardedHeaders()` + `ForwardedHeadersOptions` | `Tests.Security/Audit/AuditIpExtractionTests` (4 tests: X-Forwarded-For → audit IP, failed login, multiple IPs) — T6 |
+| AUD-05 | ADR-TBD | `UserManagementService` (User.Created/Updated/RoleChanged/PermissionGroupChanged/Deactivated/Activated) | `Tests.Security/Audit/AuditUserEventsTests` (6 tests: all User.* events emitted) — T6 |
+| AUD-06 | ADR-TBD | `GetAuditLogsQueryHandler` (role-aware scoping: Admin→own tenant, Superadmin→all or filtered) | `Tests.Security/Audit/AuditScopingTests` (9 tests: Admin own tenant, Superadmin all/filtered, pagination, event type filter, date range) — T6 |
+| AUD-08 | ADR-TBD | `IAuditLogRepository.CountAsync` (export boundary check ≤50k) | `Tests.Security/Audit/AuditExportTests` (8 tests: count methods, boundary checks, tenant filter) — T6 |
 
 ## Dashboards (DASH-01..05)
 
@@ -122,7 +128,19 @@ Updated as part of every sprint close-out.
 
 | Req ID | ADR | Implementation | Test |
 |---|---|---|---|
-| USR-09 | ADR-TBD | `UserManagementService.SetActiveAsync` (SecurityStamp on deactivation) | `Tests.Security/Authentication/ForceLogoutTests` (deactivation invalidates cookie; SecurityStamp patterns) — T2 |
+| USR-01 | ADR-TBD | `UserManagementService.CreateAsync` (Admin/Superadmin can create) | `Tests.Security/UserManagement/UserCreateTests` (8 tests: roles, required fields, email validation, temp password, audit) — T6 |
+| USR-02 | ADR-TBD | `UserManagementService.CreateAsync` (required: UserName, Email, Role, PG) | `Tests.Security/UserManagement/UserCreateTests` (required fields validation) — T6 |
+| USR-03 | ADR-TBD | `UserManagementService.CreateAsync` (generates temp password, sets MustChangePasswordAt) | `Tests.Security/UserManagement/UserCreateTests` (2 tests: password generated, audit event) — T6 |
+| USR-04 | ADR-TBD | `CreateUserRequestValidator` (email format + uniqueness) | `Tests.Security/UserManagement/UserCreateTests` (email validation test) — T6 |
+| USR-05 | ADR-TBD | `UserManagementService.CreateAsync` (Admin cannot create Superadmin or cross-tenant) | `Tests.Security/UserManagement/UserCreateTests` (2 tests: Superadmin guard, cross-tenant guard) — T6 |
+| USR-06 | ADR-TBD | `UserManagementService.UpdateAsync` (editable fields: name, email, role, PG, IsActive, locale) | `Tests.Security/UserManagement/UserUpdateTests` (6 tests: field updates, role change audit, PG change audit) — T6 |
+| USR-07 | ADR-TBD | `UserManagementService.UpdateAsync` (role change → User.RoleChanged audit with old/new) | `Tests.Security/UserManagement/UserUpdateTests` + `Audit/AuditUserEventsTests` — T6 |
+| USR-08 | ADR-TBD | `UserManagementService.UpdateAsync` (Admin cannot change own role) | `Tests.Security/UserManagement/UserUpdateTests` (self-role-change guard test) — T6 |
+| USR-09 | ADR-TBD | `UserManagementService.SetActiveAsync` (SecurityStamp on deactivation) | `Tests.Security/Authentication/ForceLogoutTests` (4 tests) + `UserManagement/UserDeactivationTests` (7 tests: audit, SecurityStamp, token revocation) — T2/T6 |
+| USR-11 | ADR-TBD | `UserManagementService.AdminResetPasswordAsync` (one-time token, 24h TTL) | `Tests.Security/UserManagement/PasswordResetTests` (7 tests: admin reset, self-reset, uniform response) — T6 |
+| USR-12 | ADR-TBD | `UserManagementService.SelfResetPasswordAsync` (uniform response) | `Tests.Security/UserManagement/PasswordResetTests` (BFP-03 uniform response test) — T6 |
+| USR-13 | ADR-TBD | `GetUsersQuery` (server-side pagination, filter by role/PG/active) | `Tests.Security/UserManagement/UserListTests` (7 tests: pagination, filtering, sorting) — T6 |
+| USR-14 | ADR-TBD | `GetUsersQuery` (Admin sees own tenant, Superadmin sees all/filtered) | `Tests.Security/UserManagement/UserListTests` (tenant scoping tests) — T6 |
 
 ## i18n / l10n (I18N-01..06)
 
@@ -153,25 +171,27 @@ Updated as part of every sprint close-out.
 
 ## Coverage summary
 
-After T1 Phase A + Phase B + Phase C + T4 + T2 + T3 + T5:
+After T1 Phase A + Phase B + Phase C + T4 + T2 + T3 + T5 + T6:
 
-- **Requirements with regression-safety tests:** ARCH-01 (extended), ARCH-03, ARCH-04 (positive + negative), ARCH-05, ARCH-06 (positive + negative + transition), ARCH-08, ARCH-09, AUTH-WEB-01, AUTH-WEB-02, AUTH-WEB-03, AUTH-WEB-04, AUTH-API-01..06, BFP-01..04, PWD-01..05, LICENSE-SESSION (positive + negative), LIC-01 (LICENSE-USER), PG-01, PG-03, PG-04, PG-06, PG-07, AUD-01, USR-09, WGT-01..04
-- **Phase A tests:** 32 passing
-- **Phase B tests:** 30 passing
-- **Phase C tests:** 18 passing
+- **Requirements with regression-safety tests:** ARCH-01 (extended), ARCH-03, ARCH-04 (positive + negative), ARCH-05, ARCH-06 (positive + negative + transition), ARCH-08, ARCH-09, AUTH-WEB-01..04, AUTH-API-01..06, BFP-01..04, PWD-01..05, LICENSE-SESSION (positive + negative), LIC-01 (LICENSE-USER), PG-01, PG-03, PG-04, PG-06, PG-07, AUD-01..06, AUD-08, USR-01..09, USR-11..14, WGT-01..04
+- **T1 Phase A tests:** 32 passing
+- **T1 Phase B tests:** 30 passing
+- **T1 Phase C tests:** 18 passing
 - **T4 Authorization tests:** 46 passing (9 test files in Authorization/)
 - **T2 Licensing + Auth tests:** 20 passing
-- **T3 Multi-tenancy tests:** 36 passing (6 files: NgcIsolation, TenantResolution, PasswordPolicy, RedisKeyPrefix, JwtClaims, ConfigWriteProtection)
-- **T5 Widget framework tests:** 28 passing (4 files: WidgetCatalogTests, DashboardWidgetTests, RtsGridLifecycleTests, SignalRTenantGuardTests)
-- **Total `Tests.Security` count:** 232 passing
-- **Total solution test count:** 313 passing (1+72+8+232)
+- **T3 Multi-tenancy tests:** 36 passing (6 files)
+- **T5 Widget framework tests:** 28 passing (4 files)
+- **T6 Phase A (User Management) tests:** 35 passing (5 files: UserCreate, UserUpdate, UserDeactivation, PasswordReset, UserList)
+- **T6 Phase B (Audit Trail) tests:** 44 passing (7 files: AuditInsertOnly, AuditIsolation, AuditIpExtraction, AuditUserEvents, AuditScoping, AuditExport, AuditRetention)
+- **Total `Tests.Security` count:** 311 passing
+- **Total solution test count:** 392 passing (1+72+8+311)
 
 Remaining sections to be populated:
 - 2FA-01..07, SSO-01..04 (future)
 - PG-02, PG-05 (T4+ — additional PG semantics)
-- AUD-02..08 (audit retention, export, etc.) — future
+- AUD-07 (audit CSV export async job — stub only)
 - DASH-01..05 (partial by T5 DashboardWidget tests)
 - ARCH-02, ARCH-07, ARCH-10 (future)
-- USR-01..08, USR-10..14, I18N-01..06, NFR, DEPLOY, CODE, DATA (TBD)
+- USR-10 (deleted user handling), I18N-01..06, NFR, DEPLOY, CODE, DATA (TBD)
 
-Updated: 2026-05-25 (T5 — Widget framework; WGT-01..04, ARCH-09; 232/232 Security tests passing)
+Updated: 2026-05-26 (T6 — User Management + Audit Trail; USR-01..14, AUD-01..08; 311/311 Security tests passing)
