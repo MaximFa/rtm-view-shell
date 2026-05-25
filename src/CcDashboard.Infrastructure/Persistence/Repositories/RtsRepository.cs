@@ -5,7 +5,7 @@ using Npgsql;
 
 namespace CcDashboard.Infrastructure.Persistence.Repositories;
 
-public class RtsRepository(AppDbContext db) : IRtsRepository
+public class RtsRepository(BackendEmulationDbContext db) : IRtsRepository
 {
     public async Task<int> InsertColumnsSetAsync(RtsUserGridColumnsSet columnsSet, CancellationToken ct = default)
     {

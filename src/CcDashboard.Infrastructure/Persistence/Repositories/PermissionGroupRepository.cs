@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CcDashboard.Infrastructure.Persistence.Repositories;
 
-public class PermissionGroupRepository(AppDbContext db) : IPermissionGroupRepository
+public class PermissionGroupRepository(AppDbContext db, BackendEmulationDbContext beDb) : IPermissionGroupRepository
 {
     public Task<PermissionGroup?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => db.PermissionGroups
@@ -55,25 +55,25 @@ public class PermissionGroupRepository(AppDbContext db) : IPermissionGroupReposi
             .Select(d => new AvailableEntityDto(d.Id, d.Name))
             .ToListAsync(ct);
 
-        var queues = await db.NgcQueues.IgnoreQueryFilters()
+        var queues = await beDb.NgcQueues.IgnoreQueryFilters()
             .Where(q => q.TenantId == tenantId && q.IsActive)
             .OrderBy(q => q.Name)
             .Select(q => new AvailableEntityDto(q.Id, q.Name))
             .ToListAsync(ct);
 
-        var agentGroups = await db.NgcAgentGroups.IgnoreQueryFilters()
+        var agentGroups = await beDb.NgcAgentGroups.IgnoreQueryFilters()
             .Where(s => s.TenantId == tenantId && s.IsActive)
             .OrderBy(s => s.Name)
             .Select(s => new AvailableEntityDto(s.Id, s.Name))
             .ToListAsync(ct);
 
-        var businessUnits = await db.NgcBusinessUnits.IgnoreQueryFilters()
+        var businessUnits = await beDb.NgcBusinessUnits.IgnoreQueryFilters()
             .Where(b => b.TenantId == tenantId)
             .OrderBy(b => b.BusinessUnitName)
             .Select(b => new AvailableEntityIntDto(b.BusinessUnitId, b.BusinessUnitName ?? $"BU {b.BusinessUnitId}"))
             .ToListAsync(ct);
 
-        var supergroups = await db.NgcSupergroups.IgnoreQueryFilters()
+        var supergroups = await beDb.NgcSupergroups.IgnoreQueryFilters()
             .Where(s => s.TenantId == tenantId)
             .OrderBy(s => s.SupergroupName)
             .Select(s => new AvailableEntityIntDto(s.SupergroupId, s.SupergroupName ?? $"SG {s.SupergroupId}"))
@@ -100,7 +100,7 @@ public class PermissionGroupRepository(AppDbContext db) : IPermissionGroupReposi
             .Select(pq => pq.ObjectId)
             .ToListAsync(ct);
 
-        var queues = await db.NgcQueues.IgnoreQueryFilters()
+        var queues = await beDb.NgcQueues.IgnoreQueryFilters()
             .Where(q => q.TenantId == tenantId && queueIds.Contains(q.Id))
             .OrderBy(q => q.Name)
             .Select(q => new AvailableEntityDto(q.Id, q.Name))
@@ -111,7 +111,7 @@ public class PermissionGroupRepository(AppDbContext db) : IPermissionGroupReposi
             .Select(ps => ps.ObjectId)
             .ToListAsync(ct);
 
-        var agentGroups = await db.NgcAgentGroups.IgnoreQueryFilters()
+        var agentGroups = await beDb.NgcAgentGroups.IgnoreQueryFilters()
             .Where(s => skillIds.Contains(s.Id))
             .OrderBy(s => s.Name)
             .Select(s => new AvailableEntityDto(s.Id, s.Name))
@@ -122,7 +122,7 @@ public class PermissionGroupRepository(AppDbContext db) : IPermissionGroupReposi
             .Select(pb => pb.BusinessUnitId)
             .ToListAsync(ct);
 
-        var businessUnits = await db.NgcBusinessUnits.IgnoreQueryFilters()
+        var businessUnits = await beDb.NgcBusinessUnits.IgnoreQueryFilters()
             .Where(b => b.TenantId == tenantId && buIds.Contains(b.BusinessUnitId))
             .OrderBy(b => b.BusinessUnitName)
             .Select(b => new AvailableEntityIntDto(b.BusinessUnitId, b.BusinessUnitName ?? $"BU {b.BusinessUnitId}"))
@@ -133,7 +133,7 @@ public class PermissionGroupRepository(AppDbContext db) : IPermissionGroupReposi
             .Select(ps => ps.SupergroupId)
             .ToListAsync(ct);
 
-        var supergroups = await db.NgcSupergroups.IgnoreQueryFilters()
+        var supergroups = await beDb.NgcSupergroups.IgnoreQueryFilters()
             .Where(s => s.TenantId == tenantId && sgIds.Contains(s.SupergroupId))
             .OrderBy(s => s.SupergroupName)
             .Select(s => new AvailableEntityIntDto(s.SupergroupId, s.SupergroupName ?? $"SG {s.SupergroupId}"))

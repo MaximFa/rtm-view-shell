@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -11,94 +10,65 @@ namespace CcDashboard.Infrastructure.Migrations.BackendEmulation
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "RTSGrid_Cell",
-                columns: table => new
-                {
-                    CellId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    RowId = table.Column<int>(type: "integer", nullable: false),
-                    ColumnId = table.Column<int>(type: "integer", nullable: false),
-                    ColNumber = table.Column<int>(type: "integer", nullable: true),
-                    UnionId = table.Column<int>(type: "integer", nullable: true),
-                    StyleId = table.Column<int>(type: "integer", nullable: true),
-                    CellType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    Value = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    Tooltip = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    OnClick = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    ThresholdSetId = table.Column<int>(type: "integer", nullable: true),
-                    NewRowId = table.Column<int>(type: "integer", nullable: true),
-                    OldRowId = table.Column<int>(type: "integer", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RTSGrid_Cell", x => x.CellId);
-                });
+            // Use IF NOT EXISTS to handle databases where tables may already exist
+            // from AppDbContext migrations or previous runs.
+            migrationBuilder.Sql(@"
+                CREATE TABLE IF NOT EXISTS ""RTSGrid_Grid"" (
+                    ""GridId"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""UnionId"" integer,
+                    ""StyleId"" integer,
+                    ""Title"" character varying(100) NOT NULL,
+                    ""ThresholdScript"" text,
+                    CONSTRAINT ""PK_RTSGrid_Grid"" PRIMARY KEY (""GridId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "RTSGrid_Column",
-                columns: table => new
-                {
-                    ColumnId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    GridId = table.Column<int>(type: "integer", nullable: false),
-                    ColumnNumber = table.Column<int>(type: "integer", nullable: false),
-                    CellTemplateId = table.Column<int>(type: "integer", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RTSGrid_Column", x => x.ColumnId);
-                });
+                CREATE TABLE IF NOT EXISTS ""RTSGrid_Column"" (
+                    ""ColumnId"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""GridId"" integer NOT NULL,
+                    ""ColumnNumber"" integer NOT NULL,
+                    ""CellTemplateId"" integer,
+                    CONSTRAINT ""PK_RTSGrid_Column"" PRIMARY KEY (""ColumnId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "RTSGrid_Grid",
-                columns: table => new
-                {
-                    GridId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    UnionId = table.Column<int>(type: "integer", nullable: true),
-                    StyleId = table.Column<int>(type: "integer", nullable: true),
-                    Title = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    ThresholdScript = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RTSGrid_Grid", x => x.GridId);
-                });
+                CREATE TABLE IF NOT EXISTS ""RTSGrid_Row"" (
+                    ""RowId"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""GridId"" integer NOT NULL,
+                    ""RowNumber"" integer NOT NULL,
+                    ""UnionId"" integer,
+                    ""StyleId"" integer,
+                    ""ThresholdScript"" text,
+                    ""OldRowId"" integer,
+                    CONSTRAINT ""PK_RTSGrid_Row"" PRIMARY KEY (""RowId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "RTSGrid_Row",
-                columns: table => new
-                {
-                    RowId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    GridId = table.Column<int>(type: "integer", nullable: false),
-                    RowNumber = table.Column<int>(type: "integer", nullable: false),
-                    UnionId = table.Column<int>(type: "integer", nullable: true),
-                    StyleId = table.Column<int>(type: "integer", nullable: true),
-                    ThresholdScript = table.Column<string>(type: "text", nullable: true),
-                    OldRowId = table.Column<int>(type: "integer", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RTSGrid_Row", x => x.RowId);
-                });
+                CREATE TABLE IF NOT EXISTS ""RTSGrid_Cell"" (
+                    ""CellId"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""RowId"" integer NOT NULL,
+                    ""ColumnId"" integer NOT NULL,
+                    ""ColNumber"" integer,
+                    ""UnionId"" integer,
+                    ""StyleId"" integer,
+                    ""CellType"" character varying(50),
+                    ""Value"" character varying(500),
+                    ""Tooltip"" character varying(500),
+                    ""OnClick"" character varying(500),
+                    ""ThresholdSetId"" integer,
+                    ""NewRowId"" integer,
+                    ""OldRowId"" integer,
+                    CONSTRAINT ""PK_RTSGrid_Cell"" PRIMARY KEY (""CellId"")
+                );
+            ");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "RTSGrid_Cell");
-
-            migrationBuilder.DropTable(
-                name: "RTSGrid_Column");
-
-            migrationBuilder.DropTable(
-                name: "RTSGrid_Grid");
-
-            migrationBuilder.DropTable(
-                name: "RTSGrid_Row");
+            migrationBuilder.Sql(@"
+                DROP TABLE IF EXISTS ""RTSGrid_Cell"";
+                DROP TABLE IF EXISTS ""RTSGrid_Row"";
+                DROP TABLE IF EXISTS ""RTSGrid_Column"";
+                DROP TABLE IF EXISTS ""RTSGrid_Grid"";
+            ");
         }
     }
 }

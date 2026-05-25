@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CcDashboard.Infrastructure.Persistence.Repositories;
 
-public class NgcSiteRepository(AppDbContext db) : INgcSiteRepository
+public class NgcSiteRepository(BackendEmulationDbContext db) : INgcSiteRepository
 {
     public async Task<IReadOnlyList<NgcSite>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default)
         => await db.NgcSites.AsNoTracking().IgnoreQueryFilters()
@@ -23,7 +23,7 @@ public class NgcSiteRepository(AppDbContext db) : INgcSiteRepository
     public void Delete(NgcSite site) => db.NgcSites.Remove(site);
 }
 
-public class NgcBusinessUnitRepository(AppDbContext db) : INgcBusinessUnitRepository
+public class NgcBusinessUnitRepository(BackendEmulationDbContext db) : INgcBusinessUnitRepository
 {
     public async Task<IReadOnlyList<NgcBusinessUnit>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default)
         => await db.NgcBusinessUnits.AsNoTracking().IgnoreQueryFilters()
@@ -47,7 +47,7 @@ public class NgcBusinessUnitRepository(AppDbContext db) : INgcBusinessUnitReposi
     public void Delete(NgcBusinessUnit bu) => db.NgcBusinessUnits.Remove(bu);
 }
 
-public class NgcSupergroupRepository(AppDbContext db) : INgcSupergroupRepository
+public class NgcSupergroupRepository(BackendEmulationDbContext db) : INgcSupergroupRepository
 {
     public async Task<IReadOnlyList<NgcSupergroup>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default)
         => await db.NgcSupergroups.AsNoTracking().IgnoreQueryFilters()
@@ -68,7 +68,7 @@ public class NgcSupergroupRepository(AppDbContext db) : INgcSupergroupRepository
     public void Delete(NgcSupergroup sg) => db.NgcSupergroups.Remove(sg);
 }
 
-public class RtsGridMetricRepository(AppDbContext db) : IRtsGridMetricRepository
+public class RtsGridMetricRepository(BackendEmulationDbContext db) : IRtsGridMetricRepository
 {
     public async Task<IReadOnlyList<RtsGridMetric>> GetAllAsync(CancellationToken ct = default)
         => await db.RtsGridMetrics.AsNoTracking()
@@ -85,7 +85,7 @@ public class RtsGridMetricRepository(AppDbContext db) : IRtsGridMetricRepository
     public void Delete(RtsGridMetric metric) => db.RtsGridMetrics.Remove(metric);
 }
 
-public class NgcQueueRepository(AppDbContext db) : INgcQueueRepository
+public class NgcQueueRepository(BackendEmulationDbContext db) : INgcQueueRepository
 {
     public async Task<IReadOnlyList<NgcQueue>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default)
         => await db.NgcQueues.AsNoTracking().IgnoreQueryFilters()
@@ -95,7 +95,7 @@ public class NgcQueueRepository(AppDbContext db) : INgcQueueRepository
             .ToListAsync(ct);
 }
 
-public class NgcAgentGroupRepository(AppDbContext db) : INgcAgentGroupRepository
+public class NgcAgentGroupRepository(BackendEmulationDbContext db) : INgcAgentGroupRepository
 {
     public async Task<IReadOnlyList<NgcAgentGroup>> GetAllByTenantAsync(Guid? tenantId, CancellationToken ct = default)
         => await db.NgcAgentGroups.AsNoTracking().IgnoreQueryFilters()

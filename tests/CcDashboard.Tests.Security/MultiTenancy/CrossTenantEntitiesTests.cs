@@ -180,46 +180,6 @@ public class CrossTenantEntitiesTests
 
     #endregion
 
-    #region RtsGridMetric - No GQF
-
-    [Fact]
-    [Trait("Req", "ARCH-05")]
-    public async Task GetRtsGridMetrics_FromAnyContext_ReturnsAllMetrics()
-    {
-        // Arrange
-        await using var dbTenantA = _fixture.CreateDbContext(_fixture.TenantAId);
-        await using var dbTenantB = _fixture.CreateDbContext(_fixture.TenantBId);
-
-        // Act
-        var metricsFromA = await dbTenantA.RtsGridMetrics.ToListAsync();
-        var metricsFromB = await dbTenantB.RtsGridMetrics.ToListAsync();
-
-        // Assert
-        metricsFromA.Should().NotBeEmpty("RTSGrid_Metric should have at least one seeded metric");
-        metricsFromB.Should().NotBeEmpty("RTSGrid_Metric should be visible from any tenant");
-
-        metricsFromA.Select(m => m.MetricId).Should().BeEquivalentTo(metricsFromB.Select(m => m.MetricId),
-            "Same metrics should be returned from any tenant context");
-    }
-
-    [Fact]
-    [Trait("Req", "ARCH-05")]
-    public async Task RtsGridMetric_HasNoTenantId_IsPlatformWide()
-    {
-        // Arrange
-        await using var db = _fixture.CreateDbContext(_fixture.TenantAId);
-
-        // Act
-        var metrics = await db.RtsGridMetrics.ToListAsync();
-
-        // Assert
-        metrics.Should().NotBeEmpty();
-        // RtsGridMetric does not have a TenantId property — it's cross-tenant by design
-        // This test verifies the entity type configuration is correct
-    }
-
-    #endregion
-
     #region Contrast: Multi-tenant entities ARE filtered
 
     [Fact]
@@ -237,7 +197,6 @@ public class CrossTenantEntitiesTests
         var tenants = await dbTenantA.Tenants.ToListAsync();
         var roles = await dbTenantA.Roles.ToListAsync();
         var widgets = await dbTenantA.WidgetCatalogItems.ToListAsync();
-        var metrics = await dbTenantA.RtsGridMetrics.ToListAsync();
 
         // Assert: Multi-tenant entities only show current tenant's data
         users.Should().OnlyContain(u => u.TenantId == _fixture.TenantAId, "Users are tenant-scoped");
@@ -248,7 +207,6 @@ public class CrossTenantEntitiesTests
         tenants.Should().HaveCountGreaterThanOrEqualTo(3, "Tenants are platform-wide");
         roles.Should().HaveCountGreaterThanOrEqualTo(4, "Roles are platform-wide");
         widgets.Should().NotBeEmpty("WidgetCatalog is platform-wide");
-        metrics.Should().NotBeEmpty("RtsGridMetric is platform-wide");
     }
 
     #endregion

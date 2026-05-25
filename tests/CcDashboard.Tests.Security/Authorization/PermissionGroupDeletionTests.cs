@@ -67,7 +67,7 @@ public class PermissionGroupDeletionTests
         db.Users.Add(isolatedUser);
         await db.SaveChangesAsync();
 
-        var repo = new PermissionGroupRepository(db);
+        var repo = new PermissionGroupRepository(db, _fixture.CreateBackendEmulationDbContext());
         var apiHook = new Mock<IConfigurationApiHook>();
 
         var handler = new DeletePermissionGroupCommandHandler(repo, apiHook.Object);
@@ -105,7 +105,7 @@ public class PermissionGroupDeletionTests
         db.PermissionGroups.Add(emptyPg);
         await db.SaveChangesAsync();
 
-        var repo = new PermissionGroupRepository(db);
+        var repo = new PermissionGroupRepository(db, _fixture.CreateBackendEmulationDbContext());
         var apiHook = new Mock<IConfigurationApiHook>();
 
         var handler = new DeletePermissionGroupCommandHandler(repo, apiHook.Object);
@@ -135,7 +135,7 @@ public class PermissionGroupDeletionTests
         // Arrange
         await using var db = _fixture.CreateDbContext(_fixture.TenantAId);
 
-        var repo = new PermissionGroupRepository(db);
+        var repo = new PermissionGroupRepository(db, _fixture.CreateBackendEmulationDbContext());
         var apiHook = new Mock<IConfigurationApiHook>();
 
         var handler = new DeletePermissionGroupCommandHandler(repo, apiHook.Object);
@@ -192,7 +192,7 @@ public class PermissionGroupDeletionTests
         }
         await db.SaveChangesAsync();
 
-        var repo = new PermissionGroupRepository(db);
+        var repo = new PermissionGroupRepository(db, _fixture.CreateBackendEmulationDbContext());
         var apiHook = new Mock<IConfigurationApiHook>();
 
         var handler = new DeletePermissionGroupCommandHandler(repo, apiHook.Object);
@@ -247,7 +247,7 @@ public class PermissionGroupDeletionTests
         }
         await db.SaveChangesAsync();
 
-        var repo = new PermissionGroupRepository(db);
+        var repo = new PermissionGroupRepository(db, _fixture.CreateBackendEmulationDbContext());
 
         // Act
         var count = await repo.CountUsersAsync(isolatedPgId, CancellationToken.None);

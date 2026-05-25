@@ -24,7 +24,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
 
         var handler = new SaveAgentGridRtsCommandHandler(repo, apiHook);
         var command = new SaveAgentGridRtsCommand(
@@ -66,7 +66,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange: Create initial grid
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
         var handler = new SaveAgentGridRtsCommandHandler(repo, apiHook);
 
         var createCommand = new SaveAgentGridRtsCommand(
@@ -105,7 +105,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange: Create grid with 2 columns
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
         var handler = new SaveAgentGridRtsCommandHandler(repo, apiHook);
 
         var createCommand = new SaveAgentGridRtsCommand(
@@ -141,7 +141,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange: Create grid with 1 column
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
         var handler = new SaveAgentGridRtsCommandHandler(repo, apiHook);
 
         var createCommand = new SaveAgentGridRtsCommand(
@@ -181,7 +181,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
         var handler = new SaveQueueGridRtsCommandHandler(repo, apiHook);
 
         var command = new SaveQueueGridRtsCommand(
@@ -218,7 +218,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange: Create initial grid
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
         var handler = new SaveQueueGridRtsCommandHandler(repo, apiHook);
 
         var createCommand = new SaveQueueGridRtsCommand(
@@ -250,7 +250,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange: Create grid with header row
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
         var handler = new SaveQueueGridRtsCommandHandler(repo, apiHook);
 
         var createCommand = new SaveQueueGridRtsCommand(
@@ -292,7 +292,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange: Create grid
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
 
         var createHandler = new SaveAgentGridRtsCommandHandler(repo, apiHook);
         var createResult = await createHandler.Handle(new SaveAgentGridRtsCommand(
@@ -321,7 +321,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange: Create queue grid
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
 
         var createHandler = new SaveQueueGridRtsCommandHandler(repo, apiHook);
         var createResult = await createHandler.Handle(new SaveQueueGridRtsCommand(
@@ -351,7 +351,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
         var handler = new SaveAgentGridRtsCommandHandler(repo, apiHook);
 
         // Act
@@ -372,7 +372,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
         var handler = new SaveQueueGridRtsCommandHandler(repo, apiHook);
 
         // Act
@@ -394,7 +394,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
 
         var createHandler = new SaveAgentGridRtsCommandHandler(repo, apiHook);
         var result = await createHandler.Handle(new SaveAgentGridRtsCommand(
@@ -421,7 +421,7 @@ public class RtsGridLifecycleTests(PostgresFixture postgres)
         // Arrange
         var apiHook = Substitute.For<IConfigurationApiHook>();
         var db = postgres.CreateDbContext(postgres.TenantAId);
-        var repo = new RtsRepository(db);
+        var repo = new RtsRepository(postgres.CreateBackendEmulationDbContext());
 
         var createHandler = new SaveQueueGridRtsCommandHandler(repo, apiHook);
         var result = await createHandler.Handle(new SaveQueueGridRtsCommand(

@@ -22,26 +22,11 @@ public class AppDbContext(
     public DbSet<DashboardWidget> DashboardWidgets => Set<DashboardWidget>();
     public DbSet<WidgetCatalogItem> WidgetCatalogItems => Set<WidgetCatalogItem>();
     public DbSet<WidgetTemplate> WidgetTemplates => Set<WidgetTemplate>();
-    // Reference tables (ngc_queues, ngc_AgentGroups)
-    public DbSet<NgcQueue> NgcQueues => Set<NgcQueue>();
-    public DbSet<NgcAgentGroup> NgcAgentGroups => Set<NgcAgentGroup>();
     // PG permission join tables
     public DbSet<PgQueue> PgQueues => Set<PgQueue>();
     public DbSet<PgSkill> PgSkills => Set<PgSkill>();
     public DbSet<PgBusinessUnit> PgBusinessUnits => Set<PgBusinessUnit>();
     public DbSet<PgSupergroup> PgSupergroups => Set<PgSupergroup>();
-    // NGC Configuration tables
-    public DbSet<NgcSite> NgcSites => Set<NgcSite>();
-    public DbSet<NgcBusinessUnit> NgcBusinessUnits => Set<NgcBusinessUnit>();
-    public DbSet<NgcSupergroup> NgcSupergroups => Set<NgcSupergroup>();
-    public DbSet<NgcBusinessUnitQueueClassification> NgcBusinessUnitQueueClassifications => Set<NgcBusinessUnitQueueClassification>();
-    public DbSet<NgcBusinessUnitSupergroup> NgcBusinessUnitSupergroups => Set<NgcBusinessUnitSupergroup>();
-    public DbSet<NgcSupergroupAgentgroup> NgcSupergroupAgentgroups => Set<NgcSupergroupAgentgroup>();
-    public DbSet<RtsGridMetric> RtsGridMetrics => Set<RtsGridMetric>();
-    // RTS UserGrid tables (compatibility with external SignalR server)
-    public DbSet<RtsUserGridGrid> RtsUserGridGrids => Set<RtsUserGridGrid>();
-    public DbSet<RtsUserGridColumnsSet> RtsUserGridColumnsSets => Set<RtsUserGridColumnsSet>();
-    public DbSet<RtsUserGridColumn> RtsUserGridColumns => Set<RtsUserGridColumn>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<TwoFactorCode> TwoFactorCodes => Set<TwoFactorCode>();
@@ -196,10 +181,6 @@ public class AppDbContext(
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
-        // Reference tables (tenant-scoped resource catalogue synced from CC platform)
-        ConfigureReferenceTable<NgcQueue>(mb, "NGC_Queues");
-        ConfigureReferenceTable<NgcAgentGroup>(mb, "NGC_AgentGroups");
-
         // PG resource join tables
         mb.Entity<PgQueue>(e => { e.ToTable("pg_queues"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
         mb.Entity<PgSkill>(e => { e.ToTable("pg_skills"); e.HasKey(x => new { x.PermissionGroupId, x.ObjectId }); e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId); });
@@ -245,143 +226,5 @@ public class AppDbContext(
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
-        // NGC Configuration tables
-        mb.Entity<NgcSite>(e =>
-        {
-            e.ToTable("NGC_Site");
-            e.HasKey(x => x.SiteId);
-            e.Property(x => x.SiteId).HasMaxLength(50);
-            e.Property(x => x.SiteName).HasMaxLength(200);
-            e.Property(x => x.Description).HasMaxLength(500);
-            e.Property(x => x.TimeZone).HasMaxLength(10);
-            e.Property(x => x.ClearTime).HasMaxLength(5);
-            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
-        });
-
-        mb.Entity<NgcBusinessUnit>(e =>
-        {
-            e.ToTable("NGC_BusinessUnit");
-            e.HasKey(x => x.BusinessUnitId);
-            e.Property(x => x.BusinessUnitId).UseIdentityAlwaysColumn();
-            e.Property(x => x.BusinessUnitName).HasMaxLength(100);
-            e.Property(x => x.CreatedBy).HasMaxLength(100);
-            e.Property(x => x.SiteId).HasMaxLength(50);
-            e.HasOne(x => x.Site)
-                .WithMany(x => x.BusinessUnits)
-                .HasForeignKey(x => x.SiteId)
-                .HasPrincipalKey(x => x.SiteId)
-                .IsRequired(false)
-                .OnDelete(DeleteBehavior.SetNull);
-            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
-        });
-
-        mb.Entity<NgcSupergroup>(e =>
-        {
-            e.ToTable("NGC_Supergroup");
-            e.HasKey(x => x.SupergroupId);
-            e.Property(x => x.SupergroupId).UseIdentityAlwaysColumn();
-            e.Property(x => x.SupergroupName).HasMaxLength(200);
-            e.Property(x => x.Description).HasMaxLength(500);
-            e.Property(x => x.CreatedBy).HasMaxLength(100);
-            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
-        });
-
-        mb.Entity<NgcBusinessUnitQueueClassification>(e =>
-        {
-            e.ToTable("NGC_BusinessUnitQueueClassification");
-            e.HasKey(x => new { x.BusinessUnitId, x.QueueId });
-            e.Property(x => x.QueueId).HasMaxLength(100);
-            e.Property(x => x.ClassificationId).HasMaxLength(100);
-            e.Property(x => x.CreatedBy).HasMaxLength(100);
-            e.HasOne(x => x.BusinessUnit).WithMany(x => x.QueueAssignments)
-                .HasForeignKey(x => x.BusinessUnitId);
-            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
-        });
-
-        mb.Entity<NgcBusinessUnitSupergroup>(e =>
-        {
-            e.ToTable("NGC_BusinessUnitSupergroup");
-            e.HasKey(x => new { x.BusinessUnitId, x.SupergroupId });
-            e.Property(x => x.CreatedBy).HasMaxLength(100);
-            e.HasOne(x => x.BusinessUnit).WithMany(x => x.SupergroupAssignments)
-                .HasForeignKey(x => x.BusinessUnitId);
-            e.HasOne(x => x.Supergroup).WithMany(x => x.BusinessUnitAssignments)
-                .HasForeignKey(x => x.SupergroupId);
-            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
-        });
-
-        mb.Entity<NgcSupergroupAgentgroup>(e =>
-        {
-            e.ToTable("NGC_SupergroupAgentgroup");
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Id).UseIdentityAlwaysColumn();
-            e.Property(x => x.AgentgroupId).HasMaxLength(100);
-            e.Property(x => x.CreatedBy).HasMaxLength(100);
-            e.HasOne(x => x.Supergroup).WithMany(x => x.AgentGroupAssignments)
-                .HasForeignKey(x => x.SupergroupId);
-            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
-        });
-
-        mb.Entity<RtsGridMetric>(e =>
-        {
-            e.ToTable("RTSGrid_Metric");
-            e.HasKey(x => x.MetricId);
-            e.Property(x => x.MetricId).HasMaxLength(100);
-            e.Property(x => x.DataType).HasMaxLength(50).IsRequired();
-            e.Property(x => x.MetricFunction).HasMaxLength(200).IsRequired();
-            e.Property(x => x.MetricParameter).HasMaxLength(200).IsRequired();
-            e.Property(x => x.MetricFormat).HasMaxLength(100);
-            e.Property(x => x.DefaultValue).HasMaxLength(100);
-            e.Property(x => x.ValueType).HasMaxLength(20).HasDefaultValue("String");
-            e.Property(x => x.MetricType).HasMaxLength(20).HasDefaultValue("Agent");
-            // Cross-tenant entity: no GQF, metrics are shared across all tenants
-        });
-
-        // RTS UserGrid tables (compatibility with external SignalR server)
-        mb.Entity<RtsUserGridGrid>(e =>
-        {
-            e.ToTable("RTSUserGrid_Grid");
-            e.HasKey(x => x.GridId);
-            e.Property(x => x.GridId).UseIdentityAlwaysColumn();
-            e.Property(x => x.Title).HasMaxLength(100).IsRequired();
-            e.Property(x => x.RowsFilter).HasMaxLength(300);
-            e.Property(x => x.RowsFilterNew).HasMaxLength(300);
-            e.Property(x => x.TextDirection).HasMaxLength(5);
-            e.Property(x => x.ThresholdScript).HasColumnType("text");
-            e.Property(x => x.NoRecordsText).HasColumnType("text");
-        });
-
-        mb.Entity<RtsUserGridColumnsSet>(e =>
-        {
-            e.ToTable("RTSUserGrid_ColumnsSet");
-            e.HasKey(x => x.ColumnsSetId);
-            e.Property(x => x.ColumnsSetId).UseIdentityAlwaysColumn();
-            e.Property(x => x.Title).HasMaxLength(100).IsRequired();
-            e.Property(x => x.Description).HasColumnType("text");
-            e.Property(x => x.Direction).HasMaxLength(10);
-        });
-
-        mb.Entity<RtsUserGridColumn>(e =>
-        {
-            e.ToTable("RTSUserGrid_Column");
-            e.HasKey(x => x.ColumnId);
-            e.Property(x => x.ColumnId).UseIdentityAlwaysColumn();
-            e.Property(x => x.Title).HasMaxLength(100).IsRequired();
-            e.Property(x => x.MetricId).HasMaxLength(100);
-        });
-    }
-
-    private void ConfigureReferenceTable<T>(ModelBuilder mb, string table)
-        where T : class, new()
-    {
-        mb.Entity<T>(e =>
-        {
-            e.ToTable(table);
-            e.Property<Guid>("Id").ValueGeneratedNever();
-            e.HasKey("Id");
-            e.Property<string>("ExternalId").HasMaxLength(100).IsRequired();
-            e.Property<string>("Name").HasMaxLength(200).IsRequired();
-            e.HasQueryFilter(x => EF.Property<Guid>(x, "TenantId") == tenantContext.TenantId);
-        });
     }
 }

@@ -218,16 +218,16 @@ public class DatabaseInitializer(
         // Queues (ngc_queues table)
         try
         {
-            if (!await db.NgcQueues.IgnoreQueryFilters().AnyAsync(q => q.TenantId == tenant.Id, ct))
+            if (!await beDb.NgcQueues.IgnoreQueryFilters().AnyAsync(q => q.TenantId == tenant.Id, ct))
             {
-                db.NgcQueues.AddRange(
+                beDb.NgcQueues.AddRange(
                     new NgcQueue { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "Q001", Name = "Sales Inbound", IsActive = true },
                     new NgcQueue { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "Q002", Name = "Support Level 1", IsActive = true },
                     new NgcQueue { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "Q003", Name = "Support Level 2", IsActive = true },
                     new NgcQueue { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "Q004", Name = "Billing", IsActive = true },
                     new NgcQueue { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "Q005", Name = "VIP Support", IsActive = true }
                 );
-                await db.SaveChangesAsync(ct);
+                await beDb.SaveChangesAsync(ct);
                 logger.LogInformation("Seeded sample queues for tenant {TenantId}", tenant.Id);
             }
         }
@@ -236,16 +236,16 @@ public class DatabaseInitializer(
         // Agent Groups (ngc_AgentGroups table)
         try
         {
-            if (!await db.NgcAgentGroups.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id, ct))
+            if (!await beDb.NgcAgentGroups.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id, ct))
             {
-                db.NgcAgentGroups.AddRange(
+                beDb.NgcAgentGroups.AddRange(
                     new NgcAgentGroup { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "AG001", Name = "English Agents", IsActive = true },
                     new NgcAgentGroup { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "AG002", Name = "Spanish Agents", IsActive = true },
                     new NgcAgentGroup { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "AG003", Name = "Technical Support", IsActive = true },
                     new NgcAgentGroup { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "AG004", Name = "Sales Team", IsActive = true },
                     new NgcAgentGroup { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "AG005", Name = "Billing Experts", IsActive = true }
                 );
-                await db.SaveChangesAsync(ct);
+                await beDb.SaveChangesAsync(ct);
                 logger.LogInformation("Seeded sample agent groups for tenant {TenantId}", tenant.Id);
             }
         }
@@ -254,13 +254,13 @@ public class DatabaseInitializer(
         // NGC Sites (NGC_Site table)
         try
         {
-            if (!await db.NgcSites.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id, ct))
+            if (!await beDb.NgcSites.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id, ct))
             {
-                db.NgcSites.AddRange(
+                beDb.NgcSites.AddRange(
                     new NgcSite { SiteId = "SITE001", TenantId = tenant.Id, SiteName = "Main Office", Description = "Primary contact center", TimeZone = "+03:00", ClearTime = "00:00" },
                     new NgcSite { SiteId = "SITE002", TenantId = tenant.Id, SiteName = "Remote Office", Description = "Secondary location", TimeZone = "+02:00", ClearTime = "00:00" }
                 );
-                await db.SaveChangesAsync(ct);
+                await beDb.SaveChangesAsync(ct);
                 logger.LogInformation("Seeded sample NGC sites for tenant {TenantId}", tenant.Id);
             }
         }
@@ -269,14 +269,14 @@ public class DatabaseInitializer(
         // NGC Business Units (NGC_BusinessUnit table)
         try
         {
-            if (!await db.NgcBusinessUnits.IgnoreQueryFilters().AnyAsync(b => b.TenantId == tenant.Id, ct))
+            if (!await beDb.NgcBusinessUnits.IgnoreQueryFilters().AnyAsync(b => b.TenantId == tenant.Id, ct))
             {
-                db.NgcBusinessUnits.AddRange(
+                beDb.NgcBusinessUnits.AddRange(
                     new NgcBusinessUnit { TenantId = tenant.Id, BusinessUnitName = "Sales Department", Description = "Sales and marketing team", SiteId = "SITE001", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" },
                     new NgcBusinessUnit { TenantId = tenant.Id, BusinessUnitName = "Support Department", Description = "Customer support team", SiteId = "SITE001", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" },
                     new NgcBusinessUnit { TenantId = tenant.Id, BusinessUnitName = "Billing Department", Description = "Billing and accounts", SiteId = "SITE002", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" }
                 );
-                await db.SaveChangesAsync(ct);
+                await beDb.SaveChangesAsync(ct);
                 logger.LogInformation("Seeded sample NGC business units for tenant {TenantId}", tenant.Id);
             }
         }
@@ -285,14 +285,14 @@ public class DatabaseInitializer(
         // NGC Supergroups (NGC_Supergroup table)
         try
         {
-            if (!await db.NgcSupergroups.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id, ct))
+            if (!await beDb.NgcSupergroups.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id, ct))
             {
-                db.NgcSupergroups.AddRange(
+                beDb.NgcSupergroups.AddRange(
                     new NgcSupergroup { TenantId = tenant.Id, SupergroupName = "All Sales Agents", Description = "Supergroup for all sales staff", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" },
                     new NgcSupergroup { TenantId = tenant.Id, SupergroupName = "All Support Agents", Description = "Supergroup for all support staff", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" },
                     new NgcSupergroup { TenantId = tenant.Id, SupergroupName = "VIP Handlers", Description = "Supergroup for VIP customer handlers", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" }
                 );
-                await db.SaveChangesAsync(ct);
+                await beDb.SaveChangesAsync(ct);
                 logger.LogInformation("Seeded sample NGC supergroups for tenant {TenantId}", tenant.Id);
             }
         }

@@ -55,6 +55,8 @@ public class PermissionGroupAuditTests : IAsyncLifetime
             options.UseNpgsql(_fixture.ConnectionString));
         services.AddDbContext<AuditDbContext>(options =>
             options.UseNpgsql(_fixture.ConnectionString));
+        services.AddDbContext<BackendEmulationDbContext>(options =>
+            options.UseNpgsql(_fixture.ConnectionString));
 
         services.AddScoped<IPermissionGroupRepository, PermissionGroupRepository>();
         services.AddScoped<IAuditService, AuditService>();

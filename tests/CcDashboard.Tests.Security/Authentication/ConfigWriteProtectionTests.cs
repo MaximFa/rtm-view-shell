@@ -248,18 +248,18 @@ public class ConfigWriteProtectionTests(PostgresFixture postgres)
     private INgcSiteRepository CreateSiteRepository(Guid tenantId)
     {
         var db = postgres.CreateDbContext(tenantId);
-        return new NgcSiteRepository(db);
+        return new NgcSiteRepository(postgres.CreateBackendEmulationDbContext());
     }
 
     private INgcBusinessUnitRepository CreateBuRepository(Guid tenantId)
     {
         var db = postgres.CreateDbContext(tenantId);
-        return new NgcBusinessUnitRepository(db);
+        return new NgcBusinessUnitRepository(postgres.CreateBackendEmulationDbContext());
     }
 
     private INgcSupergroupRepository CreateSgRepository(Guid tenantId)
     {
         var db = postgres.CreateDbContext(tenantId);
-        return new NgcSupergroupRepository(db);
+        return new NgcSupergroupRepository(postgres.CreateBackendEmulationDbContext());
     }
 }

@@ -1,6 +1,4 @@
-﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -12,294 +10,195 @@ namespace CcDashboard.Infrastructure.Migrations.BackendEmulation
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "NGC_AgentGroups",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ExternalId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_NGC_AgentGroups", x => x.Id);
-                });
+            // Use raw SQL with IF NOT EXISTS to handle both fresh databases
+            // and databases where AppDbContext migrations already created these tables.
+            // ADR-007: Backend-owned tables - shell only emulates in dev/test.
 
-            migrationBuilder.CreateTable(
-                name: "NGC_Queues",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ExternalId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_NGC_Queues", x => x.Id);
-                });
+            migrationBuilder.Sql(@"
+                CREATE TABLE IF NOT EXISTS ""NGC_AgentGroups"" (
+                    ""Id"" uuid NOT NULL,
+                    ""TenantId"" uuid NOT NULL,
+                    ""ExternalId"" character varying(100) NOT NULL,
+                    ""Name"" character varying(200) NOT NULL,
+                    ""IsActive"" boolean NOT NULL,
+                    CONSTRAINT ""PK_NGC_AgentGroups"" PRIMARY KEY (""Id"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "NGC_Site",
-                columns: table => new
-                {
-                    SiteId = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    SiteName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    Description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    TimeZone = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
-                    ClearTime = table.Column<string>(type: "character varying(5)", maxLength: 5, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_NGC_Site", x => x.SiteId);
-                });
+                CREATE TABLE IF NOT EXISTS ""NGC_Queues"" (
+                    ""Id"" uuid NOT NULL,
+                    ""TenantId"" uuid NOT NULL,
+                    ""ExternalId"" character varying(100) NOT NULL,
+                    ""Name"" character varying(200) NOT NULL,
+                    ""IsActive"" boolean NOT NULL,
+                    CONSTRAINT ""PK_NGC_Queues"" PRIMARY KEY (""Id"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "NGC_Supergroup",
-                columns: table => new
-                {
-                    SupergroupId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    SupergroupName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    Description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    CreatedDatetime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    SupergroupIdOld = table.Column<int>(type: "integer", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_NGC_Supergroup", x => x.SupergroupId);
-                });
+                CREATE TABLE IF NOT EXISTS ""NGC_Site"" (
+                    ""SiteId"" character varying(50) NOT NULL,
+                    ""TenantId"" uuid NOT NULL,
+                    ""SiteName"" character varying(200),
+                    ""Description"" character varying(500),
+                    ""TimeZone"" character varying(10),
+                    ""ClearTime"" character varying(5),
+                    CONSTRAINT ""PK_NGC_Site"" PRIMARY KEY (""SiteId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "RTSGrid_Metric",
-                columns: table => new
-                {
-                    MetricId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Description = table.Column<string>(type: "text", nullable: true),
-                    DataType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    MetricFunction = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    MetricParameter = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    MetricFormat = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    DefaultValue = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    ValueType = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "String"),
-                    MetricType = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Agent")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RTSGrid_Metric", x => x.MetricId);
-                });
+                CREATE TABLE IF NOT EXISTS ""NGC_Supergroup"" (
+                    ""SupergroupId"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""TenantId"" uuid NOT NULL,
+                    ""SupergroupName"" character varying(200),
+                    ""Description"" character varying(500),
+                    ""CreatedDatetime"" timestamp with time zone,
+                    ""CreatedBy"" character varying(100),
+                    ""SupergroupIdOld"" integer,
+                    CONSTRAINT ""PK_NGC_Supergroup"" PRIMARY KEY (""SupergroupId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "RTSUserGrid_Column",
-                columns: table => new
-                {
-                    ColumnId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    ColumnsSetId = table.Column<int>(type: "integer", nullable: false),
-                    Title = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    MetricId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    StyleId = table.Column<int>(type: "integer", nullable: true),
-                    ColumnsOrder = table.Column<int>(type: "integer", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RTSUserGrid_Column", x => x.ColumnId);
-                });
+                CREATE TABLE IF NOT EXISTS ""RTSGrid_Metric"" (
+                    ""MetricId"" character varying(100) NOT NULL,
+                    ""Description"" text,
+                    ""DataType"" character varying(50) NOT NULL,
+                    ""MetricFunction"" character varying(200) NOT NULL,
+                    ""MetricParameter"" character varying(200) NOT NULL,
+                    ""MetricFormat"" character varying(100),
+                    ""DefaultValue"" character varying(100),
+                    ""ValueType"" character varying(20) NOT NULL DEFAULT 'String',
+                    ""MetricType"" character varying(20) NOT NULL DEFAULT 'Agent',
+                    CONSTRAINT ""PK_RTSGrid_Metric"" PRIMARY KEY (""MetricId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "RTSUserGrid_ColumnsSet",
-                columns: table => new
-                {
-                    ColumnsSetId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    Title = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Description = table.Column<string>(type: "text", nullable: true),
-                    Direction = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RTSUserGrid_ColumnsSet", x => x.ColumnsSetId);
-                });
+                CREATE TABLE IF NOT EXISTS ""RTSUserGrid_Column"" (
+                    ""ColumnId"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""ColumnsSetId"" integer NOT NULL,
+                    ""Title"" character varying(100) NOT NULL,
+                    ""MetricId"" character varying(100),
+                    ""StyleId"" integer,
+                    ""ColumnsOrder"" integer NOT NULL,
+                    CONSTRAINT ""PK_RTSUserGrid_Column"" PRIMARY KEY (""ColumnId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "RTSUserGrid_Grid",
-                columns: table => new
-                {
-                    GridId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    UnionId = table.Column<int>(type: "integer", nullable: true),
-                    StyleId = table.Column<int>(type: "integer", nullable: true),
-                    Title = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    RowsFilter = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: true),
-                    PageSize = table.Column<int>(type: "integer", nullable: true),
-                    ColumnsSetId = table.Column<int>(type: "integer", nullable: true),
-                    ThresholdScript = table.Column<string>(type: "text", nullable: true),
-                    RowsFilterNew = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: true),
-                    NoRecordsText = table.Column<string>(type: "text", nullable: true),
-                    AllowPaging = table.Column<bool>(type: "boolean", nullable: true),
-                    AllowScroll = table.Column<bool>(type: "boolean", nullable: true),
-                    TextDirection = table.Column<string>(type: "character varying(5)", maxLength: 5, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RTSUserGrid_Grid", x => x.GridId);
-                });
+                CREATE TABLE IF NOT EXISTS ""RTSUserGrid_ColumnsSet"" (
+                    ""ColumnsSetId"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""Title"" character varying(100) NOT NULL,
+                    ""Description"" text,
+                    ""Direction"" character varying(10),
+                    CONSTRAINT ""PK_RTSUserGrid_ColumnsSet"" PRIMARY KEY (""ColumnsSetId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "NGC_BusinessUnit",
-                columns: table => new
-                {
-                    BusinessUnitId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    BusinessUnitName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    Description = table.Column<string>(type: "text", nullable: true),
-                    CreatedDatetime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    SiteId = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_NGC_BusinessUnit", x => x.BusinessUnitId);
-                    table.ForeignKey(
-                        name: "FK_NGC_BusinessUnit_NGC_Site_SiteId",
-                        column: x => x.SiteId,
-                        principalTable: "NGC_Site",
-                        principalColumn: "SiteId",
-                        onDelete: ReferentialAction.SetNull);
-                });
+                CREATE TABLE IF NOT EXISTS ""RTSUserGrid_Grid"" (
+                    ""GridId"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""UnionId"" integer,
+                    ""StyleId"" integer,
+                    ""Title"" character varying(100) NOT NULL,
+                    ""RowsFilter"" character varying(300),
+                    ""PageSize"" integer,
+                    ""ColumnsSetId"" integer,
+                    ""ThresholdScript"" text,
+                    ""RowsFilterNew"" character varying(300),
+                    ""NoRecordsText"" text,
+                    ""AllowPaging"" boolean,
+                    ""AllowScroll"" boolean,
+                    ""TextDirection"" character varying(5),
+                    CONSTRAINT ""PK_RTSUserGrid_Grid"" PRIMARY KEY (""GridId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "NGC_SupergroupAgentgroup",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    SupergroupId = table.Column<int>(type: "integer", nullable: true),
-                    AgentgroupId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CreatedDatetime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_NGC_SupergroupAgentgroup", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_NGC_SupergroupAgentgroup_NGC_Supergroup_SupergroupId",
-                        column: x => x.SupergroupId,
-                        principalTable: "NGC_Supergroup",
-                        principalColumn: "SupergroupId");
-                });
+                CREATE TABLE IF NOT EXISTS ""NGC_BusinessUnit"" (
+                    ""BusinessUnitId"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""TenantId"" uuid NOT NULL,
+                    ""BusinessUnitName"" character varying(100),
+                    ""Description"" text,
+                    ""CreatedDatetime"" timestamp with time zone,
+                    ""CreatedBy"" character varying(100),
+                    ""SiteId"" character varying(50),
+                    CONSTRAINT ""PK_NGC_BusinessUnit"" PRIMARY KEY (""BusinessUnitId"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "NGC_BusinessUnitQueueClassification",
-                columns: table => new
-                {
-                    BusinessUnitId = table.Column<int>(type: "integer", nullable: false),
-                    QueueId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ClassificationId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    CreatedDatetime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_NGC_BusinessUnitQueueClassification", x => new { x.BusinessUnitId, x.QueueId });
-                    table.ForeignKey(
-                        name: "FK_NGC_BusinessUnitQueueClassification_NGC_BusinessUnit_Busine~",
-                        column: x => x.BusinessUnitId,
-                        principalTable: "NGC_BusinessUnit",
-                        principalColumn: "BusinessUnitId",
-                        onDelete: ReferentialAction.Cascade);
-                });
+                CREATE TABLE IF NOT EXISTS ""NGC_SupergroupAgentgroup"" (
+                    ""Id"" integer GENERATED ALWAYS AS IDENTITY,
+                    ""SupergroupId"" integer,
+                    ""AgentgroupId"" character varying(100),
+                    ""TenantId"" uuid NOT NULL,
+                    ""CreatedDatetime"" timestamp with time zone,
+                    ""CreatedBy"" character varying(100),
+                    CONSTRAINT ""PK_NGC_SupergroupAgentgroup"" PRIMARY KEY (""Id"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "NGC_BusinessUnitSupergroup",
-                columns: table => new
-                {
-                    BusinessUnitId = table.Column<int>(type: "integer", nullable: false),
-                    SupergroupId = table.Column<int>(type: "integer", nullable: false),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CreatedDatetime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_NGC_BusinessUnitSupergroup", x => new { x.BusinessUnitId, x.SupergroupId });
-                    table.ForeignKey(
-                        name: "FK_NGC_BusinessUnitSupergroup_NGC_BusinessUnit_BusinessUnitId",
-                        column: x => x.BusinessUnitId,
-                        principalTable: "NGC_BusinessUnit",
-                        principalColumn: "BusinessUnitId",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_NGC_BusinessUnitSupergroup_NGC_Supergroup_SupergroupId",
-                        column: x => x.SupergroupId,
-                        principalTable: "NGC_Supergroup",
-                        principalColumn: "SupergroupId",
-                        onDelete: ReferentialAction.Cascade);
-                });
+                CREATE TABLE IF NOT EXISTS ""NGC_BusinessUnitQueueClassification"" (
+                    ""BusinessUnitId"" integer NOT NULL,
+                    ""QueueId"" character varying(100) NOT NULL,
+                    ""TenantId"" uuid NOT NULL,
+                    ""ClassificationId"" character varying(100),
+                    ""CreatedDatetime"" timestamp with time zone,
+                    ""CreatedBy"" character varying(100),
+                    CONSTRAINT ""PK_NGC_BusinessUnitQueueClassification"" PRIMARY KEY (""BusinessUnitId"", ""QueueId"")
+                );
 
-            migrationBuilder.CreateIndex(
-                name: "IX_NGC_BusinessUnit_SiteId",
-                table: "NGC_BusinessUnit",
-                column: "SiteId");
+                CREATE TABLE IF NOT EXISTS ""NGC_BusinessUnitSupergroup"" (
+                    ""BusinessUnitId"" integer NOT NULL,
+                    ""SupergroupId"" integer NOT NULL,
+                    ""TenantId"" uuid NOT NULL,
+                    ""CreatedDatetime"" timestamp with time zone,
+                    ""CreatedBy"" character varying(100),
+                    CONSTRAINT ""PK_NGC_BusinessUnitSupergroup"" PRIMARY KEY (""BusinessUnitId"", ""SupergroupId"")
+                );
+            ");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_NGC_BusinessUnitSupergroup_SupergroupId",
-                table: "NGC_BusinessUnitSupergroup",
-                column: "SupergroupId");
+            // Add foreign keys only if they don't exist (using DO block)
+            migrationBuilder.Sql(@"
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_NGC_BusinessUnit_NGC_Site_SiteId') THEN
+                        ALTER TABLE ""NGC_BusinessUnit"" ADD CONSTRAINT ""FK_NGC_BusinessUnit_NGC_Site_SiteId""
+                            FOREIGN KEY (""SiteId"") REFERENCES ""NGC_Site""(""SiteId"") ON DELETE SET NULL;
+                    END IF;
 
-            migrationBuilder.CreateIndex(
-                name: "IX_NGC_SupergroupAgentgroup_SupergroupId",
-                table: "NGC_SupergroupAgentgroup",
-                column: "SupergroupId");
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_NGC_SupergroupAgentgroup_NGC_Supergroup_SupergroupId') THEN
+                        ALTER TABLE ""NGC_SupergroupAgentgroup"" ADD CONSTRAINT ""FK_NGC_SupergroupAgentgroup_NGC_Supergroup_SupergroupId""
+                            FOREIGN KEY (""SupergroupId"") REFERENCES ""NGC_Supergroup""(""SupergroupId"");
+                    END IF;
+
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_NGC_BusinessUnitQueueClassification_NGC_BusinessUnit_Busine~') THEN
+                        ALTER TABLE ""NGC_BusinessUnitQueueClassification"" ADD CONSTRAINT ""FK_NGC_BusinessUnitQueueClassification_NGC_BusinessUnit_Busine~""
+                            FOREIGN KEY (""BusinessUnitId"") REFERENCES ""NGC_BusinessUnit""(""BusinessUnitId"") ON DELETE CASCADE;
+                    END IF;
+
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_NGC_BusinessUnitSupergroup_NGC_BusinessUnit_BusinessUnitId') THEN
+                        ALTER TABLE ""NGC_BusinessUnitSupergroup"" ADD CONSTRAINT ""FK_NGC_BusinessUnitSupergroup_NGC_BusinessUnit_BusinessUnitId""
+                            FOREIGN KEY (""BusinessUnitId"") REFERENCES ""NGC_BusinessUnit""(""BusinessUnitId"") ON DELETE CASCADE;
+                    END IF;
+
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_NGC_BusinessUnitSupergroup_NGC_Supergroup_SupergroupId') THEN
+                        ALTER TABLE ""NGC_BusinessUnitSupergroup"" ADD CONSTRAINT ""FK_NGC_BusinessUnitSupergroup_NGC_Supergroup_SupergroupId""
+                            FOREIGN KEY (""SupergroupId"") REFERENCES ""NGC_Supergroup""(""SupergroupId"") ON DELETE CASCADE;
+                    END IF;
+                END $$;
+            ");
+
+            // Create indexes if not exist
+            migrationBuilder.Sql(@"
+                CREATE INDEX IF NOT EXISTS ""IX_NGC_BusinessUnit_SiteId"" ON ""NGC_BusinessUnit"" (""SiteId"");
+                CREATE INDEX IF NOT EXISTS ""IX_NGC_BusinessUnitSupergroup_SupergroupId"" ON ""NGC_BusinessUnitSupergroup"" (""SupergroupId"");
+                CREATE INDEX IF NOT EXISTS ""IX_NGC_SupergroupAgentgroup_SupergroupId"" ON ""NGC_SupergroupAgentgroup"" (""SupergroupId"");
+            ");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "NGC_AgentGroups");
-
-            migrationBuilder.DropTable(
-                name: "NGC_BusinessUnitQueueClassification");
-
-            migrationBuilder.DropTable(
-                name: "NGC_BusinessUnitSupergroup");
-
-            migrationBuilder.DropTable(
-                name: "NGC_Queues");
-
-            migrationBuilder.DropTable(
-                name: "NGC_SupergroupAgentgroup");
-
-            migrationBuilder.DropTable(
-                name: "RTSGrid_Metric");
-
-            migrationBuilder.DropTable(
-                name: "RTSUserGrid_Column");
-
-            migrationBuilder.DropTable(
-                name: "RTSUserGrid_ColumnsSet");
-
-            migrationBuilder.DropTable(
-                name: "RTSUserGrid_Grid");
-
-            migrationBuilder.DropTable(
-                name: "NGC_BusinessUnit");
-
-            migrationBuilder.DropTable(
-                name: "NGC_Supergroup");
-
-            migrationBuilder.DropTable(
-                name: "NGC_Site");
+            migrationBuilder.Sql(@"
+                DROP TABLE IF EXISTS ""NGC_BusinessUnitQueueClassification"";
+                DROP TABLE IF EXISTS ""NGC_BusinessUnitSupergroup"";
+                DROP TABLE IF EXISTS ""NGC_SupergroupAgentgroup"";
+                DROP TABLE IF EXISTS ""NGC_BusinessUnit"";
+                DROP TABLE IF EXISTS ""NGC_Supergroup"";
+                DROP TABLE IF EXISTS ""NGC_Site"";
+                DROP TABLE IF EXISTS ""NGC_Queues"";
+                DROP TABLE IF EXISTS ""NGC_AgentGroups"";
+                DROP TABLE IF EXISTS ""RTSGrid_Metric"";
+                DROP TABLE IF EXISTS ""RTSUserGrid_Column"";
+                DROP TABLE IF EXISTS ""RTSUserGrid_ColumnsSet"";
+                DROP TABLE IF EXISTS ""RTSUserGrid_Grid"";
+            ");
         }
     }
 }

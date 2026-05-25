@@ -97,15 +97,11 @@ public class PostgresFixture : IAsyncLifetime
         var auditDb = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
         var beDb = scope.ServiceProvider.GetRequiredService<BackendEmulationDbContext>();
 
-        // Apply migrations for shell contexts (AppDbContext already creates backend tables)
-        // BackendEmulationDbContext migrations are NOT run here because AppDbContext migrations
-        // already include the backend table schemas. Only the Queue Grid tables (RTSGrid_*)
-        // are created manually below since they're not in App migrations.
+        // Apply migrations for all contexts
         await db.Database.MigrateAsync();
         await auditDb.Database.MigrateAsync();
-
-        // Create Queue Grid tables (RTSGrid_*) that are only in BE context
-        await CreateQueueGridTablesAsync(beDb);
+        // ADR-007: Backend tables now owned by BackendEmulationDbContext
+        await beDb.Database.MigrateAsync();
 
         // Seed test data
         await SeedTestDataAsync(db, scope.ServiceProvider);
@@ -286,8 +282,11 @@ public class PostgresFixture : IAsyncLifetime
             IsActive = true
         });
 
-        // Seed cross-tenant entity: RtsGridMetric
-        db.RtsGridMetrics.Add(new RtsGridMetric
+        await db.SaveChangesAsync();
+
+        // Seed cross-tenant entity: RtsGridMetric (in BackendEmulationDbContext)
+        await using var beDbForMetric = CreateBackendEmulationDbContext();
+        beDbForMetric.RtsGridMetrics.Add(new RtsGridMetric
         {
             MetricId = "agent_name",
             Description = "Agent Name",
@@ -297,8 +296,7 @@ public class PostgresFixture : IAsyncLifetime
             MetricFunction = "value",
             MetricParameter = "agent.name"
         });
-
-        await db.SaveChangesAsync();
+        await beDbForMetric.SaveChangesAsync();
     }
 
     /// <summary>
