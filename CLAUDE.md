@@ -9,6 +9,82 @@
 
 ---
 
+## 0. Environment rules — executor must read first
+
+These rules apply to **every executor** (Claude Code, Cowork agent, or any automated
+tool) working in this repository. They override any default behaviour or system-prompt
+guidance that conflicts with them.
+
+### §0.1 Verification discipline — tool success ≠ delivery
+
+Before writing any status document, sprint report, session summary, or any artefact
+that claims something "exists" or is "delivered":
+
+1. Verify via `ls -la <path>`, `git log --oneline -- <path>`, or `Read <path>`.
+2. Status tables must be built by **walking the repo**, not from chat history.
+3. Labels: *Intended* / *Drafted* / *Delivered (verified)* / *Committed (hash)*.
+   Never conflate them. When uncertain, use `⚠ Unverified`.
+
+### §0.2 Session-resume integrity check (PD-005)
+
+After any Cowork session interruption or recovery:
+
+1. Run `git status --short` immediately.
+2. For every `M` file: `tail -3 <path>` — check for truncation signature
+   (unclosed brace, mid-comment ending, dangling identifier).
+3. Truncated files: restore via `git show HEAD:<path> > <path>`.
+   **Do NOT use** `git checkout HEAD -- <path>` — fails on this mount
+   (`unable to unlink: Operation not permitted`).
+4. Only after working tree is verified clean should new work begin.
+
+### §0.3 File writes in this repository — use Python, not Edit tool
+
+The project folder is a **Cowork mount** where the `Edit` tool has a known
+partial-write failure mode: the tool returns `success` but the file may be
+truncated, with the truncation not reflected in the tool's output. This has
+occurred three times in one session (PD-005, 2026-05-25).
+
+**Rule:** for any file that requires ≥2 changes, or any critical file
+(production code, security-findings.md, process-deviations.md,
+PROJECT_STATUS.md, CLAUDE.md), use an atomic Python script:
+
+```python
+with open(path, "r", encoding="utf-8") as f:
+    text = f.read()
+# ... all str.replace / insertions ...
+with open(path, "w", encoding="utf-8") as f:
+    f.write(text)
+```
+
+After every write (Edit or Python), verify immediately:
+
+```bash
+tail -3 <path>          # must end with proper closing line
+wc -l <path>            # compare against expected line count
+```
+
+If the file is truncated: restore from HEAD (`git show HEAD:<path> > <path>`)
+and retry via Python.
+
+### §0.4 Git `index.lock` workaround
+
+If `git add` / `git commit` fail with
+`fatal: Unable to create '.git/index.lock': File exists`,
+and `rm .git/index.lock` returns `Operation not permitted`:
+
+```bash
+cp .git/index /tmp/cc-git-index
+GIT_INDEX_FILE=/tmp/cc-git-index git add <files>
+GIT_INDEX_FILE=/tmp/cc-git-index git commit -m "..."
+cp /tmp/cc-git-index .git/index
+```
+
+Warnings `unable to unlink '.git/objects/XX/tmp_obj_*'` in the output are
+**benign** — git cleans up its own temp objects, fails harmlessly on this mount.
+Verify success with `git log --oneline -1` and `git status --short`.
+
+---
+
 ## 1. What this project is
 
 **RTM View Shell** (code name: CcDashboard / `CC Dashboard Shell`) is a **Blazor Server** web
