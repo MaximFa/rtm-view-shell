@@ -27,10 +27,16 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
     // RTS Grid metrics (cross-tenant)
     public DbSet<RtsGridMetric> RtsGridMetrics => Set<RtsGridMetric>();
 
-    // RTS UserGrid tables (compatibility with external SignalR server)
+    // RTS UserGrid tables (compatibility with external SignalR server - Agent Grid)
     public DbSet<RtsUserGridGrid> RtsUserGridGrids => Set<RtsUserGridGrid>();
     public DbSet<RtsUserGridColumnsSet> RtsUserGridColumnsSets => Set<RtsUserGridColumnsSet>();
     public DbSet<RtsUserGridColumn> RtsUserGridColumns => Set<RtsUserGridColumn>();
+
+    // RTS Grid tables (compatibility with external SignalR server - Queue Grid)
+    public DbSet<RtsGridGrid> RtsGridGrids => Set<RtsGridGrid>();
+    public DbSet<RtsGridColumn> RtsGridColumns => Set<RtsGridColumn>();
+    public DbSet<RtsGridRow> RtsGridRows => Set<RtsGridRow>();
+    public DbSet<RtsGridCell> RtsGridCells => Set<RtsGridCell>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -173,6 +179,42 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.ColumnId).UseIdentityAlwaysColumn();
             e.Property(x => x.Title).HasMaxLength(100).IsRequired();
             e.Property(x => x.MetricId).HasMaxLength(100);
+        });
+
+        // RTS Grid tables (Queue Grid)
+        mb.Entity<RtsGridGrid>(e =>
+        {
+            e.ToTable("RTSGrid_Grid");
+            e.HasKey(x => x.GridId);
+            e.Property(x => x.GridId).UseIdentityAlwaysColumn();
+            e.Property(x => x.Title).HasMaxLength(100).IsRequired();
+            e.Property(x => x.ThresholdScript).HasColumnType("text");
+        });
+
+        mb.Entity<RtsGridColumn>(e =>
+        {
+            e.ToTable("RTSGrid_Column");
+            e.HasKey(x => x.ColumnId);
+            e.Property(x => x.ColumnId).UseIdentityAlwaysColumn();
+        });
+
+        mb.Entity<RtsGridRow>(e =>
+        {
+            e.ToTable("RTSGrid_Row");
+            e.HasKey(x => x.RowId);
+            e.Property(x => x.RowId).UseIdentityAlwaysColumn();
+            e.Property(x => x.ThresholdScript).HasColumnType("text");
+        });
+
+        mb.Entity<RtsGridCell>(e =>
+        {
+            e.ToTable("RTSGrid_Cell");
+            e.HasKey(x => x.CellId);
+            e.Property(x => x.CellId).UseIdentityAlwaysColumn();
+            e.Property(x => x.CellType).HasMaxLength(50);
+            e.Property(x => x.Value).HasMaxLength(500);
+            e.Property(x => x.Tooltip).HasMaxLength(500);
+            e.Property(x => x.OnClick).HasMaxLength(500);
         });
     }
 }

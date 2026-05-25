@@ -41,6 +41,9 @@ public class PostgresFixture : IAsyncLifetime
     public Guid DashboardAId { get; } = Uuid.NewSequential();
     public Guid DashboardBId { get; } = Uuid.NewSequential();
 
+    // Widget catalog item ID (seeded cross-tenant)
+    public Guid WidgetCatalogItemId { get; } = Uuid.NewSequential();
+
     public PostgresFixture()
     {
         _container = new PostgreSqlBuilder()
@@ -92,14 +95,17 @@ public class PostgresFixture : IAsyncLifetime
         await using var scope = sp.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var auditDb = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+        var beDb = scope.ServiceProvider.GetRequiredService<BackendEmulationDbContext>();
 
         // Apply migrations for shell contexts (AppDbContext already creates backend tables)
         // BackendEmulationDbContext migrations are NOT run here because AppDbContext migrations
-        // already include the backend table schemas. The BeDb context is still usable for seeding.
-        // In production, BackendEmulationDbContext migrations would run only when backend tables
-        // don't exist (dev/test standalone setup).
+        // already include the backend table schemas. Only the Queue Grid tables (RTSGrid_*)
+        // are created manually below since they're not in App migrations.
         await db.Database.MigrateAsync();
         await auditDb.Database.MigrateAsync();
+
+        // Create Queue Grid tables (RTSGrid_*) that are only in BE context
+        await CreateQueueGridTablesAsync(beDb);
 
         // Seed test data
         await SeedTestDataAsync(db, scope.ServiceProvider);
@@ -273,7 +279,7 @@ public class PostgresFixture : IAsyncLifetime
         // Seed cross-tenant entity: WidgetCatalogItem
         db.WidgetCatalogItems.Add(new WidgetCatalogItem
         {
-            Id = Uuid.NewSequential(),
+            Id = WidgetCatalogItemId,
             Category = "Agents",
             Name = "Agent Grid",
             Description = "Real-time agent status grid",
@@ -293,6 +299,58 @@ public class PostgresFixture : IAsyncLifetime
         });
 
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Creates Queue Grid tables (RTSGrid_*) using raw SQL.
+    /// These are in BE context but not in App migrations.
+    /// </summary>
+    private static async Task CreateQueueGridTablesAsync(BackendEmulationDbContext beDb)
+    {
+        var sql = @"
+            CREATE TABLE IF NOT EXISTS ""RTSGrid_Grid"" (
+                ""GridId"" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                ""UnionId"" integer,
+                ""StyleId"" integer,
+                ""Title"" varchar(100) NOT NULL,
+                ""ThresholdScript"" text
+            );
+
+            CREATE TABLE IF NOT EXISTS ""RTSGrid_Column"" (
+                ""ColumnId"" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                ""GridId"" integer NOT NULL,
+                ""ColumnNumber"" integer NOT NULL,
+                ""CellTemplateId"" integer
+            );
+
+            CREATE TABLE IF NOT EXISTS ""RTSGrid_Row"" (
+                ""RowId"" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                ""GridId"" integer NOT NULL,
+                ""RowNumber"" integer NOT NULL,
+                ""UnionId"" integer,
+                ""StyleId"" integer,
+                ""ThresholdScript"" text,
+                ""OldRowId"" integer
+            );
+
+            CREATE TABLE IF NOT EXISTS ""RTSGrid_Cell"" (
+                ""CellId"" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                ""RowId"" integer NOT NULL,
+                ""ColumnId"" integer NOT NULL,
+                ""ColNumber"" integer,
+                ""UnionId"" integer,
+                ""StyleId"" integer,
+                ""CellType"" varchar(50),
+                ""Value"" varchar(500),
+                ""Tooltip"" varchar(500),
+                ""OnClick"" varchar(500),
+                ""ThresholdSetId"" integer,
+                ""NewRowId"" integer,
+                ""OldRowId"" integer
+            );
+        ";
+
+        await beDb.Database.ExecuteSqlRawAsync(sql);
     }
 
     /// <summary>

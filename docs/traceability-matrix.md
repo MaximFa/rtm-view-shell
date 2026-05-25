@@ -21,7 +21,7 @@ Updated as part of every sprint close-out.
 | ARCH-06 | ADR-TBD | `TenantStatus` enum + login guard | `Tests.Security/TenantLifecycle/SuspendedAndDeletedTenantTests` (Phase A, negative) + `Tests.Security/Identity/GoldenPathLoginTests.{PasswordSignInAsync_ActiveTenant_SucceedsWithCorrectCredentials, TenantStatus_Transition_AffectsLoginBehavior}` (Phase C) — SF-003 fixed |
 | ARCH-07 | ADR-TBD | (background services pending) | TBD |
 | ARCH-08 | ADR-TBD | `RedisCacheService` (key prefix `{tenantId}:{ns}:{key}`) | `Tests.Security/Infrastructure/RedisKeyPrefixTests` (4 tests: revoked-jti, different-tenants, pg-cache, 2fa-resend keys) — T3 |
-| ARCH-09 | ADR-TBD | SignalR hub method guards | (T5 — widget framework) |
+| ARCH-09 | ADR-TBD | `Web/Hubs/GridNotificationHub` (token TenantId check) | `Tests.Security/Widgets/SignalRTenantGuardTests` (4 tests: matching tenant, mismatched tenant, unauthenticated, leave group) — T5 |
 | ARCH-10 | ADR-TBD | `IBlobStorage` impl (pending) | (no impl yet — deferred per DEF-09) |
 
 ## Authentication — Web (AUTH-WEB-01..04)
@@ -113,6 +113,10 @@ Updated as part of every sprint close-out.
 
 | Req ID | ADR | Implementation | Test |
 |---|---|---|---|
+| WGT-01 | ADR-TBD | `WidgetCatalogItem` (no TenantId, no GQF) | `Tests.Security/Widgets/WidgetCatalogTests` (3 tests: visible from any tenant, no GQF applied, all categories visible) — T5 |
+| WGT-02 | ADR-TBD | `GetWidgetCatalogQueryHandler` (role-gated) | `Tests.Security/Widgets/WidgetCatalogTests` (1 test: Editor sees active only) — T5 |
+| WGT-03 | ADR-TBD | `GetWidgetCatalogQueryHandler` (Superadmin IncludeInactive) | `Tests.Security/Widgets/WidgetCatalogTests` (2 tests: Superadmin sees all, non-Superadmin filters inactive) — T5 |
+| WGT-04 | ADR-TBD | `SaveDashboardWidgetCommandHandler`, `SaveAgentGridRtsCommandHandler`, `SaveQueueGridRtsCommandHandler`, `DeleteAgentGridRtsCommandHandler`, `DeleteQueueGridRtsCommandHandler` | `Tests.Security/Widgets/DashboardWidgetTests` (5 tests) + `Tests.Security/Widgets/RtsGridLifecycleTests` (13 tests: CRUD + API hooks) — T5 |
 
 ## User management (USR-01..14)
 
@@ -149,25 +153,25 @@ Updated as part of every sprint close-out.
 
 ## Coverage summary
 
-After T1 Phase A + Phase B + Phase C + T4 + T2 + T3:
+After T1 Phase A + Phase B + Phase C + T4 + T2 + T3 + T5:
 
-- **Requirements with regression-safety tests:** ARCH-01 (extended), ARCH-03, ARCH-04 (positive + negative), ARCH-05, ARCH-06 (positive + negative + transition), ARCH-08, AUTH-WEB-01, AUTH-WEB-02, AUTH-WEB-03, AUTH-WEB-04, AUTH-API-01..06, BFP-01..04, PWD-01..05, LICENSE-SESSION (positive + negative), LIC-01 (LICENSE-USER), PG-01, PG-03, PG-04, PG-06, PG-07, AUD-01, USR-09
+- **Requirements with regression-safety tests:** ARCH-01 (extended), ARCH-03, ARCH-04 (positive + negative), ARCH-05, ARCH-06 (positive + negative + transition), ARCH-08, ARCH-09, AUTH-WEB-01, AUTH-WEB-02, AUTH-WEB-03, AUTH-WEB-04, AUTH-API-01..06, BFP-01..04, PWD-01..05, LICENSE-SESSION (positive + negative), LIC-01 (LICENSE-USER), PG-01, PG-03, PG-04, PG-06, PG-07, AUD-01, USR-09, WGT-01..04
 - **Phase A tests:** 32 passing
 - **Phase B tests:** 30 passing
 - **Phase C tests:** 18 passing
 - **T4 Authorization tests:** 46 passing (9 test files in Authorization/)
 - **T2 Licensing + Auth tests:** 20 passing
 - **T3 Multi-tenancy tests:** 36 passing (6 files: NgcIsolation, TenantResolution, PasswordPolicy, RedisKeyPrefix, JwtClaims, ConfigWriteProtection)
-- **Total `Tests.Security` count:** 204 passing
-- **Total solution test count:** 285 passing (1+72+8+204)
+- **T5 Widget framework tests:** 28 passing (4 files: WidgetCatalogTests, DashboardWidgetTests, RtsGridLifecycleTests, SignalRTenantGuardTests)
+- **Total `Tests.Security` count:** 232 passing
+- **Total solution test count:** 313 passing (1+72+8+232)
 
-Remaining sections to be populated by T5+:
+Remaining sections to be populated:
 - 2FA-01..07, SSO-01..04 (future)
 - PG-02, PG-05 (T4+ — additional PG semantics)
 - AUD-02..08 (audit retention, export, etc.) — future
-- DASH-01..05 (T5)
-- WGT-01..04 (T5)
-- ARCH-02, ARCH-07, ARCH-09, ARCH-10 (T5 / future)
+- DASH-01..05 (partial by T5 DashboardWidget tests)
+- ARCH-02, ARCH-07, ARCH-10 (future)
 - USR-01..08, USR-10..14, I18N-01..06, NFR, DEPLOY, CODE, DATA (TBD)
 
-Updated: 2026-05-25 (T3 — NGC isolation, TenantResolution, PWD-01..05, ARCH-08, AUTH-API-01; 204/204 Security tests passing)
+Updated: 2026-05-25 (T5 — Widget framework; WGT-01..04, ARCH-09; 232/232 Security tests passing)
