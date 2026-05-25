@@ -43,7 +43,7 @@ check; see below).
 |---|---|---|---|
 | **T1** | Security & cross-tenant isolation | **✅ FULLY CLOSED. Phase A + B + C complete (79 tests, 0 skips, 87.88% Infrastructure coverage, 4 SF + 2 PD found).** | Sprint done; pick next |
 | **T2** | Licensing enforcement | **✅ CLOSED (2026-05-25). 20 new tests, SF-006 + SF-007 fixed. 166 / 166 Tests.Security pass.** | Sprint done; pick next |
-| **T3** | Multi-tenancy integration | **✅ CLOSED (2026-05-25). 38 new tests, no SF-008 (OQ-1 resolved). 285 / 285 Tests.Security pass.** | Sprint done; pick next |
+| **T3** | Multi-tenancy integration | **✅ CLOSED (commit `7b85269`, 2026-05-25). 36 new tests, no SF-008 (OQ-1 resolved). 204 Tests.Security, 285 solution-wide.** | Sprint done; pick next |
 | **T4** | PG authorization semantics | **✅ CLOSED (commit `cb7af32`, 46 tests, SF-005 Critical fixed). 146 / 146 Tests.Security pass. PD-003 resolved via Backlog #14.** | Sprint done; pick next |
 | **T5** | Widget framework (~30 tests) | Brief draft, §2 — Phase B **unblocked** | Sign §2; start after T3 |
 
@@ -152,17 +152,17 @@ Details: `docs/sprints/T2-gap-analysis.md`, `analysis/security-findings.md` (SF-
 
 ## T3 results — quick reference
 
-### T3 — commit `d95c6ab` (2026-05-25)
-- **Tests:** 38 new test cases (6 files in Tests.Security/)
+### T3 — commit `7b85269` (2026-05-25)
+- **Tests:** 36 new test cases (6 files in Tests.Security/)
   - `MultiTenancy/NgcIsolationTests.cs` — 8 tests (DoD-2 + DoD-3)
   - `MultiTenancy/TenantResolutionTests.cs` — 5 tests (DoD-4)
-  - `PasswordPolicy/PasswordPolicyTests.cs` — 10 test cases (DoD-5)
+  - `PasswordPolicy/PasswordPolicyTests.cs` — 8 tests (DoD-5)
   - `Infrastructure/RedisKeyPrefixTests.cs` — 4 tests (DoD-6)
   - `Authentication/JwtClaimsTests.cs` — 5 tests (DoD-7)
   - `Authentication/ConfigWriteProtectionTests.cs` — 6 tests (DoD-8)
-- **`Tests.Security` total after T3:** 285 passing (pending `dotnet test` on dev machine — sandbox has no .NET runtime)
-- **DoD:** 9/10 ✅, 1/10 ⚠ (DoD-10 pending test execution on dev machine)
-- **Production bugs found:** 0
+- **`Tests.Security` total after T3:** 204 passing, 0 failing, 0 skipped
+- **DoD:** 10/10 ✅
+- **Production code fix:** `TokenService.NotBefore = now` (ensures clock mock works in JWT claims tests)
 - **Security findings:** 0 (OQ-1 resolved — GQF already present on all junction tables; no SF-008)
 - **Open questions resolved:**
   - OQ-1: GQF present on all 3 junction tables (AppDbContext lines 298, 310, 322) — no gap
@@ -170,7 +170,8 @@ Details: `docs/sprints/T2-gap-analysis.md`, `analysis/security-findings.md` (SF-
   - OQ-3: `TokenService.CreateTokenPairAsync` accepts userId/tenantId/role/pgId directly
 
 ### Cumulative test coverage after T1 + T4 + T2 + T3
-- **Tests.Security:** 285 passing (247 pre-T3 + 38 new)
+- **Tests.Security:** 204 passing, 0 failing, 0 skipped
+- **Tests (solution total):** 285 passing
 - **Security findings:** 7 (SF-001..007; SF-008 not needed)
 - **Process deviations:** 5 (PD-001..005; PD-003, PD-005 resolved)
 - **Total investment:** ~81 hours (T1 ~50h + T4 ~23h + #14 ~1h + T2 ~3h + T3 ~4h)
@@ -257,7 +258,7 @@ T3 close-out: `docs/sprints/T3-gap-analysis.md` (DoD-1..9 verified, OQ-1..3 reso
 **T1 status:** ✅ fully closed (79 tests, 0 skips, 87.88% Infrastructure coverage, 4 SF + 2 PD).
 **T4 status:** ✅ fully closed (46 new tests, SF-005 Critical fixed).
 **T2 status:** ✅ fully closed (20 new tests, SF-006 + SF-007 fixed). 166 / 166 `Tests.Security` pass.
-**T3 status:** ✅ fully closed (38 new tests, no SF-008). 285 / 285 `Tests.Security` pass (pending dotnet run on dev machine).
+**T3 status:** ✅ fully closed (36 new tests, no SF-008). 204 Tests.Security pass, 285 solution-wide.
 
 Documentation sync completed this session:
 - `docs/sprints/T2-gap-analysis.md` created (DoD-13)
@@ -265,5 +266,5 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: **T5** (Widget framework). T3 closed `d95c6ab`. B1 #11 closed `80974b0`.
+Next: **T5** (Widget framework). T3 closed `7b85269`. B1 #11 closed `80974b0`.
 Confirmed sequence: T3 ✅ → T5.
