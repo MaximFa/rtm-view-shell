@@ -6,6 +6,68 @@ Versions correspond to Technical Specification revisions.
 
 ---
 
+## [1.3.1] — 2026-05-26
+
+### Summary
+
+Patch release closing T6 (User Management + Audit Trail, 79 new tests) and Backlog #15
+(NGC_*/RTS_* table ownership separation per ADR-007). All 382 tests pass.
+
+### Added
+
+#### User Management (T6 Phase A — USR-01..14)
+- `UserManagementService`: full CRUD with cross-tenant guard, role-change audit events
+  (`User.RoleChanged`, `User.PermissionGroupChanged`), self-role-change guard for Admins,
+  Superadmin-creation restriction. (GAP-T6-01..04)
+- `GetUsersQuery`: server-side pagination, sort, filter by role / PG / status / search.
+  Role-aware tenant scoping (Admin → own tenant; Superadmin → all). (USR-13, USR-14)
+- Admin-initiated password reset (one-time token, 24h TTL) and self-service reset with
+  uniform response regardless of email existence. (USR-11, USR-12, BFP-03)
+- Force-logout via `SecurityStamp` rotation. (USR-09)
+
+#### Audit Trail (T6 Phase B — AUD-01..08)
+- `ForwardedHeadersMiddleware` wired in `Program.cs` — `X-Forwarded-For` IP extraction
+  stored in `audit_logs.IpAddress`. (AUD-04)
+- `IAuditLogRepository.CountAsync` + `AuditLogRepository` implementation — CSV export
+  boundary check (≤50 000 records → data; >50 000 → async job indicator). (AUD-08)
+- `GetAuditLogsQuery`: role-aware tenant scoping (Admin own-tenant only; Superadmin all).
+
+#### Infrastructure (Backlog #15)
+- `AppDbContext` migration `SeparateBackendTablesToBeDb` — NO-OP DDL migration that
+  removes NGC_*/RTS_* entity mappings from AppDbContext model snapshot.
+- `BackendEmulationDbContext` migrations rewritten with `CREATE TABLE IF NOT EXISTS`
+  for compatibility with databases where tables pre-exist from prior AppDbContext migrations.
+- `NgcRepositories`, `RtsRepository`, `PermissionGroupRepository`: constructors updated
+  to inject `BackendEmulationDbContext` instead of `AppDbContext` for backend tables.
+- `DatabaseInitializer.SeedSampleCcEntitiesAsync`: all `SaveChangesAsync` calls use
+  `beDb` (not `db`) — fixes silent seed failure introduced in B1 #11 migration.
+
+### Fixed
+
+- **GAP-T6-01**: `UpdateAsync` now emits `User.RoleChanged` / `User.PermissionGroupChanged`
+  when role or PG changes (was emitting only generic `User.Updated`). (USR-07)
+- **GAP-T6-02**: `UpdateAsync` / `DeleteAsync` / `SetActiveAsync` / `ForceLogoutAsync` now
+  verify `user.TenantId == currentUser.TenantId` — prevents cross-tenant mutation by userId leak.
+- **GAP-T6-03**: Admins cannot change their own role. (USR-08)
+- **GAP-T6-04**: Only Superadmin can create Superadmin users. (USR-05)
+- **#15 seed bug**: NGC seed data was added to `beDb` ChangeTracker but saved via
+  `db.SaveChangesAsync()` — data was never persisted. Fixed to `beDb.SaveChangesAsync()`.
+
+### Removed
+
+- `NgcIsolationTests.cs` (10 tests) — GQF does not apply to backend-owned tables; tests
+  were testing an invariant that intentionally does not exist. (ADR-007)
+- `CrossTenantEntitiesTests.cs` NGC section (-42 lines) — same reason.
+
+### Process
+
+- `CLAUDE.md §0.5` — mandatory pre-commit `tail -3` + `wc -l` on every staged file.
+- `CLAUDE.md §0.6` — mandatory post-commit `git status --short` must be empty.
+- Post-migration procedure for #15: clear `__BackendEmulationMigrationsHistory`,
+  restart app, reimport `Metrics_fixed.sql` (190 rows).
+
+---
+
 ## [1.3.0] — 2026-05-25
 
 ### Summary

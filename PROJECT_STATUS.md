@@ -46,7 +46,7 @@ check; see below).
 | **T3** | Multi-tenancy integration | **✅ CLOSED (commit `7b85269`, 2026-05-25). 36 new tests, no SF-008 (OQ-1 resolved). 204 Tests.Security, 285 solution-wide.** | Sprint done; pick next |
 | **T4** | PG authorization semantics | **✅ CLOSED (commit `cb7af32`, 46 tests, SF-005 Critical fixed). 146 / 146 Tests.Security pass. PD-003 resolved via Backlog #14.** | Sprint done; pick next |
 | **T5** | Widget framework | **✅ CLOSED (commit `fbf89fd`, 2026-05-25). 28 new tests, OQ-16 verified, no SF. 313 / 313 solution-wide pass.** | Sprint done |
-| **T6** | User Management + Audit Trail | **✅ CLOSED (commits `22b087a`, `119b5a9`, 2026-05-26). Phase A: 35 tests (USR-01..14, GAP-T6-01..04 fixed). Phase B: 44 tests (AUD-01..08). 392 / 392 solution-wide pass.** | Sprint done |
+| **T6** | User Management + Audit Trail | **✅ CLOSED (commits `22b087a`, `119b5a9`, 2026-05-26). Phase A: 35 tests (USR-01..14, GAP-T6-01..04 fixed). Phase B: 44 tests (AUD-01..08). 382 / 382 solution-wide pass (after #15 removed NgcIsolationTests -10).** | Sprint done |
 
 Briefs live in `docs/sprints/T{1..6}-*.md`.
 
@@ -60,6 +60,7 @@ Briefs live in `docs/sprints/T{1..6}-*.md`.
 | **#12** | Widget-creator skill MetricType drift fix | **✅ CLOSED** (commit `5eab846`, 2026-05-25) | — |
 | **#13** | `DatabaseInitializer` → `IDatabaseInitializer` interface | **✅ CLOSED** commit `80645f1` (2026-05-25) | Closed |
 | **#14** | `WebFixture`: disable `LoginRateLimitMiddleware` in test pipeline | **✅ CLOSED.** Reflection-based clearing of middleware static state. 146/146 tests pass. | — |
+| **#15** | Separate NGC_*/RTS_* tables: AppDbContext → BackendEmulationDbContext (ADR-007) | **✅ CLOSED** commit `bf8a79e` (2026-05-26). NO-OP AppDbContext migration + BE IF NOT EXISTS. 382 / 382 pass. Post-migration: clear `__BackendEmulationMigrationsHistory`, reimport `Metrics_fixed.sql` (190 rows). | — |
 | **D1** | Documentation catch-up: TS v1.3 EN docx, CHANGELOG v1.2→v1.3, ADR-001..008 files, stakeholder summary, widget architecture, CLAUDE.md frontmatter bump to v1.3 | **✅ CLOSED (commit `b16d2e5`, 2026-05-25). 1,378 insertions across 13 files. All 6 deliverables delivered.** | Done |
 
 Both prompts are in the chat history of session 2026-05-17. If lost,
@@ -299,9 +300,9 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: **T6 Phase A** (User Management). Brief: `docs/sprints/T6-user-audit.md`. All backlogs closed.
-D1: `b16d2e5` · #13: `80645f1` · T5: `fbf89fd`
-T1 ✅ → T2 ✅ → B1 #11 ✅ → T3 ✅ → T4 ✅ → T5 ✅ → T6 📋
+Next: **widget development** (new real-time widgets). 2FA/SSO testing deferred to last.
+D1: `b16d2e5` · T6: `22b087a`+`119b5a9` · #15: `bf8a79e`
+T1 ✅ → T2 ✅ → B1#11 ✅ → T3 ✅ → T4 ✅ → T5 ✅ → T6 ✅ → #15 ✅
 
 ## D1 — Documentation Catch-up Results
 
