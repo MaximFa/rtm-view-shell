@@ -89,7 +89,7 @@ public static class InfrastructureServiceExtensions
         services.AddHttpContextAccessor();
 
         // Seeding
-        services.AddScoped<DatabaseInitializer>();
+        services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
 
         // Redis — abortConnect=false so startup does not throw when Redis is unavailable
         var redisConn = config.GetConnectionString("Redis") ?? "localhost:6379";

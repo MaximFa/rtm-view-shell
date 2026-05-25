@@ -119,7 +119,7 @@ try
     // Run database seed on startup
     using (var scope = app.Services.CreateScope())
     {
-        var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+        var initializer = scope.ServiceProvider.GetRequiredService<IDatabaseInitializer>();
         await initializer.InitializeAsync();
     }
 

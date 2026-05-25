@@ -147,8 +147,8 @@ public class WebFixture : IAsyncLifetime
 
                     // Replace DatabaseInitializer with no-op to prevent duplicate migrations.
                     // The fixture has already migrated and seeded the database.
-                    services.RemoveAll<DatabaseInitializer>();
-                    services.AddScoped<DatabaseInitializer, NoOpDatabaseInitializer>();
+                    services.RemoveAll<IDatabaseInitializer>();
+                    services.AddScoped<IDatabaseInitializer, NoOpDatabaseInitializer>();
                 });
             });
     }
@@ -631,19 +631,12 @@ public class WebCollection : ICollectionFixture<WebFixture>
 }
 
 /// <summary>
-/// No-op DatabaseInitializer for tests.
+/// No-op IDatabaseInitializer for tests.
 /// The WebFixture has already migrated and seeded the database,
 /// so we skip the app's startup initialization to avoid duplicate migrations.
+/// Implements IDatabaseInitializer directly — no base class constructor dependency (PD-002).
 /// </summary>
-internal class NoOpDatabaseInitializer : DatabaseInitializer
+internal class NoOpDatabaseInitializer : IDatabaseInitializer
 {
-    public NoOpDatabaseInitializer()
-        : base(null!, null!, null!, null!, null!, null!, null!, null!)
-    {
-    }
-
-    public override Task InitializeAsync(CancellationToken ct = default)
-    {
-        return Task.CompletedTask;
-    }
+    public Task InitializeAsync(CancellationToken ct = default) => Task.CompletedTask;
 }

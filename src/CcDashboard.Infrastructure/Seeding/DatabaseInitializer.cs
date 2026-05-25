@@ -23,7 +23,7 @@ public class DatabaseInitializer(
     RoleManager<ApplicationRole> roleManager,
     IConfiguration config,
     IHostEnvironment env,
-    ILogger<DatabaseInitializer> logger)
+    ILogger<DatabaseInitializer> logger) : IDatabaseInitializer
 {
     private static readonly string[] Roles = ["Superadmin", "Administrator", "Editor", "Viewer"];
 
