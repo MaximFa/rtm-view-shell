@@ -281,6 +281,119 @@ a blocking issue.
 
 ---
 
+## SF-006 — LICENSE-USER rejection missing audit event
+
+**Detected:** Sprint T2 (2026-05-25)
+**Severity:** 🟡 **Medium** (observability / audit compliance)
+**Requirement violated:** LIC-01 (licensing enforcement), AUD-01 (audit logging)
+
+### Context
+
+T2 test planning inspection of `UserManagementService.CreateAsync` revealed
+that when user creation is rejected due to licence limit, no audit event
+is emitted. The method returned an error message but the rejection was
+invisible in the audit log.
+
+### Root cause
+
+The original implementation only logged `User.Created` on success. The
+licence-limit rejection branch returned early without calling `audit.LogAsync`.
+
+### Impact (had this gone to production)
+
+- **Compliance:** Licence limit rejections would be invisible in audit logs.
+  Billing/ops teams could not verify how often customers hit their limits.
+- **Forensics:** No record of rejected user creation attempts. Cannot
+  distinguish intentional limit enforcement from system errors.
+- **Business intelligence:** Cannot measure demand for licence upgrades.
+
+### Resolution
+
+Fixed in `src/CcDashboard.Infrastructure/Identity/UserManagementService.cs:44-48`:
+```csharp
+await audit.LogAsync("User.RejectedLicenceLimit", AuditEventResult.Failure,
+    tenantId, currentUser.UserId, currentUser.UserName,
+    details: new { RequestedEmail = req.Email, CurrentCount = userCount, Limit = settings.PurchasedLicences }, ct: ct);
+```
+
+Commit: T2 (2026-05-25)
+
+### Lesson / pattern
+
+Every rejection path in enforcement logic should emit an audit event.
+The "LICENSE-SESSION" pattern (from Phase B) already emits on session-limit
+rejection; this was a gap in the analogous LICENSE-USER path.
+
+---
+
+## SF-007 — LICENSE-USER TOCTOU race condition
+
+**Detected:** Sprint T2 (2026-05-25)
+**Severity:** 🟠 **High** (licensing bypass)
+**Requirement violated:** LIC-01 (licensing enforcement)
+
+### Context
+
+T2 test `LicenseUserLimitTests.ConcurrentCreation_AtLimit_OnlyOneSucceeds`
+fired 5 concurrent `CreateAsync` requests for a tenant at its 1-user limit.
+All 5 succeeded — each thread read the same user count before any committed.
+
+### Root cause
+
+`UserManagementService.CreateAsync` performed:
+1. Read `TenantSettings.PurchasedLicences` and current user count
+2. Check if count >= limit
+3. If OK, create user
+
+Step 1-2 and step 3 were not atomic. In a concurrent scenario:
+- Thread A reads count=0, limit=1 → OK
+- Thread B reads count=0, limit=1 → OK
+- Thread A creates user → count becomes 1
+- Thread B creates user → count becomes 2 (VIOLATION)
+
+Classic Time-of-Check-to-Time-of-Use (TOCTOU) race condition.
+
+### Impact (had this gone to production)
+
+Customers could exceed their purchased licence limits by issuing concurrent
+API requests. A simple script could create unlimited users by parallelizing
+creation requests. This bypasses the entire licensing enforcement model.
+
+### Resolution
+
+Fixed in `src/CcDashboard.Infrastructure/Identity/UserManagementService.cs:29-37`:
+```csharp
+await using var transaction = await db.Database.BeginTransactionAsync(ct);
+try
+{
+    var settings = await db.TenantSettings
+        .FromSqlInterpolated($@"SELECT * FROM public.tenant_settings WHERE ""TenantId"" = {tenantId} FOR UPDATE")
+        .FirstOrDefaultAsync(ct);
+    // ... check and create user ...
+    await transaction.CommitAsync(ct);
+}
+catch (Exception)
+{
+    await transaction.RollbackAsync(ct);
+    throw;
+}
+```
+
+The `SELECT ... FOR UPDATE` acquires a row-level lock on `TenantSettings`,
+serializing concurrent user creation requests for the same tenant. The
+race test now correctly shows 1 success and 4 rejections.
+
+Commit: T2 (2026-05-25)
+
+### Lesson / pattern
+
+Any read-check-write sequence on shared state must be atomic. For
+PostgreSQL: use `SELECT ... FOR UPDATE` within a transaction to
+serialize concurrent access. This pattern should be applied to any
+"check limit → create resource" flow.
+
+---
+
 ## Summary table
 
 | ID | Severity | Affected requirement | Detected by | Fix commit |
@@ -290,6 +403,8 @@ a blocking issue.
 | SF-003 | 🟠 High | ARCH-06 | T1 Phase A `SuspendedAndDeletedTenantTests` | `ca0ccd9` |
 | SF-004 | 🟡 Medium | AUTH-API-05 | T1 Phase B `JtiRevocationTests` | `b846f1b` |
 | SF-005 | 🔴 Critical | PG-04, CODE-03 | T4 sprint planning inspection | T4 (2026-05-25) |
+| SF-006 | 🟡 Medium | LIC-01, AUD-01 | T2 sprint planning inspection | T2 (2026-05-25) |
+| SF-007 | 🟠 High | LIC-01 | T2 `LicenseUserLimitTests` | T2 (2026-05-25) |
 
 All findings detected within the first test-coverage sprint of the
 v1.3 programme. Expected pattern: each subsequent sprint (T2..T5)
@@ -338,9 +453,29 @@ This is the explicit business case for completing Sprints T2..T5.
   - PG-06 cannot delete PG with users (5 tests)
   - PG-07 Redis cache invalidation (5 tests)
   - AUD-01 audit events for PG lifecycle (4 tests)
-- **Total `Tests.Security` count after T4:** 126+ passing
+- **Total `Tests.Security` count after T4:** 146 passing
 - **Future cost avoided:** SF-005 would have allowed any command
   declaring `RequiredPermission` to bypass Application-layer
   authorization entirely. The first developer to add a
   permission-protected command would have had a false sense of
   security while the permission was silently skipped.
+
+## ROI of T2 (Licensing Enforcement + Force-Logout + JWT Key Config)
+
+- **Investment:** ~3 hours of focused test development
+- **Returns:** 2 security findings fixed (SF-006 Medium, SF-007 High):
+  - SF-006: Audit visibility gap — licence rejections now logged
+  - SF-007: TOCTOU race allowing licence bypass — now blocked with row-level locking
+  
+  **20 new tests** added covering:
+  - LIC-01 licence enforcement (4 tests including race reproduction)
+  - LIC-01 audit emission (3 tests)
+  - AUTH-WEB-03 force-logout + deactivation (4 tests)
+  - AUTH-API-06 JWT key configuration (6 tests)
+  - USR-09 SecurityStamp invalidation (tested via force-logout)
+
+- **Total `Tests.Security` count after T2:** 166 passing
+- **Future cost avoided:** SF-007 would have allowed customers to
+  bypass licence limits entirely via concurrent API requests. A
+  simple script could create unlimited users. This undermines the
+  entire licensing business model.

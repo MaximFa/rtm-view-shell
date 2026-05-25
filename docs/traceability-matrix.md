@@ -30,7 +30,7 @@ Updated as part of every sprint close-out.
 |---|---|---|---|
 | AUTH-WEB-01 | ADR-TBD | `Program.cs` Identity + cookie options | `Tests.Security/Smoke/WebFixtureSmokeTests` (Phase C — smoke verifies pipeline) |
 | AUTH-WEB-02 | ADR-TBD | `IdentityAuthService.CompleteSignInAsync` (claims) | `Tests.Security/Identity/GoldenPathLoginTests.CompleteSignInAsync_ValidUser_MaterialisesClaimsCorrectly` (Phase C) |
-| AUTH-WEB-03 | ADR-TBD | `IdentityAuthService.SignOutAsync` + SecurityStamp | (T2 / T4 — force-logout flow planned) |
+| AUTH-WEB-03 | ADR-TBD | `IdentityAuthService.SignOutAsync` + SecurityStamp invalidation | `Tests.Security/Authentication/ForceLogoutTests` (4 tests: force-logout, deactivation, SecurityStamp patterns) — T2 |
 | AUTH-WEB-04 | ADR-012 | `IdentityAuthService` LICENSE-SESSION pre-check | `Tests.Security/Identity/GoldenPathLoginTests.PasswordSignInAsync_{NoLimit, WithinLimit, SameIp, ExpiredSession, RevokedSession}_*` (Phase C — 5 golden-path tests) |
 
 ## Authentication — API (AUTH-API-01..06)
@@ -42,7 +42,7 @@ Updated as part of every sprint close-out.
 | AUTH-API-03 | ADR-TBD | `Infrastructure/Security/TokenService.IssueRefreshToken` + cookie | `Tests.Security/ApiAuth/RefreshTokenRotationTests` |
 | AUTH-API-04 | ADR-TBD | `TokenService.RotateAsync` + reuse-detection | `Tests.Security/ApiAuth/RefreshTokenRotationTests` (5 tests) |
 | AUTH-API-05 | ADR-TBD | `TokenService.RevokeJtiAsync` (Redis) | `Tests.Security/ApiAuth/JtiRevocationTests` (5 tests; SF-004 fixed) |
-| AUTH-API-06 | ADR-TBD | RSA key configuration | (T2 — key-rotation tests planned) |
+| AUTH-API-06 | ADR-TBD | `TokenService` RS256/RSA-2048 configuration | `Tests.Security/Authentication/JwtKeyConfigurationTests` (6 tests: algorithm, key size, round-trip integrity) — T2 |
 
 ## Password policy (PWD-01..05)
 
@@ -64,6 +64,14 @@ Updated as part of every sprint close-out.
 |---|---|---|---|
 | LICENSE-SESSION (rejection) | ADR-012 | `IdentityAuthService` session-limit guard | `Tests.Security/Licensing/LicenseSessionTests` (Phase B — 1 test, negative) |
 | LICENSE-SESSION (golden path) | ADR-012 | Same | `Tests.Security/Identity/GoldenPathLoginTests.PasswordSignInAsync_{NoLimit, WithinLimit, SameIp, ExpiredSession, RevokedSession}_*` (Phase C — 5 tests, positive) |
+
+## Licensing (LICENSE-USER / LIC-01 — v1.3)
+
+| Req ID | ADR | Implementation | Test |
+|---|---|---|---|
+| LIC-01 (limit enforcement) | ADR-TBD | `UserManagementService.CreateAsync` (PurchasedLicences check) | `Tests.Security/Licensing/LicenseUserLimitTests` (4 tests: at limit, below limit, no limit, concurrent race) — T2 |
+| LIC-01 (race protection) | SF-007 | `UserManagementService.CreateAsync` (transaction + `FOR UPDATE`) | `Tests.Security/Licensing/LicenseUserLimitTests.ConcurrentCreation_AtLimit_OnlyOneSucceeds` — T2 |
+| LIC-01 (audit emission) | SF-006 | `UserManagementService.CreateAsync` (audit.LogAsync on rejection) | `Tests.Security/Licensing/LicenseUserAuditTests` (3 tests: emits event, no event on success, contains count/limit) — T2 |
 
 ## 2FA (2FA-01..07)
 
@@ -105,6 +113,7 @@ Updated as part of every sprint close-out.
 
 | Req ID | ADR | Implementation | Test |
 |---|---|---|---|
+| USR-09 | ADR-TBD | `UserManagementService.SetActiveAsync` (SecurityStamp on deactivation) | `Tests.Security/Authentication/ForceLogoutTests` (deactivation invalidates cookie; SecurityStamp patterns) — T2 |
 
 ## i18n / l10n (I18N-01..06)
 
@@ -135,26 +144,27 @@ Updated as part of every sprint close-out.
 
 ## Coverage summary
 
-After T1 Phase A + Phase B + Phase C + T4 (commits `ca0ccd9` + `b846f1b` + `77e1537` + T4):
+After T1 Phase A + Phase B + Phase C + T4 + T2 (commits `ca0ccd9` + `b846f1b` + `77e1537` + T4 + T2):
 
-- **Requirements with regression-safety tests:** ARCH-01, ARCH-04 (positive + negative), ARCH-05, ARCH-06 (positive + negative + transition), AUTH-WEB-01, AUTH-WEB-02, AUTH-WEB-04, AUTH-API-02..05, BFP-01..04, LICENSE-SESSION (positive + negative), PG-01, PG-03, PG-04, PG-06, PG-07, AUD-01
+- **Requirements with regression-safety tests:** ARCH-01, ARCH-04 (positive + negative), ARCH-05, ARCH-06 (positive + negative + transition), AUTH-WEB-01, AUTH-WEB-02, AUTH-WEB-03, AUTH-WEB-04, AUTH-API-02..06, BFP-01..04, LICENSE-SESSION (positive + negative), LIC-01 (LICENSE-USER), PG-01, PG-03, PG-04, PG-06, PG-07, AUD-01, USR-09
 - **Phase A tests:** 32 passing
 - **Phase B tests:** 30 passing
 - **Phase C tests:** 18 passing
 - **T4 Authorization tests:** 46 passing (9 test files in Authorization/)
-- **Total `Tests.Security` count:** 146 passing (PD-003 resolved via backlog #14)
-- **`CcDashboard.Infrastructure` line coverage:** 87.88% (T1 baseline; T4 adds Application coverage)
+- **T2 Licensing + Auth tests:** 20 passing (ForceLogoutTests: 4, JwtKeyConfigurationTests: 6, LicenseUserAuditTests: 3, LicenseUserLimitTests: 4 + race fix + 3 existing)
+- **Total `Tests.Security` count:** 166 passing
+- **Total solution test count:** 247 passing (1+72+8+166)
+- **`CcDashboard.Infrastructure` line coverage:** 87.88% (maintained)
 
-Remaining sections to be populated by T2..T5:
-- PWD-01..05 (T1 left unscoped; consider T2)
-- 2FA-01..07, SSO-01..04 (T2 / future)
-- AUTH-WEB-03 (force-logout / SecurityStamp) — T2
-- AUTH-API-01, AUTH-API-06 (JWT issuance pipeline / RSA key rotation) — T2
+Remaining sections to be populated by T3..T5:
+- PWD-01..05 (T1 left unscoped; consider T3)
+- 2FA-01..07, SSO-01..04 (T3 / future)
+- AUTH-API-01 (JWT issuance pipeline) — T3
 - PG-02, PG-05 (T4+ — additional PG semantics)
 - AUD-02..08 (audit retention, export, etc.) — future
 - DASH-01..05 (T5)
 - WGT-01..04 (T5)
 - ARCH-02, ARCH-03, ARCH-07..10 (T3 / T5)
-- USR-01..14, I18N-01..06, NFR, DEPLOY, CODE, DATA (TBD)
+- USR-01..08, USR-10..14, I18N-01..06, NFR, DEPLOY, CODE, DATA (TBD)
 
-Updated: 2026-05-25 (Backlog #14 — WebFixture rate-limit isolation fix; 146/146 tests passing)
+Updated: 2026-05-25 (T2 — LICENSE-USER, AUTH-WEB-03 force-logout, AUTH-API-06 JWT key config; 166/166 tests passing)

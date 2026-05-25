@@ -379,6 +379,38 @@ public class WebFixture : IAsyncLifetime
     }
 
     /// <summary>
+    /// Creates a ServiceProvider with the specified tenant context.
+    /// Useful for resolving services that require ITenantContext (like UserManager, IUserManagementService).
+    /// </summary>
+    public IServiceProvider CreateServiceProvider(Guid tenantId)
+    {
+        var services = new ServiceCollection();
+
+        // Tenant context
+        services.AddSingleton<ITenantContext>(new TestTenantContext(tenantId));
+
+        // Database contexts
+        services.AddDbContext<AppDbContext>(options =>
+            options.UseNpgsql(PostgresConnectionString));
+        services.AddDbContext<AuditDbContext>(options =>
+            options.UseNpgsql(PostgresConnectionString));
+
+        // Identity services
+        services.AddIdentityCore<ApplicationUser>(options =>
+            {
+                options.Password.RequireDigit = true;
+                options.Password.RequiredLength = 12;
+                options.Password.RequireUppercase = true;
+                options.Password.RequireLowercase = true;
+                options.Password.RequireNonAlphanumeric = true;
+            })
+            .AddRoles<ApplicationRole>()
+            .AddEntityFrameworkStores<AppDbContext>();
+
+        return services.BuildServiceProvider();
+    }
+
+    /// <summary>
     /// Performs a full login through the ASP.NET Core pipeline.
     /// Returns the HttpClient with cookies set after successful authentication.
     /// </summary>

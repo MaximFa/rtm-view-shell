@@ -259,6 +259,85 @@ Pattern to embed in next hand-off:
 
 ---
 
+## PD-005 — Cowork session interruption left 8 working-tree files truncated mid-write
+
+**Detected:** 2026-05-25, during T2 startup verification
+**Severity:** 🟠 **Medium** (broke build state; required manual recovery; risk of corrupted commit if not caught)
+**Sprint:** T2 (during execution by a prior session)
+**Agreement clause violated:** None directly — this is an environment failure mode, not a contract breach. Logged here because the recovery procedure and detection pattern are reusable.
+
+### What happened
+
+A prior Cowork session began Sprint T2 execution (LICENSE-USER tests
++ SF-006 audit emission in `UserManagementService`) and was
+interrupted before completion. On resumption, `git status` showed 13
+dirty files. Eight of them were **truncated** (file content ended
+mid-statement, unclosed braces, partial comments):
+
+- 5 production / test infra files: `AuthorizationBehavior.cs`,
+  `InfrastructureServiceExtensions.cs`, `UserManagementService.cs`,
+  `Fixtures/PostgresFixture.cs`, `Fixtures/WebFixture.cs`
+- 3 documentation files: `CLAUDE.md`, `analysis/security-findings.md`,
+  `docs/traceability-matrix.md`
+
+Failure signature: every truncated file ended with an unclosed
+statement (e.g., `"// API hook (no-op until CC-platform API is available"`
+with no closing paren / next line), and `wc -c` showed file sizes
+suspiciously close to round-number boundaries (~3-5 KB shorter than
+HEAD). The .NET project would not compile in this state.
+
+Five files survived intact — all were either single-write outputs
+(four untracked files: T2 brief + three new test files) or had been
+saved before the interruption (`PROJECT_STATUS.md`).
+
+### Disposition
+
+**Recovered.** Procedure:
+
+1. `git status` to enumerate dirty files.
+2. For each modified file, `tail -3 <file>` to check for truncation
+   signature (unclosed statements, mid-comment endings).
+3. For each truncated file, restored from HEAD via shell redirect:
+   ```bash
+   git show HEAD:<path> > <path>
+   ```
+   (Note: `git checkout HEAD -- <path>` failed with `unable to
+   unlink: Operation not permitted` — the Cowork mount blocks
+   unlink/rename. Shell redirect truncates in-place without unlink
+   and works.)
+4. After restore, verified each file ends with proper closing
+   brace / paragraph.
+5. Intact files (PROJECT_STATUS sanity-check edits, T2 brief, three
+   LicenseUser test files) preserved as-is.
+
+No data loss: all important close-out updates from T1 + T4 + #14
+were already in commits `ca0ccd9` / `b846f1b` / `77e1537` /
+`cb7af32` / `b66184b`. The truncated working-tree changes were
+either (a) post-commit doc tweaks that HEAD already captured, or
+(b) the in-progress T2 work that needs to re-run anyway.
+
+### Lesson
+
+**After any Cowork session recovery, before doing any new work:**
+
+1. `git status` first.
+2. For every `M` file: `tail -3 <path>` and look for the truncation
+   signature (unclosed statement, mid-comment ending, dangling
+   bracket). Production files are the highest priority.
+3. For every `??` file: same check via `tail`.
+4. If any file is truncated, **restore via** `git show HEAD:<file> > <file>`,
+   **not** via `git checkout` (mount-permission limitation).
+5. Only after the working tree is verified buildable should new
+   work begin.
+
+This is **independent** of (and complementary to) the PROJECT_STATUS
+sanity-check lesson (filesystem-vs-claimed-tracks). PD-005 is about
+working-tree corruption from session interruption; the sanity-check
+is about long-term documentation drift. Both belong in every
+session-resume checklist.
+
+---
+
 ## Summary table
 
 | ID | Severity | Sprint | Disposition | Backlog item |
@@ -267,6 +346,7 @@ Pattern to embed in next hand-off:
 | PD-002 | 🟡 Low | T1 Phase C | Accept; backlog refactor | #13 (DatabaseInitializer → interface) |
 | PD-003 | 🟠 Medium | T4 | ✅ **Resolved** | #14 (closed — WebFixture rate-limit clearing) |
 | PD-004 | 🟡 Low | T4 | Accept; tighten next hand-off | — |
+| PD-005 | 🟠 Medium | T2 (interrupted) | ✅ **Recovered** (working tree restored via shell-redirect from HEAD) | — |
 
 ## Pattern note
 

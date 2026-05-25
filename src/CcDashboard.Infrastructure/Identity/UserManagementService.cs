@@ -26,66 +26,88 @@ public class UserManagementService(
     public async Task<(bool Succeeded, string? Error, Guid UserId, string? TempPassword)> CreateAsync(
         Guid tenantId, CreateUserRequest req, CancellationToken ct = default)
     {
-        // [LIC-01] Check purchased licence limit
-        // [ARCH-01] IgnoreQueryFilters for cross-tenant licence check — explicit TenantId filter applied
-        var settings = await db.TenantSettings.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(s => s.TenantId == tenantId, ct);
-        if (settings?.PurchasedLicences > 0)
-        {
-            var userCount = await db.Users.IgnoreQueryFilters()
-                .CountAsync(u => u.TenantId == tenantId, ct);
-            if (userCount >= settings.PurchasedLicences)
-                return (false, $"Licence limit reached ({settings.PurchasedLicences} users). Cannot create more users.", Guid.Empty, null);
-        }
-
-        var user = new ApplicationUser
-        {
-            Id = Uuid.NewSequential(),
-            TenantId = tenantId,
-            UserName = req.UserName,
-            NormalizedUserName = req.UserName.ToUpperInvariant(),
-            Email = req.Email,
-            NormalizedEmail = req.Email.ToUpperInvariant(),
-            EmailConfirmed = true,
-            FirstName = req.FirstName,
-            LastName = req.LastName,
-            PermissionGroupId = req.PermissionGroupId,
-            IsActive = true,
-            PreferredLocale = req.PreferredLocale,
-            MustChangePasswordAt = clock.UtcNow,  // [USR-03] force change on first login
-        };
-
-        var tempPassword = GenerateTempPassword();
-        var result = await userManager.CreateAsync(user, tempPassword);
-        if (!result.Succeeded)
-            return (false, string.Join(" ", result.Errors.Select(e => e.Description)), Guid.Empty, null);
-
-        var roleResult = await userManager.AddToRoleAsync(user, req.Role);
-        if (!roleResult.Succeeded)
-            logger.LogWarning("Failed to assign role {Role} to user {Id}: {Errors}",
-                req.Role, user.Id, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
-
-        await audit.LogAsync("User.Created", AuditEventResult.Success,
-            tenantId, currentUser.UserId, currentUser.UserName,
-            details: new { TargetUserId = user.Id, user.UserName, req.Role }, ct: ct);
-
-        // [USR-03] Send temporary password by email
+        // [LIC-01] SF-007 fix: Use transaction + row-level lock to prevent TOCTOU race on licence limit
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
         try
         {
-            await emailSender.SendAsync(req.Email,
-                "Your RTM View Shell account has been created",
-                $"Hello {req.FirstName},\n\nYour account has been created.\nUsername: {req.UserName}\nTemporary password: {tempPassword}\n\nYou will be required to change your password on first login.",
-                ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to send welcome email to {Email}", req.Email);
-            // [MAINT-02] Never log passwords — admin must re-trigger password reset if email fails
-        }
+            // [LIC-01] Check purchased licence limit with row-level lock (SELECT ... FOR UPDATE)
+            // [ARCH-01] IgnoreQueryFilters for cross-tenant licence check — explicit TenantId filter applied
+            var settings = await db.TenantSettings
+                .FromSqlInterpolated($@"SELECT * FROM public.tenant_settings WHERE ""TenantId"" = {tenantId} FOR UPDATE")
+                .FirstOrDefaultAsync(ct);
+            if (settings?.PurchasedLicences > 0)
+            {
+                var userCount = await db.Users.IgnoreQueryFilters()
+                    .CountAsync(u => u.TenantId == tenantId, ct);
+                if (userCount >= settings.PurchasedLicences)
+                {
+                    // [LIC-01] SF-006 fix: Emit audit event on licence limit rejection (mirrors LICENSE-SESSION pattern)
+                    await audit.LogAsync("User.RejectedLicenceLimit", AuditEventResult.Failure,
+                        tenantId, currentUser.UserId, currentUser.UserName,
+                        details: new { RequestedEmail = req.Email, CurrentCount = userCount, Limit = settings.PurchasedLicences }, ct: ct);
+                    await transaction.RollbackAsync(ct);
+                    return (false, $"Licence limit reached ({settings.PurchasedLicences} users). Cannot create more users.", Guid.Empty, null);
+                }
+            }
 
-        // Return temp password only in Development for testing (never in Production)
-        var returnPassword = env.IsDevelopment() ? tempPassword : null;
-        return (true, null, user.Id, returnPassword);
+            var user = new ApplicationUser
+            {
+                Id = Uuid.NewSequential(),
+                TenantId = tenantId,
+                UserName = req.UserName,
+                NormalizedUserName = req.UserName.ToUpperInvariant(),
+                Email = req.Email,
+                NormalizedEmail = req.Email.ToUpperInvariant(),
+                EmailConfirmed = true,
+                FirstName = req.FirstName,
+                LastName = req.LastName,
+                PermissionGroupId = req.PermissionGroupId,
+                IsActive = true,
+                PreferredLocale = req.PreferredLocale,
+                MustChangePasswordAt = clock.UtcNow,  // [USR-03] force change on first login
+            };
+
+            var tempPassword = GenerateTempPassword();
+            var result = await userManager.CreateAsync(user, tempPassword);
+            if (!result.Succeeded)
+            {
+                await transaction.RollbackAsync(ct);
+                return (false, string.Join(" ", result.Errors.Select(e => e.Description)), Guid.Empty, null);
+            }
+
+            var roleResult = await userManager.AddToRoleAsync(user, req.Role);
+            if (!roleResult.Succeeded)
+                logger.LogWarning("Failed to assign role {Role} to user {Id}: {Errors}",
+                    req.Role, user.Id, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+
+            await audit.LogAsync("User.Created", AuditEventResult.Success,
+                tenantId, currentUser.UserId, currentUser.UserName,
+                details: new { TargetUserId = user.Id, user.UserName, req.Role }, ct: ct);
+
+            // [USR-03] Send temporary password by email
+            try
+            {
+                await emailSender.SendAsync(req.Email,
+                    "Your RTM View Shell account has been created",
+                    $"Hello {req.FirstName},\n\nYour account has been created.\nUsername: {req.UserName}\nTemporary password: {tempPassword}\n\nYou will be required to change your password on first login.",
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to send welcome email to {Email}", req.Email);
+                // [MAINT-02] Never log passwords — admin must re-trigger password reset if email fails
+            }
+
+            // Return temp password only in Development for testing (never in Production)
+            var returnPassword = env.IsDevelopment() ? tempPassword : null;
+            await transaction.CommitAsync(ct);
+            return (true, null, user.Id, returnPassword);
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(ct);
+            throw;
+        }
     }
 
     public async Task<(bool Succeeded, string? Error)> UpdateAsync(UpdateUserRequest req, CancellationToken ct = default)

@@ -7,20 +7,33 @@ resuming work. Read this first, then drill into the linked artefacts.
 
 ## Current state
 
-**v1.3 release: ✅ DELIVERED.**
-**Test-coverage programme (T1..T5): T1 ✅ + T4 ✅; T2 / T3 / T5 awaiting starts.**
+**v1.3 release status — corrected 2026-05-25 after filesystem sanity check:**
 
-| Track | Status |
-|---|---|
-| TS v1.3 EN (docx) | ✅ `CC_Dashboard_Shell_TZ_v1.3_EN.docx` |
-| 12 ADRs | ✅ `decisions/ADR-001..ADR-012` (all Accepted) |
-| CHANGELOG | ✅ `CHANGELOG_v1.2-to-v1.3.md` |
-| Traceability matrix | ✅ `docs/traceability-matrix.md` (T1 + T4 reflected) |
-| Stakeholder summary | ✅ `docs/v1.3-stakeholder-summary.md` |
-| Widget architecture | ✅ `analysis/widgets/architecture.md` |
-| CLAUDE.md (v1.3 sync) | ✅ updated |
-| Security findings (SF-001..005) | ✅ `analysis/security-findings.md` |
-| Process deviations (PD-001..004) | ✅ `analysis/process-deviations.md` |
+The codebase is on the v1.3 *code* track (T1 + T4 test coverage delivered,
+SF-001..005 closed). But the prior version of this document claimed
+"v1.3 DELIVERED" with 9 ✅ tracks, of which **only 3 actually exist in
+the repository** (verified against `git log --all` for each file).
+The other 6 tracks were aspirational placeholders that propagated from
+stale memory. Corrected table below.
+
+| Track | Previously claimed | Actual state | Disposition |
+|---|---|---|---|
+| TS v1.3 EN (docx) | ✅ | ❌ NEVER existed in git; only v1.0, v1.1, v1.2, v1.2_EN present | Backlog D1 |
+| 12 ADRs Accepted | ✅ | ❌ 0 ADR-NNN files exist; `decisions/_index.md` lists **8** *Open* (ADR-001..008) with no content | Backlog D1 |
+| CHANGELOG v1.2→v1.3 | ✅ | ❌ NEVER existed in git | Backlog D1 |
+| Traceability matrix | ✅ | ✅ `docs/traceability-matrix.md` real, T1 + T4 rows populated | — |
+| Stakeholder summary | ✅ | ❌ NEVER existed in git | Backlog D1 |
+| Widget architecture | ✅ | ❌ NEVER existed (no `analysis/widgets/` directory) | Backlog D1 / T5 input |
+| CLAUDE.md (v1.3 sync) | ✅ | ⚠ file exists; frontmatter says `TZ version: 1.2 \| CLAUDE.md last updated: 2026-05-09` — **not** bumped to v1.3 | Backlog D1 |
+| Security findings (SF-001..005) | ✅ | ✅ `analysis/security-findings.md` real, 5 entries | — |
+| Process deviations (PD-001..004) | ✅ | ✅ `analysis/process-deviations.md` real, 4 entries | — |
+
+**Implication:** "v1.3 release ✅ DELIVERED" was an overstatement. What
+exists today is: v1.2 codebase + T1 (Phase A+B+C) + T4 + #14 test-coverage
+work + traceability matrix + SF/PD logs. Documentation deliverables (TS
+docx update, CHANGELOG, ADR files, stakeholder summary, widget
+architecture) are **Backlog D1** (created as a result of this sanity
+check; see below).
 
 ---
 
@@ -29,7 +42,7 @@ resuming work. Read this first, then drill into the linked artefacts.
 | Sprint | Subject | Status | Next action |
 |---|---|---|---|
 | **T1** | Security & cross-tenant isolation | **✅ FULLY CLOSED. Phase A + B + C complete (79 tests, 0 skips, 87.88% Infrastructure coverage, 4 SF + 2 PD found).** | Sprint done; pick next |
-| **T2** | Licensing enforcement (~25 tests) | Brief draft, §2 micro-choices need architect sign-off | Sign §2 → Claude Code |
+| **T2** | Licensing enforcement | **✅ CLOSED (2026-05-25). 20 new tests, SF-006 + SF-007 fixed. 166 / 166 Tests.Security pass.** | Sprint done; pick next |
 | **T3** | Multi-tenancy integration (~30 tests) | Brief draft, §2 + **blocked by B1 #11** | Complete B1, sign §2 |
 | **T4** | PG authorization semantics | **✅ CLOSED (commit `cb7af32`, 46 tests, SF-005 Critical fixed). 146 / 146 Tests.Security pass. PD-003 resolved via Backlog #14.** | Sprint done; pick next |
 | **T5** | Widget framework (~30 tests) | Brief draft, §2 + Phase B blocked by B1 #11 | Sign §2; Phase A can start without B1 |
@@ -46,6 +59,7 @@ Briefs live in `docs/sprints/T{1..5}-*.md`.
 | **#12** | Widget-creator skill MetricType drift fix | Prompt ready (~15 min Claude Code task) | None |
 | **#13** | `DatabaseInitializer` → `IDatabaseInitializer` interface (replace `virtual`) | Pending; spawned by PD-002 (T1 Phase C). Low priority, refactor only. | None |
 | **#14** | `WebFixture`: disable `LoginRateLimitMiddleware` in test pipeline | **✅ CLOSED.** Reflection-based clearing of middleware static state. 146/146 tests pass. | — |
+| **D1** | Documentation catch-up: TS v1.3 EN docx, CHANGELOG v1.2→v1.3, ADR-001..008 files (currently only `_index.md` placeholders), stakeholder summary, widget architecture, CLAUDE.md frontmatter bump to v1.3 | Pending; created 2026-05-25 after sanity-check finding (see Current state §). Sizing rough ~70h depending on TS depth. Architect decision required: full doc catch-up vs partial (just CHANGELOG + minimal ADR skeletons) vs defer until external review demands it. | External v1.3 review readiness; T5 (widget architecture is input) |
 
 Both prompts are in the chat history of session 2026-05-17. If lost,
 both are short enough to regenerate from this status doc + relevant
@@ -106,6 +120,35 @@ Details: `analysis/security-findings.md` (SF-005), `analysis/process-deviations.
 
 ---
 
+## T2 results — quick reference
+
+### T2 — 2026-05-25
+- **Tests:** 20 new (4 test files in Authentication/ and Licensing/)
+- **`Tests.Security` total after T2:** 166 passing, 0 failing, 0 skipped
+- **DoD:** 13/13 ✅
+- **Production bugs found:** 2 (SF-006 Medium, SF-007 High)
+  - SF-006: Missing audit event on LICENSE-USER rejection
+  - SF-007: TOCTOU race condition on concurrent user creation
+- **Production code changes:**
+  - `UserManagementService.CreateAsync`: audit emission on rejection (4 LOC)
+  - `UserManagementService.CreateAsync`: transaction + `SELECT ... FOR UPDATE` for race protection
+- **New test files:**
+  - `Tests.Security/Authentication/ForceLogoutTests.cs` (4 tests — AUTH-WEB-03, USR-09)
+  - `Tests.Security/Authentication/JwtKeyConfigurationTests.cs` (6 tests — AUTH-API-06)
+  - `Tests.Security/Licensing/LicenseUserAuditTests.cs` (3 tests — LIC-01, AUD-01)
+  - (+ updates to existing `LicenseUserLimitTests.cs` for race test)
+
+### Cumulative test coverage after T1 + T4 + T2
+- **Tests.Security:** 166 passing, 0 failing, 0 skipped
+- **Total solution tests:** 247 passing (1+72+8+166)
+- **Security findings:** 7 (SF-001..007)
+- **Process deviations:** 5 (PD-001..005; PD-003, PD-005 resolved)
+- **Total investment:** ~77 hours (T1 ~50h + T4 ~23h + #14 ~1h + T2 ~3h)
+
+Details: `docs/sprints/T2-gap-analysis.md`, `analysis/security-findings.md` (SF-006, SF-007), `docs/traceability-matrix.md` (LIC-01, AUTH-WEB-03, AUTH-API-06, USR-09).
+
+---
+
 ## How to resume in a new session
 
 1. **Read this file first** (you're doing it).
@@ -113,10 +156,11 @@ Details: `analysis/security-findings.md` (SF-005), `analysis/process-deviations.
    `project_rtm_view_shell.md`, `feedback_rtm_workflow.md` carry the
    "how we work" rules and project invariants.
 3. **Find current pending action:**
-   - T1 fully closed; T4 fully closed (Backlog #14 fixed PD-003).
-   - Pick next: **T2** (Licensing, no blockers), **B1 #11** to
-     unblock T3 / T5, or **#12** (15-min skill drift fix).
-   - Apply learning from PD-001..004 when authoring the next
+   - T1 fully closed; T4 fully closed; T2 fully closed.
+   - Pick next: **B1 #11** to unblock T3 / T5 Phase B, or
+     **#12** (15-min skill drift fix), or **T5** Phase A (can start
+     without B1).
+   - Apply learning from PD-001..005 when authoring the next
      sprint's hand-off prompt:
      * Whitelist `partial class Program {}` for WAF-using sprints
        (PD-001), keep abort gate for everything else (PD-002).
@@ -125,6 +169,8 @@ Details: `analysis/security-findings.md` (SF-005), `analysis/process-deviations.
        `ClearLoginRateLimitState()` before each `LoginAsync()`.
      * Require `docs/sprints/T{N}-gap-analysis.md` as the **first**
        close-out artefact, not the last (PD-004).
+     * After session recovery: check for truncated files before
+       resuming work (PD-005).
 4. **For each sprint to start:** architect (Max) signs `Decision:`
    lines in §2 of the brief, then Claude Code runs Phase A handover
    prompt from §7.
@@ -165,15 +211,18 @@ When in doubt about "how do we do X here", read these.
 
 ## Last session ended at
 
-2026-05-25, after Backlog #14 fix.
+2026-05-25, after T2 completion.
 
 **T1 status:** ✅ fully closed (79 tests, 0 skips, 87.88% Infrastructure coverage, 4 SF + 2 PD).
-**T4 status:** ✅ fully closed (46 new tests, SF-005 Critical fixed). 146 / 146 `Tests.Security` pass. PD-003 resolved via Backlog #14.
+**T4 status:** ✅ fully closed (46 new tests, SF-005 Critical fixed).
+**T2 status:** ✅ fully closed (20 new tests, SF-006 + SF-007 fixed). 166 / 166 `Tests.Security` pass.
 
-Documentation sync completed this session: PD-003 marked resolved in
-`process-deviations.md`, traceability matrix totals updated to 146/146,
-`docs/sprints/backlog-14-gap-note.md` created, backlog #14 closed.
+Documentation sync completed this session:
+- `docs/sprints/T2-gap-analysis.md` created (DoD-13)
+- `docs/traceability-matrix.md` updated (LIC-01, AUTH-WEB-03, AUTH-API-06, USR-09)
+- `analysis/security-findings.md` updated (SF-006, SF-007)
+- PD-005 documented (session interruption recovery)
 
-Next: pick **T2** (Licensing — no blockers), **B1 #11** (refactor that
-unblocks T3 / T5 Phase B), or **#12** (widget-creator drift, 15-min
-context switch).
+Next: pick **T3** (Multi-tenancy — blocked by B1 #11), **T5** (Widget framework),
+**B1 #11** (refactor that unblocks T3 / T5 Phase B), or **#12** (widget-creator
+drift, 15-min context switch).
