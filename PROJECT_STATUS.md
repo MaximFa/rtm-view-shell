@@ -45,7 +45,7 @@ check; see below).
 | **T2** | Licensing enforcement | **✅ CLOSED (2026-05-25). 20 new tests, SF-006 + SF-007 fixed. 166 / 166 Tests.Security pass.** | Sprint done; pick next |
 | **T3** | Multi-tenancy integration | **✅ CLOSED (commit `7b85269`, 2026-05-25). 36 new tests, no SF-008 (OQ-1 resolved). 204 Tests.Security, 285 solution-wide.** | Sprint done; pick next |
 | **T4** | PG authorization semantics | **✅ CLOSED (commit `cb7af32`, 46 tests, SF-005 Critical fixed). 146 / 146 Tests.Security pass. PD-003 resolved via Backlog #14.** | Sprint done; pick next |
-| **T5** | Widget framework (~30 tests) | Brief draft, §2 — Phase B **unblocked** | Sign §2; start after T3 |
+| **T5** | Widget framework | **✅ CLOSED (commit `fbf89fd`, 2026-05-25). 28 new tests, OQ-16 verified, no SF. 313 / 313 solution-wide pass.** | Sprint done |
 
 Briefs live in `docs/sprints/T{1..5}-*.md`.
 
@@ -189,6 +189,36 @@ Details: `docs/sprints/T3-gap-analysis.md`, `docs/traceability-matrix.md` (ARCH-
 - **Unblocks:** T3 (fully), T5 Phase B
 - **Note:** Brief listed 11 DbSets, implementation includes 12 (all entities enumerated in brief §2 were included)
 
+
+---
+
+## T5 results — quick reference
+
+### T5 — commit `fbf89fd` (2026-05-25)
+- **Tests:** 28 new test cases (4 files in Tests.Security/Widgets/ + Infrastructure/)
+  - `Widgets/WidgetCatalogTests.cs` — 6 tests (WGT-01 cross-tenant visibility, WGT-02/03 access control, deactivated items)
+  - `Widgets/DashboardWidgetTests.cs` — 5 tests (WGT-04 lifecycle, soft-delete, GridId round-trip)
+  - `Widgets/RtsGridLifecycleTests.cs` — 13 tests (Agent/Queue grid CRUD + dual-write API hook assertions)
+  - `Infrastructure/SignalRTenantGuardTests.cs` — 4 tests (ARCH-09 TenantId guard)
+- **`Tests` total after T5:** 313 passing, 0 failing, 0 skipped (solution-wide)
+- **DoD:** 10/10 ✅
+- **Production code added:**
+  - `GridNotificationHub.cs` — SignalR Hub stub for ARCH-09 unit tests
+  - Queue Grid entities in `RtsEntities.cs` for BeDb assertions
+- **Security findings:** 0 (OQ-16 verified — no schema mismatch on `QueueId`)
+- **Open questions resolved:**
+  - OQ-16: `NgcBusinessUnitQueueClassification.QueueId` is string — no mismatch
+  - OQ-17: `SaveQueueGridRtsCommand` exists
+  - OQ-18: `GetWidgetCatalogQuery` correctly filters deactivated items for non-Superadmin
+
+### Cumulative test coverage after T1 + T4 + T2 + T3 + T5
+- **Tests (solution total):** 313 passing, 0 failing, 0 skipped
+- **Security findings:** 7 (SF-001..007; no new SF in T3, T5)
+- **Process deviations:** 5 (PD-001..005)
+- **Total investment:** ~85 hours (T1 ~50h + T4 ~23h + #14 ~1h + T2 ~3h + T3 ~4h + T5 ~4h)
+
+Details: `docs/sprints/T5-gap-analysis.md`, `docs/traceability-matrix.md` (WGT-01..04, ARCH-09).
+
 ---
 
 ## How to resume in a new session
@@ -198,9 +228,10 @@ Details: `docs/sprints/T3-gap-analysis.md`, `docs/traceability-matrix.md` (ARCH-
    `project_rtm_view_shell.md`, `feedback_rtm_workflow.md` carry the
    "how we work" rules and project invariants.
 3. **Find current pending action:**
-   - T1 fully closed; T4 fully closed; T2 fully closed.
-   - Pick next: **T3** (Multi-tenancy). B1 #11 closed `80974b0`; #12 closed `5eab846`.
-     Confirmed sequence: T3 → T5.
+   - T1 ✅ T2 ✅ T3 ✅ T4 ✅ T5 ✅ all closed.
+   - Pick next: **Backlog D1** (documentation catch-up: TS v1.3 EN docx, CHANGELOG,
+     ADR-001..008 files, CLAUDE.md v1.3 bump) or define **T6**.
+     Confirmed sequence complete: T1→T2→T4→T3→T5 ✅
    - Apply learning from PD-001..005 when authoring the next
      sprint's hand-off prompt:
      * Whitelist `partial class Program {}` for WAF-using sprints
@@ -253,12 +284,13 @@ T3 close-out: `docs/sprints/T3-gap-analysis.md` (DoD-1..9 verified, OQ-1..3 reso
 
 ## Last session ended at
 
-2026-05-25, after T3 completion.
+2026-05-25, after T5 completion.
 
 **T1 status:** ✅ fully closed (79 tests, 0 skips, 87.88% Infrastructure coverage, 4 SF + 2 PD).
 **T4 status:** ✅ fully closed (46 new tests, SF-005 Critical fixed).
 **T2 status:** ✅ fully closed (20 new tests, SF-006 + SF-007 fixed). 166 / 166 `Tests.Security` pass.
 **T3 status:** ✅ fully closed (36 new tests, no SF-008). 204 Tests.Security pass, 285 solution-wide.
+**T5 status:** ✅ fully closed (28 new tests, no SF). 313 solution-wide pass.
 
 Documentation sync completed this session:
 - `docs/sprints/T2-gap-analysis.md` created (DoD-13)
@@ -266,5 +298,5 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: **T5** (Widget framework). T3 closed `7b85269`. B1 #11 closed `80974b0`.
-Confirmed sequence: T3 ✅ → T5.
+Next: **Backlog D1** (Documentation catch-up) or **T6** (TBD). T5 closed `fbf89fd`.
+T1 ✅ → T2 ✅ → B1 #11 ✅ → T3 ✅ → T4 ✅ → T5 ✅
