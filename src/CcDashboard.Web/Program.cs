@@ -152,3 +152,8 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+// Make Program accessible to WebApplicationFactory for integration testing.
+// Required for top-level statements which generate an internal Program class by default.
+// See: https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests
+public partial class Program { }

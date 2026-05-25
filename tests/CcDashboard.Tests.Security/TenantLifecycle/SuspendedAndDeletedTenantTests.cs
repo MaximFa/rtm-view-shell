@@ -282,28 +282,10 @@ public class SuspendedAndDeletedTenantTests : IAsyncLifetime
 
     #endregion
 
-    #region Active Tenant Contrast Tests
-
-    [Fact(Skip = "Requires full ASP.NET Core Auth pipeline; successful login tested via WebApplicationFactory in Phase B")]
-    [Trait("Req", "ARCH-06")]
-    public async Task PasswordSignInAsync_ActiveTenant_SucceedsWithCorrectCredentials()
-    {
-        // This test requires CompleteSignInAsync which needs HttpContext.RequestServices
-        // wired with full authentication middleware. Out of scope for Phase A.
-        // The negative Suspended/Deleted tests prove ARCH-06 rejection works.
-        await Task.CompletedTask;
-    }
-
-    [Fact(Skip = "Requires full ASP.NET Core Auth pipeline; transition tested via WebApplicationFactory in Phase B")]
-    [Trait("Req", "ARCH-06")]
-    public async Task TenantStatus_Transition_AffectsLoginBehavior()
-    {
-        // This test requires CompleteSignInAsync which needs HttpContext.RequestServices.
-        // The tenant status check logic is already tested by the negative tests.
-        await Task.CompletedTask;
-    }
-
-    #endregion
+    // Active tenant contrast tests have been migrated to GoldenPathLoginTests:
+    // - PasswordSignInAsync_ActiveTenant_SucceedsWithCorrectCredentials
+    // - TenantStatus_Transition_AffectsLoginBehavior
+    // These tests require the full ASP.NET Core Auth pipeline via WebApplicationFactory.
 
     #region Helper Methods
 

@@ -29,52 +29,13 @@ public class LicenseSessionTests
         _fixture = fixture;
     }
 
-    [Fact(Skip = "Requires full ASP.NET Core Auth pipeline (HttpContext); tested via WebApplicationFactory")]
-    [Trait("Req", "AUTH-WEB-04")]
-    public async Task PasswordSignInAsync_NoLimit_AllowsMultipleConnections()
-    {
-        // Arrange - MaxConcurrentConnections = 0 means unlimited
-        await SetMaxConcurrentConnections(0);
-        await ClearUserSessions();
-
-        var sut = CreateAuthService();
-
-        // Act - login from 5 different IPs
-        for (int i = 1; i <= 5; i++)
-        {
-            var result = await sut.PasswordSignInAsync(
-                _fixture.TenantAId, "user.a@tenant-a.local", "Test@123456",
-                $"192.168.100.{i}", "TestAgent");
-
-            // Assert
-            result.Status.Should().NotBe(IdentitySignInStatus.SessionLimitExceeded,
-                $"Connection {i} should succeed when MaxConcurrentConnections = 0 [AUTH-WEB-04]");
-        }
-    }
-
-    [Fact(Skip = "Requires full ASP.NET Core Auth pipeline (HttpContext); tested via WebApplicationFactory")]
-    [Trait("Req", "AUTH-WEB-04")]
-    public async Task PasswordSignInAsync_WithinLimit_AllowsLogin()
-    {
-        // Arrange - limit to 3 concurrent connections
-        await SetMaxConcurrentConnections(3);
-        await ClearUserSessions();
-
-        // Create 2 existing sessions from different IPs
-        await CreateSession(_fixture.UserAId, "192.168.200.1");
-        await CreateSession(_fixture.UserAId, "192.168.200.2");
-
-        var sut = CreateAuthService();
-
-        // Act - third IP (within limit)
-        var result = await sut.PasswordSignInAsync(
-            _fixture.TenantAId, "user.a@tenant-a.local", "Test@123456",
-            "192.168.200.3", "TestAgent");
-
-        // Assert - should succeed (3rd connection, limit is 3)
-        result.Status.Should().NotBe(IdentitySignInStatus.SessionLimitExceeded,
-            "Login from 3rd IP should succeed when limit is 3 [AUTH-WEB-04]");
-    }
+    // The following positive-path LICENSE-SESSION tests have been migrated to GoldenPathLoginTests:
+    // - PasswordSignInAsync_NoLimit_AllowsMultipleConnections
+    // - PasswordSignInAsync_WithinLimit_AllowsLogin
+    // - PasswordSignInAsync_SameIp_AllowsUnlimitedConnections
+    // - PasswordSignInAsync_ExpiredSession_NotCounted
+    // - PasswordSignInAsync_RevokedSession_NotCounted
+    // These tests require the full ASP.NET Core Auth pipeline via WebApplicationFactory.
 
     [Fact]
     [Trait("Req", "AUTH-WEB-04")]
@@ -99,75 +60,6 @@ public class LicenseSessionTests
         // Assert
         result.Status.Should().Be(IdentitySignInStatus.SessionLimitExceeded,
             "Login from 3rd IP should be rejected when limit is 2 [AUTH-WEB-04, AUTH-API-07]");
-    }
-
-    [Fact(Skip = "Requires full ASP.NET Core Auth pipeline (HttpContext); tested via WebApplicationFactory")]
-    [Trait("Req", "AUTH-WEB-04")]
-    public async Task PasswordSignInAsync_SameIp_AllowsUnlimitedConnections()
-    {
-        // Arrange - limit to 1 concurrent connection
-        await SetMaxConcurrentConnections(1);
-        await ClearUserSessions();
-
-        // Create existing session from same IP that will be used
-        await CreateSession(_fixture.UserAId, "192.168.202.1");
-
-        var sut = CreateAuthService();
-
-        // Act - same IP (should allow unlimited from same IP)
-        var result = await sut.PasswordSignInAsync(
-            _fixture.TenantAId, "user.a@tenant-a.local", "Test@123456",
-            "192.168.202.1", "TestAgent");
-
-        // Assert
-        result.Status.Should().NotBe(IdentitySignInStatus.SessionLimitExceeded,
-            "Multiple connections from same IP should always be allowed [AUTH-WEB-04]");
-    }
-
-    [Fact(Skip = "Requires full ASP.NET Core Auth pipeline (HttpContext); tested via WebApplicationFactory")]
-    [Trait("Req", "AUTH-WEB-04")]
-    public async Task PasswordSignInAsync_ExpiredSession_NotCounted()
-    {
-        // Arrange - limit to 1 concurrent connection
-        await SetMaxConcurrentConnections(1);
-        await ClearUserSessions();
-
-        // Create expired session (should not count toward limit)
-        await CreateSession(_fixture.UserAId, "192.168.203.1", expired: true);
-
-        var sut = CreateAuthService();
-
-        // Act - new IP (should succeed since expired session doesn't count)
-        var result = await sut.PasswordSignInAsync(
-            _fixture.TenantAId, "user.a@tenant-a.local", "Test@123456",
-            "192.168.203.2", "TestAgent");
-
-        // Assert
-        result.Status.Should().NotBe(IdentitySignInStatus.SessionLimitExceeded,
-            "Expired sessions should not count toward limit [AUTH-WEB-04]");
-    }
-
-    [Fact(Skip = "Requires full ASP.NET Core Auth pipeline (HttpContext); tested via WebApplicationFactory")]
-    [Trait("Req", "AUTH-WEB-04")]
-    public async Task PasswordSignInAsync_RevokedSession_NotCounted()
-    {
-        // Arrange - limit to 1 concurrent connection
-        await SetMaxConcurrentConnections(1);
-        await ClearUserSessions();
-
-        // Create revoked session (should not count toward limit)
-        await CreateSession(_fixture.UserAId, "192.168.204.1", revoked: true);
-
-        var sut = CreateAuthService();
-
-        // Act - new IP (should succeed since revoked session doesn't count)
-        var result = await sut.PasswordSignInAsync(
-            _fixture.TenantAId, "user.a@tenant-a.local", "Test@123456",
-            "192.168.204.2", "TestAgent");
-
-        // Assert
-        result.Status.Should().NotBe(IdentitySignInStatus.SessionLimitExceeded,
-            "Revoked sessions should not count toward limit [AUTH-WEB-04]");
     }
 
     #region Helpers

@@ -28,11 +28,20 @@ Updated as part of every sprint close-out.
 
 | Req ID | ADR | Implementation | Test |
 |---|---|---|---|
+| AUTH-WEB-01 | ADR-TBD | `Program.cs` Identity + cookie options | (covered via integration smoke; T1 Phase C planned) |
+| AUTH-WEB-02 | ADR-TBD | `IdentityAuthService.CompleteSignInAsync` (claims) | (Phase C — WAF) |
+| AUTH-WEB-03 | ADR-TBD | `IdentityAuthService.SignOutAsync` + SecurityStamp | (Phase C — WAF) |
 
 ## Authentication — API (AUTH-API-01..06)
 
 | Req ID | ADR | Implementation | Test |
 |---|---|---|---|
+| AUTH-API-01 | ADR-TBD | `Api/Program.cs` JwtBearer | (covered via JtiRevocationTests pipeline) |
+| AUTH-API-02 | ADR-TBD | `Infrastructure/Security/TokenService.IssueAccessToken` | `Tests.Security/ApiAuth/RefreshTokenRotationTests` |
+| AUTH-API-03 | ADR-TBD | `Infrastructure/Security/TokenService.IssueRefreshToken` + cookie | `Tests.Security/ApiAuth/RefreshTokenRotationTests` |
+| AUTH-API-04 | ADR-TBD | `TokenService.RotateAsync` + reuse-detection | `Tests.Security/ApiAuth/RefreshTokenRotationTests` (5 tests) |
+| AUTH-API-05 | ADR-TBD | `TokenService.RevokeJtiAsync` (Redis) | `Tests.Security/ApiAuth/JtiRevocationTests` (5 tests; SF-004 fixed) |
+| AUTH-API-06 | ADR-TBD | RSA key configuration | (T2 — key-rotation tests planned) |
 
 ## Password policy (PWD-01..05)
 
@@ -43,6 +52,17 @@ Updated as part of every sprint close-out.
 
 | Req ID | ADR | Implementation | Test |
 |---|---|---|---|
+| BFP-01 | ADR-TBD | Identity `LockoutOptions` + `IdentityAuthService` | `Tests.Security/BruteForce/LockoutTests` (5 tests) |
+| BFP-02 | ADR-TBD | `Web/Middleware/LoginRateLimitMiddleware` (Redis) | `Tests.Security/BruteForce/RateLimitTests` (8 tests) |
+| BFP-03 | ADR-TBD | `IdentityAuthService` uniform-error returns | `Tests.Security/BruteForce/UniformErrorTests` (6 tests) |
+| BFP-04 | ADR-TBD | Audit subtype emission in `IdentityAuthService` | `Tests.Security/TenantMismatchLoginTests` + `BruteForce/UniformErrorTests` |
+
+## Licensing (LICENSE-SESSION — v1.3)
+
+| Req ID | ADR | Implementation | Test |
+|---|---|---|---|
+| LICENSE-SESSION (rejection) | ADR-012 | `IdentityAuthService` session-limit guard | `Tests.Security/Licensing/LicenseSessionTests` (1 test) |
+| LICENSE-SESSION (golden path) | ADR-012 | Same | Phase C — WAF (5 skipped tests) |
 
 ## 2FA (2FA-01..07)
 
@@ -108,10 +128,21 @@ Updated as part of every sprint close-out.
 
 ## Coverage summary
 
-- **Total numbered requirements:** TBD
-- **With ADR:** TBD
-- **Implemented:** TBD
-- **Tested:** TBD
-- **Coverage (tested / total):** TBD %
+After T1 Phase A + Phase B (commits `ca0ccd9` + `b846f1b`):
 
-Updated: YYYY-MM-DD
+- **Requirements with regression-safety tests:** ARCH-01, ARCH-04, ARCH-06, AUTH-API-02..05, BFP-01..04, LICENSE-SESSION (rejection path)
+- **Phase A tests inherited:** 31 passing, 3 skipped
+- **Phase B tests added:** 30 passing, 5 skipped
+- **Total `Tests.Security` count:** 61 passing, 8 skipped (8 awaiting Phase C / WAF)
+- **`CcDashboard.Infrastructure` line coverage:** 86.88%
+
+Remaining sections to be populated by T2..T5:
+- PWD-01..05 (T1 left unscoped; consider T2/T4)
+- 2FA-01..07, SSO-01..04 (T2 / future)
+- PG-01..07 (T4)
+- AUD-01..08 (T4)
+- DASH-01..05 (T5)
+- WGT-01..04 (T5)
+- USR-01..14, I18N-01..06, NFR, DEPLOY, CODE, DATA (TBD)
+
+Updated: 2026-05-25 (T1 Phase B close-out)

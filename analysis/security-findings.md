@@ -216,23 +216,25 @@ Redis, Postgres, and other systems have varying tolerance for edge-case inputs.
 | SF-001 | 🔴 Critical | ARCH-01 | T1 Phase A `GlobalQueryFilterTests` | `ca0ccd9` |
 | SF-002 | 🟠 High | ARCH-04, BFP-04 | T1 Phase A `TenantMismatchLoginTests` | `ca0ccd9` |
 | SF-003 | 🟠 High | ARCH-06 | T1 Phase A `SuspendedAndDeletedTenantTests` | `ca0ccd9` |
-| SF-004 | 🟡 Medium | AUTH-API-05 | T1 Phase B `JtiRevocationTests` | (pending) |
+| SF-004 | 🟡 Medium | AUTH-API-05 | T1 Phase B `JtiRevocationTests` | `b846f1b` |
 
 All findings detected within the first test-coverage sprint of the
 v1.3 programme. Expected pattern: each subsequent sprint (T2..T5)
 will surface additional gaps as test coverage extends into new code
 paths.
 
-## ROI of T1 Phase A
+## ROI of T1 (Phase A + Phase B)
 
-- **Investment:** ~20 hours of focused test development.
-- **Returns so far:** 3 security-critical bugs identified and
-  fixed before production exposure; 32 regression-safety tests in
-  place; 86.3% line coverage on `Infrastructure/Identity`.
+- **Investment:** ~35 hours of focused test development across the two phases.
+- **Returns so far:** 4 production bugs identified and fixed before
+  release — 1 Critical (cross-tenant data leak), 2 High (audit
+  subtype, GDPR-blocking guard), 1 Medium (logout reliability).
+  61 passing tests + 8 documented skips, 86.88% line coverage on
+  `CcDashboard.Infrastructure`.
 - **Future cost avoided:** at minimum one cross-tenant data
   incident (SF-001 alone) plus compliance audit non-conformities
-  (SF-002, SF-003). Both would have required incident response,
-  customer notifications, and remediation sprints far more
-  expensive than the prevention.
+  (SF-002, SF-003) plus support load on inconsistent-logout cases
+  (SF-004). All four would have required incident response and/or
+  customer notification work far more expensive than prevention.
 
 This is the explicit business case for completing Sprints T2..T5.

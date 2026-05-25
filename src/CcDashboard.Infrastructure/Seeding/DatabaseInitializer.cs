@@ -24,7 +24,7 @@ public class DatabaseInitializer(
 {
     private static readonly string[] Roles = ["Superadmin", "Administrator", "Editor", "Viewer"];
 
-    public async Task InitializeAsync(CancellationToken ct = default)
+    public virtual async Task InitializeAsync(CancellationToken ct = default)
     {
         logger.LogInformation("Running database seed...");
 

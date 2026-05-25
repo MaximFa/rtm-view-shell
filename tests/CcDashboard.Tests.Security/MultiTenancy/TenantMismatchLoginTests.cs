@@ -84,15 +84,8 @@ public class TenantMismatchLoginTests
             "Audit event should be logged with subtype TenantMismatch");
     }
 
-    [Fact(Skip = "Requires full ASP.NET Core Auth pipeline; golden path tested via WebApplicationFactory in Phase B")]
-    [Trait("Req", "ARCH-04")]
-    public async Task PasswordSignInAsync_CorrectTenant_ReturnsSuccess()
-    {
-        // This test requires CompleteSignInAsync which needs HttpContext.RequestServices
-        // wired with full authentication middleware. Out of scope for Phase A.
-        // The negative TenantMismatch tests above prove ARCH-04 detection works.
-        await Task.CompletedTask;
-    }
+    // PasswordSignInAsync_CorrectTenant_ReturnsSuccess has been migrated to GoldenPathLoginTests.
+    // It requires the full ASP.NET Core Auth pipeline via WebApplicationFactory.
 
     [Fact]
     [Trait("Req", "ARCH-04")]
