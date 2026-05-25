@@ -91,6 +91,56 @@ Warnings `unable to unlink '.git/objects/XX/tmp_obj_*'` in the output are
 **benign** — git cleans up its own temp objects, fails harmlessly on this mount.
 Verify success with `git log --oneline -1` and `git status --short`.
 
+
+### §0.5 Pre-commit file verification — MANDATORY, NO EXCEPTIONS
+
+Before **every** `git add` / `git commit`, verify **every file** being staged:
+
+```bash
+# For each file you are about to stage:
+tail -3 <path>   # must end with proper closing line (}, sentence, ```)
+wc -l <path>     # compare against expected / previous line count
+```
+
+If `tail -3` shows a truncated line, mid-comment ending, or dangling identifier —
+**stop immediately**. Restore via `git show HEAD:<path> > <path>` and retry the write.
+Do NOT stage or commit a file that fails the tail-3 check.
+
+Recommended one-liner before staging a set of files:
+
+```bash
+for f in file1.cs file2.cs file3.cs; do
+  echo "=== $f ===" && tail -3 "$f" && wc -l "$f"
+done
+```
+
+### §0.6 Post-commit integrity verification — MANDATORY, NO EXCEPTIONS
+
+After **every** `git commit` (including plumbing-based commits), verify the committed
+tree matches the working tree:
+
+```bash
+# 1. Working tree must be clean — zero M/A/D lines
+git status --short
+# Expected output: (empty)
+
+# 2. Spot-check committed files against working tree
+git diff HEAD -- <key_file1> <key_file2>
+# Expected output: (empty — no diff)
+
+# 3. Confirm line counts in committed tree
+git show HEAD:<key_file> | wc -l
+wc -l <key_file>
+# Both numbers must match
+```
+
+If `git status --short` shows **any** M files after a commit — the commit is incomplete.
+Do NOT proceed. Either:
+- Re-stage missing files and amend/create a follow-up commit, **or**
+- Roll back with `git reset --hard HEAD~1` and redo.
+
+**Never leave a commit where working tree ≠ HEAD tree.**
+
 ---
 
 ## 1. What this project is
