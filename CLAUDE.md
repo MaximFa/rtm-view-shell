@@ -1557,4 +1557,4 @@ Use browser DevTools → Application → Cookies to verify.
 
 ---
 
-*TZ version: 1.2 | CLAUDE.md last updated: 2026-05-09*
+*TZ version: 1.3 | CLAUDE.md last updated: 2026-05-25*
