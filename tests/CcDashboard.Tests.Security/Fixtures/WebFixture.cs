@@ -638,7 +638,7 @@ public class WebCollection : ICollectionFixture<WebFixture>
 internal class NoOpDatabaseInitializer : DatabaseInitializer
 {
     public NoOpDatabaseInitializer()
-        : base(null!, null!, null!, null!, null!, null!)
+        : base(null!, null!, null!, null!, null!, null!, null!, null!)
     {
     }
 

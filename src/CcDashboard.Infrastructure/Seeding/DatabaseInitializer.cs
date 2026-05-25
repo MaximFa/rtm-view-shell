@@ -6,6 +6,7 @@ using CcDashboard.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using UUIDNext;
 
@@ -17,9 +18,11 @@ namespace CcDashboard.Infrastructure.Seeding;
 public class DatabaseInitializer(
     AppDbContext db,
     AuditDbContext auditDb,
+    BackendEmulationDbContext beDb,
     UserManager<ApplicationUser> userManager,
     RoleManager<ApplicationRole> roleManager,
     IConfiguration config,
+    IHostEnvironment env,
     ILogger<DatabaseInitializer> logger)
 {
     private static readonly string[] Roles = ["Superadmin", "Administrator", "Editor", "Viewer"];
@@ -30,6 +33,13 @@ public class DatabaseInitializer(
 
         await db.Database.MigrateAsync(ct);
         await auditDb.Database.MigrateAsync(ct);
+
+        // Apply backend emulation migrations only in dev/test — in production these tables are backend-owned (ADR-007)
+        if (env.IsDevelopment() || env.EnvironmentName == "Testing")
+        {
+            logger.LogInformation("Applying BackendEmulationDbContext migrations (dev/test mode)...");
+            await beDb.Database.MigrateAsync(ct);
+        }
 
         await SeedRolesAsync(ct);
         var platformTenant = await SeedPlatformTenantAsync(ct);

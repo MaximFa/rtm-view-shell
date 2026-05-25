@@ -78,6 +78,11 @@ public class PostgresFixture : IAsyncLifetime
         services.AddDbContext<AuditDbContext>(options =>
             options.UseNpgsql(ConnectionString));
 
+        // Backend emulation context for T3/T5 test seeding (ADR-007)
+        services.AddDbContext<BackendEmulationDbContext>(options =>
+            options.UseNpgsql(ConnectionString, npg =>
+                npg.MigrationsHistoryTable("__BackendEmulationMigrationsHistory", "public")));
+
         services.AddIdentityCore<ApplicationUser>()
             .AddRoles<ApplicationRole>()
             .AddEntityFrameworkStores<AppDbContext>();
@@ -88,7 +93,11 @@ public class PostgresFixture : IAsyncLifetime
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var auditDb = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
-        // Apply migrations for both contexts
+        // Apply migrations for shell contexts (AppDbContext already creates backend tables)
+        // BackendEmulationDbContext migrations are NOT run here because AppDbContext migrations
+        // already include the backend table schemas. The BeDb context is still usable for seeding.
+        // In production, BackendEmulationDbContext migrations would run only when backend tables
+        // don't exist (dev/test standalone setup).
         await db.Database.MigrateAsync();
         await auditDb.Database.MigrateAsync();
 
@@ -306,6 +315,21 @@ public class PostgresFixture : IAsyncLifetime
         optionsBuilder.UseNpgsql(ConnectionString);
         return new AuditDbContext(optionsBuilder.Options);
     }
+
+    /// <summary>
+    /// Creates a new BackendEmulationDbContext for seeding backend-owned tables in tests (T3/T5).
+    /// </summary>
+    public BackendEmulationDbContext CreateBackendEmulationDbContext()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<BackendEmulationDbContext>();
+        optionsBuilder.UseNpgsql(ConnectionString);
+        return new BackendEmulationDbContext(optionsBuilder.Options);
+    }
+
+    /// <summary>
+    /// Alias for CreateBackendEmulationDbContext() per DoD-5.
+    /// </summary>
+    public BackendEmulationDbContext BeDb => CreateBackendEmulationDbContext();
 
     /// <summary>
     /// Creates a ServiceProvider with Identity and DbContext configured for testing.

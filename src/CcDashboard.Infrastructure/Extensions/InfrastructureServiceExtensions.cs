@@ -45,6 +45,17 @@ public static class InfrastructureServiceExtensions
             });
         });
 
+        // Backend emulation context — same database, separate migration history (ADR-007)
+        // Migrations run only in dev/test; in production these tables are backend-owned.
+        services.AddDbContext<BackendEmulationDbContext>((sp, opts) =>
+        {
+            opts.UseNpgsql(config.GetConnectionString("Default"), npg =>
+            {
+                npg.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                npg.MigrationsHistoryTable("__BackendEmulationMigrationsHistory", "public");
+            });
+        });
+
         // ASP.NET Core Identity
         services.AddIdentity<ApplicationUser, ApplicationRole>(opts =>
         {
