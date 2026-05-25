@@ -15,12 +15,12 @@ Updated as part of every sprint close-out.
 |---|---|---|---|
 | ARCH-01 | ADR-TBD | `AppDbContext.OnModelCreating` (GQF) | `Tests.Security/MultiTenancy/GlobalQueryFilterTests` (Phase A; SF-001 fixed) |
 | ARCH-02 | ADR-TBD | `Admin/TenantSwitcher.razor` + audit | (T3 planned) |
-| ARCH-03 | ADR-TBD | `TenantResolutionMiddleware` | (T3 planned) |
+| ARCH-03 | ADR-TBD | `TenantResolutionMiddleware` | `Tests.Security/MultiTenancy/TenantResolutionTests` (5 tests: known slug, unknown, suspended, deleted, no-subdomain) — T3 |
 | ARCH-04 | ADR-TBD | `IdentityAuthService.SignInAsync` (tenant match) | `Tests.Security/MultiTenancy/TenantMismatchLoginTests` (Phase A, negative) + `Tests.Security/Identity/GoldenPathLoginTests.PasswordSignInAsync_CorrectTenant_ReturnsSuccess` (Phase C, positive) — SF-002 fixed |
 | ARCH-05 | ADR-TBD | `AppDbContext` (no GQF on Tenant, etc.) | `Tests.Security/MultiTenancy/CrossTenantEntitiesTests` (Phase A) |
 | ARCH-06 | ADR-TBD | `TenantStatus` enum + login guard | `Tests.Security/TenantLifecycle/SuspendedAndDeletedTenantTests` (Phase A, negative) + `Tests.Security/Identity/GoldenPathLoginTests.{PasswordSignInAsync_ActiveTenant_SucceedsWithCorrectCredentials, TenantStatus_Transition_AffectsLoginBehavior}` (Phase C) — SF-003 fixed |
 | ARCH-07 | ADR-TBD | (background services pending) | TBD |
-| ARCH-08 | ADR-TBD | `RedisCacheService` (key prefix) | (T3 / scale-out sprint) |
+| ARCH-08 | ADR-TBD | `RedisCacheService` (key prefix `{tenantId}:{ns}:{key}`) | `Tests.Security/Infrastructure/RedisKeyPrefixTests` (4 tests: revoked-jti, different-tenants, pg-cache, 2fa-resend keys) — T3 |
 | ARCH-09 | ADR-TBD | SignalR hub method guards | (T5 — widget framework) |
 | ARCH-10 | ADR-TBD | `IBlobStorage` impl (pending) | (no impl yet — deferred per DEF-09) |
 
@@ -37,7 +37,7 @@ Updated as part of every sprint close-out.
 
 | Req ID | ADR | Implementation | Test |
 |---|---|---|---|
-| AUTH-API-01 | ADR-TBD | `Api/Program.cs` JwtBearer | (covered via JtiRevocationTests pipeline) |
+| AUTH-API-01 | ADR-TBD | `Infrastructure/Security/TokenService.CreateTokenPairAsync` | `Tests.Security/Authentication/JwtClaimsTests` (5 tests: required claims, 15-min expiry, iss/aud, role claim, Superadmin no-pg-claim) — T3 |
 | AUTH-API-02 | ADR-TBD | `Infrastructure/Security/TokenService.IssueAccessToken` | `Tests.Security/ApiAuth/RefreshTokenRotationTests` |
 | AUTH-API-03 | ADR-TBD | `Infrastructure/Security/TokenService.IssueRefreshToken` + cookie | `Tests.Security/ApiAuth/RefreshTokenRotationTests` |
 | AUTH-API-04 | ADR-TBD | `TokenService.RotateAsync` + reuse-detection | `Tests.Security/ApiAuth/RefreshTokenRotationTests` (5 tests) |
@@ -48,6 +48,11 @@ Updated as part of every sprint close-out.
 
 | Req ID | ADR | Implementation | Test |
 |---|---|---|---|
+| PWD-01 | ADR-TBD | `Identity PasswordOptions.RequiredLength` (min 12) | `Tests.Security/PasswordPolicy/PasswordPolicyTests` (2 tests: too-short rejected, min-length accepted) — T3 |
+| PWD-02 | ADR-TBD | `Identity PasswordOptions` (upper/lower/digit/special) | `Tests.Security/PasswordPolicy/PasswordPolicyTests` (4 [Theory] cases: missing upper/lower/digit/special) — T3 |
+| PWD-03 | ADR-TBD | `PasswordHasherOptions.IterationCount` ≥ 100000 | `Tests.Security/PasswordPolicy/PasswordPolicyTests` (1 config assertion) — T3 |
+| PWD-04 | ADR-TBD | `IdentityAuthService` password history check (last 10) | `Tests.Security/PasswordPolicy/PasswordPolicyTests` (1 integration test: reuse rejected) — T3 |
+| PWD-05 | ADR-TBD | `ApplicationUser.MustChangePasswordAt` set on creation/expiry | `Tests.Security/PasswordPolicy/PasswordPolicyTests` (2 tests: flag set on creation, expired flag present) — T3 ⚠ Blazor redirect deferred |
 
 ## Brute-force protection (BFP-01..04)
 
