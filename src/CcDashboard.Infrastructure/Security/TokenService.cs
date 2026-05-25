@@ -93,6 +93,7 @@ public class TokenService(
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
+            NotBefore = now,
             Expires = accessExpiry,
             Issuer = Issuer,
             Audience = Audience,

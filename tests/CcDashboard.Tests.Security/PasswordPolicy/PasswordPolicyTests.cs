@@ -62,10 +62,10 @@ public class PasswordPolicyTests(PostgresFixture postgres)
 
     [Theory]
     [Trait("Req", "PWD-02")]
-    [InlineData("lowercaseonly1!", "RequiresUpper")] // Missing uppercase
-    [InlineData("UPPERCASEONLY1!", "RequiresLower")] // Missing lowercase
-    [InlineData("NoDigitsHere!!!", "RequiresDigit")] // Missing digit
-    [InlineData("NoSpecialChar123", "RequiresNonAlphanumeric")] // Missing special char
+    [InlineData("lowercaseonly1!", "PasswordRequiresUpper")] // Missing uppercase
+    [InlineData("UPPERCASEONLY1!", "PasswordRequiresLower")] // Missing lowercase
+    [InlineData("NoDigitsHere!!!", "PasswordRequiresDigit")] // Missing digit
+    [InlineData("NoSpecialChar123", "PasswordRequiresNonAlphanumeric")] // Missing special char
     public async Task CreateUser_MissingComplexityRequirement_Rejected(string password, string expectedErrorCode)
     {
         // Arrange

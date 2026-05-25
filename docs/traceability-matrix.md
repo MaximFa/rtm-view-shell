@@ -149,27 +149,25 @@ Updated as part of every sprint close-out.
 
 ## Coverage summary
 
-After T1 Phase A + Phase B + Phase C + T4 + T2 (commits `ca0ccd9` + `b846f1b` + `77e1537` + T4 + T2):
+After T1 Phase A + Phase B + Phase C + T4 + T2 + T3:
 
-- **Requirements with regression-safety tests:** ARCH-01, ARCH-04 (positive + negative), ARCH-05, ARCH-06 (positive + negative + transition), AUTH-WEB-01, AUTH-WEB-02, AUTH-WEB-03, AUTH-WEB-04, AUTH-API-02..06, BFP-01..04, LICENSE-SESSION (positive + negative), LIC-01 (LICENSE-USER), PG-01, PG-03, PG-04, PG-06, PG-07, AUD-01, USR-09
+- **Requirements with regression-safety tests:** ARCH-01 (extended), ARCH-03, ARCH-04 (positive + negative), ARCH-05, ARCH-06 (positive + negative + transition), ARCH-08, AUTH-WEB-01, AUTH-WEB-02, AUTH-WEB-03, AUTH-WEB-04, AUTH-API-01..06, BFP-01..04, PWD-01..05, LICENSE-SESSION (positive + negative), LIC-01 (LICENSE-USER), PG-01, PG-03, PG-04, PG-06, PG-07, AUD-01, USR-09
 - **Phase A tests:** 32 passing
 - **Phase B tests:** 30 passing
 - **Phase C tests:** 18 passing
 - **T4 Authorization tests:** 46 passing (9 test files in Authorization/)
-- **T2 Licensing + Auth tests:** 20 passing (ForceLogoutTests: 4, JwtKeyConfigurationTests: 6, LicenseUserAuditTests: 3, LicenseUserLimitTests: 4 + race fix + 3 existing)
-- **Total `Tests.Security` count:** 166 passing
-- **Total solution test count:** 247 passing (1+72+8+166)
-- **`CcDashboard.Infrastructure` line coverage:** 87.88% (maintained)
+- **T2 Licensing + Auth tests:** 20 passing
+- **T3 Multi-tenancy tests:** 36 passing (6 files: NgcIsolation, TenantResolution, PasswordPolicy, RedisKeyPrefix, JwtClaims, ConfigWriteProtection)
+- **Total `Tests.Security` count:** 204 passing
+- **Total solution test count:** 285 passing (1+72+8+204)
 
-Remaining sections to be populated by T3..T5:
-- PWD-01..05 (T1 left unscoped; consider T3)
-- 2FA-01..07, SSO-01..04 (T3 / future)
-- AUTH-API-01 (JWT issuance pipeline) — T3
+Remaining sections to be populated by T5+:
+- 2FA-01..07, SSO-01..04 (future)
 - PG-02, PG-05 (T4+ — additional PG semantics)
 - AUD-02..08 (audit retention, export, etc.) — future
 - DASH-01..05 (T5)
 - WGT-01..04 (T5)
-- ARCH-02, ARCH-03, ARCH-07..10 (T3 / T5)
+- ARCH-02, ARCH-07, ARCH-09, ARCH-10 (T5 / future)
 - USR-01..08, USR-10..14, I18N-01..06, NFR, DEPLOY, CODE, DATA (TBD)
 
-Updated: 2026-05-25 (T2 — LICENSE-USER, AUTH-WEB-03 force-logout, AUTH-API-06 JWT key config; 166/166 tests passing)
+Updated: 2026-05-25 (T3 — NGC isolation, TenantResolution, PWD-01..05, ARCH-08, AUTH-API-01; 204/204 Security tests passing)

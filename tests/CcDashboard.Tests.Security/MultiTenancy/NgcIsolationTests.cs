@@ -188,28 +188,41 @@ public class NgcIsolationTests(PostgresFixture postgres)
     [Trait("Req", "ARCH-01")]
     public async Task NgcBusinessUnitSupergroup_SeededInTenantA_NotVisibleInTenantB()
     {
-        // Arrange: Create business unit and supergroup first
-        await using var beDb = postgres.CreateBackendEmulationDbContext();
-        var bu = new NgcBusinessUnit { TenantId = postgres.TenantAId, BusinessUnitName = "BU-SG-Test" };
-        var sg = new NgcSupergroup { TenantId = postgres.TenantAId, SupergroupName = "SG-BU-Test" };
-        beDb.NgcBusinessUnits.Add(bu);
-        beDb.NgcSupergroups.Add(sg);
-        await beDb.SaveChangesAsync();
+        // Arrange: Create separate BU/SG pairs for each tenant (PK is BU_ID+SG_ID)
+        int buIdA, sgIdA, buIdB, sgIdB;
+        await using (var beDb = postgres.CreateBackendEmulationDbContext())
+        {
+            var buA = new NgcBusinessUnit { TenantId = postgres.TenantAId, BusinessUnitName = "BU-SG-Test-A" };
+            var sgA = new NgcSupergroup { TenantId = postgres.TenantAId, SupergroupName = "SG-BU-Test-A" };
+            var buB = new NgcBusinessUnit { TenantId = postgres.TenantBId, BusinessUnitName = "BU-SG-Test-B" };
+            var sgB = new NgcSupergroup { TenantId = postgres.TenantBId, SupergroupName = "SG-BU-Test-B" };
+            beDb.NgcBusinessUnits.AddRange(buA, buB);
+            beDb.NgcSupergroups.AddRange(sgA, sgB);
+            await beDb.SaveChangesAsync();
+            buIdA = buA.BusinessUnitId;
+            sgIdA = sgA.SupergroupId;
+            buIdB = buB.BusinessUnitId;
+            sgIdB = sgB.SupergroupId;
+        }
 
-        var linkA = new NgcBusinessUnitSupergroup
+        // Seed junction records in a fresh context
+        await using (var beDb2 = postgres.CreateBackendEmulationDbContext())
         {
-            BusinessUnitId = bu.BusinessUnitId,
-            SupergroupId = sg.SupergroupId,
-            TenantId = postgres.TenantAId
-        };
-        var linkB = new NgcBusinessUnitSupergroup
-        {
-            BusinessUnitId = bu.BusinessUnitId,
-            SupergroupId = sg.SupergroupId,
-            TenantId = postgres.TenantBId
-        };
-        beDb.NgcBusinessUnitSupergroups.AddRange(linkA, linkB);
-        await beDb.SaveChangesAsync();
+            var linkA = new NgcBusinessUnitSupergroup
+            {
+                BusinessUnitId = buIdA,
+                SupergroupId = sgIdA,
+                TenantId = postgres.TenantAId
+            };
+            var linkB = new NgcBusinessUnitSupergroup
+            {
+                BusinessUnitId = buIdB,
+                SupergroupId = sgIdB,
+                TenantId = postgres.TenantBId
+            };
+            beDb2.NgcBusinessUnitSupergroups.AddRange(linkA, linkB);
+            await beDb2.SaveChangesAsync();
+        }
 
         // Act
         await using var dbA = postgres.CreateDbContext(postgres.TenantAId);

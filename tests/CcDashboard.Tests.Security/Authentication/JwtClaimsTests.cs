@@ -42,7 +42,7 @@ public class JwtClaimsTests(PostgresFixture postgres)
 
         token.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Sub && c.Value == userId.ToString());
         token.Claims.Should().Contain(c => c.Type == "tenant_id" && c.Value == tenantId.ToString());
-        token.Claims.Should().Contain(c => c.Type == ClaimTypes.Role && c.Value == role);
+        token.Claims.Should().Contain(c => c.Type == "role" && c.Value == role);
         token.Claims.Should().Contain(c => c.Type == "permission_group_id" && c.Value == pgId.ToString());
         token.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Jti);
         token.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Iat);
@@ -120,10 +120,10 @@ public class JwtClaimsTests(PostgresFixture postgres)
         var handler = new JwtSecurityTokenHandler();
 
         var adminToken = handler.ReadJwtToken(adminPair.AccessToken);
-        adminToken.Claims.Should().Contain(c => c.Type == ClaimTypes.Role && c.Value == "Administrator");
+        adminToken.Claims.Should().Contain(c => c.Type == "role" && c.Value == "Administrator");
 
         var viewerToken = handler.ReadJwtToken(viewerPair.AccessToken);
-        viewerToken.Claims.Should().Contain(c => c.Type == ClaimTypes.Role && c.Value == "Viewer");
+        viewerToken.Claims.Should().Contain(c => c.Type == "role" && c.Value == "Viewer");
     }
 
     [Fact]
