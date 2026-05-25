@@ -1,0 +1,192 @@
+using CcDashboard.Application.Commands.PermissionGroups;
+using CcDashboard.Application.Interfaces;
+using CcDashboard.Domain.Domain;
+using CcDashboard.Domain.Exceptions;
+using CcDashboard.Domain.Interfaces;
+using CcDashboard.Infrastructure.Persistence.Repositories;
+using CcDashboard.Infrastructure.Services;
+using CcDashboard.Tests.Security.Fixtures;
+using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+using UUIDNext;
+
+namespace CcDashboard.Tests.Security.Authorization;
+
+/// <summary>
+/// Integration tests for PG-06: cannot delete PG with assigned users [DoD-8].
+/// Per CLAUDE.md §15: "[PG-06] Cannot delete a PG that has >=1 user assigned. Return error with user count + list."
+/// </summary>
+[Collection("Postgres")]
+public class PermissionGroupDeletionTests
+{
+    private readonly PostgresFixture _fixture;
+
+    public PermissionGroupDeletionTests(PostgresFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
+    [Fact]
+    [Trait("Req", "PG-06")]
+    public async Task DeletePermissionGroup_WithAssignedUsers_ReturnsFailureWithUserCount()
+    {
+        // Arrange - PgAId has UserAId assigned in the seed data
+        await using var db = _fixture.CreateDbContext(_fixture.TenantAId);
+
+        var repo = new PermissionGroupRepository(db);
+        var apiHook = new Mock<IConfigurationApiHook>();
+
+        var handler = new DeletePermissionGroupCommandHandler(repo, apiHook.Object);
+        var command = new DeletePermissionGroupCommand(_fixture.PgAId);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse("Cannot delete PG with assigned users [PG-06]");
+        result.Error.Should().Contain("1", "Error should contain user count");
+        result.Error.Should().Contain("PG-06", "Error should reference PG-06 requirement");
+    }
+
+    [Fact]
+    [Trait("Req", "PG-06")]
+    public async Task DeletePermissionGroup_WithNoUsers_Succeeds()
+    {
+        // Arrange - create a new PG with no users
+        await using var db = _fixture.CreateDbContext(_fixture.TenantAId);
+
+        var emptyPgId = Uuid.NewSequential();
+        var emptyPg = new PermissionGroup
+        {
+            Id = emptyPgId,
+            TenantId = _fixture.TenantAId,
+            Name = "Empty PG",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            CreatedByUserId = _fixture.UserAId,
+            UpdatedByUserId = _fixture.UserAId
+        };
+
+        db.PermissionGroups.Add(emptyPg);
+        await db.SaveChangesAsync();
+
+        var repo = new PermissionGroupRepository(db);
+        var apiHook = new Mock<IConfigurationApiHook>();
+
+        var handler = new DeletePermissionGroupCommandHandler(repo, apiHook.Object);
+        var command = new DeletePermissionGroupCommand(emptyPgId);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // TransactionBehavior normally saves changes; in tests we need to do it manually
+        if (result.IsSuccess)
+            await db.SaveChangesAsync();
+
+        // Assert
+        result.IsSuccess.Should().BeTrue("PG with no users should be deletable");
+
+        // Verify it was actually deleted
+        var exists = await db.PermissionGroups
+            .IgnoreQueryFilters()
+            .AnyAsync(pg => pg.Id == emptyPgId);
+        exists.Should().BeFalse("PG should be removed from database");
+    }
+
+    [Fact]
+    [Trait("Req", "PG-06")]
+    public async Task DeletePermissionGroup_NotFound_ThrowsNotFoundException()
+    {
+        // Arrange
+        await using var db = _fixture.CreateDbContext(_fixture.TenantAId);
+
+        var repo = new PermissionGroupRepository(db);
+        var apiHook = new Mock<IConfigurationApiHook>();
+
+        var handler = new DeletePermissionGroupCommandHandler(repo, apiHook.Object);
+        var command = new DeletePermissionGroupCommand(Uuid.NewSequential()); // Non-existent ID
+
+        // Act & Assert
+        var act = async () => await handler.Handle(command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .WithMessage("*PermissionGroup*");
+    }
+
+    [Fact]
+    [Trait("Req", "PG-06")]
+    public async Task DeletePermissionGroup_WithMultipleUsers_ReturnsCorrectCount()
+    {
+        // Arrange - create a PG with multiple users
+        await using var db = _fixture.CreateDbContext(_fixture.TenantAId);
+
+        var pgId = Uuid.NewSequential();
+        var pg = new PermissionGroup
+        {
+            Id = pgId,
+            TenantId = _fixture.TenantAId,
+            Name = "Multi-User PG",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            CreatedByUserId = _fixture.UserAId,
+            UpdatedByUserId = _fixture.UserAId
+        };
+
+        db.PermissionGroups.Add(pg);
+        await db.SaveChangesAsync();
+
+        // Add 3 users to this PG
+        for (int i = 0; i < 3; i++)
+        {
+            var user = new CcDashboard.Infrastructure.Identity.ApplicationUser
+            {
+                Id = Uuid.NewSequential(),
+                TenantId = _fixture.TenantAId,
+                UserName = $"user{i}@test.local",
+                Email = $"user{i}@test.local",
+                NormalizedUserName = $"USER{i}@TEST.LOCAL",
+                NormalizedEmail = $"USER{i}@TEST.LOCAL",
+                EmailConfirmed = true,
+                FirstName = "User",
+                LastName = i.ToString(),
+                IsActive = true,
+                PermissionGroupId = pgId
+            };
+            db.Users.Add(user);
+        }
+        await db.SaveChangesAsync();
+
+        var repo = new PermissionGroupRepository(db);
+        var apiHook = new Mock<IConfigurationApiHook>();
+
+        var handler = new DeletePermissionGroupCommandHandler(repo, apiHook.Object);
+        var command = new DeletePermissionGroupCommand(pgId);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse("Cannot delete PG with 3 assigned users");
+        result.Error.Should().Contain("3", "Error should contain correct user count (3)");
+    }
+
+    [Fact]
+    [Trait("Req", "PG-06")]
+    public async Task CountUsersAsync_ReturnsCorrectCount()
+    {
+        // Arrange
+        await using var db = _fixture.CreateDbContext(_fixture.TenantAId);
+        var repo = new PermissionGroupRepository(db);
+
+        // Act - PgAId has 1 user (UserA)
+        var count = await repo.CountUsersAsync(_fixture.PgAId, CancellationToken.None);
+
+        // Assert
+        count.Should().Be(1, "PgA should have exactly 1 user assigned (UserA)");
+    }
+}

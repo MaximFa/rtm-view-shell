@@ -86,6 +86,9 @@ public static class InfrastructureServiceExtensions
             ConnectionMultiplexer.Connect(ConfigurationOptions.Parse(redisConn + ",abortConnect=false")));
         services.AddScoped<ICacheService, RedisCacheService>();
 
+        // Permission service [PG-04, PG-07]
+        services.AddScoped<IPermissionService, PermissionService>();
+
         // Audit
         services.AddScoped<IAuditService, AuditService>();
 

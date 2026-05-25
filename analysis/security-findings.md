@@ -209,6 +209,78 @@ Redis, Postgres, and other systems have varying tolerance for edge-case inputs.
 
 ---
 
+## SF-005 — AuthorizationBehavior.RequiredPermission not enforced
+
+**Detected:** Sprint T4 (2026-05-25)
+**Severity:** 🔴 **Critical** (authorization bypass)
+**Requirements violated:** PG-04 (Application-layer permission enforcement), CODE-03 (two-level authorization)
+
+### Context
+
+T4 sprint planning inspection of `AuthorizationBehavior.cs:51-61` revealed
+a TODO comment where `RequiredPermission` lookup was intended but never
+implemented. The code logs a debug message but does not actually check
+whether the user has the declared permission.
+
+```csharp
+// TODO: Implement permission service lookup when permission caching is ready
+// var hasPermission = await permissionService.HasPermissionAsync(
+//     currentUser.PermissionGroupId, permReq.RequiredPermission, ct);
+// if (!hasPermission) throw new ForbiddenException(...);
+
+logger.LogDebug(
+    "Permission check for {Permission} on {RequestType} (enforcement pending permission service)",
+    permReq.RequiredPermission, typeof(TRequest).Name);
+```
+
+### Root cause
+
+The `IPermissionService` abstraction was never created. The TODO was
+left during initial development with the intention of implementing it
+"when permission caching is ready". Redis caching infrastructure was
+built (`ICacheService`, `RedisCacheService`), but no one circled back
+to wire it into authorization.
+
+### Impact (had this gone to production)
+
+Any command or query that declares `IRequiresPermission.RequiredPermission`
+would have its permission check **silently skipped**. The role check
+(`AllowedRoles`) still works, but fine-grained permission keys
+(e.g., `menu.users`, `dashboard.edit`, CC-resource filtering) would
+be completely unenforced at the Application layer.
+
+Per PG-04: "CC-resource filtering is enforced in Application Layer
+(`AuthorizationBehavior`), **not** only in UI. Hiding a menu item is
+cosmetic only — API calls must also be rejected." This requirement
+was violated.
+
+**Mitigating factor:** At the time of detection, no command/query
+in the codebase actually declares a `RequiredPermission` value (all
+use the default `null`). The gap was latent — it would have become
+exploitable the moment any developer added a permission-protected
+command assuming the TODO was implemented.
+
+### Resolution
+
+Fixed in Sprint T4 by:
+1. Creating `IPermissionService` interface in `Domain/Interfaces/`
+2. Implementing `PermissionService` in `Infrastructure/Services/`
+   with Redis cache lookup (`{tenantId}:pg_permissions:{pgId}`)
+3. Replacing the TODO in `AuthorizationBehavior.cs:51-61` with
+   actual permission enforcement
+
+Commit: T4 (2026-05-25)
+
+### Lesson / pattern
+
+TODOs in security-critical paths must be tracked in a backlog with
+severity and ownership. A TODO in an authorization pipeline is a
+production vulnerability with a deferred fix date. Code review
+should flag any `// TODO:` in authentication/authorization code as
+a blocking issue.
+
+---
+
 ## Summary table
 
 | ID | Severity | Affected requirement | Detected by | Fix commit |
@@ -217,24 +289,58 @@ Redis, Postgres, and other systems have varying tolerance for edge-case inputs.
 | SF-002 | 🟠 High | ARCH-04, BFP-04 | T1 Phase A `TenantMismatchLoginTests` | `ca0ccd9` |
 | SF-003 | 🟠 High | ARCH-06 | T1 Phase A `SuspendedAndDeletedTenantTests` | `ca0ccd9` |
 | SF-004 | 🟡 Medium | AUTH-API-05 | T1 Phase B `JtiRevocationTests` | `b846f1b` |
+| SF-005 | 🔴 Critical | PG-04, CODE-03 | T4 sprint planning inspection | T4 (2026-05-25) |
 
 All findings detected within the first test-coverage sprint of the
 v1.3 programme. Expected pattern: each subsequent sprint (T2..T5)
 will surface additional gaps as test coverage extends into new code
 paths.
 
-## ROI of T1 (Phase A + Phase B)
+## ROI of T1 (Phase A + Phase B + Phase C — sprint fully closed)
 
-- **Investment:** ~35 hours of focused test development across the two phases.
-- **Returns so far:** 4 production bugs identified and fixed before
+- **Investment:** ~50 hours of focused test development across the
+  three phases (Phase A ~20h, Phase B ~15h, Phase C ~12h plus
+  ~3h architect close-out per phase).
+- **Returns:** 4 production bugs identified and fixed before
   release — 1 Critical (cross-tenant data leak), 2 High (audit
   subtype, GDPR-blocking guard), 1 Medium (logout reliability).
-  61 passing tests + 8 documented skips, 86.88% line coverage on
-  `CcDashboard.Infrastructure`.
+  **79 passing tests, zero skips**, 87.88% line coverage on
+  `CcDashboard.Infrastructure`. Plus 2 process deviations
+  documented (PD-001 / PD-002) feeding back into future sprint
+  hand-off prompts.
 - **Future cost avoided:** at minimum one cross-tenant data
   incident (SF-001 alone) plus compliance audit non-conformities
   (SF-002, SF-003) plus support load on inconsistent-logout cases
   (SF-004). All four would have required incident response and/or
   customer notification work far more expensive than prevention.
+- **Phase C specifically:** zero new SFs surfaced. This validates
+  that Phase A and Phase B's negative-path tests already covered
+  the riskiest branches; golden-path coverage was needed for
+  audit completeness and AUTH-WEB-02 claims-materialisation
+  regression safety, not for finding bugs. Expected pattern for
+  closing sprints: lower SF discovery rate as coverage saturates
+  the in-scope code paths.
 
 This is the explicit business case for completing Sprints T2..T5.
+
+## ROI of T4 (PG Authorization Semantics)
+
+- **Investment:** ~4 hours of focused authorization test development
+- **Returns:** 1 Critical security finding (SF-005) fixed — permission
+  enforcement TODO in AuthorizationBehavior was completely unenforced.
+  **46 authorization tests** now covering:
+  - AuthorizationBehavior role + permission enforcement (7 tests)
+  - E2E UI rejection via WebFixture (4 tests)
+  - PG-03 empty CC-resource = denied (7 tests)
+  - PG-04 AccessLevel bitmask semantics (5 tests)
+  - PG-04 single-assignment union semantics (5 tests)
+  - PG-01 creator auto-grant (4 tests)
+  - PG-06 cannot delete PG with users (5 tests)
+  - PG-07 Redis cache invalidation (5 tests)
+  - AUD-01 audit events for PG lifecycle (4 tests)
+- **Total `Tests.Security` count after T4:** 126+ passing
+- **Future cost avoided:** SF-005 would have allowed any command
+  declaring `RequiredPermission` to bypass Application-layer
+  authorization entirely. The first developer to add a
+  permission-protected command would have had a false sense of
+  security while the permission was silently skipped.

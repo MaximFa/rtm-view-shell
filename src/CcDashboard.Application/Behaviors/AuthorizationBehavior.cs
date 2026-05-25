@@ -11,6 +11,7 @@ namespace CcDashboard.Application.Behaviors;
 /// </summary>
 public class AuthorizationBehavior<TRequest, TResponse>(
     ICurrentUserAccessor currentUser,
+    IPermissionService permissionService,
     ILogger<AuthorizationBehavior<TRequest, TResponse>> logger)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
@@ -47,16 +48,25 @@ public class AuthorizationBehavior<TRequest, TResponse>(
                 throw new ForbiddenException($"This action requires one of the following roles: {string.Join(", ", permReq.AllowedRoles)}");
             }
 
-            // Check specific permission key if declared
+            // Check specific permission key if declared [PG-04]
             if (!string.IsNullOrEmpty(permReq.RequiredPermission))
             {
-                // TODO: Implement permission service lookup when permission caching is ready
-                // var hasPermission = await permissionService.HasPermissionAsync(
-                //     currentUser.PermissionGroupId, permReq.RequiredPermission, ct);
-                // if (!hasPermission) throw new ForbiddenException(...);
+                var tenantId = currentUser.TenantId
+                    ?? throw new ForbiddenException("Tenant context required for permission check.");
+
+                var hasPermission = await permissionService.HasPermissionAsync(
+                    currentUser.PermissionGroupId, tenantId, permReq.RequiredPermission, ct);
+
+                if (!hasPermission)
+                {
+                    logger.LogWarning(
+                        "Authorization failed: user {UserId} in PG {PgId} lacks permission {Permission} for {RequestType}",
+                        userId, currentUser.PermissionGroupId, permReq.RequiredPermission, typeof(TRequest).Name);
+                    throw new ForbiddenException($"Permission denied: {permReq.RequiredPermission}");
+                }
 
                 logger.LogDebug(
-                    "Permission check for {Permission} on {RequestType} (enforcement pending permission service)",
+                    "Permission check passed for {Permission} on {RequestType}",
                     permReq.RequiredPermission, typeof(TRequest).Name);
             }
         }

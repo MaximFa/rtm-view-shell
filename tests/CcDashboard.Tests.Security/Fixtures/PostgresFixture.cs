@@ -1,6 +1,7 @@
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Enums;
 using CcDashboard.Domain.Interfaces;
+using CcDashboard.Infrastructure.Audit;
 using CcDashboard.Infrastructure.Identity;
 using CcDashboard.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -74,6 +75,9 @@ public class PostgresFixture : IAsyncLifetime
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(ConnectionString));
 
+        services.AddDbContext<AuditDbContext>(options =>
+            options.UseNpgsql(ConnectionString));
+
         services.AddIdentityCore<ApplicationUser>()
             .AddRoles<ApplicationRole>()
             .AddEntityFrameworkStores<AppDbContext>();
@@ -82,9 +86,11 @@ public class PostgresFixture : IAsyncLifetime
 
         await using var scope = sp.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var auditDb = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
-        // Apply migrations
+        // Apply migrations for both contexts
         await db.Database.MigrateAsync();
+        await auditDb.Database.MigrateAsync();
 
         // Seed test data
         await SeedTestDataAsync(db, scope.ServiceProvider);
@@ -289,6 +295,16 @@ public class PostgresFixture : IAsyncLifetime
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         optionsBuilder.UseNpgsql(ConnectionString);
         return new AppDbContext(optionsBuilder.Options, new TestTenantContext(tenantId));
+    }
+
+    /// <summary>
+    /// Creates a new AuditDbContext for reading audit logs in tests.
+    /// </summary>
+    public AuditDbContext CreateAuditDbContext()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<AuditDbContext>();
+        optionsBuilder.UseNpgsql(ConnectionString);
+        return new AuditDbContext(optionsBuilder.Options);
     }
 
     /// <summary>
