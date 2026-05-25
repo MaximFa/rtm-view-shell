@@ -59,7 +59,7 @@ Briefs live in `docs/sprints/T{1..5}-*.md`.
 | **#12** | Widget-creator skill MetricType drift fix | **✅ CLOSED** (commit `5eab846`, 2026-05-25) | — |
 | **#13** | `DatabaseInitializer` → `IDatabaseInitializer` interface (replace `virtual`) | Pending; spawned by PD-002 (T1 Phase C). Low priority, refactor only. | None |
 | **#14** | `WebFixture`: disable `LoginRateLimitMiddleware` in test pipeline | **✅ CLOSED.** Reflection-based clearing of middleware static state. 146/146 tests pass. | — |
-| **D1** | Documentation catch-up: TS v1.3 EN docx, CHANGELOG v1.2→v1.3, ADR-001..008 files (currently only `_index.md` placeholders), stakeholder summary, widget architecture, CLAUDE.md frontmatter bump to v1.3 | Pending; created 2026-05-25 after sanity-check finding (see Current state §). Sizing rough ~70h depending on TS depth. Architect decision required: full doc catch-up vs partial (just CHANGELOG + minimal ADR skeletons) vs defer until external review demands it. | External v1.3 review readiness; T5 (widget architecture is input) |
+| **D1** | Documentation catch-up: TS v1.3 EN docx, CHANGELOG v1.2→v1.3, ADR-001..008 files, stakeholder summary, widget architecture, CLAUDE.md frontmatter bump to v1.3 | **✅ CLOSED (commit `b16d2e5`, 2026-05-25). 1,378 insertions across 13 files. All 6 deliverables delivered.** | Done |
 
 Both prompts are in the chat history of session 2026-05-17. If lost,
 both are short enough to regenerate from this status doc + relevant
@@ -298,5 +298,24 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: **Backlog D1** (Documentation catch-up) or **T6** (TBD). T5 closed `fbf89fd`.
+Next: **Backlog #13** (IDatabaseInitializer interface, low priority) or **T6** (TBD). D1 closed `b16d2e5`. T5 closed `fbf89fd`.
 T1 ✅ → T2 ✅ → B1 #11 ✅ → T3 ✅ → T4 ✅ → T5 ✅
+
+## D1 — Documentation Catch-up Results
+
+**Commit:** b16d2e5 (2026-05-25)
+**Deliverables:**
+
+| # | Deliverable | Lines / Size | Status |
+|---|---|---|---|
+| 1 | ADR-001..ADR-008 (8 files in decisions/) | 88–104 lines each | Delivered |
+| 2 | CHANGELOG.md | 177 lines | Delivered |
+| 3 | docs/architecture/widget-framework.md | 319 lines | Delivered |
+| 4 | docs/RTM-View-Shell-Stakeholder-Summary-v1.3.md | 141 lines | Delivered |
+| 5 | docs/CC_Dashboard_Shell_TZ_v1.3_EN.docx | 30 KB | Delivered |
+| 6 | CLAUDE.md footer bumped to TZ v1.3 / 2026-05-25 | 1 line | Delivered |
+
+**ADR decisions recorded:** ADR-001 (widget catalogue scope), ADR-002 (nav menu), ADR-003 (licensing), ADR-004 (SignalR seam), ADR-005 (theming), ADR-006 (PG model redesign), ADR-007 (DB boundary), ADR-008 (dual-write)
+
+**Total documentation added:** 1,378 insertions across 13 files
+
