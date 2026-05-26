@@ -587,7 +587,15 @@ and called from the application layer via `Database.SqlQuery<T>`. No inline SQL 
 
 **Naming convention:** `fn_<widgettype><purpose>` — all lowercase, underscore-separated.
 
+**Output format — narrow (tall):** every function returns `(interval_start, metric_id, value)`,
+not a wide table. Adding a metric = one `UNION ALL` row in the function body; the C# record
+and handler never change. See §3.4.3 for the full methodology.
+
 #### 3.4.1 `fn_daytrendinteractions` — interaction metrics per interval
+
+Returns one row per **(interval\_start, metric\_id)** in narrow format (§3.4.3).
+Every `metric_id` string is the canonical `RTSGrid_Metric.MetricId`; the SQL filter
+mirrors `MetricParameter` exactly so DayTrend totals match RTSGrid widget totals.
 
 ```sql
 CREATE OR REPLACE FUNCTION fn_daytrendinteractions(
@@ -597,49 +605,93 @@ CREATE OR REPLACE FUNCTION fn_daytrendinteractions(
     p_intervalmin integer        -- 15 | 30 | 60
 )
 RETURNS TABLE (
-    interval_start      timestamptz,
-    incoming_calls      bigint,
-    answered_calls      bigint,
-    abandoned_calls     bigint,
-    callback_requests   bigint,
-    completed_callbacks bigint,
-    avg_wait_time       double precision,
-    max_wait_time       double precision,
-    avg_talk_time       double precision
+    interval_start  timestamptz,
+    metric_id       text,
+    value           double precision
 )
 LANGUAGE sql STABLE
 AS $$
-    SELECT
-        DATE_TRUNC('hour', "InQueueDateTime") +
-            (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / p_intervalmin)
-             * (p_intervalmin || ' minutes')::interval)       AS interval_start,
-        COUNT(*) FILTER (WHERE "InteractionType" = 'Call' AND "Direction" = 'Incoming'),
-        COUNT(*) FILTER (WHERE "IsAnswered" = true),
-        COUNT(*) FILTER (WHERE "IsAbandoned" = true),
-        COUNT(*) FILTER (WHERE "InteractionType" = 'Callback' AND "Direction" = 'Incoming'),
-        COUNT(*) FILTER (WHERE "InteractionType" = 'Callback'
-                           AND "Direction" = 'Outgoing' AND "IsAnswered" = true),
-        AVG("TimeInQueue") FILTER (WHERE "IsAnswered" = true),
-        MAX("TimeInQueue") FILTER (WHERE "IsAnswered" = true),
-        AVG("TalkTime")    FILTER (WHERE "IsAnswered" = true)
-    FROM "RTSData_Interaction"
-    WHERE "TenantId"  = p_tenantid
-      AND "OnDate"    = p_ondate
-      AND "Workgroup" = ANY(p_queuelist)
-      AND "InQueueDateTime" IS NOT NULL
-    GROUP BY interval_start
-    ORDER BY interval_start;
+    WITH base AS (
+        -- Pre-filter rows; compute interval bucket once
+        SELECT
+            DATE_TRUNC('hour', "InQueueDateTime") +
+                (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / p_intervalmin)
+                 * (p_intervalmin || ' minutes')::interval)  AS interval_start,
+            "InteractionType", "Direction",
+            "IsAnswered", "IsAbandoned",
+            "TimeInQueue", "TalkTime"
+        FROM "RTSData_Interaction"
+        WHERE "TenantId"  = p_tenantid
+          AND "OnDate"    = p_ondate
+          AND "Workgroup" = ANY(p_queuelist)
+          AND "InQueueDateTime" IS NOT NULL
+    ),
+    agg AS (
+        -- Single aggregate pass. Column comments: MetricId | predicate key
+        -- SQL filter must match RTSGrid_Metric.MetricParameter exactly (§3.4.3).
+        SELECT
+            interval_start,
+            -- interaction.incoming_calls      | call_incoming
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call' AND "Direction" = 'Incoming')  AS incoming_calls,
+            -- interaction.answered_calls      | answered
+            COUNT(*) FILTER (WHERE "IsAnswered" = true)                                       AS answered_calls,
+            -- interaction.abandoned_calls     | abandoned
+            COUNT(*) FILTER (WHERE "IsAbandoned" = true)                                      AS abandoned_calls,
+            -- interaction.callback_requests   | callback_incoming
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Callback' AND "Direction" = 'Incoming') AS callback_requests,
+            -- interaction.completed_callbacks | callback_completed
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Callback'
+                               AND "Direction" = 'Outgoing' AND "IsAnswered" = true)         AS completed_callbacks,
+            -- interaction.outbound_calls      | call_outgoing
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call' AND "Direction" = 'Outgoing') AS outbound_calls,
+            -- interaction.transferred_calls   | transferred  ⚠ CC-PENDING: confirm IsTransferred field
+            -- COUNT(*) FILTER (WHERE "IsTransferred" = true)                               AS transferred_calls,
+            -- interaction.avg_wait_time       | TimeInQueue:answered
+            AVG("TimeInQueue") FILTER (WHERE "IsAnswered" = true)                           AS avg_wait_time,
+            -- interaction.max_wait_time       | TimeInQueue:answered (MAX variant)
+            MAX("TimeInQueue") FILTER (WHERE "IsAnswered" = true)                           AS max_wait_time,
+            -- interaction.avg_talk_time       | TalkTime:answered
+            AVG("TalkTime")    FILTER (WHERE "IsAnswered" = true)                           AS avg_talk_time,
+            -- interaction.avg_abandon_wait    | TimeInQueue:abandoned
+            AVG("TimeInQueue") FILTER (WHERE "IsAbandoned" = true)                          AS avg_abandon_wait
+        FROM base
+        GROUP BY interval_start
+    )
+    -- Each row: (interval_start, 'RTSGrid_Metric.MetricId', value)
+    -- To add a metric: add column to agg CTE above + one UNION ALL row here.
+    SELECT interval_start, 'interaction.incoming_calls',      incoming_calls::double precision      FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.answered_calls',      answered_calls::double precision      FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.abandoned_calls',     abandoned_calls::double precision     FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.callback_requests',   callback_requests::double precision   FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.completed_callbacks', completed_callbacks::double precision FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.outbound_calls',      outbound_calls::double precision      FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.avg_wait_time',       avg_wait_time                         FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.max_wait_time',       max_wait_time                         FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.avg_talk_time',       avg_talk_time                         FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.avg_abandon_wait',    avg_abandon_wait                      FROM agg
+    ORDER BY interval_start, metric_id;
 $$;
+```
 
-#### 3.4.2 `fn_daytrendagentstatus` — agent counts and accumulated time per interval
+> **⚠ `interaction.transferred_calls`** is commented out. The `IsTransferred` column
+> in `RTSData_Interaction` must be confirmed with the CC backend team before enabling.
+> Once confirmed: uncomment the `agg` column + add one `UNION ALL` row. No other changes.
 
-Run in parallel with `fn_daytrendinteractions` when at least one `agentMetrics` entry
-has `enabled = true`.
 
-Each `*_time_ms` column contains the **sum of milliseconds** all agents in the pool spent
-in that StatusGroup during the interval, clipped to the interval boundaries (overlap
-calculation). This gives direct correlation with queue metrics: e.g. total break time
-rising as avg wait time rises.
+#### 3.4.2 `fn_daytrendagentstatus` — agent status metrics per interval
+
+Same narrow format as §3.4.1. All `metric_id` values match `RTSGrid_Metric.MetricId` for
+`MetricType = 'AgentStatusLog'`. Agent pool = DISTINCT UserId from answered incoming calls
+(rationale in §2.3). Time values are milliseconds cast to `double precision`.
 
 ```sql
 CREATE OR REPLACE FUNCTION fn_daytrendagentstatus(
@@ -649,20 +701,9 @@ CREATE OR REPLACE FUNCTION fn_daytrendagentstatus(
     p_intervalmin integer        -- 15 | 30 | 60
 )
 RETURNS TABLE (
-    interval_start        timestamptz,
-    available_agents      bigint,
-    onphone_agents        bigint,
-    break_agents          bigint,
-    paperwork_agents      bigint,
-    training_agents       bigint,
-    total_agents          bigint,
-    logged_in_agents      bigint,   -- all agents who answered calls (agent pool size)
-    available_time_ms     bigint,
-    onphone_time_ms       bigint,
-    break_time_ms         bigint,
-    paperwork_time_ms     bigint,
-    training_time_ms      bigint,
-    total_active_time_ms  bigint
+    interval_start  timestamptz,
+    metric_id       text,
+    value           double precision
 )
 LANGUAGE sql STABLE
 AS $$
@@ -683,9 +724,8 @@ AS $$
     agent_pool AS (
         SELECT DISTINCT interval_start, "UserId" FROM interval_agents
     ),
-    -- pool_summary: all agents who answered calls per interval
-    -- (counted regardless of having UserStatusLog records)
     pool_summary AS (
+        -- statuslog.logged_in_agents: COUNT from agent pool (all who answered calls)
         SELECT interval_start,
                COUNT(DISTINCT "UserId") AS logged_in_agents
         FROM agent_pool
@@ -697,7 +737,7 @@ AS $$
             ap.interval_start + (p_intervalmin || ' minutes')::interval AS interval_end,
             usl."UserId",
             usl."StatusGroup",
-            -- overlap: ms the agent spent in this status WITHIN the interval
+            -- overlap_ms: time agent spent in this StatusGroup within the interval
             GREATEST(0,
                 EXTRACT(EPOCH FROM (
                     LEAST(
@@ -707,7 +747,7 @@ AS $$
                     )
                     - GREATEST(usl."StartTime", ap.interval_start)
                 ))::bigint * 1000
-            )                                                AS overlap_ms
+            ) AS overlap_ms
         FROM agent_pool ap
         JOIN "RTSData_UserStatusLog" usl ON usl."UserId" = ap."UserId"
         WHERE usl."TenantId"    = p_tenantid
@@ -718,66 +758,97 @@ AS $$
           AND (usl."EndTime" IS NULL OR usl."EndTime" > ap.interval_start)
     ),
     status_summary AS (
+        -- Column comments: MetricId | MetricParameter (filter = StatusGroup value)
         SELECT
             interval_start,
+            -- statuslog.available_agents  | group:AVAILABLE
             COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'AVAILABLE') AS available_agents,
+            -- statuslog.onphone_agents    | group:ONPHONE
             COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'ONPHONE')   AS onphone_agents,
+            -- statuslog.break_agents      | group:BREAK
             COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'BREAK')     AS break_agents,
+            -- statuslog.paperwork_agents  | group:PAPERWORK
             COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'PAPERWORK') AS paperwork_agents,
+            -- statuslog.training_agents   | group:TRAINING
             COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'TRAINING')  AS training_agents,
+            -- statuslog.total_agents      | group:ALL
             COUNT(DISTINCT "UserId")                                             AS total_agents,
+            -- statuslog.available_time_ms | group:AVAILABLE (SUM_OVERLAP_MS)
             COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'AVAILABLE'),  0) AS available_time_ms,
+            -- statuslog.onphone_time_ms   | group:ONPHONE
             COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'ONPHONE'),    0) AS onphone_time_ms,
+            -- statuslog.break_time_ms     | group:BREAK
             COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'BREAK'),      0) AS break_time_ms,
+            -- statuslog.paperwork_time_ms | group:PAPERWORK
             COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'PAPERWORK'),  0) AS paperwork_time_ms,
+            -- statuslog.training_time_ms  | group:TRAINING
             COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'TRAINING'),   0) AS training_time_ms,
+            -- statuslog.total_active_time_ms | group:ALL
             COALESCE(SUM(overlap_ms),                                              0) AS total_active_time_ms
         FROM agent_status
         GROUP BY interval_start
     )
-    -- LEFT JOIN ensures intervals without StatusGroup records still appear
-    SELECT
-        ps.interval_start,
-        COALESCE(ss.available_agents,     0),
-        COALESCE(ss.onphone_agents,       0),
-        COALESCE(ss.break_agents,         0),
-        COALESCE(ss.paperwork_agents,     0),
-        COALESCE(ss.training_agents,      0),
-        COALESCE(ss.total_agents,         0),
-        ps.logged_in_agents,
-        COALESCE(ss.available_time_ms,    0),
-        COALESCE(ss.onphone_time_ms,      0),
-        COALESCE(ss.break_time_ms,        0),
-        COALESCE(ss.paperwork_time_ms,    0),
-        COALESCE(ss.training_time_ms,     0),
-        COALESCE(ss.total_active_time_ms, 0)
-    FROM pool_summary ps
-    LEFT JOIN status_summary ss USING (interval_start)
-    ORDER BY ps.interval_start;
+    -- logged_in_agents from pool_summary (all answering agents, with or without StatusGroup)
+    -- All other metrics from status_summary (agents with StatusGroup records)
+    SELECT ps.interval_start, 'statuslog.logged_in_agents',    ps.logged_in_agents::double precision    FROM pool_summary ps
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.available_agents',    ss.available_agents::double precision    FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.onphone_agents',      ss.onphone_agents::double precision      FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.break_agents',        ss.break_agents::double precision        FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.paperwork_agents',    ss.paperwork_agents::double precision    FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.training_agents',     ss.training_agents::double precision     FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.total_agents',        ss.total_agents::double precision        FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.available_time_ms',   ss.available_time_ms::double precision   FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.onphone_time_ms',     ss.onphone_time_ms::double precision     FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.break_time_ms',       ss.break_time_ms::double precision       FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.paperwork_time_ms',   ss.paperwork_time_ms::double precision   FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.training_time_ms',    ss.training_time_ms::double precision    FROM status_summary ss
+    UNION ALL
+    SELECT ss.interval_start, 'statuslog.total_active_time_ms',ss.total_active_time_ms::double precision FROM status_summary ss
+    ORDER BY interval_start, metric_id;
 $$;
 ```
 
-**Overlap calculation note:** `overlap_ms = GREATEST(0, EXTRACT(EPOCH FROM (LEAST(EndTime, interval_end) - GREATEST(StartTime, interval_start))) * 1000)`.
-If `EndTime IS NULL` the agent is still in the status → treated as `interval_end`.
+> Intervals where no agent has a StatusGroup record still produce a `logged_in_agents` row
+> from `pool_summary`. Count and time rows are absent for that interval — client treats
+> missing keys as 0 via `.GetValueOrDefault(metricId, 0)`.
 
-**Result record:**
+#### 3.4.3 Metric extensibility — methodology
 
-```csharp
-public record DayTrendAgentInterval(
-    DateTime IntervalStart,
-    long AvailableAgents,
-    long OnPhoneAgents,
-    long BreakAgents,
-    long PaperworkAgents,
-    long TrainingAgents,
-    long TotalAgents,
-    long AvailableTimeMs,
-    long OnPhoneTimeMs,
-    long BreakTimeMs,
-    long PaperworkTimeMs,
-    long TrainingTimeMs,
-    long TotalActiveTimeMs);
-```
+Both DayTrend functions use the **narrow (tall) format**: every row is one metric value
+for one interval. The C# record and handler never change when a new metric is added.
+
+**Consistency rule:** `metric_id` in every `UNION ALL` row **must exactly match**
+`RTSGrid_Metric.MetricId`. The SQL filter in the `agg` / `status_summary` CTE is
+derived from `MetricParameter` — this is the **single source of truth**. If the filter
+diverges from `MetricParameter`, DayTrend totals will not match RTSGrid widget totals.
+
+**Checklist — adding a new metric:**
+
+| Step | Action |
+|---|---|
+| 1 | Add `RtsGridMetric` seed entry (§2.4): `MetricId`, `MetricFunction`, `MetricParameter` |
+| 2 | Add predicate key to §2.1 if the filter pattern is new |
+| 3 | Add computed column in `agg` / `status_summary` CTE — annotate with `MetricId \| predicate_key` |
+| 4 | Add `UNION ALL SELECT interval_start, 'new.metric_id', column FROM agg` |
+| 5 | Deploy with `CREATE OR REPLACE FUNCTION` — no migration structural change, no C# change |
+| 6 | Add entry to ConfigJson `metrics[]` or `agentMetrics[]` (§3.6) |
+| 7 | Add row to §3.3.3 / §3.3.4 default table |
+
+**Validation (integration test):** for every `metricId` with `enabled = true` in a
+widget's ConfigJson, the function must return at least one row with that `metric_id`
+for a non-empty dataset. Test fails if a metric is configured but the function omits it.
+
 
 #### 3.4.4 Important notes
 
@@ -790,21 +861,16 @@ public record DayTrendAgentInterval(
 
 #### 3.4.5 Application layer — calling the functions
 
-```csharp
-// Result records (map 1:1 to RETURNS TABLE columns)
-public record DayTrendInterval(
-    DateTime IntervalStart,
-    long IncomingCalls, long AnsweredCalls, long AbandonedCalls,
-    long CallbackRequests, long CompletedCallbacks,
-    double? AvgWaitTime, double? MaxWaitTime, double? AvgTalkTime);
+Both functions return the same narrow record type — one handler, one grouping pass.
 
-public record DayTrendAgentInterval(
+```csharp
+// Single result type for BOTH functions (narrow format)
+public record DayTrendMetricRow(DateTime IntervalStart, string MetricId, double? Value);
+
+// Per-interval result — keys are RTSGrid_Metric.MetricId strings
+public record DayTrendIntervalData(
     DateTime IntervalStart,
-    long AvailableAgents, long OnPhoneAgents, long BreakAgents,
-    long PaperworkAgents, long TrainingAgents, long TotalAgents,
-    long LoggedInAgents,   // COUNT from agent_pool (all who answered calls)
-    long AvailableTimeMs, long OnPhoneTimeMs, long BreakTimeMs,
-    long PaperworkTimeMs, long TrainingTimeMs, long TotalActiveTimeMs);
+    IReadOnlyDictionary<string, double?> Metrics);
 
 // In DayTrendQueryHandler.Handle():
 var queues = await _ngcRepo.GetQueuesByBusinessUnitAsync(query.BusinessUnitId, ct);
@@ -816,25 +882,38 @@ var onDate     = DateTime.UtcNow.ToString("dd/MM/yyyy");  // DD/MM/YYYY
 var queueArray = queues.ToArray();
 var interval   = query.IntervalMinutes;
 
-// Both functions called via parameterised SqlQuery — safe per [CODE-01]
 var interactionTask = _beDb.Database
-    .SqlQuery<DayTrendInterval>(
+    .SqlQuery<DayTrendMetricRow>(
         $"SELECT * FROM fn_daytrendinteractions({tenantId}, {onDate}, {queueArray}, {interval})")
     .ToListAsync(ct);
 
 var agentTask = query.IncludeAgentMetrics
     ? _beDb.Database
-        .SqlQuery<DayTrendAgentInterval>(
+        .SqlQuery<DayTrendMetricRow>(
             $"SELECT * FROM fn_daytrendagentstatus({tenantId}, {onDate}, {queueArray}, {interval})")
         .ToListAsync(ct)
-    : Task.FromResult(new List<DayTrendAgentInterval>());
+    : Task.FromResult(new List<DayTrendMetricRow>());
 
 await Task.WhenAll(interactionTask, agentTask);
-return new DayTrendResult(interactionTask.Result, agentTask.Result);
+
+// Merge both result sets and pivot to per-interval dictionaries
+var intervals = interactionTask.Result
+    .Concat(agentTask.Result)
+    .GroupBy(r => r.IntervalStart)
+    .Select(g => new DayTrendIntervalData(
+        g.Key,
+        g.ToDictionary(r => r.MetricId, r => r.Value)))
+    .OrderBy(x => x.IntervalStart)
+    .ToList();
+
+return new DayTrendResult(intervals);
 ```
 
 > `Database.SqlQuery<T>()` (EF Core 7+) with interpolated string produces fully parameterised SQL.
 > `{param}` → `$1, $2, ...` bound parameters on the wire. Never string concatenation. **[CODE-01]**
+>
+> Client lookup: `interval.Metrics.GetValueOrDefault("interaction.incoming_calls", 0)`
+> returns 0 for intervals where no interactions occurred.
 
 ---
 
@@ -1059,4 +1138,4 @@ new WidgetCatalogItem
 
 ---
 
-*Widget Specification v0.6 — Added interaction.max_wait_time (MAX_FIELD) to fn_daytrendinteractions; statuslog.*_time_ms + logged_in_agents. Next: CC-002 implementation task.*
+*Widget Specification v0.7 — Narrow format (interval_start, metric_id, value) for both functions; metric extensibility methodology §3.4.3; outbound_calls + avg_abandon_wait added; consistency rule (MetricId = RTSGrid_Metric.MetricId). Next: CC-002.*
