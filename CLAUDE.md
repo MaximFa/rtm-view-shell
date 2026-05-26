@@ -1607,4 +1607,42 @@ Use browser DevTools → Application → Cookies to verify.
 
 ---
 
-*TZ version: 1.3 | CLAUDE.md last updated: 2026-05-25*
+## 30. Widget Planning — Skills and Methodology
+
+### §30.1 Starting a new widget planning session
+
+**Every new widget planning session (Cowork) must begin by reading:**
+
+```
+.claude/skills/widget-planner/widget-planner.md
+```
+
+This skill contains the complete end-to-end methodology: from widget idea to ready-to-run
+CC implementation task. It covers architecture decision (Grid vs Chart/Analytics), metric
+design (narrow format, SUM_OVERLAP_MS, agent pool CTE), spec writing, CC task template,
+Phase 5 final checklist, and 10 lessons learned from the DayTrend session.
+
+**Do NOT start writing spec sections or CC tasks without reading this skill first.**
+
+### §30.2 Widget implementation (CC sessions)
+
+**Every CC session implementing a widget must begin by reading:**
+
+```
+.claude/skills/widget-creator/widget-creator.md
+```
+
+Relevant sections by widget type:
+- Grid widgets (AgentGrid, QueueGrid, DataSlot): §1–19
+- Chart/Analytics widgets (DayTrend, etc.): **§20** (architecture), **§21** (config modal), **§22** (templates), **§23** (methodology)
+
+### §30.3 Skill locations
+
+| Skill | Path | Purpose |
+|---|---|---|
+| widget-planner | `.claude/skills/widget-planner/widget-planner.md` | Planning: idea → CC task |
+| widget-creator | `.claude/skills/widget-creator/widget-creator.md` | Implementation: patterns, dark mode, RTL, templates |
+
+---
+
+*TZ version: 1.3 | CLAUDE.md last updated: 2026-05-27*
