@@ -486,3 +486,123 @@ WidgetsPendingRtsDeletion.Clear();
 ```
 
 This prevents RTS data loss if the user removes a widget but does not save the layout.
+
+---
+
+## Part 5 — RTSData_* Tables (read-only data)
+
+**Owner:** CC backend / external system  
+**DbContext:** `BackendEmulationDbContext`  
+**Access mode:** Read-Only — shell reads for widget display; backend writes  
+**Purpose:** Real-time call/interaction and agent status data that feeds widget SignalR pushes  
+and serves as the source for historical queries.
+
+---
+
+### 5.1 RTSData_Interaction
+
+Real-time interaction (call/chat) data for queue and agent monitoring.
+
+**PK:** `(InteractionId, Segment, OnDate, ServerId, Workgroup)`
+
+| Column | Type | Nullable | Description |
+|---|---|---|---|
+| `TenantId` | uuid | YES | Tenant identifier |
+| `InteractionId` | varchar(50) | NO | Unique interaction ID |
+| `Segment` | integer | NO | Segment number within interaction |
+| `OnDate` | varchar(50) | NO | Date partition key |
+| `ServerId` | varchar(50) | NO | Server identifier |
+| `Workgroup` | varchar(100) | NO | Queue/workgroup name |
+| `UserId` | varchar(50) | NO | Agent user ID |
+| `ClassificationCode` | text | YES | Call classification/wrap-up code |
+| `InteractionType` | varchar(50) | YES | Type: Call, Chat, Email, etc. |
+| `CallType` | varchar(50) | YES | Inbound, Outbound, Internal |
+| `Direction` | varchar(50) | YES | In/Out direction |
+| `CustomCallData` | text | YES | Custom data field |
+| `IsTransferred` | boolean | YES | Transfer flag |
+| `IsAnswered` | boolean | YES | Answered flag |
+| `IsInQueue` | boolean | YES | Currently in queue |
+| `IsTalk` | boolean | YES | Currently talking |
+| `IsAbandoned` | boolean | YES | Abandoned flag |
+| `TimeInQueue` | integer | YES | Queue wait time (seconds) |
+| `TalkTime` | integer | YES | Talk duration (seconds) |
+| `InQueueDateTime` | timestamptz | YES | Entered queue timestamp |
+| `AnsweredDateTime` | timestamptz | YES | Answer timestamp |
+| `UpdateTime` | timestamptz | YES | Last update timestamp |
+| `LastUserId` | varchar(50) | YES | Last handling agent |
+| `LastWorkgroup` | varchar(100) | YES | Last workgroup |
+| `IsMessaging` | boolean | YES | Messaging interaction flag |
+| `RemoteAddress` | varchar(50) | YES | Remote phone/address |
+| `CustomCallData1`..`CustomCallData20` | text | YES | Extended custom fields (×20) |
+| `IsCallbackRequest` | boolean | YES | Callback request flag |
+| `TimeZone` | varchar(10) | YES | Timezone offset |
+
+**Used by:** Queue Grid (calls waiting, SLA, abandon rate), Data Slot
+
+---
+
+### 5.2 RTSData_UserStatus
+
+Aggregated agent status statistics per day.
+
+**PK:** `(UserId, StatusId, ServerId, OnDate)`
+
+| Column | Type | Nullable | Description |
+|---|---|---|---|
+| `TenantId` | uuid | YES | Tenant identifier |
+| `UserId` | varchar(100) | NO | Agent user ID |
+| `StatusId` | varchar(100) | NO | Status code |
+| `ServerId` | varchar(50) | NO | Server identifier |
+| `OnDate` | varchar(50) | NO | Date partition key |
+| `StatusName` | varchar(100) | YES | Status display name |
+| `StatusGroup` | varchar(100) | YES | Status group (Available, Away, etc.) |
+| `TotalDuration` | integer | YES | Total time in status (seconds) |
+| `MaxDuration` | integer | YES | Max single duration (seconds) |
+| `TotalCount` | integer | YES | Number of times in status |
+| `UpdateTime` | timestamptz | YES | Last update timestamp |
+| `DisplayName` | varchar(100) | YES | Agent display name |
+| `TimeZone` | varchar(10) | YES | Timezone offset |
+
+**Used by:** Agent Grid (agent state, duration, availability)
+
+---
+
+### 5.3 RTSData_UserStatusLog
+
+Agent status change log — time-series of individual status transitions.
+
+**PK:** `Id` (surrogate, serial)
+
+| Column | Type | Nullable | Description |
+|---|---|---|---|
+| `Id` | serial | NO | Auto-increment PK |
+| `TenantId` | uuid | YES | Tenant identifier |
+| `UserId` | varchar(100) | YES | Agent user ID |
+| `StatusId` | varchar(100) | YES | Status code |
+| `ServerId` | varchar(50) | YES | Server identifier |
+| `OnDate` | varchar(50) | YES | Date partition key |
+| `StartTime` | timestamptz | YES | Status start timestamp |
+| `EndTime` | timestamptz | YES | Status end timestamp (null = current) |
+| `Duration` | integer | YES | Duration in seconds |
+| `UpdateTime` | timestamptz | YES | Record update timestamp |
+| `TimeZone` | varchar(10) | YES | Timezone offset |
+
+**Used by:** Agent timeline, status history reports
+
+---
+
+### 5.4 Data flow summary
+
+```
+External CC system
+        │
+        ▼ writes
+RTSData_Interaction   ──► SignalR server ──► QueueGridWidget  (GridUpdate push)
+RTSData_UserStatus    ──► SignalR server ──► AgentGridWidget  (GridUpdate push)
+RTSData_UserStatusLog                   ──► DataSlotWidget    (GridUpdate push)
+        │
+        ▼ direct DB read (future historical widgets)
+Historical comparison queries (OnDate filter)
+```
+
+Shell accesses these tables **read-only**. No shell commands write to `RTSData_*`.
