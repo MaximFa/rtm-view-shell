@@ -644,8 +644,8 @@ AS $$
                                AND "Direction" = 'Outgoing' AND "IsAnswered" = true)         AS completed_callbacks,
             -- interaction.outbound_calls      | call_outgoing
             COUNT(*) FILTER (WHERE "InteractionType" = 'Call' AND "Direction" = 'Outgoing') AS outbound_calls,
-            -- interaction.transferred_calls   | transferred  ⚠ CC-PENDING: confirm IsTransferred field
-            -- COUNT(*) FILTER (WHERE "IsTransferred" = true)                               AS transferred_calls,
+            -- interaction.transferred_calls   | transferred
+            COUNT(*) FILTER (WHERE "IsTransferred" = true)                                AS transferred_calls,
             -- interaction.avg_wait_time       | TimeInQueue:answered
             AVG("TimeInQueue") FILTER (WHERE "IsAnswered" = true)                           AS avg_wait_time,
             -- interaction.max_wait_time       | TimeInQueue:answered (MAX variant)
@@ -671,6 +671,8 @@ AS $$
     UNION ALL
     SELECT interval_start, 'interaction.outbound_calls',      outbound_calls::double precision      FROM agg
     UNION ALL
+    SELECT interval_start, 'interaction.transferred_calls',   transferred_calls::double precision   FROM agg
+    UNION ALL
     SELECT interval_start, 'interaction.avg_wait_time',       avg_wait_time                         FROM agg
     UNION ALL
     SELECT interval_start, 'interaction.max_wait_time',       max_wait_time                         FROM agg
@@ -681,10 +683,6 @@ AS $$
     ORDER BY interval_start, metric_id;
 $$;
 ```
-
-> **⚠ `interaction.transferred_calls`** is commented out. The `IsTransferred` column
-> in `RTSData_Interaction` must be confirmed with the CC backend team before enabling.
-> Once confirmed: uncomment the `agg` column + add one `UNION ALL` row. No other changes.
 
 
 #### 3.4.2 `fn_daytrendagentstatus` — agent status metrics per interval
@@ -832,6 +830,11 @@ for one interval. The C# record and handler never change when a new metric is ad
 `RTSGrid_Metric.MetricId`. The SQL filter in the `agg` / `status_summary` CTE is
 derived from `MetricParameter` — this is the **single source of truth**. If the filter
 diverges from `MetricParameter`, DayTrend totals will not match RTSGrid widget totals.
+
+**Schema trust rule:** every field referenced in `RTSGrid_Metric.MetricParameter` is
+guaranteed to exist in the corresponding source table (`RTSData_Interaction`,
+`RTSData_UserStatusLog`, etc.). No field-existence check is needed before using a
+`MetricParameter` value in SQL.
 
 **Checklist — adding a new metric:**
 
@@ -1138,4 +1141,4 @@ new WidgetCatalogItem
 
 ---
 
-*Widget Specification v0.7 — Narrow format (interval_start, metric_id, value) for both functions; metric extensibility methodology §3.4.3; outbound_calls + avg_abandon_wait added; consistency rule (MetricId = RTSGrid_Metric.MetricId). Next: CC-002.*
+*Widget Specification v0.8 — transferred_calls enabled (IsTransferred confirmed); schema trust rule added to §3.4.3. Next: CC-002.*
