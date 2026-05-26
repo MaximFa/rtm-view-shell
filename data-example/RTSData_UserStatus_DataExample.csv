@@ -1,0 +1,103 @@
+﻿UserId,StatusId,ServerId,OnDate,StatusName,StatusGroup,TotalDuration,MaxDuraction,TotalCount,UpdateTime,DisplayName,TimeZone
+AdiEi@nayax.com,Available,Devserver,20/05/2026,Available,AVAILABLE,5733,5586,3,2026-05-20 19:05:05.707,Adi Einy,
+AdiEi@nayax.com,Break,Devserver,20/05/2026,Break,BREAK,11921,11910,2,2026-05-20 15:37:22.350,Adi Einy,
+AdiEi@nayax.com,Calling Out,Devserver,20/05/2026,Calling Out,ONPHONE,3,1,2,2026-05-20 17:31:59.257,Adi Einy,
+AdiEi@nayax.com,SIGNOFF,Devserver,20/05/2026,SIGNOFF,SIGNOFF,6789,6768,2,2026-05-20 17:30:10.950,Adi Einy,
+AdiEi@nayax.com,Unavailable,Devserver,20/05/2026,Unavailable,PAPERWORK,609,609,1,2026-05-20 09:18:18.977,Adi Einy,
+adinan@nayax.com,Available,Devserver,19/05/2026,Available,AVAILABLE,1242,488,16,2026-05-19 22:00:59.523,Adina Nutu,-04:00
+adinan@nayax.com,Available,Devserver,20/05/2026,Available,AVAILABLE,569,568,2,2026-05-20 19:30:24.667,Adina Nutu,-04:00
+adinan@nayax.com,Break,Devserver,19/05/2026,Break,BREAK,1732,1732,1,2026-05-19 13:59:02.270,Adina Nutu,-04:00
+adinan@nayax.com,Break,Devserver,20/05/2026,Break,BREAK,1874,1874,1,2026-05-20 15:01:19.940,Adina Nutu,-04:00
+adinan@nayax.com,Callback,Devserver,19/05/2026,Callback,PAPERWORK,2980,896,17,2026-05-19 21:58:23.750,Adina Nutu,-04:00
+adinan@nayax.com,Callback,Devserver,20/05/2026,Callback,PAPERWORK,6039,3376,4,2026-05-20 21:30:05.510,Adina Nutu,-04:00
+adinan@nayax.com,Callback Incoming,Devserver,19/05/2026,Callback Incoming,ONPHONE,7,2,4,2026-05-19 21:13:27.170,Adina Nutu,-04:00
+adinan@nayax.com,Callback Incoming,Devserver,20/05/2026,Callback Incoming,ONPHONE,32,32,1,2026-05-20 12:12:22.717,Adina Nutu,-04:00
+adinan@nayax.com,Callback Outgoing,Devserver,19/05/2026,Callback Outgoing,ONPHONE,1535,714,7,2026-05-19 21:13:24.187,Adina Nutu,-04:00
+adinan@nayax.com,Callback Outgoing,Devserver,20/05/2026,Callback Outgoing,ONPHONE,297,281,2,2026-05-20 19:20:55.943,Adina Nutu,-04:00
+adinan@nayax.com,Calling Out,Devserver,19/05/2026,Calling Out,ONPHONE,29,15,4,2026-05-19 21:13:31.833,Adina Nutu,-04:00
+adinan@nayax.com,Incoming Ext Call,Devserver,19/05/2026,Incoming Ext Call,ONPHONE,2593,1074,7,2026-05-19 22:00:58.830,Adina Nutu,-04:00
+adinan@nayax.com,Incoming Ext Call,Devserver,20/05/2026,Incoming Ext Call,ONPHONE,2058,1551,4,2026-05-20 20:21:35.467,Adina Nutu,-04:00
+adinan@nayax.com,Ringing,Devserver,19/05/2026,Ringing,ONPHONE,25,17,5,2026-05-19 22:01:03.677,Adina Nutu,-04:00
+adinan@nayax.com,Ringing,Devserver,20/05/2026,Ringing,ONPHONE,24,12,3,2026-05-20 19:50:51.280,Adina Nutu,-04:00
+adinan@nayax.com,SIGNOFF,Devserver,19/05/2026,SIGNOFF,SIGNOFF,5366,5366,1,2026-05-19 11:29:26.967,adinan@nayax.com,-04:00
+adinan@nayax.com,SIGNOFF,Devserver,20/05/2026,SIGNOFF,SIGNOFF,6224,5490,2,2026-05-20 20:33:49.047,adinan@nayax.com,-04:00
+adinan@nayax.com,Wrap Up,Devserver,19/05/2026,Wrap Up,ONPHONE,14,3,8,2026-05-19 21:57:47.370,Adina Nutu,-04:00
+adinan@nayax.com,Wrap Up,Devserver,20/05/2026,Wrap Up,ONPHONE,65,62,3,2026-05-20 19:55:12.310,Adina Nutu,-04:00
+AdrianPa@nayax.com,Available,Devserver,19/05/2026,Available,AVAILABLE,158,158,1,2026-05-19 10:07:54.527,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Available,Devserver,20/05/2026,Available,AVAILABLE,7672,1544,17,2026-05-20 21:04:31.857,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Back Office,Devserver,20/05/2026,Back Office,UNAVAILABLE,1548,794,4,2026-05-20 21:59:41.600,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Break,Devserver,19/05/2026,Break,BREAK,3771,2270,2,2026-05-19 19:31:16.753,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Break,Devserver,20/05/2026,Break,BREAK,4450,3011,2,2026-05-20 20:35:26.873,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Callback,Devserver,19/05/2026,Callback,PAPERWORK,13135,6788,3,2026-05-19 21:24:24.870,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Callback,Devserver,20/05/2026,Callback,PAPERWORK,1705,1681,2,2026-05-20 16:33:51.183,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Callback Incoming,Devserver,20/05/2026,Callback Incoming,ONPHONE,37,25,2,2026-05-20 19:42:07.110,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Callback Outgoing,Devserver,20/05/2026,Callback Outgoing,ONPHONE,836,429,6,2026-05-20 19:43:43.203,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Calling Out,Devserver,20/05/2026,Calling Out,ONPHONE,152,117,4,2026-05-20 19:34:28.080,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Hold,Devserver,20/05/2026,Hold,ONPHONE,1063,396,5,2026-05-20 21:43:03.093,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Incoming Ext Call,Devserver,20/05/2026,Incoming Ext Call,ONPHONE,6756,1399,11,2026-05-20 21:43:02.733,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,Ringing,Devserver,20/05/2026,Ringing,ONPHONE,22,13,3,2026-05-20 19:23:18.203,Adrian Paraschiv,-04:00
+AdrianPa@nayax.com,SIGNOFF,Devserver,19/05/2026,SIGNOFF,SIGNOFF,3442,3442,1,2026-05-19 09:39:59.857,AdrianPa@nayax.com,-04:00
+AdrianPa@nayax.com,SIGNOFF,Devserver,20/05/2026,SIGNOFF,SIGNOFF,25143,25143,1,2026-05-20 08:01:44.563,AdrianPa@nayax.com,-04:00
+AdrianPa@nayax.com,Wrap Up,Devserver,20/05/2026,Wrap Up,ONPHONE,14,1,16,2026-05-20 21:43:03.310,Adrian Paraschiv,-04:00
+alexandraba@nayax.com,Back Office,Devserver,20/05/2026,Back Office,UNAVAILABLE,10017,5655,3,2026-05-20 18:00:08.447,Alexandra Badulescu,-04:00
+alexandraba@nayax.com,Break,Devserver,19/05/2026,Break,BREAK,2993,1579,2,2026-05-19 20:24:07.330,Alexandra Badulescu,-04:00
+alexandraba@nayax.com,Break,Devserver,20/05/2026,Break,BREAK,2658,1706,2,2026-05-20 20:15:50.823,Alexandra Badulescu,-04:00
+alexandraba@nayax.com,Callback,Devserver,19/05/2026,Callback,PAPERWORK,6592,6592,1,2026-05-19 13:00:33.817,Alexandra Badulescu,-04:00
+alexandraba@nayax.com,Callback,Devserver,20/05/2026,Callback,PAPERWORK,5497,5483,2,2026-05-20 19:47:23.833,Alexandra Badulescu,-04:00
+alexandraba@nayax.com,Incoming Ext Call,Devserver,20/05/2026,Incoming Ext Call,ONPHONE,546,519,2,2026-05-20 16:25:42.010,Alexandra Badulescu,-04:00
+alexandraba@nayax.com,Out Ext Call,Devserver,20/05/2026,Out Ext Call,ONPHONE,369,369,1,2026-05-20 09:07:37.920,Alexandra Badulescu,-04:00
+alexandraba@nayax.com,SIGNOFF,Devserver,19/05/2026,SIGNOFF,SIGNOFF,2661,2661,1,2026-05-19 10:44:21.043,alexandraba@nayax.com,-04:00
+alexandraba@nayax.com,SIGNOFF,Devserver,20/05/2026,SIGNOFF,SIGNOFF,24787,24787,1,2026-05-20 07:55:48.467,alexandraba@nayax.com,-04:00
+alexandraba@nayax.com,Waiting for Transfer,Devserver,20/05/2026,Waiting for Transfer,AVAILABLE,90,41,6,2026-05-20 16:25:52.730,Alexandra Badulescu,-04:00
+alexandraba@nayax.com,Wrap Up,Devserver,20/05/2026,Wrap Up,ONPHONE,22,8,3,2026-05-20 16:25:49.527,Alexandra Badulescu,-04:00
+alexandruc@nayax.com,Available,Devserver,19/05/2026,Available,AVAILABLE,1754,506,19,2026-05-19 18:26:27.190,Alexandru Coman,+00:00
+alexandruc@nayax.com,Available,Devserver,20/05/2026,Available,AVAILABLE,4582,796,61,2026-05-20 19:08:18.340,Alexandru Coman,+00:00
+alexandruc@nayax.com,Break,Devserver,19/05/2026,Break,BREAK,1501,1501,1,2026-05-19 15:25:26.320,Alexandru Coman,+00:00
+alexandruc@nayax.com,Break,Devserver,20/05/2026,Break,BREAK,4347,3073,2,2026-05-20 18:22:56.063,Alexandru Coman,+00:00
+alexandruc@nayax.com,Callback Incoming,Devserver,20/05/2026,Callback Incoming,ONPHONE,1126,594,3,2026-05-20 16:39:52.397,Alexandru Coman,+00:00
+alexandruc@nayax.com,Hold,Devserver,19/05/2026,Hold,ONPHONE,1857,1857,1,2026-05-19 15:57:30.140,Alexandru Coman,+00:00
+alexandruc@nayax.com,Incoming Ext Call,Devserver,19/05/2026,Incoming Ext Call,ONPHONE,1792,784,4,2026-05-19 18:58:37.057,Alexandru Coman,+00:00
+alexandruc@nayax.com,Incoming Ext Call,Devserver,20/05/2026,Incoming Ext Call,ONPHONE,7886,3777,9,2026-05-20 19:06:47.937,Alexandru Coman,+00:00
+alexandruc@nayax.com,Ringing,Devserver,19/05/2026,Ringing,ONPHONE,380,93,18,2026-05-19 19:00:10.693,Alexandru Coman,+00:00
+alexandruc@nayax.com,Ringing,Devserver,20/05/2026,Ringing,ONPHONE,776,30,51,2026-05-20 19:08:32.243,Alexandru Coman,+00:00
+alexandruc@nayax.com,SIGNOFF,Devserver,19/05/2026,SIGNOFF,SIGNOFF,1606,1606,1,2026-05-19 13:09:24.137,alexandruc@nayax.com,+00:00
+alexandruc@nayax.com,SIGNOFF,Devserver,20/05/2026,SIGNOFF,SIGNOFF,11225,11225,1,2026-05-20 08:09:46.950,alexandruc@nayax.com,+00:00
+alexandruc@nayax.com,Unavailable,Devserver,19/05/2026,Unavailable,PAPERWORK,4545,1767,4,2026-05-19 19:29:37.703,Alexandru Coman,+00:00
+alexandruc@nayax.com,Unavailable,Devserver,20/05/2026,Unavailable,PAPERWORK,10812,4909,5,2026-05-20 19:31:18.007,Alexandru Coman,+00:00
+alexandruc@nayax.com,Wrap Up,Devserver,19/05/2026,Wrap Up,ONPHONE,182,62,3,2026-05-19 17:56:12.483,Alexandru Coman,+00:00
+alexandruc@nayax.com,Wrap Up,Devserver,20/05/2026,Wrap Up,ONPHONE,558,62,12,2026-05-20 19:07:47.873,Alexandru Coman,+00:00
+alexandrudi@nayax.com,Available,Devserver,19/05/2026,Available,AVAILABLE,1915,1730,7,2026-05-19 20:22:11.783,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Available,Devserver,20/05/2026,Available,AVAILABLE,2485,2334,9,2026-05-20 21:51:45.893,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Break,Devserver,19/05/2026,Break,BREAK,2084,1282,3,2026-05-19 19:34:16.890,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Break,Devserver,20/05/2026,Break,BREAK,3693,1873,3,2026-05-20 21:02:16.653,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Callback,Devserver,19/05/2026,Callback,PAPERWORK,2558,1418,10,2026-05-19 20:22:11.877,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Callback,Devserver,20/05/2026,Callback,PAPERWORK,1495,486,9,2026-05-20 21:45:57.810,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Callback Incoming,Devserver,19/05/2026,Callback Incoming,ONPHONE,3,3,1,2026-05-19 12:50:31.403,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Callback Incoming,Devserver,20/05/2026,Callback Incoming,ONPHONE,501,121,6,2026-05-20 21:39:45.577,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Callback Outgoing,Devserver,19/05/2026,Callback Outgoing,ONPHONE,171,171,1,2026-05-19 11:41:38.310,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Callback Outgoing,Devserver,20/05/2026,Callback Outgoing,ONPHONE,900,425,6,2026-05-20 21:51:39.267,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Calling Out,Devserver,19/05/2026,Calling Out,ONPHONE,38,24,2,2026-05-19 17:23:49.930,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Calling Out,Devserver,20/05/2026,Calling Out,ONPHONE,17,8,2,2026-05-20 21:41:50.377,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Incoming Ext Call,Devserver,19/05/2026,Incoming Ext Call,ONPHONE,541,541,1,2026-05-19 12:44:59.467,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Incoming Ext Call,Devserver,20/05/2026,Incoming Ext Call,ONPHONE,788,788,1,2026-05-20 12:39:37.817,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Out Ext Call,Devserver,19/05/2026,Out Ext Call,ONPHONE,1972,1972,1,2026-05-19 10:22:24.060,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Out Ext Call,Devserver,20/05/2026,Out Ext Call,ONPHONE,433,415,4,2026-05-20 21:44:51.193,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Ringing,Devserver,19/05/2026,Ringing,ONPHONE,7,7,1,2026-05-19 12:50:27.970,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Ringing,Devserver,20/05/2026,Ringing,ONPHONE,3,3,1,2026-05-20 09:34:57.583,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,SIGNOFF,Devserver,19/05/2026,SIGNOFF,SIGNOFF,2130,2130,1,2026-05-19 09:18:07.650,alexandrudi@nayax.com,-04:00
+alexandrudi@nayax.com,SIGNOFF,Devserver,20/05/2026,SIGNOFF,SIGNOFF,25155,25155,1,2026-05-20 08:01:56.980,alexandrudi@nayax.com,-04:00
+alexandrudi@nayax.com,Wrap Up,Devserver,19/05/2026,Wrap Up,ONPHONE,503,381,3,2026-05-19 19:46:04.427,Alexandru Dinu,-04:00
+alexandrudi@nayax.com,Wrap Up,Devserver,20/05/2026,Wrap Up,ONPHONE,3581,2277,9,2026-05-20 21:46:37.763,Alexandru Dinu,-04:00
+Alexandruo@nayax.com,Available,Devserver,19/05/2026,Available,AVAILABLE,6969,5235,8,2026-05-19 20:39:53.797,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Available,Devserver,20/05/2026,Available,AVAILABLE,2280,807,6,2026-05-20 21:48:35.970,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Break,Devserver,19/05/2026,Break,BREAK,1353,1353,1,2026-05-19 17:27:27.040,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Break,Devserver,20/05/2026,Break,BREAK,3805,3805,1,2026-05-20 18:35:53.220,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Callback Incoming,Devserver,19/05/2026,Callback Incoming,ONPHONE,17,17,1,2026-05-19 15:15:27.520,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Callback Incoming,Devserver,20/05/2026,Callback Incoming,ONPHONE,12,12,1,2026-05-20 16:06:04.610,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Calling Out,Devserver,20/05/2026,Calling Out,ONPHONE,12,12,1,2026-05-20 16:06:16.980,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Hold,Devserver,19/05/2026,Hold,ONPHONE,102,102,1,2026-05-19 15:28:11.933,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Incoming Ext Call,Devserver,19/05/2026,Incoming Ext Call,ONPHONE,4401,4240,3,2026-05-19 21:50:34.527,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Incoming Ext Call,Devserver,20/05/2026,Incoming Ext Call,ONPHONE,3623,2290,4,2026-05-20 21:57:22.497,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Out Ext Call,Devserver,19/05/2026,Out Ext Call,ONPHONE,18,18,1,2026-05-19 15:16:14.560,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Out Ext Call,Devserver,20/05/2026,Out Ext Call,ONPHONE,490,488,2,2026-05-20 19:14:28.130,Alexandru Stefan Onisor,+00:00
+Alexandruo@nayax.com,Ringing,Devserver,19/05/2026,Ringing,ONPHONE,31,18,2,2026-05-19 20:34:43.617,Alexandru Stefan Onisor,+00:00

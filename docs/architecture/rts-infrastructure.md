@@ -579,15 +579,16 @@ Agent status change log — time-series of individual status transitions.
 | `TenantId` | uuid | YES | Tenant identifier |
 | `UserId` | varchar(100) | YES | Agent user ID |
 | `StatusId` | varchar(100) | YES | Status code |
+| `StatusGroup` | varchar(50) | YES | Canonical group: AVAILABLE, ONPHONE, BREAK, PAPERWORK, TRAINING — see [CC-001] |
 | `ServerId` | varchar(50) | YES | Server identifier |
 | `OnDate` | varchar(50) | YES | Date partition key |
 | `StartTime` | timestamptz | YES | Status start timestamp |
 | `EndTime` | timestamptz | YES | Status end timestamp (null = current) |
-| `Duration` | integer | YES | Duration in seconds |
+| `Duration` | bigint | YES | Duration in **milliseconds** |
 | `UpdateTime` | timestamptz | YES | Record update timestamp |
 | `TimeZone` | varchar(10) | YES | Timezone offset |
 
-**Used by:** Agent timeline, status history reports
+**Used by:** Agent timeline, status history reports, DayTrend interval widgets
 
 ---
 

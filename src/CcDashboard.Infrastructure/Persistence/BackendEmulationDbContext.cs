@@ -38,6 +38,11 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
     public DbSet<RtsGridRow> RtsGridRows => Set<RtsGridRow>();
     public DbSet<RtsGridCell> RtsGridCells => Set<RtsGridCell>();
 
+    // RTSData tables — read-only; written by CC backend / external system
+    public DbSet<RtsDataInteraction> RtsDataInteractions => Set<RtsDataInteraction>();
+    public DbSet<RtsDataUserStatus> RtsDataUserStatuses => Set<RtsDataUserStatus>();
+    public DbSet<RtsDataUserStatusLog> RtsDataUserStatusLogs => Set<RtsDataUserStatusLog>();
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         base.OnModelCreating(mb);
@@ -215,6 +220,56 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.Value).HasMaxLength(500);
             e.Property(x => x.Tooltip).HasMaxLength(500);
             e.Property(x => x.OnClick).HasMaxLength(500);
+        });
+
+        // --- RTSData tables (read-only, no Global Query Filter) ---
+
+        mb.Entity<RtsDataInteraction>(e =>
+        {
+            e.ToTable("RTSData_Interaction");
+            e.HasKey(x => new { x.InteractionId, x.Segment, x.OnDate, x.ServerId, x.Workgroup });
+            e.Property(x => x.InteractionId).HasMaxLength(50);
+            e.Property(x => x.OnDate).HasMaxLength(50);
+            e.Property(x => x.ServerId).HasMaxLength(50);
+            e.Property(x => x.Workgroup).HasMaxLength(100);
+            e.Property(x => x.UserId).HasMaxLength(50);
+            e.Property(x => x.InteractionType).HasMaxLength(50);
+            e.Property(x => x.CallType).HasMaxLength(50);
+            e.Property(x => x.Direction).HasMaxLength(50);
+            e.Property(x => x.RemoteAddress).HasMaxLength(50);
+            e.Property(x => x.LastUserId).HasMaxLength(50);
+            e.Property(x => x.LastWorkgroup).HasMaxLength(100);
+            e.Property(x => x.TimeZone).HasMaxLength(10);
+            // No Global Query Filter: RTSData tables are backend-owned cross-tenant tables.
+            // Shell filters by TenantId explicitly in every query.
+        });
+
+        mb.Entity<RtsDataUserStatus>(e =>
+        {
+            e.ToTable("RTSData_UserStatus");
+            e.HasKey(x => new { x.UserId, x.StatusId, x.ServerId, x.OnDate });
+            e.Property(x => x.UserId).HasMaxLength(100);
+            e.Property(x => x.StatusId).HasMaxLength(100);
+            e.Property(x => x.ServerId).HasMaxLength(50);
+            e.Property(x => x.OnDate).HasMaxLength(50);
+            e.Property(x => x.StatusName).HasMaxLength(100);
+            e.Property(x => x.StatusGroup).HasMaxLength(100);
+            e.Property(x => x.DisplayName).HasMaxLength(100);
+            e.Property(x => x.TimeZone).HasMaxLength(10);
+        });
+
+        mb.Entity<RtsDataUserStatusLog>(e =>
+        {
+            e.ToTable("RTSData_UserStatusLog");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityAlwaysColumn();
+            e.Property(x => x.UserId).HasMaxLength(100);
+            e.Property(x => x.StatusId).HasMaxLength(100);
+            e.Property(x => x.StatusGroup).HasMaxLength(50);   // NEW column
+            e.Property(x => x.ServerId).HasMaxLength(50);
+            e.Property(x => x.OnDate).HasMaxLength(50);
+            e.Property(x => x.TimeZone).HasMaxLength(10);
+            e.Property(x => x.Duration).HasColumnType("bigint"); // milliseconds
         });
     }
 }
