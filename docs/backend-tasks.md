@@ -633,6 +633,190 @@ Upsert by `MetricId` — skip if already exists.
 
 ---
 
+#### 7.3 Implement `SeedSampleCcEntitiesAsync` — **REQUIRED, method is missing**
+
+`DatabaseInitializer.cs` calls `SeedSampleCcEntitiesAsync(platformTenant, ct)` but the
+method **does not exist** — the app will throw at startup. Implement it:
+
+```csharp
+private async Task SeedSampleCcEntitiesAsync(Tenant tenant, CancellationToken ct)
+{
+    // Skip if already seeded (idempotent guard)
+    if (await beDb.NgcBusinessUnits.AnyAsync(b => b.TenantId == tenant.Id, ct))
+        return;
+
+    // --- NgcSite ---
+    var site = new NgcSite
+    {
+        SiteId    = "SITE-001",
+        TenantId  = tenant.Id,
+        SiteName  = "Main Office",
+        TimeZone  = "+00:00",
+        ClearTime = "00:00"
+    };
+    beDb.NgcSites.Add(site);
+
+    // --- NgcBusinessUnit ---
+    var bu = new NgcBusinessUnit
+    {
+        BusinessUnitId   = 1,
+        TenantId         = tenant.Id,
+        BusinessUnitName = "Customer Support",
+        SiteId           = site.SiteId,
+        CreatedDatetime  = DateTime.UtcNow
+    };
+    beDb.NgcBusinessUnits.Add(bu);
+
+    // --- NgcQueue (in AppDbContext — queue reference table) ---
+    // NgcQueue.ExternalId MUST match Workgroup field in RTSData_Interaction
+    var queues = new[]
+    {
+        new NgcQueue { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "Support_General",  Name = "General Support",  IsActive = true },
+        new NgcQueue { Id = Uuid.NewSequential(), TenantId = tenant.Id, ExternalId = "Support_Tech",     Name = "Technical Support", IsActive = true },
+    };
+    db.NgcQueues.AddRange(queues);  // AppDbContext (db), not beDb
+
+    // --- NgcBusinessUnitQueueClassification ---
+    // QueueId = NgcQueue.ExternalId string (= Workgroup in RTSData_Interaction)
+    beDb.NgcBusinessUnitQueueClassifications.AddRange(
+        new NgcBusinessUnitQueueClassification
+        {
+            BusinessUnitId = bu.BusinessUnitId,
+            TenantId       = tenant.Id,
+            QueueId        = "Support_General",
+            CreatedDatetime = DateTime.UtcNow
+        },
+        new NgcBusinessUnitQueueClassification
+        {
+            BusinessUnitId = bu.BusinessUnitId,
+            TenantId       = tenant.Id,
+            QueueId        = "Support_Tech",
+            CreatedDatetime = DateTime.UtcNow
+        }
+    );
+
+    await db.SaveChangesAsync(ct);
+    await beDb.SaveChangesAsync(ct);
+
+    logger.LogInformation("Seeded sample CC entities for tenant {TenantId}", tenant.Id);
+}
+```
+
+> Note: `NgcQueue` lives in `AppDbContext` (`db`); NGC configuration tables
+> (`NgcSite`, `NgcBusinessUnit`, `NgcBusinessUnitQueueClassification`) live in
+> `BackendEmulationDbContext` (`beDb`). Inject both in `DatabaseInitializer`.
+
+---
+
+#### 7.4 Dev seed — `RTSData_Interaction` test rows
+
+Without test interactions the DayTrend chart is always empty. Add a dev-only seeder
+in `BackendEmulationDbContext` (guard with `IWebHostEnvironment.IsDevelopment()`):
+
+```csharp
+private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken ct)
+{
+    // Only in Development; skip if rows already exist for today
+    var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("dd/MM/yyyy");
+    if (await beDb.RtsDataInteractions.AnyAsync(
+            r => r.TenantId == tenantId && r.OnDate == today, ct))
+        return;
+
+    var rng   = new Random(42);
+    var now   = DateTime.UtcNow;
+    var queues = new[] { "Support_General", "Support_Tech" };
+    var rows   = new List<RtsDataInteraction>();
+
+    // Generate ~80 interactions spread across today's intervals
+    for (int h = 8; h <= 17; h++)
+    {
+        foreach (var q in queues)
+        {
+            int count = rng.Next(3, 12);
+            for (int i = 0; i < count; i++)
+            {
+                var start = new DateTime(now.Year, now.Month, now.Day, h, rng.Next(0, 59), 0, DateTimeKind.Utc);
+                var answered = rng.NextDouble() > 0.15;
+                rows.Add(new RtsDataInteraction
+                {
+                    TenantId        = tenantId,
+                    OnDate          = today,
+                    Workgroup       = q,
+                    InteractionType = "Call",
+                    Direction       = "Incoming",
+                    IsAnswered      = answered,
+                    IsAbandoned     = !answered && rng.NextDouble() > 0.3,
+                    IsTransferred   = answered && rng.NextDouble() < 0.1,
+                    TimeInQueue     = answered ? rng.Next(5, 120) : rng.Next(10, 180),
+                    TalkTime        = answered ? rng.Next(30, 600) : 0,
+                    StartTime       = start,
+                    EndTime         = start.AddSeconds(rng.Next(60, 700)),
+                });
+            }
+        }
+    }
+
+    beDb.RtsDataInteractions.AddRange(rows);
+    await beDb.SaveChangesAsync(ct);
+    logger.LogInformation("Seeded {Count} dev RTSData_Interaction rows for {Date}", rows.Count, today);
+}
+```
+
+---
+
+#### 7.5 Dev seed — `RTSData_UserStatusLog` test rows
+
+Required for agent metrics (available/onphone/break/paperwork/training time charts):
+
+```csharp
+private async Task SeedDevRtsUserStatusLogAsync(Guid tenantId, CancellationToken ct)
+{
+    var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("dd/MM/yyyy");
+    if (await beDb.RtsDataUserStatusLogs.AnyAsync(
+            r => r.TenantId == tenantId && r.OnDate == today, ct))
+        return;
+
+    var rng       = new Random(42);
+    var now       = DateTime.UtcNow;
+    var agents    = new[] { "agent01", "agent02", "agent03", "agent04", "agent05" };
+    var groups    = new[] { "AVAILABLE", "ONPHONE", "BREAK", "PAPERWORK", "TRAINING" };
+    var rows      = new List<RtsDataUserStatusLog>();
+
+    foreach (var agent in agents)
+    {
+        var cursor = new DateTime(now.Year, now.Month, now.Day, 8, 0, 0, DateTimeKind.Utc);
+        while (cursor < now.AddHours(-0.5))
+        {
+            var group    = groups[rng.Next(groups.Length)];
+            var duration = rng.Next(2, 30) * 60 * 1000L; // ms
+            var end      = cursor.AddMilliseconds(duration);
+            rows.Add(new RtsDataUserStatusLog
+            {
+                TenantId    = tenantId,
+                UserId      = agent,
+                OnDate      = today,
+                StatusGroup = group,
+                StatusId    = group.ToLower() + "_status",
+                StartTime   = cursor,
+                EndTime     = end,
+                Duration    = duration,
+                UpdateTime  = DateTime.UtcNow
+            });
+            cursor = end;
+        }
+    }
+
+    beDb.RtsDataUserStatusLogs.AddRange(rows);
+    await beDb.SaveChangesAsync(ct);
+    logger.LogInformation("Seeded {Count} dev RTSData_UserStatusLog rows for {Date}", rows.Count, today);
+}
+```
+
+Call both from `SeedSampleCcEntitiesAsync` (after Ngc entities), wrapped in
+`if (env.IsDevelopment())` guard.
+
+---
+
 ### 8. Acceptance criteria
 
 - [ ] Migration applied; `fn_daytrendinteractions` and `fn_daytrendagentstatus` exist in DB
@@ -650,6 +834,11 @@ Upsert by `MetricId` — skip if already exists.
 - [ ] Config modal opens for DayTrend widget; General / Appearance / Call Metrics / Agent Metrics tabs render
 - [ ] Saving modal updates `ConfigJson`; widget reloads with new config
 - [ ] "Save as Template" button visible in modal footer; dispatches `CreateWidgetTemplateCommand`
+- [ ] `SeedSampleCcEntitiesAsync` method implemented (no more missing-method startup crash)
+- [ ] Dev DB: `NgcBusinessUnit` "Customer Support" + 2 `NgcQueue` entries seeded for platform tenant
+- [ ] Dev DB: `RTSData_Interaction` rows exist for today's date with `Workgroup` matching seeded queues
+- [ ] Dev DB: `RTSData_UserStatusLog` rows exist for today with `StatusGroup` values
+- [ ] DayTrend widget shows actual chart data (not "No queues" / empty state) on dev dashboard
 
 ---
 
