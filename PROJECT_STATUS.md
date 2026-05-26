@@ -303,9 +303,9 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: **widget development continued** — catalogue cleaned (#16 ✅). Active widgets: AgentGrid, QueueGrid, DataSlot (all SignalR-backed). 2FA/SSO testing deferred to last.
+Next: **new widget types** — RT vs Historical (RTSData_* tables, read-only). Awaiting RTSData_* table structures from CC. 2FA/SSO testing deferred to last.
 D1: `b16d2e5` · T6: `22b087a`+`119b5a9` · #15: `bf8a79e`
-T1 ✅ → T2 ✅ → B1#11 ✅ → T3 ✅ → T4 ✅ → T5 ✅ → T6 ✅ → #15 ✅ → #16 ✅
+T1 ✅ → T2 ✅ → B1#11 ✅ → T3 ✅ → T4 ✅ → T5 ✅ → T6 ✅ → #15 ✅ → #16 ✅ → #17 ✅ → #18 ✅ → #19 ✅ → #20 ✅
 
 ## D1 — Documentation Catch-up Results
 

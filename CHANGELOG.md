@@ -6,6 +6,48 @@ Versions correspond to Technical Specification revisions.
 
 ---
 
+## [1.3.3] — 2026-05-26
+
+### Summary
+
+Template widget instantiation (#19) and dashboard clone RTS fix (#20).
+Dragging a widget from templates now resets all RTS IDs so fresh DB records
+are created on first save. Dashboard clone now correctly creates fresh RTS
+records for all three widget types (Queue Grid, Agent Grid, Data Slot).
+
+### Added
+
+- `RtsRepository`: `DeleteQueueGridCellAsync(cellId)`,
+  `DeleteQueueGridCellsByRowIdAsync(rowId)`,
+  `DeleteQueueGridCellsByColumnIdAsync(columnId)` — granular cell-level deletion
+  methods for future partial-update scenarios.
+- `CloneDashboardCommand.CreateDataSlotRtsRecords` — new method that creates a
+  fresh 1×1×1 `RTSGrid_*` structure for cloned DataSlot widgets.
+
+### Changed
+
+- `ScreenEditorPage.razor` — template drop now resets all RTS IDs to null:
+  `GridId`, `HeaderRowId`, `ColumnsSetId`, `RtsUserGridId`, per-column `DbColumnId`,
+  `DataSlotGridId/ColumnId/RowId/CellId`. Ensures fresh INSERT on first save of the
+  instantiated widget (previously IDs were copied from template, causing RTS conflicts).
+- `CloneDashboardCommand`:
+  - `ClearRtsIdsFromConfig`: now clears `rtsUserGridId` (Agent Grid) and all
+    `dataSlot*Id` fields (DataSlot) in addition to Queue Grid fields.
+  - `CreateAgentGridRtsRecords`: now correctly writes `rtsUserGridId` back into
+    ConfigJson (was missing, causing Agent Grid clone to have no RTS record reference).
+  - All three widget types fully handled: Queue Grid, Agent Grid, Data Slot.
+
+### Fixed
+
+- **#19** — Dragging widget from template palette onto canvas preserved old RTS IDs
+  from the template source, causing the new widget instance to share RTS records with
+  the template. Fixed by resetting all RTS IDs to null on template drop.
+- **#20** — `CloneDashboardCommand` did not handle Agent Grid `rtsUserGridId` or
+  DataSlot RTS fields — cloned widgets shared RTS records with the original dashboard.
+  Fixed: all three widget types now get fresh RTS records on clone.
+
+---
+
 ## [1.3.2] — 2026-05-26
 
 ### Summary
