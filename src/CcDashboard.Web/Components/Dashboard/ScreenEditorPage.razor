@@ -4087,4 +4087,66 @@
         int posX, posY;
         try
         {
-            var pos = await JS.InvokeAsync<DropPosition>("widg
+            var pos = await JS.InvokeAsync<DropPosition>("widgetResize.getDropPosition", e.ClientX, e.ClientY);
+            posX = pos.X;
+            posY = pos.Y;
+        }
+        catch
+        {
+            posX = 270 + (PlacedWidgets.Count % 3) * 300;
+            posY = 20 + (PlacedWidgets.Count / 3) * 220;
+        }
+
+        var catalogItem = WidgetCatalog.FirstOrDefault(c => c.Id == DraggedTemplate.WidgetCatalogItemId);
+        var config = !string.IsNullOrEmpty(DraggedTemplate.ConfigJson)
+            ? ParseWidgetConfig(DraggedTemplate.ConfigJson)
+            : new WidgetConfig();
+
+        // Reset all RTS IDs - this is a NEW widget, not a copy of the original
+        config.GridId = null;
+        config.HeaderRowId = null;
+        config.HeaderCellIds = new Dictionary<string, int?>();
+        config.ColumnsSetId = null;
+        config.RtsUserGridId = null;
+
+        // Reset column IDs for Queue Grid (keep column definitions, clear IDs)
+        if (config.QueueGridColumnDefs != null)
+        {
+            foreach (var col in config.QueueGridColumnDefs)
+            {
+                col.ColumnId = null;
+                col.Id = Guid.NewGuid().ToString();
+            }
+        }
+
+        // Clear rows for Queue Grid - templates copy only columns and settings, not rows
+        config.QueueGridRows = null;
+
+        // Reset column IDs for Agent Grid
+        if (config.AgentGridColumnDefs != null)
+        {
+            foreach (var col in config.AgentGridColumnDefs)
+            {
+                col.DbColumnId = null;
+            }
+        }
+
+        var newWidget = new PlacedWidget
+        {
+            Id = Guid.NewGuid(),
+            CatalogItemId = DraggedTemplate.WidgetCatalogItemId,
+            Name = DraggedTemplate.Name,
+            OriginalWidgetName = catalogItem?.Name ?? DraggedTemplate.Name,
+            Category = catalogItem?.Category ?? "",
+            Width = 280,
+            Height = 200,
+            X = posX,
+            Y = posY,
+            Config = config
+        };
+
+        PlacedWidgets.Add(newWidget);
+        DraggedTemplate = null;
+        IsDragging = false;
+    }
+}

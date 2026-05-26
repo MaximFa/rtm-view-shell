@@ -277,4 +277,21 @@ public class RtsRepository(BackendEmulationDbContext db) : IRtsRepository
         await db.Database.ExecuteSqlRawAsync(sql, [cellType, value ?? (object)DBNull.Value, cellId], ct);
     }
 
-    public async Task DeleteQueueGridCellAsync(int cellId, Cancella
+    public async Task DeleteQueueGridCellAsync(int cellId, CancellationToken ct = default)
+    {
+        var sql = @"DELETE FROM ""RTSGrid_Cell"" WHERE ""CellId"" = @p0";
+        await db.Database.ExecuteSqlRawAsync(sql, [cellId], ct);
+    }
+
+    public async Task DeleteQueueGridCellsByRowIdAsync(int rowId, CancellationToken ct = default)
+    {
+        var sql = @"DELETE FROM ""RTSGrid_Cell"" WHERE ""RowId"" = @p0";
+        await db.Database.ExecuteSqlRawAsync(sql, [rowId], ct);
+    }
+
+    public async Task DeleteQueueGridCellsByColumnIdAsync(int columnId, CancellationToken ct = default)
+    {
+        var sql = @"DELETE FROM ""RTSGrid_Cell"" WHERE ""ColumnId"" = @p0";
+        await db.Database.ExecuteSqlRawAsync(sql, [columnId], ct);
+    }
+}
