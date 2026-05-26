@@ -377,7 +377,7 @@ In §5.3 RTSData_UserStatusLog:
 ---
 
 *Document created: 2026-05-26 | Last updated: 2026-05-27 | Current task: CC-002*
-                
+
 
 ---
 
@@ -737,9 +737,12 @@ private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken 
 
     var rng    = new Random(42);
     var now    = DateTime.UtcNow;
-    var queues = new[] { "Q001", "Q002", "Q003" };  // = NgcQueue.ExternalId values
-    var rows   = new List<RtsDataInteraction>();
-    var seg    = 0;
+    var queues  = new[] { "Q001", "Q002", "Q003" };  // = NgcQueue.ExternalId values
+    // Same agent IDs as in SeedDevRtsUserStatusLogAsync — UserId is the JOIN key
+    // fn_daytrendagentstatus: agent pool = DISTINCT UserId FROM RTSData_Interaction WHERE IsAnswered=true
+    var agents  = new[] { "agent01", "agent02", "agent03", "agent04", "agent05" };
+    var rows    = new List<RtsDataInteraction>();
+    var seg     = 0;
 
     for (int h = 8; h <= 17; h++)
     {
@@ -763,6 +766,7 @@ private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken 
                     InteractionType   = "Call",
                     Direction         = "Incoming",
                     IsAnswered        = answered,
+                    UserId            = answered ? agents[rng.Next(agents.Length)] : string.Empty,  // JOIN key for fn_daytrendagentstatus
                     IsAbandoned       = !answered && rng.NextDouble() > 0.3,
                     IsTransferred     = answered && rng.NextDouble() < 0.1,
                     IsInQueue         = true,
