@@ -208,7 +208,7 @@ Each row = one agent + one status, for one day. Fields:
 | Field | Values (production) | Role |
 |---|---|---|
 | `StatusName` | 15 distinct values (see below) | Named status as defined in CC platform |
-| `StatusGroup` | `AVAILABLE`, `ONPHONE`, `BREAK`, `UNAVAILABLE`, `PAPERWORK`, `SIGNOFF` | Standardised group — use for filtering |
+| `StatusGroup` | `AVAILABLE`, `ONPHONE`, `BREAK`, `PAPERWORK`, `TRAINING` | Canonical group written by CC backend — see [CC-001] |
 | `TotalDuration` | 3 – 25 155 s | Cumulative seconds in this status today |
 | `TotalCount` | 1 – 61 | Number of times agent entered this status today |
 | `MaxDuraction` | integer (s) | Longest single session in this status |
@@ -218,11 +218,10 @@ Each row = one agent + one status, for one day. Fields:
 | StatusGroup | Business meaning | Agent state |
 |---|---|---|
 | `AVAILABLE` | Agent ready to take calls | Ready / Waiting |
-| `ONPHONE` | Agent handling an interaction | Talking, Hold, Ringing, Callbacks, Wrap Up |
+| `ONPHONE` | Agent handling an interaction | Talking, Hold, Ringing, Callbacks |
 | `BREAK` | Agent on scheduled break | Break |
-| `UNAVAILABLE` | Agent logged in but unavailable | Unavailable (non-break reasons) |
-| `PAPERWORK` | Agent doing post-call or admin work | ACW, Callback wrap |
-| `SIGNOFF` | Agent logged off the ACD | Logged out |
+| `PAPERWORK` | After-call work / admin wrap-up. Also surfaces as UNAVAILABLE in some platform UIs. | ACW, Wrap Up, Callback wrap |
+| `TRAINING` | Training, meeting, coaching, back-office tasks | Non-call unavailable |
 
 #### StatusName values (confirmed in production data)
 
@@ -235,14 +234,14 @@ Each row = one agent + one status, for one day. Fields:
 | `Out Ext Call` | `ONPHONE` | Connected outbound call |
 | `Hold` | `ONPHONE` | Customer on hold |
 | `Ringing` | `ONPHONE` | Phone ringing, not yet answered |
-| `Callback` | `PAPERWORK` | Agent doing callback-related wrap |
 | `Callback Incoming` | `ONPHONE` | Receiving a callback call |
 | `Callback Outgoing` | `ONPHONE` | Making a callback call |
-| `Wrap Up` | `ONPHONE` | ACW — after call work |
+| `Wrap Up` | `PAPERWORK` | After-call wrap / ACW |
+| `Callback` | `PAPERWORK` | Callback-related wrap-up |
+| `Unavailable` | `PAPERWORK` | Generic unavailable (displays as UNAVAILABLE in some UIs) |
 | `Break` | `BREAK` | Scheduled break |
-| `Back Office` | `UNAVAILABLE` | Back office / admin task |
-| `Unavailable` | `PAPERWORK` | Generic unavailable |
-| `SIGNOFF` | `SIGNOFF` | Logged off |
+| `Back Office` | `TRAINING` | Back-office, admin, non-call unavailable task |
+| _(logged out / unknown)_ | `NULL` | Logged-out agents may not appear in RTSData_UserStatus; unclassified StatusIds → NULL |
 
 #### Metric definitions
 
@@ -251,10 +250,9 @@ Each row = one agent + one status, for one day. Fields:
 | `agentstatus.available_time` | Available Time | `SUM_DURATION` | `group:AVAILABLE` | `Time` | `hh:mm:ss` |
 | `agentstatus.onphone_time` | On Phone Time | `SUM_DURATION` | `group:ONPHONE` | `Time` | `hh:mm:ss` |
 | `agentstatus.break_time` | Break Time | `SUM_DURATION` | `group:BREAK` | `Time` | `hh:mm:ss` |
-| `agentstatus.unavailable_time` | Unavailable Time | `SUM_DURATION` | `group:UNAVAILABLE` | `Time` | `hh:mm:ss` |
 | `agentstatus.paperwork_time` | Paperwork / ACW Time | `SUM_DURATION` | `group:PAPERWORK` | `Time` | `hh:mm:ss` |
-| `agentstatus.signoff_time` | Sign-off Time | `SUM_DURATION` | `group:SIGNOFF` | `Time` | `hh:mm:ss` |
-| `agentstatus.login_time` | Total Login Time | `SUM_DURATION` | `group:ALL_EXCEPT_SIGNOFF` | `Time` | `hh:mm:ss` |
+| `agentstatus.training_time` | Training / Back-Office Time | `SUM_DURATION` | `group:TRAINING` | `Time` | `hh:mm:ss` |
+| `agentstatus.login_time` | Total Login Time | `SUM_DURATION` | `group:ALL_LOGGED_IN` | `Time` | `hh:mm:ss` |
 | `agentstatus.wrap_time` | Wrap Up (ACW) Time | `SUM_DURATION` | `status:Wrap Up` | `Time` | `hh:mm:ss` |
 | `agentstatus.call_count` | Calls Handled | `SUM_COUNT` | `status:Incoming Ext Call` | `Number` | `0` |
 | `agentstatus.occupancy_pct` | Occupancy % | `RATIO` | `group:ONPHONE/group:ONPHONE+AVAILABLE` | `Number` | `0.0%` |
@@ -266,10 +264,9 @@ Each row = one agent + one status, for one day. Fields:
 | `group:AVAILABLE` | `StatusGroup = 'AVAILABLE'` |
 | `group:ONPHONE` | `StatusGroup = 'ONPHONE'` |
 | `group:BREAK` | `StatusGroup = 'BREAK'` |
-| `group:UNAVAILABLE` | `StatusGroup = 'UNAVAILABLE'` |
 | `group:PAPERWORK` | `StatusGroup = 'PAPERWORK'` |
-| `group:SIGNOFF` | `StatusGroup = 'SIGNOFF'` |
-| `group:ALL_EXCEPT_SIGNOFF` | `StatusGroup <> 'SIGNOFF'` |
+| `group:TRAINING` | `StatusGroup = 'TRAINING'` |
+| `group:ALL_LOGGED_IN` | `StatusGroup IS NOT NULL` |
 | `status:Wrap Up` | `StatusName = 'Wrap Up'` |
 | `status:Incoming Ext Call` | `StatusName = 'Incoming Ext Call'` |
 | `group:ONPHONE/group:ONPHONE+AVAILABLE` | Ratio: `SUM(ONPHONE) / SUM(ONPHONE + AVAILABLE)` |
@@ -278,24 +275,118 @@ Each row = one agent + one status, for one day. Fields:
 
 ### 2.3 Agent status log metrics (`MetricType = 'AgentStatusLog'`)
 
-**Source table:** `RTSData_UserStatusLog`
-**Purpose:** Individual status session records (start/end/duration per session).
-Used for adherence analysis and maximum session duration queries.
+**Source table:** `RTSData_UserStatusLog`  
+**Purpose:** Time-series of individual status transitions. Used for interval-based
+agent count metrics — e.g. "how many agents were on BREAK from 10:00 to 10:30".
 
-Fields available:
+**Key fields:**
 
 | Field | Notes |
 |---|---|
-| `StartTime` | Session start timestamp |
-| `EndTime` | Session end timestamp |
-| `Duration` | Session duration in seconds |
-| `StatusId` | Status identifier (join to UserStatus for StatusName) |
+| `UserId` | Agent identifier (email or short username, depends on server config) |
+| `StartTime` | Status session start timestamp |
+| `EndTime` | Status session end timestamp. `NULL` = session still ongoing |
+| `StatusGroup` | Canonical group — `AVAILABLE`, `ONPHONE`, `BREAK`, `PAPERWORK`, `TRAINING` or `NULL` |
+| `Duration` | Session duration in **milliseconds** |
+| `OnDate` | Date partition key in `DD/MM/YYYY` format |
 
-> **Note:** `StatusName` is not present in `RTSData_UserStatusLog` in the production data sample.
-> Must be resolved via `StatusId` join to `RTSData_UserStatus` or a separate status lookup.
+> **Note:** Use `StatusGroup` for all filtering (canonical, deployment-independent).
+> `StatusId` (raw localised name) is available for display purposes only.
 
-Metric definitions for this source are deferred to a future sprint
-when adherence widgets are designed.
+#### Agent pool resolution — replacing UserId → AgentGroup mapping
+
+`RTSData_UserStatusLog` has no direct link to `NgcSupergroup` or `NgcAgentGroup`.
+An agent may belong to multiple groups, so a join table cannot exist without ambiguity.
+
+**Solution:** For a given BU + interval, define the agent pool as:
+
+> **DISTINCT `UserId` values from `RTSData_Interaction` WHERE `Workgroup` IN
+> (BU's queue list) AND `IsAnswered = true` AND `Direction = 'Incoming'`
+> AND `InQueueDateTime` falls within that interval.**
+
+This ties agent selection to actual call activity on this BU's queues — agents who
+answered at least one inbound call in this interval are counted. An agent working
+multiple groups is counted once (DISTINCT).
+
+> **Counting rule:** if one agent enters BREAK ten times within an interval, the result
+> is **1 agent** (not 10). All status counts use `COUNT(DISTINCT "UserId")`.
+
+#### SQL query — agent counts per interval
+
+```sql
+-- @tenantId      uuid
+-- @onDate        varchar  -- DD/MM/YYYY
+-- @queueList     text[]   -- BU queue names from NgcBusinessUnitQueueClassification
+-- @intervalMinutes int    -- 15 | 30 | 60
+
+WITH interval_agents AS (
+    -- Active agents per interval: those who answered incoming calls on BU queues
+    SELECT
+        DATE_TRUNC('hour', "InQueueDateTime") +
+            (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / @intervalMinutes)
+             * (@intervalMinutes || ' minutes')::interval) AS interval_start,
+        "UserId"
+    FROM "RTSData_Interaction"
+    WHERE "TenantId"  = @tenantId
+      AND "OnDate"    = @onDate
+      AND "Workgroup" = ANY(@queueList)
+      AND "IsAnswered" = true
+      AND "Direction"  = 'Incoming'
+      AND "InQueueDateTime" IS NOT NULL
+),
+agent_pool AS (
+    SELECT DISTINCT interval_start, "UserId" FROM interval_agents
+),
+agent_status AS (
+    -- Match each pooled agent to their status sessions overlapping the interval
+    SELECT
+        ap.interval_start,
+        usl."UserId",
+        usl."StatusGroup"
+    FROM agent_pool ap
+    JOIN "RTSData_UserStatusLog" usl ON usl."UserId" = ap."UserId"
+    WHERE usl."TenantId"    = @tenantId
+      AND usl."OnDate"      = @onDate
+      AND usl."StatusGroup" IS NOT NULL
+      AND usl."StartTime"   < ap.interval_start
+                               + (@intervalMinutes || ' minutes')::interval
+      AND (usl."EndTime" IS NULL
+           OR usl."EndTime" > ap.interval_start)
+)
+SELECT
+    interval_start,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'AVAILABLE')  AS available_agents,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'ONPHONE')    AS onphone_agents,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'BREAK')      AS break_agents,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'PAPERWORK')  AS paperwork_agents,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'TRAINING')   AS training_agents,
+    COUNT(DISTINCT "UserId")                                              AS total_agents
+FROM agent_status
+GROUP BY interval_start
+ORDER BY interval_start;
+```
+
+#### Metric definitions
+
+| MetricId | Description | Function | Parameter | ValueType | Format |
+|---|---|---|---|---|---|
+| `statuslog.available_agents` | Available Agents | `COUNT_DISTINCT` | `group:AVAILABLE` | `Number` | `0` |
+| `statuslog.onphone_agents` | On Phone Agents | `COUNT_DISTINCT` | `group:ONPHONE` | `Number` | `0` |
+| `statuslog.break_agents` | Agents on Break | `COUNT_DISTINCT` | `group:BREAK` | `Number` | `0` |
+| `statuslog.paperwork_agents` | Paperwork / ACW Agents | `COUNT_DISTINCT` | `group:PAPERWORK` | `Number` | `0` |
+| `statuslog.training_agents` | Training / Back-Office Agents | `COUNT_DISTINCT` | `group:TRAINING` | `Number` | `0` |
+| `statuslog.total_agents` | Total Active Agents | `COUNT_DISTINCT` | `group:ALL` | `Number` | `0` |
+
+**Predicate key → SQL filter:**
+
+| Predicate key | SQL (in agent_status CTE) |
+|---|---|
+| `group:AVAILABLE` | `StatusGroup = 'AVAILABLE'` |
+| `group:ONPHONE` | `StatusGroup = 'ONPHONE'` |
+| `group:BREAK` | `StatusGroup = 'BREAK'` |
+| `group:PAPERWORK` | `StatusGroup = 'PAPERWORK'` |
+| `group:TRAINING` | `StatusGroup = 'TRAINING'` |
+| `group:ALL` | _(no filter — COUNT all)_ |
 
 ---
 
@@ -320,13 +411,21 @@ new RtsGridMetric { MetricId = "interaction.avg_abandon_wait",    Description = 
 new RtsGridMetric { MetricId = "agentstatus.available_time",      Description = "Available Time",           DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "group:AVAILABLE",                        MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
 new RtsGridMetric { MetricId = "agentstatus.onphone_time",        Description = "On Phone Time",            DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "group:ONPHONE",                          MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
 new RtsGridMetric { MetricId = "agentstatus.break_time",          Description = "Break Time",               DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "group:BREAK",                            MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
-new RtsGridMetric { MetricId = "agentstatus.unavailable_time",    Description = "Unavailable Time",         DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "group:UNAVAILABLE",                      MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
+new RtsGridMetric { MetricId = "agentstatus.training_time",       Description = "Training / Back-Office",   DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "group:TRAINING",                         MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
 new RtsGridMetric { MetricId = "agentstatus.paperwork_time",      Description = "Paperwork / ACW Time",     DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "group:PAPERWORK",                        MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
-new RtsGridMetric { MetricId = "agentstatus.signoff_time",        Description = "Sign-off Time",            DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "group:SIGNOFF",                          MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
-new RtsGridMetric { MetricId = "agentstatus.login_time",          Description = "Total Login Time",         DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "group:ALL_EXCEPT_SIGNOFF",               MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
+// agentstatus.signoff_time removed — SIGNOFF is not a canonical StatusGroup value (CC-001)
+new RtsGridMetric { MetricId = "agentstatus.login_time",          Description = "Total Login Time",         DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "group:ALL_LOGGED_IN",               MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
 new RtsGridMetric { MetricId = "agentstatus.wrap_time",           Description = "Wrap Up (ACW) Time",       DataType = "int",     MetricFunction = "SUM_DURATION", MetricParameter = "status:Wrap Up",                         MetricFormat = "hh:mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatus" },
 new RtsGridMetric { MetricId = "agentstatus.call_count",          Description = "Calls Handled",            DataType = "int",     MetricFunction = "SUM_COUNT",    MetricParameter = "status:Incoming Ext Call",               MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatus" },
 new RtsGridMetric { MetricId = "agentstatus.occupancy_pct",       Description = "Occupancy %",              DataType = "decimal", MetricFunction = "RATIO",        MetricParameter = "group:ONPHONE/group:ONPHONE+AVAILABLE",  MetricFormat = "0.0%",     DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatus" },
+
+// Agent status log interval metrics (source: RTSData_UserStatusLog, agent pool via Interaction)
+new RtsGridMetric { MetricId = "statuslog.available_agents",  Description = "Available Agents",             DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:AVAILABLE",  MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.onphone_agents",    Description = "On Phone Agents",              DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:ONPHONE",    MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.break_agents",      Description = "Agents on Break",              DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:BREAK",      MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.paperwork_agents",  Description = "Paperwork / ACW Agents",       DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:PAPERWORK",  MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.training_agents",   Description = "Training / Back-Office Agents",DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:TRAINING",   MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.total_agents",      Description = "Total Active Agents",          DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:ALL",        MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
 ```
 
 ---
@@ -346,7 +445,11 @@ managers to spot hourly patterns, peak periods, and deviations from normal traff
 - Department Manager — identifies recurring patterns (e.g. Monday 14:00 spike)
 - Director — validates that today matches the weekly profile
 
-**Data source:** `RTSData_Interaction` — direct read-only query. No SignalR subscription.
+**Data sources:**
+- `RTSData_Interaction` — interaction (call) volume metrics
+- `RTSData_UserStatusLog` — agent count by status group per interval (agent pool resolved via Interaction)
+
+Both queries are direct read-only. No SignalR subscription.  
 **RTS tables required:** None (`RTSGrid_*` / `RTSUserGrid_*` not used).
 
 ---
@@ -368,6 +471,7 @@ managers to spot hourly patterns, peak periods, and deviations from normal traff
 │                                                                        │
 │  ● Incoming Calls  ● Answered Calls  ● Abandoned Calls                 │
 │    [12]              [10]              [2]    ← numeric values         │
+│  ○ Available [4]   ○ On Phone [6]   ○ On Break [2]  ← agent counts    │
 │                                                                        │
 │  Last updated: 14:47:03                                               │
 └──────────────────────────────────────────────────────────────────────┘
@@ -394,35 +498,51 @@ managers to spot hourly patterns, peak periods, and deviations from normal traff
 | `showDataLabels` | bool | No | Show numeric value at each data point. Default: `true` |
 | `showLegend` | bool | No | Show colour legend below chart. Default: `true` |
 
-#### 3.3.3 Metrics (array — ordered, each independently configurable)
+#### 3.3.3 Interaction metrics (`metrics` array)
 
-Available metrics are loaded from `RTSGrid_Metric WHERE MetricType = 'Interaction'`
-(via `GetRtsGridMetricsQuery`). The widget settings panel populates the metric picker from this list.
-
-Each metric entry in ConfigJson:
+Available metrics loaded from `RTSGrid_Metric WHERE MetricType = 'Interaction'`.
+Each entry in the `metrics` array of ConfigJson:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `metricId` | string | Yes | `RTSGrid_Metric.MetricId` (e.g. `interaction.incoming_calls`) |
+| `metricId` | string | Yes | e.g. `interaction.incoming_calls` |
 | `enabled` | bool | Yes | Whether this metric is shown. Default: `true` |
-| `color` | string | Yes | Hex colour code, e.g. `#3b82f6` |
-| `label` | string | No | Override display name. Falls back to `RTSGrid_Metric.Description`. |
+| `color` | string | Yes | Hex colour code |
+| `label` | string | No | Override display name; falls back to `RTSGrid_Metric.Description` |
 
-**Default metric set (in display order):**
+**Default `metrics` set:**
 
-| # | metricId | Default label | Default colour | Default enabled |
+| # | metricId | Default label | Colour | Enabled |
 |---|---|---|---|---|
-| 1 | `interaction.incoming_calls` | Incoming Calls | `#3b82f6` (blue) | `true` |
-| 2 | `interaction.answered_calls` | Answered Calls | `#22c55e` (green) | `true` |
-| 3 | `interaction.abandoned_calls` | Abandoned Calls | `#ef4444` (red) | `true` |
-| 4 | `interaction.callback_requests` | Callback Requests | `#f59e0b` (amber) | `false` |
-| 5 | `interaction.completed_callbacks` | Completed Callbacks | `#8b5cf6` (violet) | `false` |
-| 6 | `interaction.avg_wait_time` | Avg Wait Time | `#06b6d4` (cyan) | `false` |
-| 7 | `interaction.avg_talk_time` | Avg Talk Time | `#64748b` (slate) | `false` |
+| 1 | `interaction.incoming_calls` | Incoming Calls | `#3b82f6` | `true` |
+| 2 | `interaction.answered_calls` | Answered Calls | `#22c55e` | `true` |
+| 3 | `interaction.abandoned_calls` | Abandoned Calls | `#ef4444` | `true` |
+| 4 | `interaction.callback_requests` | Callback Requests | `#f59e0b` | `false` |
+| 5 | `interaction.completed_callbacks` | Completed Callbacks | `#8b5cf6` | `false` |
+| 6 | `interaction.avg_wait_time` | Avg Wait Time | `#06b6d4` | `false` |
+| 7 | `interaction.avg_talk_time` | Avg Talk Time | `#64748b` | `false` |
 
-> **Note:** `avg_wait_time` and `avg_talk_time` are time-based (seconds → `mm:ss`)
-> while all other metrics are counts. If both count and time metrics are enabled
-> simultaneously, render on **dual Y-axes** (counts on left, seconds on right).
+> `avg_wait_time` / `avg_talk_time` are time-based (seconds → `mm:ss`). When enabled
+> together with count metrics, render on **dual Y-axes** (counts left, seconds right).
+
+#### 3.3.4 Agent status metrics (`agentMetrics` array)
+
+Available metrics loaded from `RTSGrid_Metric WHERE MetricType = 'AgentStatusLog'`.
+Same entry structure as `metrics`. Agent counts are integers (same Y-axis as call counts).
+
+**Default `agentMetrics` set:**
+
+| # | metricId | Default label | Colour | Enabled |
+|---|---|---|---|---|
+| 1 | `statuslog.available_agents` | Available | `#4ade80` | `false` |
+| 2 | `statuslog.onphone_agents` | On Phone | `#60a5fa` | `false` |
+| 3 | `statuslog.break_agents` | On Break | `#fb923c` | `false` |
+| 4 | `statuslog.paperwork_agents` | Paperwork | `#a78bfa` | `false` |
+| 5 | `statuslog.training_agents` | Training | `#94a3b8` | `false` |
+| 6 | `statuslog.total_agents` | Total Active | `#f1f5f9` | `false` |
+
+> All agent metrics use **dashed lines** (or hatched bars) to distinguish them visually
+> from call volume metrics. Both series share the left Y-axis (counts).
 
 ---
 
@@ -468,7 +588,73 @@ GROUP BY interval_start
 ORDER BY interval_start;
 ```
 
-#### 3.4.2 Important notes
+#### 3.4.2 Agent status query
+
+Run in parallel with the interaction query when at least one `agentMetrics` entry
+has `enabled = true`.
+
+```sql
+-- Uses same @tenantId, @onDate, @queueList, @intervalMinutes as interaction query
+
+WITH interval_agents AS (
+    SELECT
+        DATE_TRUNC('hour', "InQueueDateTime") +
+            (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / @intervalMinutes)
+             * (@intervalMinutes || ' minutes')::interval) AS interval_start,
+        "UserId"
+    FROM "RTSData_Interaction"
+    WHERE "TenantId"  = @tenantId
+      AND "OnDate"    = @onDate
+      AND "Workgroup" = ANY(@queueList)
+      AND "IsAnswered" = true
+      AND "Direction"  = 'Incoming'
+      AND "InQueueDateTime" IS NOT NULL
+),
+agent_pool AS (
+    SELECT DISTINCT interval_start, "UserId" FROM interval_agents
+),
+agent_status AS (
+    SELECT
+        ap.interval_start,
+        usl."UserId",
+        usl."StatusGroup"
+    FROM agent_pool ap
+    JOIN "RTSData_UserStatusLog" usl ON usl."UserId" = ap."UserId"
+    WHERE usl."TenantId"    = @tenantId
+      AND usl."OnDate"      = @onDate
+      AND usl."StatusGroup" IS NOT NULL
+      AND usl."StartTime"   < ap.interval_start
+                               + (@intervalMinutes || ' minutes')::interval
+      AND (usl."EndTime" IS NULL
+           OR usl."EndTime" > ap.interval_start)
+)
+SELECT
+    interval_start,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'AVAILABLE')  AS available_agents,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'ONPHONE')    AS onphone_agents,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'BREAK')      AS break_agents,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'PAPERWORK')  AS paperwork_agents,
+    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'TRAINING')   AS training_agents,
+    COUNT(DISTINCT "UserId")                                              AS total_agents
+FROM agent_status
+GROUP BY interval_start
+ORDER BY interval_start;
+```
+
+**Result record:**
+
+```csharp
+public record DayTrendAgentInterval(
+    DateTime IntervalStart,
+    int AvailableAgents,
+    int OnPhoneAgents,
+    int BreakAgents,
+    int PaperworkAgents,
+    int TrainingAgents,
+    int TotalAgents);
+```
+
+#### 3.4.4 Important notes
 
 - `OnDate` is stored as `varchar` in format `DD/MM/YYYY`. Always pass the date in this format.
 - `AnsweredDateTime` null is stored as `1753-01-01 00:00:00.000` — treat as absent, not a real date. Do not use `AnsweredDateTime` for interval grouping.
@@ -477,7 +663,7 @@ ORDER BY interval_start;
   a warning: _"No queues assigned to this Business Unit"_.
 - EF Core / raw SQL: use `FromSqlInterpolated` or parameterised `ExecuteSqlRaw`. Never string concatenation. **[CODE-01]**
 
-#### 3.4.3 EF Core query (application layer)
+#### 3.4.5 EF Core query — interactions (application layer)
 
 ```csharp
 public record DayTrendInterval(
@@ -598,6 +784,14 @@ Stored in `DashboardWidget.ConfigJson` (jsonb).
     { "metricId": "interaction.completed_callbacks", "enabled": false, "color": "#8b5cf6", "label": "Completed Callbacks" },
     { "metricId": "interaction.avg_wait_time",       "enabled": false, "color": "#06b6d4", "label": "Avg Wait Time"       },
     { "metricId": "interaction.avg_talk_time",       "enabled": false, "color": "#64748b", "label": "Avg Talk Time"       }
+  ],
+  "agentMetrics": [
+    { "metricId": "statuslog.available_agents",  "enabled": false, "color": "#4ade80", "label": "Available"   },
+    { "metricId": "statuslog.onphone_agents",    "enabled": false, "color": "#60a5fa", "label": "On Phone"    },
+    { "metricId": "statuslog.break_agents",      "enabled": false, "color": "#fb923c", "label": "On Break"    },
+    { "metricId": "statuslog.paperwork_agents",  "enabled": false, "color": "#a78bfa", "label": "Paperwork"   },
+    { "metricId": "statuslog.training_agents",   "enabled": false, "color": "#94a3b8", "label": "Training"    },
+    { "metricId": "statuslog.total_agents",      "enabled": false, "color": "#f1f5f9", "label": "Total Active"}
   ]
 }
 ```
@@ -619,18 +813,26 @@ When a user opens the widget settings panel, they see:
 - Show data labels (toggle)
 - Show legend (toggle)
 
-**Tab: Metrics**
+**Tab: Call Metrics**
 
-Table with one row per metric (fixed set of 7):
+Table with one row per interaction metric (fixed set of 7).
 
 | Column | Control |
 |---|---|
 | On/Off | Toggle switch |
 | Colour swatch | Colour picker (hex input + palette) |
 | Label | Text input (placeholder: default name) |
-| Preview | Coloured line/bar sample |
+| Preview | Coloured solid line/bar sample |
 
 Drag-to-reorder rows changes display order in chart and legend.
+
+**Tab: Agent Metrics**
+
+Table with one row per agent status metric (fixed set of 6).
+Same column structure as Call Metrics.
+Preview shows dashed line (to distinguish from call metrics visually).
+
+> If no agent metric is enabled, the agent status query is **not executed** — performance optimisation.
 
 ---
 
@@ -694,6 +896,16 @@ new WidgetCatalogItem
    (partition key). Ensure index exists on `(TenantId, OnDate, Workgroup)`.
    See `[DATA-08]` in `CLAUDE.md`.
 
+7. **Agent status query is conditional.** Only run when `agentMetrics` contains at least
+   one `enabled: true` entry. The CTE join between `Interaction` and `UserStatusLog`
+   is a cross-table operation — avoid running it unnecessarily.
+
+8. **UserId format.** `RTSData_Interaction.UserId` and `RTSData_UserStatusLog.UserId`
+   may use different formats depending on server configuration (email vs short username).
+   The JOIN in the agent CTE uses `usl."UserId" = ap."UserId"` — verify that both
+   fields contain matching values in the production environment. If formats differ,
+   a normalisation step (e.g. extract username from email) may be needed in a future sprint.
+
 ---
 
-*Widget Specification v0.1 — DayTrend completed. Next: Comparation widget.*
+*Widget Specification v0.2 — DayTrend (interactions + agent status intervals). Next: CC-002 implementation task.*
