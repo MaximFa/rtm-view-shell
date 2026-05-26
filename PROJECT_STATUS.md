@@ -62,6 +62,7 @@ Briefs live in `docs/sprints/T{1..6}-*.md`.
 | **#14** | `WebFixture`: disable `LoginRateLimitMiddleware` in test pipeline | **✅ CLOSED.** Reflection-based clearing of middleware static state. 146/146 tests pass. | — |
 | **#15** | Separate NGC_*/RTS_* tables: AppDbContext → BackendEmulationDbContext (ADR-007) | **✅ CLOSED** commit `bf8a79e` (2026-05-26). NO-OP AppDbContext migration + BE IF NOT EXISTS. 382 / 382 pass. Post-migration: clear `__BackendEmulationMigrationsHistory`, reimport `Metrics_fixed.sql` (190 rows). | — |
 | **D1** | Documentation catch-up: TS v1.3 EN docx, CHANGELOG v1.2→v1.3, ADR-001..008 files, stakeholder summary, widget architecture, CLAUDE.md frontmatter bump to v1.3 | **✅ CLOSED (commit `b16d2e5`, 2026-05-25). 1,378 insertions across 13 files. All 6 deliverables delivered.** | Done |
+| **#16** | Widget catalogue cleanup: remove 3 mock components (KpiWidget, AgentStatusWidget, QueueSummaryWidget) + 11 stub catalogue entries. Keep only SignalR-backed AgentGrid/QueueGrid/DataSlot. | **✅ CLOSED (commit `9cc4d9b`, 2026-05-26). RenderWidget.razor trimmed to 3 cases. DatabaseInitializer cleans obsolete entries on next startup.** | Done |
 
 Both prompts are in the chat history of session 2026-05-17. If lost,
 both are short enough to regenerate from this status doc + relevant
@@ -300,9 +301,9 @@ Documentation sync completed this session:
 - `analysis/security-findings.md` updated (SF-006, SF-007)
 - PD-005 documented (session interruption recovery)
 
-Next: **widget development** (new real-time widgets). 2FA/SSO testing deferred to last.
+Next: **widget development continued** — catalogue cleaned (#16 ✅). Active widgets: AgentGrid, QueueGrid, DataSlot (all SignalR-backed). 2FA/SSO testing deferred to last.
 D1: `b16d2e5` · T6: `22b087a`+`119b5a9` · #15: `bf8a79e`
-T1 ✅ → T2 ✅ → B1#11 ✅ → T3 ✅ → T4 ✅ → T5 ✅ → T6 ✅ → #15 ✅
+T1 ✅ → T2 ✅ → B1#11 ✅ → T3 ✅ → T4 ✅ → T5 ✅ → T6 ✅ → #15 ✅ → #16 ✅
 
 ## D1 — Documentation Catch-up Results
 

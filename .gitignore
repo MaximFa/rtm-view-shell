@@ -47,3 +47,8 @@ Desktop.ini
 
 ## Claude Code internal state
 .claude/
+
+## Removed widget stubs (cannot physically delete on Cowork mount)
+src/CcDashboard.Web/Components/Widgets/KpiWidget.razor
+src/CcDashboard.Web/Components/Widgets/AgentStatusWidget.razor
+src/CcDashboard.Web/Components/Widgets/QueueSummaryWidget.razor
