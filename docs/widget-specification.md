@@ -91,6 +91,7 @@ Seed idempotently on first run (by `MetricId`).
 | `interaction.callback_requests` | Callback Requests | `COUNT_FILTER` | `callback_incoming` | `Number` | `0` | `Interaction` |
 | `interaction.completed_callbacks` | Completed Callbacks | `COUNT_FILTER` | `callback_completed` | `Number` | `0` | `Interaction` |
 | `interaction.avg_wait_time` | Avg Wait Time | `AVG_FIELD` | `TimeInQueue:answered` | `Time` | `mm:ss` | `Interaction` |
+| `interaction.max_wait_time` | Max Wait Time | `MAX_FIELD` | `TimeInQueue:answered` | `Time` | `mm:ss` | `Interaction` |
 | `interaction.avg_talk_time` | Avg Talk Time | `AVG_FIELD` | `TalkTime:answered` | `Time` | `mm:ss` | `Interaction` |
 
 **MetricParameter predicate keys** (resolved in application code):
@@ -173,6 +174,7 @@ Derived from boolean flags and enum fields. Production values confirmed from dat
 | `interaction.outbound_calls` | Outbound Calls | `COUNT_FILTER` | `call_outgoing` | `Number` | `0` |
 | `interaction.transferred_calls` | Transferred Calls | `COUNT_FILTER` | `transferred` | `Number` | `0` |
 | `interaction.avg_wait_time` | Avg Wait Time | `AVG_FIELD` | `TimeInQueue:answered` | `Time` | `mm:ss` |
+| `interaction.max_wait_time` | Max Wait Time | `MAX_FIELD` | `TimeInQueue:answered` | `Time` | `mm:ss` |
 | `interaction.avg_talk_time` | Avg Talk Time | `AVG_FIELD` | `TalkTime:answered` | `Time` | `mm:ss` |
 | `interaction.avg_abandon_wait` | Avg Wait Before Abandon | `AVG_FIELD` | `TimeInQueue:abandoned` | `Time` | `mm:ss` |
 
@@ -417,6 +419,7 @@ new RtsGridMetric { MetricId = "interaction.completed_callbacks", Description = 
 new RtsGridMetric { MetricId = "interaction.outbound_calls",      Description = "Outbound Calls",           DataType = "int",     MetricFunction = "COUNT_FILTER", MetricParameter = "call_outgoing",                          MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "Interaction" },
 new RtsGridMetric { MetricId = "interaction.transferred_calls",   Description = "Transferred Calls",        DataType = "int",     MetricFunction = "COUNT_FILTER", MetricParameter = "transferred",                            MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "Interaction" },
 new RtsGridMetric { MetricId = "interaction.avg_wait_time",       Description = "Avg Wait Time",            DataType = "decimal", MetricFunction = "AVG_FIELD",    MetricParameter = "TimeInQueue:answered",                   MetricFormat = "mm:ss",    DefaultValue = "0", ValueType = "Time",   MetricType = "Interaction" },
+new RtsGridMetric { MetricId = "interaction.max_wait_time",       Description = "Max Wait Time",            DataType = "decimal", MetricFunction = "MAX_FIELD",    MetricParameter = "TimeInQueue:answered",                   MetricFormat = "mm:ss",    DefaultValue = "0", ValueType = "Time",   MetricType = "Interaction" },
 new RtsGridMetric { MetricId = "interaction.avg_talk_time",       Description = "Avg Talk Time",            DataType = "decimal", MetricFunction = "AVG_FIELD",    MetricParameter = "TalkTime:answered",                      MetricFormat = "mm:ss",    DefaultValue = "0", ValueType = "Time",   MetricType = "Interaction" },
 new RtsGridMetric { MetricId = "interaction.avg_abandon_wait",    Description = "Avg Wait Before Abandon",  DataType = "decimal", MetricFunction = "AVG_FIELD",    MetricParameter = "TimeInQueue:abandoned",                  MetricFormat = "mm:ss",    DefaultValue = "0", ValueType = "Time",   MetricType = "Interaction" },
 
@@ -541,9 +544,10 @@ Each entry in the `metrics` array of ConfigJson:
 | 4 | `interaction.callback_requests` | Callback Requests | `#f59e0b` | `false` |
 | 5 | `interaction.completed_callbacks` | Completed Callbacks | `#8b5cf6` | `false` |
 | 6 | `interaction.avg_wait_time` | Avg Wait Time | `#06b6d4` | `false` |
-| 7 | `interaction.avg_talk_time` | Avg Talk Time | `#64748b` | `false` |
+| 7 | `interaction.max_wait_time` | Max Wait Time | `#0891b2` | `false` |
+| 8 | `interaction.avg_talk_time` | Avg Talk Time | `#64748b` | `false` |
 
-> `avg_wait_time` / `avg_talk_time` are time-based (seconds → `mm:ss`). When enabled
+> `avg_wait_time` / `max_wait_time` / `avg_talk_time` are time-based (seconds → `mm:ss`). When enabled
 > together with count metrics, render on **dual Y-axes** (counts left, seconds right).
 
 #### 3.3.4 Agent status metrics (`agentMetrics` array)
@@ -600,6 +604,7 @@ RETURNS TABLE (
     callback_requests   bigint,
     completed_callbacks bigint,
     avg_wait_time       double precision,
+    max_wait_time       double precision,
     avg_talk_time       double precision
 )
 LANGUAGE sql STABLE
@@ -615,6 +620,7 @@ AS $$
         COUNT(*) FILTER (WHERE "InteractionType" = 'Callback'
                            AND "Direction" = 'Outgoing' AND "IsAnswered" = true),
         AVG("TimeInQueue") FILTER (WHERE "IsAnswered" = true),
+        MAX("TimeInQueue") FILTER (WHERE "IsAnswered" = true),
         AVG("TalkTime")    FILTER (WHERE "IsAnswered" = true)
     FROM "RTSData_Interaction"
     WHERE "TenantId"  = p_tenantid
@@ -790,7 +796,7 @@ public record DayTrendInterval(
     DateTime IntervalStart,
     long IncomingCalls, long AnsweredCalls, long AbandonedCalls,
     long CallbackRequests, long CompletedCallbacks,
-    double? AvgWaitTime, double? AvgTalkTime);
+    double? AvgWaitTime, double? MaxWaitTime, double? AvgTalkTime);
 
 public record DayTrendAgentInterval(
     DateTime IntervalStart,
@@ -838,7 +844,7 @@ return new DayTrendResult(interactionTask.Result, agentTask.Result);
 
 - X-axis: interval start times formatted as `HH:mm`. Show only intervals up to the current time (do not render future empty intervals).
 - Y-axis (left): count metrics (integers). Start at 0. Grid lines at reasonable intervals.
-- Y-axis (right, optional): time metrics (`avg_wait_time`, `avg_talk_time`) in seconds. Label as `mm:ss`. Only rendered when a time metric is enabled.
+- Y-axis (right, optional): time metrics (`avg_wait_time`, `max_wait_time`, `avg_talk_time`) in seconds. Label as `mm:ss`. Only rendered when a time metric is enabled.
 - Chart types: `line` (with smooth curves and data point markers), `bar` (grouped bars per interval), `area` (filled area under line), `step` (stepped line — useful for cumulative reading).
 - Each metric rendered in its configured `color`.
 - `showDataLabels = true`: numeric value displayed above each data point or bar segment. Time metrics shown as `mm:ss`.
@@ -902,6 +908,7 @@ Stored in `DashboardWidget.ConfigJson` (jsonb).
     { "metricId": "interaction.callback_requests",   "enabled": false, "color": "#f59e0b", "label": "Callback Requests"   },
     { "metricId": "interaction.completed_callbacks", "enabled": false, "color": "#8b5cf6", "label": "Completed Callbacks" },
     { "metricId": "interaction.avg_wait_time",       "enabled": false, "color": "#06b6d4", "label": "Avg Wait Time"       },
+    { "metricId": "interaction.max_wait_time",       "enabled": false, "color": "#0891b2", "label": "Max Wait Time"       },
     { "metricId": "interaction.avg_talk_time",       "enabled": false, "color": "#64748b", "label": "Avg Talk Time"       }
   ],
   "agentMetrics": [
@@ -1052,4 +1059,4 @@ new WidgetCatalogItem
 
 ---
 
-*Widget Specification v0.5 — Added statuslog.*_time_ms (SUM_OVERLAP_MS) and statuslog.logged_in_agents (COUNT_POOL via agent pool) to fn_daytrendagentstatus. Next: CC-002 implementation task.*
+*Widget Specification v0.6 — Added interaction.max_wait_time (MAX_FIELD) to fn_daytrendinteractions; statuslog.*_time_ms + logged_in_agents. Next: CC-002 implementation task.*
