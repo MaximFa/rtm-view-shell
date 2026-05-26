@@ -842,7 +842,234 @@ If dark mode toggle doesn't work, check:
 
 ---
 
-## 17. Updated Checklist for New Widget
+## 17. RTS Grid Patterns and Pitfalls
+
+This section covers the backend RTS table lifecycle — what the CC backend reads from
+`RTSGrid_*` / `RTSUserGrid_*` tables and how the shell must write to them.
+
+### 17.1 Type A vs Type B
+
+| | Type A — Agent Grid | Type B — Queue Grid / Data Slot |
+|---|---|---|
+| Tables | `RTSUserGrid_Grid`, `RTSUserGrid_ColumnsSet`, `RTSUserGrid_Column` | `RTSGrid_Grid`, `RTSGrid_Column`, `RTSGrid_Row`, `RTSGrid_Cell` |
+| Command | `SaveAgentGridRtsCommand` | `SaveQueueGridRtsCommand` / `SaveDataSlotRtsCommand` |
+| ConfigJson key | `RtsUserGridId` (Grid PK) | `DataSlotGridId` / `GridId` (Grid PK) |
+| Delete command | `DeleteAgentGridRtsCommand` | `DeleteQueueGridRtsCommand` |
+| Subtype | Full grid (columns only) | Full grid (cols + rows + cells) or 1×1×1 (Data Slot) |
+
+### 17.2 RtsUserGridId vs DashboardWidget.GridId — CRITICAL distinction
+
+`PlacedWidget.GridId` is the **DB auto-increment** from `dashboard_widgets.GridId` (values like 14, 15, 16).
+`Config.RtsUserGridId` is the **RTS primary key** from `RTSUserGrid_Grid.GridId` (independent sequence).
+
+These are completely different numbers and must **never** be confused:
+
+```csharp
+// ❌ WRONG — was the pre-#18 bug: creates a new RTS record every save
+await _mediator.Send(new SaveAgentGridRtsCommand(PlacedWidget.GridId, ...));
+
+// ✅ CORRECT — 0 = INSERT new grid on first save; existing ID = UPDATE
+await _mediator.Send(new SaveAgentGridRtsCommand(Config.RtsUserGridId ?? 0, ...));
+// Then store the returned RTS ID back into Config, NOT into PlacedWidget.GridId:
+Config.RtsUserGridId = result.GridId;
+```
+
+**Where the bug manifests:** Without this fix, every "Save config" click creates a new
+`RTSUserGrid_Grid` row instead of updating the existing one. The CC platform sees a new grid
+each time and loses the previous agent-grid state.
+
+### 17.3 Data Slot as 1×1×1 subtype of RTSGrid_*
+
+The Data Slot widget reuses the Queue Grid's RTSGrid table family but with exactly one of each:
+
+```
+RTSGrid_Grid (1 row)
+  └── RTSGrid_Column  ColumnNumber=1, MetricId = Config.DataSlotMetricId
+        └── RTSGrid_Row     RowNumber=1, BusinessUnitId = Config.DataSlotBusinessUnitId
+              └── RTSGrid_Cell  CellType="Data", Value = MetricId
+```
+
+ConfigJson carries: `DataSlotGridId`, `DataSlotColumnId`, `DataSlotRowId`, `DataSlotCellId`
+(four separate `int?` fields — **not** a dictionary).
+
+### 17.4 SaveDataSlotRtsCommand pattern
+
+```csharp
+public record SaveDataSlotRtsCommand(
+    int? GridId,          // null = create; existing = update grid header only
+    int? ColumnId,        // null = create; existing = update
+    int? RowId,           // null = create; existing = update
+    int? CellId,          // null = create; existing = update
+    string Title,
+    string MetricId,
+    int? BusinessUnitId)
+    : IRequest<SaveDataSlotRtsResult>;
+
+public record SaveDataSlotRtsResult(int GridId, int ColumnId, int RowId, int CellId);
+```
+
+Usage in `ScreenEditorPage.SaveWidgetConfig()`:
+
+```csharp
+var result = await Mediator.Send(new SaveDataSlotRtsCommand(
+    GridId:         Config.DataSlotGridId,
+    ColumnId:       Config.DataSlotColumnId,
+    RowId:          Config.DataSlotRowId,
+    CellId:         Config.DataSlotCellId,
+    Title:          Config.DisplayName ?? "Data Slot",
+    MetricId:       Config.DataSlotMetricId ?? "",
+    BusinessUnitId: Config.DataSlotBusinessUnitId));
+
+Config.DataSlotGridId   = result.GridId;
+Config.DataSlotColumnId = result.ColumnId;
+Config.DataSlotRowId    = result.RowId;
+Config.DataSlotCellId   = result.CellId;
+```
+
+### 17.5 Existence-check-before-UPDATE pattern
+
+`SaveDataSlotRtsCommand` does **not** blindly trust the ConfigJson IDs it receives.
+Before every UPDATE it re-queries the DB:
+
+```csharp
+// Guard against stale IDs after dashboard clone / restore
+var existingCol = columnId.HasValue
+    ? await db.RtsGridColumns.FirstOrDefaultAsync(c => c.Id == columnId.Value && c.GridId == grid.Id)
+    : null;
+
+if (existingCol is null)
+{
+    // INSERT new column
+    existingCol = new RtsGridColumn { GridId = grid.Id, ColumnNumber = 1, MetricId = metricId };
+    db.RtsGridColumns.Add(existingCol);
+}
+else
+{
+    // UPDATE existing column
+    existingCol.MetricId = metricId;
+}
+await db.SaveChangesAsync(ct);
+```
+
+Apply the same pattern for Row and Cell. This prevents orphaned or duplicated RTS records
+when a dashboard is cloned and the ConfigJson IDs point to another tenant's records.
+
+### 17.6 Deferred deletion pattern
+
+RTS records are **not** deleted immediately when the user removes a widget in the editor.
+They are added to `WidgetsPendingRtsDeletion` (a `List<PlacedWidget>` on `ScreenEditorPage`):
+
+```csharp
+private void ConfirmDeleteWidget(PlacedWidget widget)
+{
+    // Queue for deferred RTS deletion
+    if (widget.Config?.RtsUserGridId > 0 || widget.Config?.DataSlotGridId > 0
+        || widget.Config?.GridId > 0)
+        WidgetsPendingRtsDeletion.Add(widget);
+
+    Widgets.Remove(widget);
+    // Note: RTS records still exist in DB until SaveLayout is called
+}
+```
+
+On `SaveLayout`:
+
+```csharp
+foreach (var w in WidgetsPendingRtsDeletion)
+{
+    if (IsAgentGridWidget(w.OriginalWidgetName) && w.Config?.RtsUserGridId > 0)
+        await Mediator.Send(new DeleteAgentGridRtsCommand(w.Config.RtsUserGridId.Value));
+    else if ((IsQueueGridWidget(w.OriginalWidgetName) || IsDataSlotWidget(w.OriginalWidgetName))
+             && (w.Config?.GridId > 0 || w.Config?.DataSlotGridId > 0))
+    {
+        var gridId = IsDataSlotWidget(w.OriginalWidgetName)
+            ? w.Config!.DataSlotGridId!.Value
+            : w.Config!.GridId!.Value;
+        await Mediator.Send(new DeleteQueueGridRtsCommand(gridId));
+    }
+}
+WidgetsPendingRtsDeletion.Clear();
+```
+
+**Why deferred?** If the user removes a widget and then immediately undoes (re-adds it),
+the RTS record is still there and can be reused without a re-create round-trip.
+
+### 17.7 Cascade delete
+
+Both delete commands delete only the root Grid record.
+Child records (`Column`, `Row`, `Cell`, `ColumnsSet`) are removed by `ON DELETE CASCADE`
+constraints defined by the CC backend. **Do not** issue separate DELETE commands for children.
+
+### 17.8 IsXxxWidget helper
+
+`ScreenEditorPage` uses `OriginalWidgetName` (not `DisplayName`) for widget type detection:
+
+```csharp
+private static bool IsAgentGridWidget(string? name) =>
+    name?.Contains("agent", StringComparison.OrdinalIgnoreCase) == true &&
+    name.Contains("grid",  StringComparison.OrdinalIgnoreCase);
+
+private static bool IsQueueGridWidget(string? name) =>
+    name?.Contains("queue", StringComparison.OrdinalIgnoreCase) == true &&
+    name.Contains("grid",   StringComparison.OrdinalIgnoreCase);
+
+private static bool IsDataSlotWidget(string? name) =>
+    name?.Contains("data", StringComparison.OrdinalIgnoreCase) == true &&
+    name.Contains("slot",  StringComparison.OrdinalIgnoreCase);
+```
+
+`OriginalWidgetName` is set once on widget creation from the catalogue entry name and
+never changed by renaming. This ensures type detection survives display name edits.
+
+### 17.9 ConfigJson round-trip rule
+
+All four `DataSlot*Id` fields and `RtsUserGridId` are `int?` and are nullable by default.
+When `ConfigJson` is deserialised from the DB, missing fields default to `null` (not zero).
+
+**Always check for null before sending a command:**
+```csharp
+// ✅ Treat null and 0 the same way — both mean "no existing RTS record"
+var existingGridId = Config.RtsUserGridId ?? 0;
+```
+
+**Never** persist `GridId = 0` to ConfigJson — `null` is the canonical "not yet created" state.
+After a successful save, the command returns the real integer ID; store that value immediately.
+
+### 17.10 API hook (dual-write)
+
+Every RTS save command calls `IConfigurationApiHook.NotifyAsync` after the DB transaction:
+
+| Command | Event string |
+|---|---|
+| `SaveAgentGridRtsCommand` | `"AgentGrid.Saved"` |
+| `SaveQueueGridRtsCommand` | `"QueueGridRts.Saved"` |
+| `SaveDataSlotRtsCommand`  | `"DataSlotRts.Saved"` |
+
+Current implementation (`NoOpConfigurationApiHook`) only logs. Real HTTP call pending
+backend API docs (OQ-W-01).
+
+### 17.11 Checklist for a new RTS save command
+
+When adding a new widget type that requires RTS persistence:
+
+- [ ] Identify table family: Type A (`RTSUserGrid_*`) or Type B (`RTSGrid_*`)
+- [ ] Add `int? RtsXxxId` fields to `WidgetConfig` (nullable, never default to 0)
+- [ ] Create `SaveXxxRtsCommand` + handler (existence-check-before-UPDATE for Type B children)
+- [ ] Create `DeleteXxxRtsCommand` + handler (root-only delete; cascade handles children)
+- [ ] Wire `SaveXxxRtsCommand` into `ScreenEditorPage.SaveWidgetConfig()` with null-coalesce
+- [ ] Store returned IDs back into `Config` fields (not into `PlacedWidget.GridId`)
+- [ ] Wire `ConfirmDeleteWidget` to queue the widget in `WidgetsPendingRtsDeletion`
+- [ ] Wire `SaveLayout` to call `DeleteXxxRtsCommand` from `WidgetsPendingRtsDeletion`
+- [ ] Wire `OpenWidgetConfig` to load all ID fields from `Config`
+- [ ] Add null-reset for all RTS ID fields in template-drop logic
+- [ ] Add `IsXxxWidget()` helper using `OriginalWidgetName`
+- [ ] Add `IConfigurationApiHook.NotifyAsync("Xxx.Saved", ...)` call in the handler
+- [ ] Add event string to `IConfigurationApiHook` events list in `widget-framework.md` §5.1
+- [ ] Write unit test for the command handler (existence-check paths: all-null, all-present, partial)
+
+---
+
+## 18. Updated Checklist for New Widget
 
 1. [ ] Create `{Name}Widget.razor` with correct dependencies
 2. [ ] Add `GridId`, `Config`, and **`DarkMode`** parameters
@@ -860,3 +1087,14 @@ If dark mode toggle doesn't work, check:
 14. [ ] Add localization keys to all .resx files
 15. [ ] Test RTL layout
 16. [ ] **Test dark mode toggle in both editor and fullscreen**
+
+**RTS persistence (if widget requires backend data storage):**
+
+17. [ ] Identify RTS table family (Type A `RTSUserGrid_*` or Type B `RTSGrid_*`) — see §17.1
+18. [ ] Add `int? RtsXxxId` fields to `WidgetConfig` (nullable; never default to 0)
+19. [ ] Create `SaveXxxRtsCommand` + handler; use existence-check pattern for Type B — see §17.5
+20. [ ] Create `DeleteXxxRtsCommand` + handler (delete root only; cascade handles children)
+21. [ ] Wire `SaveXxxRtsCommand` into `SaveWidgetConfig()` using `Config.RtsXxxId ?? 0`
+22. [ ] Store returned IDs back into `Config.*Id` fields (not into `PlacedWidget.GridId`)
+23. [ ] Wire deferred deletion: `ConfirmDeleteWidget` → `WidgetsPendingRtsDeletion`; `SaveLayout` → delete command
+24. [ ] Verify `OpenWidgetConfig` loads all RTS ID fields; template-drop resets all IDs to null

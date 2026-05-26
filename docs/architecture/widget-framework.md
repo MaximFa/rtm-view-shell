@@ -1,8 +1,8 @@
 # Widget Framework Architecture — RTM View Shell v1.3
 
 **Document type:** Technical Architecture  
-**Version:** 1.3  
-**Date:** 2026-05-25  
+**Version:** 1.3.1
+**Date:** 2026-05-26 (DataSlot RTS persistence added)
 **Status:** Current (v1.3 scope defined; rendering deferred to widget-library sprint)
 
 ---
@@ -59,10 +59,14 @@ for non-Superadmin callers (checked via `ICurrentUserAccessor.Role`).
 
 ### 2.3 Seed data
 
-At least one item per category seeded on first run ([DATA-07]):
-- Category "Queues": Queue Summary, Queue Trend, Abandoned Calls, SLA Bar
-- Category "Agents": Agent Status, Agent List, Occupancy Gauge
-- Category "General metrics": KPI Scorecard, Calls Per Hour, AHT Chart, Real-time Ticker
+Three items seeded on first run ([DATA-07]) after widget catalogue cleanup (commit `9cc4d9b`):
+- Category "Queues": **Queue Grid** (real-time queue metrics table)
+- Category "Agents": **Agent Grid** (real-time agent table with states)
+- Category "General metrics": **Data Slot** (single metric display with target comparison)
+
+`DatabaseInitializer.SeedWidgetCatalogAsync()` also removes 11 obsolete stub entries
+(Queue Summary, Queue Trend, SLA Bar, Abandoned Calls, Agent Status, Agent List,
+Occupancy Gauge, KPI Scorecard, Calls Per Hour, AHT Chart, Real-time Ticker) on startup.
 
 Admin CRUD screen for catalogue items is deferred (ADR-001). In v1.3, items are
 managed via migration seed or direct DB insert.
@@ -148,14 +152,65 @@ These tables are configured in `AppDbContext` as read-only `DbSet<>`s with expli
 Dev/CI emulation: `BackendEmulationDbContext` creates these tables via its own migration
 history (`__BackendEmulationMigrationsHistory`). Never runs in production.
 
-### 4.3 Lifecycle command
+### 4.3 Two RTS table families
 
-`SaveAgentGridRtsCommand`:
-- Input: `UserId`, `GridId`, optional `ConfigJson`
-- Validates: user exists in current tenant; grid is active for tenant
-- Writes: `RTSUserGrid` record (upsert via `ON CONFLICT DO UPDATE`)
+**Type A — `RTSUserGrid_*` (Agent Grid)**
+
+| Table | Purpose |
+|---|---|
+| `RTSUserGrid_Grid` | Grid header per widget instance |
+| `RTSUserGrid_ColumnsSet` | Saved column set for the grid |
+| `RTSUserGrid_Column` | Individual column definition |
+
+ConfigJson stores: `RtsUserGridId` (`RTSUserGrid_Grid.GridId`), `ColumnsSetId`, `AgentGridColumnDef[].DbColumnId`.
+
+**Critical:** `RtsUserGridId` is the RTS primary key — **not** the same as `DashboardWidget.GridId`
+(which is the DB auto-increment from `dashboard_widgets` table). All RTS operations (save, delete,
+update) must use `Config.RtsUserGridId`, never `PlacedWidget.GridId`. Bug fixed in #18 (2026-05-26).
+
+**Type B — `RTSGrid_*` (Queue Grid + Data Slot)**
+
+| Table | Purpose |
+|---|---|
+| `RTSGrid_Grid` | Grid header per widget instance |
+| `RTSGrid_Column` | Column definition (`ColumnNumber`, `MetricId`) |
+| `RTSGrid_Row` | Data row (`RowNumber`, `BusinessUnitId`) |
+| `RTSGrid_Cell` | Cell at Row × Column intersection (`CellType`, `Value`) |
+
+Queue Grid: multiple columns and rows (one per Business Unit).  
+Data Slot: 1×1×1 subtype — exactly 1 Column, 1 Row, 1 Cell (`CellType="Data"`, `Value=MetricId`).
+
+ConfigJson stores for Queue Grid: `GridId`, `HeaderRowId`, `HeaderCellIds`, per-row `RowId`/`CellIds`.  
+ConfigJson stores for Data Slot: `DataSlotGridId`, `DataSlotColumnId`, `DataSlotRowId`, `DataSlotCellId`.
+
+### 4.4 Lifecycle commands
+
+`SaveAgentGridRtsCommand` (Type A):
+- Input: `existingRtsUserGridId` = `Config.RtsUserGridId ?? 0` (0 = INSERT new Grid)
+- Writes `RTSUserGrid_Grid` and child `RTSUserGrid_Column` records
+- Returns `GridId` (RTS) + `ColumnsSetId` + per-column `ColumnId`s
+- Caller stores `GridId` → `Config.RtsUserGridId` (not into `DashboardWidget.GridId`)
 - Dual-write: `IConfigurationApiHook.NotifyAsync("AgentGrid.Saved", payload)`
-- Note: writes to backend-owned table; no shell EF migration involved
+
+`SaveQueueGridRtsCommand` (Type B):
+- Writes `RTSGrid_Grid`, header Row (RowNumber=1, CellType=Text), data columns, data rows and cells
+- Returns IDs for all created/updated records; caller persists them in ConfigJson
+- Dual-write: `IConfigurationApiHook.NotifyAsync("QueueGridRts.Saved", payload)`
+
+`SaveDataSlotRtsCommand` (Type B, 1×1×1):
+- Writes exactly 1 Grid → 1 Column (ColumnNumber=1) → 1 Row (RowNumber=1) → 1 Cell (CellType="Data", Value=MetricId)
+- Uses existence-check pattern: queries DB for existing child IDs before deciding INSERT vs UPDATE
+  (guards against stale ConfigJson IDs after dashboard clone or restore)
+- Dual-write: `IConfigurationApiHook.NotifyAsync("DataSlotRts.Saved", payload)`
+
+`DeleteAgentGridRtsCommand` / `DeleteQueueGridRtsCommand` (shared for Queue Grid + Data Slot):
+- Deletes the root Grid record; child records removed by `ON DELETE CASCADE`
+
+### 4.5 Deferred deletion pattern
+
+RTS records are **not** deleted immediately when user removes a widget from the editor.
+They are queued in `WidgetsPendingRtsDeletion` and the actual delete runs on `SaveLayout`.
+This prevents data loss if the user undoes the widget removal before saving.
 
 ---
 
@@ -176,6 +231,8 @@ Events that trigger notification (OQ-2, resolved ADR-008):
 - `Dashboard.Created` / `.Updated`
 - `DashboardWidget.Saved`
 - `AgentGrid.Saved`
+- `QueueGridRts.Saved`
+- `DataSlotRts.Saved`
 
 ### 5.2 v1.3 implementation: `NoOpConfigurationApiHook`
 
@@ -285,15 +342,20 @@ record write moves inside the transaction scope.
 
 ---
 
-## 8. Test coverage (T5 sprint)
+## 8. Test coverage (T5 sprint + DataSlot RTS session)
 
 | Test class | Tests | Scope |
 |---|---|---|
 | `WidgetCatalogTests` | 6 | Browse, IsActive filter, Superadmin sees all |
 | `DashboardWidgetTests` | 5 | Create stub, permission check, audit event, dual-write hook called |
-| `RtsGridLifecycleTests` | 13 | SaveAgentGridRtsCommand, GQF isolation, upsert idempotency |
+| `RtsGridLifecycleTests` | 13 | SaveAgentGridRtsCommand + SaveQueueGridRtsCommand, GQF isolation, upsert idempotency |
 | `SignalRTenantGuardTests` | 4 | GridNotificationHub TenantId claim check (SF-007 regression) |
 | **Total** | **28** | All passing (commit fbf89fd) |
+
+**Not yet covered:**
+- `SaveDataSlotRtsCommand` — no test; existence-check-before-UPDATE logic untested
+- `WidgetConfig` ConfigJson round-trip for DataSlot RTS fields
+- Deferred deletion lifecycle (`WidgetsPendingRtsDeletion` queue)
 
 ---
 

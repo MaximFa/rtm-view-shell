@@ -2,7 +2,7 @@
 
 **Document type:** Reference  
 **Status:** Current  
-**Last updated:** 2026-05-26 (post-cleanup)  
+**Last updated:** 2026-05-26 (DataSlot RTS persistence added — CC session #17; AgentGrid RTS ID fix — CC session #18)  
 **Scope:** All widget types present in the codebase as of commit after T6 / #15
 
 ---
@@ -96,8 +96,15 @@ Seeded idempotently by `DatabaseInitializer.SeedWidgetCatalogAsync()` on first r
 **Backend persistence (RTS tables):**  
 On save in `ScreenEditorPage.SaveWidgetConfig()`:
 - Calls `SaveAgentGridRtsCommand` to create/update `RTSUserGrid_*` records
+- `Config.RtsUserGridId` stores `RTSUserGrid_Grid.GridId` (the RTS primary key — **not** `DashboardWidget.GridId`; see §18 bug fix #18)
 - `Config.ColumnsSetId` stores `RTSUserGrid_ColumnsSet.ColumnsSetId` after first save
 - `Config.AgentGridColumnDefs[].DbColumnId` stores per-column `RTSUserGrid_Column.ColumnId`
+
+> **Bug fix (CC session #18):** Prior to fix, `SaveAgentGridRtsCommand` was called with
+> `PlacedWidget.GridId` (DB auto-increment from `dashboard_widgets`) instead of
+> `Config.RtsUserGridId` (the actual RTS grid PK). This caused a new RTS record to be
+> created on every save instead of updating the existing one. Fixed: now uses
+> `Config.RtsUserGridId ?? 0` (0 = INSERT new grid on first save).
 
 **Known limitations:**
 - Requires external SignalR simulator running on `SignalRConnectionUrl` (configured in `TenantSettings`)
@@ -158,7 +165,7 @@ On save:
 - Single metric display: shows the first value from the first row of a grid update
 - Configurable metric selection via `Config.DataSlotMetricId`
 - Time format auto-detection: `MM:SS` and `HH:MM:SS` recognised and stored as seconds for delta calculation
-- Target comparison: `Config.DataSlotTarget` + `Config.DataSlotTargetMode` (`less` or `more`)
+- Target comparison: `Config.DataSlotTarget` + `Config.DataSlotTargetMode` (`less` or `greater`)
 - Delta indicator: arrow up/down + text "+N / -N to target" or "On target"
 - Arrow colour: green (on/better than target) / red (worse than target)
 - Optional target label (`Config.DataSlotTargetLabel`)
@@ -168,8 +175,18 @@ On save:
 - Connection states: Connecting / Connected / Reconnecting / Failed with Retry
 
 **Backend persistence (RTS tables):**  
-On save:
-- `Config.DataSlotColumnId`, `Config.DataSlotRowId`, `Config.DataSlotCellIds` store RTS cell references
+On save in `ScreenEditorPage.SaveWidgetConfig()`, calls `SaveDataSlotRtsCommand` (CC session #17):
+- Creates/updates a **1×1×1 RTS structure** in `RTSGrid_*` tables:
+  - 1 `RTSGrid_Grid` record (stores title)
+  - 1 `RTSGrid_Column` (ColumnNumber=1, MetricId)
+  - 1 `RTSGrid_Row` (RowNumber=1, BusinessUnitId)
+  - 1 `RTSGrid_Cell` (CellType="Data", Value=MetricId)
+- Uses **existence-check-before-UPDATE** pattern: queries DB for child IDs before INSERT vs UPDATE
+  (guards against stale ConfigJson after dashboard clone or restore)
+- Returns `(GridId, ColumnId, RowId, CellId)` — stored in `Config.DataSlotGridId / ColumnId / RowId / CellId`
+- Dual-write: `IConfigurationApiHook.NotifyAsync("DataSlotRts.Saved", payload)`
+- Deferred deletion: RTS records are queued in `WidgetsPendingRtsDeletion` on widget remove;
+  actual delete (`DeleteQueueGridRtsCommand`) runs on `SaveLayout` to prevent data loss on undo
 
 **Known limitations:**
 - Shares the queue-grid SignalR hub — single-value extraction from a grid designed for tables
@@ -239,6 +256,7 @@ It is serialised to/from `DashboardWidget.ConfigJson` (jsonb in PostgreSQL).
 | `ScoreStarColor` | `string?` | null | |
 | `ScoreFormula` | `List<ScoreFormulaRule>?` | null | |
 | `AgentGridShowAlerts` | `bool` | `true` | |
+| `RtsUserGridId` | `int?` | null | `RTSUserGrid_Grid.GridId` — set after first save (**not** the same as `DashboardWidget.GridId`) |
 | `ColumnsSetId` | `int?` | null | RTS FK — set after first save |
 
 ### Queue Grid–specific
@@ -258,7 +276,7 @@ It is serialised to/from `DashboardWidget.ConfigJson` (jsonb in PostgreSQL).
 | `DataSlotTitle` | `string?` | null | Overrides DisplayName for value label |
 | `DataSlotMetricId` | `string?` | null | Metric column key from grid update |
 | `DataSlotTarget` | `decimal?` | null | Comparison target |
-| `DataSlotTargetMode` | `string?` | `"less"` | `"less"` or `"more"` |
+| `DataSlotTargetMode` | `string?` | `"less"` | `"less"` or `"greater"` |
 | `DataSlotTargetLabel` | `string?` | null | Label next to target |
 | `DataSlotTargetText` | `string?` | null | Additional target description |
 | `DataSlotBold` | `bool` | `false` | Bold value display |
@@ -266,9 +284,10 @@ It is serialised to/from `DashboardWidget.ConfigJson` (jsonb in PostgreSQL).
 | `DataSlotShowTargetLabel` | `bool` | `true` | |
 | `DataSlotShowArrow` | `bool` | `true` | |
 | `DataSlotBusinessUnitId` | `int?` | null | BU filter (stored, not yet applied) |
-| `DataSlotColumnId` | `int?` | null | RTS FK |
-| `DataSlotRowId` | `int?` | null | RTS FK |
-| `DataSlotCellIds` | `Dictionary<string, int?>?` | null | RTS FKs |
+| `DataSlotGridId` | `int?` | null | `RTSGrid_Grid.GridId` — set after first save |
+| `DataSlotColumnId` | `int?` | null | `RTSGrid_Column.ColumnId` |
+| `DataSlotRowId` | `int?` | null | `RTSGrid_Row.RowId` |
+| `DataSlotCellId` | `int?` | null | `RTSGrid_Cell.CellId` (CellType="Data", Value=MetricId) |
 
 ---
 
@@ -278,13 +297,14 @@ It is serialised to/from `DashboardWidget.ConfigJson` (jsonb in PostgreSQL).
 |---|---|---|
 | `Tests.Security/Widgets/WidgetCatalogTests.cs` | WGT-01 cross-tenant visibility, WGT-02/03 access control (Superadmin vs non-Superadmin), deactivated items filtering | 6 |
 | `Tests.Security/Widgets/DashboardWidgetTests.cs` | WGT-04 lifecycle (save/retrieve/delete), soft-delete interaction, GridId round-trip | 5 |
-| `Tests.Security/Widgets/RtsGridLifecycleTests.cs` | Agent/Queue Grid RTS CRUD + dual-write `IConfigurationApiHook` assertions | 13 |
+| `Tests.Security/Widgets/RtsGridLifecycleTests.cs` | Agent/Queue Grid RTS CRUD + dual-write `IConfigurationApiHook` assertions (DataSlot RTS **not** covered — see gap below) | 13 |
 | `Tests.Unit/Commands/SaveDashboardWidgetCommandHandlerTests.cs` | `SaveDashboardWidgetCommand` handler: permission check, audit event | ? |
 
 **Not covered by tests (as of T6/cleanup):**
 - Blazor component rendering (no bUnit or Playwright tests)
 - SignalR connection lifecycle in `AgentGridWidget`, `QueueGridWidget`, `DataSlotWidget`
-- `WidgetConfig` serialisation round-trip
+- `WidgetConfig` serialisation round-trip (incl. new DataSlot RTS fields)
+- `SaveDataSlotRtsCommand` — no test yet; existence-check-before-UPDATE logic untested
 - Default placeholder branch in `RenderWidget` (unreachable for seeded entries)
 
 ---

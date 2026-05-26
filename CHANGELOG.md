@@ -6,6 +6,71 @@ Versions correspond to Technical Specification revisions.
 
 ---
 
+## [1.3.2] — 2026-05-26
+
+### Summary
+
+Widget catalogue cleanup (#16) and DataSlot + AgentGrid RTS persistence fixes (#17, #18).
+Catalogue trimmed to 3 SignalR-backed widgets. DataSlot now writes to RTSGrid_* tables on
+config save. Critical AgentGrid RTS ID bug fixed (orphan data eliminated).
+
+### Added
+
+- `SaveDataSlotRtsCommand` / `SaveDataSlotRtsResult` — creates/updates a 1×1×1 structure
+  in `RTSGrid_*` tables (1 Grid → 1 Column → 1 Row → 1 Cell with `CellType="Data"`,
+  `Value=MetricId`). Includes existence-check-before-UPDATE pattern to guard against stale
+  ConfigJson IDs (e.g. after dashboard clone).
+- `WidgetConfig.DataSlotGridId`, `DataSlotColumnId`, `DataSlotRowId`, `DataSlotCellId`
+  (all `int?`) — persisted in ConfigJson after first save.
+- `WidgetConfig.RtsUserGridId` (`int?`) — stores `RTSUserGrid_Grid.GridId` for Agent Grid;
+  replaces the previous (wrong) use of `DashboardWidget.GridId` for RTS operations.
+
+### Changed
+
+- `ScreenEditorPage.razor`:
+  - `SaveWidgetConfig` (DataSlot): calls `SaveDataSlotRtsCommand` when `DataSlotMetricId`
+    is set; writes back all four RTS IDs into temp fields and new `WidgetConfig`.
+  - `SaveWidgetConfig` (Agent Grid): uses `Config.RtsUserGridId ?? 0` as input to
+    `SaveAgentGridRtsCommand` (was incorrectly using `DashboardWidget.GridId`).
+  - `OpenWidgetConfig`: loads `DataSlotGridId/ColumnId/RowId/CellId` and `RtsUserGridId`
+    from `widget.Config`.
+  - `ConfirmDeleteWidget`: queues Agent Grid widgets using `Config.RtsUserGridId > 0`;
+    queues DataSlot widgets using `Config.DataSlotGridId > 0` (deferred deletion pattern).
+  - `SaveLayout` delete loop: `DeleteAgentGridRtsCommand(Config.RtsUserGridId)` for Agent
+    Grid; `DeleteQueueGridRtsCommand(Config.DataSlotGridId)` for DataSlot.
+  - Template drop: resets `RtsUserGridId=null`, `ColumnsSetId=null`, `AgentGridColumnDef.DbColumnId=null`
+    to force fresh INSERT on next save; also resets `DataSlotGridId/ColumnId/RowId/CellId`.
+- `DatabaseInitializer.SeedWidgetCatalogAsync`: seeds only 3 entries; removes 11 obsolete
+  stub entries on startup.
+- `RenderWidget.razor`: trimmed to 3 widget type branches.
+
+### Fixed
+
+- **#18 Critical** — `SaveAgentGridRtsCommand` was called with `DashboardWidget.GridId`
+  (auto-increment from `dashboard_widgets`, e.g. 14/15/16) instead of the true RTS key
+  `Config.RtsUserGridId` (e.g. 1). This caused: (a) save creating new RTS records instead
+  of updating; (b) deletion targeting non-existent RTS IDs; (c) orphan data in
+  `RTSUserGrid_*` tables. Fixed by introducing `WidgetConfig.RtsUserGridId`.
+- Delete modal RTS warning now correctly checks `Config.RtsUserGridId > 0` for Agent Grid
+  (was checking `PlacedWidget.GridId`).
+- Cleaned up 2 orphan `RTSUserGrid_Column` rows (ColumnsSetId=14, non-existent in
+  `RTSUserGrid_ColumnsSet`).
+
+### Removed
+
+- `KpiWidget.razor`, `AgentStatusWidget.razor`, `QueueSummaryWidget.razor` — mock
+  components emptied to single comment line (compile-clean).
+- 11 obsolete `widget_catalog` entries cleaned by `DatabaseInitializer` on startup.
+
+### Gap / known issues
+
+- `SaveDataSlotRtsCommand` has no test coverage.
+- `DataSlotBusinessUnitId` stored and passed to command but SignalR subscriber reads
+  first row regardless — BU-based row filtering not yet active.
+- `WidgetConfig` ConfigJson round-trip for DataSlot RTS fields is not tested.
+
+---
+
 ## [1.3.1] — 2026-05-26
 
 ### Summary
