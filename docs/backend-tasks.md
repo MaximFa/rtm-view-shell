@@ -15,6 +15,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | ID | Status | Title |
 |---|---|---|
 | [CC-001](#cc-001) | ✅ Done | Add `StatusGroup` to `RTSData_UserStatusLog` + EF entities for all RTSData_* tables |
+| [CC-002](#cc-002) | 🔲 Ready | Implement DayTrend widget — PostgreSQL functions, query handler, Blazor component, seed |
 
 ---
 
@@ -375,5 +376,268 @@ In §5.3 RTSData_UserStatusLog:
 
 ---
 
-*Document created: 2026-05-26 | Next task: CC-002 (TBD)*
+*Document created: 2026-05-26 | Last updated: 2026-05-27 | Current task: CC-002*
                 
+
+---
+
+## CC-002
+
+### Implement DayTrend widget — PostgreSQL functions, query handler, Blazor component, seed
+
+**Status:** 🔲 Ready  
+**Priority:** 🔴 High — first production widget for RTM shell  
+**Depends on:** CC-001 ✅  
+**Spec reference:** `docs/widget-specification.md` §3 (DayTrend) — read in full before starting  
+**Commit:** —
+
+---
+
+### 1. Background
+
+DayTrend displays intraday call volume and agent status metrics as a chart broken into
+configurable intervals (15 / 30 / 60 min). Data comes from two PostgreSQL functions
+returning **narrow format** `(interval_start, metric_id, value)` rows.
+
+Use the exact SQL from the spec — do not simplify. `metric_id` strings in function
+output must match `RTSGrid_Metric.MetricId` exactly (consistency rule, spec §3.4.3).
+
+---
+
+### 2. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 2.1 | Migration `AddDayTrendFunctions` | `src/CcDashboard.Infrastructure/Migrations/BackendEmulation/` |
+| 2.2 | `DayTrendQuery` + `DayTrendQueryHandler` | `src/CcDashboard.Application/` |
+| 2.3 | `DayTrendWidget.razor` | `src/CcDashboard.Web/Components/Dashboard/Widgets/` |
+| 2.4 | `RtsGridMetric` seed | `src/CcDashboard.Infrastructure/Persistence/Seed/RtsMetricSeed.cs` |
+| 2.5 | `WidgetCatalogItem` seed | same seed file or `WidgetCatalogSeed.cs` |
+
+---
+
+### 3. Migration `AddDayTrendFunctions`
+
+Run:
+
+```powershell
+dotnet ef migrations add AddDayTrendFunctions `
+  --context BackendEmulationDbContext `
+  --project src/CcDashboard.Infrastructure `
+  --startup-project src/CcDashboard.Web
+```
+
+Populate `Up()` and `Down()` (pattern from spec §3.10 note 9).
+Copy the complete SQL bodies verbatim from spec §3.4.1 and §3.4.2:
+
+```csharp
+protected override void Up(MigrationBuilder mb) =>
+    mb.Sql("""
+        <paste full fn_daytrendinteractions body from spec §3.4.1>
+        <paste full fn_daytrendagentstatus body from spec §3.4.2>
+    """);
+
+protected override void Down(MigrationBuilder mb) =>
+    mb.Sql("""
+        DROP FUNCTION IF EXISTS fn_daytrendinteractions(uuid, varchar(50), text[], integer);
+        DROP FUNCTION IF EXISTS fn_daytrendagentstatus(uuid, varchar(50), text[], integer);
+    """);
+```
+
+`CREATE OR REPLACE FUNCTION` is idempotent — safe to re-run.
+
+---
+
+### 4. Application layer records
+
+Place in `CcDashboard.Application/DTOs/` (or `Queries/DayTrend/`):
+
+```csharp
+// Narrow format row — returned by both PostgreSQL functions
+public record DayTrendMetricRow(DateTime IntervalStart, string MetricId, double? Value);
+
+// Per-interval grouped result; keys = RTSGrid_Metric.MetricId strings
+public record DayTrendIntervalData(
+    DateTime IntervalStart,
+    IReadOnlyDictionary<string, double?> Metrics);
+
+// Query result
+public record DayTrendResult(
+    IReadOnlyList<DayTrendIntervalData> Intervals,
+    bool IsNoQueues = false)
+{
+    public static DayTrendResult NoQueues() => new(Array.Empty<DayTrendIntervalData>(), true);
+    public static DayTrendResult Empty()    => new(Array.Empty<DayTrendIntervalData>());
+}
+
+// CQRS query
+public record DayTrendQuery(
+    Guid BusinessUnitId,
+    int IntervalMinutes,          // 15 | 30 | 60
+    bool IncludeAgentMetrics,     // false = skip fn_daytrendagentstatus
+    DateOnly? OnDate = null       // null = today (UTC)
+) : IRequest<DayTrendResult>;
+```
+
+---
+
+### 5. Query handler
+
+```csharp
+public sealed class DayTrendQueryHandler(
+    BackendEmulationDbContext beDb,
+    INgcRepository ngcRepo,
+    ITenantContext tenantContext)
+    : IRequestHandler<DayTrendQuery, DayTrendResult>
+{
+    public async Task<DayTrendResult> Handle(DayTrendQuery query, CancellationToken ct)
+    {
+        // 1. Resolve queues for the BU (Workgroup = NgcQueue.ExternalId)
+        var queues = await ngcRepo.GetQueuesByBusinessUnitAsync(query.BusinessUnitId, ct);
+        if (!queues.Any())
+            return DayTrendResult.NoQueues();
+
+        var tenantId   = tenantContext.TenantId;
+        var onDate     = (query.OnDate ?? DateOnly.FromDateTime(DateTime.UtcNow))
+                             .ToString("dd/MM/yyyy");        // RTSData format: DD/MM/YYYY
+        var queueArray = queues.Select(q => q.ExternalId).ToArray();
+        var interval   = query.IntervalMinutes;
+
+        // 2. Run both functions in parallel
+        var interactionTask = beDb.Database
+            .SqlQuery<DayTrendMetricRow>(
+                $"SELECT * FROM fn_daytrendinteractions({tenantId}, {onDate}, {queueArray}, {interval})")
+            .ToListAsync(ct);
+
+        var agentTask = query.IncludeAgentMetrics
+            ? beDb.Database
+                .SqlQuery<DayTrendMetricRow>(
+                    $"SELECT * FROM fn_daytrendagentstatus({tenantId}, {onDate}, {queueArray}, {interval})")
+                .ToListAsync(ct)
+            : Task.FromResult(new List<DayTrendMetricRow>());
+
+        await Task.WhenAll(interactionTask, agentTask);
+
+        // 3. Merge and pivot to per-interval dictionaries
+        var intervals = interactionTask.Result
+            .Concat(agentTask.Result)
+            .GroupBy(r => r.IntervalStart)
+            .Select(g => new DayTrendIntervalData(
+                g.Key,
+                (IReadOnlyDictionary<string, double?>)
+                    g.ToDictionary(r => r.MetricId, r => r.Value)))
+            .OrderBy(x => x.IntervalStart)
+            .ToList();
+
+        return new DayTrendResult(intervals);
+    }
+}
+```
+
+**Queue resolution** — if `GetQueuesByBusinessUnitAsync` does not exist on `INgcRepository`,
+add it. `NgcQueue.ExternalId` = `Workgroup` in `RTSData_Interaction`. Join via
+`NgcBusinessUnitQueueClassification.QueueId = NgcQueue.Id`.
+
+---
+
+### 6. Blazor component
+
+**File:** `src/CcDashboard.Web/Components/Dashboard/Widgets/DayTrendWidget.razor`
+
+Config records (deserialise from `DashboardWidget.ConfigJson`):
+
+```csharp
+public record DayTrendConfig(
+    string Title,
+    Guid BusinessUnitId,
+    int IntervalMinutes,
+    int RefreshIntervalSeconds,
+    string ChartType,             // "line" | "bar" | "area" | "step"
+    bool ShowDataLabels,
+    bool ShowLegend,
+    List<DayTrendMetricConfig> Metrics,
+    List<DayTrendMetricConfig> AgentMetrics);
+
+public record DayTrendMetricConfig(
+    string MetricId, bool Enabled, string Color, string Label);
+```
+
+Component responsibilities:
+
+1. Deserialise `ConfigJson` → `DayTrendConfig` on `OnInitializedAsync`.
+2. Send `DayTrendQuery` via `IMediator`; set `IncludeAgentMetrics = AgentMetrics.Any(m => m.Enabled)`.
+3. Render chart via Chart.js JS interop (`IJSRuntime`). Add `wwwroot/js/daytrendChart.js`:
+
+```javascript
+window.dayTrendChart = {
+    _charts: {},
+    render(id, labels, datasets, options) {
+        if (this._charts[id]) this._charts[id].destroy();
+        const ctx = document.getElementById(id)?.getContext('2d');
+        if (!ctx) return;
+        this._charts[id] = new Chart(ctx, { type: 'line', data: { labels, datasets }, options });
+    },
+    destroy(id) {
+        this._charts[id]?.destroy();
+        delete this._charts[id];
+    }
+};
+```
+
+4. **Dual Y-axis:** metrics whose `MetricId` ends with `_time`, `_wait`, `_talk`, or `_ms`
+   go on the right Y-axis; format values as `mm:ss` (`TimeSpan.FromSeconds(v).ToString(@"mm\:ss")`
+   for `avg/max_wait_time`, `avg_talk_time`; `TimeSpan.FromMilliseconds(v).ToString(@"mm\:ss")`
+   for `*_ms` metrics). All count metrics go on the left Y-axis.
+5. **Auto-refresh:** `PeriodicTimer` at `RefreshIntervalSeconds`; dispose in `IAsyncDisposable.DisposeAsync`.
+6. **States:** loading skeleton, no-queues warning (`IsNoQueues = true`),
+   empty-day message (intervals empty), query error with retry button.
+
+Use Chart.js from CDN already in `_Host.cshtml` / `App.razor`, or add:
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+```
+
+---
+
+### 7. Seed data
+
+#### 7.1 WidgetCatalogItem (spec §3.9)
+
+```csharp
+new WidgetCatalogItem
+{
+    Id          = Uuid.NewSequential(),
+    Category    = "General Metrics",
+    Name        = "Day Trend",
+    Description = "Intraday call volume and agent status chart by configurable time interval.",
+    IconUrl     = "/img/widgets/day-trend.svg",
+    IsActive    = true
+}
+```
+
+#### 7.2 RtsGridMetric entries
+
+Create `RtsMetricSeed.cs`. Copy all entries verbatim from `docs/widget-specification.md` §2.4
+(the complete seed catalogue — interaction, agentstatus, and statuslog groups).
+Upsert by `MetricId` — skip if already exists.
+
+---
+
+### 8. Acceptance criteria
+
+- [ ] Migration applied; `fn_daytrendinteractions` and `fn_daytrendagentstatus` exist in DB
+- [ ] `SELECT * FROM fn_daytrendinteractions(...)` returns rows for a test `OnDate` with data
+- [ ] `SELECT * FROM fn_daytrendagentstatus(...)` returns rows for a test `OnDate` with data
+- [ ] Handler returns non-empty `Intervals` for a valid BU with interactions today
+- [ ] Handler returns `NoQueues()` when BU has no queue assignments
+- [ ] `DayTrendWidget.razor` renders chart without JS errors on a test dashboard
+- [ ] Auto-refresh timer fires; disposed correctly on component destroy (no memory leak)
+- [ ] All `RtsGridMetric` entries from spec §2.4 seeded
+- [ ] `WidgetCatalogItem` for DayTrend visible in widget catalogue UI
+- [ ] `dotnet build CcDashboard.sln` — zero errors, zero new warnings
+- [ ] Unit test: handler returns `NoQueues` when repository returns empty queue list
+- [ ] Unit test: handler correctly pivots narrow rows into `DayTrendIntervalData` dictionaries
+
+---
+
+*CC-002 written: 2026-05-27*
