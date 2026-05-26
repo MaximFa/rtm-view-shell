@@ -6,20 +6,11 @@
 <div class="widget-render">
     @switch ((Widget.OriginalWidgetName ?? Widget.Name).ToLower())
     {
-        case var n when n.Contains("queue") && n.Contains("summary"):
-            <QueueSummaryWidget Config="Widget.Config" DarkMode="DarkMode" />
-            break;
         case var n when n.Contains("agent") && n.Contains("grid"):
             <AgentGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
             break;
         case var n when n.Contains("queue") && n.Contains("grid"):
             <QueueGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
-            break;
-        case var n when n.Contains("agent") && n.Contains("status"):
-            <AgentStatusWidget Config="Widget.Config" DarkMode="DarkMode" />
-            break;
-        case var n when n.Contains("kpi") || n.Contains("scorecard"):
-            <KpiWidget Config="Widget.Config" DarkMode="DarkMode" />
             break;
         case var n when n.Contains("data") && n.Contains("slot"):
             <DataSlotWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />

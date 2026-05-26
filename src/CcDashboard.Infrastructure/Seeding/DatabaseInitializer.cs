@@ -180,20 +180,9 @@ public class DatabaseInitializer(
     {
         var items = new List<WidgetCatalogItem>
         {
-            new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "Queue Summary", Description = "Real-time queue metrics snapshot", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "Queue Trend", Description = "Historical queue volume trend chart", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "Abandoned Calls", Description = "Abandoned call count and rate", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "SLA Bar", Description = "Service level agreement gauge", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Agent Status", Description = "Live agent state distribution", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Agent Grid", Description = "Real-time agent table with states, durations, metrics and alerts", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Queues", Name = "Queue Grid", Description = "Real-time queue metrics table with customizable rows and columns", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Agent List", Description = "Filterable agent roster with states", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Agents", Name = "Occupancy Gauge", Description = "Agent occupancy percentage gauge", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "KPI Scorecard", Description = "Key performance indicators tile set", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Calls Per Hour", Description = "Hourly call volume bar chart", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "AHT Chart", Description = "Average handle time trend", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Real-time Ticker", Description = "Live event ticker feed", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Data Slot", Description = "Single metric display with target comparison", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "Queues",          Name = "Queue Grid", Description = "Real-time queue metrics table with customizable rows and columns", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "Agents",          Name = "Agent Grid", Description = "Real-time agent table with states, durations, metrics and alerts",   IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Data Slot",  Description = "Single metric display with target comparison",                         IsActive = true },
         };
 
         var existingNames = (await db.WidgetCatalogItems
@@ -202,11 +191,29 @@ public class DatabaseInitializer(
             .ToHashSet();
 
         var newItems = items.Where(i => !existingNames.Contains(i.Name)).ToList();
-        if (newItems.Count == 0) return;
+        if (newItems.Count > 0)
+        {
+            db.WidgetCatalogItems.AddRange(newItems);
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Seeded {Count} widget catalog items.", newItems.Count);
+        }
 
-        db.WidgetCatalogItems.AddRange(newItems);
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded {Count} widget catalog items.", newItems.Count);
+        // Remove obsolete catalogue entries (no longer implemented)
+        var obsoleteNames = new[]
+        {
+            "Queue Summary", "Queue Trend", "Abandoned Calls", "SLA Bar",
+            "Agent Status", "Agent List", "Occupancy Gauge",
+            "KPI Scorecard", "Calls Per Hour", "AHT Chart", "Real-time Ticker"
+        };
+        var toRemove = await db.WidgetCatalogItems
+            .Where(i => obsoleteNames.Contains(i.Name))
+            .ToListAsync(ct);
+        if (toRemove.Count > 0)
+        {
+            db.WidgetCatalogItems.RemoveRange(toRemove);
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Removed {Count} obsolete widget catalogue entries", toRemove.Count);
+        }
     }
 
     private async Task SeedSampleCcEntitiesAsync(Tenant tenant, CancellationToken ct)
