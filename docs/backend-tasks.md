@@ -537,9 +537,18 @@ public sealed class DayTrendQueryHandler(
 }
 ```
 
-**Queue resolution** — if `GetQueuesByBusinessUnitAsync` does not exist on `INgcRepository`,
-add it. `NgcQueue.ExternalId` = `Workgroup` in `RTSData_Interaction`. Join via
-`NgcBusinessUnitQueueClassification.QueueId = NgcQueue.Id`.
+**Queue resolution — BU → Queue → Workgroup chain:**
+```
+NgcBusinessUnit.BusinessUnitId
+  → NgcBusinessUnitQueueClassification.BusinessUnitId  (FK)
+  → NgcBusinessUnitQueueClassification.QueueId          (string)
+  = NgcQueue.ExternalId                                  (string)
+  = RTSData_Interaction.Workgroup                        (string, SQL filter)
+```
+So `QueueAssignment.QueueId` values ARE the workgroup strings — no extra lookup needed.
+If `GetQueuesByBusinessUnitAsync` does not exist on `INgcRepository`, implement it:
+load `NgcBusinessUnit` with `.Include(b => b.QueueAssignments)`, then
+return `bu.QueueAssignments.Select(q => q.QueueId).ToArray()`.
 
 ---
 
@@ -708,8 +717,14 @@ catch (Exception ex) { logger.LogWarning(ex, "BU→Queue classification seed ski
 
 #### 7.4 Dev seed — `RTSData_Interaction` test rows
 
-Wrap in `if (!env.IsDevelopment()) return;`. Use `Workgroup = "Q001"` / `"Q002"` / `"Q003"`
-to match the seeded NgcQueue ExternalIds:
+**Key field mapping (from `RtsDataEntities.cs`):**
+- `OnDate` — varchar `DD/MM/YYYY` — date partition filter
+- `InQueueDateTime` — `timestamptz` — **primary field for interval grouping in SQL functions**
+- `Workgroup` — string, equals `NgcQueue.ExternalId` equals `NgcBusinessUnitQueueClassification.QueueId`
+- `AnsweredDateTime` — null marker value is `1753-01-01` (not C# null)
+
+Both `OnDate` AND `InQueueDateTime` must be set to today — the SQL function filters by `OnDate`
+and groups intervals by `DATE_TRUNC` on `InQueueDateTime`.
 
 ```csharp
 private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken ct)
@@ -722,8 +737,9 @@ private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken 
 
     var rng    = new Random(42);
     var now    = DateTime.UtcNow;
-    var queues = new[] { "Q001", "Q002", "Q003" };
+    var queues = new[] { "Q001", "Q002", "Q003" };  // = NgcQueue.ExternalId values
     var rows   = new List<RtsDataInteraction>();
+    var seg    = 0;
 
     for (int h = 8; h <= 17; h++)
     {
@@ -732,22 +748,27 @@ private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken 
             int count = rng.Next(3, 12);
             for (int i = 0; i < count; i++)
             {
-                var start    = new DateTime(now.Year, now.Month, now.Day, h, rng.Next(0, 59), 0, DateTimeKind.Utc);
+                var inQueue  = new DateTime(now.Year, now.Month, now.Day, h, rng.Next(0, 59), 0, DateTimeKind.Utc);
                 var answered = rng.NextDouble() > 0.15;
                 rows.Add(new RtsDataInteraction
                 {
-                    TenantId        = tenantId,
-                    OnDate          = today,
-                    Workgroup       = q,
-                    InteractionType = "Call",
-                    Direction       = "Incoming",
-                    IsAnswered      = answered,
-                    IsAbandoned     = !answered && rng.NextDouble() > 0.3,
-                    IsTransferred   = answered && rng.NextDouble() < 0.1,
-                    TimeInQueue     = answered ? rng.Next(5, 120) : rng.Next(10, 180),
-                    TalkTime        = answered ? rng.Next(30, 600) : 0,
-                    StartTime       = start,
-                    EndTime         = start.AddSeconds(rng.Next(60, 700)),
+                    TenantId          = tenantId,
+                    InteractionId     = Guid.NewGuid().ToString(),
+                    Segment           = ++seg,
+                    ServerId          = "SRV01",
+                    OnDate            = today,              // DD/MM/YYYY — partition filter
+                    InQueueDateTime   = inQueue,            // timestamptz — interval grouping
+                    AnsweredDateTime  = answered ? inQueue.AddSeconds(rng.Next(5, 60)) : new DateTime(1753, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    Workgroup         = q,                  // = NgcQueue.ExternalId
+                    InteractionType   = "Call",
+                    Direction         = "Incoming",
+                    IsAnswered        = answered,
+                    IsAbandoned       = !answered && rng.NextDouble() > 0.3,
+                    IsTransferred     = answered && rng.NextDouble() < 0.1,
+                    IsInQueue         = true,
+                    TimeInQueue       = answered ? rng.Next(5, 120) : rng.Next(10, 180),
+                    TalkTime          = answered ? rng.Next(30, 600) : 0,
+                    UpdateTime        = DateTime.UtcNow,
                 });
             }
         }
@@ -755,7 +776,7 @@ private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken 
 
     beDb.RtsDataInteractions.AddRange(rows);
     await beDb.SaveChangesAsync(ct);
-    logger.LogInformation("Seeded {Count} dev RTSData_Interaction rows", rows.Count);
+    logger.LogInformation("Seeded {Count} dev RTSData_Interaction rows for {Date}", rows.Count, today);
 }
 ```
 
