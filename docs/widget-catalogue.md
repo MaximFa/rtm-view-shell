@@ -22,6 +22,7 @@ via pattern-matching on `PlacedWidget.OriginalWidgetName` (case-insensitive `Con
 
 > **Post-cleanup (commit `9cc4d9b`):** Mock widgets (KpiWidget, AgentStatusWidget, QueueSummaryWidget)
 > and 11 stub catalogue entries removed. Only 3 SignalR-backed components remain.
+> Stub `.razor` files reduced to a single comment line — compile to empty classes, no dead code.
 
 ---
 

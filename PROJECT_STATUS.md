@@ -62,7 +62,7 @@ Briefs live in `docs/sprints/T{1..6}-*.md`.
 | **#14** | `WebFixture`: disable `LoginRateLimitMiddleware` in test pipeline | **✅ CLOSED.** Reflection-based clearing of middleware static state. 146/146 tests pass. | — |
 | **#15** | Separate NGC_*/RTS_* tables: AppDbContext → BackendEmulationDbContext (ADR-007) | **✅ CLOSED** commit `bf8a79e` (2026-05-26). NO-OP AppDbContext migration + BE IF NOT EXISTS. 382 / 382 pass. Post-migration: clear `__BackendEmulationMigrationsHistory`, reimport `Metrics_fixed.sql` (190 rows). | — |
 | **D1** | Documentation catch-up: TS v1.3 EN docx, CHANGELOG v1.2→v1.3, ADR-001..008 files, stakeholder summary, widget architecture, CLAUDE.md frontmatter bump to v1.3 | **✅ CLOSED (commit `b16d2e5`, 2026-05-25). 1,378 insertions across 13 files. All 6 deliverables delivered.** | Done |
-| **#16** | Widget catalogue cleanup: remove 3 mock components (KpiWidget, AgentStatusWidget, QueueSummaryWidget) + 11 stub catalogue entries. Keep only SignalR-backed AgentGrid/QueueGrid/DataSlot. | **✅ CLOSED (commit `9cc4d9b`, 2026-05-26). RenderWidget.razor trimmed to 3 cases. DatabaseInitializer cleans obsolete entries on next startup.** | Done |
+| **#16** | Widget catalogue cleanup: remove 3 mock components (KpiWidget, AgentStatusWidget, QueueSummaryWidget) + 11 stub catalogue entries. Keep only SignalR-backed AgentGrid/QueueGrid/DataSlot. | **✅ CLOSED (commit `9cc4d9b`, 2026-05-26). RenderWidget.razor trimmed to 3 cases. DatabaseInitializer cleans obsolete entries on next startup. Stub .razor files emptied to single comment line (0 errors build).** | Done |
 
 Both prompts are in the chat history of session 2026-05-17. If lost,
 both are short enough to regenerate from this status doc + relevant
