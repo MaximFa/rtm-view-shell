@@ -1616,20 +1616,16 @@
                 </div>
                 <div class="modal-body">
                     <p>@L["Widget_DeleteMessage", WidgetToDelete.Name]</p>
-                    @if (IsAgentGridWidget(WidgetToDelete) && WidgetToDelete.GridId > 0)
+                    @if ((IsAgentGridWidget(WidgetToDelete) && WidgetToDelete.Config?.RtsUserGridId > 0) ||
+                        (IsQueueGridWidget(WidgetToDelete) && WidgetToDelete.Config?.GridId > 0) ||
+                        (IsDataSlotWidget(WidgetToDelete) && WidgetToDelete.Config?.DataSlotGridId > 0))
                     {
                         <p class="text-muted small">@L["Widget_DeleteRtsWarning"]</p>
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CancelDeleteWidget" disabled="@DeletingWidget">@L["Common_Cancel"]</button>
-                    <button class="btn btn-danger" @onclick="ConfirmDeleteWidget" disabled="@DeletingWidget">
-                        @if (DeletingWidget)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
-                        }
-                        @L["Common_Delete"]
-                    </button>
+                    <button class="btn btn-secondary" @onclick="CancelDeleteWidget">@L["Common_Cancel"]</button>
+                    <button class="btn btn-danger" @onclick="ConfirmDeleteWidget">@L["Common_Delete"]</button>
                 </div>
             </div>
         </div>
@@ -1796,13 +1792,14 @@
     private bool DataSlotMetricDropdownOpen = false;
     private string _dataSlotTargetText = "";
     private string? _dataSlotTargetError;
+    private int? _dataSlotGridId;
     private int? _dataSlotColumnId;
     private int? _dataSlotRowId;
-    private Dictionary<string, int?>? _dataSlotCellIds;
+    private int? _dataSlotCellId;
 
     // Widget deletion confirmation
     private PlacedWidget? WidgetToDelete;
-    private bool DeletingWidget;
+    private List<PlacedWidget> WidgetsPendingRtsDeletion = [];
 
     // Widget Templates
     private List<WidgetTemplateDto> WidgetTemplates = [];
@@ -2421,39 +2418,25 @@
     private void CancelDeleteWidget()
     {
         WidgetToDelete = null;
-        DeletingWidget = false;
     }
 
-    private async Task ConfirmDeleteWidget()
+    private void ConfirmDeleteWidget()
     {
         if (WidgetToDelete is null) return;
 
-        DeletingWidget = true;
-        try
+        // Mark widget for RTS deletion (will be deleted on Save)
+        if ((IsAgentGridWidget(WidgetToDelete) && WidgetToDelete.Config?.RtsUserGridId > 0) ||
+            (IsQueueGridWidget(WidgetToDelete) && WidgetToDelete.Config?.GridId > 0) ||
+            (IsDataSlotWidget(WidgetToDelete) && WidgetToDelete.Config?.DataSlotGridId > 0))
         {
-            // If it's an AgentGrid widget with a valid GridId, delete RTS records
-            if (IsAgentGridWidget(WidgetToDelete) && WidgetToDelete.GridId > 0)
-            {
-                await Mediator.Send(new DeleteAgentGridRtsCommand(WidgetToDelete.GridId), _cts.Token);
-            }
-            // If it's a QueueGrid widget with a valid GridId, delete RTS records
-            else if (IsQueueGridWidget(WidgetToDelete) && WidgetToDelete.Config?.GridId > 0)
-            {
-                await Mediator.Send(new DeleteQueueGridRtsCommand(WidgetToDelete.Config.GridId.Value), _cts.Token);
-            }
+            WidgetsPendingRtsDeletion.Add(WidgetToDelete);
+        }
 
-            PlacedWidgets.RemoveAll(w => w.Id == WidgetToDelete.Id);
-            if (SelectedWidgetId == WidgetToDelete.Id) SelectedWidgetId = null;
-        }
-        catch (Exception ex)
-        {
-            Error = ex.Message;
-        }
-        finally
-        {
-            WidgetToDelete = null;
-            DeletingWidget = false;
-        }
+        // Remove from UI immediately
+        PlacedWidgets.RemoveAll(w => w.Id == WidgetToDelete.Id);
+        if (SelectedWidgetId == WidgetToDelete.Id) SelectedWidgetId = null;
+
+        WidgetToDelete = null;
     }
 
     private void OpenWidgetConfig(PlacedWidget widget)
@@ -2577,9 +2560,10 @@
         ConfigDataSlotShowTargetLabel = widget.Config.DataSlotShowTargetLabel;
         ConfigDataSlotShowArrow = widget.Config.DataSlotShowArrow;
         ConfigHideHeader = widget.Config.HideHeader;
+        _dataSlotGridId = widget.Config.DataSlotGridId;
         _dataSlotColumnId = widget.Config.DataSlotColumnId;
         _dataSlotRowId = widget.Config.DataSlotRowId;
-        _dataSlotCellIds = widget.Config.DataSlotCellIds;
+        _dataSlotCellId = widget.Config.DataSlotCellId;
         DataSlotMetricSearchText = Metrics.FirstOrDefault(m => m.MetricId == ConfigDataSlotMetricId)?.Description ?? "";
 
         // Initialize search fields with selected values
@@ -2961,13 +2945,15 @@
 
         int? preassignedGridId = null;
         int? columnsSetId = null;
+        int? rtsUserGridId = null;
 
         // For AgentGrid widgets, save to RTS tables first
         if (IsAgentGridWidget(ConfiguringWidget))
         {
             try
             {
-                // Get the existing ColumnsSetId from config (if editing)
+                // Get the existing RTS IDs from config (if editing)
+                var existingRtsUserGridId = ConfiguringWidget.Config?.RtsUserGridId ?? 0;
                 var existingColumnsSetId = ConfiguringWidget.Config?.ColumnsSetId;
 
                 // Build rows filter string from table filters
@@ -2982,9 +2968,9 @@
                     idx  // columnsOrder
                 )).ToList();
 
-                // Save to RTS tables
+                // Save to RTS tables (use RtsUserGridId from config, not DashboardWidget.GridId)
                 var rtsResult = await Mediator.Send(new SaveAgentGridRtsCommand(
-                    ConfiguringWidget.GridId,  // 0 for new widget
+                    existingRtsUserGridId,     // 0 for new widget, or existing RTS GridId
                     existingColumnsSetId,      // null for new widget
                     ConfigDisplayName ?? ConfiguringWidget.Name,
                     string.IsNullOrEmpty(ConfigBusinessUnit) ? null : int.TryParse(ConfigBusinessUnit, out var buId) ? buId : null,
@@ -2992,13 +2978,8 @@
                     columnInputs
                 ), _cts.Token);
 
-                // Use GridId from RTS for new widgets
-                if (ConfiguringWidget.GridId == 0)
-                {
-                    preassignedGridId = rtsResult.GridId;
-                    ConfiguringWidget.GridId = rtsResult.GridId;
-                }
-
+                // Store RTS GridId for ConfigJson
+                rtsUserGridId = rtsResult.GridId;
                 columnsSetId = rtsResult.ColumnsSetId;
 
                 // Update column DbColumnIds from RTS result
@@ -3092,6 +3073,33 @@
             }
         }
 
+        // For DataSlot widgets, save to RTS tables (RTSGrid_* - same as Queue Grid)
+        if (IsDataSlotWidget(ConfiguringWidget) && !string.IsNullOrEmpty(ConfigDataSlotMetricId))
+        {
+            try
+            {
+                var rtsResult = await Mediator.Send(new SaveDataSlotRtsCommand(
+                    _dataSlotGridId,
+                    _dataSlotColumnId,
+                    _dataSlotRowId,
+                    _dataSlotCellId,
+                    ConfigDataSlotTitle ?? ConfiguringWidget.Name,
+                    ConfigDataSlotMetricId,
+                    ConfigDataSlotBusinessUnitId
+                ), _cts.Token);
+
+                _dataSlotGridId = rtsResult.GridId;
+                _dataSlotColumnId = rtsResult.ColumnId;
+                _dataSlotRowId = rtsResult.RowId;
+                _dataSlotCellId = rtsResult.CellId;
+            }
+            catch (Exception ex)
+            {
+                Error = $"Data Slot RTS save failed: {ex.Message}";
+                return;
+            }
+        }
+
         var newConfig = new WidgetConfig
         {
             DisplayName = ConfigDisplayName,
@@ -3124,7 +3132,8 @@
             AgentGridShowAlerts = ConfigAgentShowAlerts,
             AgentGridColumnNames = ConfigAgentColumnNames.Count > 0 ? ConfigAgentColumnNames : null,
             AgentGridColumnDefs = ConfigAgentColumnDefs.Count > 0 ? ConfigAgentColumnDefs : null,
-            // RTS references
+            // RTS references (Agent Grid)
+            RtsUserGridId = rtsUserGridId,
             ColumnsSetId = columnsSetId,
             // Column thresholds
             ColumnThresholds = ConfigColumnThresholds.Count > 0
@@ -3165,9 +3174,11 @@
             DataSlotShowTargetLabel = ConfigDataSlotShowTargetLabel,
             DataSlotShowArrow = ConfigDataSlotShowArrow,
             HideHeader = ConfigHideHeader,
+            // Data Slot RTS IDs
+            DataSlotGridId = _dataSlotGridId,
             DataSlotColumnId = _dataSlotColumnId,
             DataSlotRowId = _dataSlotRowId,
-            DataSlotCellIds = _dataSlotCellIds
+            DataSlotCellId = _dataSlotCellId
         };
 
         ConfiguringWidget.Config = newConfig;
@@ -3544,6 +3555,25 @@
             )).ToList();
 
             await Mediator.Send(new UpdateDashboardWidgetsCommand(Dashboard.Id, widgetDtos), _cts.Token);
+
+            // Delete RTS data for widgets that were removed
+            foreach (var widget in WidgetsPendingRtsDeletion)
+            {
+                if (IsAgentGridWidget(widget) && widget.Config?.RtsUserGridId > 0)
+                {
+                    await Mediator.Send(new DeleteAgentGridRtsCommand(widget.Config.RtsUserGridId.Value), _cts.Token);
+                }
+                else if (IsQueueGridWidget(widget) && widget.Config?.GridId > 0)
+                {
+                    await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.GridId.Value), _cts.Token);
+                }
+                else if (IsDataSlotWidget(widget) && widget.Config?.DataSlotGridId > 0)
+                {
+                    // Data Slot uses same RTSGrid_* tables as Queue Grid
+                    await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.DataSlotGridId.Value), _cts.Token);
+                }
+            }
+            WidgetsPendingRtsDeletion.Clear();
         }
         catch (Exception ex)
         {
@@ -3844,6 +3874,7 @@
 
         // RTS table IDs (persisted after first save)
         public int? ColumnsSetId { get; set; }  // RTSUserGrid_ColumnsSet.ColumnsSetId (Agent Grid)
+        public int? RtsUserGridId { get; set; }  // RTSUserGrid_Grid.GridId (Agent Grid)
         public int? GridId { get; set; }  // RTSGrid_Grid.GridId (Queue Grid)
         public int? HeaderRowId { get; set; }  // RTSGrid_Row.RowId for header row (RowNumber=1, CellType=Text)
         public Dictionary<string, int?> HeaderCellIds { get; set; } = new();  // Header cell IDs (key = QueueGridColumnDef.Id)
@@ -3864,9 +3895,10 @@
         public string? DataSlotAlign { get; set; }
         public bool DataSlotShowTargetLabel { get; set; } = true;
         public bool DataSlotShowArrow { get; set; } = true;
-        public int? DataSlotColumnId { get; set; }
-        public int? DataSlotRowId { get; set; }
-        public Dictionary<string, int?>? DataSlotCellIds { get; set; }
+        public int? DataSlotGridId { get; set; }  // RTSGrid_Grid.GridId (Data Slot)
+        public int? DataSlotColumnId { get; set; }  // RTSGrid_Column.ColumnId
+        public int? DataSlotRowId { get; set; }  // RTSGrid_Row.RowId
+        public int? DataSlotCellId { get; set; }  // RTSGrid_Cell.CellId
     }
 
     public class QueueGridRowDef
@@ -4055,65 +4087,4 @@
         int posX, posY;
         try
         {
-            var pos = await JS.InvokeAsync<DropPosition>("widgetResize.getDropPosition", e.ClientX, e.ClientY);
-            posX = pos.X;
-            posY = pos.Y;
-        }
-        catch
-        {
-            posX = 270 + (PlacedWidgets.Count % 3) * 300;
-            posY = 20 + (PlacedWidgets.Count / 3) * 220;
-        }
-
-        var catalogItem = WidgetCatalog.FirstOrDefault(c => c.Id == DraggedTemplate.WidgetCatalogItemId);
-        var config = !string.IsNullOrEmpty(DraggedTemplate.ConfigJson)
-            ? ParseWidgetConfig(DraggedTemplate.ConfigJson)
-            : new WidgetConfig();
-
-        // Reset all RTS IDs - this is a NEW widget, not a copy of the original
-        config.GridId = null;
-        config.HeaderRowId = null;
-        config.HeaderCellIds = new Dictionary<string, int?>();
-        config.ColumnsSetId = null;
-
-        // Reset column IDs for Queue Grid (keep column definitions, clear IDs)
-        if (config.QueueGridColumnDefs != null)
-        {
-            foreach (var col in config.QueueGridColumnDefs)
-            {
-                col.ColumnId = null;
-                col.Id = Guid.NewGuid().ToString();
-            }
-        }
-
-        // Clear rows for Queue Grid - templates copy only columns and settings, not rows
-        config.QueueGridRows = null;
-
-        // Reset column IDs for Agent Grid
-        if (config.AgentGridColumnDefs != null)
-        {
-            foreach (var col in config.AgentGridColumnDefs)
-            {
-                col.DbColumnId = null;
-            }
-        }
-
-        var newWidget = new PlacedWidget
-        {
-            Id = Guid.NewGuid(),
-            CatalogItemId = DraggedTemplate.WidgetCatalogItemId,
-            Name = DraggedTemplate.Name,
-            OriginalWidgetName = catalogItem?.Name ?? DraggedTemplate.Name,
-            Category = catalogItem?.Category ?? "",
-            Width = 280,
-            Height = 200,
-            X = posX,
-            Y = posY,
-            Config = config
-        };
-
-        PlacedWidgets.Add(newWidget);
-        DraggedTemplate = null;
-        IsDragging = false;
-    }
-}
+            var pos = await JS.InvokeAsync<DropPosition>("widg

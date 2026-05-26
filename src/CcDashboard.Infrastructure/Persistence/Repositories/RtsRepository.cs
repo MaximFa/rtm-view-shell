@@ -135,6 +135,27 @@ public class RtsRepository(BackendEmulationDbContext db) : IRtsRepository
 
     public async Task DeleteQueueGridAsync(int gridId, CancellationToken ct = default)
     {
+        // Get all row IDs for this grid to delete their cells
+        var rowIds = await GetQueueGridRowIdsAsync(gridId, ct);
+        foreach (var rowId in rowIds)
+        {
+            await DeleteQueueGridCellsByRowIdAsync(rowId, ct);
+        }
+
+        // Get all column IDs for this grid to delete them
+        var columnIds = await GetQueueGridColumnIdsAsync(gridId, ct);
+        foreach (var columnId in columnIds)
+        {
+            await DeleteQueueGridColumnAsync(columnId, ct);
+        }
+
+        // Delete all rows
+        foreach (var rowId in rowIds)
+        {
+            await DeleteQueueGridRowAsync(rowId, ct);
+        }
+
+        // Finally delete the grid itself
         var sql = @"DELETE FROM ""RTSGrid_Grid"" WHERE ""GridId"" = @p0";
         await db.Database.ExecuteSqlRawAsync(sql, [gridId], ct);
     }
@@ -256,21 +277,4 @@ public class RtsRepository(BackendEmulationDbContext db) : IRtsRepository
         await db.Database.ExecuteSqlRawAsync(sql, [cellType, value ?? (object)DBNull.Value, cellId], ct);
     }
 
-    public async Task DeleteQueueGridCellAsync(int cellId, CancellationToken ct = default)
-    {
-        var sql = @"DELETE FROM ""RTSGrid_Cell"" WHERE ""CellId"" = @p0";
-        await db.Database.ExecuteSqlRawAsync(sql, [cellId], ct);
-    }
-
-    public async Task DeleteQueueGridCellsByRowIdAsync(int rowId, CancellationToken ct = default)
-    {
-        var sql = @"DELETE FROM ""RTSGrid_Cell"" WHERE ""RowId"" = @p0";
-        await db.Database.ExecuteSqlRawAsync(sql, [rowId], ct);
-    }
-
-    public async Task DeleteQueueGridCellsByColumnIdAsync(int columnId, CancellationToken ct = default)
-    {
-        var sql = @"DELETE FROM ""RTSGrid_Cell"" WHERE ""ColumnId"" = @p0";
-        await db.Database.ExecuteSqlRawAsync(sql, [columnId], ct);
-    }
-}
+    public async Task DeleteQueueGridCellAsync(int cellId, Cancella
