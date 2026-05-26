@@ -375,7 +375,19 @@ ORDER BY interval_start;
 | `statuslog.break_agents` | Agents on Break | `COUNT_DISTINCT` | `group:BREAK` | `Number` | `0` |
 | `statuslog.paperwork_agents` | Paperwork / ACW Agents | `COUNT_DISTINCT` | `group:PAPERWORK` | `Number` | `0` |
 | `statuslog.training_agents` | Training / Back-Office Agents | `COUNT_DISTINCT` | `group:TRAINING` | `Number` | `0` |
-| `statuslog.total_agents` | Total Active Agents | `COUNT_DISTINCT` | `group:ALL` | `Number` | `0` |
+| `statuslog.total_agents`        | Total Active Agents (with StatusGroup)   | `COUNT_DISTINCT` | `group:ALL`  | `Number` | `0` |
+| `statuslog.logged_in_agents`    | Logged-In Agents (answered calls)        | `COUNT_POOL`     | `pool:all`   | `Number` | `0` |
+| `statuslog.available_time_ms`   | Available Time           | `SUM_OVERLAP_MS` | `group:AVAILABLE`  | `Time` | `mm:ss` |
+| `statuslog.onphone_time_ms`     | On Phone Time            | `SUM_OVERLAP_MS` | `group:ONPHONE`    | `Time` | `mm:ss` |
+| `statuslog.break_time_ms`       | Break Time               | `SUM_OVERLAP_MS` | `group:BREAK`      | `Time` | `mm:ss` |
+| `statuslog.paperwork_time_ms`   | Paperwork / ACW Time     | `SUM_OVERLAP_MS` | `group:PAPERWORK`  | `Time` | `mm:ss` |
+| `statuslog.training_time_ms`    | Training / Back-Office Time | `SUM_OVERLAP_MS` | `group:TRAINING` | `Time` | `mm:ss` |
+| `statuslog.total_active_time_ms`| Total Active Time        | `SUM_OVERLAP_MS` | `group:ALL`        | `Time` | `mm:ss` |
+
+> **`SUM_OVERLAP_MS`**: sum of milliseconds each agent spent in the given StatusGroup
+> during the interval, clipped to interval boundaries via
+> `GREATEST(StartTime, interval_start)` / `LEAST(EndTime, interval_end)`.
+> Divide by 1000 for seconds, by 60 000 for minutes. Display as `mm:ss`.
 
 **Predicate key → SQL filter:**
 
@@ -386,7 +398,8 @@ ORDER BY interval_start;
 | `group:BREAK` | `StatusGroup = 'BREAK'` |
 | `group:PAPERWORK` | `StatusGroup = 'PAPERWORK'` |
 | `group:TRAINING` | `StatusGroup = 'TRAINING'` |
-| `group:ALL` | _(no filter — COUNT all)_ |
+| `group:ALL`  | _(no filter — COUNT all in agent_status CTE)_ |
+| `pool:all`   | COUNT(DISTINCT UserId) from agent_pool CTE — agents who answered calls, regardless of StatusGroup records |
 
 ---
 
@@ -425,7 +438,15 @@ new RtsGridMetric { MetricId = "statuslog.onphone_agents",    Description = "On 
 new RtsGridMetric { MetricId = "statuslog.break_agents",      Description = "Agents on Break",              DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:BREAK",      MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
 new RtsGridMetric { MetricId = "statuslog.paperwork_agents",  Description = "Paperwork / ACW Agents",       DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:PAPERWORK",  MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
 new RtsGridMetric { MetricId = "statuslog.training_agents",   Description = "Training / Back-Office Agents",DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:TRAINING",   MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
-new RtsGridMetric { MetricId = "statuslog.total_agents",      Description = "Total Active Agents",          DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:ALL",        MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.total_agents",        Description = "Total Active Agents (with status)", DataType = "int", MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:ALL",  MetricFormat = "0",  DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.logged_in_agents",    Description = "Logged-In Agents (answered calls)", DataType = "int", MetricFunction = "COUNT_POOL",     MetricParameter = "pool:all",   MetricFormat = "0",  DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+// Agent status log — accumulated time per interval (SUM_OVERLAP_MS)
+new RtsGridMetric { MetricId = "statuslog.available_time_ms",   Description = "Available Time",           DataType = "bigint",  MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:AVAILABLE",  MetricFormat = "mm:ss",  DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.onphone_time_ms",     Description = "On Phone Time",            DataType = "bigint",  MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:ONPHONE",    MetricFormat = "mm:ss",  DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.break_time_ms",       Description = "Break Time",               DataType = "bigint",  MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:BREAK",      MetricFormat = "mm:ss",  DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.paperwork_time_ms",   Description = "Paperwork / ACW Time",     DataType = "bigint",  MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:PAPERWORK",  MetricFormat = "mm:ss",  DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.training_time_ms",    Description = "Training / Back-Office Time", DataType = "bigint", MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:TRAINING",  MetricFormat = "mm:ss",  DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+new RtsGridMetric { MetricId = "statuslog.total_active_time_ms",Description = "Total Active Time",        DataType = "bigint",  MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:ALL",        MetricFormat = "mm:ss",  DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
 ```
 
 ---
@@ -529,6 +550,7 @@ Each entry in the `metrics` array of ConfigJson:
 
 Available metrics loaded from `RTSGrid_Metric WHERE MetricType = 'AgentStatusLog'`.
 Same entry structure as `metrics`. Agent counts are integers (same Y-axis as call counts).
+Time metrics (`*_time_ms`) hold milliseconds — render as `mm:ss` on the right Y-axis.
 
 **Default `agentMetrics` set:**
 
@@ -539,7 +561,14 @@ Same entry structure as `metrics`. Agent counts are integers (same Y-axis as cal
 | 3 | `statuslog.break_agents` | On Break | `#fb923c` | `false` |
 | 4 | `statuslog.paperwork_agents` | Paperwork | `#a78bfa` | `false` |
 | 5 | `statuslog.training_agents` | Training | `#94a3b8` | `false` |
-| 6 | `statuslog.total_agents` | Total Active | `#f1f5f9` | `false` |
+| 6  | `statuslog.total_agents`          | Total Active     | `#f1f5f9` | `false` |
+| 7  | `statuslog.logged_in_agents`       | Logged In        | `#fef08a` | `false` |
+| 8  | `statuslog.available_time_ms`     | Avail. Time      | `#4ade80` | `false` |
+| 9  | `statuslog.onphone_time_ms`       | OnPhone Time     | `#60a5fa` | `false` |
+| 10 | `statuslog.break_time_ms`         | Break Time       | `#fb923c` | `false` |
+| 11 | `statuslog.paperwork_time_ms`     | Paperwork Time   | `#a78bfa` | `false` |
+| 12 | `statuslog.training_time_ms`      | Training Time    | `#94a3b8` | `false` |
+| 13 | `statuslog.total_active_time_ms`  | Total Act. Time  | `#e2e8f0` | `false` |
 
 > All agent metrics use **dashed lines** (or hatched bars) to distinguish them visually
 > from call volume metrics. Both series share the left Y-axis (counts).
@@ -548,110 +577,200 @@ Same entry structure as `metrics`. Agent counts are integers (same Y-axis as cal
 
 ### 3.4 Data query
 
-#### 3.4.1 Query logic
+All DB access uses **PostgreSQL functions** (Stored Procedures pattern).
+Functions are owned by the shell solution, created via `BackendEmulationDbContext` migration,
+and called from the application layer via `Database.SqlQuery<T>`. No inline SQL in C# code.
+
+**Naming convention:** `fn_<widgettype><purpose>` — all lowercase, underscore-separated.
+
+#### 3.4.1 `fn_daytrendinteractions` — interaction metrics per interval
 
 ```sql
--- Step 1: resolve queues for the BU
--- (performed in application layer via NgcBusinessUnitQueueClassification)
--- Result: @queueList = ['UK - Support', 'UK - Retail', ...]
-
--- Step 2: query intervals for today
-SELECT
-    DATE_TRUNC('hour', "InQueueDateTime") +
-        (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / @intervalMinutes)
-         * (@intervalMinutes || ' minutes')::interval)
-        AS interval_start,
-
-    COUNT(*) FILTER (WHERE "InteractionType" = 'Call'
-                      AND "Direction" = 'Incoming')               AS incoming_calls,
-
-    COUNT(*) FILTER (WHERE "IsAnswered" = true)                   AS answered_calls,
-
-    COUNT(*) FILTER (WHERE "IsAbandoned" = true)                  AS abandoned_calls,
-
-    COUNT(*) FILTER (WHERE "InteractionType" = 'Callback'
-                      AND "Direction" = 'Incoming')               AS callback_requests,
-
-    COUNT(*) FILTER (WHERE "InteractionType" = 'Callback'
-                      AND "Direction" = 'Outgoing'
-                      AND "IsAnswered" = true)                    AS completed_callbacks,
-
-    AVG("TimeInQueue") FILTER (WHERE "IsAnswered" = true)         AS avg_wait_time,
-
-    AVG("TalkTime")    FILTER (WHERE "IsAnswered" = true)         AS avg_talk_time
-
-FROM "RTSData_Interaction"
-WHERE "TenantId"   = @tenantId
-  AND "OnDate"     = TO_CHAR(CURRENT_DATE, 'DD/MM/YYYY')   -- matches DD/MM/YYYY storage format
-  AND "Workgroup"  = ANY(@queueList)
-GROUP BY interval_start
-ORDER BY interval_start;
-```
-
-#### 3.4.2 Agent status query
-
-Run in parallel with the interaction query when at least one `agentMetrics` entry
-has `enabled = true`.
-
-```sql
--- Uses same @tenantId, @onDate, @queueList, @intervalMinutes as interaction query
-
-WITH interval_agents AS (
+CREATE OR REPLACE FUNCTION fn_daytrendinteractions(
+    p_tenantid    uuid,
+    p_ondate      varchar(50),   -- DD/MM/YYYY
+    p_queuelist   text[],
+    p_intervalmin integer        -- 15 | 30 | 60
+)
+RETURNS TABLE (
+    interval_start      timestamptz,
+    incoming_calls      bigint,
+    answered_calls      bigint,
+    abandoned_calls     bigint,
+    callback_requests   bigint,
+    completed_callbacks bigint,
+    avg_wait_time       double precision,
+    avg_talk_time       double precision
+)
+LANGUAGE sql STABLE
+AS $$
     SELECT
         DATE_TRUNC('hour', "InQueueDateTime") +
-            (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / @intervalMinutes)
-             * (@intervalMinutes || ' minutes')::interval) AS interval_start,
-        "UserId"
+            (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / p_intervalmin)
+             * (p_intervalmin || ' minutes')::interval)       AS interval_start,
+        COUNT(*) FILTER (WHERE "InteractionType" = 'Call' AND "Direction" = 'Incoming'),
+        COUNT(*) FILTER (WHERE "IsAnswered" = true),
+        COUNT(*) FILTER (WHERE "IsAbandoned" = true),
+        COUNT(*) FILTER (WHERE "InteractionType" = 'Callback' AND "Direction" = 'Incoming'),
+        COUNT(*) FILTER (WHERE "InteractionType" = 'Callback'
+                           AND "Direction" = 'Outgoing' AND "IsAnswered" = true),
+        AVG("TimeInQueue") FILTER (WHERE "IsAnswered" = true),
+        AVG("TalkTime")    FILTER (WHERE "IsAnswered" = true)
     FROM "RTSData_Interaction"
-    WHERE "TenantId"  = @tenantId
-      AND "OnDate"    = @onDate
-      AND "Workgroup" = ANY(@queueList)
-      AND "IsAnswered" = true
-      AND "Direction"  = 'Incoming'
+    WHERE "TenantId"  = p_tenantid
+      AND "OnDate"    = p_ondate
+      AND "Workgroup" = ANY(p_queuelist)
       AND "InQueueDateTime" IS NOT NULL
-),
-agent_pool AS (
-    SELECT DISTINCT interval_start, "UserId" FROM interval_agents
-),
-agent_status AS (
-    SELECT
-        ap.interval_start,
-        usl."UserId",
-        usl."StatusGroup"
-    FROM agent_pool ap
-    JOIN "RTSData_UserStatusLog" usl ON usl."UserId" = ap."UserId"
-    WHERE usl."TenantId"    = @tenantId
-      AND usl."OnDate"      = @onDate
-      AND usl."StatusGroup" IS NOT NULL
-      AND usl."StartTime"   < ap.interval_start
-                               + (@intervalMinutes || ' minutes')::interval
-      AND (usl."EndTime" IS NULL
-           OR usl."EndTime" > ap.interval_start)
+    GROUP BY interval_start
+    ORDER BY interval_start;
+$$;
+
+#### 3.4.2 `fn_daytrendagentstatus` — agent counts and accumulated time per interval
+
+Run in parallel with `fn_daytrendinteractions` when at least one `agentMetrics` entry
+has `enabled = true`.
+
+Each `*_time_ms` column contains the **sum of milliseconds** all agents in the pool spent
+in that StatusGroup during the interval, clipped to the interval boundaries (overlap
+calculation). This gives direct correlation with queue metrics: e.g. total break time
+rising as avg wait time rises.
+
+```sql
+CREATE OR REPLACE FUNCTION fn_daytrendagentstatus(
+    p_tenantid    uuid,
+    p_ondate      varchar(50),   -- DD/MM/YYYY
+    p_queuelist   text[],
+    p_intervalmin integer        -- 15 | 30 | 60
 )
-SELECT
-    interval_start,
-    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'AVAILABLE')  AS available_agents,
-    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'ONPHONE')    AS onphone_agents,
-    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'BREAK')      AS break_agents,
-    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'PAPERWORK')  AS paperwork_agents,
-    COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'TRAINING')   AS training_agents,
-    COUNT(DISTINCT "UserId")                                              AS total_agents
-FROM agent_status
-GROUP BY interval_start
-ORDER BY interval_start;
+RETURNS TABLE (
+    interval_start        timestamptz,
+    available_agents      bigint,
+    onphone_agents        bigint,
+    break_agents          bigint,
+    paperwork_agents      bigint,
+    training_agents       bigint,
+    total_agents          bigint,
+    logged_in_agents      bigint,   -- all agents who answered calls (agent pool size)
+    available_time_ms     bigint,
+    onphone_time_ms       bigint,
+    break_time_ms         bigint,
+    paperwork_time_ms     bigint,
+    training_time_ms      bigint,
+    total_active_time_ms  bigint
+)
+LANGUAGE sql STABLE
+AS $$
+    WITH interval_agents AS (
+        SELECT
+            DATE_TRUNC('hour', "InQueueDateTime") +
+                (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / p_intervalmin)
+                 * (p_intervalmin || ' minutes')::interval) AS interval_start,
+            "UserId"
+        FROM "RTSData_Interaction"
+        WHERE "TenantId"  = p_tenantid
+          AND "OnDate"    = p_ondate
+          AND "Workgroup" = ANY(p_queuelist)
+          AND "IsAnswered" = true
+          AND "Direction"  = 'Incoming'
+          AND "InQueueDateTime" IS NOT NULL
+    ),
+    agent_pool AS (
+        SELECT DISTINCT interval_start, "UserId" FROM interval_agents
+    ),
+    -- pool_summary: all agents who answered calls per interval
+    -- (counted regardless of having UserStatusLog records)
+    pool_summary AS (
+        SELECT interval_start,
+               COUNT(DISTINCT "UserId") AS logged_in_agents
+        FROM agent_pool
+        GROUP BY interval_start
+    ),
+    agent_status AS (
+        SELECT
+            ap.interval_start,
+            ap.interval_start + (p_intervalmin || ' minutes')::interval AS interval_end,
+            usl."UserId",
+            usl."StatusGroup",
+            -- overlap: ms the agent spent in this status WITHIN the interval
+            GREATEST(0,
+                EXTRACT(EPOCH FROM (
+                    LEAST(
+                        COALESCE(usl."EndTime",
+                                 ap.interval_start + (p_intervalmin || ' minutes')::interval),
+                        ap.interval_start + (p_intervalmin || ' minutes')::interval
+                    )
+                    - GREATEST(usl."StartTime", ap.interval_start)
+                ))::bigint * 1000
+            )                                                AS overlap_ms
+        FROM agent_pool ap
+        JOIN "RTSData_UserStatusLog" usl ON usl."UserId" = ap."UserId"
+        WHERE usl."TenantId"    = p_tenantid
+          AND usl."OnDate"      = p_ondate
+          AND usl."StatusGroup" IS NOT NULL
+          AND usl."StartTime"   < ap.interval_start
+                                   + (p_intervalmin || ' minutes')::interval
+          AND (usl."EndTime" IS NULL OR usl."EndTime" > ap.interval_start)
+    ),
+    status_summary AS (
+        SELECT
+            interval_start,
+            COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'AVAILABLE') AS available_agents,
+            COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'ONPHONE')   AS onphone_agents,
+            COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'BREAK')     AS break_agents,
+            COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'PAPERWORK') AS paperwork_agents,
+            COUNT(DISTINCT "UserId") FILTER (WHERE "StatusGroup" = 'TRAINING')  AS training_agents,
+            COUNT(DISTINCT "UserId")                                             AS total_agents,
+            COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'AVAILABLE'),  0) AS available_time_ms,
+            COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'ONPHONE'),    0) AS onphone_time_ms,
+            COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'BREAK'),      0) AS break_time_ms,
+            COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'PAPERWORK'),  0) AS paperwork_time_ms,
+            COALESCE(SUM(overlap_ms) FILTER (WHERE "StatusGroup" = 'TRAINING'),   0) AS training_time_ms,
+            COALESCE(SUM(overlap_ms),                                              0) AS total_active_time_ms
+        FROM agent_status
+        GROUP BY interval_start
+    )
+    -- LEFT JOIN ensures intervals without StatusGroup records still appear
+    SELECT
+        ps.interval_start,
+        COALESCE(ss.available_agents,     0),
+        COALESCE(ss.onphone_agents,       0),
+        COALESCE(ss.break_agents,         0),
+        COALESCE(ss.paperwork_agents,     0),
+        COALESCE(ss.training_agents,      0),
+        COALESCE(ss.total_agents,         0),
+        ps.logged_in_agents,
+        COALESCE(ss.available_time_ms,    0),
+        COALESCE(ss.onphone_time_ms,      0),
+        COALESCE(ss.break_time_ms,        0),
+        COALESCE(ss.paperwork_time_ms,    0),
+        COALESCE(ss.training_time_ms,     0),
+        COALESCE(ss.total_active_time_ms, 0)
+    FROM pool_summary ps
+    LEFT JOIN status_summary ss USING (interval_start)
+    ORDER BY ps.interval_start;
+$$;
 ```
+
+**Overlap calculation note:** `overlap_ms = GREATEST(0, EXTRACT(EPOCH FROM (LEAST(EndTime, interval_end) - GREATEST(StartTime, interval_start))) * 1000)`.
+If `EndTime IS NULL` the agent is still in the status → treated as `interval_end`.
 
 **Result record:**
 
 ```csharp
 public record DayTrendAgentInterval(
     DateTime IntervalStart,
-    int AvailableAgents,
-    int OnPhoneAgents,
-    int BreakAgents,
-    int PaperworkAgents,
-    int TrainingAgents,
-    int TotalAgents);
+    long AvailableAgents,
+    long OnPhoneAgents,
+    long BreakAgents,
+    long PaperworkAgents,
+    long TrainingAgents,
+    long TotalAgents,
+    long AvailableTimeMs,
+    long OnPhoneTimeMs,
+    long BreakTimeMs,
+    long PaperworkTimeMs,
+    long TrainingTimeMs,
+    long TotalActiveTimeMs);
 ```
 
 #### 3.4.4 Important notes
@@ -663,53 +782,53 @@ public record DayTrendAgentInterval(
   a warning: _"No queues assigned to this Business Unit"_.
 - EF Core / raw SQL: use `FromSqlInterpolated` or parameterised `ExecuteSqlRaw`. Never string concatenation. **[CODE-01]**
 
-#### 3.4.5 EF Core query — interactions (application layer)
+#### 3.4.5 Application layer — calling the functions
 
 ```csharp
+// Result records (map 1:1 to RETURNS TABLE columns)
 public record DayTrendInterval(
     DateTime IntervalStart,
-    int IncomingCalls,
-    int AnsweredCalls,
-    int AbandonedCalls,
-    int CallbackRequests,
-    int CompletedCallbacks,
-    double? AvgWaitTime,
-    double? AvgTalkTime);
+    long IncomingCalls, long AnsweredCalls, long AbandonedCalls,
+    long CallbackRequests, long CompletedCallbacks,
+    double? AvgWaitTime, double? AvgTalkTime);
 
-// In DayTrendQueryHandler:
+public record DayTrendAgentInterval(
+    DateTime IntervalStart,
+    long AvailableAgents, long OnPhoneAgents, long BreakAgents,
+    long PaperworkAgents, long TrainingAgents, long TotalAgents,
+    long LoggedInAgents,   // COUNT from agent_pool (all who answered calls)
+    long AvailableTimeMs, long OnPhoneTimeMs, long BreakTimeMs,
+    long PaperworkTimeMs, long TrainingTimeMs, long TotalActiveTimeMs);
+
+// In DayTrendQueryHandler.Handle():
 var queues = await _ngcRepo.GetQueuesByBusinessUnitAsync(query.BusinessUnitId, ct);
 if (!queues.Any())
     return DayTrendResult.NoQueues();
 
-var today = DateTime.UtcNow.ToString("dd/MM/yyyy");  // matches OnDate format
-var intervalMinutes = query.IntervalMinutes;           // 15 | 30 | 60
+var tenantId   = _tenantContext.TenantId;
+var onDate     = DateTime.UtcNow.ToString("dd/MM/yyyy");  // DD/MM/YYYY
+var queueArray = queues.ToArray();
+var interval   = query.IntervalMinutes;
 
-var data = await _beDb.RtsInteractions
-    .Where(x => x.TenantId == _tenantContext.TenantId
-             && x.OnDate == today
-             && queues.Contains(x.Workgroup))
-    .GroupBy(x => new {
-        IntervalStart = x.InQueueDateTime.HasValue
-            ? x.InQueueDateTime.Value
-                .AddMinutes(-(x.InQueueDateTime.Value.Minute % intervalMinutes))
-                .AddSeconds(-x.InQueueDateTime.Value.Second)
-            : (DateTime?)null
-    })
-    .Where(g => g.Key.IntervalStart != null)
-    .Select(g => new DayTrendInterval(
-        g.Key.IntervalStart!.Value,
-        g.Count(x => x.InteractionType == "Call" && x.Direction == "Incoming"),
-        g.Count(x => x.IsAnswered),
-        g.Count(x => x.IsAbandoned),
-        g.Count(x => x.InteractionType == "Callback" && x.Direction == "Incoming"),
-        g.Count(x => x.InteractionType == "Callback" && x.Direction == "Outgoing" && x.IsAnswered),
-        g.Where(x => x.IsAnswered && x.TimeInQueue.HasValue).Average(x => (double?)x.TimeInQueue),
-        g.Where(x => x.IsAnswered && x.TalkTime.HasValue).Average(x => (double?)x.TalkTime)
-    ))
-    .OrderBy(x => x.IntervalStart)
-    .AsNoTracking()
+// Both functions called via parameterised SqlQuery — safe per [CODE-01]
+var interactionTask = _beDb.Database
+    .SqlQuery<DayTrendInterval>(
+        $"SELECT * FROM fn_daytrendinteractions({tenantId}, {onDate}, {queueArray}, {interval})")
     .ToListAsync(ct);
+
+var agentTask = query.IncludeAgentMetrics
+    ? _beDb.Database
+        .SqlQuery<DayTrendAgentInterval>(
+            $"SELECT * FROM fn_daytrendagentstatus({tenantId}, {onDate}, {queueArray}, {interval})")
+        .ToListAsync(ct)
+    : Task.FromResult(new List<DayTrendAgentInterval>());
+
+await Task.WhenAll(interactionTask, agentTask);
+return new DayTrendResult(interactionTask.Result, agentTask.Result);
 ```
+
+> `Database.SqlQuery<T>()` (EF Core 7+) with interpolated string produces fully parameterised SQL.
+> `{param}` → `$1, $2, ...` bound parameters on the wire. Never string concatenation. **[CODE-01]**
 
 ---
 
@@ -786,12 +905,19 @@ Stored in `DashboardWidget.ConfigJson` (jsonb).
     { "metricId": "interaction.avg_talk_time",       "enabled": false, "color": "#64748b", "label": "Avg Talk Time"       }
   ],
   "agentMetrics": [
-    { "metricId": "statuslog.available_agents",  "enabled": false, "color": "#4ade80", "label": "Available"   },
-    { "metricId": "statuslog.onphone_agents",    "enabled": false, "color": "#60a5fa", "label": "On Phone"    },
-    { "metricId": "statuslog.break_agents",      "enabled": false, "color": "#fb923c", "label": "On Break"    },
-    { "metricId": "statuslog.paperwork_agents",  "enabled": false, "color": "#a78bfa", "label": "Paperwork"   },
-    { "metricId": "statuslog.training_agents",   "enabled": false, "color": "#94a3b8", "label": "Training"    },
-    { "metricId": "statuslog.total_agents",      "enabled": false, "color": "#f1f5f9", "label": "Total Active"}
+    { "metricId": "statuslog.available_agents",      "enabled": false, "color": "#4ade80", "label": "Available (agents)"     },
+    { "metricId": "statuslog.onphone_agents",        "enabled": false, "color": "#60a5fa", "label": "On Phone (agents)"      },
+    { "metricId": "statuslog.break_agents",          "enabled": false, "color": "#fb923c", "label": "On Break (agents)"      },
+    { "metricId": "statuslog.paperwork_agents",      "enabled": false, "color": "#a78bfa", "label": "Paperwork (agents)"     },
+    { "metricId": "statuslog.training_agents",       "enabled": false, "color": "#94a3b8", "label": "Training (agents)"      },
+    { "metricId": "statuslog.total_agents",          "enabled": false, "color": "#f1f5f9", "label": "Total Active (agents)"  },
+    { "metricId": "statuslog.logged_in_agents",      "enabled": true,  "color": "#fef08a", "label": "Logged In"              },
+    { "metricId": "statuslog.available_time_ms",     "enabled": false, "color": "#86efac", "label": "Available Time"         },
+    { "metricId": "statuslog.onphone_time_ms",       "enabled": false, "color": "#93c5fd", "label": "On Phone Time"          },
+    { "metricId": "statuslog.break_time_ms",         "enabled": true,  "color": "#fdba74", "label": "Break Time"             },
+    { "metricId": "statuslog.paperwork_time_ms",     "enabled": false, "color": "#c4b5fd", "label": "Paperwork Time"         },
+    { "metricId": "statuslog.training_time_ms",      "enabled": false, "color": "#cbd5e1", "label": "Training Time"          },
+    { "metricId": "statuslog.total_active_time_ms",  "enabled": false, "color": "#e2e8f0", "label": "Total Active Time"      }
   ]
 }
 ```
@@ -872,7 +998,7 @@ new WidgetCatalogItem
 
 ### 3.10 Implementation notes
 
-1. **No RTSGrid_* tables.** DayTrend uses direct `BackendEmulationDbContext` queries only.
+1. **No RTSGrid_* tables.** DayTrend uses PostgreSQL functions via `BackendEmulationDbContext`.
    No `SaveDayTrendRtsCommand` is needed.
 
 2. **OnDate timezone.** `OnDate` stores server-local date in `DD/MM/YYYY` format.
@@ -901,11 +1027,29 @@ new WidgetCatalogItem
    is a cross-table operation — avoid running it unnecessarily.
 
 8. **UserId format.** `RTSData_Interaction.UserId` and `RTSData_UserStatusLog.UserId`
-   may use different formats depending on server configuration (email vs short username).
-   The JOIN in the agent CTE uses `usl."UserId" = ap."UserId"` — verify that both
-   fields contain matching values in the production environment. If formats differ,
-   a normalisation step (e.g. extract username from email) may be needed in a future sprint.
+   may use different formats (email vs short username) depending on server configuration.
+   The JOIN inside `fn_daytrendagentstatus` uses `usl."UserId" = ap."UserId"` — verify
+   that both fields match in the production DB. If they differ, add a normalisation expression
+   (e.g. `SPLIT_PART(ap."UserId", '@', 1)`) inside the function body — no C# changes needed.
+
+9. **SP migration pattern.** Functions are created in migration `AddDayTrendFunctions`
+   under `BackendEmulationDbContext`. `Up()` uses `CREATE OR REPLACE FUNCTION` (idempotent).
+   `Down()` uses `DROP FUNCTION IF EXISTS` with full signature. Template:
+
+   ```csharp
+   protected override void Up(MigrationBuilder mb) =>
+       mb.Sql("""
+           CREATE OR REPLACE FUNCTION fn_daytrendinteractions(...) ...;
+           CREATE OR REPLACE FUNCTION fn_daytrendagentstatus(...) ...;
+       """);
+
+   protected override void Down(MigrationBuilder mb) =>
+       mb.Sql("""
+           DROP FUNCTION IF EXISTS fn_daytrendinteractions(uuid, varchar, text[], integer);
+           DROP FUNCTION IF EXISTS fn_daytrendagentstatus(uuid, varchar, text[], integer);
+       """);
+   ```
 
 ---
 
-*Widget Specification v0.2 — DayTrend (interactions + agent status intervals). Next: CC-002 implementation task.*
+*Widget Specification v0.5 — Added statuslog.*_time_ms (SUM_OVERLAP_MS) and statuslog.logged_in_agents (COUNT_POOL via agent pool) to fn_daytrendagentstatus. Next: CC-002 implementation task.*
