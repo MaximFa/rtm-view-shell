@@ -25,7 +25,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 **Status:** ✅ Done  
 **Priority:** 🔴 High — blocks DayTrend and AgentStatus interval widgets  
 **Depends on:** —  
-**Commit:** `5a3785d`
+**Commit:** `cd99e46`
 
 ---
 
