@@ -389,6 +389,7 @@ In §5.3 RTSData_UserStatusLog:
 **Priority:** 🔴 High — first production widget for RTM shell  
 **Depends on:** CC-001 ✅  
 **Spec reference:** `docs/widget-specification.md` §3 (DayTrend) — read in full before starting  
+**Skill:** `.claude/skills/widget-creator/widget-creator.md` — read **§20** (Chart/Analytics architecture), **§21** (config modal tabs), **§22** (Template pattern), **§23** (methodology) before implementing  
 **Commit:** —
 
 ---
@@ -413,6 +414,8 @@ output must match `RTSGrid_Metric.MetricId` exactly (consistency rule, spec §3.
 | 2.3 | `DayTrendWidget.razor` | `src/CcDashboard.Web/Components/Dashboard/Widgets/` |
 | 2.4 | `RtsGridMetric` seed | `src/CcDashboard.Infrastructure/Persistence/Seed/RtsMetricSeed.cs` |
 | 2.5 | `WidgetCatalogItem` seed | same seed file or `WidgetCatalogSeed.cs` |
+| 2.6 | Config modal tabs for DayTrend | `src/CcDashboard.Web/Components/Dashboard/ScreenEditorPage.razor` |
+| 2.7 | JS interop file | `src/CcDashboard.Web/wwwroot/js/daytrendChart.js` |
 
 ---
 
@@ -589,7 +592,14 @@ window.dayTrendChart = {
    for `avg/max_wait_time`, `avg_talk_time`; `TimeSpan.FromMilliseconds(v).ToString(@"mm\:ss")`
    for `*_ms` metrics). All count metrics go on the left Y-axis.
 5. **Auto-refresh:** `PeriodicTimer` at `RefreshIntervalSeconds`; dispose in `IAsyncDisposable.DisposeAsync`.
-6. **States:** loading skeleton, no-queues warning (`IsNoQueues = true`),
+6. **Config modal** (§21.2 in widget-creator skill)  
+   Add a new case in `ScreenEditorPage.razor` modal switch for `"Day Trend"`.  
+   Four tabs: **General** (title, BU, interval, refresh), **Appearance** (chart type, labels, legend, colors),  
+   **Call Metrics** (toggle / color / label per metric row), **Agent Metrics** (same structure).  
+   On Save: serialize all config fields → `DashboardWidget.ConfigJson`.  
+   Add **"Save as Template"** button per skill §22.4 — dispatches `CreateWidgetTemplateCommand`.
+
+7. **States:** loading skeleton, no-queues warning (`IsNoQueues = true`),
    empty-day message (intervals empty), query error with retry button.
 
 Use Chart.js from CDN already in `_Host.cshtml` / `App.razor`, or add:
@@ -637,6 +647,9 @@ Upsert by `MetricId` — skip if already exists.
 - [ ] `dotnet build CcDashboard.sln` — zero errors, zero new warnings
 - [ ] Unit test: handler returns `NoQueues` when repository returns empty queue list
 - [ ] Unit test: handler correctly pivots narrow rows into `DayTrendIntervalData` dictionaries
+- [ ] Config modal opens for DayTrend widget; General / Appearance / Call Metrics / Agent Metrics tabs render
+- [ ] Saving modal updates `ConfigJson`; widget reloads with new config
+- [ ] "Save as Template" button visible in modal footer; dispatches `CreateWidgetTemplateCommand`
 
 ---
 
