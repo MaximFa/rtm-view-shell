@@ -74,9 +74,15 @@ public class CloneDashboardCommandHandler(
             // Create RTS records for Agent Grid widgets
             else if (catalogName.Contains("agent") && catalogName.Contains("grid") && !string.IsNullOrEmpty(clearedConfig))
             {
-                var (updatedConfig, gridId) = await CreateAgentGridRtsRecords(clearedConfig, ct);
+                var (updatedConfig, rtsUserGridId) = await CreateAgentGridRtsRecords(clearedConfig, ct);
                 clonedWidget.ConfigJson = updatedConfig;
-                clonedWidget.GridId = gridId;
+                clonedWidget.GridId = rtsUserGridId;
+            }
+            // Create RTS records for Data Slot widgets
+            else if (catalogName.Contains("data") && catalogName.Contains("slot") && !string.IsNullOrEmpty(clearedConfig))
+            {
+                var updatedConfig = await CreateDataSlotRtsRecords(clearedConfig, ct);
+                clonedWidget.ConfigJson = updatedConfig;
             }
 
             cloned.Widgets.Add(clonedWidget);
@@ -214,9 +220,42 @@ public class CloneDashboardCommandHandler(
             ColumnsSetId = columnsSetId,
             Title = title
         };
-        var gridId = await rtsRepository.InsertGridAsync(grid, ct);
+        var rtsUserGridId = await rtsRepository.InsertGridAsync(grid, ct);
 
-        return (obj.ToJsonString(), gridId);
+        // Store RtsUserGridId in config (critical for subsequent saves)
+        obj["rtsUserGridId"] = rtsUserGridId;
+
+        return (obj.ToJsonString(), rtsUserGridId);
+    }
+
+    private async Task<string> CreateDataSlotRtsRecords(string configJson, CancellationToken ct)
+    {
+        var json = JsonNode.Parse(configJson);
+        if (json is not JsonObject obj) return configJson;
+
+        var title = obj["dataSlotTitle"]?.GetValue<string>()
+                    ?? obj["displayName"]?.GetValue<string>()
+                    ?? "Data Slot";
+        var metricId = obj["dataSlotMetricId"]?.GetValue<string>() ?? "";
+        var businessUnitId = obj["dataSlotBusinessUnitId"]?.GetValue<int?>();
+
+        // Create Grid (1 row)
+        var gridId = await rtsRepository.InsertQueueGridAsync(title, ct);
+        obj["dataSlotGridId"] = gridId;
+
+        // Create Column (ColumnNumber=1)
+        var columnId = await rtsRepository.InsertQueueGridColumnAsync(gridId, 1, ct);
+        obj["dataSlotColumnId"] = columnId;
+
+        // Create Row (RowNumber=1, UnionId=BusinessUnitId)
+        var rowId = await rtsRepository.InsertQueueGridRowAsync(gridId, 1, businessUnitId, ct);
+        obj["dataSlotRowId"] = rowId;
+
+        // Create Cell (CellType="Data", Value=MetricId)
+        var cellId = await rtsRepository.InsertQueueGridCellAsync(rowId, columnId, 1, "Data", metricId, ct);
+        obj["dataSlotCellId"] = cellId;
+
+        return obj.ToJsonString();
     }
 
     private static string? ClearRtsIdsFromConfig(string? configJson)
@@ -235,6 +274,13 @@ public class CloneDashboardCommandHandler(
 
             // Clear RTS IDs for Agent Grid
             obj.Remove("columnsSetId");
+            obj.Remove("rtsUserGridId");
+
+            // Clear RTS IDs for Data Slot
+            obj.Remove("dataSlotGridId");
+            obj.Remove("dataSlotColumnId");
+            obj.Remove("dataSlotRowId");
+            obj.Remove("dataSlotCellId");
 
             // Clear column IDs for Queue Grid
             if (obj["queueGridColumnDefs"] is JsonArray queueCols)
