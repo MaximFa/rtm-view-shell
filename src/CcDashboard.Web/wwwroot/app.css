@@ -2460,7 +2460,7 @@ button.clr-swatch,
 .editor-canvas {
     flex: 1;
     overflow: auto;
-    padding: var(--sp-4);
+    padding: 0 var(--sp-4) var(--sp-4) var(--sp-4);
     background-color: #F5F5F5;
 }
 
