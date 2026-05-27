@@ -41,7 +41,7 @@
             </div>
         </div>
 
-        <div class="fullscreen-canvas" style="position: relative; min-height: calc(100vh - 120px); @(_positionsApplied ? "" : "visibility: hidden;")">
+        <div class="fullscreen-canvas" style="@(_positionsApplied ? "" : "visibility: hidden;")">
             @if (PlacedWidgets.Count == 0)
             {
                 <div class="text-center py-5 text-muted">
@@ -51,28 +51,30 @@
             }
             else
             {
-                @foreach (var widget in PlacedWidgets)
-                {
-                    var config = widget.Config;
-                    var effectiveBg = GetEffectiveBackgroundColor(config);
-                    var isHeaderHidden = config?.HideHeader == true;
-                    var widgetStyle = $"position: absolute; left: {widget.X}px; top: {widget.Y}px; width: {widget.Width}px; height: {widget.Height}px;";
-                    if (!string.IsNullOrEmpty(effectiveBg))
+                <div class="dashboard-canvas-grid" style="position: relative; min-height: calc(100vh - 120px);">
+                    @foreach (var widget in PlacedWidgets)
                     {
-                        widgetStyle += $" background: {effectiveBg} !important;";
-                    }
-                    <div class="dashboard-widget @(isHeaderHidden ? "header-hidden" : "")" data-widget-id="@widget.Id" style="@widgetStyle" @key="widget.Id">
-                        @if (!isHeaderHidden)
+                        var config = widget.Config;
+                        var effectiveBg = GetEffectiveBackgroundColor(config);
+                        var isHeaderHidden = config?.HideHeader == true;
+                        var widgetStyle = $"position: absolute; left: {widget.X}px; top: {widget.Y}px; width: {widget.Width}px; height: {widget.Height}px;";
+                        if (!string.IsNullOrEmpty(effectiveBg))
                         {
-                            <div class="widget-header" style="@GetHeaderStyle(config)">
-                                @(config?.DisplayName ?? widget.Name)
-                            </div>
+                            widgetStyle += $" background: {effectiveBg} !important;";
                         }
-                        <div class="widget-content" style="@GetContentStyle(config)">
-                            <RenderWidget Widget="widget" DarkMode="_darkMode" />
+                        <div class="dashboard-widget @(isHeaderHidden ? "header-hidden" : "")" data-widget-id="@widget.Id" style="@widgetStyle" @key="widget.Id">
+                            @if (!isHeaderHidden)
+                            {
+                                <div class="widget-header" style="@GetHeaderStyle(config)">
+                                    @(config?.DisplayName ?? widget.Name)
+                                </div>
+                            }
+                            <div class="widget-content" style="@GetContentStyle(config)">
+                                <RenderWidget Widget="widget" DarkMode="_darkMode" />
+                            </div>
                         </div>
-                    </div>
-                }
+                    }
+                </div>
             }
         </div>
     }
