@@ -189,6 +189,57 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.ToTable("dashboard_widgets", (string)null);
                 });
 
+            modelBuilder.Entity("CcDashboard.Domain.Domain.HistoryMetric", b =>
+                {
+                    b.Property<string>("MetricId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("DataType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("DefaultValue")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("MetricFormat")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("MetricFunction")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("MetricParameter")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("MetricType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ValueType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("MetricId");
+
+                    b.ToTable("history_metrics", (string)null);
+                });
+
             modelBuilder.Entity("CcDashboard.Domain.Domain.MenuPermission", b =>
                 {
                     b.Property<Guid>("PermissionGroupId")

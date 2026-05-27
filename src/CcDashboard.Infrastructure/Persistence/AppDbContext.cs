@@ -22,6 +22,7 @@ public class AppDbContext(
     public DbSet<DashboardWidget> DashboardWidgets => Set<DashboardWidget>();
     public DbSet<WidgetCatalogItem> WidgetCatalogItems => Set<WidgetCatalogItem>();
     public DbSet<WidgetTemplate> WidgetTemplates => Set<WidgetTemplate>();
+    public DbSet<HistoryMetric> HistoryMetrics => Set<HistoryMetric>();
     // PG permission join tables
     public DbSet<PgQueue> PgQueues => Set<PgQueue>();
     public DbSet<PgSkill> PgSkills => Set<PgSkill>();
@@ -179,6 +180,22 @@ public class AppDbContext(
             e.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId);
             e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        // History metrics — shell-owned catalogue (no TenantId, no GQF)
+        mb.Entity<HistoryMetric>(e =>
+        {
+            e.ToTable("history_metrics");
+            e.HasKey(x => x.MetricId);
+            e.Property(x => x.MetricId).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(200).IsRequired();
+            e.Property(x => x.DataType).HasMaxLength(20).IsRequired();
+            e.Property(x => x.MetricFunction).HasMaxLength(50).IsRequired();
+            e.Property(x => x.MetricParameter).HasMaxLength(200).IsRequired();
+            e.Property(x => x.MetricFormat).HasMaxLength(20).IsRequired();
+            e.Property(x => x.DefaultValue).HasMaxLength(20).IsRequired();
+            e.Property(x => x.ValueType).HasMaxLength(20).IsRequired();
+            e.Property(x => x.MetricType).HasMaxLength(50).IsRequired();
         });
 
         // PG resource join tables

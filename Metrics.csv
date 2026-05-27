@@ -188,4 +188,4 @@ MonAgentStateDescDuration,Agent - Current Status Group Duration,User,CurStatusGr
 MonAgentFirstLoginTimeStamp,Agent - First Login Time Stamp,User,FirstLoginTimestamp,"",,,String,Agent
 MonAgentCurrentLoginTimeStamp,Agent - Current Login Time Stamp,User,CurLoginTimeStamp,"",,,String,Agent
 MonAgentProxyCallsNum,Agent - Number of Incoming Callbacks,User,InteractionsCount,"InteractionType==""Callback"" && Direction==""Incoming""  && IsAnswered && !IsCallbackRequest",,,String,Agent
-MonAgentHeldDuration,Agent - Cumulative Hold Duration,User,TotalStatusDuration,Hold,,,Strin
+MonAgentHeldDuration,Agent - Cumulative Hold Duration,User,TotalStatusDuration,Hold,,,String,Agent
