@@ -395,10 +395,15 @@ Together they are the primary reference for choosing the right metric for a widg
 Full catalogue in `docs/rtsgrid-metric-reference.md §3.4`.
 **Never invent a new MetricFunction value** — use only those present in the catalogue.
 
-### L-15: TRAINING status has no real-time count metric in RTSGrid_Metric
-`UsersInStatusGroupCount` exists for AVAILABLE, BREAK, ONPHONE, PAPERWORK — but not TRAINING.
-If a widget needs a TRAINING agent count in real-time, a new metric must be added via migration
-(`UsersInStatusGroupCount` / `TRAINING`). If historical count is acceptable, use `History_Metric`.
+### L-15: Missing metrics can be derived from existing MetricFunction patterns
+If a metric is absent from `RTSGrid_Metric` but follows an existing `MetricFunction` pattern,
+it can be added via a one-time migration — no need to ask the user or block planning.
+
+**Example — TRAINING agent count:**
+`QueueLoginDataNumBreakUsers` uses `UsersInStatusGroupCount` / `BREAK`.
+By the same pattern: add `QueueLoginDataNumTrainingUsers` with `UsersInStatusGroupCount` / `TRAINING`.
+
+**Rule:** scan the catalogue for similar MetricIds, copy the pattern, change only `MetricParameter`.
 
 ### L-16: ValueType drives filter UI — currently wrong in DB
 `ValueType` is a shell-added field: `"number"`, `"time"`, `"text"`.
