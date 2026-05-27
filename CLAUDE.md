@@ -531,6 +531,49 @@ Fields: `Id (uuid)`, `TenantId`, `ExternalId (varchar)`, `Name (varchar)`, `IsAc
 | ClaimMappings | jsonb | Mapping external claims -> local fields |
 | IsActive | boolean | |
 
+#### `tenant_agent_states`
+| Column | Type | Notes |
+|---|---|---|
+| Id | uuid (UUIDv7) | PK |
+| TenantId | uuid | FK -> tenants; GQF |
+| AgentStateName | varchar(100) | Raw state name from CC platform (e.g. `AVAILABLE`, `LUNCH`) |
+| IsActive | boolean | Soft-delete — no physical deletes |
+| CreatedAt | timestamptz | UTC |
+| UpdatedAt | timestamptz | UTC |
+
+Unique index: `(TenantId, AgentStateName)`.
+
+#### `tenant_agent_state_groups`
+| Column | Type | Notes |
+|---|---|---|
+| Id | uuid (UUIDv7) | PK |
+| TenantId | uuid | FK -> tenants; GQF |
+| GroupName | varchar(100) | Display group name (e.g. `Available`, `Break`) |
+| IsActive | boolean | Soft-delete |
+| CreatedAt | timestamptz | UTC |
+| UpdatedAt | timestamptz | UTC |
+
+Unique index: `(TenantId, GroupName)`.
+
+#### `tenant_agent_state_definitions`
+Junction table: maps one State to exactly one Group per tenant.
+
+| Column | Type | Notes |
+|---|---|---|
+| Id | uuid (UUIDv7) | PK |
+| TenantId | uuid | FK -> tenants; GQF |
+| AgentStateId | uuid | FK -> tenant_agent_states CASCADE |
+| AgentStateGroupId | uuid | FK -> tenant_agent_state_groups CASCADE |
+| IsActive | boolean | Soft-delete |
+| CreatedAt | timestamptz | UTC |
+| UpdatedAt | timestamptz | UTC |
+
+Unique index: `(TenantId, AgentStateId)` — one State → one Group per tenant.
+
+MetricId is **not stored** — resolved at query time by joining `RTSGrid_Metric` on `MetricParameter = AgentStateName`.
+
+Seed: 5 standard definitions created for every tenant on first run (AVAILABLE, ONPHONE, BREAK, PAPERWORK, TRAINING).
+
 #### `audit.audit_logs`
 Partitioned by month (`PARTITION BY RANGE (CreatedAt)`). GIN index on `Details`.
 
@@ -874,6 +917,7 @@ regardless of whether the email exists (BFP-03).
 | View widget catalogue | Yes | Yes | Yes | — |
 | Manage widget catalogue | Yes | — | — | — |
 | View audit log | Yes | Yes | — | — |
+| Agent State Definitions (manage) | Yes | — | — | — |
 
 *(PG) = subject to Permission Group restrictions*
 
@@ -1109,6 +1153,61 @@ Header area:
 - "Blazor Server · SignalR connected"
 - Latency: "18ms"
 - Session: "Firstname L."
+
+---
+
+### Screen 06 — Tenant Management
+**File:** *(no wireframe — implemented; see screenshots in project)*
+**Route:** `/platform/tenants`
+**Roles:** Superadmin only
+
+**List page:**
+- Table: Name | Slug | Status badge | Created | Edit button
+- "+ New Tenant" button (top right)
+
+**Edit Tenant modal — 4 tabs:**
+
+**Tab: General**
+- Tenant Name (text input)
+- Slug (text input, unique)
+- Status dropdown: Active / Suspended / Deleted
+
+**Tab: Settings**
+- Licensing: Purchased licences, User connections (0 = unlimited)
+- Password Policy: Minimum password length, Password expiry (days)
+- Security: Require 2FA for all users (checkbox), Default locale (dropdown)
+- SignalR Widgets: SignalR Connection URL
+- Data Retention: Audit log retention (days), Enable soft-delete for screens (checkbox), Soft-delete retention (days)
+
+**Tab: Appearance**
+- Font sizes available in widget editor (comma-separated or tag input)
+- Background colour palette
+- Font colour palette
+
+**Tab: Agent States** *(Superadmin only — hidden for other roles)*
+
+Two sections:
+
+*Section 1 — State Groups:*
+- Table: Group Name | Status | Edit | Deactivate
+- Edit: inline rename
+- Deactivate (Danger Zone — red, confirmation required):
+  - Modal: choose **Reassign states** (dropdown → target active group) OR **Deactivate all states**
+  - Cannot save until choice is made
+- "+ Add State Group" button → input for GroupName
+
+*Section 2 — Agent States:*
+- Table: Agent State | Mapped Group | Status | Edit | Deactivate
+- Edit: change mapped group via dropdown of active groups
+- Deactivate (Danger Zone — confirmation required): sets State + its Definition to inactive
+- "+ Add State" button → AgentState text input + Group dropdown (active groups only)
+
+**Validation:**
+- AgentState unique per tenant (case-insensitive)
+- GroupName unique per tenant (case-insensitive)
+- Cannot create a state without assigning it to a group
+
+**Seed on first run:** 5 standard definitions — AVAILABLE/Available, ONPHONE/On Phone, BREAK/Break, PAPERWORK/Paperwork, TRAINING/Training.
 
 ---
 
@@ -1680,4 +1779,4 @@ updated: YYYY-MM-DD
 
 ---
 
-*TZ version: 1.3 | CLAUDE.md last updated: 2026-05-27*
+*TZ version: 1.4 | CLAUDE.md last updated: 2026-05-28*
