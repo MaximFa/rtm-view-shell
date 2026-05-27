@@ -360,6 +360,58 @@ Raw `StatusId` values from the CC platform vary by deployment — always use `St
 
 ---
 
+## Lessons Learned (2026-05-27 — Metric Architecture Session)
+
+### L-11: RTSGrid_Metric is static — never seed it
+The CC platform owns and manages `RTSGrid_Metric`. The shell does not seed it via
+`DatabaseInitializer` or any startup mechanism. A new metric can only be added once, via
+a one-time DB migration during widget creation — and only if no existing metric covers the need.
+**Seeding this table was the root cause of the CC-003 architectural error.**
+
+### L-12: Three metric categories — identified by Description prefix
+| Prefix | Category | MetricType |
+|---|---|---|
+| `"QM - *"` | Queue | `Data` |
+| `"Agent Group - *"` | AgentGroup (Skills) | `Data` |
+| `"Agent - *"` | Agent | `Agent` |
+
+`MetricType = "Data"` → Queue Grid, Data Slot widgets.
+`MetricType = "Agent"` → Agent Grid widgets.
+Current DB has `"Agent"` for all rows (migration error — CC task pending).
+
+### L-13: Metric split is by data type, not widget architecture
+The correct division is:
+- **Real-time** → `RTSGrid_Metric` → SignalR push
+- **Historical** → `History_Metric` → polling from `RTSData_*` tables
+- **Hybrid** → widget uses both sources simultaneously
+
+A Chart/Analytics widget CAN include a real-time SignalR component.
+A Grid widget CAN include historical data alongside live data.
+Do NOT assume architecture type = metric source type.
+
+### L-14: MetricFunction + MetricParameter is the key to metric selection
+`MetricFunction` defines **what** is calculated. `MetricParameter` defines **how** (filter, group, status).
+Together they are the primary reference for choosing the right metric for a widget.
+Full catalogue in `docs/rtsgrid-metric-reference.md §3.4`.
+**Never invent a new MetricFunction value** — use only those present in the catalogue.
+
+### L-15: TRAINING status has no real-time count metric in RTSGrid_Metric
+`UsersInStatusGroupCount` exists for AVAILABLE, BREAK, ONPHONE, PAPERWORK — but not TRAINING.
+If a widget needs a TRAINING agent count in real-time, a new metric must be added via migration
+(`UsersInStatusGroupCount` / `TRAINING`). If historical count is acceptable, use `History_Metric`.
+
+### L-16: ValueType drives filter UI — currently wrong in DB
+`ValueType` is a shell-added field: `"number"`, `"time"`, `"text"`.
+It controls the filter operator set shown in Queue Grid / Agent Grid column filters.
+Currently all rows have `"String"` (wrong) — CC task pending to correct.
+
+### L-17: MetricFormat = format of value as it arrives in SignalR push
+If `MetricFormat = "##0.0%"` — the value arrives as a formatted string e.g. `"85.3%"`.
+If empty — arrives as a plain numeric string. Widgets must handle this when parsing.
+`DefaultValue` and `DataType` (the column, not the ValueType field) are transparent to the shell.
+
+---
+
 ## Quick Reference — Key Paths
 
 | Artifact | Path |
@@ -367,11 +419,12 @@ Raw `StatusId` values from the CC platform vary by deployment — always use `St
 | Widget specification | `docs/widget-specification.md` |
 | CC implementation tasks | `docs/backend-tasks.md` |
 | Widget creator skill (Grid + Chart patterns) | `.claude/skills/widget-creator/widget-creator.md` |
+| RTSGrid_Metric reference | `docs/rtsgrid-metric-reference.md` |
 | Widget catalogue | `docs/widget-catalogue.md` |
 | RTS infrastructure docs | `docs/architecture/rts-infrastructure.md` |
 | Project status snapshot | `PROJECT_STATUS.md` |
 
 ---
 
-*Widget Planner Skill — created 2026-05-27. Based on DayTrend planning session.*
-*Captures: metric design methodology, narrow format rationale, spec structure, CC task template, 10 lessons learned.*
+*Widget Planner Skill — created 2026-05-27. Based on DayTrend + metric architecture sessions.*
+*Captures: metric design methodology, narrow format rationale, spec structure, CC task template, 17 lessons learned.*
