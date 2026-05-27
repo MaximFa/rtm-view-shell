@@ -18,7 +18,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | [CC-002](#cc-002) | ✅ Done  | Implement DayTrend widget — PostgreSQL functions, query handler, Blazor component, seed |
 | [CC-003](#cc-003) | ❌ Cancelled | ~~Implement AgentStatusCount + AgentStatusDuration widgets~~ |
 | [CC-004](#cc-004) | ✅ Done | Cleanup AgentStatus artefacts + create History_Metric table |
-| [CC-005](#cc-005) | 🔲 Ready | Fix RTSGrid_Metric data (dot-notation, MetricType, ValueType) + apply History_Metric migration |
+| [CC-005](#cc-005) | ✅ Done | Fix RTSGrid_Metric data (dot-notation, MetricType, ValueType) + apply History_Metric migration |
 
 ---
 
@@ -1420,12 +1420,12 @@ await SeedHistoryMetricsAsync(ct);
 
 ### Fix RTSGrid_Metric data + apply History_Metric migration
 
-**Status:** 🔲 Ready  
+**Status:** ✅ Done  
 **Priority:** 🔴 High  
 **Depends on:** CC-004 ✅  
 **Spec reference:** `docs/rtsgrid-metric-reference.md` — read §3 (MetricFunction catalogue) and §4 (ValueType rules) before starting  
 **Skill:** none  
-**Commit:** —
+**Commit:** `dab860d`
 
 ---
 
