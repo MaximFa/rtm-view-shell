@@ -1151,6 +1151,13 @@ new WidgetCatalogItem
 
 ## 4. Agent State Distribution — Real-Time BU Status Chart
 
+> **⚠ MANDATORY for CC implementation:** before writing any code for this widget, read
+> `.claude/skills/widget-creator/widget-creator.md` — specifically:
+> **§15** (Queue Grid patterns), **§16** (Dark Mode), **§17** (Header Colors),
+> **§18** (UI Guidelines), **§19** (RTS Infrastructure), **§21** (Config Modal Tabs),
+> **§22** (CC task template).
+> Then inspect `QueueGridWidget.razor` to confirm exact field names and SignalR patterns used in this project.
+
 ### 4.1 Overview
 
 | Field | Value |
@@ -1482,4 +1489,4 @@ new WidgetCatalogItem
 
 7. **Dark mode.** Pass `DarkMode` parameter (§16.4). Use `Effective*` color properties for segment colors and background.
 
-7. **CASCADE delete.** `RTSGrid_Grid` has CASCADE to Columns, Rows, 
+8. **CASCADE delete.** `RTSGrid_Grid` has CASCADE to Columns, Rows, 
