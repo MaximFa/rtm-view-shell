@@ -1645,4 +1645,39 @@ Relevant sections by widget type:
 
 ---
 
+## 31. Session memory — lessons learned
+
+**[MEM-01]** All lessons learned, seed rules, and implementation notes that CC discovers
+during a session **must be saved to `.claude/memory/` inside this repository**
+(not to `~/.claude/projects/.../memory/`). This ensures:
+- Cowork agent can read and cross-check them
+- Notes are version-controlled with the project
+- Future CC sessions auto-load them
+
+**[MEM-02]** File format — every memory file must have this frontmatter:
+
+```markdown
+---
+name: <kebab-case-slug>
+description: "<one-line summary>"
+type: seed | impl | arch | security | process
+updated: YYYY-MM-DD
+---
+
+<content>
+```
+
+**[MEM-03]** After writing a memory file, add one line to `.claude/memory/INDEX.md`:
+
+```
+- [slug](filename.md) — one-line description (YYYY-MM-DD)
+```
+
+**[MEM-04]** Write memory proactively — do not wait to be asked — for:
+- Seed rules with field-level gotchas (wrong types, null markers, join keys)
+- Implementation decisions that deviate from spec or CLAUDE.md
+- Bugs found and fixed during implementation
+
+---
+
 *TZ version: 1.3 | CLAUDE.md last updated: 2026-05-27*
