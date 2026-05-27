@@ -278,6 +278,26 @@ In the CC task, add an explicit instruction:
 
 Write a new section in `docs/widget-specification.md`. Required subsections:
 
+### 3.0 Mandatory widget-creator notice (first thing in every spec section)
+
+**Always** open the new spec section `## N. Widget Name` with this blockquote — fill in the correct sections for the widget type:
+
+```markdown
+> **⚠ MANDATORY for CC implementation:** before writing any code for this widget, read
+> `.claude/skills/widget-creator/widget-creator.md` — specifically:
+> **§15** (Queue Grid patterns), **§16** (Dark Mode), **§17** (Header Colors),
+> **§18** (UI Guidelines), **§19** (RTS Infrastructure), **§21** (Config Modal Tabs),
+> **§22** (CC task template).
+> Then inspect `QueueGridWidget.razor` to confirm exact field names and SignalR patterns used in this project.
+```
+
+Adjust the section list to match the widget type:
+- **Queue Grid** → §15, §16, §17, §18, §19, §21, §22 + inspect `QueueGridWidget.razor`
+- **Agent Grid** → §1–14, §16, §17, §18, §19, §21, §22 + inspect `AgentGridWidget.razor`
+- **Chart/Analytics** → §20, §21, §22, §23 + inspect `DayTrendWidget.razor`
+
+This notice is not optional — it is the first thing CC reads in the spec and triggers the mandatory skill read.
+
 ### 3.1 Subsection checklist
 
 ```
