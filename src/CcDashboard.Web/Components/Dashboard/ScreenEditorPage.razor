@@ -490,11 +490,10 @@
                                 <div class="col-md-6">
                                     <label class="form-label small text-muted mb-1">Font Size</label>
                                     <select class="form-select form-select-sm" @bind="ConfigFontSize">
-                                        <option value="small">@L["Widgets_FontSize_Small"] (12px)</option>
-                                        <option value="normal">@L["Widgets_FontSize_Normal"] (14px)</option>
-                                        <option value="large">@L["Widgets_FontSize_Large"] (18px)</option>
-                                        <option value="xlarge">@L["Widgets_FontSize_XLarge"] (24px)</option>
-                                        <option value="xxlarge">@L["Widgets_FontSize_XXLarge"] (32px)</option>
+                                        @foreach (var size in _tenantFontSizes)
+                                        {
+                                            <option value="@size">@size px</option>
+                                        }
                                     </select>
                                 </div>
                                 @if (IsDataSlotWidget(ConfiguringWidget))
@@ -1934,7 +1933,7 @@
     private string ConfigDisplayName = "";
     private string? ConfigBusinessUnit;
     private string? ConfigMetric;
-    private string ConfigFontSize = "normal";
+    private string ConfigFontSize = "14";
     private string ConfigBackgroundColor = "#FFFFFF";
     private string ConfigFontColor = "#202124";
     private string ConfigTableBackgroundColor = "transparent";
@@ -2236,6 +2235,7 @@
     // Tenant color palettes - loaded from tenant settings
     private List<string> _tenantBackgroundColors = [];
     private List<string> _tenantFontColors = [];
+    private List<string> _tenantFontSizes = [];
 
     // Color palettes built from tenant settings
     private (string Name, string Value)[] BackgroundColors => BuildBackgroundColors();
@@ -2337,6 +2337,19 @@
         "#D32F2F", "#7B1FA2", "#F57C00", "#0097A7", "#5D4037"
     ];
 
+    private static List<string> GetDefaultFontSizes() => ["12", "14", "18", "24", "32"];
+
+    private static string ResolveFontSizeToPixel(string? value) => value switch
+    {
+        "small"   => "12",
+        "normal"  => "14",
+        "large"   => "18",
+        "xlarge"  => "24",
+        "xxlarge" => "32",
+        null or "" => "14",
+        _ => value.TrimEnd('p', 'x')
+    };
+
     // JS interop for resize
     private DotNetObjectReference<ScreenEditorPage>? _dotNetRef;
 
@@ -2413,17 +2426,20 @@
                     {
                         _tenantBackgroundColors = tenantSettings.BackgroundColorPalette ?? GetDefaultBackgroundColors();
                         _tenantFontColors = tenantSettings.FontColorPalette ?? GetDefaultFontColors();
+                        _tenantFontSizes = tenantSettings.FontSizes?.Count > 0 ? tenantSettings.FontSizes : GetDefaultFontSizes();
                     }
                     else
                     {
                         _tenantBackgroundColors = GetDefaultBackgroundColors();
                         _tenantFontColors = GetDefaultFontColors();
+                        _tenantFontSizes = GetDefaultFontSizes();
                     }
                 }
                 catch
                 {
                     _tenantBackgroundColors = GetDefaultBackgroundColors();
                     _tenantFontColors = GetDefaultFontColors();
+                    _tenantFontSizes = GetDefaultFontSizes();
                 }
             }
 
@@ -2661,7 +2677,7 @@
         ConfigDisplayName = widget.Config.DisplayName ?? widget.Name;
         ConfigBusinessUnit = widget.Config.BusinessUnit;
         ConfigMetric = widget.Config.Metric;
-        ConfigFontSize = widget.Config.FontSize ?? "normal";
+        ConfigFontSize = ResolveFontSizeToPixel(widget.Config.FontSize);
         ConfigBackgroundColor = widget.Config.BackgroundColor ?? "#FFFFFF";
         ConfigFontColor = widget.Config.FontColor ?? "#202124";
         ConfigTableBackgroundColor = widget.Config.TableBackgroundColor ?? "transparent";

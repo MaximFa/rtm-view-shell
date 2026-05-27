@@ -1134,16 +1134,7 @@
             styles.Add($"color: {fg}");
         if (!string.IsNullOrEmpty(_fontSize))
         {
-            var size = _fontSize switch
-            {
-                "small" => "0.75rem",
-                "normal" => "0.85rem",
-                "large" => "1rem",
-                "xlarge" => "1.15rem",
-                "xxlarge" => "1.3rem",
-                _ => "0.85rem"
-            };
-            styles.Add($"font-size: {size}");
+            styles.Add($"font-size: {ResolveFontSizePx(_fontSize)}");
         }
         return string.Join("; ", styles);
     }
@@ -1160,16 +1151,7 @@
             styles.Add($"color: {fg}");
         if (!string.IsNullOrEmpty(_fontSize))
         {
-            var size = _fontSize switch
-            {
-                "small" => "0.75rem",
-                "normal" => "0.85rem",
-                "large" => "1rem",
-                "xlarge" => "1.15rem",
-                "xxlarge" => "1.3rem",
-                _ => "0.85rem"
-            };
-            styles.Add($"font-size: {size}");
+            styles.Add($"font-size: {ResolveFontSizePx(_fontSize)}");
         }
 
         return string.Join("; ", styles);
@@ -1320,6 +1302,17 @@
             Logger.LogDebug(ex, "Failed to load widget state");
         }
     }
+
+    private static string ResolveFontSizePx(string? value) => value switch
+    {
+        "small"   => "12px",
+        "normal"  => "14px",
+        "large"   => "18px",
+        "xlarge"  => "24px",
+        "xxlarge" => "32px",
+        null or "" => "14px",
+        _ => value.EndsWith("px") ? value : $"{value}px"
+    };
 
     public async ValueTask DisposeAsync()
     {

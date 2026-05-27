@@ -447,15 +447,7 @@
         if (_bold) styles.Add("font-weight: bold");
 
         // Apply font size
-        var fontSize = _fontSize switch
-        {
-            "small" => "12px",
-            "large" => "18px",
-            "xlarge" => "24px",
-            "xxlarge" => "32px",
-            _ => "14px" // normal
-        };
-        styles.Add($"font-size: {fontSize}");
+        styles.Add($"font-size: {ResolveFontSizePx(_fontSize)}");
 
         return string.Join("; ", styles) + ";";
     }
@@ -478,6 +470,17 @@
             return "color: #51cf66;";  // Green for better/on target
         }
     }
+
+    private static string ResolveFontSizePx(string? value) => value switch
+    {
+        "small"   => "12px",
+        "normal"  => "14px",
+        "large"   => "18px",
+        "xlarge"  => "24px",
+        "xxlarge" => "32px",
+        null or "" => "14px",
+        _ => value.EndsWith("px") ? value : $"{value}px"
+    };
 
     public async ValueTask DisposeAsync()
     {
