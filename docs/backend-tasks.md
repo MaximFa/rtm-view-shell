@@ -15,7 +15,8 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | ID | Status | Title |
 |---|---|---|
 | [CC-001](#cc-001) | ✅ Done | Add `StatusGroup` to `RTSData_UserStatusLog` + EF entities for all RTSData_* tables |
-| [CC-002](#cc-002) | 🔲 Ready | Implement DayTrend widget — PostgreSQL functions, query handler, Blazor component, seed |
+| [CC-002](#cc-002) | ✅ Done  | Implement DayTrend widget — PostgreSQL functions, query handler, Blazor component, seed |
+| [CC-003](#cc-003) | 🔲 Ready | Implement AgentStatusCount + AgentStatusDuration widgets |
 
 ---
 
@@ -376,16 +377,13 @@ In §5.3 RTSData_UserStatusLog:
 
 ---
 
-*Document created: 2026-05-26 | Last updated: 2026-05-27 | Current task: CC-002*
-
-
 ---
 
 ## CC-002
 
 ### Implement DayTrend widget — PostgreSQL functions, query handler, Blazor component, seed
 
-**Status:** 🔲 Ready  
+**Status:** ✅ Done  
 **Priority:** 🔴 High — first production widget for RTM shell  
 **Depends on:** CC-001 ✅  
 **Spec reference:** `docs/widget-specification.md` §3 (DayTrend) — read in full before starting  
@@ -844,7 +842,6 @@ await SeedDevRtsInteractionsAsync(tenant.Id, ct);
 await SeedDevRtsUserStatusLogAsync(tenant.Id, ct);
 ```
 
-
 ### 8. Acceptance criteria
 
 - [ ] Migration applied; `fn_daytrendinteractions` and `fn_daytrendagentstatus` exist in DB
@@ -870,3 +867,294 @@ await SeedDevRtsUserStatusLogAsync(tenant.Id, ct);
 ---
 
 *CC-002 written: 2026-05-27*
+
+---
+
+*Document created: 2026-05-26 | Last updated: 2026-05-27 | Current task: CC-003*
+
+
+---
+
+## CC-003
+
+### Implement AgentStatusCount and AgentStatusDuration widgets
+
+**Status:** 🔲 Ready  
+**Priority:** 🟡 Medium  
+**Depends on:** CC-001 ✅, CC-002 ✅  
+**Spec reference:** `docs/widget-specification.md` §4 (AgentStatusCount) and §5 (AgentStatusDuration) — read both in full before starting  
+**Skill:** `.claude/skills/widget-creator/widget-creator.md` — read **§20** (Chart/Analytics architecture), **§21** (config modal tabs), **§22** (Template pattern), **§23** (methodology) before implementing  
+**Commit:** —
+
+---
+
+### 1. Background
+
+Two companion widgets, both using Chart.js Donut/Pie/Bar visualisation:
+
+- **AgentStatusCount** — current count of agents per StatusGroup right now.
+  Source: `RTSData_UserStatusLog WHERE EndTime IS NULL`. Agent pool = agents who answered an
+  incoming call today on the BU's queues (DISTINCT UserId from `RTSData_Interaction`).
+
+- **AgentStatusDuration** — today's cumulative time per StatusGroup (in seconds).
+  Source: `RTSData_UserStatus.TotalDuration`. Same agent pool derivation.
+
+Both widgets use the Chart/Analytics architecture (no RTSGrid_* tables, no SignalR).
+Data flows: BU → queue list → PostgreSQL function → C# handler → Blazor component → Chart.js.
+
+---
+
+### 2. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 3.1 | Migration `AddAgentStatusFunctions` | `src/CcDashboard.Infrastructure/Migrations/BackendEmulation/` |
+| 3.2 | `AgentStatusCountQuery` + `AgentStatusCountQueryHandler` | `src/CcDashboard.Application/Queries/Widgets/` |
+| 3.3 | `AgentStatusDurationQuery` + `AgentStatusDurationQueryHandler` | same |
+| 3.4 | `AgentStatusCountWidget.razor` | `src/CcDashboard.Web/Components/Dashboard/Widgets/` |
+| 3.5 | `AgentStatusDurationWidget.razor` | same |
+| 3.6 | `agentStatusChart.js` (shared JS interop for both widgets) | `src/CcDashboard.Web/wwwroot/js/` |
+| 3.7 | `snapshot.*` seed entries in `RtsMetricSeed.cs` | `src/CcDashboard.Infrastructure/Persistence/Seed/` |
+| 3.8 | `WidgetCatalogItem` seed entries (×2) | same or `WidgetCatalogSeed.cs` |
+| 3.9 | Config modal tabs for both widgets | `src/CcDashboard.Web/Components/Dashboard/ScreenEditorPage.razor` |
+
+---
+
+### 3. Migration `AddAgentStatusFunctions`
+
+Run:
+
+```powershell
+dotnet ef migrations add AddAgentStatusFunctions `
+  --context BackendEmulationDbContext `
+  --project src/CcDashboard.Infrastructure `
+  --startup-project src/CcDashboard.Web
+```
+
+Populate `Up()` with both SQL bodies from spec §4.4.2 and §5.4.1 verbatim
+(two `CREATE OR REPLACE FUNCTION` statements in one `mb.Sql("""...""")` call).
+
+`Down()`:
+
+```csharp
+protected override void Down(MigrationBuilder mb) =>
+    mb.Sql("""
+        DROP FUNCTION IF EXISTS fn_agentstatuscount(uuid, varchar, text[]);
+        DROP FUNCTION IF EXISTS fn_agentstatusduration(uuid, varchar, text[]);
+    """);
+```
+
+---
+
+### 4. C# records and query definitions
+
+#### AgentStatusCount
+
+```csharp
+public record AgentStatusCountQuery(int BusinessUnitId) : IRequest<AgentStatusCountResult>;
+
+public record AgentStatusCountRow(string MetricId, double? Value);
+
+public record AgentStatusCountResult(
+    IReadOnlyDictionary<string, double> Segments,
+    DateTime LastUpdated,
+    bool NoQueues = false)
+{
+    public static AgentStatusCountResult Empty(bool noQueues = false) =>
+        new(new Dictionary<string, double>(), DateTime.UtcNow, noQueues);
+}
+```
+
+Handler body — copy from spec §4.4.3.
+Queue resolution: `_ngcRepo.GetQueuesByBusinessUnitAsync(query.BusinessUnitId, ct)` → `queues.Select(q => q.ExternalId).ToArray()`.
+OnDate: `DateTime.UtcNow.ToString("dd/MM/yyyy")`.
+
+#### AgentStatusDuration
+
+```csharp
+public record AgentStatusDurationQuery(int BusinessUnitId) : IRequest<AgentStatusDurationResult>;
+
+public record AgentStatusDurationRow(string MetricId, double? Value);
+
+public record AgentStatusDurationResult(
+    IReadOnlyDictionary<string, double> Segments,   // value = seconds
+    DateTime LastUpdated,
+    bool NoQueues = false)
+{
+    public static AgentStatusDurationResult Empty(bool noQueues = false) =>
+        new(new Dictionary<string, double>(), DateTime.UtcNow, noQueues);
+}
+```
+
+Duration formatter (static helper in the Blazor component):
+
+```csharp
+static string FormatDuration(double seconds, string format) => format switch
+{
+    "hh:mm:ss" => TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss"),
+    "minutes"  => $"{(int)(seconds / 60)} min",
+    _          => TimeSpan.FromSeconds(seconds).ToString(@"h\:mm")
+};
+```
+
+---
+
+### 5. JS interop — `agentStatusChart.js`
+
+Single JS file serving **both** widgets.
+
+```javascript
+window.agentStatusChart = {
+    instances: {},
+
+    render: function (widgetId, config, data) {
+        // data = [{ metricId, value, displayValue, label, color }]
+        // value = numeric (count or seconds) — used for segment sizing
+        // displayValue = pre-formatted string — used in datalabels
+        const ctx = document.getElementById('agentStatusCanvas_' + widgetId);
+        if (!ctx) return;
+        if (this.instances[widgetId]) { this.instances[widgetId].destroy(); }
+
+        const chartType = config.chartType === 'donut' ? 'doughnut' : config.chartType;
+
+        this.instances[widgetId] = new Chart(ctx, {
+            type: chartType,
+            data: {
+                labels:   data.map(d => d.label),
+                datasets: [{ data: data.map(d => d.value),
+                             backgroundColor: data.map(d => d.color),
+                             borderWidth: 2 }]
+            },
+            options: {
+                responsive: true,
+                cutout: chartType === 'doughnut' ? '62%' : undefined,
+                plugins: {
+                    legend: { display: config.showLegend },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const d = data[ctx.dataIndex];
+                                const pct = ((d.value / data.reduce((a,b)=>a+b.value,0))*100).toFixed(1);
+                                return d.label + ' — ' + d.displayValue + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    },
+
+    destroy: function (widgetId) {
+        if (this.instances[widgetId]) {
+            this.instances[widgetId].destroy();
+            delete this.instances[widgetId];
+        }
+    }
+};
+```
+
+> Chart.js must be loaded via `<script>` in `App.razor` before `agentStatusChart.js`.
+> Use the same CDN reference already present for DayTrend.
+
+---
+
+### 6. Blazor components
+
+**AgentStatusCountWidget.razor** — key structure:
+
+- Canvas element: `<canvas id="agentStatusCanvas_@WidgetId"></canvas>`
+- On `AfterRenderAsync(firstRender)`: call `RefreshAsync()`, start timer if `RefreshIntervalSeconds > 0`
+- `RefreshAsync()`: dispatch `AgentStatusCountQuery` → get result → build `chartData` array
+  (each enabled segment: `{ metricId, value = _counts[seg.MetricId], displayValue = value.ToString("0"), label, color }`)
+  → call `JS.InvokeVoidAsync("agentStatusChart.render", WidgetId, config, chartData)`
+- `DisposeAsync()`: cancel timer + call `agentStatusChart.destroy`
+- Empty states:
+  - `NoQueues = true` → message `"No queues assigned to this Business Unit"`
+  - All values 0 → message `"No active agents found for this Business Unit today"`
+  - Error → badge with retry button
+
+**AgentStatusDurationWidget.razor** — identical structure; differences:
+- Dispatches `AgentStatusDurationQuery`
+- `displayValue` for each segment = `FormatDuration(seconds, Config.DurationFormat)`
+- Segment size still uses raw seconds for correct proportionality
+
+---
+
+### 7. Seed entries
+
+#### 7.1 `snapshot.*` metrics — add to `RtsMetricSeed.cs`
+
+```csharp
+// AgentStatusSnapshot metrics (RTSData_UserStatusLog WHERE EndTime IS NULL, BU agent pool)
+new RtsGridMetric { MetricId = "snapshot.available_count",  Description = "Available Agents (Now)",        DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:AVAILABLE",  MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.onphone_count",    Description = "On Phone Agents (Now)",         DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:ONPHONE",    MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.break_count",      Description = "On Break Agents (Now)",         DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:BREAK",      MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.paperwork_count",  Description = "Paperwork / ACW Agents (Now)",  DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:PAPERWORK",  MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.training_count",   Description = "Training / Back-Office (Now)",  DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:TRAINING",   MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.total_active",     Description = "Total Active Agents (Now)",     DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:ALL",        MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+```
+
+#### 7.2 `WidgetCatalogItem` entries — add to `WidgetCatalogSeed.cs`
+
+Copy verbatim from spec §4.9 and §5.9.
+
+---
+
+### 8. Config modal tabs (ScreenEditorPage.razor)
+
+Add two new `case` blocks in the widget type switch.
+
+**Case "AgentStatusCount" — tabs: General | Appearance | Status Groups**
+
+Tab General:
+- `Title` text input → `Config.Title`
+- `BusinessUnitId` dropdown (load `GetNgcBusinessUnitsQuery`) → `Config.BusinessUnitId`
+- `RefreshIntervalSeconds` dropdown: 15 s / 30 s / 1 min / 5 min → `Config.RefreshIntervalSeconds`
+
+Tab Appearance:
+- `ChartType` icon toggle: Donut / Pie / Bar → `Config.ChartType`
+- `ShowLegend` toggle → `Config.ShowLegend`
+- `ShowLabels` toggle → `Config.ShowLabels`
+- `ShowCenterTotal` toggle (visible only when `ChartType == "donut"`) → `Config.ShowCenterTotal`
+
+Tab Status Groups:
+- Foreach `Config.Segments`: toggle (Enabled), colour picker (Color), label text input
+
+**Case "AgentStatusDuration" — tabs: General | Appearance | Status Groups**
+
+Tab General:
+- `Title`, `BusinessUnitId`, `RefreshIntervalSeconds` (options: 1 min / 5 min / 10 min)
+
+Tab Appearance:
+- `ChartType`, `ShowLegend`, `ShowLabels`, `ShowCenterTotal`
+- `DurationFormat` radio: `hh:mm` / `hh:mm:ss` / `minutes`
+
+Tab Status Groups:
+- Same structure as AgentStatusCount
+
+**"Save as Template" button** in both config modal footers per `widget-creator.md §22.4`.
+Dispatches `CreateWidgetTemplateCommand` with current `ConfigJson`.
+
+---
+
+### 9. Acceptance criteria
+
+| # | Criterion |
+|---|---|
+| 9.1 | Migration `AddAgentStatusFunctions` applies cleanly; `fn_agentstatuscount` and `fn_agentstatusduration` exist in DB |
+| 9.2 | `AgentStatusCountQuery` returns correct segment counts for seeded test data |
+| 9.3 | `AgentStatusCountQuery` returns `NoQueues = true` when BU has no queue assignments |
+| 9.4 | `AgentStatusDurationQuery` returns correct seconds per StatusGroup for seeded test data |
+| 9.5 | `AgentStatusDurationQuery` returns `NoQueues = true` when BU has no queue assignments |
+| 9.6 | `AgentStatusCountWidget.razor` renders Donut chart without JS errors in browser |
+| 9.7 | `AgentStatusDurationWidget.razor` renders Donut chart with formatted durations |
+| 9.8 | Both widgets auto-refresh at configured interval; `DisposeAsync` cancels timer and destroys Chart.js instance (no memory leak) |
+| 9.9 | Chart type toggle (Donut / Pie / Bar) updates chart without page reload |
+| 9.10 | All 6 `snapshot.*` seed entries visible in DB after startup |
+| 9.11 | Both `WidgetCatalogItem` entries appear under category "Agents" in the widget picker |
+| 9.12 | Config modal opens, all 3 tabs render, save writes correct ConfigJson to `DashboardWidget.ConfigJson` |
+| 9.13 | "Save as Template" button dispatches `CreateWidgetTemplateCommand` for both widget types |
+| 9.14 | `dotnet build CcDashboard.sln` — zero errors, zero warnings |
+| 9.15 | Unit tests: handler returns `NoQueues` branch; segment dictionary contains all 5 StatusGroup keys |
+
+---
