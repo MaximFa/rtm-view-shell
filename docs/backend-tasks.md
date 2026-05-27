@@ -737,7 +737,7 @@ private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken 
 
     var rng    = new Random(42);
     var now    = DateTime.UtcNow;
-    var queues  = new[] { "Q001", "Q002", "Q003" };  // = NgcQueue.ExternalId values
+    var queues  = new[] { "Q001", "Q002", "Q003", "Q004", "Q005" };  // ALL queues across all BUs
     // Same agent IDs as in SeedDevRtsUserStatusLogAsync — UserId is the JOIN key
     // fn_daytrendagentstatus: agent pool = DISTINCT UserId FROM RTSData_Interaction WHERE IsAnswered=true
     var agents  = new[] { "agent01", "agent02", "agent03", "agent04", "agent05" };
@@ -807,8 +807,9 @@ private async Task SeedDevRtsUserStatusLogAsync(Guid tenantId, CancellationToken
 
     foreach (var agent in agents)
     {
-        var cursor = new DateTime(now.Year, now.Month, now.Day, 8, 0, 0, DateTimeKind.Utc);
-        while (cursor < now.AddHours(-0.5))
+        var cursor    = new DateTime(now.Year, now.Month, now.Day, 8,  0, 0, DateTimeKind.Utc);
+        var endOfDay  = new DateTime(now.Year, now.Month, now.Day, 18, 0, 0, DateTimeKind.Utc);
+        while (cursor < endOfDay)  // full working day 08:00-18:00 UTC (not relative to now)
         {
             var group    = groups[rng.Next(groups.Length)];
             var durationMs = rng.Next(2, 30) * 60 * 1000L;  // milliseconds
