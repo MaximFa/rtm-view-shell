@@ -230,6 +230,42 @@ Record the agreed structure in the spec session notes and use it verbatim in §N
 
 ---
 
+## Phase 2.6 — Localization Audit (MANDATORY before writing spec)
+
+> **⚠ Do NOT skip.** Localization decisions must be recorded in §N.10 (Implementation Notes) and applied consistently in §N.7 (Widget Settings Panel) and any C# code snippets in the spec and CC task.
+
+### Step 1 — Classify every user-visible string in the widget
+
+Go through the widget's surfaces and assign each category to one of three buckets:
+
+| Bucket | Rule | Examples |
+|---|---|---|
+| `@L["Key"]` | Any label the **end user reads** in the UI | Config modal field names, tab names, button text, empty-state messages, error messages, tooltips |
+| Hardcoded English | Platform-standard technical terms that are **never translated** in this project | Metric names, status group labels (Available, On Phone, Break…), chart axis labels, MetricId strings |
+| User-defined | Text the **user entered themselves** (stored in config) | Widget display name, custom threshold labels |
+
+### Step 2 — Check existing `.resx` keys first
+
+Before assigning a new `@L["Key"]`, check `SharedResources.resx` (and locale variants) for an existing equivalent. CC must search the file, not assume. New keys only if no match exists.
+
+### Step 3 — Record in spec §N.10
+
+Add a **Localization** sub-point to §N.10 with a table:
+
+| Surface | Approach | New keys needed? |
+|---|---|---|
+| Config modal labels | `@L["Key"]` — reuse existing | List any new keys |
+| Empty / error states | `@L["Key"]` — reuse existing | List any new keys |
+| [Platform terms] | Hardcoded English | — |
+
+### Step 4 — Add to CC task §3.x
+
+In the CC task, add an explicit instruction:
+
+> "Use `@L["Key"]` for all visible Blazor markup labels (tab names, field labels, button text, empty-state messages). Check `SharedResources.resx` for existing keys before adding new ones. [Platform terms] are hardcoded English — do not wrap in `@L`."
+
+---
+
 ## Phase 3 — Widget Specification
 
 > **⚠ MANDATORY for Grid widgets (Queue Grid or Agent Grid):**
