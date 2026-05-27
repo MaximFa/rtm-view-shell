@@ -1425,7 +1425,7 @@ await SeedHistoryMetricsAsync(ct);
 **Depends on:** CC-004 ✅  
 **Spec reference:** `docs/rtsgrid-metric-reference.md` — read §3 (MetricFunction catalogue) and §4 (ValueType rules) before starting  
 **Skill:** none  
-**Commit:** `dab860d`
+**Commit:** `f0cb60c`
 
 ---
 
