@@ -2153,7 +2153,7 @@ button.clr-swatch,
     background-color: #F5F5F5;
     z-index: 9999;
     overflow: auto;
-    padding: var(--sp-4);
+    padding: 0;
     color: #1A1A1A;
 }
 
@@ -2163,8 +2163,6 @@ button.clr-swatch,
     align-items: center;
     padding: var(--sp-3) var(--sp-4);
     background-color: #FFFFFF;
-    border-radius: var(--r-md);
-    margin-block-end: var(--sp-4);
     border: 1px solid rgba(0, 0, 0, 0.1);
     color: #1A1A1A;
 }
@@ -2182,7 +2180,7 @@ button.clr-swatch,
 .fullscreen-canvas {
     position: relative;
     min-height: calc(100vh - 120px);
-    padding: var(--sp-3);
+    padding: var(--sp-4);
     background-color: #F5F5F5;
 }
 
