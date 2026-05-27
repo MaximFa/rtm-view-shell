@@ -1761,3 +1761,192 @@ private static string GetDisplayLabel(DayTrendMetricConfig metric)
 **Паттерн `@onblur`:** при потере фокуса — закрыть dropdown И восстановить имя выбранного элемента в поле (чтобы показывать текущий выбор когда dropdown закрыт).
 
 **Применять везде** где searchable dropdown отображает предвыбранное значение в поле ввода.
+
+
+---
+
+## §25 ASD-сессия: паттерны real-time Grid виджетов с BU-фильтрацией (CC-007, 2026-05-28)
+
+> Инсайты из отладки AgentStateDistribution виджета. Применять ко всем Grid виджетам,
+> которые фильтруют SignalR данные по `UnionId` (BU-привязанные виджеты).
+
+---
+
+### §25.1 DashboardWidget.GridId ≠ RTSGrid_Grid.GridId — обязательно читать
+
+Два независимых auto-increment из разных таблиц:
+
+- **`Widget.GridId`** = `dashboard_widgets.GridId` — передаётся как `[Parameter] int GridId`
+- **`Config.GridId`** = `RTSGrid_Grid.GridId` — хранится в `WidgetConfig.GridId` → `ConfigJson`
+
+`preassignedGridId` в `SaveWidgetConfig` всегда `null` → `DashboardWidget.GridId` никогда не
+совпадает с `RTSGrid_Grid.GridId` (разные счётчики).
+
+**Обязательный паттерн для BU-фильтрованных виджетов — добавить helper:**
+
+```csharp
+// Use RTSGrid_Grid.GridId (Config.GridId), NOT DashboardWidget.GridId (GridId parameter)
+private int RtsGridId => Config?.GridId ?? GridId;
+```
+
+Использовать `RtsGridId` везде: в URL хаба, в guard-условиях, в markup.
+
+```csharp
+// ConnectAsync():
+var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={RtsGridId}";
+
+// Guards:
+if (RtsGridId == 0 || _businessUnitId == 0) return;
+if (RtsGridId != 0 && _previousRtsGridId == 0 && _hub is null && _businessUnitId > 0) ...
+
+// Markup:
+@if (RtsGridId == 0 || _businessUnitId == 0)  // show "save config first"
+```
+
+**Почему Queue Grid работает без этого фикса:**
+Queue Grid не фильтрует строки по UnionId — показывает все строки из симулятора включая
+random fallback. Симулятор возвращает строки с `UnionId=null` при wrong gridId → Queue Grid
+показывает их, ASD — нет (фильтрует по `r.UnionId == _businessUnitId`).
+
+---
+
+### §25.2 Симулятор: GetRowsForGridAsync должен получать RTSGrid_Grid.GridId
+
+Симулятор (`QueueDataGenerator.GenerateAsync`) вызывает:
+```csharp
+var dbRows = await _metricService.GetRowsForGridAsync(gridId, ct);
+```
+
+Запрос: `SELECT RowId, UnionId FROM RTSGrid_Row WHERE GridId = @gridId AND RowNumber > 1`.
+
+Если передать `DashboardWidget.GridId` (неправильный) → 0 строк → random fallback
+с `UnionId=null` → BU-фильтрованный виджет не находит совпадений → пустой рендер.
+
+**Для корректной работы BU-фильтрованного виджета:**
+1. Виджет передаёт `Config.GridId` в URL хаба
+2. Симулятор получает корректный `RTSGrid_Grid.GridId`
+3. `GetRowsForGridAsync` находит строки с правильным `UnionId`
+4. Виджет находит `r.UnionId == _businessUnitId` → получает метрики
+
+---
+
+### §25.3 SignalR десериализация — поля local record должны совпадать с JSON
+
+Виджет объявляет local record для десериализации:
+```csharp
+private record GridUpdate(int GridId, List<GridRowUpdate> Rows);
+private record GridRowUpdate(string RowId, int? UnionId, Dictionary<string, string> Metrics);
+```
+
+SignalR десериализует JSON по именам полей. Если симулятор отправляет
+`{ "rowId": "...", "metrics": {...} }` без поля `unionId` — `UnionId` будет `null`.
+
+**Правило:** при добавлении нового поля в симулятор (e.g. `UnionId`) — одновременно обновить
+local record в виджете И модель в симуляторе (`GridRowData`). Иначе поле молча игнорируется.
+
+**Чеклист при добавлении поля в GridRowData симулятора:**
+- [ ] `Models/GridRowData` — добавить поле
+- [ ] `QueueDataGenerator.GenerateAsync` — заполнить поле
+- [ ] Виджет local record `GridRowUpdate` — добавить поле с тем же именем
+- [ ] Виджет обработчик `QueueGridUpdate` — использовать поле
+
+---
+
+### §25.4 Симулятор: GetMetricsForGridAsync — метрики из RTSGrid_Cell
+
+**Проблема:** `GetQueueMetricsAsync` фильтрует только метрики с Description "QM - " или
+"Agent Group - ". Новый тип виджета может использовать метрики с другим префиксом.
+
+**Решение — `GetMetricsForGridAsync(int gridId)`:**
+```sql
+SELECT DISTINCT c."Value"
+FROM "RTSGrid_Cell" c
+JOIN "RTSGrid_Row" r ON c."RowId" = r."RowId"
+WHERE r."GridId" = @gridId AND c."CellType" = 'Data' AND c."Value" IS NOT NULL
+```
+
+Возвращает MetricId-ы, фактически используемые в ячейках этого грида.
+Затем фильтрует `GetAllMetricsAsync` по найденным MetricId.
+
+**Fallback:** если возвращает пустой список → `GetQueueMetricsAsync`.
+
+Использовать для любого виджета с нестандартными метриками.
+
+---
+
+### §25.5 Начальное состояние виджета = ConnectionState.Connecting
+
+```csharp
+private ConnectionState _connectionState = ConnectionState.Connecting;  // INITIAL VALUE
+```
+
+Виджет показывает "Connecting..." при инициализации **до того как** `ConnectAsync` вызван.
+Это нормально. Но если `ConnectAsync` не вызывается вообще (из-за гарда `GridId == 0` или
+`_businessUnitId == 0`), UI застревает на "Connecting..." навсегда.
+
+**Диагностика — проверить логи:**
+- Если есть `"AgentStateDistributionWidget: Starting connection for GridId X"` → ConnectAsync вызван
+- Если нет → проверить гарды (GridId, BusinessUnitId)
+- После подключения: если `"0 agents"` → добавить лог в handler:
+  ```csharp
+  Logger.LogDebug("ASD update: gridId={G}, rows={R}, buId={B}",
+      update.GridId, update.Rows.Count,
+      string.Join(",", update.Rows.Select(r => r.UnionId?.ToString() ?? "null")));
+  ```
+
+---
+
+### §25.6 Workflow отладки "виджет подключился но пустой"
+
+При `ConnectionState.Connected` + пустые данные:
+
+1. **Логи** — ищи `"Starting connection for GridId X"`. Какой X? Это `RtsGridId` или `DashboardWidget.GridId`?
+2. **GridId правильный?** — открой DB, проверь: есть ли строки в `RTSGrid_Row` с `GridId = X`?
+   Если нет — виджет использует неправильный GridId (DashboardWidget.GridId вместо RTSGrid_Grid.GridId).
+3. **UnionId совпадает?** — добавь лог в `QueueGridUpdate` handler. Какие `UnionId` приходят?
+   Совпадают ли с `_businessUnitId`?
+4. **Метрики есть?** — после получения строки проверь `buRow.Metrics.Count > 0`.
+   Если 0 — симулятор не генерирует нужные метрики (см. §25.4).
+
+---
+
+### §25.7 SaveQueueGridRtsCommand для ASD — ColumnId: null это нормально
+
+ASD использует фиксированные 6 колонок. При каждом сохранении конфига передаются
+`ColumnId: null` для всех колонок:
+```csharp
+new QueueGridColumnInput("asd-c1", null, "Available", "QueueLoginDataNumAvailableUsers", 1)
+//                                  ^^^^ null = каждый раз пересоздать
+```
+
+Обработчик `SaveQueueGridRtsCommand` удалит старые колонки и создаст новые. Это "churn"
+но приемлемо для ASD — колонки всегда одинаковые. GridId сохраняется между сохранениями
+(передаётся `ConfiguringWidget.Config?.GridId`).
+
+**Альтернатива** — хранить `ColumnId` каждой ASD колонки в Config. Более эффективно,
+но усложняет код. Применять если частые пересохранения станут проблемой производительности.
+
+---
+
+### §25.8 BU dropdown в config modal — обязательный паттерн
+
+**Симптом:** при повторном открытии dropdown показывает только 1 элемент (текущий выбранный).
+
+**Причина:** `BuSearchText` предзаполнен именем выбранного BU → фильтр сразу активен.
+
+**Паттерн (из §24.8, подтверждён на ASD):**
+```razor
+@onfocus="() => { BuSearchText = string.Empty; BuDropdownOpen = true; }"
+@onblur="OnBuSearchBlur"   // async: delay 150ms, close, restore selected name
+```
+
+`GetBusinessUnitName(ConfigBusinessUnit)` — получает имя BU по ID строке.
+`ConfigBusinessUnit` хранит `BusinessUnitId.ToString()`, не имя.
+
+**Применять к каждому BU dropdown** в config modal для любого нового виджета.
+
+---
+
+*§25 добавлен 2026-05-28 по результатам CC-007 ASD widget debug session.*
+*4 итерации фиксов: SaveQueueGridRtsCommand → BusinessUnitId save → UnionId в симуляторе → Config.GridId для URL хаба.*
+

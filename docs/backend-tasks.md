@@ -20,7 +20,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | [CC-004](#cc-004) | ✅ Done | Cleanup AgentStatus artefacts + create History_Metric table |
 | [CC-005](#cc-005) | ✅ Done | Fix RTSGrid_Metric data (dot-notation, MetricType, ValueType) + apply History_Metric migration |
 | [CC-006](#cc-006) | ✅ Done | DayTrend: migrate from RTSGrid_Metric to HistoryMetric (DB-driven metric list, ValueType rendering) |
-| [CC-007](#cc-007) | 🔲 Ready | Agent State Distribution: Queue Grid chart widget (Pie/Donut/Bar) |
+| [CC-007](#cc-007) | ✅ Done | Agent State Distribution: Queue Grid chart widget (Pie/Donut/Bar) |
 | [CC-008](#cc-008) | 🔲 Ready | Agent State Definitions registry (3 tables) + Edit Tenant tab + widget refactor |
 
 ---
@@ -2065,7 +2065,7 @@ dotnet build CcDashboard.sln
 
 ### Agent State Distribution — Real-Time BU Status Chart (Queue Grid)
 
-**Status:** 🔲 Ready
+**Status:** ✅ Done
 **Priority:** 🟡 Medium
 **Depends on:** CC-005 ✅ (RTSGrid_Metric seeding patterns), CC-006 ✅
 **Spec reference:** `docs/widget-specification.md` §4 — read before starting

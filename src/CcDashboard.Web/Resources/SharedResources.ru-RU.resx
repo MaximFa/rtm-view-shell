@@ -598,6 +598,28 @@
   <data name="Common_Value"><value>Значение</value></data>
   <data name="Common_Remove"><value>Удалить</value></data>
 
+  <!-- ── Agent State Distribution Widget ── -->
+  <data name="Widget_ASD_Title"><value>Распределение состояний агентов</value></data>
+  <data name="Widget_ASD_BusinessUnit"><value>Бизнес-единица</value></data>
+  <data name="Widget_ASD_ChartType"><value>Тип диаграммы</value></data>
+  <data name="Widget_ASD_ChartType_Donut"><value>Кольцевая</value></data>
+  <data name="Widget_ASD_ChartType_Pie"><value>Круговая</value></data>
+  <data name="Widget_ASD_ChartType_Bar"><value>Столбчатая</value></data>
+  <data name="Widget_ASD_ChartType_HorizontalBar"><value>Горизонтальная</value></data>
+  <data name="Widget_ASD_ValueDisplay"><value>Отображение значений</value></data>
+  <data name="Widget_ASD_ValueDisplay_Percentages"><value>Проценты</value></data>
+  <data name="Widget_ASD_ValueDisplay_Numbers"><value>Числа</value></data>
+  <data name="Widget_ASD_ShowLegend"><value>Показать легенду</value></data>
+  <data name="Widget_ASD_ShowValueLabels"><value>Показать значения</value></data>
+  <data name="Widget_ASD_SegmentColors"><value>Цвета сегментов</value></data>
+  <data name="Widget_ASD_Segment_Available"><value>Доступен</value></data>
+  <data name="Widget_ASD_Segment_OnPhone"><value>На линии</value></data>
+  <data name="Widget_ASD_Segment_Break"><value>Перерыв</value></data>
+  <data name="Widget_ASD_Segment_Paperwork"><value>Обработка</value></data>
+  <data name="Widget_ASD_Segment_Training"><value>Обучение</value></data>
+  <data name="Widget_ASD_Segment_Other"><value>Другое</value></data>
+  <data name="Widget_ASD_NoAgentsLoggedIn"><value>Нет агентов в системе</value></data>
+
   <!-- ── Errors ── -->
   <data name="Error_NotFound"><value>Запрошенный ресурс не найден.</value></data>
   <data name="Error_Forbidden"><value>У вас нет прав для выполнения этого действия.</value></data>

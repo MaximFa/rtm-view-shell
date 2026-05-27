@@ -189,10 +189,11 @@ public class DatabaseInitializer(
     {
         var items = new List<WidgetCatalogItem>
         {
-            new() { Id = Uuid.NewSequential(), Category = "Queues",          Name = "Queue Grid",       Description = "Real-time queue metrics table with customizable rows and columns", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Agents",          Name = "Agent Grid",       Description = "Real-time agent table with states, durations, metrics and alerts",   IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Data Slot",        Description = "Single metric display with target comparison",                         IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Day Trend Chart",  Description = "Intraday call volume chart showing configured metrics broken down by time interval (15/30/60 min). Supports line, bar, area, and step chart types.", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "Queues",          Name = "Queue Grid",                 Description = "Real-time queue metrics table with customizable rows and columns", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "Agents",          Name = "Agent Grid",                 Description = "Real-time agent table with states, durations, metrics and alerts",   IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Data Slot",                  Description = "Single metric display with target comparison",                         IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Day Trend Chart",            Description = "Intraday call volume chart showing configured metrics broken down by time interval (15/30/60 min). Supports line, bar, area, and step chart types.", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "Agents",          Name = "Agent State Distribution",   Description = "Real-time pie/donut/bar chart showing agent distribution across status groups (Available, On Phone, Break, Paperwork, Training) for a selected Business Unit.", IsActive = true },
         };
 
         var existingNames = (await db.WidgetCatalogItems

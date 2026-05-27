@@ -36,6 +36,7 @@ public class AgentDataGenerator
 
             rows.Add(new GridRowData(
                 RowId: agentId,
+                UnionId: null,
                 Metrics: metricValues
             ));
         }

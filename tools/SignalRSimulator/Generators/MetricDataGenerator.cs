@@ -98,7 +98,7 @@ public static class MetricDataGenerator
 
         // Numbers - all "Number of" metrics
         if (desc.Contains("Number of") || desc.Contains("Num"))
-            return GenerateNumber(desc);
+            return GenerateNumber(desc, metricId);
 
         // Default - treat as number
         return _rng.Next(0, 100).ToString();
@@ -109,8 +109,15 @@ public static class MetricDataGenerator
         return metrics.ToDictionary(m => m.MetricId, m => GenerateValue(m));
     }
 
-    private static string GenerateNumber(string description)
+    private static string GenerateNumber(string description, string metricId = "")
     {
+        // ASD-style agent counts (small numbers)
+        if (description.Contains("Break") || description.Contains("Paperwork") ||
+            description.Contains("Training") || description.Contains("OnCall") ||
+            metricId.Contains("NumBreak") || metricId.Contains("NumPaperwork") ||
+            metricId.Contains("NumTraining") || metricId.Contains("OnCallAgents"))
+            return _rng.Next(0, 15).ToString();
+
         // Different ranges based on what we're counting
         if (description.Contains("Active"))
             return _rng.Next(0, 15).ToString();

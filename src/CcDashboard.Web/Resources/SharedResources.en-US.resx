@@ -296,6 +296,28 @@
   <data name="Widget_DayTrend_AgentMetricsHelp"><value>Enable agent status metrics. Shown as dashed lines.</value></data>
   <data name="Widget_DayTrend_AgentMetricsNote"><value>If no agent metrics are enabled, the agent status query is skipped for better performance.</value></data>
 
+  <!-- ── Agent State Distribution Widget ── -->
+  <data name="Widget_ASD_Title"><value>Agent State Distribution</value></data>
+  <data name="Widget_ASD_BusinessUnit"><value>Business Unit</value></data>
+  <data name="Widget_ASD_ChartType"><value>Chart Type</value></data>
+  <data name="Widget_ASD_ChartType_Donut"><value>Donut</value></data>
+  <data name="Widget_ASD_ChartType_Pie"><value>Pie</value></data>
+  <data name="Widget_ASD_ChartType_Bar"><value>Bar</value></data>
+  <data name="Widget_ASD_ChartType_HorizontalBar"><value>Horizontal Bar</value></data>
+  <data name="Widget_ASD_ValueDisplay"><value>Value Display</value></data>
+  <data name="Widget_ASD_ValueDisplay_Percentages"><value>Percentages</value></data>
+  <data name="Widget_ASD_ValueDisplay_Numbers"><value>Numbers</value></data>
+  <data name="Widget_ASD_ShowLegend"><value>Show Legend</value></data>
+  <data name="Widget_ASD_ShowValueLabels"><value>Show Value Labels</value></data>
+  <data name="Widget_ASD_SegmentColors"><value>Segment Colors</value></data>
+  <data name="Widget_ASD_Segment_Available"><value>Available</value></data>
+  <data name="Widget_ASD_Segment_OnPhone"><value>On Phone</value></data>
+  <data name="Widget_ASD_Segment_Break"><value>Break</value></data>
+  <data name="Widget_ASD_Segment_Paperwork"><value>Paperwork</value></data>
+  <data name="Widget_ASD_Segment_Training"><value>Training</value></data>
+  <data name="Widget_ASD_Segment_Other"><value>Other</value></data>
+  <data name="Widget_ASD_NoAgentsLoggedIn"><value>No agents logged in</value></data>
+
   <!-- ── Widget Editor ── -->
   <data name="Widgets_Name"><value>Widget Name</value></data>
   <data name="Widgets_Palette"><value>Widgets</value></data>
@@ -359,12 +381,9 @@
   <data name="Widgets_ShowPagination"><value>Show Pagination</value></data>
   <data name="Widgets_HideHeader"><value>Hide Header</value></data>
   <data name="Widgets_HideHeaderHint"><value>Toolbar appears on hover, drag from anywhere</value></data>
-  <data name="Widgets_Bold"><value>Bold</value></data>
-  <data name="Widgets_Alignment"><value>Alignment</value></data>
   <data name="Widgets_Align_Left"><value>Left</value></data>
   <data name="Widgets_Align_Center"><value>Center</value></data>
   <data name="Widgets_Align_Right"><value>Right</value></data>
-  <data name="Widgets_ShowTargetLabel"><value>Show Target Label</value></data>
   <data name="Widgets_ShowArrow"><value>Show Delta Arrow</value></data>
   <data name="Widgets_AgentGrid_ScoreStarColor"><value>Star Color</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula"><value>Score Formula</value></data>

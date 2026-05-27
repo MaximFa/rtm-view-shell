@@ -556,5 +556,27 @@
   <data name="Widgets_TableBackground"><value>רקע טבלה</value></data>
   <data name="Widgets_MatchValue_Placeholder"><value>הזן טקסט להתאמה</value></data>
   <data name="Widgets_MatchValue_Required"><value>ערך נדרש</value></data>
+
+  <!-- ── Agent State Distribution Widget ── -->
+  <data name="Widget_ASD_Title"><value>התפלגות מצבי סוכנים</value></data>
+  <data name="Widget_ASD_BusinessUnit"><value>יחידה עסקית</value></data>
+  <data name="Widget_ASD_ChartType"><value>סוג תרשים</value></data>
+  <data name="Widget_ASD_ChartType_Donut"><value>טבעת</value></data>
+  <data name="Widget_ASD_ChartType_Pie"><value>עוגה</value></data>
+  <data name="Widget_ASD_ChartType_Bar"><value>עמודות</value></data>
+  <data name="Widget_ASD_ChartType_HorizontalBar"><value>עמודות אופקיות</value></data>
+  <data name="Widget_ASD_ValueDisplay"><value>הצגת ערכים</value></data>
+  <data name="Widget_ASD_ValueDisplay_Percentages"><value>אחוזים</value></data>
+  <data name="Widget_ASD_ValueDisplay_Numbers"><value>מספרים</value></data>
+  <data name="Widget_ASD_ShowLegend"><value>הצג מקרא</value></data>
+  <data name="Widget_ASD_ShowValueLabels"><value>הצג תוויות ערך</value></data>
+  <data name="Widget_ASD_SegmentColors"><value>צבעי קטעים</value></data>
+  <data name="Widget_ASD_Segment_Available"><value>זמין</value></data>
+  <data name="Widget_ASD_Segment_OnPhone"><value>בשיחה</value></data>
+  <data name="Widget_ASD_Segment_Break"><value>הפסקה</value></data>
+  <data name="Widget_ASD_Segment_Paperwork"><value>עבודה משרדית</value></data>
+  <data name="Widget_ASD_Segment_Training"><value>הדרכה</value></data>
+  <data name="Widget_ASD_Segment_Other"><value>אחר</value></data>
+  <data name="Widget_ASD_NoAgentsLoggedIn"><value>אין סוכנים מחוברים</value></data>
 </root>
 

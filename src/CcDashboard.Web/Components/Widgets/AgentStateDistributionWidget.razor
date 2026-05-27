@@ -1,0 +1,401 @@
+@using CcDashboard.Contracts.DTOs.Widgets
+@using CcDashboard.Application.Queries.TenantSettings
+@using Microsoft.AspNetCore.SignalR.Client
+@using MediatR
+@using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+@using Microsoft.Extensions.Localization
+@implements IAsyncDisposable
+
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject IJSRuntime JS
+
+<div class="agent-state-distribution-widget h-100 d-flex flex-column" style="@GetWidgetStyle()">
+    @if (_connectionState == ConnectionState.Reconnecting)
+    {
+        <div class="alert alert-warning alert-sm d-flex align-items-center gap-2 py-1 px-2 mb-0 rounded-0"
+             role="alert" style="position: sticky; top: 0; z-index: 1040;">
+            <div class="spinner-border spinner-border-sm" aria-hidden="true"></div>
+            <span class="small">@L["Widget_Reconnecting"]</span>
+        </div>
+    }
+
+    @if (RtsGridId == 0 || _businessUnitId == 0)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <i class="bi bi-gear fs-3 mb-2 opacity-50" aria-hidden="true"></i>
+            <span class="small">@L["Widget_SaveConfigFirst"]</span>
+        </div>
+    }
+    else if (_connectionState == ConnectionState.Connecting)
+    {
+        <div class="d-flex align-items-center justify-content-center h-100 text-muted" aria-busy="true" aria-live="polite">
+            <div class="spinner-border spinner-border-sm me-2" aria-hidden="true"></div>
+            <span>@L["Widget_Connecting"]</span>
+        </div>
+    }
+    else if (_connectionState == ConnectionState.Failed)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" role="alert">
+            <i class="bi bi-wifi-off fs-3 mb-2 text-warning" aria-hidden="true"></i>
+            <span class="small">@L["Widget_ConnectionFailed"]</span>
+            <button class="btn btn-sm btn-link mt-2" @onclick="ReconnectAsync" aria-label="@L["Widget_Retry"]">
+                @L["Widget_Retry"]
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="chart-container flex-grow-1 position-relative" style="min-height: 200px;">
+            <canvas id="@_chartElementId"></canvas>
+        </div>
+
+        <div class="widget-footer d-flex align-items-center justify-content-between px-2 py-1 small" style="@GetFontColorStyle()">
+            <div class="d-flex align-items-center gap-1">
+                <span class="live-dot @(_connectionState == ConnectionState.Connected ? "connected" : "disconnected")"
+                      aria-hidden="true"></span>
+                <span class="small" style="opacity: 0.7;">
+                    @if (_connectionState == ConnectionState.Connected)
+                    {
+                        @L["Widget_Live"]
+                    }
+                    else
+                    {
+                        @L["Widget_Disconnected"]
+                    }
+                </span>
+            </div>
+            <span class="small" style="opacity: 0.6;">@_totalAgents @L["Widget_Agents"]</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public WidgetConfig? Config { get; set; }
+    [Parameter] public int GridId { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+
+    [Inject] private ILogger<AgentStateDistributionWidget> Logger { get; set; } = null!;
+    [Inject] private IMediator Mediator { get; set; } = null!;
+
+    private static readonly IReadOnlyList<string> FixedMetricIds = new[]
+    {
+        "QueueLoginDataNumAvailableUsers",
+        "QueueNumOnCallAgents",
+        "QueueLoginDataNumBreakUsers",
+        "QueueLoginDataNumPaperworkUsers",
+        "QueueLoginDataNumTrainingUsers",
+        "QueueLoginDataNumLoggedUsers",
+    };
+
+    private HubConnection? _hub;
+    private ConnectionState _connectionState = ConnectionState.Connecting;
+    private CancellationTokenSource _cts = new();
+
+    private string _chartElementId = $"asd-chart-{Guid.NewGuid():N}";
+    private Dictionary<string, string> _cellValues = new();
+    private int _totalAgents;
+
+    // Config values
+    private int _businessUnitId;
+    private string _chartType = "doughnut";
+    private string _valueDisplay = "percentages";
+    private bool _showLegend = true;
+    private bool _showValueLabels = true;
+
+    // Appearance
+    private string? _backgroundColor;
+    private string? _fontColor;
+    private string _darkBackgroundColor = "#1e1e1e";
+    private string _darkFontColor = "#ffffff";
+
+    // Segment colors (light mode)
+    private string _colorAvailable = "#22c55e";
+    private string _colorOnPhone = "#3b82f6";
+    private string _colorBreak = "#f59e0b";
+    private string _colorPaperwork = "#8b5cf6";
+    private string _colorTraining = "#06b6d4";
+    private string _colorOther = "#6b7280";
+
+    // Segment colors (dark mode)
+    private string _darkColorAvailable = "#4ade80";
+    private string _darkColorOnPhone = "#60a5fa";
+    private string _darkColorBreak = "#fbbf24";
+    private string _darkColorPaperwork = "#a78bfa";
+    private string _darkColorTraining = "#22d3ee";
+    private string _darkColorOther = "#9ca3af";
+
+    private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
+
+    private string EffectiveBackgroundColor => DarkMode ? _darkBackgroundColor : (_backgroundColor ?? "");
+    private string EffectiveFontColor => DarkMode ? _darkFontColor : (_fontColor ?? "");
+    private string EffectiveColorAvailable => DarkMode ? _darkColorAvailable : _colorAvailable;
+    private string EffectiveColorOnPhone => DarkMode ? _darkColorOnPhone : _colorOnPhone;
+    private string EffectiveColorBreak => DarkMode ? _darkColorBreak : _colorBreak;
+    private string EffectiveColorPaperwork => DarkMode ? _darkColorPaperwork : _colorPaperwork;
+    private string EffectiveColorTraining => DarkMode ? _darkColorTraining : _colorTraining;
+    private string EffectiveColorOther => DarkMode ? _darkColorOther : _colorOther;
+
+    private int RtsGridId => Config?.GridId ?? GridId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ApplyConfig();
+        if (RtsGridId > 0 && _businessUnitId > 0)
+        {
+            await ConnectAsync();
+        }
+    }
+
+    private int _previousGridId;
+    private bool _chartRendered;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ApplyConfig();
+        if (RtsGridId != 0 && _previousGridId == 0 && _hub is null && _businessUnitId > 0)
+        {
+            _previousGridId = RtsGridId;
+            await ConnectAsync();
+        }
+        _previousGridId = RtsGridId;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_connectionState == ConnectionState.Connected && _cellValues.Count > 0 && !_chartRendered)
+        {
+            _chartRendered = true;
+            await RenderChartAsync();
+        }
+    }
+
+    private void ApplyConfig()
+    {
+        if (Config is null) return;
+
+        _businessUnitId = Config.BusinessUnitId ?? 0;
+        _chartType = Config.ChartType ?? "doughnut";
+        _valueDisplay = Config.ValueDisplay ?? "percentages";
+        _showLegend = Config.ShowLegend;
+        _showValueLabels = Config.ShowValueLabels;
+
+        _backgroundColor = Config.BackgroundColor;
+        _fontColor = Config.FontColor;
+        _darkBackgroundColor = Config.DarkBackgroundColor ?? "#1e1e1e";
+        _darkFontColor = Config.DarkFontColor ?? "#ffffff";
+
+        // Segment colors
+        if (!string.IsNullOrEmpty(Config.ColorAvailable)) _colorAvailable = Config.ColorAvailable;
+        if (!string.IsNullOrEmpty(Config.ColorOnPhone)) _colorOnPhone = Config.ColorOnPhone;
+        if (!string.IsNullOrEmpty(Config.ColorBreak)) _colorBreak = Config.ColorBreak;
+        if (!string.IsNullOrEmpty(Config.ColorPaperwork)) _colorPaperwork = Config.ColorPaperwork;
+        if (!string.IsNullOrEmpty(Config.ColorTraining)) _colorTraining = Config.ColorTraining;
+        if (!string.IsNullOrEmpty(Config.ColorOther)) _colorOther = Config.ColorOther;
+
+        if (!string.IsNullOrEmpty(Config.DarkColorAvailable)) _darkColorAvailable = Config.DarkColorAvailable;
+        if (!string.IsNullOrEmpty(Config.DarkColorOnPhone)) _darkColorOnPhone = Config.DarkColorOnPhone;
+        if (!string.IsNullOrEmpty(Config.DarkColorBreak)) _darkColorBreak = Config.DarkColorBreak;
+        if (!string.IsNullOrEmpty(Config.DarkColorPaperwork)) _darkColorPaperwork = Config.DarkColorPaperwork;
+        if (!string.IsNullOrEmpty(Config.DarkColorTraining)) _darkColorTraining = Config.DarkColorTraining;
+        if (!string.IsNullOrEmpty(Config.DarkColorOther)) _darkColorOther = Config.DarkColorOther;
+    }
+
+    private async Task ConnectAsync()
+    {
+        if (RtsGridId == 0 || _businessUnitId == 0)
+        {
+            Logger.LogWarning("AgentStateDistributionWidget: RtsGridId or BusinessUnitId is 0, skipping connection");
+            return;
+        }
+
+        _connectionState = ConnectionState.Connecting;
+        Logger.LogInformation("AgentStateDistributionWidget: Starting connection for RtsGridId {RtsGridId}", RtsGridId);
+
+        await Task.Delay(Random.Shared.Next(100, 500), _cts.Token);
+
+        try
+        {
+            var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
+            var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
+            var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={RtsGridId}";
+
+            Logger.LogInformation("AgentStateDistributionWidget: Connecting to {Url}", fullUrl);
+
+            _hub = new HubConnectionBuilder()
+                .WithUrl(fullUrl)
+                .WithAutomaticReconnect(new[] {
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(5),
+                    TimeSpan.FromSeconds(10),
+                    TimeSpan.FromSeconds(30)
+                })
+                .Build();
+
+            _hub.On<GridUpdate>("QueueGridUpdate", async update =>
+            {
+                var buRow = update.Rows.FirstOrDefault(r => r.UnionId == _businessUnitId);
+                if (buRow is not null)
+                {
+                    _cellValues = buRow.Metrics;
+                    await InvokeAsync(async () =>
+                    {
+                        StateHasChanged();
+                        await RenderChartAsync();
+                    });
+                }
+            });
+
+            _hub.Reconnecting += async _ =>
+            {
+                _connectionState = ConnectionState.Reconnecting;
+                await InvokeAsync(StateHasChanged);
+            };
+
+            _hub.Reconnected += async _ =>
+            {
+                _connectionState = ConnectionState.Connected;
+                await InvokeAsync(StateHasChanged);
+            };
+
+            _hub.Closed += async ex =>
+            {
+                if (ex != null)
+                {
+                    Logger.LogWarning(ex, "SignalR connection closed with error");
+                    _connectionState = ConnectionState.Failed;
+                    await InvokeAsync(StateHasChanged);
+                }
+            };
+
+            await _hub.StartAsync(_cts.Token);
+            _connectionState = ConnectionState.Connected;
+
+            Logger.LogInformation("Connected to QueueGrid simulator for RtsGridId {RtsGridId}", RtsGridId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AgentStateDistributionWidget: Failed to connect. Error: {Message}", ex.Message);
+            _connectionState = ConnectionState.Failed;
+        }
+    }
+
+    private async Task ReconnectAsync()
+    {
+        if (_hub != null)
+        {
+            try { await _hub.DisposeAsync(); } catch { }
+            _hub = null;
+        }
+        _cellValues.Clear();
+        _chartRendered = false;
+        await ConnectAsync();
+    }
+
+    private async Task RenderChartAsync()
+    {
+        var segments = BuildSegments();
+        if (segments.Count == 0) return;
+
+        var options = new
+        {
+            chartType = _chartType,
+            valueDisplay = _valueDisplay,
+            showLegend = _showLegend,
+            showValueLabels = _showValueLabels,
+            fontColor = EffectiveFontColor
+        };
+
+        try
+        {
+            await JS.InvokeVoidAsync("agentStateDistributionChart.render", _chartElementId, segments, options);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to render chart");
+        }
+    }
+
+    private List<object> BuildSegments()
+    {
+        var available = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumAvailableUsers"));
+        var onPhone = ParseInt(_cellValues.GetValueOrDefault("QueueNumOnCallAgents"));
+        var breakCount = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumBreakUsers"));
+        var paperwork = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumPaperworkUsers"));
+        var training = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumTrainingUsers"));
+        var total = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumLoggedUsers"));
+
+        _totalAgents = total;
+
+        var sumFive = available + onPhone + breakCount + paperwork + training;
+        var other = Math.Max(0, total - sumFive);
+
+        var segments = new List<object>
+        {
+            new { label = "Available", value = available, color = EffectiveColorAvailable },
+            new { label = "On Phone", value = onPhone, color = EffectiveColorOnPhone },
+            new { label = "Break", value = breakCount, color = EffectiveColorBreak },
+            new { label = "Paperwork", value = paperwork, color = EffectiveColorPaperwork },
+            new { label = "Training", value = training, color = EffectiveColorTraining }
+        };
+
+        if (other > 0)
+        {
+            segments.Add(new { label = "Other", value = other, color = EffectiveColorOther });
+        }
+
+        return segments;
+    }
+
+    private static int ParseInt(string? value) =>
+        int.TryParse(value, out var n) ? n : 0;
+
+    private string GetWidgetStyle()
+    {
+        var styles = new List<string>();
+        var bg = EffectiveBackgroundColor;
+        var fg = EffectiveFontColor;
+        if (!string.IsNullOrEmpty(bg))
+            styles.Add($"background-color: {bg}");
+        if (!string.IsNullOrEmpty(fg))
+            styles.Add($"color: {fg}");
+        return string.Join("; ", styles);
+    }
+
+    private string GetFontColorStyle()
+    {
+        var fg = EffectiveFontColor;
+        return !string.IsNullOrEmpty(fg) ? $"color: {fg};" : "";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _cts.Cancel();
+
+        try
+        {
+            await JS.InvokeVoidAsync("agentStateDistributionChart.destroy", _chartElementId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Error destroying chart");
+        }
+
+        if (_hub != null)
+        {
+            try
+            {
+                await _hub.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Error disposing hub connection");
+            }
+        }
+
+        _cts.Dispose();
+    }
+
+    private record GridUpdate(int GridId, List<GridRowUpdate> Rows);
+    private record GridRowUpdate(string RowId, int? UnionId, Dictionary<string, string> Metrics);
+}

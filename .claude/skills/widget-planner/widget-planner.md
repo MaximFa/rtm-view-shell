@@ -419,6 +419,9 @@ Before saying "готово, запускай CC":
 - [ ] Config modal tabs described in spec §N.7 AND in CC task deliverables
 - [ ] "Save as Template" directive in CC task
 - [ ] Acceptance criteria include config modal + template items
+- [ ] **Real-time Grid widgets only:** CC task includes simulator step (L-19):
+      `GridRowData` has `UnionId`, `GetMetricsForGridAsync` covers new MetricIds,
+      `QueueDataGenerator` populates `UnionId` from DB rows
 - [ ] Git commit: `docs/widget-specification.md` + `docs/backend-tasks.md` together
 
 ---
@@ -537,6 +540,99 @@ Two separate RTS infrastructure patterns exist. Mixing them causes wrong table w
 - **Agent Grid** (`SaveAgentGridRtsCommand`): rows are per-agent; uses a different table set (`RtsUserGrid*`). Use for per-agent row display.
 
 **Rule:** Ask "Как Queue Grid или как Agent Grid?" in Phase 0 before writing any spec or task. Record the answer in §N.1 of the spec.
+
+---
+
+
+### L-19: Real-time Grid widgets — simulator must be updated for new metrics
+
+**Root cause (CC-007 ASD widget, 2026-05-28):** After implementing a new real-time Grid widget,
+the widget connected to SignalR successfully but showed empty data ("Live · 0 agents").
+Two simulator defects caused this:
+
+1. **`UnionId` absent from `GridRowData`** — simulator sent `(string RowId, Dictionary Metrics)`
+   but widget expected `(string RowId, int? UnionId, Dictionary Metrics)`. After JSON
+   deserialization `UnionId` was always `null` → `r.UnionId == _businessUnitId` always false
+   → no row ever matched.
+
+2. **New widget metrics not returned by `GetQueueMetricsAsync`** — the method filtered only
+   metrics with Description starting "QM" or "Agent Group". ASD metrics (`QueueLoginData*`,
+   `QueueNum*`) didn't match → generator produced no values for them.
+
+**Rule — for every new real-time Grid widget, the CC task MUST include a simulator step:**
+
+> **⚠ Simulator step (mandatory for all real-time Grid widgets):**
+> After implementing the widget, verify `tools/SignalRSimulator/` supports it:
+> 1. **`Models/GridModels.cs`** — `GridRowData` must include `int? UnionId` field.
+>    If absent, add it. Widget's `GridRowUpdate` local record must match.
+> 2. **`Services/DbMetricService.cs`** — `GetQueueMetricsAsync` (or `GetAgentMetricsAsync`)
+>    must return the new widget's MetricIds. If the new metrics have a different
+>    Description prefix, extend the filter or add `GetMetricsForGridAsync(int gridId)` that
+>    reads actual MetricIds from `RTSGrid_Cell` for the given grid.
+> 3. **`Generators/QueueDataGenerator.cs`** (or `AgentDataGenerator.cs`) — generator must
+>    populate `UnionId` from `RTSGrid_Row.UnionId` (DB lookup). Use `GetRowsForGridAsync`.
+> 4. Build and restart simulator. Confirm widget shows live data within 5 s.
+
+**Add to CC task Acceptance criteria:**
+- [ ] Simulator sends `QueueGridUpdate` / `AgentGridUpdate` with correct `UnionId` and
+      non-zero values for all widget MetricIds
+- [ ] Widget canvas shows real data (not "0 agents" / "0 calls") within 5 s of page load
+
+**Add to Phase 5 Final Checklist** (see § below).
+
+---
+
+
+### L-20: DashboardWidget.GridId ≠ RTSGrid_Grid.GridId — два разных auto-increment
+
+**Критический нюанс (CC-007 ASD, 2026-05-28).**
+
+В системе сосуществуют два независимых auto-increment GridId:
+
+| Источник | Таблица | Доступ в коде |
+|---|---|---|
+| `DashboardWidget.GridId` | `dashboard_widgets.GridId` | `Widget.GridId` / `GridId` параметр виджета |
+| `RTSGrid_Grid.GridId` | `RTSGrid_Grid` | `Config.GridId` (из `WidgetConfig.GridId`) |
+
+`preassignedGridId` в `SaveWidgetConfig` **всегда `null`** → `DashboardWidget.GridId` всегда генерируется DB автоматически, независимо от `RTSGrid_Grid.GridId`.
+
+**Правило для SignalR виджетов:**
+
+> Для URL подключения к хабу (`hubs/queue-grid?gridId=X`) **всегда** использовать
+> `Config.GridId` (`RTSGrid_Grid.GridId`), а НЕ параметр `GridId` (`DashboardWidget.GridId`).
+> Паттерн:
+> ```csharp
+> private int RtsGridId => Config?.GridId ?? GridId;
+> var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={RtsGridId}";
+> ```
+
+**Почему Queue Grid «работает» без этого фикса:**
+Queue Grid не фильтрует строки по UnionId — показывает все строки из симулятора включая random fallback.
+Любой виджет, который ищет строку по `r.UnionId == buId`, сломается без этого фикса.
+
+**Правило для спецификации:**
+В §N.10 Implementation Notes каждого real-time Grid виджета с BU-фильтрацией добавлять:
+> "SignalR hub URL must use Config.GridId (RTSGrid_Grid.GridId), not the GridId component parameter."
+
+---
+
+### L-21: ConfigBusinessUnit хранит integer ID как строку — не имя BU
+
+`ConfigBusinessUnit` (string?) заполняется в момент выбора BU через dropdown:
+```csharp
+ConfigBusinessUnit = bu?.BusinessUnitId.ToString();  // e.g. "5", not "Billing Department"
+```
+
+При сохранении конфига виджета:
+```csharp
+BusinessUnitId = int.TryParse(ConfigBusinessUnit, out var parsedBuId) ? parsedBuId : (int?)null
+```
+
+`int.TryParse` работает корректно, т.к. `ConfigBusinessUnit = "5"`.
+
+**Не путать с `BuSearchText`** — это текстовое поле поиска, хранит имя BU для отображения.
+При открытии dropdown: `BuSearchText = string.Empty` (очистить поиск).
+При закрытии: `BuSearchText = GetBusinessUnitName(ConfigBusinessUnit)` (восстановить имя).
 
 ---
 

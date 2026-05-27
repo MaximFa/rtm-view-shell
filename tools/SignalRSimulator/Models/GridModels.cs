@@ -16,8 +16,14 @@ public record MetricDefinition(
 /// </summary>
 public record GridRowData(
     string RowId,
-    Dictionary<string, string> Metrics  // MetricId -> formatted value
+    int? UnionId,                        // BusinessUnitId from RTSGrid_Row.UnionId
+    Dictionary<string, string> Metrics   // MetricId -> formatted value
 );
+
+/// <summary>
+/// Row info from RTSGrid_Row table
+/// </summary>
+public record GridRowInfo(int RowId, int? UnionId, int RowNumber);
 
 /// <summary>
 /// Grid update message - same for Agent Grid and Queue Grid

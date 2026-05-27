@@ -8,6 +8,8 @@ public interface IDbMetricService
     Task<List<MetricDefinition>> GetAllMetricsAsync(CancellationToken ct = default);
     Task<List<MetricDefinition>> GetAgentMetricsAsync(CancellationToken ct = default);
     Task<List<MetricDefinition>> GetQueueMetricsAsync(CancellationToken ct = default);
+    Task<List<GridRowInfo>> GetRowsForGridAsync(int gridId, CancellationToken ct = default);
+    Task<List<MetricDefinition>> GetMetricsForGridAsync(int gridId, CancellationToken ct = default);
 }
 
 public class DbMetricService : IDbMetricService
@@ -77,5 +79,51 @@ public class DbMetricService : IDbMetricService
             m.Description?.StartsWith("QM", StringComparison.OrdinalIgnoreCase) == true ||
             m.Description?.StartsWith("Agent Group", StringComparison.OrdinalIgnoreCase) == true
         ).ToList();
+    }
+
+    public async Task<List<GridRowInfo>> GetRowsForGridAsync(int gridId, CancellationToken ct = default)
+    {
+        var rows = new List<GridRowInfo>();
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+        const string sql = @"
+            SELECT ""RowId"", ""UnionId"", ""RowNumber""
+            FROM ""RTSGrid_Row""
+            WHERE ""GridId"" = @gridId AND ""RowNumber"" > 1
+            ORDER BY ""RowNumber""";
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("gridId", gridId);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            rows.Add(new GridRowInfo(
+                RowId: reader.GetInt32(0),
+                UnionId: reader.IsDBNull(1) ? null : reader.GetInt32(1),
+                RowNumber: reader.GetInt32(2)
+            ));
+        }
+        return rows;
+    }
+
+    public async Task<List<MetricDefinition>> GetMetricsForGridAsync(int gridId, CancellationToken ct = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+        const string sql = @"
+            SELECT DISTINCT c.""Value""
+            FROM ""RTSGrid_Cell"" c
+            JOIN ""RTSGrid_Row"" r ON c.""RowId"" = r.""RowId""
+            WHERE r.""GridId"" = @gridId AND c.""CellType"" = 'Data' AND c.""Value"" IS NOT NULL";
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("gridId", gridId);
+        var metricIds = new List<string>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            metricIds.Add(reader.GetString(0));
+
+        if (metricIds.Count == 0) return new List<MetricDefinition>();
+
+        var all = await GetAllMetricsAsync(ct);
+        return all.Where(m => metricIds.Contains(m.MetricId)).ToList();
     }
 }
