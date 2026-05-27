@@ -1,8 +1,7 @@
 # RTSGrid_Metric — Reference Guide
 
 > Shell-owned reference for working with the CC platform's real-time metric catalogue.
-> Based on `Metrics.csv` (190 entries). Do not modify `RTSGrid_Metric` from the shell —
-> it is owned by the CC platform and populated via SignalR infrastructure.
+> Based on `Metrics.csv` (190 entries).
 
 ---
 
@@ -10,7 +9,18 @@
 
 `RTSGrid_Metric` is the CC platform's catalogue of real-time metrics delivered via SignalR.
 The shell reads this table to populate widget configuration dropdowns and drive filter logic
-in table widgets. **The shell never writes to this table.**
+in table widgets.
+
+> **⚠ CRITICAL RULE — Adding new metrics:**
+> The shell **CAN add new entries** to `RTSGrid_Metric`, provided:
+> 1. `MetricFunction` is one of the **existing values** listed in §3.4 — never invent a new one
+> 2. `MetricParameter` follows the **correct format** for that MetricFunction (filter expression, StatusGroup name, or status name — see §3.4)
+>
+> Adding a metric with a non-existent `MetricFunction` or wrong `MetricParameter` format
+> will cause the SignalR server to fail silently or produce incorrect values.
+>
+> Metrics with a dot in `MetricId` (e.g. `interaction.incoming_calls`) belong to
+> `History_Metric`, not `RTSGrid_Metric`.
 
 ---
 
@@ -35,6 +45,7 @@ Metrics fall into three logical categories, identified by the **Description pref
 - **Type:** `varchar`, Primary Key
 - **Format:** PascalCase, no dots. Prefixes (`Mon*`, `Queue*`, `User*`, etc.) are historical with no enforced logic.
 - **Rule:** MetricIds with a dot (e.g. `interaction.incoming_calls`) belong to the shell-owned `History_Metric` table — never to `RTSGrid_Metric`.
+- **New metrics:** Can be added to `RTSGrid_Metric` using existing `MetricFunction` values with correct `MetricParameter` format (see §3.4).
 
 ### 3.2 Description
 - **Type:** `varchar`
