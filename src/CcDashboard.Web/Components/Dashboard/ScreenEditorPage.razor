@@ -253,7 +253,7 @@
                         <li class="nav-item">
                             <button class="nav-link @(ConfigActiveTab == "appearance" ? "active" : "")" @onclick='() => ConfigActiveTab = "appearance"'>Appearance</button>
                         </li>
-                        @if (!IsDayTrendWidget(ConfiguringWidget))
+                        @if (IsQueueGridWidget(ConfiguringWidget) || IsAgentGridWidget(ConfiguringWidget))
                         {
                             <li class="nav-item">
                                 <button class="nav-link @(ConfigActiveTab == "thresholds" ? "active" : "")" @onclick='() => ConfigActiveTab = "thresholds"'>Thresholds</button>
@@ -592,6 +592,67 @@
                             </div>
                         }
 
+                        @if (IsAgentStateDistributionWidget(ConfiguringWidget))
+                        {
+                            <hr class="my-3" />
+
+                            <!-- Chart Type radio group -->
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">@L["Widget_ASD_ChartType"]</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach (var (val, key) in new[] {
+                                        ("doughnut","Widget_ASD_ChartType_Donut"),
+                                        ("pie","Widget_ASD_ChartType_Pie"),
+                                        ("bar","Widget_ASD_ChartType_Bar"),
+                                        ("horizontalbar","Widget_ASD_ChartType_HorizontalBar") })
+                                    {
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio"
+                                                   name="asdChartType" id="asdChart_@val"
+                                                   checked="@(ConfigAsdChartType == val)"
+                                                   @onchange="@(() => ConfigAsdChartType = val)" />
+                                            <label class="form-check-label" for="asdChart_@val">@L[key]</label>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Value Display radio group -->
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">@L["Widget_ASD_ValueDisplay"]</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="asdValueDisplay" id="asdValPct"
+                                               checked="@(ConfigAsdValueDisplay == "percentages")"
+                                               @onchange="@(() => ConfigAsdValueDisplay = "percentages")" />
+                                        <label class="form-check-label" for="asdValPct">@L["Widget_ASD_ValueDisplay_Percentages"]</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="asdValueDisplay" id="asdValNum"
+                                               checked="@(ConfigAsdValueDisplay == "numbers")"
+                                               @onchange="@(() => ConfigAsdValueDisplay = "numbers")" />
+                                        <label class="form-check-label" for="asdValNum">@L["Widget_ASD_ValueDisplay_Numbers"]</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Show Legend + Show Value Labels checkboxes -->
+                            <div class="mb-3 d-flex gap-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           id="asdShowLegend" @bind="ConfigAsdShowLegend" />
+                                    <label class="form-check-label" for="asdShowLegend">@L["Widget_ASD_ShowLegend"]</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           id="asdShowValueLabels" @bind="ConfigAsdShowValueLabels" />
+                                    <label class="form-check-label" for="asdShowValueLabels">@L["Widget_ASD_ShowValueLabels"]</label>
+                                </div>
+                            </div>
+                        }
+
                         <!-- Colors Section -->
                         <div class="appearance-section">
                             <h6 class="section-label">Colors</h6>
@@ -803,6 +864,102 @@
                                 }
                             </div>
                         </div>
+
+                        @if (IsAgentStateDistributionWidget(ConfiguringWidget))
+                        {
+                            <div class="appearance-section mt-4">
+                                <h6 class="section-label">@L["Widget_ASD_SegmentColors"]</h6>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-4"></div>
+                                    <div class="col-4 text-center small text-muted fw-semibold">Light</div>
+                                    <div class="col-4 text-center small text-muted fw-semibold">Dark</div>
+                                </div>
+                                <!-- Available -->
+                                <div class="row g-2 align-items-center mb-2">
+                                    <div class="col-4 small">@L["Widget_ASD_Segment_Available"]</div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdColorAvailable"
+                                               @onchange="e => { ConfigAsdColorAvailable = e.Value?.ToString() ?? ConfigAsdColorAvailable; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdDarkColorAvailable"
+                                               @onchange="e => { ConfigAsdDarkColorAvailable = e.Value?.ToString() ?? ConfigAsdDarkColorAvailable; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                </div>
+                                <!-- On Phone -->
+                                <div class="row g-2 align-items-center mb-2">
+                                    <div class="col-4 small">@L["Widget_ASD_Segment_OnPhone"]</div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdColorOnPhone"
+                                               @onchange="e => { ConfigAsdColorOnPhone = e.Value?.ToString() ?? ConfigAsdColorOnPhone; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdDarkColorOnPhone"
+                                               @onchange="e => { ConfigAsdDarkColorOnPhone = e.Value?.ToString() ?? ConfigAsdDarkColorOnPhone; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                </div>
+                                <!-- Break -->
+                                <div class="row g-2 align-items-center mb-2">
+                                    <div class="col-4 small">@L["Widget_ASD_Segment_Break"]</div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdColorBreak"
+                                               @onchange="e => { ConfigAsdColorBreak = e.Value?.ToString() ?? ConfigAsdColorBreak; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdDarkColorBreak"
+                                               @onchange="e => { ConfigAsdDarkColorBreak = e.Value?.ToString() ?? ConfigAsdDarkColorBreak; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                </div>
+                                <!-- Paperwork -->
+                                <div class="row g-2 align-items-center mb-2">
+                                    <div class="col-4 small">@L["Widget_ASD_Segment_Paperwork"]</div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdColorPaperwork"
+                                               @onchange="e => { ConfigAsdColorPaperwork = e.Value?.ToString() ?? ConfigAsdColorPaperwork; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdDarkColorPaperwork"
+                                               @onchange="e => { ConfigAsdDarkColorPaperwork = e.Value?.ToString() ?? ConfigAsdDarkColorPaperwork; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                </div>
+                                <!-- Training -->
+                                <div class="row g-2 align-items-center mb-2">
+                                    <div class="col-4 small">@L["Widget_ASD_Segment_Training"]</div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdColorTraining"
+                                               @onchange="e => { ConfigAsdColorTraining = e.Value?.ToString() ?? ConfigAsdColorTraining; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdDarkColorTraining"
+                                               @onchange="e => { ConfigAsdDarkColorTraining = e.Value?.ToString() ?? ConfigAsdDarkColorTraining; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                </div>
+                                <!-- Other -->
+                                <div class="row g-2 align-items-center mb-2">
+                                    <div class="col-4 small">@L["Widget_ASD_Segment_Other"]</div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdColorOther"
+                                               @onchange="e => { ConfigAsdColorOther = e.Value?.ToString() ?? ConfigAsdColorOther; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                    <div class="col-4 d-flex justify-content-center">
+                                        <input type="color" value="@ConfigAsdDarkColorOther"
+                                               @onchange="e => { ConfigAsdDarkColorOther = e.Value?.ToString() ?? ConfigAsdDarkColorOther; }"
+                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    </div>
+                                </div>
+                            </div>
+                        }
 
                         @if (IsAgentGridWidget(ConfiguringWidget) || IsQueueGridWidget(ConfiguringWidget))
                         {
@@ -2011,6 +2168,26 @@
     private string DayTrendBuSearchText = "";
     private bool DayTrendBuDropdownOpen;
 
+    // Agent State Distribution Configuration
+    private string ConfigAsdChartType = "doughnut";
+    private string ConfigAsdValueDisplay = "percentages";
+    private bool ConfigAsdShowLegend = true;
+    private bool ConfigAsdShowValueLabels = true;
+    // ASD segment colors light
+    private string ConfigAsdColorAvailable = "#22c55e";
+    private string ConfigAsdColorOnPhone = "#3b82f6";
+    private string ConfigAsdColorBreak = "#f59e0b";
+    private string ConfigAsdColorPaperwork = "#8b5cf6";
+    private string ConfigAsdColorTraining = "#06b6d4";
+    private string ConfigAsdColorOther = "#6b7280";
+    // ASD segment colors dark
+    private string ConfigAsdDarkColorAvailable = "#4ade80";
+    private string ConfigAsdDarkColorOnPhone = "#60a5fa";
+    private string ConfigAsdDarkColorBreak = "#fbbf24";
+    private string ConfigAsdDarkColorPaperwork = "#a78bfa";
+    private string ConfigAsdDarkColorTraining = "#22d3ee";
+    private string ConfigAsdDarkColorOther = "#9ca3af";
+
     // Widget deletion confirmation
     private PlacedWidget? WidgetToDelete;
     private List<PlacedWidget> WidgetsPendingRtsDeletion = [];
@@ -2809,6 +2986,27 @@
         DayTrendBuSearchText = BusinessUnits.FirstOrDefault(b => b.BusinessUnitId == ConfigDayTrendBusinessUnitId)?.BusinessUnitName ?? "";
         DayTrendBuDropdownOpen = false;
 
+        // Agent State Distribution specific
+        if (IsAgentStateDistributionWidget(widget))
+        {
+            ConfigAsdChartType = widget.Config.ChartType ?? "doughnut";
+            ConfigAsdValueDisplay = widget.Config.ValueDisplay ?? "percentages";
+            ConfigAsdShowLegend = widget.Config.ShowLegend;
+            ConfigAsdShowValueLabels = widget.Config.ShowValueLabels;
+            ConfigAsdColorAvailable = widget.Config.ColorAvailable ?? "#22c55e";
+            ConfigAsdColorOnPhone = widget.Config.ColorOnPhone ?? "#3b82f6";
+            ConfigAsdColorBreak = widget.Config.ColorBreak ?? "#f59e0b";
+            ConfigAsdColorPaperwork = widget.Config.ColorPaperwork ?? "#8b5cf6";
+            ConfigAsdColorTraining = widget.Config.ColorTraining ?? "#06b6d4";
+            ConfigAsdColorOther = widget.Config.ColorOther ?? "#6b7280";
+            ConfigAsdDarkColorAvailable = widget.Config.DarkColorAvailable ?? "#4ade80";
+            ConfigAsdDarkColorOnPhone = widget.Config.DarkColorOnPhone ?? "#60a5fa";
+            ConfigAsdDarkColorBreak = widget.Config.DarkColorBreak ?? "#fbbf24";
+            ConfigAsdDarkColorPaperwork = widget.Config.DarkColorPaperwork ?? "#a78bfa";
+            ConfigAsdDarkColorTraining = widget.Config.DarkColorTraining ?? "#22d3ee";
+            ConfigAsdDarkColorOther = widget.Config.DarkColorOther ?? "#9ca3af";
+        }
+
         // Initialize search fields with selected values
         BuSearchText = GetBusinessUnitName(ConfigBusinessUnit);
         MetricSearchText = ConfigMetric ?? "";
@@ -2865,6 +3063,10 @@
         var name = widget.OriginalWidgetName?.ToLower() ?? widget.Name.ToLower();
         return name.Contains("day") && name.Contains("trend");
     }
+
+    private static bool IsAgentStateDistributionWidget(PlacedWidget? widget) =>
+        widget?.Name.Contains("agent state", StringComparison.OrdinalIgnoreCase) == true ||
+        widget?.CatalogItemId == Guid.Parse("a4d1e3f7-2b8c-4e9a-b1d5-6f3c2a7e0d11");
 
     private void SetDayTrendChartType(string chartType)
     {
@@ -3537,7 +3739,24 @@
             DayTrendShowDataLabels = ConfigDayTrendShowDataLabels,
             DayTrendShowLegend = ConfigDayTrendShowLegend,
             DayTrendMetrics = ConfigDayTrendMetrics.Count > 0 ? ConfigDayTrendMetrics : null,
-            DayTrendAgentMetrics = ConfigDayTrendAgentMetrics.Count > 0 ? ConfigDayTrendAgentMetrics : null
+            DayTrendAgentMetrics = ConfigDayTrendAgentMetrics.Count > 0 ? ConfigDayTrendAgentMetrics : null,
+            // Agent State Distribution specific
+            ChartType = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdChartType : null,
+            ValueDisplay = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdValueDisplay : null,
+            ShowLegend = ConfigAsdShowLegend,
+            ShowValueLabels = ConfigAsdShowValueLabels,
+            ColorAvailable = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorAvailable : null,
+            ColorOnPhone = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorOnPhone : null,
+            ColorBreak = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorBreak : null,
+            ColorPaperwork = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorPaperwork : null,
+            ColorTraining = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorTraining : null,
+            ColorOther = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorOther : null,
+            DarkColorAvailable = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorAvailable : null,
+            DarkColorOnPhone = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorOnPhone : null,
+            DarkColorBreak = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorBreak : null,
+            DarkColorPaperwork = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorPaperwork : null,
+            DarkColorTraining = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorTraining : null,
+            DarkColorOther = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorOther : null
         };
 
         ConfiguringWidget.Config = newConfig;
@@ -4268,6 +4487,29 @@
         public bool? DayTrendShowLegend { get; set; }
         public List<DayTrendMetricConfig>? DayTrendMetrics { get; set; }
         public List<DayTrendMetricConfig>? DayTrendAgentMetrics { get; set; }
+
+        // Agent State Distribution widget specific
+        public int? BusinessUnitId { get; set; }
+        public string? ChartType { get; set; }  // doughnut | pie | bar | horizontalbar
+        public string? ValueDisplay { get; set; }  // percentages | numbers
+        public bool ShowLegend { get; set; } = true;
+        public bool ShowValueLabels { get; set; } = true;
+
+        // Agent State Distribution segment colors (light mode)
+        public string? ColorAvailable { get; set; }
+        public string? ColorOnPhone { get; set; }
+        public string? ColorBreak { get; set; }
+        public string? ColorPaperwork { get; set; }
+        public string? ColorTraining { get; set; }
+        public string? ColorOther { get; set; }
+
+        // Agent State Distribution segment colors (dark mode)
+        public string? DarkColorAvailable { get; set; }
+        public string? DarkColorOnPhone { get; set; }
+        public string? DarkColorBreak { get; set; }
+        public string? DarkColorPaperwork { get; set; }
+        public string? DarkColorTraining { get; set; }
+        public string? DarkColorOther { get; set; }
     }
 
     public record DayTrendMetricConfig(string MetricId, bool Enabled, string Color, string Label, string ValueType = "number")
