@@ -256,6 +256,46 @@
   <data name="State_NotReady"><value>Not Ready</value></data>
   <data name="State_LoggedOut"><value>Logged Out</value></data>
 
+  <!-- ── DayTrend Widget ── -->
+  <data name="Widget_NoQueuesForBU"><value>No queues assigned to this Business Unit</value></data>
+  <data name="Widget_SelectBusinessUnit"><value>Please select a Business Unit</value></data>
+  <data name="Widget_NoDataToday"><value>No interactions recorded today</value></data>
+  <data name="Widget_LastUpdated"><value>Last updated</value></data>
+  <data name="Widget_DayTrend_Title"><value>Title</value></data>
+  <data name="Widget_DayTrend_BusinessUnit"><value>Business Unit</value></data>
+  <data name="Widget_DayTrend_Interval"><value>Time Interval</value></data>
+  <data name="Widget_DayTrend_Interval15"><value>15 minutes</value></data>
+  <data name="Widget_DayTrend_Interval30"><value>30 minutes</value></data>
+  <data name="Widget_DayTrend_Interval60"><value>60 minutes</value></data>
+  <data name="Widget_DayTrend_Refresh"><value>Auto-refresh</value></data>
+  <data name="Widget_DayTrend_Refresh1"><value>Every 1 minute</value></data>
+  <data name="Widget_DayTrend_Refresh5"><value>Every 5 minutes</value></data>
+  <data name="Widget_DayTrend_Refresh10"><value>Every 10 minutes</value></data>
+  <data name="Widget_DayTrend_RefreshManual"><value>Manual only</value></data>
+  <data name="Widget_DayTrend_ChartType"><value>Chart Type</value></data>
+  <data name="Widget_DayTrend_ChartLine"><value>Line</value></data>
+  <data name="Widget_DayTrend_ChartBar"><value>Bar</value></data>
+  <data name="Widget_DayTrend_ChartArea"><value>Area</value></data>
+  <data name="Widget_DayTrend_ChartStep"><value>Step</value></data>
+  <data name="Widget_DayTrend_ShowDataLabels"><value>Show data labels</value></data>
+  <data name="Widget_DayTrend_ShowLegend"><value>Show legend</value></data>
+  <data name="Widget_DayTrend_TabGeneral"><value>General</value></data>
+  <data name="Widget_DayTrend_TabAppearance"><value>Appearance</value></data>
+  <data name="Widget_DayTrend_TabCallMetrics"><value>Call Metrics</value></data>
+  <data name="Widget_DayTrend_TabAgentMetrics"><value>Agent Metrics</value></data>
+  <data name="Widget_DayTrend_MetricEnabled"><value>Enabled</value></data>
+  <data name="Widget_DayTrend_MetricColor"><value>Color</value></data>
+  <data name="Widget_DayTrend_MetricLabel"><value>Custom Label</value></data>
+  <data name="Widget_DayTrend_AgentNote"><value>Agent metrics shown as dashed lines</value></data>
+  <data name="Widget_DayTrend_Manual"><value>Manual only</value></data>
+  <data name="Widget_DayTrend_Line"><value>Line</value></data>
+  <data name="Widget_DayTrend_Bar"><value>Bar</value></data>
+  <data name="Widget_DayTrend_Area"><value>Area</value></data>
+  <data name="Widget_DayTrend_Step"><value>Step</value></data>
+  <data name="Widget_DayTrend_CallMetricsHelp"><value>Enable metrics to display in the chart. Drag to reorder.</value></data>
+  <data name="Widget_DayTrend_AgentMetricsHelp"><value>Enable agent status metrics. Shown as dashed lines.</value></data>
+  <data name="Widget_DayTrend_AgentMetricsNote"><value>If no agent metrics are enabled, the agent status query is skipped for better performance.</value></data>
+
   <!-- ── Widget Editor ── -->
   <data name="Widgets_Name"><value>Widget Name</value></data>
   <data name="Widgets_Palette"><value>Widgets</value></data>

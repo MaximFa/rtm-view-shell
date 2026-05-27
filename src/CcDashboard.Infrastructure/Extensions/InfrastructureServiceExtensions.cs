@@ -3,6 +3,7 @@ using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Audit;
 using CcDashboard.Infrastructure.Caching;
 using CcDashboard.Infrastructure.Email;
+using CcDashboard.Infrastructure.Handlers;
 using CcDashboard.Infrastructure.Identity;
 using CcDashboard.Infrastructure.Persistence;
 using CcDashboard.Infrastructure.Persistence.Repositories;
@@ -127,6 +128,9 @@ public static class InfrastructureServiceExtensions
 
         // API hook (no-op until CC-platform API is available)
         services.AddScoped<IConfigurationApiHook, NoOpConfigurationApiHook>();
+
+        // MediatR handlers in Infrastructure (e.g., DayTrendQueryHandler)
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<DayTrendQueryHandler>());
 
         return services;
     }

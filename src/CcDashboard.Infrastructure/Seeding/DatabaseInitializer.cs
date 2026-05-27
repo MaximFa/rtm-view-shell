@@ -45,7 +45,15 @@ public class DatabaseInitializer(
         var platformTenant = await SeedPlatformTenantAsync(ct);
         await SeedSuperadminAsync(platformTenant, ct);
         await SeedWidgetCatalogAsync(ct);
+        await SeedRtsGridMetricsAsync(ct);
         await SeedSampleCcEntitiesAsync(platformTenant, ct);
+
+        // Dev-only: seed RTSData test rows for DayTrend widget
+        if (env.IsDevelopment())
+        {
+            await SeedDevRtsInteractionsAsync(platformTenant.Id, ct);
+            await SeedDevRtsUserStatusLogAsync(platformTenant.Id, ct);
+        }
 
         logger.LogInformation("Database seed complete.");
     }
@@ -180,9 +188,10 @@ public class DatabaseInitializer(
     {
         var items = new List<WidgetCatalogItem>
         {
-            new() { Id = Uuid.NewSequential(), Category = "Queues",          Name = "Queue Grid", Description = "Real-time queue metrics table with customizable rows and columns", IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "Agents",          Name = "Agent Grid", Description = "Real-time agent table with states, durations, metrics and alerts",   IsActive = true },
-            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Data Slot",  Description = "Single metric display with target comparison",                         IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "Queues",          Name = "Queue Grid",       Description = "Real-time queue metrics table with customizable rows and columns", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "Agents",          Name = "Agent Grid",       Description = "Real-time agent table with states, durations, metrics and alerts",   IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Data Slot",        Description = "Single metric display with target comparison",                         IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Day Trend Chart",  Description = "Intraday call volume chart showing configured metrics broken down by time interval (15/30/60 min). Supports line, bar, area, and step chart types.", IsActive = true },
         };
 
         var existingNames = (await db.WidgetCatalogItems
@@ -273,18 +282,28 @@ public class DatabaseInitializer(
         }
         catch (Exception ex) { logger.LogWarning(ex, "NGC sites seed skipped (may already exist)"); }
 
-        // NGC Business Units (NGC_BusinessUnit table)
+        // NGC Business Units (NGC_BusinessUnit table) — granular upsert by name
         try
         {
-            if (!await beDb.NgcBusinessUnits.IgnoreQueryFilters().AnyAsync(b => b.TenantId == tenant.Id, ct))
+            var existingBuNames = await beDb.NgcBusinessUnits.IgnoreQueryFilters()
+                .Where(b => b.TenantId == tenant.Id)
+                .Select(b => b.BusinessUnitName)
+                .ToListAsync(ct);
+            var existingSet = existingBuNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var toAdd = new List<NgcBusinessUnit>();
+            if (!existingSet.Contains("Sales Department"))
+                toAdd.Add(new NgcBusinessUnit { TenantId = tenant.Id, BusinessUnitName = "Sales Department", Description = "Sales and marketing team", SiteId = "SITE001", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" });
+            if (!existingSet.Contains("Support Department"))
+                toAdd.Add(new NgcBusinessUnit { TenantId = tenant.Id, BusinessUnitName = "Support Department", Description = "Customer support team", SiteId = "SITE001", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" });
+            if (!existingSet.Contains("Billing Department"))
+                toAdd.Add(new NgcBusinessUnit { TenantId = tenant.Id, BusinessUnitName = "Billing Department", Description = "Billing and accounts", SiteId = "SITE002", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" });
+
+            if (toAdd.Count > 0)
             {
-                beDb.NgcBusinessUnits.AddRange(
-                    new NgcBusinessUnit { TenantId = tenant.Id, BusinessUnitName = "Sales Department", Description = "Sales and marketing team", SiteId = "SITE001", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" },
-                    new NgcBusinessUnit { TenantId = tenant.Id, BusinessUnitName = "Support Department", Description = "Customer support team", SiteId = "SITE001", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" },
-                    new NgcBusinessUnit { TenantId = tenant.Id, BusinessUnitName = "Billing Department", Description = "Billing and accounts", SiteId = "SITE002", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" }
-                );
+                beDb.NgcBusinessUnits.AddRange(toAdd);
                 await beDb.SaveChangesAsync(ct);
-                logger.LogInformation("Seeded sample NGC business units for tenant {TenantId}", tenant.Id);
+                logger.LogInformation("Seeded {Count} NGC business units for tenant {TenantId}", toAdd.Count, tenant.Id);
             }
         }
         catch (Exception ex) { logger.LogWarning(ex, "NGC business units seed skipped (may already exist)"); }
@@ -304,5 +323,190 @@ public class DatabaseInitializer(
             }
         }
         catch (Exception ex) { logger.LogWarning(ex, "NGC supergroups seed skipped (may already exist)"); }
+
+        // NGC Business Unit Queue Classifications (BU → Queue mapping for DayTrend widget)
+        try
+        {
+            var bus = await beDb.NgcBusinessUnits.IgnoreQueryFilters()
+                .Where(b => b.TenantId == tenant.Id)
+                .ToListAsync(ct);
+
+            var existingPairs = await beDb.NgcBusinessUnitQueueClassifications.IgnoreQueryFilters()
+                .Where(c => c.TenantId == tenant.Id)
+                .Select(c => new { c.BusinessUnitId, c.QueueId })
+                .ToListAsync(ct);
+            var existingSet = existingPairs.Select(p => $"{p.BusinessUnitId}:{p.QueueId}").ToHashSet();
+
+            var salesBu = bus.FirstOrDefault(b => b.BusinessUnitName == "Sales Department");
+            var supportBu = bus.FirstOrDefault(b => b.BusinessUnitName == "Support Department");
+            var billingBu = bus.FirstOrDefault(b => b.BusinessUnitName == "Billing Department");
+
+            var toAdd = new List<NgcBusinessUnitQueueClassification>();
+
+            void TryAdd(NgcBusinessUnit? bu, string queueId)
+            {
+                if (bu != null && !existingSet.Contains($"{bu.BusinessUnitId}:{queueId}"))
+                    toAdd.Add(new NgcBusinessUnitQueueClassification { TenantId = tenant.Id, BusinessUnitId = bu.BusinessUnitId, QueueId = queueId, CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" });
+            }
+
+            TryAdd(salesBu, "Q001");
+            TryAdd(supportBu, "Q002");
+            TryAdd(supportBu, "Q003");
+            TryAdd(supportBu, "Q005");
+            TryAdd(billingBu, "Q004");
+
+            if (toAdd.Count > 0)
+            {
+                beDb.NgcBusinessUnitQueueClassifications.AddRange(toAdd);
+                await beDb.SaveChangesAsync(ct);
+                logger.LogInformation("Seeded {Count} BU-Queue classifications for tenant {TenantId}", toAdd.Count, tenant.Id);
+            }
+        }
+        catch (Exception ex) { logger.LogWarning(ex, "BU-Queue classifications seed skipped (may already exist)"); }
+    }
+
+    private async Task SeedRtsGridMetricsAsync(CancellationToken ct)
+    {
+        var metrics = new List<RtsGridMetric>
+        {
+            // Interaction metrics (MetricType = "Interaction")
+            new() { MetricId = "interaction.incoming_calls",      Description = "Incoming Calls",           DataType = "int",     MetricFunction = "COUNT_FILTER", MetricParameter = "call_incoming",                          MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "Interaction" },
+            new() { MetricId = "interaction.answered_calls",      Description = "Answered Calls",           DataType = "int",     MetricFunction = "COUNT_FILTER", MetricParameter = "answered",                               MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "Interaction" },
+            new() { MetricId = "interaction.abandoned_calls",     Description = "Abandoned Calls",          DataType = "int",     MetricFunction = "COUNT_FILTER", MetricParameter = "abandoned",                              MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "Interaction" },
+            new() { MetricId = "interaction.callback_requests",   Description = "Callback Requests",        DataType = "int",     MetricFunction = "COUNT_FILTER", MetricParameter = "callback_incoming",                      MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "Interaction" },
+            new() { MetricId = "interaction.completed_callbacks", Description = "Completed Callbacks",      DataType = "int",     MetricFunction = "COUNT_FILTER", MetricParameter = "callback_completed",                     MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "Interaction" },
+            new() { MetricId = "interaction.outbound_calls",      Description = "Outbound Calls",           DataType = "int",     MetricFunction = "COUNT_FILTER", MetricParameter = "call_outgoing",                          MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "Interaction" },
+            new() { MetricId = "interaction.transferred_calls",   Description = "Transferred Calls",        DataType = "int",     MetricFunction = "COUNT_FILTER", MetricParameter = "transferred",                            MetricFormat = "0",        DefaultValue = "0", ValueType = "Number", MetricType = "Interaction" },
+            new() { MetricId = "interaction.avg_wait_time",       Description = "Avg Wait Time",            DataType = "decimal", MetricFunction = "AVG_FIELD",    MetricParameter = "TimeInQueue:answered",                   MetricFormat = "mm:ss",    DefaultValue = "0", ValueType = "Time",   MetricType = "Interaction" },
+            new() { MetricId = "interaction.max_wait_time",       Description = "Max Wait Time",            DataType = "decimal", MetricFunction = "MAX_FIELD",    MetricParameter = "TimeInQueue:answered",                   MetricFormat = "mm:ss",    DefaultValue = "0", ValueType = "Time",   MetricType = "Interaction" },
+            new() { MetricId = "interaction.avg_talk_time",       Description = "Avg Talk Time",            DataType = "decimal", MetricFunction = "AVG_FIELD",    MetricParameter = "TalkTime:answered",                      MetricFormat = "mm:ss",    DefaultValue = "0", ValueType = "Time",   MetricType = "Interaction" },
+            new() { MetricId = "interaction.avg_abandon_wait",    Description = "Avg Wait Before Abandon",  DataType = "decimal", MetricFunction = "AVG_FIELD",    MetricParameter = "TimeInQueue:abandoned",                  MetricFormat = "mm:ss",    DefaultValue = "0", ValueType = "Time",   MetricType = "Interaction" },
+
+            // Agent status log interval metrics (MetricType = "AgentStatusLog")
+            new() { MetricId = "statuslog.available_agents",      Description = "Available Agents",             DataType = "int",    MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:AVAILABLE",  MetricFormat = "0",     DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.onphone_agents",        Description = "On Phone Agents",              DataType = "int",    MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:ONPHONE",    MetricFormat = "0",     DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.break_agents",          Description = "Agents on Break",              DataType = "int",    MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:BREAK",      MetricFormat = "0",     DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.paperwork_agents",      Description = "Paperwork / ACW Agents",       DataType = "int",    MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:PAPERWORK",  MetricFormat = "0",     DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.training_agents",       Description = "Training / Back-Office Agents",DataType = "int",    MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:TRAINING",   MetricFormat = "0",     DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.total_agents",          Description = "Total Active Agents",          DataType = "int",    MetricFunction = "COUNT_DISTINCT", MetricParameter = "group:ALL",        MetricFormat = "0",     DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.logged_in_agents",      Description = "Logged-In Agents",             DataType = "int",    MetricFunction = "COUNT_POOL",     MetricParameter = "pool:all",         MetricFormat = "0",     DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.available_time_ms",     Description = "Available Time",               DataType = "bigint", MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:AVAILABLE",  MetricFormat = "mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.onphone_time_ms",       Description = "On Phone Time",                DataType = "bigint", MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:ONPHONE",    MetricFormat = "mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.break_time_ms",         Description = "Break Time",                   DataType = "bigint", MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:BREAK",      MetricFormat = "mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.paperwork_time_ms",     Description = "Paperwork / ACW Time",         DataType = "bigint", MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:PAPERWORK",  MetricFormat = "mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.training_time_ms",      Description = "Training / Back-Office Time",  DataType = "bigint", MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:TRAINING",   MetricFormat = "mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+            new() { MetricId = "statuslog.total_active_time_ms",  Description = "Total Active Time",            DataType = "bigint", MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:ALL",        MetricFormat = "mm:ss", DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+        };
+
+        try
+        {
+            var existingIds = (await beDb.RtsGridMetrics.Select(m => m.MetricId).ToListAsync(ct)).ToHashSet();
+            var toAdd = metrics.Where(m => !existingIds.Contains(m.MetricId)).ToList();
+            if (toAdd.Count > 0)
+            {
+                beDb.RtsGridMetrics.AddRange(toAdd);
+                await beDb.SaveChangesAsync(ct);
+                logger.LogInformation("Seeded {Count} RtsGridMetric entries", toAdd.Count);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "RtsGridMetric seed skipped (may already exist)");
+        }
+    }
+
+    private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("dd/MM/yyyy");
+        if (await beDb.RtsDataInteractions.AnyAsync(r => r.TenantId == tenantId && r.OnDate == today, ct))
+            return;
+
+        var rng = new Random(42);
+        var now = DateTime.UtcNow;
+        var queues = new[] { "Q001", "Q002", "Q003", "Q004", "Q005" };
+        var agents = new[] { "agent01", "agent02", "agent03", "agent04", "agent05" };
+        var rows = new List<RtsDataInteraction>();
+        var seg = 0;
+
+        for (int h = 8; h <= 17; h++)
+        {
+            foreach (var q in queues)
+            {
+                int count = rng.Next(3, 12);
+                for (int i = 0; i < count; i++)
+                {
+                    var inQueue = new DateTime(now.Year, now.Month, now.Day, h, rng.Next(0, 59), 0, DateTimeKind.Utc);
+                    var answered = rng.NextDouble() > 0.15;
+                    rows.Add(new RtsDataInteraction
+                    {
+                        TenantId = tenantId,
+                        InteractionId = Guid.NewGuid().ToString(),
+                        Segment = ++seg,
+                        ServerId = "SRV01",
+                        OnDate = today,
+                        InQueueDateTime = inQueue,
+                        AnsweredDateTime = answered ? inQueue.AddSeconds(rng.Next(5, 60)) : new DateTime(1753, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                        Workgroup = q,
+                        InteractionType = "Call",
+                        Direction = "Incoming",
+                        IsAnswered = answered,
+                        UserId = answered ? agents[rng.Next(agents.Length)] : string.Empty,
+                        IsAbandoned = !answered && rng.NextDouble() > 0.3,
+                        IsTransferred = answered && rng.NextDouble() < 0.1,
+                        IsInQueue = true,
+                        TimeInQueue = answered ? rng.Next(5, 120) : rng.Next(10, 180),
+                        TalkTime = answered ? rng.Next(30, 600) : 0,
+                        UpdateTime = DateTime.UtcNow,
+                    });
+                }
+            }
+        }
+
+        beDb.RtsDataInteractions.AddRange(rows);
+        await beDb.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded {Count} dev RTSData_Interaction rows for {Date}", rows.Count, today);
+    }
+
+    private async Task SeedDevRtsUserStatusLogAsync(Guid tenantId, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("dd/MM/yyyy");
+        if (await beDb.RtsDataUserStatusLogs.AnyAsync(r => r.TenantId == tenantId && r.OnDate == today, ct))
+            return;
+
+        var rng = new Random(42);
+        var now = DateTime.UtcNow;
+        var agents = new[] { "agent01", "agent02", "agent03", "agent04", "agent05" };
+        var groups = new[] { "AVAILABLE", "ONPHONE", "BREAK", "PAPERWORK", "TRAINING" };
+        var rows = new List<RtsDataUserStatusLog>();
+
+        foreach (var agent in agents)
+        {
+            var cursor = new DateTime(now.Year, now.Month, now.Day, 8, 0, 0, DateTimeKind.Utc);
+            var endOfDay = new DateTime(now.Year, now.Month, now.Day, 18, 0, 0, DateTimeKind.Utc);
+            while (cursor < endOfDay)
+            {
+                var group = groups[rng.Next(groups.Length)];
+                var durationMs = rng.Next(2, 30) * 60 * 1000L;
+                var end = cursor.AddMilliseconds(durationMs);
+                if (end > endOfDay) end = endOfDay;
+                rows.Add(new RtsDataUserStatusLog
+                {
+                    TenantId = tenantId,
+                    UserId = agent,
+                    OnDate = today,
+                    StatusGroup = group,
+                    StatusId = group.ToLower() + "_status",
+                    StartTime = cursor,
+                    EndTime = end,
+                    Duration = (long)(end - cursor).TotalMilliseconds,
+                    UpdateTime = DateTime.UtcNow
+                });
+                cursor = end;
+            }
+        }
+
+        beDb.RtsDataUserStatusLogs.AddRange(rows);
+        await beDb.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded {Count} dev RTSData_UserStatusLog rows", rows.Count);
     }
 }

@@ -12,3 +12,52 @@
 Для Юваля:
 Один наблюдательный момент: SQL-файлы теперь используют кавычки "RTSGrid_Metric" — это правильно для PostgreSQL, иначе он бы понял как rtsgrid_metric. 
 Стоит запомнить как convention: любые backend-таблицы в наших SQL-файлах всегда в кавычках.
+
+
+
+
+claude --resume 7b444462-b0cd-454e-aa29-934152e87ff5
+
+Отчет: Проблема с dropdown списком Business Unit в DayTrend
+
+  Симптом
+
+  Dropdown BU в конфигурации DayTrend виджета показывал только 1 элемент (текущий выбранный), вместо полного списка всех
+   Business Units.
+
+  Причина
+
+  Переменная DayTrendBuSearchText была предзаполнена именем выбранного BU. При открытии dropdown фильтр уже содержал
+  текст, например "Sales Department", и список фильтровался до одного совпадения.
+
+  Сравнение с AgentGrid
+
+  В AgentGrid dropdown работал корректно — там использовалась отдельная логика без предзаполнения поиска.
+
+  Решение
+
+  Добавлен @onfocus handler, очищающий поле поиска при фокусе:
+
+  ScreenEditorPage.razor (строки ~418-422):
+  <input type="text" class="form-control"
+         placeholder="@L["Common_Search"]..."
+         @bind="DayTrendBuSearchText"
+         @bind:event="oninput"
+         @onfocus="() => DayTrendBuSearchText = string.Empty" />
+
+  Результат
+
+  При клике на dropdown поле поиска очищается → показывается полный список BU → пользователь может выбрать любой или
+  начать печатать для фильтрации.
+
+  ---
+  Указание для widget-creator skill
+
+  §21.x Searchable dropdown pattern:
+
+  При реализации searchable dropdown с предвыбранным значением:
+  - НЕ предзаполнять поле поиска выбранным значением
+  - ИЛИ очищать поиск при @onfocus:
+  @onfocus="() => SearchText = string.Empty"
+
+  Иначе dropdown будет показывать только 1 элемент при открытии.

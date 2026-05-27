@@ -1,0 +1,347 @@
+@using CcDashboard.Application.Queries.Widgets
+@using MediatR
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
+@using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+@using System.Text.Json
+@implements IAsyncDisposable
+
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject IMediator Mediator
+@inject IJSRuntime JS
+@inject ILogger<DayTrendWidget> Logger
+
+<div class="daytrend-widget h-100" style="@GetWidgetStyle()">
+    @if (_loading)
+    {
+        <div class="d-flex align-items-center justify-content-center h-100" aria-busy="true">
+            <div class="spinner-border spinner-border-sm me-2" aria-hidden="true"></div>
+            <span style="@GetFontStyle()">@L["Loading"]</span>
+        </div>
+    }
+    else if (_isNoQueues)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100">
+            <i class="bi bi-exclamation-triangle fs-3 mb-2 text-warning" aria-hidden="true"></i>
+            <span class="small" style="@GetFontStyle()">@L["Widget_NoQueuesForBU"]</span>
+        </div>
+    }
+    else if (_error is not null)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100">
+            <i class="bi bi-exclamation-circle fs-3 mb-2 text-danger" aria-hidden="true"></i>
+            <span class="small mb-2" style="@GetFontStyle()">@_error</span>
+            <button class="btn btn-sm btn-outline-primary" @onclick="LoadDataAsync">
+                @L["Widget_Retry"]
+            </button>
+        </div>
+    }
+    else if (_intervals.Count == 0)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100">
+            <i class="bi bi-bar-chart fs-3 mb-2 opacity-50" aria-hidden="true"></i>
+            <span class="small" style="@GetFontStyle()">@L["Widget_NoDataToday"]</span>
+        </div>
+    }
+    else
+    {
+        <div class="chart-container" style="height: calc(100% - 24px);">
+            <canvas id="@_chartId"></canvas>
+        </div>
+        <div class="text-end small pe-2 opacity-75" style="@GetFontStyle()">
+            @L["Widget_LastUpdated"]: @_lastUpdate.ToString("HH:mm:ss")
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public WidgetConfig? Config { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public Guid WidgetInstanceId { get; set; }
+
+    private readonly string _chartId = $"daytrend-{Guid.NewGuid():N}";
+    private List<DayTrendIntervalData> _intervals = new();
+    private bool _loading = true;
+    private bool _isNoQueues;
+    private string? _error;
+    private DateTime _lastUpdate;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource _cts = new();
+
+    // Config values
+    private string _title = "Day Trend";
+    private int _businessUnitId;
+    private int _intervalMinutes = 30;
+    private int _refreshIntervalSeconds = 300;
+    private string _chartType = "line";
+    private bool _showDataLabels = true;
+    private bool _showLegend = true;
+    private List<DayTrendMetricConfig> _metrics = new();
+    private List<DayTrendMetricConfig> _agentMetrics = new();
+
+    // Colors
+    private string _backgroundColor = "";
+    private string _fontColor = "";
+    private string _darkBackgroundColor = "#1e293b";
+    private string _darkFontColor = "#f1f5f9";
+
+    private string EffectiveBackgroundColor => DarkMode ? _darkBackgroundColor : _backgroundColor;
+    private string EffectiveFontColor => DarkMode ? _darkFontColor : _fontColor;
+
+    private int _lastBusinessUnitId;
+    private int _lastIntervalMinutes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ParseConfig();
+        _lastBusinessUnitId = _businessUnitId;
+        _lastIntervalMinutes = _intervalMinutes;
+        await LoadDataAsync();
+        StartAutoRefresh();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ParseConfig();
+        if (_businessUnitId != _lastBusinessUnitId || _intervalMinutes != _lastIntervalMinutes)
+        {
+            _lastBusinessUnitId = _businessUnitId;
+            _lastIntervalMinutes = _intervalMinutes;
+            await LoadDataAsync();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender && !_loading && !_isNoQueues && _error is null && _intervals.Count > 0)
+        {
+            await RenderChartAsync();
+        }
+    }
+
+    private void ParseConfig()
+    {
+        if (Config is null) return;
+
+        _title = Config.DisplayName ?? "Day Trend";
+        _businessUnitId = Config.DayTrendBusinessUnitId ?? 0;
+        _intervalMinutes = Config.DayTrendIntervalMinutes ?? 30;
+        _refreshIntervalSeconds = Config.DayTrendRefreshIntervalSeconds ?? 300;
+        _chartType = Config.DayTrendChartType ?? "line";
+        _showDataLabels = Config.DayTrendShowDataLabels ?? true;
+        _showLegend = Config.DayTrendShowLegend ?? true;
+        _metrics = Config.DayTrendMetrics ?? GetDefaultMetrics();
+        _agentMetrics = Config.DayTrendAgentMetrics ?? GetDefaultAgentMetrics();
+
+        // Colors
+        _backgroundColor = Config.BackgroundColor ?? "";
+        _fontColor = Config.FontColor ?? "";
+        _darkBackgroundColor = Config.DarkBackgroundColor ?? "#1e293b";
+        _darkFontColor = Config.DarkFontColor ?? "#f1f5f9";
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (_businessUnitId == 0)
+        {
+            _loading = false;
+            _error = L["Widget_SelectBusinessUnit"];
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var includeAgentMetrics = _agentMetrics.Any(m => m.Enabled);
+            var result = await Mediator.Send(new DayTrendQuery(
+                _businessUnitId,
+                _intervalMinutes,
+                includeAgentMetrics), _cts.Token);
+
+            _isNoQueues = result.IsNoQueues;
+            _intervals = result.Intervals.ToList();
+            _lastUpdate = DateTime.Now;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RenderChartAsync()
+    {
+        if (_intervals.Count == 0) return;
+
+        Logger.LogInformation("DayTrendWidget: RenderChart - {IntervalCount} intervals, {MetricCount} metrics ({EnabledCount} enabled)",
+            _intervals.Count, _metrics.Count, _metrics.Count(m => m.Enabled));
+
+        var labels = _intervals.Select(i => i.IntervalStart.ToString("HH:mm")).ToArray();
+        var datasets = new List<object>();
+
+        // Add enabled interaction metrics
+        foreach (var metric in _metrics.Where(m => m.Enabled))
+        {
+            var data = _intervals.Select(i =>
+                i.Metrics.TryGetValue(metric.MetricId, out var v) ? v : 0).ToArray();
+
+            var isTimeMetric = metric.MetricId.Contains("_time") ||
+                               metric.MetricId.Contains("_wait") ||
+                               metric.MetricId.Contains("_talk");
+
+            datasets.Add(new
+            {
+                label = GetDisplayLabel(metric),
+                data,
+                color = metric.Color,
+                isAgentMetric = false,
+                isTimeMetric
+            });
+        }
+
+        // Add enabled agent metrics
+        foreach (var metric in _agentMetrics.Where(m => m.Enabled))
+        {
+            var data = _intervals.Select(i =>
+                i.Metrics.TryGetValue(metric.MetricId, out var v) ? v : 0).ToArray();
+
+            var isTimeMetric = metric.MetricId.Contains("_time_ms");
+
+            // Convert milliseconds to seconds for time metrics
+            if (isTimeMetric)
+            {
+                data = data.Select(v => v / 1000.0).ToArray();
+            }
+
+            datasets.Add(new
+            {
+                label = GetDisplayLabel(metric),
+                data,
+                color = metric.Color,
+                isAgentMetric = true,
+                isTimeMetric
+            });
+        }
+
+        var options = new
+        {
+            chartType = _chartType,
+            showDataLabels = _showDataLabels,
+            showLegend = _showLegend
+        };
+
+        Logger.LogInformation("DayTrendWidget: Calling JS with {DatasetCount} datasets, chartId={ChartId}", datasets.Count, _chartId);
+
+        try
+        {
+            await JS.InvokeVoidAsync("dayTrendChart.render", _chartId, labels, datasets, options);
+            Logger.LogInformation("DayTrendWidget: JS render completed");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "DayTrendWidget: JS render failed");
+        }
+    }
+
+    private void StartAutoRefresh()
+    {
+        if (_refreshIntervalSeconds <= 0) return;
+
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(_refreshIntervalSeconds));
+        _ = Task.Run(async () =>
+        {
+            while (await _timer.WaitForNextTickAsync(_cts.Token))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadDataAsync();
+                    if (!_loading && _error is null && _intervals.Count > 0)
+                    {
+                        await RenderChartAsync();
+                    }
+                });
+            }
+        });
+    }
+
+    private string GetWidgetStyle()
+    {
+        var styles = new List<string>();
+        var bg = EffectiveBackgroundColor;
+        var fg = EffectiveFontColor;
+
+        if (!string.IsNullOrEmpty(bg))
+            styles.Add($"background-color: {bg}");
+        if (!string.IsNullOrEmpty(fg))
+            styles.Add($"color: {fg}");
+
+        return string.Join("; ", styles);
+    }
+
+    private string GetFontStyle()
+    {
+        var fg = EffectiveFontColor;
+        return !string.IsNullOrEmpty(fg) ? $"color: {fg};" : "";
+    }
+
+    private static string GetDisplayLabel(DayTrendMetricConfig metric)
+    {
+        if (!string.IsNullOrEmpty(metric.Label))
+            return metric.Label;
+
+        var parts = metric.MetricId.Split('.');
+        if (parts.Length > 1)
+        {
+            return string.Join(" ", parts[1].Split('_')
+                .Select(p => char.ToUpper(p[0]) + p[1..]));
+        }
+        return metric.MetricId;
+    }
+
+    private static List<DayTrendMetricConfig> GetDefaultMetrics() => new()
+    {
+        new("interaction.incoming_calls", true, "#3b82f6", "Incoming Calls"),
+        new("interaction.answered_calls", true, "#22c55e", "Answered Calls"),
+        new("interaction.abandoned_calls", true, "#ef4444", "Abandoned Calls"),
+        new("interaction.callback_requests", false, "#f59e0b", "Callback Requests"),
+        new("interaction.completed_callbacks", false, "#8b5cf6", "Completed Callbacks"),
+        new("interaction.avg_wait_time", false, "#06b6d4", "Avg Wait Time"),
+        new("interaction.max_wait_time", false, "#0891b2", "Max Wait Time"),
+        new("interaction.avg_talk_time", false, "#64748b", "Avg Talk Time")
+    };
+
+    private static List<DayTrendMetricConfig> GetDefaultAgentMetrics() => new()
+    {
+        new("statuslog.available_agents", false, "#4ade80", "Available"),
+        new("statuslog.onphone_agents", false, "#60a5fa", "On Phone"),
+        new("statuslog.break_agents", false, "#fb923c", "On Break"),
+        new("statuslog.paperwork_agents", false, "#a78bfa", "Paperwork"),
+        new("statuslog.training_agents", false, "#94a3b8", "Training"),
+        new("statuslog.total_agents", false, "#f1f5f9", "Total Active"),
+        new("statuslog.logged_in_agents", false, "#fef08a", "Logged In"),
+        new("statuslog.available_time_ms", false, "#86efac", "Available Time"),
+        new("statuslog.onphone_time_ms", false, "#93c5fd", "On Phone Time"),
+        new("statuslog.break_time_ms", false, "#fdba74", "Break Time"),
+        new("statuslog.paperwork_time_ms", false, "#c4b5fd", "Paperwork Time"),
+        new("statuslog.training_time_ms", false, "#cbd5e1", "Training Time"),
+        new("statuslog.total_active_time_ms", false, "#e2e8f0", "Total Active Time")
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        _cts.Cancel();
+        _timer?.Dispose();
+        try
+        {
+            await JS.InvokeVoidAsync("dayTrendChart.destroy", _chartId);
+        }
+        catch { /* ignore */ }
+    }
+}
