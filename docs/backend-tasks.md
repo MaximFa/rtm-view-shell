@@ -22,6 +22,14 @@ CC must mark a task `[done]` and record the commit hash when complete.
 
 ---
 
+## Backlog (documentation)
+
+| ID | Description | Priority |
+|---|---|---|
+| DOC-001 | Update `docs/widget-specification.md` §2 intro: replace "All metrics registered in RTSGrid_Metric" with two-catalogue description (RTSGrid_Metric = real-time CC platform; HistoryMetric = historical shell-owned). §2.1/2.2/2.3 are already HistoryMetric content — just the framing is wrong. | 🟡 Medium |
+
+---
+
 ## CC-001
 
 ### Add `StatusGroup` to `RTSData_UserStatusLog` + EF entities for all RTSData_* tables
@@ -1827,4 +1835,4 @@ private async Task SeedRtsGridMetricsAsync(CancellationToken ct)
 # 3. ValueType distribution: number ~130, time ~45, text ~15
 # 4. history_metrics has 30 rows (11 interaction + 14 statuslog + 5 agentstatus)
 # 5. App builds: dotnet build CcDashboard.sln
-```
+``
