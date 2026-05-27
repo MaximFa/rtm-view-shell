@@ -1414,7 +1414,7 @@ await SeedHistoryMetricsAsync(ct);
 | 4.6 | `HistoryMetric` entity exists in `CcDashboard.Domain`; no TenantId field |
 | 4.7 | `AppDbContext.HistoryMetrics` DbSet exists; no Global Query Filter |
 | 4.8 | EF migration `AddHistoryMetricTable` applies cleanly; `history_metrics` table created |
-| 4.9 | `SeedHistoryMetricsAsync()` seeds 30 entries (11 interaction + 14 statuslog + 5 agentstatus) on first run; idempotent on re-run |
+| 4.9 | `SeedHistoryMetricsAsync()` seeds 29 entries (11 interaction + 13 statuslog + 5 agentstatus) on first run; idempotent on re-run |
 | 4.10 | `docs/widget-specification.md`: §4 and §5 removed; TOC updated; §2.4 uses `HistoryMetric` class name; `snapshot.*` block removed; version footer = v1.0 |
 | 4.11 | `dotnet build CcDashboard.sln` — zero errors, zero warnings |
 | 4.12 | `git grep -r "snapshot\."` returns no matches in `src/` |
@@ -1579,7 +1579,7 @@ Then restart the app — `SeedHistoryMetricsAsync()` will populate `history_metr
 Verify:
 
 ```sql
--- Should return 30 rows
+-- Should return 29 rows
 SELECT COUNT(*) FROM history_metrics;
 
 -- Check distribution
@@ -1833,6 +1833,6 @@ private async Task SeedRtsGridMetricsAsync(CancellationToken ct)
 # 1. No dot-notation rows in RTSGrid_Metrics
 # 2. MetricType distribution: Data ~90 rows, Agent ~100 rows
 # 3. ValueType distribution: number ~130, time ~45, text ~15
-# 4. history_metrics has 30 rows (11 interaction + 14 statuslog + 5 agentstatus)
+# 4. history_metrics has 29 rows (11 interaction + 13 statuslog + 5 agentstatus)
 # 5. App builds: dotnet build CcDashboard.sln
 ``
