@@ -55,13 +55,13 @@ All `RTSData_*` queries filter: `WHERE Workgroup IN (queues resolved from BU)`.
 | `TalkTime` | int | Seconds of talk time. |
 | `TenantId` | uuid | Always filter. Global Query Filter applied in `BackendEmulationDbContext`. |
 
-### 1.3 Metric catalogue — RTSGrid_Metric
+### 1.3 Metric catalogue — HistoryMetric
 
-Available metrics are defined in the `RTSGrid_Metric` table (cross-tenant, read-only from shell).
-Each widget type uses metrics filtered by `MetricType`.
-
-**DayTrend metrics** use `MetricType = 'Interaction'`.
-The widget settings panel loads available metrics via `GetRtsGridMetricsQuery` filtered by this type.
+Available metrics for DayTrend are defined in the `history_metrics` table (`HistoryMetric`
+entity, App context — cross-tenant, shell-owned).
+The widget loads them via `AppDbContext.HistoryMetrics` filtered by `MetricType`:
+interaction metrics (`MetricType = 'Interaction'`) and agent metrics
+(`MetricType IN ('AgentStatusLog', 'AgentStatus')`).
 
 `MetricFunction` and `MetricParameter` encode the aggregation contract:
 
@@ -79,7 +79,7 @@ No executable SQL is stored in the table — the table is a **metric registry**,
 
 ---
 
-### 1.4 RTSGrid_Metric seed entries for DayTrend
+### 1.4 HistoryMetric seed entries for DayTrend
 
 Seed idempotently on first run (by `MetricId`).
 
@@ -122,8 +122,8 @@ var interactionMetrics = new[]
 
 foreach (var m in interactionMetrics)
 {
-    if (!await db.RtsGridMetrics.AnyAsync(x => x.MetricId == m.MetricId))
-        await db.RtsGridMetrics.AddAsync(m);
+    if (!await db.HistoryMetrics.AnyAsync(x => x.MetricId == m.MetricId))
+        await db.HistoryMetrics.AddAsync(m);
 }
 await db.SaveChangesAsync();
 ```
@@ -1138,4 +1138,11 @@ new WidgetCatalogItem
 
    protected override void Down(MigrationBuilder mb) =>
        mb.Sql("""
-           DROP FUNCTION IF EXISTS fn_daytrendint
+           DROP FUNCTION IF EXISTS fn_daytrendinteractions(uuid, varchar, text[], integer);
+           DROP FUNCTION IF EXISTS fn_daytrendagentstatus(uuid, varchar, text[], integer);
+       """);
+   ```
+
+---
+
+*Widget Specification v1.0 — CC-004: migrated dot-notation metrics to HistoryMetric (shell-owned); removed snapshot.* metrics; AgentStatusCount/Duration widgets cancelled.*

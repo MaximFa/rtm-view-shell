@@ -38,6 +38,16 @@ public static class InfrastructureServiceExtensions
             });
         });
 
+        // Factory for Blazor components that need short-lived DbContext instances
+        services.AddDbContextFactory<AppDbContext>((sp, opts) =>
+        {
+            opts.UseNpgsql(config.GetConnectionString("Default"), npg =>
+            {
+                npg.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                npg.MigrationsHistoryTable("__ef_migrations_history", "public");
+            });
+        }, ServiceLifetime.Scoped);
+
         services.AddDbContext<AuditDbContext>((sp, opts) =>
         {
             opts.UseNpgsql(config.GetConnectionString("Default"), npg =>

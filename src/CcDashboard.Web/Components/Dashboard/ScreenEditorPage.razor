@@ -4254,9 +4254,9 @@
         public List<DayTrendMetricConfig>? DayTrendAgentMetrics { get; set; }
     }
 
-    public record DayTrendMetricConfig(string MetricId, bool Enabled, string Color, string Label)
+    public record DayTrendMetricConfig(string MetricId, bool Enabled, string Color, string Label, string ValueType = "number")
     {
-        public DayTrendMetricConfig() : this("", false, "#000000", "") { }
+        public DayTrendMetricConfig() : this("", false, "#000000", "", "number") { }
     }
 
     public class QueueGridRowDef

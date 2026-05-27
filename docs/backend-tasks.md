@@ -19,7 +19,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | [CC-003](#cc-003) | ❌ Cancelled | ~~Implement AgentStatusCount + AgentStatusDuration widgets~~ |
 | [CC-004](#cc-004) | ✅ Done | Cleanup AgentStatus artefacts + create History_Metric table |
 | [CC-005](#cc-005) | ✅ Done | Fix RTSGrid_Metric data (dot-notation, MetricType, ValueType) + apply History_Metric migration |
-| [CC-006](#cc-006) | 🟫 Ready | DayTrend: migrate from RTSGrid_Metric to HistoryMetric (DB-driven metric list, ValueType rendering) |
+| [CC-006](#cc-006) | ✅ Done | DayTrend: migrate from RTSGrid_Metric to HistoryMetric (DB-driven metric list, ValueType rendering) |
 
 ---
 
@@ -1844,12 +1844,12 @@ private async Task SeedRtsGridMetricsAsync(CancellationToken ct)
 
 ### DayTrend: migrate from RTSGrid_Metric to HistoryMetric
 
-**Status:** 🟫 Ready
+**Status:** ✅ Done
 **Priority:** 🔴 High
 **Depends on:** CC-005 ✅
 **Spec reference:** `docs/widget-specification.md` §1.3, §1.4, §3 — read before starting
 **Skill:** `.claude/skills/widget-creator/widget-creator.md` §23
-**Commit:** —
+**Commit:** `8b2c9fb`
 
 ---
 

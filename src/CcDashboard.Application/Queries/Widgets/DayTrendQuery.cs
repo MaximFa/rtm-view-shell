@@ -9,7 +9,8 @@ namespace CcDashboard.Application.Queries.Widgets;
 public record DayTrendMetricRow(DateTime interval_start, string metric_id, double? value);
 
 /// <summary>
-/// Per-interval grouped result. Keys are RTSGrid_Metric.MetricId strings.
+/// Per-interval grouped result. Keys are HistoryMetric.MetricId strings
+/// (dot-notation, e.g. "interaction.incoming_calls").
 /// </summary>
 public record DayTrendIntervalData(
     DateTime IntervalStart,

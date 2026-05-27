@@ -1,5 +1,7 @@
 @using CcDashboard.Application.Queries.Widgets
+@using CcDashboard.Infrastructure.Persistence
 @using MediatR
+@using Microsoft.EntityFrameworkCore
 @using Microsoft.Extensions.Localization
 @using Microsoft.Extensions.Logging
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
@@ -10,6 +12,7 @@
 @inject IMediator Mediator
 @inject IJSRuntime JS
 @inject ILogger<DayTrendWidget> Logger
+@inject IDbContextFactory<AppDbContext> AppDbFactory
 
 <div class="daytrend-widget h-100" style="@GetWidgetStyle()">
     @if (_loading)
@@ -91,8 +94,49 @@
     private int _lastBusinessUnitId;
     private int _lastIntervalMinutes;
 
+    private static readonly HashSet<string> DefaultEnabledInteraction = new()
+    {
+        "interaction.incoming_calls",
+        "interaction.answered_calls",
+        "interaction.abandoned_calls",
+    };
+
+    private static readonly Dictionary<string, string> DefaultColors = new()
+    {
+        ["interaction.incoming_calls"]      = "#3b82f6",
+        ["interaction.answered_calls"]      = "#22c55e",
+        ["interaction.abandoned_calls"]     = "#ef4444",
+        ["interaction.callback_requests"]   = "#f59e0b",
+        ["interaction.completed_callbacks"] = "#8b5cf6",
+        ["interaction.avg_wait_time"]       = "#06b6d4",
+        ["interaction.max_wait_time"]       = "#0891b2",
+        ["interaction.avg_talk_time"]       = "#64748b",
+        ["interaction.avg_abandon_wait"]    = "#0d9488",
+        ["interaction.outbound_calls"]      = "#6366f1",
+        ["interaction.transferred_calls"]   = "#ec4899",
+        ["statuslog.available_agents"]      = "#4ade80",
+        ["statuslog.onphone_agents"]        = "#60a5fa",
+        ["statuslog.break_agents"]          = "#fb923c",
+        ["statuslog.paperwork_agents"]      = "#a78bfa",
+        ["statuslog.training_agents"]       = "#94a3b8",
+        ["statuslog.total_agents"]          = "#f1f5f9",
+        ["statuslog.logged_in_agents"]      = "#fef08a",
+        ["statuslog.available_time_ms"]     = "#86efac",
+        ["statuslog.onphone_time_ms"]       = "#93c5fd",
+        ["statuslog.break_time_ms"]         = "#fdba74",
+        ["statuslog.paperwork_time_ms"]     = "#c4b5fd",
+        ["statuslog.training_time_ms"]      = "#cbd5e1",
+        ["statuslog.total_active_time_ms"]  = "#e2e8f0",
+        ["agentstatus.available_time"]      = "#4ade80",
+        ["agentstatus.onphone_time"]        = "#60a5fa",
+        ["agentstatus.break_time"]          = "#fb923c",
+        ["agentstatus.paperwork_time"]      = "#a78bfa",
+        ["agentstatus.training_time"]       = "#94a3b8",
+    };
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadMetricsFromDbAsync();
         ParseConfig();
         _lastBusinessUnitId = _businessUnitId;
         _lastIntervalMinutes = _intervalMinutes;
@@ -130,14 +174,53 @@
         _chartType = Config.DayTrendChartType ?? "line";
         _showDataLabels = Config.DayTrendShowDataLabels ?? true;
         _showLegend = Config.DayTrendShowLegend ?? true;
-        _metrics = Config.DayTrendMetrics ?? GetDefaultMetrics();
-        _agentMetrics = Config.DayTrendAgentMetrics ?? GetDefaultAgentMetrics();
 
         // Colors
         _backgroundColor = Config.BackgroundColor ?? "";
         _fontColor = Config.FontColor ?? "";
         _darkBackgroundColor = Config.DarkBackgroundColor ?? "#1e293b";
         _darkFontColor = Config.DarkFontColor ?? "#f1f5f9";
+    }
+
+    private async Task LoadMetricsFromDbAsync()
+    {
+        await using var db = await AppDbFactory.CreateDbContextAsync();
+        var allMetrics = await db.HistoryMetrics
+            .AsNoTracking()
+            .OrderBy(m => m.MetricId)
+            .ToListAsync();
+
+        var savedInteraction = Config?.DayTrendMetrics?.ToDictionary(m => m.MetricId)
+                               ?? new Dictionary<string, DayTrendMetricConfig>();
+        var savedAgent = Config?.DayTrendAgentMetrics?.ToDictionary(m => m.MetricId)
+                         ?? new Dictionary<string, DayTrendMetricConfig>();
+
+        _metrics = allMetrics
+            .Where(m => m.MetricType == "Interaction")
+            .Select(m => savedInteraction.TryGetValue(m.MetricId, out var saved)
+                ? saved with { ValueType = m.ValueType }
+                : new DayTrendMetricConfig(
+                    m.MetricId,
+                    Enabled: DefaultEnabledInteraction.Contains(m.MetricId),
+                    Color: DefaultColors.GetValueOrDefault(m.MetricId, "#64748b"),
+                    Label: m.Description,
+                    ValueType: m.ValueType))
+            .ToList();
+
+        _agentMetrics = allMetrics
+            .Where(m => m.MetricType == "AgentStatusLog" || m.MetricType == "AgentStatus")
+            .Select(m => savedAgent.TryGetValue(m.MetricId, out var saved)
+                ? saved with { ValueType = m.ValueType }
+                : new DayTrendMetricConfig(
+                    m.MetricId,
+                    Enabled: false,
+                    Color: DefaultColors.GetValueOrDefault(m.MetricId, "#64748b"),
+                    Label: m.Description,
+                    ValueType: m.ValueType))
+            .ToList();
+
+        Logger.LogInformation("DayTrendWidget: loaded {I} interaction + {A} agent metrics from history_metrics",
+            _metrics.Count, _agentMetrics.Count);
     }
 
     private async Task LoadDataAsync()
@@ -192,9 +275,7 @@
             var data = _intervals.Select(i =>
                 i.Metrics.TryGetValue(metric.MetricId, out var v) ? v : 0).ToArray();
 
-            var isTimeMetric = metric.MetricId.Contains("_time") ||
-                               metric.MetricId.Contains("_wait") ||
-                               metric.MetricId.Contains("_talk");
+            var isTimeMetric = metric.ValueType == "Time";
 
             datasets.Add(new
             {
@@ -212,7 +293,7 @@
             var data = _intervals.Select(i =>
                 i.Metrics.TryGetValue(metric.MetricId, out var v) ? v : 0).ToArray();
 
-            var isTimeMetric = metric.MetricId.Contains("_time_ms");
+            var isTimeMetric = metric.ValueType == "Time";
 
             // Convert milliseconds to seconds for time metrics
             if (isTimeMetric)
@@ -304,35 +385,6 @@
         }
         return metric.MetricId;
     }
-
-    private static List<DayTrendMetricConfig> GetDefaultMetrics() => new()
-    {
-        new("interaction.incoming_calls", true, "#3b82f6", "Incoming Calls"),
-        new("interaction.answered_calls", true, "#22c55e", "Answered Calls"),
-        new("interaction.abandoned_calls", true, "#ef4444", "Abandoned Calls"),
-        new("interaction.callback_requests", false, "#f59e0b", "Callback Requests"),
-        new("interaction.completed_callbacks", false, "#8b5cf6", "Completed Callbacks"),
-        new("interaction.avg_wait_time", false, "#06b6d4", "Avg Wait Time"),
-        new("interaction.max_wait_time", false, "#0891b2", "Max Wait Time"),
-        new("interaction.avg_talk_time", false, "#64748b", "Avg Talk Time")
-    };
-
-    private static List<DayTrendMetricConfig> GetDefaultAgentMetrics() => new()
-    {
-        new("statuslog.available_agents", false, "#4ade80", "Available"),
-        new("statuslog.onphone_agents", false, "#60a5fa", "On Phone"),
-        new("statuslog.break_agents", false, "#fb923c", "On Break"),
-        new("statuslog.paperwork_agents", false, "#a78bfa", "Paperwork"),
-        new("statuslog.training_agents", false, "#94a3b8", "Training"),
-        new("statuslog.total_agents", false, "#f1f5f9", "Total Active"),
-        new("statuslog.logged_in_agents", false, "#fef08a", "Logged In"),
-        new("statuslog.available_time_ms", false, "#86efac", "Available Time"),
-        new("statuslog.onphone_time_ms", false, "#93c5fd", "On Phone Time"),
-        new("statuslog.break_time_ms", false, "#fdba74", "Break Time"),
-        new("statuslog.paperwork_time_ms", false, "#c4b5fd", "Paperwork Time"),
-        new("statuslog.training_time_ms", false, "#cbd5e1", "Training Time"),
-        new("statuslog.total_active_time_ms", false, "#e2e8f0", "Total Active Time")
-    };
 
     public async ValueTask DisposeAsync()
     {
