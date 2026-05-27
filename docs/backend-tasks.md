@@ -18,6 +18,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | [CC-002](#cc-002) | ✅ Done  | Implement DayTrend widget — PostgreSQL functions, query handler, Blazor component, seed |
 | [CC-003](#cc-003) | ❌ Cancelled | ~~Implement AgentStatusCount + AgentStatusDuration widgets~~ |
 | [CC-004](#cc-004) | ✅ Done | Cleanup AgentStatus artefacts + create History_Metric table |
+| [CC-005](#cc-005) | 🔲 Ready | Fix RTSGrid_Metric data (dot-notation, MetricType, ValueType) + apply History_Metric migration |
 
 ---
 
@@ -1412,3 +1413,418 @@ await SeedHistoryMetricsAsync(ct);
 | 4.13 | `git grep -r "RtsGridMetric" src/CcDashboard.Infrastructure/Seeding/` — no dot-notation MetricId values remain |
 
 --
+
+---
+
+## CC-005
+
+### Fix RTSGrid_Metric data + apply History_Metric migration
+
+**Status:** 🔲 Ready  
+**Priority:** 🔴 High  
+**Depends on:** CC-004 ✅  
+**Spec reference:** `docs/rtsgrid-metric-reference.md` — read §3 (MetricFunction catalogue) and §4 (ValueType rules) before starting  
+**Skill:** none  
+**Commit:** —
+
+---
+
+### 1. Background
+
+The BackendEmulation `RTSGrid_Metrics` table currently has three data quality problems:
+
+1. **Dot-notation MetricIds** (`interaction.*`, `statuslog.*`, `agentstatus.*`, `snapshot.*`) were
+   seeded by CC-003. These belong to `history_metrics`. Must be deleted from `RTSGrid_Metrics`.
+
+2. **MetricType is wrong** — all rows have `MetricType = "Agent"`. Correct values:
+   - `"Data"` for Queue metrics (Description starts with `"QM - "`)
+   - `"Data"` for AgentGroup metrics (Description starts with `"Agent Group - "`)
+   - `"Agent"` for Agent metrics (Description starts with `"Agent - "`)
+
+3. **ValueType is wrong** — all rows have `ValueType = "String"`. Correct values:
+   - `"time"` for duration/time functions
+   - `"text"` for string/identifier functions
+   - `"number"` for everything else (counts, percentages, rates)
+
+Additionally, the **`history_metrics` table does not yet exist** in the App DB — the EF migration
+`AddHistoryMetricTable` has been created (committed in CC-004) but not yet applied.
+
+---
+
+### 2. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 2.1 | BackendEmulation migration `FixRtsGridMetricData` | `src/CcDashboard.Infrastructure/Migrations/BackendEmulation/` |
+| 2.2 | Apply App migration `AddHistoryMetricTable` to DB | run `dotnet ef database update` |
+| 2.3 | Update `SeedRtsGridMetricsAsync()` with all 190 metrics (correct ValueType + MetricType) | `src/CcDashboard.Infrastructure/Seeding/DatabaseInitializer.cs` |
+| 2.4 | Update task index | `docs/backend-tasks.md` |
+
+---
+
+### 3. Step-by-step instructions
+
+#### 3.1 Create BackendEmulation migration `FixRtsGridMetricData`
+
+```bash
+dotnet ef migrations add FixRtsGridMetricData \
+  --context BackendEmulationDbContext \
+  --project src/CcDashboard.Infrastructure \
+  --startup-project src/CcDashboard.Web
+```
+
+Edit the generated migration file — replace `Up()` body with:
+
+```csharp
+protected override void Up(MigrationBuilder migrationBuilder)
+{
+    // 1. Delete dot-notation metrics (belong to history_metrics, not RTSGrid_Metrics)
+    migrationBuilder.Sql("""
+        DELETE FROM "RTSGrid_Metrics"
+        WHERE "MetricId" LIKE '%.%';
+        """);
+
+    // 2. Fix MetricType based on Description prefix
+    migrationBuilder.Sql("""
+        UPDATE "RTSGrid_Metrics"
+        SET "MetricType" = 'Data'
+        WHERE "Description" LIKE 'QM - %'
+           OR "Description" LIKE 'Agent Group - %';
+
+        UPDATE "RTSGrid_Metrics"
+        SET "MetricType" = 'Agent'
+        WHERE "Description" LIKE 'Agent - %'
+           OR ("MetricType" != 'Data');
+        """);
+
+    // 3. Fix ValueType — default to 'number', then override time and text
+    migrationBuilder.Sql("""
+        UPDATE "RTSGrid_Metrics" SET "ValueType" = 'number';
+
+        UPDATE "RTSGrid_Metrics" SET "ValueType" = 'time'
+        WHERE "MetricFunction" IN (
+            'CurLoginDuration', 'CurStatusDuration', 'CurStatusGroupDuration',
+            'LongestInteractionStateDuration',
+            'MessagesAvgFirstResponseTime', 'MessagesAvgResponseTime', 'MessagesMaxFirstResponseTime',
+            'TalkDurationAvg', 'TalkDurationCurMax', 'TalkDurationMax',
+            'TotalLoginDuration', 'TotalStatusDuration', 'TotalStatusDurationAvg',
+            'TotalStatusGroupDuration', 'TotalStatusGroupDurationAvg',
+            'WaitDurationAvg', 'WaitDurationCurMax'
+        );
+
+        UPDATE "RTSGrid_Metrics" SET "ValueType" = 'text'
+        WHERE "MetricFunction" IN (
+            'CurLoginTimeStamp', 'CurStatusGroup', 'CurStatusTitle', 'DisplayName',
+            'FirstLoginTimestamp', 'IsTodayLogin',
+            'LongestInteractionId', 'LongestInteractionRemoteAddress',
+            'LongestInteractionState', 'LongestInteractionType', 'LongestInteractionWorkgroup',
+            'Station', 'UserExtension', 'UserID'
+        );
+        """);
+}
+
+protected override void Down(MigrationBuilder migrationBuilder)
+{
+    // Restore ValueType and MetricType to legacy incorrect values
+    migrationBuilder.Sql("""
+        UPDATE "RTSGrid_Metrics" SET "ValueType" = 'String', "MetricType" = 'Agent';
+        """);
+}
+```
+
+Apply migration:
+
+```bash
+dotnet ef database update \
+  --context BackendEmulationDbContext \
+  --project src/CcDashboard.Infrastructure \
+  --startup-project src/CcDashboard.Web
+```
+
+Verify:
+
+```sql
+-- Should return 0
+SELECT COUNT(*) FROM "RTSGrid_Metrics" WHERE "MetricId" LIKE '%.\%';
+
+-- Should return ~90 rows with MetricType = 'Data'
+SELECT "MetricType", COUNT(*) FROM "RTSGrid_Metrics" GROUP BY "MetricType";
+
+-- Should show distribution across number/time/text
+SELECT "ValueType", COUNT(*) FROM "RTSGrid_Metrics" GROUP BY "ValueType";
+```
+
+#### 3.2 Apply App migration `AddHistoryMetricTable`
+
+The migration file already exists (committed in CC-004). Just apply it:
+
+```bash
+dotnet ef database update \
+  --context AppDbContext \
+  --project src/CcDashboard.Infrastructure \
+  --startup-project src/CcDashboard.Web
+```
+
+Then restart the app — `SeedHistoryMetricsAsync()` will populate `history_metrics` with all
+30 dot-notation metrics on first run.
+
+Verify:
+
+```sql
+-- Should return 30 rows
+SELECT COUNT(*) FROM history_metrics;
+
+-- Check distribution
+SELECT "MetricType", COUNT(*) FROM history_metrics GROUP BY "MetricType";
+```
+
+#### 3.3 Update `SeedRtsGridMetricsAsync()` in `DatabaseInitializer.cs`
+
+Replace the empty `metrics` list with all 190 CC-platform metrics (correct ValueType and MetricType).
+This ensures a fresh BackendEmulation DB also gets correct data without running the fix migration.
+
+```csharp
+private async Task SeedRtsGridMetricsAsync(CancellationToken ct)
+{
+    var metrics = new List<RtsGridMetric>
+    {
+            new() { MetricId = "MonAgentTalkDuration", Description = "Agent - Cumulative Talk Duration", DataType = "User", MetricFunction = "TotalStatusGroupDuration", MetricParameter = "ONPHONE", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentTalkDurationPct", Description = "Agent - Cumlative Talk Duration Percent", DataType = "User", MetricFunction = "TotalStatusGroupPercent", MetricParameter = "ONPHONE", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentActiveInteractionId", Description = "Agent - Active Interction ID", DataType = "User", MetricFunction = "LongestInteractionId", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "QueueNumCompletedCallbacks", Description = "QM - Number of Completed Callbacks", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Outgoing\" && IsAnswered", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAcceptedCallbacks", Description = "QM - Number of Accepted Callbacks", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIncomingOnlineCalls", Description = "QM - Number of Incoming Calls including Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIncomingOnlineCallbacks", Description = "QM - Number of Incoming Callbacks including Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIncomingOnlineCallsAndCallbacks", Description = "QM - Number of Incoming Calls and Callbacks including Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIncomingOnlineChats", Description = "QM - Number of Incoming Chats including Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Chat\")  && Direction == \"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIcomingOnlineInteractions", Description = "QM - Number of Incoming Interactions including Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAbandonefCalls", Description = "QM - Number of Abandoned Calls", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAbandoned && !IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAbandonefCallbacks", Description = "QM - Number of Abandoned Callbacks", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAbandoned && !IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAbandonedCallsAndCallbacks", Description = "QM - Number of Abandoned Calls and Callbacks", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAbandoned && !IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAbandonedChats", Description = "QM - Number of Abandoned Chats", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAbandoned && !IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAbandonedInteractions", Description = "QM - Number of Abandoned Interactions", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && IsAbandoned && !IsCallbackRequest && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumCallbackRequests", Description = "QM - Number of Callback Requests", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCalls", Description = "QM - Number of Answered Calls", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCalls60sec", Description = "QM - Number of Answered Calls in 60 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<60", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonSumAgentsBreakDurationMax", Description = "Agent Group - Max duration of  Break State Group", DataType = "UsersSummary", MetricFunction = "UsersInStatusGroupDurationCurMax", MetricParameter = "BREAK", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonAgentNumChatsCompleted", Description = "Agent - Number of Answered Chats", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "InteractionType==\"Chat\" && Direction==\"Incoming\" && !IsTalk && !IsInQueue && IsAnswered", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "QueueBaseAnsweredPct", Description = "QM - Base Answered Percent", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingOnlineCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls]/[QueueNumIncomingOnlineCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueExclCallbackReqAnsweredPct", Description = "QM - Excluding Callback Requests Answered Percent", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "([QueueNumIncomingOnlineCalls]-[QueueNumCallbackRequests])==0 ? 0 : ((double)[QueueNumAnsweredCalls]/([QueueNumIncomingOnlineCalls]-[QueueNumCallbackRequests])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueInclCallbackReqAnsweredPct", Description = "QM - Including Callback Requests Answered Percent", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingOnlineCalls]==0 ? 0 : ((double)([QueueNumAnsweredCalls]+[QueueNumCallbackRequests])/[QueueNumIncomingOnlineCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueInclCompCallbacksAnsweredPct", Description = "QM - Including Completed Callbacks Answered Percent", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingOnlineCalls]==0 ? 0 : ((double)([QueueNumAnsweredCalls]+[QueueNumCompletedCallbacks])/[QueueNumIncomingOnlineCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCalls60secIncLast30min", Description = "QM - Percent of Answered Calls in 60 sec Last 30 min from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls60sec]/[QueueNumIncomingCompletedCalls])&&InQueueDateTime>=DateTime.Now.AddHours(-0.5)", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumOnlineChats", Description = "QM - Number of Chats", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "InteractionType==\"Chat\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "UserNumMissedCalls", Description = "Agent - Number of Missed Calls", DataType = "User", MetricFunction = "TotalStatusCount", MetricParameter = "Missed Call", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "QueueNumIncomingHandledInteractions", Description = "QM - Number of Completed Incoming Interactions", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && !IsTalk && !IsInQueue && !IsAbandoned && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueSLAIn30secFrom80PctInc", Description = "QM - Percent of Answered Calls in 30 sec from 80% Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls30sec ]/([QueueNumIncomingCompletedCalls]*0.8))", MetricFormat = "##0.00%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumWrapUpAgents", Description = "QM - Number of Wpap Up Agents in Queue Skill", DataType = "Interactions Summary", MetricFunction = "UsersInStatusCount", MetricParameter = "Wrap Up", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueCPH", Description = "QM - Calls per Hour", DataType = "Interactions Summary", MetricFunction = "CPH", MetricParameter = "InteractionType==\"Call\" && Direction == \"Incoming\"", MetricFormat = "F2", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "UserCPH", Description = "Agent - Calls per Hour", DataType = "User", MetricFunction = "CPH", MetricParameter = "InteractionType==\"Call\" && Direction == \"Incoming\"", MetricFormat = "F2", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MessagesMaxFirstResponseTime", Description = "QM - Messages Max First Response Time", DataType = "Interactions Summary", MetricFunction = "MessagesMaxFirstResponseTime", MetricParameter = "Direction==\"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "MessagesAvgFirstResponseTime", Description = "QM - Messages Avg First Response Time", DataType = "Interactions Summary", MetricFunction = "MessagesAvgFirstResponseTime", MetricParameter = "Direction==\"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "MonAgentNumChatsActive", Description = "Agent - Number of Active Chats", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "InteractionType==\"Chat\" && IsTalk", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MessagesAvgResponseTime", Description = "QM - Messages Avg Response Time", DataType = "Interactions Summary", MetricFunction = "MessagesAvgResponseTime", MetricParameter = "Direction==\"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "AgentMessagesAvgResponseTime", Description = "Agent - Messages Avg Response Time", DataType = "User", MetricFunction = "MessagesAvgResponseTime", MetricParameter = "Direction==\"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "AgentMessagesAvgFirstResponseTime", Description = "Agent - Messages Avg First Response Time", DataType = "User", MetricFunction = "MessagesAvgFirstResponseTime", MetricParameter = "Direction==\"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "QueueNumAnsweredCallbacks", Description = "QM - Number of Answered Callbacks", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCallsAndCallbacks", Description = "QM - Number of Answered Calls and Callbacks", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredChats", Description = "QM - Number of Answered Chats", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredInteractions", Description = "QM - Number of Answered Interactions", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIncomingCompletedCalls", Description = "QM - Number of Incoming Calls exluding Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && !IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIncomingCompletedCallbacks", Description = "QM - Number of Incoming Callbacks exluding Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && !IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIncomingCompletedCallsAndCallbacks", Description = "QM - Number of Incoming Calls and Callbacks exluding Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && !IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIncomingCompletedChats", Description = "QM - Number of Incoming Chats exluding Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue  && !IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumIncomingCompletedInteractions", Description = "QM - Number of Incoming Interactions exluding Waiting", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue  && !IsCallbackRequest && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumWaitingCalls", Description = "QM - Number of Waiting Calls", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumWaitingCallbacks", Description = "QM - Number of Waiting Callbacks", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumWaitingCallsAndCallbacks", Description = "QM - Number of Waiting Calls and Callbacks", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumWaitingChats", Description = "QM - Number of Waiting Chats", DataType = "Interactions Summary", MetricFunction = "NumWaitings", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumWaitingInteractions", Description = "QM - Number of Waiting Interactions", DataType = "Interactions Summary", MetricFunction = "NumWaitings", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueCurMaxWaitTimeCalls", Description = "QM - Current Max Wait Time of Calls in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationCurMax", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueCurMaxWaitTimeCallbacks", Description = "QM - Current Max Wait Time of Callbacks in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationCurMax", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueCurMaxWaitTimeCallsAndCallbacks", Description = "QM - Current Max Wait Time of Calls and Callbacks in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationCurMax", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueCurMaxWaitTimeChats", Description = "QM - Current Max Wait Time of Chats in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationCurMax", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueCurMaxWaitTimeInteractions", Description = "QM - Current Max Wait Time of Interactions in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationCurMax", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallsTotal", Description = "QM - Percent of Answered Calls", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls]/[QueueNumIncomingCompletedCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallbacksTotal", Description = "QM - Percent of Answered Callbacks", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallbacks]/[QueueNumIncomingCompletedCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallsAndCallbacksTotal", Description = "QM - Percent of Answered Calls and Callbacks", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallsAndCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallsAndCallbacks]/[QueueNumIncomingCompletedCallsAndCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredChatsTotal", Description = "QM - Percent of Answered Chats", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedChats]==0 ? 0 : ((double)[QueueNumAnsweredChats]/[QueueNumIncomingCompletedChats])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredInteractionsTotal", Description = "QM - Percent of Answered Interactions", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedInteractions]==0 ? 0 : ((double)[QueueNumAnsweredInteractions]/[QueueNumIncomingCompletedInteractions])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAbandonedCallsTotal", Description = "QM - Percent of Abandoned Calls", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCalls]==0 ? 0 : ((double)[QueueNumAbandonedCalls]/[QueueNumIncomingCompletedCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAbandonedCallbacksTotal", Description = "QM - Percent of Abandoned Callbacks", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallbacks]==0 ? 0 : ((double)[QueueNumAbandonedCallbacks]/[QueueNumIncomingCompletedCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAbandonedCallsAndCallbacksTotal", Description = "QM - Percent of Abandoned Calls and Callbacks", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallsAndCallbacks]==0 ? 0 : ((double)[QueueNumAbandonedCallsAndCallbacks]/[QueueNumIncomingCompletedCallsAndCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAbandonedInteractionsTotal", Description = "QM - Percent of Abandoned Interactions", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedInteractions]==0 ? 0 : ((double)[QueueNumAbandonedInteractions]/[QueueNumIncomingCompletedInteractions])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAbandonedChatsTotal", Description = "QM - Percent of Abandoned Chats", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedChats]==0 ? 0 : ((double)[QueueNumAbandonedChats]/[QueueNumIncomingCompletedChats])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCalls30sec", Description = "QM - Number of Answered Calls in 30 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<30", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCallbacks30sec", Description = "QM - Number of Answered Callbacks in 30 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered  && TimeInQueue<30", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCallsAndCallbacks30sec", Description = "QM - Number of Answered Calls and Callbacks in 30 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<30", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredChats30sec", Description = "QM - Number of Answered Chats in 30 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<30", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredInteractions30sec", Description = "QM - Number of Answered Interactions in 30 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<30 && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCallbacks60sec", Description = "QM - Number of Answered Calls in 60 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered  && TimeInQueue<60", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCallsAndCallbacks60sec", Description = "QM - Number of Answered Calls and Callbacks in 60 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<60", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredChats60sec", Description = "QM - Number of Answered Chats in 60 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<60", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredInteractions60sec", Description = "QM - Number of Answered Interactions in 60 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<60 && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCalls120sec", Description = "QM - Number of Answered Calls in 120 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<120", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCallbacks120sec", Description = "QM - Number of Answered Callbacks in 120 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered  && TimeInQueue<120", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredCallsAndCallbacks120sec", Description = "QM - Number of Answered Calls and Callbacks in 120 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<120", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredChats120sec", Description = "QM - Number of Answered Chats in 120 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<120", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumAnsweredInteractions120sec", Description = "QM - Number of Answered Interactions in 120 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<120 && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueAvgWaitTimeCalls", Description = "QM - Average Wait Time of Calls in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgWaitTimeCallbacks", Description = "QM - Average Wait Time of Callbacks in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgWaitTimeCallsAndCallbacks", Description = "QM - Average Wait Time of Calls and Callbacks in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgWaitTimeChats", Description = "QM - Average Wait Time of Chats in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgWaitTimeInteractions", Description = "QM - Average Wait Time of Interactions in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTimeToAbandCalls", Description = "QM - Average Time to Aband of Calls in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && IsAbandoned", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTimeToAbandCallbacks", Description = "QM - Average Time to Aband of Callbacks in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && IsAbandoned", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTimeToAbandCallsAndCallbacks", Description = "QM - Average Time to Aband of Calls and Callbacks in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && IsAbandoned", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTimeToAbandChats", Description = "QM - Average Time to Aband of Chats in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && IsAbandoned", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTimeToAbandInteractions", Description = "QM - Average Time to Aband of Interactions in Queue", DataType = "Interactions Summary", MetricFunction = "WaitDurationAvg", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && IsAbandoned && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueNumActiveCalls", Description = "QM - Number of Active Calls in Queue", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsTalk", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumActiveCallbacks", Description = "QM - Number of Active Callbacks in Queue", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsTalk", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonAgentTelState", Description = "Agent - Active Interaction State", DataType = "User", MetricFunction = "LongestInteractionState", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "QueueNumActiveCallsAndCallbacks", Description = "QM - Number of Active Calls and Callbacks in Queue", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "CallType==\"External\" && Direction==\"Incoming\"&& (InteractionType==\"Call\" || InteractionType==\"Callback\")&& IsTalk", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumActiveChats", Description = "QM - Number of Active Chats in Queue", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsTalk", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumActiveInteractions", Description = "QM - Number of Active Interactions in Queue", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && IsTalk && (InteractionType==\"Chat\" || InteractionType==\"email\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumOnCallAgents", Description = "QM - Number of On Call Agents in Queue Skill", DataType = "Interactions Summary", MetricFunction = "UsersInStatusGroupCount", MetricParameter = "ONPHONE", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTalkingDurationCalls", Description = "QM - Average Talking Duration of Calls", DataType = "Interactions Summary", MetricFunction = "TalkDurationAvg", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsTalk && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTalkingDurationCallbacks", Description = "QM - Average Talking Duration of Callbacks", DataType = "Interactions Summary", MetricFunction = "TalkDurationAvg", MetricParameter = "(InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsTalk && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTalkingDurationCallsAndCallbacks", Description = "QM - Average Talking Duration of Calls and Callbacks", DataType = "Interactions Summary", MetricFunction = "TalkDurationAvg", MetricParameter = "(InteractionType==\"Call\" || InteractionType==\"Callback\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsTalk && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTalkingDurationChats", Description = "QM - Average Talking Duration of Chats", DataType = "Interactions Summary", MetricFunction = "TalkDurationAvg", MetricParameter = "(InteractionType==\"Chat\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsTalk && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueueAvgTalkingDurationInteractions", Description = "QM - Average Talking Duration of Interactions", DataType = "Interactions Summary", MetricFunction = "TalkDurationAvg", MetricParameter = "(CallType==\"External\")  && Direction == \"Incoming\" && !IsTalk && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCalls30secInc", Description = "QM - Percent of Answered Calls in 30 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls30sec]/[QueueNumIncomingCompletedCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallbacks30secInc", Description = "QM - Percent of Answered Callbacks in 30 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallbacks30sec]/[QueueNumIncomingCompletedCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallsAndCallbacks30secInc", Description = "QM - Percent of Answered Calls and Callbacks in 30 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallsAndCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallsAndCallbacks30sec]/[QueueNumIncomingCompletedCallsAndCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredChats30secInc", Description = "QM - Percent of Answered Chats in 30 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedChats]==0 ? 0 : ((double)[QueueNumAnsweredChats30sec]/[QueueNumIncomingCompletedChats])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredInteractions30secInc", Description = "QM - Percent of Answered Interactions in 30 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedInteractions]==0 ? 0 : ((double)[QueueNumAnsweredInteractions30sec]/[QueueNumIncomingCompletedInteractions])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCalls30secAns", Description = "QM - Percent of Answered Calls in 30 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls30sec]/[QueueNumAnsweredCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallbacks30secAns", Description = "QM - Percent of Answered Callbacks in 30 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallbacks30sec]/[QueueNumAnsweredCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallsAndCallbacks30secAns", Description = "QM - Percent of Answered Calls and Callbacks in 30 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredCallsAndCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallsAndCallbacks30sec]/[QueueNumAnsweredCallsAndCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredChats30secAns", Description = "QM - Percent of Answered Chats in 30 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredChats]==0 ? 0 : ((double)[QueueNumAnsweredChats30sec]/[QueueNumAnsweredChats])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredInteractions30secAns", Description = "QM - Percent of Answered Interactions in 30 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredInteractions]==0 ? 0 : ((double)[QueueNumAnsweredInteractions30sec]/[QueueNumAnsweredInteractions])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCalls60secInc", Description = "QM - Percent of Answered Calls in 60 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls60sec]/[QueueNumIncomingCompletedCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallbacks60secInc", Description = "QM - Percent of Answered Callbacks in 60 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallbacks60sec]/[QueueNumIncomingCompletedCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallsAndCallbacks60secInc", Description = "QM - Percent of Answered Calls and Callbacks in 60 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallsAndCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallsAndCallbacks60sec]/[QueueNumIncomingCompletedCallsAndCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredChats60secInc", Description = "QM - Percent of Answered Chats in 60 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedChats]==0 ? 0 : ((double)[QueueNumAnsweredChats60sec]/[QueueNumIncomingCompletedChats])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredInteractions60secInc", Description = "QM - Percent of Answered Interactions in 60 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedInteractions]==0 ? 0 : ((double)[QueueNumAnsweredInteractions60sec]/[QueueNumIncomingCompletedInteractions])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCalls60secAns", Description = "QM - Percent of Answered Calls in 60 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls60sec]/[QueueNumAnsweredCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallbacks60secAns", Description = "QM - Percent of Answered Callbacks in 60 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallbacks60sec]/[QueueNumAnsweredCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallsAndCallbacks60secAns", Description = "QM - Percent of Answered Calls and Callbacks in 60 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredCallsAndCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallsAndCallbacks60sec]/[QueueNumAnsweredCallsAndCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredChats60secAns", Description = "QM - Percent of Answered Chats in 60 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredChats]==0 ? 0 : ((double)[QueueNumAnsweredChats60sec]/[QueueNumAnsweredChats])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredInteractions60secAns", Description = "QM - Percent of Answered Interactions in 60 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredInteractions]==0 ? 0 : ((double)[QueueNumAnsweredInteractions60sec]/[QueueNumAnsweredInteractions])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCalls120secInc", Description = "QM - Percent of Answered Calls in 120 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls120sec]/[QueueNumIncomingCompletedCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonSumAgentsInMissedCall", Description = "Agent Group - Number of Agents on Missed Call", DataType = "UsersSummary", MetricFunction = "UsersInStatusCount", MetricParameter = "Missed Call", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallbacks120secInc", Description = "QM - Percent of Answered Callbacks in 120 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallbacks120sec]/[QueueNumIncomingCompletedCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallsAndCallbacks120secInc", Description = "QM - Percent of Answered Calls and Callbacks in 120 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCallsAndCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallsAndCallbacks120sec]/[QueueNumIncomingCompletedCallsAndCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredChats120secInc", Description = "QM - Percent of Answered Chats in 120 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedChats]==0 ? 0 : ((double)[QueueNumAnsweredChats120sec]/[QueueNumIncomingCompletedChats])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredInteractions120secInc", Description = "QM - Percent of Answered Interactions in 120 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedInteractions]==0 ? 0 : ((double)[QueueNumAnsweredInteractions120sec]/[QueueNumIncomingCompletedInteractions])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCalls120secAns", Description = "QM - Percent of Answered Calls in 120 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls120sec]/[QueueNumAnsweredCalls])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallbacks120secAns", Description = "QM - Percent of Answered Callbacks in 120 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallbacks120sec]/[QueueNumAnsweredCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCallsAndCallbacks120secAns", Description = "QM - Percent of Answered Calls and Callbacks in 120 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredCallsAndCallbacks]==0 ? 0 : ((double)[QueueNumAnsweredCallsAndCallbacks120sec]/[QueueNumAnsweredCallsAndCallbacks])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredChats120secAns", Description = "QM - Percent of Answered Chats in 120 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredChats]==0 ? 0 : ((double)[QueueNumAnsweredChats120sec]/[QueueNumAnsweredChats])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredInteractions120secAns", Description = "QM - Percent of Answered Interactions in 120 sec from Answered", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumAnsweredInteractions]==0 ? 0 : ((double)[QueueNumAnsweredInteractions120sec]/[QueueNumAnsweredInteractions])", MetricFormat = "##0.0%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueNumberOfLoggedAgents", Description = "QM - Number of Logged In Agents", DataType = "Interactions Summary", MetricFunction = "LogedInUsersCount", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonAgentCurrentLoginDuration", Description = "Agent - Current Login Duration", DataType = "User", MetricFunction = "CurLoginDuration", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonSumAgentsAverageCallDuration", Description = "Agent Group - Average Talk Duration in Incoming Calls and Callbacks", DataType = "UsersInteraction", MetricFunction = "TalkDurationAvg", MetricParameter = "CallType==\"External\" && Direction==\"Incoming\" && (InteractionType == \"Call\" || InteractionType == \"Callback\") && !IsTalk && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "UserNumAllIntercom", Description = "Agent - Number of Internal Calls", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "CallType==\"Intercom\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentNumberOfInboundCalls15sec", Description = "Agent - Number of Incoming Calls with Talk Time less than 15 seconds", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "CallType==\"External\" && Direction==\"Incoming\" &&  TalkTime<15 && (InteractionType==\"Call\" || InteractionType==\"Callback\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentNumberOfInboundCalls10Min", Description = "Agent - Number of Incoming Calls with Talk Time more than 10 minutes", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "CallType==\"External\" && Direction==\"Incoming\" && TalkTime>600 && (InteractionType==\"Call\" || InteractionType==\"Callback\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentNumberOfInboundCallsDialer", Description = "Agent Group - Number of Dialer Calls", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "InteractionType==\"Dialer\" && (CallType==\"External\" || CallType==\"Intercom\") && Direction==\"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "RemotePhoneNumber", Description = "Agent - Active Interaction Customer Phone Number", DataType = "User", MetricFunction = "LongestInteractionRemoteAddress", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "QueueLoginDataNumAvailableUsers", Description = "Agent Group - Number of Available Agents", DataType = "UsersSummary", MetricFunction = "UsersInStatusGroupCount", MetricParameter = "AVAILABLE", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonAgentAvailableDuration", Description = "Agent - Available State Duration", DataType = "User", MetricFunction = "TotalStatusGroupDuration", MetricParameter = "AVAILABLE", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentNumberOfInboundCallsWithIntercom", Description = "Agent - Number of Incoming External and Internal Calls", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "(CallType==\"External\" || CallType==\"Intercom\") && Direction==\"Incoming\"  && (InteractionType==\"Call\" || InteractionType==\"Callback\")", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentTodayLogin", Description = "Change -ID of a representative who was connected that day", DataType = "User", MetricFunction = "IsTodayLogin", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "QueueLoginDataNumLoggedUsers", Description = "Agent Group - Number of Curently Logged in Users", DataType = "UsersSummary", MetricFunction = "LogedInUsersCount", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueLoginDataNumBreakUsers", Description = "Agent Group - Number of Agents in Break State Group", DataType = "UsersSummary", MetricFunction = "UsersInStatusGroupCount", MetricParameter = "BREAK", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueueLoginDataNumPaperworkUsers", Description = "Agent Group - Number of Agents in Paperwork State Group", DataType = "UsersSummary", MetricFunction = "UsersInStatusGroupCount", MetricParameter = "PAPERWORK", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "UsersSumOnCall", Description = "Agent Group - Number of On Call Agents", DataType = "UsersSummary", MetricFunction = "UsersInStatusGroupCount", MetricParameter = "ONPHONE", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonAgentStation", Description = "Agent - Station ID", DataType = "User", MetricFunction = "Station", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonAgentDurationOfCurrentCall", Description = "Agent - Current Incoming Ext Call Duration", DataType = "User", MetricFunction = "CurStatusDuration", MetricParameter = "Incoming Ext Call", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentNumberOfInboundCallsOnly", Description = "Agent - Number of Incoming External Calls", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" ||  InteractionType==\"Callback\") && (CallType==\"External\" || CallType==\"Intercom\") && Direction==\"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentUserId", Description = "Agent - User ID", DataType = "User", MetricFunction = "UserID", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonAgentAverageMakeCallDuration", Description = "Agent - Average Oubound Call Duration", DataType = "User", MetricFunction = "TotalStatusDurationAvg", MetricParameter = "Out Ext Call", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentAverageAgentDialerDuration", Description = "Agent - Average Dialer Calls Duration", DataType = "User", MetricFunction = "TotalStatusDurationAvg", MetricParameter = "Campaign Call", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "AgentLoginName", Description = "Agent - Login Name", DataType = "User", MetricFunction = "DisplayName", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonActiveCampaign", Description = "Agent - Active Interaction Queue Name", DataType = "User", MetricFunction = "LongestInteractionWorkgroup", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonInteractionType", Description = "Agent - Active Interaction Type", DataType = "User", MetricFunction = "LongestInteractionType", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonAgentState", Description = "Agent - Current Satatus", DataType = "User", MetricFunction = "CurStatusTitle", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonAgentDurationOfCalls", Description = "Agent - Cumulative  Incoming Ext Call Duration", DataType = "User", MetricFunction = "TotalStatusDuration", MetricParameter = "Incoming Ext Call", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentAverageCallDuration", Description = "Agent - Average Handling Duration", DataType = "User", MetricFunction = "TotalStatusGroupDurationAvg", MetricParameter = "ONPHONE", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentExtension", Description = "Agent - Extension ID", DataType = "User", MetricFunction = "UserExtension", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonAgentStateDuration", Description = "Agent - Current Status Duration", DataType = "User", MetricFunction = "CurStatusDuration", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentTelStateDuration", Description = "Agent - Active Interaction State Duration", DataType = "User", MetricFunction = "LongestInteractionStateDuration", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentNumberOfConsultCalls", Description = "Agent - Number of Consultation Calls", DataType = "User", MetricFunction = "TotalStatusCount", MetricParameter = "Consulting Call", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentNumberOfMakeCalls", Description = "Agent - Number of Outbound Calls", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "InteractionType==\"Call\" && CallType==\"External\" && Direction==\"Outgoing\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentBreakDuration", Description = "Agent - Cumulative Break Group Duration", DataType = "User", MetricFunction = "TotalStatusGroupDuration", MetricParameter = "BREAK", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentWrapUpDuration", Description = "Agent - Cumulative Wrap Up Duration", DataType = "User", MetricFunction = "TotalStatusDuration", MetricParameter = "Wrap Up", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentUnavailableStateDuration", Description = "Agent - Cumulative Unavailable State Duration", DataType = "User", MetricFunction = "TotalStatusDuration", MetricParameter = "Unavailable", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentStateDesc", Description = "Agent - Current Status Group", DataType = "User", MetricFunction = "CurStatusGroup", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonAgentNumMakeCallsInCompleted", Description = "Agent - Number of Answered Incoming Calls", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\" ||  InteractionType==\"Callback\") && Direction==\"Incoming\" && IsAnswered && !IsTalk", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentAverageInboundCallDuration", Description = "Agent - Average Call Duration", DataType = "User", MetricFunction = "TalkDurationAvg", MetricParameter = "CallType==\"External\" && (InteractionType==\"Call\" || InteractionType==\"Callback\")  && Direction==\"Incoming\" && !IsTalk", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentPaperworkDuration", Description = "Agent - Cumulative Paperwork Group Duration", DataType = "User", MetricFunction = "TotalStatusGroupDuration", MetricParameter = "PAPERWORK", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonSumAgentsAnsweredCalls", Description = "Agent Group - Number of Answered Incoming Calls and Callbacks", DataType = "UsersInteraction", MetricFunction = "InteractionsCount", MetricParameter = "CallType==\"External\" && Direction==\"Incoming\" && !IsTalk && !IsInQueue && (InteractionType == \"Call\" || InteractionType == \"Callback\") && IsAnswered", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonSumAgentsMakeCalls", Description = "Agent Group - Number of Otbound Calls", DataType = "UsersInteraction", MetricFunction = "InteractionsCount", MetricParameter = "CallType==\"External\" && Direction==\"Outgoing\"", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonSumAgentsAverageChatDuration", Description = "Agent Group - Average Talk Duration in Incoming Chats", DataType = "UsersInteraction", MetricFunction = "TalkDurationAvg", MetricParameter = "CallType==\"External\" && Direction==\"Incoming\" && (InteractionType == \"Chat\") && !IsTalk && !IsInQueue", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "MonSumAgentsBreakDurationPercent", Description = "Agent Group - Percent of Agents in Break State Group", DataType = "UsersInteraction", MetricFunction = "UsersInStatusGroupDurationPercent", MetricParameter = "BREAK", MetricFormat = "##0.00%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonSumAgentsPaperworkDurationPercent", Description = "Agent Group - Percent of Agents in Paperwork State Group", DataType = "UsersInteraction", MetricFunction = "UsersInStatusGroupDurationPercent", MetricParameter = "PAPERWORK", MetricFormat = "##0.00%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonSumAgentsLongestCurrentCall", Description = "Agent Group - Current Max Talk Duration", DataType = "UsersInteraction", MetricFunction = "TalkDurationCurMax", MetricParameter = "CallType==\"External\" && Direction==\"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Data" },
+            new() { MetricId = "MonAgentOutgoingCallbacksNum", Description = "Agent - Number of Outgoing Callbacks", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "InteractionType==\"Callback\" && Direction==\"Outgoing\" && IsAnswered", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "QueueNumAnsweredCalls360sec", Description = "QM - Number of Answered Calls in 360 sec", DataType = "Interactions Summary", MetricFunction = "InteractionsCount", MetricParameter = "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && IsAnswered && TimeInQueue<360", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "QueuePctAnsweredCalls360secInc", Description = "QM - Percent of Answered Calls in 360 sec from Incoming", DataType = "Interactions Summary", MetricFunction = "Calc", MetricParameter = "[QueueNumIncomingCompletedCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls360sec]/[QueueNumIncomingCompletedCalls])", MetricFormat = "##0.00%", DefaultValue = "0", ValueType = "number", MetricType = "Data" },
+            new() { MetricId = "MonAgentMaxCallDuration", Description = "Agent - Max Call Duration", DataType = "User", MetricFunction = "TalkDurationMax", MetricParameter = "CallType==\"External\" && (InteractionType==\"Call\" || InteractionType==\"Callback\") && Direction==\"Incoming\"", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentLoginTime", Description = "Agent - Cumulative Login Duration", DataType = "User", MetricFunction = "TotalLoginDuration", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentStateDescDuration", Description = "Agent - Current Status Group Duration", DataType = "User", MetricFunction = "CurStatusGroupDuration", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+            new() { MetricId = "MonAgentFirstLoginTimeStamp", Description = "Agent - First Login Time Stamp", DataType = "User", MetricFunction = "FirstLoginTimestamp", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonAgentCurrentLoginTimeStamp", Description = "Agent - Current Login Time Stamp", DataType = "User", MetricFunction = "CurLoginTimeStamp", MetricParameter = "", MetricFormat = "", DefaultValue = "0", ValueType = "text", MetricType = "Agent" },
+            new() { MetricId = "MonAgentProxyCallsNum", Description = "Agent - Number of Incoming Callbacks", DataType = "User", MetricFunction = "InteractionsCount", MetricParameter = "InteractionType==\"Callback\" && Direction==\"Incoming\"  && IsAnswered && !IsCallbackRequest", MetricFormat = "", DefaultValue = "0", ValueType = "number", MetricType = "Agent" },
+            new() { MetricId = "MonAgentHeldDuration", Description = "Agent - Cumulative Hold Duration", DataType = "User", MetricFunction = "TotalStatusDuration", MetricParameter = "Hold", MetricFormat = "", DefaultValue = "0", ValueType = "time", MetricType = "Agent" },
+    };
+
+    try
+    {
+        var existingIds = (await beDb.RtsGridMetrics.Select(m => m.MetricId).ToListAsync(ct)).ToHashSet();
+        var toAdd = metrics.Where(m => !existingIds.Contains(m.MetricId)).ToList();
+        if (toAdd.Count > 0)
+        {
+            beDb.RtsGridMetrics.AddRange(toAdd);
+            await beDb.SaveChangesAsync(ct);
+            logger.LogInformation("Seeded {Count} RtsGridMetric entries", toAdd.Count);
+        }
+        // Fix MetricType and ValueType for existing rows that have wrong values
+        var toFix = await beDb.RtsGridMetrics
+            .Where(m => m.ValueType == "String" || !m.MetricId.Contains('.') == false)
+            .ToListAsync(ct);
+        foreach (var existing in toFix)
+        {
+            var correct = metrics.FirstOrDefault(m => m.MetricId == existing.MetricId);
+            if (correct != null)
+            {
+                existing.ValueType = correct.ValueType;
+                existing.MetricType = correct.MetricType;
+            }
+        }
+        if (toFix.Count > 0)
+            await beDb.SaveChangesAsync(ct);
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "RtsGridMetric seed skipped (may already exist)");
+    }
+}
+```
+
+> **Note:** The fix loop (`toFix`) is a belt-and-suspenders approach — the migration in 3.1
+> handles the DB directly. On a fresh DB, the seed inserts correct values from the start.
+
+---
+
+### 4. Verification checklist
+
+```bash
+# After applying both migrations and restarting the app:
+# 1. No dot-notation rows in RTSGrid_Metrics
+# 2. MetricType distribution: Data ~90 rows, Agent ~100 rows
+# 3. ValueType distribution: number ~130, time ~45, text ~15
+# 4. history_metrics has 30 rows (11 interaction + 14 statuslog + 5 agentstatus)
+# 5. App builds: dotnet build CcDashboard.sln
+```
