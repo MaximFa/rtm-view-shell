@@ -19,6 +19,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | [CC-003](#cc-003) | ❌ Cancelled | ~~Implement AgentStatusCount + AgentStatusDuration widgets~~ |
 | [CC-004](#cc-004) | ✅ Done | Cleanup AgentStatus artefacts + create History_Metric table |
 | [CC-005](#cc-005) | ✅ Done | Fix RTSGrid_Metric data (dot-notation, MetricType, ValueType) + apply History_Metric migration |
+| [CC-006](#cc-006) | 🟫 Ready | DayTrend: migrate from RTSGrid_Metric to HistoryMetric (DB-driven metric list, ValueType rendering) |
 
 ---
 
@@ -1836,3 +1837,216 @@ private async Task SeedRtsGridMetricsAsync(CancellationToken ct)
 # 4. history_metrics has 29 rows (11 interaction + 13 statuslog + 5 agentstatus)
 # 5. App builds: dotnet build CcDashboard.sln
 ``
+
+---
+
+## CC-006
+
+### DayTrend: migrate from RTSGrid_Metric to HistoryMetric
+
+**Status:** 🟫 Ready
+**Priority:** 🔴 High
+**Depends on:** CC-005 ✅
+**Spec reference:** `docs/widget-specification.md` §1.3, §1.4, §3 — read before starting
+**Skill:** `.claude/skills/widget-creator/widget-creator.md` §23
+**Commit:** —
+
+---
+
+### 1. Background
+
+DayTrend was implemented before the RTSGrid_Metric / HistoryMetric architectural split.
+Currently the widget:
+- Has hardcoded static metric lists (`GetDefaultMetrics()`, `GetDefaultAgentMetrics()`)
+- Detects time metrics via fragile string matching on MetricId (e.g. `Contains("_time")`)
+- Has stale comments referencing `RTSGrid_Metric` in `DayTrendQuery.cs`
+
+After this task:
+- Widget loads all available metrics from `history_metrics` (AppDbContext) on init
+- Uses `HistoryMetric.ValueType == "time"` for time-metric rendering decisions
+- Default-enables the same three interaction metrics as before
+- Config modal shows all available metrics grouped by MetricType
+
+**No changes to PostgreSQL functions or query handler** — they already return correct
+`metric_id` values matching `HistoryMetric.MetricId`.
+
+---
+
+### 2. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 2.1 | `DayTrendMetricConfig` — add `ValueType` property | `DayTrendWidget.razor` |
+| 2.2 | Load metrics from `AppDbContext.HistoryMetrics` on widget init | `DayTrendWidget.razor` |
+| 2.3 | Replace `isTimeMetric` string-matching with `ValueType == "time"` | `DayTrendWidget.razor` |
+| 2.4 | Fix comment in `DayTrendQuery.cs` | `DayTrendQuery.cs` |
+| 2.5 | Update `docs/widget-specification.md` §1.3 and §1.4 | `docs/widget-specification.md` |
+| 2.6 | Mark CC-006 Done in task index | `docs/backend-tasks.md` |
+
+---
+
+### 3. Step-by-step instructions
+
+#### 3.1 Add `ValueType` to `DayTrendMetricConfig`
+
+Find the `DayTrendMetricConfig` record in `DayTrendWidget.razor` and add `ValueType`:
+
+```csharp
+public record DayTrendMetricConfig(
+    string MetricId,
+    bool Enabled,
+    string Color,
+    string Label,
+    string ValueType = "number");   // add this
+```
+
+#### 3.2 Load metrics from HistoryMetric on init
+
+Inject `IDbContextFactory<AppDbContext>` (or scoped AppDbContext — whichever other widgets
+in this project use; check existing widget injections first). Replace `GetDefaultMetrics()`
+calls with a DB load on `OnInitializedAsync`:
+
+```csharp
+[Inject] private IDbContextFactory<AppDbContext> AppDbFactory { get; set; } = default!;
+
+private static readonly HashSet<string> DefaultEnabledInteraction = new()
+{
+    "interaction.incoming_calls",
+    "interaction.answered_calls",
+    "interaction.abandoned_calls",
+};
+
+private static readonly Dictionary<string, string> DefaultColors = new()
+{
+    ["interaction.incoming_calls"]      = "#3b82f6",
+    ["interaction.answered_calls"]      = "#22c55e",
+    ["interaction.abandoned_calls"]     = "#ef4444",
+    ["interaction.callback_requests"]   = "#f59e0b",
+    ["interaction.completed_callbacks"] = "#8b5cf6",
+    ["interaction.avg_wait_time"]       = "#06b6d4",
+    ["interaction.max_wait_time"]       = "#0891b2",
+    ["interaction.avg_talk_time"]       = "#64748b",
+    ["statuslog.available_agents"]      = "#4ade80",
+    ["statuslog.onphone_agents"]        = "#60a5fa",
+    ["statuslog.break_agents"]          = "#fb923c",
+    ["statuslog.paperwork_agents"]      = "#a78bfa",
+    ["statuslog.training_agents"]       = "#94a3b8",
+    ["statuslog.total_agents"]          = "#f1f5f9",
+    ["statuslog.logged_in_agents"]      = "#fef08a",
+    ["statuslog.available_time_ms"]     = "#86efac",
+    ["statuslog.onphone_time_ms"]       = "#93c5fd",
+    ["statuslog.break_time_ms"]         = "#fdba74",
+    ["statuslog.paperwork_time_ms"]     = "#c4b5fd",
+    ["statuslog.training_time_ms"]      = "#cbd5e1",
+    ["statuslog.total_active_time_ms"]  = "#e2e8f0",
+};
+
+private async Task LoadMetricsFromDbAsync()
+{
+    await using var db = await AppDbFactory.CreateDbContextAsync();
+    var allMetrics = await db.HistoryMetrics
+        .AsNoTracking()
+        .OrderBy(m => m.MetricId)
+        .ToListAsync();
+
+    var savedInteraction = Config.DayTrendMetrics?.ToDictionary(m => m.MetricId)
+                           ?? new Dictionary<string, DayTrendMetricConfig>();
+    var savedAgent = Config.DayTrendAgentMetrics?.ToDictionary(m => m.MetricId)
+                     ?? new Dictionary<string, DayTrendMetricConfig>();
+
+    _metrics = allMetrics
+        .Where(m => m.MetricType == "Interaction")
+        .Select(m => savedInteraction.TryGetValue(m.MetricId, out var saved)
+            ? saved with { ValueType = m.ValueType }
+            : new DayTrendMetricConfig(
+                m.MetricId,
+                Enabled: DefaultEnabledInteraction.Contains(m.MetricId),
+                Color: DefaultColors.GetValueOrDefault(m.MetricId, "#64748b"),
+                Label: m.Description,
+                ValueType: m.ValueType))
+        .ToList();
+
+    _agentMetrics = allMetrics
+        .Where(m => m.MetricType == "AgentStatusLog" || m.MetricType == "AgentStatus")
+        .Select(m => savedAgent.TryGetValue(m.MetricId, out var saved)
+            ? saved with { ValueType = m.ValueType }
+            : new DayTrendMetricConfig(
+                m.MetricId,
+                Enabled: false,
+                Color: DefaultColors.GetValueOrDefault(m.MetricId, "#64748b"),
+                Label: m.Description,
+                ValueType: m.ValueType))
+        .ToList();
+
+    Logger.LogInformation("DayTrendWidget: loaded {I} interaction + {A} agent metrics from history_metrics",
+        _metrics.Count, _agentMetrics.Count);
+}
+```
+
+Call `await LoadMetricsFromDbAsync()` inside `OnInitializedAsync()` before the existing
+chart/data load. Remove the static `GetDefaultMetrics()` and `GetDefaultAgentMetrics()`
+methods after confirming nothing else calls them.
+
+> **Config property check:** If `Config.DayTrendAgentMetrics` does not exist on the config
+> model, add it alongside `DayTrendMetrics`. Search the config class definition first.
+
+#### 3.3 Replace `isTimeMetric` string matching (2 occurrences in `RenderChart`)
+
+```csharp
+// BEFORE — interaction metrics block
+var isTimeMetric = metric.MetricId.Contains("_time") ||
+                   metric.MetricId.Contains("_wait") ||
+                   metric.MetricId.Contains("_talk");
+// AFTER
+var isTimeMetric = metric.ValueType == "time";
+
+// BEFORE — agent metrics block
+var isTimeMetric = metric.MetricId.Contains("_time_ms");
+// AFTER
+var isTimeMetric = metric.ValueType == "time";
+```
+
+#### 3.4 Fix comment in `DayTrendQuery.cs`
+
+```csharp
+// BEFORE
+/// Per-interval grouped result. Keys are RTSGrid_Metric.MetricId strings.
+
+// AFTER
+/// Per-interval grouped result. Keys are HistoryMetric.MetricId strings
+/// (dot-notation, e.g. "interaction.incoming_calls").
+```
+
+#### 3.5 Update `docs/widget-specification.md` §1.3 and §1.4
+
+**§1.3** — rename heading and replace opening paragraph:
+- `Metric catalogue — RTSGrid_Metric` → `Metric catalogue — HistoryMetric`
+- Replace "Available metrics are defined in the `RTSGrid_Metric` table... via `GetRtsGridMetricsQuery`" with:
+  > Available metrics for DayTrend are defined in the `history_metrics` table (`HistoryMetric`
+  > entity, App context — cross-tenant, shell-owned).
+  > The widget loads them via `AppDbContext.HistoryMetrics` filtered by `MetricType`:
+  > interaction metrics (`MetricType = 'Interaction'`) and agent metrics
+  > (`MetricType IN ('AgentStatusLog', 'AgentStatus')`).
+
+**§1.4** — rename heading and fix C# snippet:
+- `RTSGrid_Metric seed entries for DayTrend` → `HistoryMetric seed entries for DayTrend`
+- `db.RtsGridMetrics` → `db.HistoryMetrics` (both occurrences in the code snippet)
+
+---
+
+### 4. Verification
+
+```bash
+# 1. Build clean
+dotnet build CcDashboard.sln
+
+# 2. Runtime checks (browser):
+#    - DayTrend chart renders with incoming/answered/abandoned lines
+#    - Time metrics (avg_wait_time, avg_talk_time) display as mm:ss, NOT raw float
+#    - Config modal shows metrics loaded from DB (all 11 interaction + agent metrics)
+#    - Toggling metrics re-renders chart
+#    - No JS console errors
+
+# 3. Log check: "DayTrendWidget: loaded 11 interaction + 18 agent metrics"
+#    (18 = 13 AgentStatusLog + 5 AgentStatus)
+```
