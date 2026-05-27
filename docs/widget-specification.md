@@ -20,6 +20,8 @@
 1. [Data Model Reference](#1-data-model-reference)
 2. [Metric Catalogue](#2-metric-catalogue)
 3. [DayTrend — Intraday Call Volume Chart](#3-daytrend--intraday-call-volume-chart)
+4. [AgentStatusCount — Current Agent Status Distribution](#4-agentstatuscount--current-agent-status-distribution)
+5. [AgentStatusDuration — Agent Status Time Distribution (Daily)](#5-agentstatusduration--agent-status-time-distribution-daily)
 
 ---
 
@@ -450,6 +452,15 @@ new RtsGridMetric { MetricId = "statuslog.break_time_ms",       Description = "B
 new RtsGridMetric { MetricId = "statuslog.paperwork_time_ms",   Description = "Paperwork / ACW Time",     DataType = "bigint",  MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:PAPERWORK",  MetricFormat = "mm:ss",  DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
 new RtsGridMetric { MetricId = "statuslog.training_time_ms",    Description = "Training / Back-Office Time", DataType = "bigint", MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:TRAINING",  MetricFormat = "mm:ss",  DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
 new RtsGridMetric { MetricId = "statuslog.total_active_time_ms",Description = "Total Active Time",        DataType = "bigint",  MetricFunction = "SUM_OVERLAP_MS", MetricParameter = "group:ALL",        MetricFormat = "mm:ss",  DefaultValue = "0", ValueType = "Time",   MetricType = "AgentStatusLog" },
+
+// AgentStatusSnapshot metrics (source: RTSData_UserStatusLog WHERE EndTime IS NULL, agent pool via Interaction)
+// MetricFunction COUNT_DISTINCT_ACTIVE = COUNT(DISTINCT UserId) on current (EndTime IS NULL) sessions
+new RtsGridMetric { MetricId = "snapshot.available_count",  Description = "Available Agents (Now)",        DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:AVAILABLE",  MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.onphone_count",    Description = "On Phone Agents (Now)",         DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:ONPHONE",    MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.break_count",      Description = "On Break Agents (Now)",         DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:BREAK",      MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.paperwork_count",  Description = "Paperwork / ACW Agents (Now)",  DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:PAPERWORK",  MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.training_count",   Description = "Training / Back-Office (Now)",  DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:TRAINING",   MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
+new RtsGridMetric { MetricId = "snapshot.total_active",     Description = "Total Active Agents (Now)",     DataType = "int", MetricFunction = "COUNT_DISTINCT_ACTIVE", MetricParameter = "group:ALL",        MetricFormat = "0", DefaultValue = "0", ValueType = "Number", MetricType = "AgentStatusSnapshot" },
 ```
 
 ---
@@ -1141,4 +1152,678 @@ new WidgetCatalogItem
 
 ---
 
-*Widget Specification v0.8 — transferred_calls enabled (IsTransferred confirmed); schema trust rule added to §3.4.3. Next: CC-002.*
+---
+
+## 4. AgentStatusCount — Current Agent Status Distribution
+
+### 4.1 Overview
+
+**Widget type ID:** `AgentStatusCount`
+**Category:** Agents
+**Purpose:** Displays the current distribution of agents across StatusGroups as a
+Donut/Pie/Bar chart. Provides a real-time snapshot of how many agents are available,
+on the phone, on break, etc. at the time of the last refresh.
+
+**Primary users:**
+- Shift Supervisor — monitors current availability vs demand; decides break rotations
+- Team Lead — checks break coverage and workload distribution in real time
+
+**Data sources:**
+- Agent pool: `RTSData_Interaction` today → DISTINCT UserId answering incoming calls on BU queues
+- Current status: `RTSData_UserStatusLog` WHERE EndTime IS NULL for each pooled agent
+
+Both queries are direct read-only. No SignalR subscription. Short polling interval.  
+**RTS tables required:** None (`RTSGrid_*` / `RTSUserGrid_*` not used).
+
+---
+
+### 4.2 Visual layout
+
+```
+┌─────────────────────────────────────────────────┐
+│  Agent Status — Now           [Donut ▼]  [↺]   │
+│  BU: Sales CC  ·  14:47:03   ·  ↻ 30s           │
+│                                                   │
+│            ████████                               │
+│         ████        ████                          │
+│        ██   AVAIL.   ██                           │
+│       ██    8 / 20   ██                           │
+│        ██           ██                            │
+│         ████        ████                          │
+│            ████████                               │
+│                                                   │
+│  ● Available  8   ● On Phone  7   ● Break  3      │
+│  ● Paperwork  2   ● Training  0                   │
+│                                                   │
+│  Last updated: 14:47:03                           │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+### 4.3 Configuration options
+
+#### 4.3.1 General
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `title` | string | Yes | Widget title. Default: `"Agent Status — Now"` |
+| `businessUnitId` | int | Yes | BU whose agent pool is computed (queues → interactions → agents) |
+| `refreshIntervalSeconds` | int | Yes | Auto-refresh period. Options: `15`, `30`, `60`, `300`. Default: `30` |
+
+#### 4.3.2 Appearance
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `chartType` | enum | Yes | `donut` \| `pie` \| `bar`. Default: `donut` |
+| `showLegend` | bool | No | Show colour legend below chart. Default: `true` |
+| `showLabels` | bool | No | Show count labels on segments/bars. Default: `true` |
+| `showCenterTotal` | bool | No | Donut only: show total agent count in center hole. Default: `true` |
+
+#### 4.3.3 StatusGroup segments (`segments` array)
+
+| # | metricId | Default label | Colour | Enabled |
+|---|---|---|---|---|
+| 1 | `snapshot.available_count` | Available | `#22c55e` | `true` |
+| 2 | `snapshot.onphone_count` | On Phone | `#3b82f6` | `true` |
+| 3 | `snapshot.break_count` | On Break | `#f59e0b` | `true` |
+| 4 | `snapshot.paperwork_count` | Paperwork / ACW | `#f97316` | `true` |
+| 5 | `snapshot.training_count` | Training / Back-Office | `#8b5cf6` | `true` |
+
+---
+
+### 4.4 Data query
+
+**Naming convention:** `fn_<widgettype><purpose>` — all lowercase, underscore-separated.
+
+**Output format — narrow (flat snapshot):** returns `(metric_id, value)` — one row per
+StatusGroup. No time dimension (this is a snapshot, not a time series).
+
+#### 4.4.1 Agent pool definition
+
+Same derivation as DayTrend (§3.4.2): DISTINCT UserId from `RTSData_Interaction` today,
+answered incoming calls on BU queues. Agents who have not answered any call today on
+this BU's queues are excluded by design — the widget scope is tied to BU-relevant activity.
+
+#### 4.4.2 `fn_agentstatuscount`
+
+```sql
+CREATE OR REPLACE FUNCTION fn_agentstatuscount(
+    p_tenantid   uuid,
+    p_ondate     varchar(50),  -- DD/MM/YYYY
+    p_queuelist  text[]
+)
+RETURNS TABLE (
+    metric_id  text,
+    value      double precision
+)
+LANGUAGE sql STABLE
+AS $$
+    WITH agent_pool AS (
+        -- Agents active today on this BU's queues (answered at least one incoming call)
+        SELECT DISTINCT "UserId"
+        FROM "RTSData_Interaction"
+        WHERE "TenantId"   = p_tenantid
+          AND "OnDate"     = p_ondate
+          AND "Workgroup"  = ANY(p_queuelist)
+          AND "IsAnswered" = true
+          AND "Direction"  = 'Incoming'
+    ),
+    current_status AS (
+        -- Each pooled agent's current status session (EndTime IS NULL = active now)
+        -- DISTINCT ON handles rare case of multiple open sessions per agent
+        SELECT DISTINCT ON (usl."UserId") usl."UserId", usl."StatusGroup"
+        FROM "RTSData_UserStatusLog" usl
+        JOIN agent_pool ap ON ap."UserId" = usl."UserId"
+        WHERE usl."TenantId"    = p_tenantid
+          AND usl."EndTime"     IS NULL
+          AND usl."StatusGroup" IS NOT NULL
+        ORDER BY usl."UserId", usl."StartTime" DESC
+    ),
+    counts AS (
+        -- snapshot.available_count  | group:AVAILABLE
+        SELECT
+            COUNT(*) FILTER (WHERE "StatusGroup" = 'AVAILABLE')  AS available_count,
+            -- snapshot.onphone_count    | group:ONPHONE
+            COUNT(*) FILTER (WHERE "StatusGroup" = 'ONPHONE')    AS onphone_count,
+            -- snapshot.break_count      | group:BREAK
+            COUNT(*) FILTER (WHERE "StatusGroup" = 'BREAK')      AS break_count,
+            -- snapshot.paperwork_count  | group:PAPERWORK
+            COUNT(*) FILTER (WHERE "StatusGroup" = 'PAPERWORK')  AS paperwork_count,
+            -- snapshot.training_count   | group:TRAINING
+            COUNT(*) FILTER (WHERE "StatusGroup" = 'TRAINING')   AS training_count,
+            -- snapshot.total_active     | group:ALL
+            COUNT(*)                                              AS total_active
+        FROM current_status
+    )
+    SELECT 'snapshot.available_count',  available_count::double precision  FROM counts
+    UNION ALL
+    SELECT 'snapshot.onphone_count',    onphone_count::double precision    FROM counts
+    UNION ALL
+    SELECT 'snapshot.break_count',      break_count::double precision      FROM counts
+    UNION ALL
+    SELECT 'snapshot.paperwork_count',  paperwork_count::double precision  FROM counts
+    UNION ALL
+    SELECT 'snapshot.training_count',   training_count::double precision   FROM counts
+    UNION ALL
+    SELECT 'snapshot.total_active',     total_active::double precision     FROM counts;
+$$;
+```
+
+> **Multiple open sessions:** `DISTINCT ON (UserId) ORDER BY StartTime DESC` selects the
+> most recent open session per agent. This handles CC backends that occasionally fail to
+> close a previous session before opening a new one.
+
+#### 4.4.3 Application layer — C# records and handler
+
+```csharp
+// Result type for fn_agentstatuscount (narrow snapshot format)
+public record AgentStatusCountRow(string MetricId, double? Value);
+
+public record AgentStatusCountResult(
+    IReadOnlyDictionary<string, double> Segments,   // key = MetricId, value = count
+    DateTime LastUpdated,
+    bool NoQueues = false)
+{
+    public static AgentStatusCountResult Empty(bool noQueues = false) =>
+        new(new Dictionary<string, double>(), DateTime.UtcNow, noQueues);
+}
+```
+
+```csharp
+// In AgentStatusCountQueryHandler.Handle():
+var queues = await _ngcRepo.GetQueuesByBusinessUnitAsync(query.BusinessUnitId, ct);
+if (!queues.Any())
+    return AgentStatusCountResult.Empty(noQueues: true);
+
+var tenantId   = _tenantContext.TenantId;
+var onDate     = DateTime.UtcNow.ToString("dd/MM/yyyy");   // DD/MM/YYYY
+var queueArray = queues.Select(q => q.ExternalId).ToArray();
+
+var rows = await _beDb.Database
+    .SqlQuery<AgentStatusCountRow>(
+        $"SELECT * FROM fn_agentstatuscount({tenantId}, {onDate}, {queueArray})")
+    .ToListAsync(ct);
+
+var segments = rows
+    .Where(r => r.Value.HasValue)
+    .ToDictionary(r => r.MetricId, r => r.Value!.Value);
+
+return new AgentStatusCountResult(segments, DateTime.UtcNow);
+```
+
+#### 4.4.4 Methodology — adding a new status segment
+
+| Step | Action |
+|---|---|
+| 1 | Add `RtsGridMetric` seed entry (`MetricType = "AgentStatusSnapshot"`, new `MetricId = "snapshot.xyz"`) |
+| 2 | Add computed column in `counts` CTE: `COUNT(*) FILTER (WHERE "StatusGroup" = 'XYZ') AS xyz_count` |
+| 3 | Add `UNION ALL SELECT 'snapshot.xyz', xyz_count::double precision FROM counts` |
+| 4 | Deploy with `CREATE OR REPLACE FUNCTION` — no migration structural change, no C# change |
+| 5 | Add entry to ConfigJson `segments[]` (§4.6) and §4.3.3 table |
+
+---
+
+### 4.5 Rendering requirements
+
+#### 4.5.1 Donut / Pie
+- One segment per `segments` entry where `enabled = true` and `value > 0`.
+- Segment size proportional to `value`.
+- Zero-value segments: render as thin stroke only, no label.
+- `showCenterTotal = true` (Donut): total of all enabled segments + label "agents" in center hole.
+- Tooltip on hover: `"{label} — {N} agents ({X}%)"`.
+
+#### 4.5.2 Bar
+- X-axis: StatusGroup labels (from `label` in ConfigJson).
+- Y-axis: agent count (integer, starts at 0).
+- Each bar coloured per `color` in ConfigJson.
+- `showLabels = true`: count displayed above each bar.
+
+#### 4.5.3 Refresh indicator and empty states
+
+| State | Display |
+|---|---|
+| Loading (first load) | Skeleton chart placeholder |
+| No queues in BU | `"No queues assigned to this Business Unit"` |
+| No agents today | `"No active agents found for this Business Unit today"` |
+| Query error | Error badge with retry button |
+| Last updated | Footer: `"Last updated: HH:mm:ss"` |
+| Stale data (refresh failed) | Last known data + `"⚠ Data may be stale"` badge |
+
+---
+
+### 4.6 ConfigJson schema
+
+```json
+{
+  "widgetType": "AgentStatusCount",
+  "title": "Agent Status — Now",
+  "businessUnitId": 3,
+  "refreshIntervalSeconds": 30,
+  "chartType": "donut",
+  "showLegend": true,
+  "showLabels": true,
+  "showCenterTotal": true,
+  "segments": [
+    { "metricId": "snapshot.available_count",  "enabled": true, "color": "#22c55e", "label": "Available"        },
+    { "metricId": "snapshot.onphone_count",    "enabled": true, "color": "#3b82f6", "label": "On Phone"         },
+    { "metricId": "snapshot.break_count",      "enabled": true, "color": "#f59e0b", "label": "On Break"         },
+    { "metricId": "snapshot.paperwork_count",  "enabled": true, "color": "#f97316", "label": "Paperwork / ACW"  },
+    { "metricId": "snapshot.training_count",   "enabled": true, "color": "#8b5cf6", "label": "Training"         }
+  ]
+}
+```
+
+---
+
+### 4.7 Widget settings panel (UI — configuration form)
+
+**Tab: General**
+- Title (text input)
+- Business Unit (dropdown — from `NgcBusinessUnit` filtered by user's PG `pg_business_units`)
+- Auto-refresh (dropdown: 15 sec / 30 sec / 1 min / 5 min)
+
+**Tab: Appearance**
+- Chart type (icon buttons: Donut / Pie / Bar)
+- Show legend (toggle)
+- Show labels (toggle)
+- Show total in center (toggle — visible only when Chart type = Donut)
+
+**Tab: Status Groups**
+
+Table with one row per StatusGroup (5 rows):
+
+| Column | Control |
+|---|---|
+| On/Off | Toggle switch |
+| Colour swatch | Colour picker (hex input + palette) |
+| Label | Text input (placeholder: default name) |
+
+---
+
+### 4.8 Access control
+
+| Role | Access |
+|---|---|
+| Viewer | Can view widget (if dashboard View permission granted) |
+| Editor | Can view + configure widget settings |
+| Administrator | Can view + configure + assign to any BU in their tenant |
+| Superadmin | Full access across all tenants |
+
+BU dropdown: shows only BUs where user's PG has access (`pg_business_units`).
+Empty `pg_business_units` → show all BUs in tenant (per `[PG-03]` semantics).
+
+---
+
+### 4.9 WidgetCatalogItem seed entry
+
+```csharp
+new WidgetCatalogItem
+{
+    Id          = Uuid.NewSequential(),
+    Category    = "Agents",
+    Name        = "Agent Status Distribution (Now)",
+    Description = "Donut/Pie/Bar chart showing the current count of agents in each "
+                + "status group (Available, On Phone, Break, Paperwork, Training) "
+                + "for agents active today on the selected Business Unit's queues. "
+                + "Configurable chart type, colours, labels, and auto-refresh (default 30 s).",
+    IconUrl     = "/icons/widgets/agent-status-count.svg",
+    IsActive    = true
+}
+```
+
+---
+
+### 4.10 Implementation notes
+
+1. **No RTSGrid_* tables.** No `SaveAgentStatusCountRtsCommand`. Direct read via `BackendEmulationDbContext`.
+
+2. **Agent pool dependency.** Agents who have not answered any incoming call today on this
+   BU's queues will not appear — even if logged in. This is a known design constraint, not a bug.
+   Document in the widget tooltip / help text: _"Shows agents who handled at least one call
+   today on this Business Unit."_
+
+3. **Multiple open sessions.** The `DISTINCT ON (UserId) ORDER BY StartTime DESC` guard
+   prevents double-counting in case the CC backend leaves multiple `EndTime IS NULL` rows
+   for the same agent. This is a defensive measure — not expected in normal operation.
+
+4. **OnDate format.** `DD/MM/YYYY` varchar. Always: `DateTime.UtcNow.ToString("dd/MM/yyyy")`.
+
+5. **Migration.** `fn_agentstatuscount` and `fn_agentstatusduration` (§5) are created in the
+   **same migration** `AddAgentStatusFunctions` under `BackendEmulationDbContext`.
+
+---
+
+## 5. AgentStatusDuration — Agent Status Time Distribution (Daily)
+
+### 5.1 Overview
+
+**Widget type ID:** `AgentStatusDuration`
+**Category:** Agents
+**Purpose:** Displays today's cumulative time distribution across StatusGroups as a
+Donut/Pie/Bar chart. Shows, in aggregate, how much time all BU agents spent in each
+status group today — useful for utilisation analysis and break compliance monitoring.
+
+**Primary users:**
+- Shift Manager — validates break compliance; compares ONPHONE vs AVAILABLE share
+- Department Manager — reviews daily utilisation patterns and training time
+
+**Data sources:**
+- `RTSData_UserStatus`: per-agent cumulative daily totals (`TotalDuration` in seconds per StatusGroup)
+- Agent pool: same BU-based derivation as AgentStatusCount (§4.4.1)
+
+Both queries are direct read-only. No SignalR subscription.  
+**RTS tables required:** None.
+
+---
+
+### 5.2 Visual layout
+
+```
+┌─────────────────────────────────────────────────┐
+│  Agent Status — Today         [Donut ▼]  [↺]   │
+│  BU: Sales CC  ·  26/05/2026  ·  ↻ 5 min        │
+│                                                   │
+│            ████████                               │
+│         ████        ████                          │
+│        ██  ON PHONE  ██                           │
+│       ██   4h 23m    ██                           │
+│        ██           ██                            │
+│         ████        ████                          │
+│            ████████                               │
+│                                                   │
+│  ● Available  6h 12m  ● On Phone  4h 23m          │
+│  ● Break  1h 05m  ● Paperwork  0h 48m             │
+│                                                   │
+│  Last updated: 14:47:03                           │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+### 5.3 Configuration options
+
+#### 5.3.1 General
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `title` | string | Yes | Widget title. Default: `"Agent Status — Today"` |
+| `businessUnitId` | int | Yes | BU for agent pool derivation |
+| `refreshIntervalSeconds` | int | Yes | Options: `60`, `300`, `600`. Default: `300` (5 min) |
+
+#### 5.3.2 Appearance
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `chartType` | enum | Yes | `donut` \| `pie` \| `bar`. Default: `donut` |
+| `showLegend` | bool | No | Default: `true` |
+| `showLabels` | bool | No | Default: `true` |
+| `showCenterTotal` | bool | No | Donut: total login time in center hole. Default: `true` |
+| `durationFormat` | enum | No | `hh:mm` \| `hh:mm:ss` \| `minutes`. Default: `hh:mm` |
+
+#### 5.3.3 StatusGroup segments (`segments` array)
+
+| # | metricId | Default label | Colour | Enabled |
+|---|---|---|---|---|
+| 1 | `agentstatus.available_time` | Available | `#22c55e` | `true` |
+| 2 | `agentstatus.onphone_time` | On Phone | `#3b82f6` | `true` |
+| 3 | `agentstatus.break_time` | On Break | `#f59e0b` | `true` |
+| 4 | `agentstatus.paperwork_time` | Paperwork / ACW | `#f97316` | `true` |
+| 5 | `agentstatus.training_time` | Training / Back-Office | `#8b5cf6` | `true` |
+
+> Reuses existing `agentstatus.*` seed entries (MetricType = `AgentStatus`). No new seeds needed.
+
+---
+
+### 5.4 Data query
+
+**Output format — narrow (flat snapshot):** returns `(metric_id, value)` — one row per
+StatusGroup. `value` is total seconds accumulated by all BU agents in that StatusGroup today.
+
+#### 5.4.1 `fn_agentstatusduration`
+
+```sql
+CREATE OR REPLACE FUNCTION fn_agentstatusduration(
+    p_tenantid   uuid,
+    p_ondate     varchar(50),  -- DD/MM/YYYY
+    p_queuelist  text[]
+)
+RETURNS TABLE (
+    metric_id  text,
+    value      double precision
+)
+LANGUAGE sql STABLE
+AS $$
+    WITH agent_pool AS (
+        -- Same pool definition as AgentStatusCount (§4.4.1)
+        SELECT DISTINCT "UserId"
+        FROM "RTSData_Interaction"
+        WHERE "TenantId"   = p_tenantid
+          AND "OnDate"     = p_ondate
+          AND "Workgroup"  = ANY(p_queuelist)
+          AND "IsAnswered" = true
+          AND "Direction"  = 'Incoming'
+    ),
+    totals AS (
+        -- Single aggregate pass over RTSData_UserStatus for today's agent pool
+        -- Column comments: MetricId | MetricParameter predicate
+        SELECT
+            -- agentstatus.available_time  | group:AVAILABLE
+            COALESCE(SUM(us."TotalDuration") FILTER (WHERE us."StatusGroup" = 'AVAILABLE'),  0) AS available_s,
+            -- agentstatus.onphone_time    | group:ONPHONE
+            COALESCE(SUM(us."TotalDuration") FILTER (WHERE us."StatusGroup" = 'ONPHONE'),    0) AS onphone_s,
+            -- agentstatus.break_time      | group:BREAK
+            COALESCE(SUM(us."TotalDuration") FILTER (WHERE us."StatusGroup" = 'BREAK'),      0) AS break_s,
+            -- agentstatus.paperwork_time  | group:PAPERWORK
+            COALESCE(SUM(us."TotalDuration") FILTER (WHERE us."StatusGroup" = 'PAPERWORK'),  0) AS paperwork_s,
+            -- agentstatus.training_time   | group:TRAINING
+            COALESCE(SUM(us."TotalDuration") FILTER (WHERE us."StatusGroup" = 'TRAINING'),   0) AS training_s
+        FROM "RTSData_UserStatus" us
+        JOIN agent_pool ap ON ap."UserId" = us."UserId"
+        WHERE us."TenantId" = p_tenantid
+          AND us."OnDate"   = p_ondate
+    )
+    SELECT 'agentstatus.available_time',  available_s::double precision  FROM totals
+    UNION ALL
+    SELECT 'agentstatus.onphone_time',    onphone_s::double precision    FROM totals
+    UNION ALL
+    SELECT 'agentstatus.break_time',      break_s::double precision      FROM totals
+    UNION ALL
+    SELECT 'agentstatus.paperwork_time',  paperwork_s::double precision  FROM totals
+    UNION ALL
+    SELECT 'agentstatus.training_time',   training_s::double precision   FROM totals;
+$$;
+```
+
+> `TotalDuration` in `RTSData_UserStatus` is stored in **seconds** (confirmed in `RtsDataUserStatus`
+> entity: _"TotalDuration and MaxDuration are in seconds"_). The function returns seconds;
+> the client formats with `TimeSpan.FromSeconds(v)`.
+
+#### 5.4.2 Application layer — C# records and handler
+
+```csharp
+// Result type for fn_agentstatusduration
+public record AgentStatusDurationRow(string MetricId, double? Value);
+
+public record AgentStatusDurationResult(
+    IReadOnlyDictionary<string, double> Segments,  // key = MetricId, value = seconds
+    DateTime LastUpdated,
+    bool NoQueues = false)
+{
+    public static AgentStatusDurationResult Empty(bool noQueues = false) =>
+        new(new Dictionary<string, double>(), DateTime.UtcNow, noQueues);
+}
+```
+
+```csharp
+// Duration formatter (seconds → display string)
+public static string FormatDuration(double seconds, string format) => format switch
+{
+    "hh:mm:ss" => TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss"),
+    "minutes"  => $"{(int)(seconds / 60)} min",
+    _          => TimeSpan.FromSeconds(seconds).ToString(@"h\:mm")  // hh:mm default
+};
+```
+
+```csharp
+// In AgentStatusDurationQueryHandler.Handle():
+var queues = await _ngcRepo.GetQueuesByBusinessUnitAsync(query.BusinessUnitId, ct);
+if (!queues.Any())
+    return AgentStatusDurationResult.Empty(noQueues: true);
+
+var tenantId   = _tenantContext.TenantId;
+var onDate     = DateTime.UtcNow.ToString("dd/MM/yyyy");
+var queueArray = queues.Select(q => q.ExternalId).ToArray();
+
+var rows = await _beDb.Database
+    .SqlQuery<AgentStatusDurationRow>(
+        $"SELECT * FROM fn_agentstatusduration({tenantId}, {onDate}, {queueArray})")
+    .ToListAsync(ct);
+
+var segments = rows
+    .Where(r => r.Value.HasValue)
+    .ToDictionary(r => r.MetricId, r => r.Value!.Value);
+
+return new AgentStatusDurationResult(segments, DateTime.UtcNow);
+```
+
+#### 5.4.3 Methodology — adding a new status segment
+
+| Step | Action |
+|---|---|
+| 1 | Add `RtsGridMetric` seed entry if new MetricId (`MetricType = "AgentStatus"`) |
+| 2 | Add column in `totals` CTE: `COALESCE(SUM(...) FILTER (WHERE StatusGroup = 'XYZ'), 0) AS xyz_s` |
+| 3 | Add `UNION ALL SELECT 'agentstatus.xyz_time', xyz_s::double precision FROM totals` |
+| 4 | Deploy with `CREATE OR REPLACE FUNCTION` — no C# change |
+| 5 | Add to ConfigJson `segments[]` and §5.3.3 table |
+
+---
+
+### 5.5 Rendering requirements
+
+#### 5.5.1 Donut / Pie
+- One segment per enabled entry with `value > 0`.
+- Segment size proportional to `value` (seconds).
+- Tooltip: `"{label} — {formatted duration} ({X}%)"`.
+- `showCenterTotal = true` (Donut): total login time (sum of all enabled segments)
+  formatted per `durationFormat`, + label "total today" in center hole.
+
+#### 5.5.2 Bar
+- X-axis: StatusGroup labels.
+- Y-axis: seconds. Format Y-axis tick labels per `durationFormat`.
+- `showLabels = true`: formatted duration above each bar.
+
+#### 5.5.3 Refresh indicator and empty states
+
+| State | Display |
+|---|---|
+| Loading | Skeleton chart |
+| No queues | `"No queues assigned to this Business Unit"` |
+| No data | `"No status data recorded today for this Business Unit"` |
+| Query error | Error badge + retry |
+| Last updated | Footer: `"Last updated: HH:mm:ss"` |
+| Stale data | Last known data + `"⚠ Data may be stale"` badge |
+
+---
+
+### 5.6 ConfigJson schema
+
+```json
+{
+  "widgetType": "AgentStatusDuration",
+  "title": "Agent Status — Today",
+  "businessUnitId": 3,
+  "refreshIntervalSeconds": 300,
+  "chartType": "donut",
+  "showLegend": true,
+  "showLabels": true,
+  "showCenterTotal": true,
+  "durationFormat": "hh:mm",
+  "segments": [
+    { "metricId": "agentstatus.available_time",  "enabled": true, "color": "#22c55e", "label": "Available"        },
+    { "metricId": "agentstatus.onphone_time",    "enabled": true, "color": "#3b82f6", "label": "On Phone"         },
+    { "metricId": "agentstatus.break_time",      "enabled": true, "color": "#f59e0b", "label": "On Break"         },
+    { "metricId": "agentstatus.paperwork_time",  "enabled": true, "color": "#f97316", "label": "Paperwork / ACW"  },
+    { "metricId": "agentstatus.training_time",   "enabled": true, "color": "#8b5cf6", "label": "Training"         }
+  ]
+}
+```
+
+---
+
+### 5.7 Widget settings panel (UI — configuration form)
+
+**Tab: General**
+- Title (text input)
+- Business Unit (dropdown — from `NgcBusinessUnit` filtered by user's PG)
+- Auto-refresh (dropdown: 1 min / 5 min / 10 min)
+
+**Tab: Appearance**
+- Chart type (icon buttons: Donut / Pie / Bar)
+- Show legend (toggle)
+- Show labels (toggle)
+- Show total in center (toggle — visible only when Chart type = Donut)
+- Duration format (radio group: `hh:mm` / `hh:mm:ss` / `minutes`)
+
+**Tab: Status Groups**
+
+Table with one row per StatusGroup (5 rows). Same structure as §4.7:
+
+| Column | Control |
+|---|---|
+| On/Off | Toggle switch |
+| Colour swatch | Colour picker (hex + palette) |
+| Label | Text input (placeholder: default name) |
+
+---
+
+### 5.8 Access control
+
+Same as §4.8 and §3.8: all roles can view; Editor+ can configure;
+BU dropdown filtered by user's `pg_business_units`.
+
+---
+
+### 5.9 WidgetCatalogItem seed entry
+
+```csharp
+new WidgetCatalogItem
+{
+    Id          = Uuid.NewSequential(),
+    Category    = "Agents",
+    Name        = "Agent Status Duration (Today)",
+    Description = "Donut/Pie/Bar chart showing today's cumulative time distribution "
+                + "across status groups (Available, On Phone, Break, Paperwork, Training) "
+                + "for agents active on the selected Business Unit. "
+                + "Duration displayed as hh:mm (configurable). Auto-refresh default 5 min.",
+    IconUrl     = "/icons/widgets/agent-status-duration.svg",
+    IsActive    = true
+}
+```
+
+---
+
+### 5.10 Implementation notes
+
+1. **TotalDuration unit.** `RTSData_UserStatus.TotalDuration` is **seconds** (entity comment
+   confirmed). Format with `TimeSpan.FromSeconds(v)`. Do **not** divide by 1000 (that would be
+   for milliseconds, which applies only to `RTSData_UserStatusLog.Duration`).
+
+2. **Agent pool shared with AgentStatusCount.** Both widgets use the same CTE logic.
+   The `fn_agentstatuscount` and `fn_agentstatusduration` functions each contain their own
+   `agent_pool` CTE — no shared SQL object needed. If a shared helper function is desired in
+   the future, it can be extracted without changing the calling C# code.
+
+3. **Refresh rate default 5 min.** Unlike AgentStatusCount (30 s), `RTSData_UserStatus`
+   accumulates incrementally throughout the day — rapid polling adds little value. 5 min is
+   the recommended default. Allow 1 min minimum in config validation.
+
+4. **Migration.** `fn_agentstatuscount` (§4) and `fn_agentstatusduration` (§5) are created
+   in the **same migration** `AddAgentStatusFunctions` under `BackendEmulationDbContext`.
+
+5. **No new seed entries.** `AgentStatusDuration` reuses existing `agentstatus.*` metrics
+   (MetricType = `AgentStatus`) already seeded from §2.4.
+
+---
+
+*Widget Specification v0.9 — §4 AgentStatusCount (snapshot, fn_agentstatuscount) and §5 AgentStatusDuration (daily totals, fn_agentstatusduration) added. snapshot.* MetricType added to §2.4. Next: CC-003.*
