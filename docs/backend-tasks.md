@@ -1849,7 +1849,7 @@ private async Task SeedRtsGridMetricsAsync(CancellationToken ct)
 **Depends on:** CC-005 ✅
 **Spec reference:** `docs/widget-specification.md` §1.3, §1.4, §3 — read before starting
 **Skill:** `.claude/skills/widget-creator/widget-creator.md` §23
-**Commit:** `8b2c9fb`
+**Commit:** `18613d5`
 
 ---
 
