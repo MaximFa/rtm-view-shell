@@ -11,16 +11,16 @@
 The shell reads this table to populate widget configuration dropdowns and drive filter logic
 in table widgets.
 
-> **⚠ CRITICAL RULE — Adding new metrics:**
-> The shell **CAN add new entries** to `RTSGrid_Metric`, provided:
-> 1. `MetricFunction` is one of the **existing values** listed in §3.4 — never invent a new one
-> 2. `MetricParameter` follows the **correct format** for that MetricFunction (filter expression, StatusGroup name, or status name — see §3.4)
->
-> Adding a metric with a non-existent `MetricFunction` or wrong `MetricParameter` format
-> will cause the SignalR server to fail silently or produce incorrect values.
->
-> Metrics with a dot in `MetricId` (e.g. `interaction.incoming_calls`) belong to
-> `History_Metric`, not `RTSGrid_Metric`.
+> **⚠ CRITICAL RULES:**
+> 1. **Do not seed this table** — it is static. No `SeedRtsGridMetricsAsync()` or equivalent.
+> 2. **Do not touch this table in general** — the CC platform manages it.
+> 3. **Exception — adding a new metric for a widget:** a new entry MAY be added once via a
+>    one-time DB migration during widget creation, provided:
+>    - `MetricFunction` is one of the existing values listed in §3.4 — never invent a new one
+>    - `MetricParameter` follows the correct format for that `MetricFunction` (see §3.4)
+>    This is a deliberate one-time act, not a repeating seed operation.
+> 4. Metrics with a dot in `MetricId` (e.g. `interaction.incoming_calls`) belong to
+>    `History_Metric`, not `RTSGrid_Metric`.
 
 ---
 
@@ -45,7 +45,7 @@ Metrics fall into three logical categories, identified by the **Description pref
 - **Type:** `varchar`, Primary Key
 - **Format:** PascalCase, no dots. Prefixes (`Mon*`, `Queue*`, `User*`, etc.) are historical with no enforced logic.
 - **Rule:** MetricIds with a dot (e.g. `interaction.incoming_calls`) belong to the shell-owned `History_Metric` table — never to `RTSGrid_Metric`.
-- **New metrics:** Can be added to `RTSGrid_Metric` using existing `MetricFunction` values with correct `MetricParameter` format (see §3.4).
+- **New metrics:** Only via a one-time migration during widget creation — never via seeding. See §1 for rules.
 
 ### 3.2 Description
 - **Type:** `varchar`

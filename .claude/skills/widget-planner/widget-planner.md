@@ -85,18 +85,17 @@ For any field not yet in the catalogue, ask the user to confirm:
 - Does the field exist? (e.g. "Is `IsTransferred` present in `RTSData_Interaction`?")
 - Once confirmed → add a `RTSGrid_Metric` seed entry and use it freely.
 
-### 1.5 RTSGrid_Metric — adding new entries (CRITICAL RULE)
+### 1.5 RTSGrid_Metric — rules for new metrics (CRITICAL)
 
-New metrics **can** be added to `RTSGrid_Metric`. Two conditions must both be met:
+`RTSGrid_Metric` is a **static table** managed by the CC platform. Default rule: **do not touch it**.
 
-1. **`MetricFunction` must be an existing value** — never invent a new one.
-   Full list in `docs/rtsgrid-metric-reference.md §3.4`.
-2. **`MetricParameter` must follow the correct format** for that `MetricFunction`:
-   - StatusGroup-based functions → StatusGroup name: `AVAILABLE`, `ONPHONE`, `BREAK`, `PAPERWORK`, `TRAINING`
-   - Status-based functions → exact status name: `Wrap Up`, `Hold`, `Incoming Ext Call`, etc.
-   - Count/duration functions → C# filter expression matching existing patterns in the catalogue
-
-Metrics with a dot in `MetricId` belong to `History_Metric`, not `RTSGrid_Metric`.
+**Exception — if a widget truly requires a metric not in the catalogue:**
+- Discuss during planning: is there an existing metric that covers the need?
+- If not: a new entry MAY be added **once** via a one-time DB migration during widget creation.
+- Requirements: `MetricFunction` must be an existing value (see `docs/rtsgrid-metric-reference.md §3.4`);
+  `MetricParameter` must follow the correct format for that function.
+- **Never add via seeding** (`DatabaseInitializer` or similar). One-time migration only.
+- Metrics with a dot in `MetricId` belong to `History_Metric`, not `RTSGrid_Metric`.
 
 ---
 
