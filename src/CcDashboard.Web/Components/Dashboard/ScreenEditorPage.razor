@@ -3625,6 +3625,57 @@
             }
         }
 
+        // For AgentStateDistribution widgets, save fixed 6-column grid to RTS tables
+        if (IsAgentStateDistributionWidget(ConfiguringWidget) &&
+            int.TryParse(ConfigBusinessUnit, out var asdBuId) && asdBuId > 0)
+        {
+            try
+            {
+                // Fixed metric IDs must match AgentStateDistributionWidget.FixedMetricIds (same order)
+                var asdColumns = new[]
+                {
+                    ("asd-c1", "Available",  "QueueLoginDataNumAvailableUsers"),
+                    ("asd-c2", "On Phone",   "QueueNumOnCallAgents"),
+                    ("asd-c3", "Break",      "QueueLoginDataNumBreakUsers"),
+                    ("asd-c4", "Paperwork",  "QueueLoginDataNumPaperworkUsers"),
+                    ("asd-c5", "Training",   "QueueLoginDataNumTrainingUsers"),
+                    ("asd-c6", "Other",      "QueueLoginDataNumLoggedUsers"),
+                };
+
+                var asdColumnInputs = asdColumns.Select((c, idx) => new QueueGridColumnInput(
+                    c.Item1,      // LocalId (stable — reused on every save)
+                    null,         // ColumnId null → handler deletes old + creates new (acceptable churn)
+                    c.Item2,      // Name (header label)
+                    c.Item3,      // MetricId
+                    idx + 1       // 1-based ColumnNumber
+                )).ToList();
+
+                var asdRowInputs = new List<QueueGridRowInput>
+                {
+                    new("asd-r1", null, asdBuId, 2, new Dictionary<string, int?>())
+                };
+
+                var asdRtsResult = await Mediator.Send(new SaveQueueGridRtsCommand(
+                    ConfiguringWidget.Config?.GridId,
+                    ConfiguringWidget.Config?.HeaderRowId,
+                    ConfigDisplayName ?? ConfiguringWidget.Name,
+                    asdColumnInputs,
+                    asdRowInputs,
+                    ConfiguringWidget.Config?.HeaderCellIds ?? new Dictionary<string, int?>()
+                ), _cts.Token);
+
+                queueGridId = asdRtsResult.GridId;
+                headerRowId = asdRtsResult.HeaderRowId;
+                savedHeaderCellIds = asdRtsResult.HeaderCellIds
+                    .ToDictionary(kvp => kvp.Key, kvp => (int?)kvp.Value);
+            }
+            catch (Exception ex)
+            {
+                Error = $"Agent State Distribution RTS save failed: {ex.Message}";
+                return;
+            }
+        }
+
         // For DataSlot widgets, save to RTS tables (RTSGrid_* - same as Queue Grid)
         if (IsDataSlotWidget(ConfiguringWidget) && !string.IsNullOrEmpty(ConfigDataSlotMetricId))
         {
