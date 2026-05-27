@@ -28,6 +28,7 @@ Before starting, answer with the user:
 | Who is the audience? | Determines which roles have access (§3.8 pattern) |
 | What is the user action? | View only, or configure + interact? |
 | Is this real-time push or historical pull? | **Critical fork:** Grid architecture vs Chart/Analytics architecture |
+| **Grid widgets only:** Queue Grid or Agent Grid pattern? | Determines which RTS commands, repositories, and tables are used |
 
 **Architecture decision:**
 
@@ -36,6 +37,16 @@ Before starting, answer with the user:
 | Live agent/queue state, updated by server push | **Grid architecture** (SignalR + RTS tables) — `widget-creator.md §1–19` |
 | Historical aggregates, trend charts, intraday data | **Chart/Analytics architecture** — `widget-creator.md §20` |
 | KPI summary tiles (last N minutes) | Chart/Analytics (polling) |
+
+**Queue Grid vs Agent Grid — mandatory question for all Grid widgets:**
+
+| Pattern | RTS Command | Key structure | Use when |
+|---|---|---|---|
+| **Queue Grid** | `SaveQueueGridRtsCommand` | Grid → Columns (MetricIds) → Rows (one per BU, UnionId=BusinessUnitId) → Cells (Data, Value=MetricId) | Widget data is bound to BU rows; metrics are per-BU aggregates |
+| **Agent Grid** | `SaveAgentGridRtsCommand` | Grid → ColumnsSet → Columns → per-agent rows | Widget shows per-agent rows with individual agent metrics |
+
+> Ask the user directly: "Как Queue Grid или как Agent Grid?" — determines all downstream commands and RTS table writes.
+> Wrong choice here means rewriting the entire save/delete/clone flow.
 
 > **⚠ Grid widgets — mandatory gate before any further planning:**
 > Before designing any Grid (SignalR) widget, the **exact metric must be identified first**.
@@ -182,6 +193,14 @@ If the widget mixes count metrics with time metrics:
 ---
 
 ## Phase 3 — Widget Specification
+
+> **⚠ MANDATORY for Grid widgets (Queue Grid or Agent Grid):**
+> Before writing any spec section, read `.claude/skills/widget-creator/widget-creator.md`.
+> - **Queue Grid widget** → focus on §15 (Queue Grid patterns), §16 (Dark Mode), §17 (Header Colors), §18 (UI Guidelines), §19 (RTS Infrastructure), §21 (Config Modal Tabs), §22 (CC task template).
+> - **Agent Grid widget** → focus on §1–14 (Agent Grid patterns), §16, §17, §18, §19, §21, §22.
+> - **Chart/Analytics widget** → focus on §20 (architecture), §21, §22, §23 (methodology).
+>
+> Writing a spec without reading widget-creator risks missing cascading-delete rules, SignalR binding patterns, dark-mode CSS conventions, and config-modal tab structure — all of which cause rework in CC.
 
 Write a new section in `docs/widget-specification.md`. Required subsections:
 
@@ -414,6 +433,16 @@ Currently all rows have `"String"` (wrong) — CC task pending to correct.
 If `MetricFormat = "##0.0%"` — the value arrives as a formatted string e.g. `"85.3%"`.
 If empty — arrives as a plain numeric string. Widgets must handle this when parsing.
 `DefaultValue` and `DataType` (the column, not the ValueType field) are transparent to the shell.
+
+---
+
+### L-18: Queue Grid vs Agent Grid — ask before designing RTS flow
+Two separate RTS infrastructure patterns exist. Mixing them causes wrong table writes and broken SignalR subscriptions.
+
+- **Queue Grid** (`SaveQueueGridRtsCommand`): rows bound to BU via `UnionId=BusinessUnitId`; columns = MetricIds; cells carry MetricId as Value for SignalR binding. Use for any widget showing BU-scoped aggregate metrics.
+- **Agent Grid** (`SaveAgentGridRtsCommand`): rows are per-agent; uses a different table set (`RtsUserGrid*`). Use for per-agent row display.
+
+**Rule:** Ask "Как Queue Grid или как Agent Grid?" in Phase 0 before writing any spec or task. Record the answer in §N.1 of the spec.
 
 ---
 

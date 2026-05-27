@@ -1146,3 +1146,335 @@ new WidgetCatalogItem
 ---
 
 *Widget Specification v1.0 — CC-004: migrated dot-notation metrics to HistoryMetric (shell-owned); removed snapshot.* metrics; AgentStatusCount/Duration widgets cancelled.*
+
+---
+
+## 4. Agent State Distribution — Real-Time BU Status Chart
+
+### 4.1 Overview
+
+| Field | Value |
+|---|---|
+| Widget name | `Agent State Distribution` |
+| Component file | `AgentStateDistributionWidget.razor` |
+| Architecture | **Queue Grid** (SignalR push, §15 widget-creator.md) |
+| Data source | SignalR hub → `ReceiveQueueGridData` via `GridId` |
+| RTS pattern | `SaveQueueGridRtsCommand` / `DeleteQueueGridRtsCommand` |
+| Rendering | Chart.js — Pie / Donut / Bar / HorizontalBar (configurable) |
+| Filter | Single Business Unit (int `BusinessUnitId`) |
+| Audience | All authenticated roles (Viewer, Editor, Administrator, Superadmin) |
+
+Shows the current distribution of agents across 5 status groups (AVAILABLE, ONPHONE, BREAK, PAPERWORK, TRAINING) as a configurable chart. A 6th segment **OTHER** appears automatically when `LoggedUsers > SUM(5 groups)`. Total denominator = `QueueLoginDataNumLoggedUsers`.
+
+---
+
+### 4.2 Visual Layout
+
+```
+┌─────────────────────────────────────────┐
+│  Agent State Distribution               │  ← widget header (gear / drag)
+├─────────────────────────────────────────┤
+│                                         │
+│          ┌───────────────────┐          │
+│          │   ●  AVAILABLE    │          │  ← Donut / Pie (configurable)
+│          │  ╱╲               │          │
+│          │ ╱  ╲  ●  ONPHONE  │          │
+│          │╱    ╲             │          │
+│          │  ●  BREAK         │          │
+│          │  ●  PAPERWORK     │          │
+│          │  ●  TRAINING      │          │
+│          │  ●  OTHER (if >0) │          │
+│          └───────────────────┘          │
+│                                         │
+│  ■ Available 42%  ■ On Phone 28%  ...  │  ← legend (toggleable)
+└─────────────────────────────────────────┘
+```
+
+For **Bar / HorizontalBar** chart type: one bar per segment, value shown on bar or axis.
+
+---
+
+### 4.3 Configuration Options
+
+#### Tab: General
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `displayName` | string | No | Shown in widget header. Default: "Agent State Distribution" |
+| `businessUnitId` | int | Yes | Selected BU. Searchable dropdown (§18.1). 0 = unconfigured |
+| `chartType` | string | No | `"donut"` (default) \| `"pie"` \| `"bar"` \| `"horizontalbar"` |
+
+#### Tab: Appearance
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `showPercentages` | bool | true | Show % labels inside / on segments |
+| `showValues` | bool | false | Show raw count alongside % |
+| `showLegend` | bool | true | Legend below/beside chart |
+| `backgroundColor` | string | `""` | Widget background (light mode) |
+| `darkBackgroundColor` | string | `"#1e1e1e"` | Widget background (dark mode) |
+| `fontColor` | string | `""` | Label / legend text color (light) |
+| `darkFontColor` | string | `"#ffffff"` | Label / legend text color (dark) |
+
+**Segment colors (per status group, light + dark):**
+
+| Segment | Default light | Default dark |
+|---|---|---|
+| AVAILABLE | `#22c55e` | `#4ade80` |
+| ONPHONE | `#3b82f6` | `#60a5fa` |
+| BREAK | `#f59e0b` | `#fbbf24` |
+| PAPERWORK | `#8b5cf6` | `#a78bfa` |
+| TRAINING | `#06b6d4` | `#22d3ee` |
+| OTHER | `#6b7280` | `#9ca3af` |
+
+Each segment has two color pickers in the Appearance tab (Light Mode / Dark Mode columns, §16.2 dual-column layout).
+
+---
+
+### 4.4 RTS Table Structure
+
+This widget follows the **Queue Grid pattern** (§15 widget-creator.md). The CC platform uses these records to know which metrics to stream via SignalR.
+
+**Grid** (1 record per widget instance):
+```
+RTSGrid_Grid.Id         → stored as DashboardWidget.GridId and Config.RtsGridId
+```
+
+**Columns** (6 fixed, one per MetricId — created on first save):
+
+| ColumnNumber | MetricId | Name (header cell value) |
+|---|---|---|
+| 1 | `QueueLoginDataNumAvailableUsers` | `Available` |
+| 2 | `QueueNumOnCallAgents` | `On Phone` |
+| 3 | `QueueLoginDataNumBreakUsers` | `Break` |
+| 4 | `QueueLoginDataNumPaperworkUsers` | `Paperwork` |
+| 5 | `QueueLoginDataNumTrainingUsers` | `Training` |
+| 6 | `QueueLoginDataNumLoggedUsers` | `Total` |
+
+**Header row** (RowNumber=1, UnionId=-1): 6 cells with CellType=`"Text"`, Value=column name above.
+
+**Data row** (RowNumber=2, UnionId=`BusinessUnitId`): 6 cells with CellType=`"Data"`, Value=MetricId.
+
+> **Note:** When the BU changes in config, the existing data row must be updated (new UnionId). Use `SaveQueueGridRtsCommand` with the existing `RowId` and new `BusinessUnitId`.
+
+---
+
+### 4.5 Rendering Requirements
+
+#### SignalR Data Reception
+
+```csharp
+_hub.On<List<QueueRowData>>("ReceiveQueueGridData", data =>
+{
+    var buRow = data.FirstOrDefault(r => r.BusinessUnitId == _businessUnitId);
+    if (buRow != null)
+    {
+        _metrics = buRow.Metrics; // Dictionary<string, string>
+        UpdateChartData();
+    }
+    InvokeAsync(StateHasChanged);
+});
+```
+
+#### OTHER Segment Logic
+
+```csharp
+private void UpdateChartData()
+{
+    var available  = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumAvailableUsers"));
+    var onphone    = ParseInt(_metrics.GetValueOrDefault("QueueNumOnCallAgents"));
+    var breakCount = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumBreakUsers"));
+    var paperwork  = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumPaperworkUsers"));
+    var training   = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumTrainingUsers"));
+    var total      = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumLoggedUsers"));
+
+    var sumFive = available + onphone + breakCount + paperwork + training;
+    var other   = Math.Max(0, total - sumFive);
+
+    // Build chart segments — include OTHER only if > 0
+    _segments = BuildSegments(available, onphone, breakCount, paperwork, training, other);
+}
+
+private static int ParseInt(string? value) =>
+    int.TryParse(value, out var n) ? n : 0;
+```
+
+#### Chart Types
+
+| `chartType` | Chart.js type | Notes |
+|---|---|---|
+| `"donut"` | `"doughnut"` | Default. Hole in centre |
+| `"pie"` | `"pie"` | No hole |
+| `"bar"` | `"bar"` | Vertical bars |
+| `"horizontalbar"` | `"bar"` + `indexAxis: 'y'` | Horizontal bars |
+
+#### JS Interop Contract
+
+```javascript
+// wwwroot/js/agent-state-distribution-chart.js
+window.agentStateDistributionChart = {
+    render(elementId, segments, options) { /* Chart.js init/update */ },
+    destroy(elementId) { /* Chart.js destroy */ }
+};
+```
+
+`segments` array (passed from C#):
+```json
+[
+  { "label": "Available", "value": 12, "color": "#22c55e" },
+  { "label": "On Phone",  "value": 8,  "color": "#3b82f6" },
+  { "label": "Break",     "value": 3,  "color": "#f59e0b" },
+  { "label": "Paperwork", "value": 2,  "color": "#8b5cf6" },
+  { "label": "Training",  "value": 1,  "color": "#06b6d4" },
+  { "label": "Other",     "value": 1,  "color": "#6b7280" }
+]
+```
+
+`options`:
+```json
+{
+  "chartType": "donut",
+  "showPercentages": true,
+  "showValues": false,
+  "showLegend": true,
+  "fontColor": "#1a1a1a"
+}
+```
+
+---
+
+### 4.6 ConfigJson Schema
+
+```json
+{
+  "displayName": "Agent State Distribution",
+  "businessUnitId": 0,
+  "rtsGridId": 0,
+  "rtsHeaderRowId": 0,
+  "rtsDataRowId": 0,
+  "rtsColumnIds": {
+    "QueueLoginDataNumAvailableUsers": 0,
+    "QueueNumOnCallAgents": 0,
+    "QueueLoginDataNumBreakUsers": 0,
+    "QueueLoginDataNumPaperworkUsers": 0,
+    "QueueLoginDataNumTrainingUsers": 0,
+    "QueueLoginDataNumLoggedUsers": 0
+  },
+  "rtsHeaderCellIds": {},
+  "rtsDataCellIds": {},
+  "chartType": "donut",
+  "showPercentages": true,
+  "showValues": false,
+  "showLegend": true,
+  "backgroundColor": "",
+  "darkBackgroundColor": "#1e1e1e",
+  "fontColor": "",
+  "darkFontColor": "#ffffff",
+  "headerBackgroundColor": "default",
+  "darkHeaderBackgroundColor": "default",
+  "headerFontColor": "default",
+  "darkHeaderFontColor": "default",
+  "segmentColors": {
+    "available": "#22c55e",
+    "onphone": "#3b82f6",
+    "break": "#f59e0b",
+    "paperwork": "#8b5cf6",
+    "training": "#06b6d4",
+    "other": "#6b7280"
+  },
+  "darkSegmentColors": {
+    "available": "#4ade80",
+    "onphone": "#60a5fa",
+    "break": "#fbbf24",
+    "paperwork": "#a78bfa",
+    "training": "#22d3ee",
+    "other": "#9ca3af"
+  }
+}
+```
+
+---
+
+### 4.7 Widget Settings Panel (Config Modal Tabs)
+
+**Tab: General**
+- `DisplayName` — text input, placeholder "Agent State Distribution"
+- `Business Unit` — searchable dropdown (§18.1 pattern), shows `BusinessUnitName`. On select: stores `BusinessUnitId` (int). "All" option not available — BU is required.
+- `Chart Type` — icon button group: Donut / Pie / Bar / Horizontal Bar
+
+**Tab: Appearance**
+- Chart display:
+  - `Show percentages` — toggle (default on)
+  - `Show values` — toggle (default off)
+  - `Show legend` — toggle (default on)
+- Colors — dual-column Light/Dark layout (§16.2):
+  - `Widget Background` — ColorPicker (light) + ColorPicker (dark)
+  - `Font Color` — ColorPicker (light) + ColorPicker (dark)
+  - `Header Background` / `Header Font` — with `"default"` option (§17.4)
+- Segment colors — dual-column table, one row per segment:
+  - Available, On Phone, Break, Paperwork, Training, Other
+
+> Tabs **Columns**, **Thresholds**, **Filters**, **Score** are **hidden** for this widget type (not applicable).
+
+---
+
+### 4.8 Access Control
+
+| Feature | Superadmin | Administrator | Editor | Viewer |
+|---|---|---|---|---|
+| View widget | ✅ | ✅ | ✅ (PG) | ✅ (PG) |
+| Configure widget | ✅ | ✅ | ✅ | — |
+| Add to dashboard | ✅ | ✅ | ✅ | — |
+
+---
+
+### 4.9 Seed Data
+
+#### New RTSGrid_Metric entry (via one-time DB migration — NOT via seeder)
+
+```csharp
+// In migration Up():
+mb.Sql("""
+    INSERT INTO "RTSGrid_Metric"
+        ("MetricId", "Description", "DataType", "MetricFunction", "MetricParameter",
+         "MetricFormat", "DefaultValue", "ValueType", "MetricType")
+    VALUES
+        ('QueueLoginDataNumTrainingUsers',
+         'Agent Group - Number of Agents in Training State Group',
+         'UsersSummary', 'UsersInStatusGroupCount', 'TRAINING',
+         '', '', 'String', 'Agent')
+    ON CONFLICT ("MetricId") DO NOTHING;
+""");
+```
+
+#### WidgetCatalogItem seed
+
+```csharp
+new WidgetCatalogItem
+{
+    Id          = new Guid("a4d1e3f7-2b8c-4e9a-b1d5-6f3c2a7e0d11"),
+    Category    = "Agents",
+    Name        = "Agent State Distribution",
+    Description = "Real-time pie/donut/bar chart showing agent distribution across status groups (Available, On Phone, Break, Paperwork, Training) for a selected Business Unit.",
+    IconUrl     = "/icons/widgets/agent-state-distribution.svg",
+    IsActive    = true
+}
+```
+
+---
+
+### 4.10 Implementation Notes
+
+1. **Fixed columns, no user configuration.** The 6 MetricIds are hardcoded in the widget. No Columns tab needed. `SaveQueueGridRtsCommand` is called with a fixed `Columns` list on every config save.
+
+2. **BU is required.** Widget shows "Configure widget first" state (§13 widget-creator.md) when `BusinessUnitId == 0` (same as `GridId == 0` check for table widgets).
+
+3. **OTHER segment.** Displayed only when `total > sumFive`. If `total == 0` (no data yet), show all segments as 0 with equal placeholder sizes or empty state.
+
+4. **MetricFormat is empty for all 6 metrics** — values arrive as plain integer strings. Use `int.TryParse`, never `double.Parse`.
+
+5. **Chart.js destroy on dispose.** `IAsyncDisposable` — call `window.agentStateDistributionChart.destroy(elementId)` in `DisposeAsync` to prevent canvas memory leaks.
+
+6. **Dark mode.** Pass `DarkMode` parameter (§16.4). Use `Effective*` color properties for segment colors and background.
+
+7. **CASCADE delete.** `RTSGrid_Grid` has CASCADE to Columns, Rows, 

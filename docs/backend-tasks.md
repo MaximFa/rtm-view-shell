@@ -20,6 +20,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | [CC-004](#cc-004) | ✅ Done | Cleanup AgentStatus artefacts + create History_Metric table |
 | [CC-005](#cc-005) | ✅ Done | Fix RTSGrid_Metric data (dot-notation, MetricType, ValueType) + apply History_Metric migration |
 | [CC-006](#cc-006) | ✅ Done | DayTrend: migrate from RTSGrid_Metric to HistoryMetric (DB-driven metric list, ValueType rendering) |
+| [CC-007](#cc-007) | 🔲 Ready | Agent State Distribution: Queue Grid chart widget (Pie/Donut/Bar) |
 
 ---
 
@@ -2050,3 +2051,465 @@ dotnet build CcDashboard.sln
 # 3. Log check: "DayTrendWidget: loaded 11 interaction + 18 agent metrics"
 #    (18 = 13 AgentStatusLog + 5 AgentStatus)
 ```
+
+*CC-006 written: 2026-05-27*
+
+---
+
+*Document created: 2026-05-26 | Last updated: 2026-05-27 | Current task: CC-007*
+
+---
+
+## CC-007
+
+### Agent State Distribution — Real-Time BU Status Chart (Queue Grid)
+
+**Status:** 🔲 Ready
+**Priority:** 🟡 Medium
+**Depends on:** CC-005 ✅ (RTSGrid_Metric seeding patterns), CC-006 ✅
+**Spec reference:** `docs/widget-specification.md` §4 — read before starting
+**Skill:** `.claude/skills/widget-creator/widget-creator.md` §15 (Queue Grid), §16 (Dark Mode), §17 (Header Colors), §18 (UI Guidelines), §19 (RTS Infrastructure), §21 (Config Modal), §22 (CC task template)
+
+---
+
+### 1. Background
+
+Implement the **Agent State Distribution** widget — a real-time chart showing the
+distribution of agents across status groups (AVAILABLE, ONPHONE, BREAK, PAPERWORK,
+TRAINING) for a selected Business Unit. Rendered with Chart.js as a configurable
+Pie / Donut / Bar / HorizontalBar chart.
+
+Architecture: **Queue Grid** pattern (`SaveQueueGridRtsCommand`). The widget registers
+6 fixed metrics as Grid columns and subscribes to the existing SignalR hub
+(`ReceiveQueueGridData`). A 6th **OTHER** segment appears automatically when
+`QueueLoginDataNumLoggedUsers > SUM(5 status groups)`.
+
+Key properties:
+- Single BU filter (one `BusinessUnitId` per widget instance)
+- No columns tab — metric list is fixed (hardcoded in component)
+- Chart type is user-configurable (Pie/Donut/Bar/HorizontalBar)
+- Segment colours are user-configurable per status group
+- Dark mode supported via `DarkMode` parameter (§16.4 widget-creator)
+
+New database work required:
+- One-time migration to add **TRAINING** metric to `RTSGrid_Metric` (does NOT touch `DatabaseInitializer.cs`)
+- WidgetCatalogItem seed entry (in `DatabaseInitializer.cs`)
+
+Full spec: `docs/widget-specification.md §4`.
+
+---
+
+### 2. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 2.1 | EF migration: add TRAINING metric to `RTSGrid_Metric` | `src/CcDashboard.Infrastructure/Migrations/BackendEmulation/` |
+| 2.2 | `AgentStateDistributionConfig` record (ConfigJson shape) | `AgentStateDistributionWidget.razor` |
+| 2.3 | `AgentStateDistributionWidget.razor` — full Blazor component | `src/CcDashboard.Web/Components/Widgets/` |
+| 2.4 | `agentStateDistribution.js` — Chart.js JS interop | `src/CcDashboard.Web/wwwroot/js/widgets/` |
+| 2.5 | WidgetCatalogItem seed entry | `src/CcDashboard.Infrastructure/Persistence/DatabaseInitializer.cs` |
+| 2.6 | `SaveQueueGridRtsCommand` call on config save | inside `AgentStateDistributionWidget.razor` |
+| 2.7 | `DeleteQueueGridRtsCommand` call on dispose | inside `AgentStateDistributionWidget.razor` |
+| 2.8 | Widget registration in `WidgetFactory` / widget registry | `src/CcDashboard.Web/Components/Widgets/WidgetFactory.razor` (or equivalent) |
+| 2.9 | Update task index row for CC-007 to ✅ Done | `docs/backend-tasks.md` |
+
+---
+
+### 3. Step-by-step instructions
+
+> **Before writing any code:** read `.claude/skills/widget-creator/widget-creator.md`
+> focusing on: §15 (Queue Grid patterns), §16 (Dark Mode), §17 (Header Colors),
+> §18 (UI Guidelines), §19 (RTS Infrastructure), §21 (Config Modal Tabs).
+> Then read `docs/widget-specification.md §4` in full.
+>
+> Check existing Queue Grid widgets (e.g. `QueueGridWidget.razor`) to confirm exact
+> field names, injection pattern, and SignalR subscription call — copy their pattern exactly.
+
+#### 3.1 Add TRAINING metric — one-time EF migration (BackendEmulation context)
+
+Create migration named `AddTrainingRtsGridMetric`. **Do NOT add to `DatabaseInitializer.cs`** —
+this follows the L-15 pattern (one-time migration for static reference data).
+
+In `Up()`:
+
+```csharp
+migrationBuilder.Sql(
+    @"INSERT INTO ""RTSGrid_Metric""
+          (""MetricId"", ""Description"", ""MetricParameter"", ""CategoryName"",
+           ""AggregationType"", ""FilterExpression"",
+           ""MetricFormat"", ""DefaultValue"", ""DataType"", ""MetricType"")
+      VALUES
+          ('QueueLoginDataNumTrainingUsers',
+           'Agent Group - Number of Agents in Training State Group',
+           'TRAINING',
+           'UsersSummary',
+           'UsersInStatusGroupCount',
+           '', '', 'String', 'Agent')
+      ON CONFLICT (""MetricId"") DO NOTHING;");
+```
+
+Apply with:
+
+```bash
+dotnet ef database update --context BackendEmulationDbContext \
+  --project src/CcDashboard.Infrastructure \
+  --startup-project src/CcDashboard.Web
+```
+
+#### 3.2 Define `AgentStateDistributionConfig` record
+
+Place at the top of `@code` in `AgentStateDistributionWidget.razor`:
+
+```csharp
+public record AgentStateDistributionConfig
+{
+    public string DisplayName    { get; init; } = "Agent State Distribution";
+    public int    BusinessUnitId { get; init; } = 0;
+    public string ChartType      { get; init; } = "doughnut"; // doughnut|pie|bar|horizontalBar
+    public bool   ShowLegend     { get; init; } = true;
+    public bool   ShowLabels     { get; init; } = true;
+    public string BackgroundColor { get; init; } = "";
+    public string FontColor       { get; init; } = "";
+    public string FontSize        { get; init; } = "14";
+    // Segment colours
+    public string ColorAvailable { get; init; } = "#22c55e";
+    public string ColorOnPhone   { get; init; } = "#3b82f6";
+    public string ColorBreak     { get; init; } = "#f59e0b";
+    public string ColorPaperwork { get; init; } = "#8b5cf6";
+    public string ColorTraining  { get; init; } = "#94a3b8";
+    public string ColorOther     { get; init; } = "#64748b";
+}
+```
+
+#### 3.3 Component lifecycle — Queue Grid pattern (§15 widget-creator)
+
+**Key fields:**
+
+```csharp
+private AgentStateDistributionConfig Config = new();
+private AgentStateDistributionConfig _editConfig = new();
+private int    _gridId = 0;
+private Dictionary<string, string> _cellValues = new();
+private bool   _configOpen  = false;
+private bool   _saving      = false;
+private string? _saveError  = null;
+private string _elementId   = $"asd-{Guid.NewGuid():N}";
+private List<NgcBusinessUnitDto> _availableBusinessUnits = [];
+```
+
+**`OnInitializedAsync`:**
+1. Deserialize `WidgetInstance.ConfigJson` → `Config` (null-safe, fall back to `new()`)
+2. If `Config.BusinessUnitId > 0`: call `await SaveQueueGridRts()`, then subscribe SignalR
+3. If `Config.BusinessUnitId == 0`: show "Configure widget first" placeholder
+
+**`SaveQueueGridRts` — register fixed metric columns:**
+
+```csharp
+private static readonly IReadOnlyList<string> FixedMetricIds = new[]
+{
+    "QueueLoginDataNumAvailableUsers",
+    "QueueLoginDataNumOnPhoneUsers",
+    "QueueLoginDataNumBreakUsers",
+    "QueueLoginDataNumPaperworkUsers",
+    "QueueLoginDataNumTrainingUsers",
+    "QueueLoginDataNumLoggedUsers",
+};
+
+private async Task SaveQueueGridRts()
+{
+    var result = await Mediator.Send(new SaveQueueGridRtsCommand(
+        TenantId:       TenantContext.TenantId,
+        WidgetId:       WidgetInstance.Id,
+        BusinessUnitId: Config.BusinessUnitId,
+        MetricIds:      FixedMetricIds.ToList()));
+    _gridId = result.GridId;
+}
+```
+
+**SignalR — subscribe after `SaveQueueGridRts()`:**
+
+```csharp
+await HubConnection.SendAsync("SubscribeToGrid", _gridId);
+HubConnection.On<QueueGridData>("ReceiveQueueGridData", OnGridData);
+```
+
+**OnGridData handler:**
+
+```csharp
+private Task OnGridData(QueueGridData data)
+{
+    if (data.GridId != _gridId) return Task.CompletedTask;
+    var row = data.Rows.FirstOrDefault(r => r.UnionId == Config.BusinessUnitId);
+    if (row is not null)
+        _cellValues = row.Cells.ToDictionary(c => c.MetricId, c => c.Value ?? "0");
+    InvokeAsync(async () => { StateHasChanged(); await RenderChartAsync(); });
+    return Task.CompletedTask;
+}
+```
+
+**IAsyncDisposable:**
+
+```csharp
+public async ValueTask DisposeAsync()
+{
+    if (_gridId > 0)
+        await HubConnection.SendAsync("UnsubscribeFromGrid", _gridId);
+    if (_gridId > 0 && Config.BusinessUnitId > 0)
+        await Mediator.Send(new DeleteQueueGridRtsCommand(WidgetInstance.Id));
+    await JSRuntime.InvokeVoidAsync("agentStateDistributionChart.destroy", _elementId);
+}
+```
+
+#### 3.4 Chart.js JS interop — `agentStateDistribution.js`
+
+Create `src/CcDashboard.Web/wwwroot/js/widgets/agentStateDistribution.js`:
+
+```javascript
+window.agentStateDistributionChart = {
+    _charts: {},
+
+    render: function (elementId, cfg) {
+        const ctx = document.getElementById(elementId);
+        if (!ctx) return;
+        if (this._charts[elementId]) { this._charts[elementId].destroy(); }
+
+        const isPolar  = cfg.chartType === 'pie' || cfg.chartType === 'doughnut';
+        const type     = cfg.chartType === 'horizontalBar' ? 'bar' : cfg.chartType;
+        const indexAxis = cfg.chartType === 'horizontalBar' ? 'y' : 'x';
+        const textColor = cfg.darkMode ? '#d1d5db' : '#374151';
+        const gridColor = cfg.darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+        this._charts[elementId] = new Chart(ctx, {
+            type: type,
+            data: {
+                labels: cfg.labels,
+                datasets: [{
+                    data:            cfg.data,
+                    backgroundColor: cfg.colors,
+                    borderWidth:     1,
+                    borderColor:     cfg.darkMode ? '#1f2937' : '#ffffff',
+                }]
+            },
+            options: {
+                indexAxis: indexAxis,
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display:  cfg.showLegend,
+                        position: 'bottom',
+                        labels:   { color: textColor, font: { size: parseInt(cfg.fontSize) || 13 } }
+                    },
+                },
+                scales: isPolar ? {} : {
+                    x: { grid: { color: gridColor }, ticks: { color: textColor } },
+                    y: { grid: { color: gridColor }, ticks: { color: textColor } }
+                }
+            }
+        });
+    },
+
+    destroy: function (elementId) {
+        if (this._charts[elementId]) {
+            this._charts[elementId].destroy();
+            delete this._charts[elementId];
+        }
+    }
+};
+```
+
+Add script reference in `App.razor` (or `_Layout.cshtml`) after existing widget JS:
+
+```html
+<script src="js/widgets/agentStateDistribution.js"></script>
+```
+
+Chart.js is already loaded for DayTrend — **do not add a second Chart.js script tag**.
+
+#### 3.5 Data extraction + OTHER segment logic
+
+```csharp
+private int GetVal(string metricId)
+    => int.TryParse(_cellValues.GetValueOrDefault(metricId, "0"), out var v) ? v : 0;
+
+private (string[] Labels, int[] Values, string[] Colors) GetChartData()
+{
+    int available = GetVal("QueueLoginDataNumAvailableUsers");
+    int onPhone   = GetVal("QueueLoginDataNumOnPhoneUsers");
+    int onBreak   = GetVal("QueueLoginDataNumBreakUsers");
+    int paperwork = GetVal("QueueLoginDataNumPaperworkUsers");
+    int training  = GetVal("QueueLoginDataNumTrainingUsers");
+    int loggedIn  = GetVal("QueueLoginDataNumLoggedUsers");
+    int other     = Math.Max(0, loggedIn - (available + onPhone + onBreak + paperwork + training));
+
+    var labels = new List<string> { "Available", "On Phone", "Break", "Paperwork", "Training" };
+    var values = new List<int>    { available, onPhone, onBreak, paperwork, training };
+    var colors = new List<string> {
+        Config.ColorAvailable, Config.ColorOnPhone, Config.ColorBreak,
+        Config.ColorPaperwork, Config.ColorTraining
+    };
+    if (other > 0) { labels.Add("Other"); values.Add(other); colors.Add(Config.ColorOther); }
+
+    return (labels.ToArray(), values.ToArray(), colors.ToArray());
+}
+
+private async Task RenderChartAsync()
+{
+    var (labels, values, colors) = GetChartData();
+    await JSRuntime.InvokeVoidAsync("agentStateDistributionChart.render", _elementId, new {
+        chartType  = Config.ChartType,
+        labels     = labels,
+        data       = values,
+        colors     = colors,
+        showLegend = Config.ShowLegend,
+        darkMode   = DarkMode,
+        fontSize   = Config.FontSize,
+    });
+}
+```
+
+**Render states (in markup):**
+
+```razor
+@if (Config.BusinessUnitId == 0)
+{
+    <!-- "Configure widget first" placeholder — use pattern from §13 widget-creator -->
+}
+else if (_cellValues.Count == 0)
+{
+    <!-- Loading spinner -->
+}
+else
+{
+    <div style="position:relative; height:100%;">
+        <canvas id="@_elementId"></canvas>
+    </div>
+}
+```
+
+#### 3.6 Dark mode (§16.4 widget-creator)
+
+```csharp
+[Parameter] public bool DarkMode { get; set; }
+
+private string EffectiveBg   => string.IsNullOrEmpty(Config.BackgroundColor)
+    ? (DarkMode ? "var(--widget-bg-dark)"   : "var(--widget-bg-light)")
+    : Config.BackgroundColor;
+
+private string EffectiveFont => string.IsNullOrEmpty(Config.FontColor)
+    ? (DarkMode ? "var(--widget-text-dark)" : "var(--widget-text-light)")
+    : Config.FontColor;
+```
+
+Apply on widget root: `style="background:@EffectiveBg; color:@EffectiveFont;"`.
+
+Call `await RenderChartAsync()` in `OnParametersSetAsync()` when `DarkMode` changes.
+
+#### 3.7 Config modal — two tabs (§21 widget-creator)
+
+Follow §21 for modal shell. Two tabs: **General** and **Appearance**.
+
+**General tab:**
+
+| Field | Control | Bound to |
+|---|---|---|
+| Display name | `<input type="text">` | `_editConfig.DisplayName` |
+| Business Unit | `<select>` (from `_availableBusinessUnits`) | `_editConfig.BusinessUnitId` |
+| Chart type | `<select>`: Donut / Pie / Bar / Horizontal Bar | `_editConfig.ChartType` |
+| Show legend | `<input type="checkbox">` | `_editConfig.ShowLegend` |
+| Show value labels | `<input type="checkbox">` | `_editConfig.ShowLabels` |
+
+Load BU list on modal open — use the same `NgcBusinessUnits` query pattern as other Queue Grid widgets.
+
+**Appearance tab:**
+
+| Field | Control | Bound to |
+|---|---|---|
+| Background colour | `<input type="color">` | `_editConfig.BackgroundColor` |
+| Font colour | `<input type="color">` | `_editConfig.FontColor` |
+| Font size | `<select>` (tenant font sizes) | `_editConfig.FontSize` |
+| Available colour | `<input type="color">` | `_editConfig.ColorAvailable` |
+| On Phone colour | `<input type="color">` | `_editConfig.ColorOnPhone` |
+| Break colour | `<input type="color">` | `_editConfig.ColorBreak` |
+| Paperwork colour | `<input type="color">` | `_editConfig.ColorPaperwork` |
+| Training colour | `<input type="color">` | `_editConfig.ColorTraining` |
+| Other colour | `<input type="color">` | `_editConfig.ColorOther` |
+
+**Save handler:**
+
+```csharp
+private async Task SaveConfig()
+{
+    _saving = true; _saveError = null;
+    try
+    {
+        Config = _editConfig with {};
+        var json = JsonSerializer.Serialize(Config);
+        await Mediator.Send(new UpdateWidgetConfigCommand(WidgetInstance.Id, json));
+        if (Config.BusinessUnitId > 0)
+            await SaveQueueGridRts();
+        _configOpen = false;
+        await RenderChartAsync();
+    }
+    catch (Exception ex) { _saveError = ex.Message; }
+    finally { _saving = false; }
+}
+```
+
+#### 3.8 WidgetCatalogItem seed (DatabaseInitializer.cs)
+
+In the `SeedWidgetCatalogAsync` method, add:
+
+```csharp
+new WidgetCatalogItem
+{
+    Id          = new Guid("a4d1e3f7-2b8c-4e9a-b1d5-6f3c2a7e0d11"),
+    Category    = "Agents",
+    Name        = "Agent State Distribution",
+    Description = "Real-time pie/donut/bar chart showing agent distribution across " +
+                  "status groups (Available, On Phone, Break, Paperwork, Training) " +
+                  "for a selected Business Unit.",
+    IconUrl     = "/icons/widgets/agent-state-distribution.svg",
+    IsActive    = true
+},
+```
+
+#### 3.9 Register in WidgetFactory
+
+Search for `QueueGridWidget` in the project to find where widgets are registered.
+Add `AgentStateDistributionWidget` with key `"AgentStateDistribution"` (or the enum/string
+value used in `WidgetCatalogItem.Name` — match whatever the factory uses as lookup key).
+
+---
+
+### 4. Verification
+
+```bash
+# 1. Build clean
+dotnet build CcDashboard.sln
+
+# 2. Apply BackendEmulation migration:
+dotnet ef database update --context BackendEmulationDbContext \
+  --project src/CcDashboard.Infrastructure \
+  --startup-project src/CcDashboard.Web
+
+# 3. Verify TRAINING metric exists:
+#    SELECT "MetricId", "MetricParameter" FROM "RTSGrid_Metric"
+#    WHERE "MetricId" = 'QueueLoginDataNumTrainingUsers';
+#    → 1 row
+
+# 4. Runtime checks (browser):
+#    a) Add "Agent State Distribution" widget to a dashboard
+#    b) Before config: shows "Configure widget first" state
+#    c) Open config → select BU → save → doughnut chart renders
+#    d) Switch chart type → Pie / Bar / HorizontalBar renders correctly
+#    e) OTHER segment appears when loggedIn > sum(5 groups)
+#    f) Colour pickers persist and apply to segments after save
+#    g) Toggle dark mode on dashboard → chart background/text updates
+#    h) Remove widget from dashboard → no JS console errors (canvas destroyed)
+#    i) No SignalR subscription errors in browser console or server log
+```
+
+---
+
+*CC-007 written: 2026-05-27*
