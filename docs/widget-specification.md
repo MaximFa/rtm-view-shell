@@ -1467,14 +1467,19 @@ new WidgetCatalogItem
 
 1. **Fixed columns, no user configuration.** The 6 MetricIds are hardcoded in the widget. No Columns tab needed. `SaveQueueGridRtsCommand` is called with a fixed `Columns` list on every config save.
 
-2. **BU is required.** Widget shows "Configure widget first" state (§13 widget-creator.md) when `BusinessUnitId == 0` (same as `GridId == 0` check for table widgets).
+2. **Localization.**
+   - **Segment labels** (Available, On Phone, Break, Paperwork, Training, Other) — hardcoded English; these are platform-standard terms, not translated.
+   - **Config modal UI** (field names, tab headers, buttons) — use `@L["Key"]` via `IStringLocalizer<SharedResources>`. Reuse existing keys first; add new keys only if no match exists.
+   - **Empty / error state messages** — use `@L["Key"]` (e.g. `@L["Widget.ConfigureFirst"]`, `@L["Widget.NoAgentsLoggedIn"]`). Check `.resx` for existing equivalents before adding new keys.
 
-3. **OTHER segment.** Displayed only when `total > sumFive`. If `total == 0` (no data yet), show all segments as 0 with equal placeholder sizes or empty state.
+3. **BU is required.** Widget shows `@L["Widget.ConfigureFirst"]` state when `BusinessUnitId == 0` (same as `GridId == 0` check for table widgets).
 
-4. **MetricFormat is empty for all 6 metrics** — values arrive as plain integer strings. Use `int.TryParse`, never `double.Parse`.
+4. **OTHER segment.** Displayed only when `total > sumFive`. If `total == 0` (no data yet), show all segments as 0 with equal placeholder sizes or empty state.
 
-5. **Chart.js destroy on dispose.** `IAsyncDisposable` — call `window.agentStateDistributionChart.destroy(elementId)` in `DisposeAsync` to prevent canvas memory leaks.
+5. **MetricFormat is empty for all 6 metrics** — values arrive as plain integer strings. Use `int.TryParse`, never `double.Parse`.
 
-6. **Dark mode.** Pass `DarkMode` parameter (§16.4). Use `Effective*` color properties for segment colors and background.
+6. **Chart.js destroy on dispose.** `IAsyncDisposable` — call `window.agentStateDistributionChart.destroy(elementId)` in `DisposeAsync` to prevent canvas memory leaks.
+
+7. **Dark mode.** Pass `DarkMode` parameter (§16.4). Use `Effective*` color properties for segment colors and background.
 
 7. **CASCADE delete.** `RTSGrid_Grid` has CASCADE to Columns, Rows, 

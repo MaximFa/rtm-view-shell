@@ -2376,11 +2376,15 @@ private async Task RenderChartAsync()
 ```razor
 @if (Config.BusinessUnitId == 0)
 {
-    <!-- "Configure widget first" placeholder — use pattern from §13 widget-creator -->
+    <!-- @L["Widget.ConfigureFirst"] or existing equivalent — §13 widget-creator pattern -->
 }
 else if (_cellValues.Count == 0)
 {
-    <!-- Loading spinner -->
+    <!-- Loading spinner (no text label needed) -->
+}
+else if (GetVal("QueueLoginDataNumLoggedUsers") == 0)
+{
+    <!-- @L["Widget.NoAgentsLoggedIn"] or existing equivalent -->
 }
 else
 {
@@ -2438,6 +2442,15 @@ Load BU list on modal open — use the same `NgcBusinessUnits` query pattern as 
 | Paperwork colour | `<input type="color">` | `_editConfig.ColorPaperwork` |
 | Training colour | `<input type="color">` | `_editConfig.ColorTraining` |
 | Other colour | `<input type="color">` | `_editConfig.ColorOther` |
+
+> **Localization in the modal:** use `@L["Key"]` for all visible labels (tab names,
+> field labels, placeholder text, button text). Check existing keys in `SharedResources.resx`
+> (and locale variants) **before** adding new ones. Common keys that likely already exist:
+> `L["General"]`, `L["Appearance"]`, `L["Save"]`, `L["Cancel"]`, `L["DisplayName"]`.
+> For widget-specific labels ("Chart Type", "Value Display", "Business Unit", "Show Legend",
+> segment colour names) — check first, add only if no suitable key exists.
+>
+> Segment labels passed to Chart.js (`"Available"`, `"On Phone"`, etc.) are **not** localized — platform-standard English terms.
 
 **Save handler:**
 
