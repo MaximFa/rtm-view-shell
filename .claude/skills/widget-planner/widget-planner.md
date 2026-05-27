@@ -192,6 +192,44 @@ If the widget mixes count metrics with time metrics:
 
 ---
 
+## Phase 2.5 — Config Tab Design (MANDATORY before writing spec)
+
+> **⚠ Do NOT skip.** Config tab structure must be agreed with the user before writing §N.3, §N.6, or §N.7.
+> Proposing and confirming the tab layout here prevents mismatches between spec and CC implementation.
+
+### Step 1 — Propose tab structure
+
+Based on the widget type and collected parameters, draft a table:
+
+| Tab name | Fields on this tab |
+|---|---|
+| General | display name, primary filter (BU / Queue / etc.), main behavioural options |
+| Data / Metrics | metric selection, thresholds, sort order — only if widget has configurable metrics |
+| Appearance | colours, font size, background, chart type, legend toggle |
+| Advanced | refresh interval, empty-state message, anything that doesn't fit above |
+
+**Rules for the proposal:**
+- **General** tab always exists and always contains the primary filter (BU, Queue, etc.)
+- **Appearance** tab always exists (background colour, font colour, font size at minimum)
+- Merge **Data** and **Metrics** tabs into one if there are fewer than 4 metric fields
+- Only add **Advanced** tab if there are ≥2 fields that don't fit elsewhere
+- Fields that affect what data is shown go in General or Data; fields that affect how it looks go in Appearance
+- Widget display name always lives in General tab
+
+### Step 2 — Ask the user
+
+Present the proposed tabs as a table, then ask:
+
+> "Вот предлагаемая структура табов конфигуратора. Что изменить?"
+
+Wait for the response. Apply all changes before proceeding.
+
+### Step 3 — Lock the tab structure
+
+Record the agreed structure in the spec session notes and use it verbatim in §N.3, §N.6, and §N.7.
+
+---
+
 ## Phase 3 — Widget Specification
 
 > **⚠ MANDATORY for Grid widgets (Queue Grid or Agent Grid):**

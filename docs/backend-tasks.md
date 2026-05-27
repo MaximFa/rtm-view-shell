@@ -2166,8 +2166,9 @@ public record AgentStateDistributionConfig
     public string DisplayName    { get; init; } = "Agent State Distribution";
     public int    BusinessUnitId { get; init; } = 0;
     public string ChartType      { get; init; } = "doughnut"; // doughnut|pie|bar|horizontalBar
-    public bool   ShowLegend     { get; init; } = true;
-    public bool   ShowLabels     { get; init; } = true;
+    public bool   ShowLegend      { get; init; } = true;
+    public bool   ShowValueLabels { get; init; } = true;
+    public string ValueDisplay    { get; init; } = "percentages"; // percentages | numbers
     public string BackgroundColor { get; init; } = "";
     public string FontColor       { get; init; } = "";
     public string FontSize        { get; init; } = "14";
@@ -2361,9 +2362,11 @@ private async Task RenderChartAsync()
         labels     = labels,
         data       = values,
         colors     = colors,
-        showLegend = Config.ShowLegend,
-        darkMode   = DarkMode,
-        fontSize   = Config.FontSize,
+        showLegend      = Config.ShowLegend,
+        showValueLabels = Config.ShowValueLabels,
+        valueDisplay    = Config.ValueDisplay,   // "percentages" | "numbers"
+        darkMode        = DarkMode,
+        fontSize        = Config.FontSize,
     });
 }
 ```
@@ -2416,8 +2419,9 @@ Follow §21 for modal shell. Two tabs: **General** and **Appearance**.
 | Display name | `<input type="text">` | `_editConfig.DisplayName` |
 | Business Unit | `<select>` (from `_availableBusinessUnits`) | `_editConfig.BusinessUnitId` |
 | Chart type | `<select>`: Donut / Pie / Bar / Horizontal Bar | `_editConfig.ChartType` |
+| Value display | radio / segmented control: **Percentages** / **Numbers** | `_editConfig.ValueDisplay` |
 | Show legend | `<input type="checkbox">` | `_editConfig.ShowLegend` |
-| Show value labels | `<input type="checkbox">` | `_editConfig.ShowLabels` |
+| Show value labels | `<input type="checkbox">` | `_editConfig.ShowValueLabels` |
 
 Load BU list on modal open — use the same `NgcBusinessUnits` query pattern as other Queue Grid widgets.
 

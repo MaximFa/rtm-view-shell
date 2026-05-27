@@ -1203,14 +1203,14 @@ For **Bar / HorizontalBar** chart type: one bar per segment, value shown on bar 
 | `displayName` | string | No | Shown in widget header. Default: "Agent State Distribution" |
 | `businessUnitId` | int | Yes | Selected BU. Searchable dropdown (§18.1). 0 = unconfigured |
 | `chartType` | string | No | `"donut"` (default) \| `"pie"` \| `"bar"` \| `"horizontalbar"` |
+| `valueDisplay` | string | No | `"percentages"` (default) \| `"numbers"` — controls whether segment labels show % or raw count |
+| `showLegend` | bool | No | Show legend below chart. Default: `true` |
+| `showValueLabels` | bool | No | Show per-segment labels on chart. Default: `true` |
 
 #### Tab: Appearance
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `showPercentages` | bool | true | Show % labels inside / on segments |
-| `showValues` | bool | false | Show raw count alongside % |
-| `showLegend` | bool | true | Legend below/beside chart |
 | `backgroundColor` | string | `""` | Widget background (light mode) |
 | `darkBackgroundColor` | string | `"#1e1e1e"` | Widget background (dark mode) |
 | `fontColor` | string | `""` | Label / legend text color (light) |
@@ -1334,9 +1334,9 @@ window.agentStateDistributionChart = {
 ```json
 {
   "chartType": "donut",
-  "showPercentages": true,
-  "showValues": false,
+  "valueDisplay": "percentages",
   "showLegend": true,
+  "showValueLabels": true,
   "fontColor": "#1a1a1a"
 }
 ```
@@ -1363,9 +1363,9 @@ window.agentStateDistributionChart = {
   "rtsHeaderCellIds": {},
   "rtsDataCellIds": {},
   "chartType": "donut",
-  "showPercentages": true,
-  "showValues": false,
+  "valueDisplay": "percentages",
   "showLegend": true,
+  "showValueLabels": true,
   "backgroundColor": "",
   "darkBackgroundColor": "#1e1e1e",
   "fontColor": "",
@@ -1401,12 +1401,12 @@ window.agentStateDistributionChart = {
 - `DisplayName` — text input, placeholder "Agent State Distribution"
 - `Business Unit` — searchable dropdown (§18.1 pattern), shows `BusinessUnitName`. On select: stores `BusinessUnitId` (int). "All" option not available — BU is required.
 - `Chart Type` — icon button group: Donut / Pie / Bar / Horizontal Bar
+- `Value Display` — radio group or segmented control: **Percentages** (default) / **Numbers**. Controls whether segment labels show `34%` or `34`.
+- `Show Legend` — toggle (default on)
+- `Show Value Labels` — toggle; shows per-segment labels on the chart (default on)
 
 **Tab: Appearance**
-- Chart display:
-  - `Show percentages` — toggle (default on)
-  - `Show values` — toggle (default off)
-  - `Show legend` — toggle (default on)
+- Colors — dual-column Light/Dark layout (§16.2):
 - Colors — dual-column Light/Dark layout (§16.2):
   - `Widget Background` — ColorPicker (light) + ColorPicker (dark)
   - `Font Color` — ColorPicker (light) + ColorPicker (dark)
