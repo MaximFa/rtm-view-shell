@@ -1489,4 +1489,172 @@ new WidgetCatalogItem
 
 7. **Dark mode.** Pass `DarkMode` parameter (§16.4). Use `Effective*` color properties for segment colors and background.
 
-8. **CASCADE delete.** `RTSGrid_Grid` has CASCADE to Columns, Rows, 
+8. **CASCADE delete.** `RTSGrid_Grid` has CASCADE to Columns, Rows, Cells — `DeleteQueueGridRtsCommand` cleans up all three levels automatically. Call it in `DisposeAsync`.
+
+---
+
+*Widget Specification v1.4 — §4 Agent State Distribution added. Next: CC-007, CC-008.*
+
+---
+
+## 5. Agent State Definitions — Tenant Configuration Registry
+
+### 5.1 Overview
+
+| Field | Value |
+|---|---|
+| Purpose | Configurable mapping of CC-platform agent states to display groups |
+| Managed by | Superadmin via Edit Tenant modal → "Agent States" tab |
+| Scope | Per-tenant (multi-tenant, Global Query Filter on TenantId) |
+| Consumer | `AgentStateDistributionWidget` (CC-008), any future widget needing state-group mapping |
+| CC task | CC-008 |
+
+This registry allows Superadmin to define which raw CC-platform states exist and how they group into display categories (e.g., LUNCH → "Break"). Adding a new state group requires no code change — only a new record in this registry.
+
+---
+
+### 5.2 Data Model
+
+Three normalized tables. No physical deletes — all deactivation via `IsActive = false`.
+
+#### `tenant_agent_states`
+
+| Column | Type | Notes |
+|---|---|---|
+| Id | uuid (UUIDv7) | PK |
+| TenantId | uuid | FK → tenants; GQF |
+| AgentState | varchar(100) | Raw state name from CC platform (e.g., "AVAILABLE", "LUNCH") |
+| IsActive | bool | Soft-delete flag |
+| CreatedAt | timestamptz | UTC |
+| UpdatedAt | timestamptz | UTC |
+
+Unique index: `(TenantId, AgentState)`.
+
+#### `tenant_agent_state_groups`
+
+| Column | Type | Notes |
+|---|---|---|
+| Id | uuid (UUIDv7) | PK |
+| TenantId | uuid | FK → tenants; GQF |
+| GroupName | varchar(100) | Display name (e.g., "Available", "Break") |
+| IsActive | bool | Soft-delete flag |
+| CreatedAt | timestamptz | UTC |
+| UpdatedAt | timestamptz | UTC |
+
+Unique index: `(TenantId, GroupName)`.
+
+#### `tenant_agent_state_definitions` (junction)
+
+| Column | Type | Notes |
+|---|---|---|
+| Id | uuid (UUIDv7) | PK |
+| TenantId | uuid | FK → tenants; GQF |
+| AgentStateId | uuid | FK → tenant_agent_states CASCADE |
+| AgentStateGroupId | uuid | FK → tenant_agent_state_groups CASCADE |
+| IsActive | bool | |
+| CreatedAt | timestamptz | UTC |
+| UpdatedAt | timestamptz | UTC |
+
+Unique index: `(TenantId, AgentStateId)` — one State maps to exactly one Group per tenant.
+CASCADE: delete State or Group → delete the definition row.
+
+#### MetricId resolution
+
+The widget resolves MetricId at query time — no MetricId stored in these tables:
+
+```sql
+SELECT s."AgentState", g."GroupName", m."MetricId"
+FROM tenant_agent_state_definitions d
+JOIN tenant_agent_states s      ON s."Id" = d."AgentStateId"      AND s."IsActive" = true
+JOIN tenant_agent_state_groups g ON g."Id" = d."AgentStateGroupId" AND g."IsActive" = true
+JOIN "RTSGrid_Metric" m          ON m."MetricParameter" = s."AgentState"
+                                 AND m."MetricType" = 'Agent'
+WHERE d."TenantId" = @tenantId
+  AND d."IsActive" = true
+ORDER BY g."GroupName", s."AgentState"
+```
+
+---
+
+### 5.3 Seed Data
+
+On first run (DatabaseInitializer), seed 5 standard definitions for every existing tenant:
+
+| AgentState | AgentStateGroup |
+|---|---|
+| AVAILABLE | Available |
+| ONPHONE | On Phone |
+| BREAK | Break |
+| PAPERWORK | Paperwork |
+| TRAINING | Training |
+
+Seed is idempotent (`ON CONFLICT DO NOTHING`). Applied to all active tenants at startup.
+
+---
+
+### 5.4 UI — "Agent States" Tab in Edit Tenant Modal
+
+**Access:** Superadmin only. Tab is hidden for Administrator role.
+
+**Tab layout — two sections:**
+
+#### Section 1: State Groups
+
+Table columns: Group Name | Status (Active / Inactive) | Actions
+
+Actions per row:
+- **Edit** — rename the group (inline or mini-modal)
+- **Deactivate** — Danger Zone: confirmation dialog with two choices:
+  - **Reassign states** — dropdown to select another active group; all definitions pointing to this group are updated to the new group
+  - **Deactivate all states** — all `tenant_agent_state_definitions` rows for this group → `IsActive = false`; then Group → `IsActive = false`
+
+Button: **"+ Add State Group"** — prompts for GroupName; creates a new `tenant_agent_state_groups` row.
+
+#### Section 2: Agent States
+
+Table columns: Agent State | Mapped Group | Status | Actions
+
+Actions per row:
+- **Edit** — change the mapped group (dropdown of active groups)
+- **Deactivate** — Danger Zone: confirmation → `IsActive = false` on `tenant_agent_states` row and its `tenant_agent_state_definitions` row
+
+Button: **"+ Add State"** — form fields: AgentState (text input) + Group (dropdown of active groups); creates rows in both `tenant_agent_states` and `tenant_agent_state_definitions`.
+
+**Validation:**
+- `AgentState` unique per tenant (case-insensitive)
+- `GroupName` unique per tenant (case-insensitive)
+- Cannot deactivate the last active state in a group without also deactivating the group
+- Group deactivation requires choosing Reassign or Deactivate All before saving
+
+**Localization:** all UI labels use `@L["Key"]`; AgentState and GroupName values are user-defined strings, not translated.
+
+---
+
+### 5.5 Access Control
+
+| Action | Superadmin | Administrator | Editor | Viewer |
+|---|---|---|---|---|
+| View Agent States tab | ✅ | — | — | — |
+| Add / Edit State Group | ✅ | — | — | — |
+| Deactivate State Group | ✅ | — | — | — |
+| Add / Edit State | ✅ | — | — | — |
+| Deactivate State | ✅ | — | — | — |
+
+---
+
+### 5.6 Impact on AgentStateDistributionWidget (CC-008)
+
+After CC-008, the widget no longer uses `FixedMetricIds`. On init and on config save:
+
+1. Load definitions via `GetAgentStateDefinitionsQuery(TenantId)`
+2. Extract MetricIds (via RTSGrid_Metric join) → pass to `SaveQueueGridRtsCommand`
+3. `GetChartData()` groups cell values by `AgentStateGroup`, sums MetricIds per group
+4. Segment colours stored as `Dictionary<string, string>` keyed by `GroupName` (not hardcoded fields)
+5. Config modal Appearance: colour pickers generated dynamically from loaded groups
+6. **Backward compat:** if loaded ConfigJson has legacy hardcoded colour fields (`colorAvailable` etc.), convert to dict on load and re-save in new format
+
+OTHER segment logic unchanged: `Math.Max(0, loggedIn - SUM(all active group values))`.
+
+---
+
+*Widget Specification v1.5 — §5 Agent State Definitions registry added. Next: CC-008.*

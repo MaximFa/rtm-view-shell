@@ -21,6 +21,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | [CC-005](#cc-005) | ✅ Done | Fix RTSGrid_Metric data (dot-notation, MetricType, ValueType) + apply History_Metric migration |
 | [CC-006](#cc-006) | ✅ Done | DayTrend: migrate from RTSGrid_Metric to HistoryMetric (DB-driven metric list, ValueType rendering) |
 | [CC-007](#cc-007) | 🔲 Ready | Agent State Distribution: Queue Grid chart widget (Pie/Donut/Bar) |
+| [CC-008](#cc-008) | 🔲 Ready | Agent State Definitions registry (3 tables) + Edit Tenant tab + widget refactor |
 
 ---
 
@@ -2530,3 +2531,334 @@ dotnet ef database update --context BackendEmulationDbContext \
 ---
 
 *CC-007 written: 2026-05-27*
+
+---
+
+## CC-008
+
+### Agent State Definitions — Dynamic State Group Registry + Widget Refactor
+
+**Status:** 🔲 Ready
+**Priority:** 🟡 Medium
+**Depends on:** CC-007 ✅
+**Spec reference:** `docs/widget-specification.md` §5 — read before starting
+**Related:** `docs/widget-specification.md` §4.10 §5.6 — widget refactor details
+
+---
+
+### 1. Background
+
+Currently `AgentStateDistributionWidget` uses a hardcoded list of 5 MetricIds and 5 fixed colour fields in its config. This task introduces a proper normalized registry that allows Superadmin to add new CC-platform states and groups through the UI — no code change needed afterward.
+
+Three new shell tables:
+- `tenant_agent_states` — raw CC-platform state names per tenant
+- `tenant_agent_state_groups` — display group names per tenant
+- `tenant_agent_state_definitions` — junction: one State → one Group
+
+New "Agent States" tab in Edit Tenant modal (Superadmin only).
+
+Widget refactor: `FixedMetricIds` replaced by dynamic DB query; segment colours become a `Dictionary<string, string>` keyed by `GroupName`.
+
+Full spec: `docs/widget-specification.md §5`.
+
+---
+
+### 2. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 2.1 | EF entities: `AgentState`, `AgentStateGroup`, `AgentStateDefinition` + configurations | `CcDashboard.Infrastructure/Persistence/Configurations/` |
+| 2.2 | App migration: create 3 tables | `CcDashboard.Infrastructure/Migrations/App/` |
+| 2.3 | Seed 5 standard definitions for all existing tenants | `DatabaseInitializer.cs` |
+| 2.4 | `GetAgentStateDefinitionsQuery` + handler (returns MetricId via RTSGrid_Metric join) | `CcDashboard.Application/Queries/` |
+| 2.5 | `CreateAgentStateGroupCommand`, `DeactivateAgentStateGroupCommand` (with Reassign/DeactivateAll option) | `CcDashboard.Application/Commands/` |
+| 2.6 | `CreateAgentStateCommand`, `DeactivateAgentStateCommand` | `CcDashboard.Application/Commands/` |
+| 2.7 | "Agent States" tab in Edit Tenant modal | `CcDashboard.Web/Components/Admin/` |
+| 2.8 | `AgentStateDistributionWidget.razor` refactor — dynamic MetricIds + colour dict | `CcDashboard.Web/Components/Widgets/` |
+| 2.9 | ConfigJson backward compat (legacy colour fields → dict) | inside widget |
+| 2.10 | Update CLAUDE.md §6 — add 3 new entities to data model | `CLAUDE.md` |
+| 2.11 | Update task index (CC-008 → ✅ Done) | `docs/backend-tasks.md` |
+
+---
+
+### 3. Step-by-step instructions
+
+#### 3.1 EF Entities
+
+**`AgentState`** (`tenant_agent_states`):
+```csharp
+public class AgentState : IAuditableEntity
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string AgentStateName { get; set; } = "";   // column: AgentState
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public Tenant Tenant { get; set; } = null!;
+    public AgentStateDefinition? Definition { get; set; }
+}
+```
+
+**`AgentStateGroup`** (`tenant_agent_state_groups`):
+```csharp
+public class AgentStateGroup : IAuditableEntity
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string GroupName { get; set; } = "";
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public Tenant Tenant { get; set; } = null!;
+    public ICollection<AgentStateDefinition> Definitions { get; set; } = [];
+}
+```
+
+**`AgentStateDefinition`** (`tenant_agent_state_definitions`):
+```csharp
+public class AgentStateDefinition : IAuditableEntity
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid AgentStateId { get; set; }
+    public Guid AgentStateGroupId { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public AgentState State { get; set; } = null!;
+    public AgentStateGroup Group { get; set; } = null!;
+}
+```
+
+**`IEntityTypeConfiguration`** for each — apply GQF (`TenantId`), unique indexes, CASCADE delete on FK. See `docs/widget-specification.md §5.2` for full index list.
+
+#### 3.2 Migration
+
+```bash
+dotnet ef migrations add AddAgentStateRegistry \
+  --context AppDbContext \
+  --project src/CcDashboard.Infrastructure \
+  --startup-project src/CcDashboard.Web
+```
+
+#### 3.3 Seed data (DatabaseInitializer)
+
+In `SeedAgentStateDefinitionsAsync` — called from `InitializeAsync`. Idempotent:
+
+```csharp
+private static readonly (string State, string Group)[] StandardDefinitions =
+[
+    ("AVAILABLE", "Available"),
+    ("ONPHONE",   "On Phone"),
+    ("BREAK",     "Break"),
+    ("PAPERWORK", "Paperwork"),
+    ("TRAINING",  "Training"),
+];
+
+// For each active tenant: upsert State, Group, Definition
+// Use ON CONFLICT DO NOTHING pattern (check existing before insert)
+```
+
+#### 3.4 `GetAgentStateDefinitionsQuery`
+
+Returns active definitions with MetricId resolved from `RTSGrid_Metric`:
+
+```csharp
+public record AgentStateDefinitionDto(
+    Guid StateId,
+    string AgentState,
+    Guid GroupId,
+    string GroupName,
+    string MetricId);       // from RTSGrid_Metric.MetricId where MetricParameter = AgentState
+
+public record GetAgentStateDefinitionsQuery : IRequest<IReadOnlyList<AgentStateDefinitionDto>>;
+```
+
+Handler joins `tenant_agent_state_definitions` → `tenant_agent_states` → `tenant_agent_state_groups` → `RTSGrid_Metric` (cross-tenant, no GQF on RTSGrid_Metric). Filter: `d.IsActive && s.IsActive && g.IsActive`. Order: `GroupName, AgentState`.
+
+#### 3.5 Commands
+
+**`CreateAgentStateGroupCommand(string GroupName)`**
+- Validate: GroupName unique in tenant (case-insensitive)
+- Insert `tenant_agent_state_groups`
+
+**`DeactivateAgentStateGroupCommand(Guid GroupId, DeactivateGroupAction action, Guid? ReassignToGroupId)`**
+```csharp
+public enum DeactivateGroupAction { ReassignStates, DeactivateAllStates }
+```
+- If `ReassignStates`: update all active `AgentStateDefinition.AgentStateGroupId` = `ReassignToGroupId`
+- If `DeactivateAllStates`: set `IsActive = false` on all definitions + their AgentStates for this group
+- Then set `AgentStateGroup.IsActive = false`
+- Wrap in transaction
+
+**`CreateAgentStateCommand(string AgentStateName, Guid GroupId)`**
+- Validate: AgentStateName unique in tenant
+- Insert `tenant_agent_states` + `tenant_agent_state_definitions`
+
+**`DeactivateAgentStateCommand(Guid StateId)`**
+- Set `AgentState.IsActive = false`
+- Set matching `AgentStateDefinition.IsActive = false`
+
+#### 3.6 "Agent States" tab in Edit Tenant modal
+
+Add tab button "Agent States" alongside General / Settings / Appearance.
+Tab is hidden unless `CurrentUser.Role == Superadmin`.
+
+**Section 1 — State Groups:**
+
+Table: GroupName | Status badge | Edit button | Deactivate button
+
+- **Edit**: inline rename input + Save
+- **Deactivate** (Danger Zone, red button):
+  - Confirmation modal: "Deactivating group '{name}'. Choose what to do with its states:"
+  - Radio: **Reassign to group** [dropdown of other active groups] / **Deactivate all states**
+  - "Confirm deactivation →" button (disabled until choice made)
+
+Button: `+ Add State Group` → input for GroupName → Save
+
+**Section 2 — Agent States:**
+
+Table: AgentState | Mapped Group | Status badge | Edit button | Deactivate button
+
+- **Edit**: change mapped group via dropdown of active groups
+- **Deactivate** (Danger Zone):
+  - Confirmation: "Deactivating state '{name}'. It will no longer appear in widgets."
+  - "Confirm →" button
+
+Button: `+ Add State` → AgentState text input + Group dropdown (active groups) → Save
+
+**Validation messages** (use `@L["Key"]`):
+- AgentState already exists in this tenant
+- GroupName already exists in this tenant
+- Must select a target group when reassigning
+
+All labels, headings, buttons: `@L["Key"]` — check existing keys first.
+
+#### 3.7 `AgentStateDistributionWidget` refactor
+
+**Remove:**
+- `FixedMetricIds` static list
+- `ColorAvailable`, `ColorOnPhone`, `ColorBreak`, `ColorPaperwork`, `ColorTraining`, `ColorOther` properties from `AgentStateDistributionConfig`
+
+**Add to `AgentStateDistributionConfig`:**
+```csharp
+public Dictionary<string, string> SegmentColors     { get; init; } = new();
+public Dictionary<string, string> DarkSegmentColors { get; init; } = new();
+```
+
+Default colours (applied when key missing from dict):
+```csharp
+private static readonly Dictionary<string, string> FallbackColors = new()
+{
+    ["Available"] = "#22c55e", ["On Phone"] = "#3b82f6",
+    ["Break"]     = "#f59e0b", ["Paperwork"] = "#8b5cf6",
+    ["Training"]  = "#06b6d4", ["Other"]     = "#6b7280",
+};
+```
+
+**`OnInitializedAsync`:**
+```csharp
+_definitions = await Mediator.Send(new GetAgentStateDefinitionsQuery());
+var metricIds = _definitions.Select(d => d.MetricId).ToList();
+if (Config.BusinessUnitId > 0)
+    await SaveQueueGridRts(metricIds);
+```
+
+**`GetChartData()`:**
+```csharp
+var groups = _definitions
+    .GroupBy(d => d.GroupName)
+    .OrderBy(g => g.Key);
+
+foreach (var group in groups)
+{
+    var value = group.Sum(d => GetVal(d.MetricId));
+    labels.Add(group.Key);
+    values.Add(value);
+    colors.Add(Config.SegmentColors.GetValueOrDefault(group.Key,
+               FallbackColors.GetValueOrDefault(group.Key, "#64748b")));
+}
+// OTHER segment unchanged
+```
+
+**Config modal Appearance — colour pickers:**
+
+Generate dynamically from loaded groups:
+```razor
+@foreach (var group in _definitions.Select(d => d.GroupName).Distinct().OrderBy(x => x))
+{
+    <div class="mb-2">
+        <label>@group</label>
+        <input type="color" @bind="_editConfig.SegmentColors[group]" />
+    </div>
+}
+```
+
+**Backward compat on config load:**
+
+```csharp
+private AgentStateDistributionConfig MigrateConfig(AgentStateDistributionConfig cfg)
+{
+    // If SegmentColors is empty but legacy fields exist in raw JSON, convert them
+    if (cfg.SegmentColors.Count == 0)
+    {
+        var legacy = new Dictionary<string, string>
+        {
+            ["Available"] = cfg.ColorAvailable ?? "#22c55e",
+            ["On Phone"]  = cfg.ColorOnPhone   ?? "#3b82f6",
+            ["Break"]     = cfg.ColorBreak      ?? "#f59e0b",
+            ["Paperwork"] = cfg.ColorPaperwork  ?? "#8b5cf6",
+            ["Training"]  = cfg.ColorTraining   ?? "#06b6d4",
+            ["Other"]     = cfg.ColorOther      ?? "#6b7280",
+        };
+        return cfg with { SegmentColors = legacy };
+    }
+    return cfg;
+}
+```
+
+> **Note:** `ColorAvailable` etc. are no longer in `AgentStateDistributionConfig` after this refactor. Deserialize raw JSON to `JsonDocument` first to extract legacy fields, then build the new config. Or keep the old properties as `[JsonIgnore(Condition = WhenWritingNull)]` `[Obsolete]` for one version.
+
+---
+
+### 4. Verification
+
+```bash
+# 1. Build clean
+dotnet build CcDashboard.sln
+
+# 2. Apply migration
+dotnet ef database update --context AppDbContext \
+  --project src/CcDashboard.Infrastructure \
+  --startup-project src/CcDashboard.Web
+
+# 3. Verify seed:
+#    SELECT s."AgentState", g."GroupName"
+#    FROM tenant_agent_state_definitions d
+#    JOIN tenant_agent_states s ON s."Id" = d."AgentStateId"
+#    JOIN tenant_agent_state_groups g ON g."Id" = d."AgentStateGroupId"
+#    WHERE d."TenantId" = '<any tenant id>';
+#    → 5 rows: AVAILABLE/Available, ONPHONE/On Phone, BREAK/Break,
+#              PAPERWORK/Paperwork, TRAINING/Training
+
+# 4. UI checks (browser, logged in as Superadmin):
+#    a) Tenants → Edit → "Agent States" tab visible
+#    b) 5 seeded states and groups shown
+#    c) "+ Add State Group" → create "Lunch" group → appears in list
+#    d) "+ Add State" → "LUNCH" mapped to "Lunch" → appears in states list
+#    e) Deactivate state → confirmation shown → state marked inactive
+#    f) Deactivate group with states → dialog shows Reassign / Deactivate All
+#    g) Reassign: states move to selected group
+#    h) "Agent States" tab NOT visible when logged in as Administrator
+
+# 5. Widget checks (AgentStateDistributionWidget after CC-007):
+#    a) Widget loads segments from DB (not hardcoded)
+#    b) Adding LUNCH state → widget shows "Lunch" segment after config re-save
+#    c) Old saved ConfigJson with colorAvailable field → migrated to SegmentColors dict
+#    d) No JS errors; chart re-renders after definition change
+```
+
+---
+
+*CC-008 written: 2026-05-28*
