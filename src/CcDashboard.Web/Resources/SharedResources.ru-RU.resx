@@ -633,6 +633,10 @@
   <!-- ── Agent State Distribution Widget ── -->
   <data name="Widget_ASD_Title"><value>Распределение состояний агентов</value></data>
   <data name="Widget_ASD_BusinessUnit"><value>Бизнес-единица</value></data>
+  <data name="Widget_DistributionMode"><value>Режим распределения</value></data>
+  <data name="Widget_ByGroup"><value>По группам</value></data>
+  <data name="Widget_ByState"><value>По статусам</value></data>
+  <data name="Widget_DistributionModeHelp"><value>По группам — агрегированные группы статусов; По статусам — индивидуальные статусы агентов</value></data>
   <data name="Widget_ASD_ChartType"><value>Тип диаграммы</value></data>
   <data name="Widget_ASD_ChartType_Donut"><value>Кольцевая</value></data>
   <data name="Widget_ASD_ChartType_Pie"><value>Круговая</value></data>

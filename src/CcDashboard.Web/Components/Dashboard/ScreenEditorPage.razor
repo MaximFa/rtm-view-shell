@@ -597,6 +597,28 @@
                         {
                             <hr class="my-3" />
 
+                            <!-- CC-009: Distribution Mode selector -->
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">@L["Widget_DistributionMode"]</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="asdDistMode" id="asdDist_group"
+                                               checked="@(ConfigAsdDistributionMode == "group")"
+                                               @onchange="@(() => ConfigAsdDistributionMode = "group")" />
+                                        <label class="form-check-label" for="asdDist_group">@L["Widget_ByGroup"]</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="asdDistMode" id="asdDist_state"
+                                               checked="@(ConfigAsdDistributionMode == "state")"
+                                               @onchange="@(() => ConfigAsdDistributionMode = "state")" />
+                                        <label class="form-check-label" for="asdDist_state">@L["Widget_ByState"]</label>
+                                    </div>
+                                </div>
+                                <small class="text-muted">@L["Widget_DistributionModeHelp"]</small>
+                            </div>
+
                             <!-- Chart Type radio group -->
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">@L["Widget_ASD_ChartType"]</label>
@@ -1926,7 +1948,8 @@
                     @if ((IsAgentGridWidget(WidgetToDelete) && WidgetToDelete.Config?.RtsUserGridId > 0) ||
                         (IsQueueGridWidget(WidgetToDelete) && WidgetToDelete.Config?.GridId > 0) ||
                         (IsDataSlotWidget(WidgetToDelete) && WidgetToDelete.Config?.DataSlotGridId > 0) ||
-                        (IsAgentStateDistributionWidget(WidgetToDelete) && WidgetToDelete.Config?.GridId > 0))
+                        (IsAgentStateDistributionWidget(WidgetToDelete) &&
+                         (WidgetToDelete.Config?.GroupGridId > 0 || WidgetToDelete.Config?.StateGridId > 0 || WidgetToDelete.Config?.GridId > 0)))
                     {
                         <p class="text-muted small">@L["Widget_DeleteRtsWarning"]</p>
                     }
@@ -2122,6 +2145,7 @@
     private string ConfigAsdValueDisplay = "percentages";
     private bool ConfigAsdShowLegend = true;
     private bool ConfigAsdShowValueLabels = true;
+    private string ConfigAsdDistributionMode = "group";  // "group" | "state"
     // ASD segment colors light
     private string ConfigAsdColorAvailable = "#22c55e";
     private string ConfigAsdColorOnPhone = "#3b82f6";
@@ -2137,11 +2161,62 @@
     private string ConfigAsdDarkColorTraining = "#22d3ee";
     private string ConfigAsdDarkColorOther = "#9ca3af";
 
-    // ASD dynamic segment colors (keyed by AgentStateName)
+    // ASD groups and states lists for config modal
+    private IReadOnlyList<AgentStateGroupDto> _asdGroups = Array.Empty<AgentStateGroupDto>();
+    private IReadOnlyList<AgentStateDto> _asdStates = Array.Empty<AgentStateDto>();
     private IReadOnlyList<AgentStateDefinitionDto> _asdDefinitions = Array.Empty<AgentStateDefinitionDto>();
+    // CC-009: Dual-mode RTS grid IDs and MetricId dictionaries (populated at save time)
+    private int? _asdGroupGridId;
+    private int? _asdStateGridId;
+    private Dictionary<string, string> _asdGroupColumnMetricIds = new();
+    private Dictionary<string, string> _asdStateColumnMetricIds = new();
+
+    // ASD By Group segment colors (keyed by GroupName CC code: AVAILABLE, ONPHONE, etc.)
+    private Dictionary<string, string> EditingGroupSegmentColors = new();
+    private Dictionary<string, string> EditingDarkGroupSegmentColors = new();
+
+    // ASD By State segment colors (keyed by AgentStateName: Available, Short Break, etc.)
+    private Dictionary<string, string> EditingStateSegmentColors = new();
+    private Dictionary<string, string> EditingDarkStateSegmentColors = new();
+
+    // Legacy editing colors (for backward compat with _asdDefinitions-based UI)
     private Dictionary<string, string> EditingSegmentColors = new();
     private Dictionary<string, string> EditingDarkSegmentColors = new();
 
+    // By Group fallback colors (keyed by GroupName CC code)
+    private static readonly Dictionary<string, string> AsdGroupFallbackColors = new()
+    {
+        ["AVAILABLE"]  = "#22c55e",
+        ["ONPHONE"]    = "#3b82f6",
+        ["BREAK"]      = "#f59e0b",
+        ["PAPERWORK"]  = "#8b5cf6",
+        ["TRAINING"]   = "#06b6d4",
+        ["OTHER"]      = "#6b7280",
+    };
+
+    private static readonly Dictionary<string, string> AsdDarkGroupFallbackColors = new()
+    {
+        ["AVAILABLE"]  = "#4ade80",
+        ["ONPHONE"]    = "#60a5fa",
+        ["BREAK"]      = "#fbbf24",
+        ["PAPERWORK"]  = "#a78bfa",
+        ["TRAINING"]   = "#22d3ee",
+        ["OTHER"]      = "#9ca3af",
+    };
+
+    // By State fallback colors palette (cycles for unknown states)
+    private static readonly string[] StateColorPalette = new[]
+    {
+        "#22c55e", "#3b82f6", "#f59e0b", "#8b5cf6", "#06b6d4",
+        "#ec4899", "#84cc16", "#f97316", "#14b8a6", "#a855f7"
+    };
+    private static readonly string[] StateDarkColorPalette = new[]
+    {
+        "#4ade80", "#60a5fa", "#fbbf24", "#a78bfa", "#22d3ee",
+        "#f472b6", "#a3e635", "#fb923c", "#2dd4bf", "#c084fc"
+    };
+
+    // Legacy fallback colors (keyed by display name for backward compat)
     private static readonly Dictionary<string, string> AsdFallbackColors = new()
     {
         ["Available"]  = "#22c55e",
@@ -2810,7 +2885,7 @@
         if ((IsAgentGridWidget(WidgetToDelete) && WidgetToDelete.Config?.RtsUserGridId > 0) ||
             (IsQueueGridWidget(WidgetToDelete) && WidgetToDelete.Config?.GridId > 0) ||
             (IsDataSlotWidget(WidgetToDelete) && WidgetToDelete.Config?.DataSlotGridId > 0) ||
-            (IsAgentStateDistributionWidget(WidgetToDelete) && WidgetToDelete.Config?.GridId > 0))
+            (IsAgentStateDistributionWidget(WidgetToDelete) && (WidgetToDelete.Config?.GroupGridId > 0 || WidgetToDelete.Config?.StateGridId > 0 || WidgetToDelete.Config?.GridId > 0)))
         {
             WidgetsPendingRtsDeletion.Add(WidgetToDelete);
         }
@@ -2968,18 +3043,47 @@
             ConfigAsdValueDisplay = widget.Config.ValueDisplay ?? "percentages";
             ConfigAsdShowLegend = widget.Config.ShowLegend;
             ConfigAsdShowValueLabels = widget.Config.ShowValueLabels;
+            ConfigAsdDistributionMode = widget.Config.DistributionMode ?? "group";
 
-            // Load definitions for dynamic segment colors
+            // Load groups and states for config modal
+            await LoadAsdGroupsAndStatesAsync();
+
+            // Initialize By Group segment colors from saved config or fallbacks
+            EditingGroupSegmentColors = widget.Config.SegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
+            EditingDarkGroupSegmentColors = widget.Config.DarkSegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
+
+            // Merge legacy individual color fields into group dictionaries (backward compat)
+            MergeLegacyAsdColorsToGroupDict(widget.Config);
+
+            // Ensure all active groups have a color entry
+            foreach (var group in _asdGroups.Where(g => g.IsActive))
+            {
+                if (!EditingGroupSegmentColors.ContainsKey(group.GroupName))
+                    EditingGroupSegmentColors[group.GroupName] = AsdGroupFallbackColors.GetValueOrDefault(group.GroupName, "#64748b");
+                if (!EditingDarkGroupSegmentColors.ContainsKey(group.GroupName))
+                    EditingDarkGroupSegmentColors[group.GroupName] = AsdDarkGroupFallbackColors.GetValueOrDefault(group.GroupName, "#64748b");
+            }
+
+            // Initialize By State segment colors from saved config or fallbacks
+            EditingStateSegmentColors = widget.Config.StateSegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
+            EditingDarkStateSegmentColors = widget.Config.DarkStateSegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
+
+            // Ensure all active states have a color entry (cycle palette for unknowns)
+            var stateIndex = 0;
+            foreach (var state in _asdStates.Where(s => s.IsActive))
+            {
+                if (!EditingStateSegmentColors.ContainsKey(state.AgentStateName))
+                    EditingStateSegmentColors[state.AgentStateName] = StateColorPalette[stateIndex % StateColorPalette.Length];
+                if (!EditingDarkStateSegmentColors.ContainsKey(state.AgentStateName))
+                    EditingDarkStateSegmentColors[state.AgentStateName] = StateDarkColorPalette[stateIndex % StateDarkColorPalette.Length];
+                stateIndex++;
+            }
+
+            // Legacy support — also populate EditingSegmentColors for backward compat UI
             await LoadAsdDefinitionsAsync();
-
-            // Initialize dictionaries from saved config or fallbacks
             EditingSegmentColors = widget.Config.SegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
             EditingDarkSegmentColors = widget.Config.DarkSegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
-
-            // Merge legacy individual color fields into dictionaries (backward compat)
             MergeLegacyAsdColors(widget.Config);
-
-            // Ensure all definitions have a color entry
             foreach (var def in _asdDefinitions)
             {
                 if (!EditingSegmentColors.ContainsKey(def.AgentState))
@@ -2987,7 +3091,6 @@
                 if (!EditingDarkSegmentColors.ContainsKey(def.AgentState))
                     EditingDarkSegmentColors[def.AgentState] = AsdDarkFallbackColors.GetValueOrDefault(def.AgentState, "#64748b");
             }
-            // Always include "Other"
             if (!EditingSegmentColors.ContainsKey("Other"))
                 EditingSegmentColors["Other"] = AsdFallbackColors["Other"];
             if (!EditingDarkSegmentColors.ContainsKey("Other"))
@@ -3055,6 +3158,20 @@
         widget?.Name.Contains("agent state", StringComparison.OrdinalIgnoreCase) == true ||
         widget?.CatalogItemId == Guid.Parse("a4d1e3f7-2b8c-4e9a-b1d5-6f3c2a7e0d11");
 
+    private async Task LoadAsdGroupsAndStatesAsync()
+    {
+        try
+        {
+            _asdGroups = await Mediator.Send(new GetAgentStateGroupsQuery(), _cts.Token);
+            _asdStates = await Mediator.Send(new GetAgentStatesQuery(), _cts.Token);
+        }
+        catch
+        {
+            _asdGroups = Array.Empty<AgentStateGroupDto>();
+            _asdStates = Array.Empty<AgentStateDto>();
+        }
+    }
+
     private async Task LoadAsdDefinitionsAsync()
     {
         try
@@ -3065,6 +3182,37 @@
         {
             _asdDefinitions = Array.Empty<AgentStateDefinitionDto>();
         }
+    }
+
+
+    private void MergeLegacyAsdColorsToGroupDict(WidgetConfig cfg)
+    {
+        // Map legacy individual color fields to By Group dict using canonical CC codes
+        if (!EditingGroupSegmentColors.ContainsKey("AVAILABLE") && !string.IsNullOrEmpty(cfg.ColorAvailable))
+            EditingGroupSegmentColors["AVAILABLE"] = cfg.ColorAvailable;
+        if (!EditingGroupSegmentColors.ContainsKey("ONPHONE") && !string.IsNullOrEmpty(cfg.ColorOnPhone))
+            EditingGroupSegmentColors["ONPHONE"] = cfg.ColorOnPhone;
+        if (!EditingGroupSegmentColors.ContainsKey("BREAK") && !string.IsNullOrEmpty(cfg.ColorBreak))
+            EditingGroupSegmentColors["BREAK"] = cfg.ColorBreak;
+        if (!EditingGroupSegmentColors.ContainsKey("PAPERWORK") && !string.IsNullOrEmpty(cfg.ColorPaperwork))
+            EditingGroupSegmentColors["PAPERWORK"] = cfg.ColorPaperwork;
+        if (!EditingGroupSegmentColors.ContainsKey("TRAINING") && !string.IsNullOrEmpty(cfg.ColorTraining))
+            EditingGroupSegmentColors["TRAINING"] = cfg.ColorTraining;
+        if (!EditingGroupSegmentColors.ContainsKey("OTHER") && !string.IsNullOrEmpty(cfg.ColorOther))
+            EditingGroupSegmentColors["OTHER"] = cfg.ColorOther;
+
+        if (!EditingDarkGroupSegmentColors.ContainsKey("AVAILABLE") && !string.IsNullOrEmpty(cfg.DarkColorAvailable))
+            EditingDarkGroupSegmentColors["AVAILABLE"] = cfg.DarkColorAvailable;
+        if (!EditingDarkGroupSegmentColors.ContainsKey("ONPHONE") && !string.IsNullOrEmpty(cfg.DarkColorOnPhone))
+            EditingDarkGroupSegmentColors["ONPHONE"] = cfg.DarkColorOnPhone;
+        if (!EditingDarkGroupSegmentColors.ContainsKey("BREAK") && !string.IsNullOrEmpty(cfg.DarkColorBreak))
+            EditingDarkGroupSegmentColors["BREAK"] = cfg.DarkColorBreak;
+        if (!EditingDarkGroupSegmentColors.ContainsKey("PAPERWORK") && !string.IsNullOrEmpty(cfg.DarkColorPaperwork))
+            EditingDarkGroupSegmentColors["PAPERWORK"] = cfg.DarkColorPaperwork;
+        if (!EditingDarkGroupSegmentColors.ContainsKey("TRAINING") && !string.IsNullOrEmpty(cfg.DarkColorTraining))
+            EditingDarkGroupSegmentColors["TRAINING"] = cfg.DarkColorTraining;
+        if (!EditingDarkGroupSegmentColors.ContainsKey("OTHER") && !string.IsNullOrEmpty(cfg.DarkColorOther))
+            EditingDarkGroupSegmentColors["OTHER"] = cfg.DarkColorOther;
     }
 
     private void MergeLegacyAsdColors(WidgetConfig cfg)
@@ -3108,6 +3256,16 @@
             EditingDarkSegmentColors[stateName] = value;
         else
             EditingSegmentColors[stateName] = value;
+    }
+
+    // CC-009: Resolve MetricId from Metrics list by MetricFunction + MetricParameter
+    private string? ResolveAsdMetricId(string metricFunction, string metricParameter)
+    {
+        // Search Metrics list for matching function+parameter
+        var metric = Metrics.FirstOrDefault(m =>
+            string.Equals(m.MetricFunction, metricFunction, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(m.MetricParameter, metricParameter, StringComparison.OrdinalIgnoreCase));
+        return metric?.MetricId;
     }
 
     private void SetDayTrendChartType(string chartType)
@@ -3668,49 +3826,84 @@
             }
         }
 
-        // For AgentStateDistribution widgets, save fixed 6-column grid to RTS tables
+        // CC-009: For ASD widgets, save TWO grids (GroupGrid + StateGrid)
         if (IsAgentStateDistributionWidget(ConfiguringWidget) &&
             int.TryParse(ConfigBusinessUnit, out var asdBuId) && asdBuId > 0)
         {
             try
             {
-                // Fixed metric IDs must match AgentStateDistributionWidget.FixedMetricIds (same order)
-                var asdColumns = new[]
+                // ========== GROUP GRID (By Group mode) ==========
+                // Columns: one per active AgentStateGroup, MetricFunction = UsersInStatusGroupCount
+                _asdGroupColumnMetricIds.Clear();
+                var groupColumns = new List<(string localId, string label, string metricId)>();
+                var groupIdx = 0;
+                foreach (var group in _asdGroups.Where(g => g.IsActive).OrderBy(g => g.GroupName))
                 {
-                    ("asd-c1", "Available",  "QueueLoginDataNumAvailableUsers"),
-                    ("asd-c2", "On Phone",   "QueueNumOnCallAgents"),
-                    ("asd-c3", "Break",      "QueueLoginDataNumBreakUsers"),
-                    ("asd-c4", "Paperwork",  "QueueLoginDataNumPaperworkUsers"),
-                    ("asd-c5", "Training",   "QueueLoginDataNumTrainingUsers"),
-                    ("asd-c6", "Other",      "QueueLoginDataNumLoggedUsers"),
-                };
+                    // MetricId = resolve from Metrics list by MetricFunction + MetricParameter
+                    var metricId = ResolveAsdMetricId("UsersInStatusGroupCount", group.GroupName);
+                    groupColumns.Add(($"asd-g{groupIdx}", group.GroupName, metricId ?? ""));
+                    if (!string.IsNullOrEmpty(metricId))
+                        _asdGroupColumnMetricIds[group.GroupName] = metricId;
+                    groupIdx++;
+                }
 
-                var asdColumnInputs = asdColumns.Select((c, idx) => new QueueGridColumnInput(
-                    c.Item1,      // LocalId (stable — reused on every save)
-                    null,         // ColumnId null → handler deletes old + creates new (acceptable churn)
-                    c.Item2,      // Name (header label)
-                    c.Item3,      // MetricId
-                    idx + 1       // 1-based ColumnNumber
+                var groupColumnInputs = groupColumns.Select((c, idx) => new QueueGridColumnInput(
+                    c.localId, null, c.label, c.metricId, idx + 1
                 )).ToList();
 
-                var asdRowInputs = new List<QueueGridRowInput>
+                var groupRowInputs = new List<QueueGridRowInput>
                 {
-                    new("asd-r1", null, asdBuId, 2, new Dictionary<string, int?>())
+                    new("asd-gr1", null, asdBuId, 2, new Dictionary<string, int?>())
                 };
 
-                var asdRtsResult = await Mediator.Send(new SaveQueueGridRtsCommand(
-                    ConfiguringWidget.Config?.GridId,
-                    ConfiguringWidget.Config?.HeaderRowId,
-                    ConfigDisplayName ?? ConfiguringWidget.Name,
-                    asdColumnInputs,
-                    asdRowInputs,
-                    ConfiguringWidget.Config?.HeaderCellIds ?? new Dictionary<string, int?>()
+                var groupRtsResult = await Mediator.Send(new SaveQueueGridRtsCommand(
+                    ConfiguringWidget.Config?.GroupGridId,
+                    null,
+                    (ConfigDisplayName ?? ConfiguringWidget.Name) + " [Group]",
+                    groupColumnInputs,
+                    groupRowInputs,
+                    new Dictionary<string, int?>()
                 ), _cts.Token);
 
-                queueGridId = asdRtsResult.GridId;
-                headerRowId = asdRtsResult.HeaderRowId;
-                savedHeaderCellIds = asdRtsResult.HeaderCellIds
-                    .ToDictionary(kvp => kvp.Key, kvp => (int?)kvp.Value);
+                _asdGroupGridId = groupRtsResult.GridId;
+
+                // ========== STATE GRID (By State mode) ==========
+                // Columns: one per active AgentState, MetricFunction = UsersInStatusCount
+                _asdStateColumnMetricIds.Clear();
+                var stateColumns = new List<(string localId, string label, string metricId)>();
+                var stateIdx = 0;
+                foreach (var state in _asdStates.Where(s => s.IsActive).OrderBy(s => s.AgentStateName))
+                {
+                    // MetricId = resolve from Metrics list by MetricFunction + MetricParameter
+                    var metricId = ResolveAsdMetricId("UsersInStatusCount", state.AgentStateName);
+                    stateColumns.Add(($"asd-s{stateIdx}", state.AgentStateName, metricId ?? ""));
+                    if (!string.IsNullOrEmpty(metricId))
+                        _asdStateColumnMetricIds[state.AgentStateName] = metricId;
+                    stateIdx++;
+                }
+
+                var stateColumnInputs = stateColumns.Select((c, idx) => new QueueGridColumnInput(
+                    c.localId, null, c.label, c.metricId, idx + 1
+                )).ToList();
+
+                var stateRowInputs = new List<QueueGridRowInput>
+                {
+                    new("asd-sr1", null, asdBuId, 2, new Dictionary<string, int?>())
+                };
+
+                var stateRtsResult = await Mediator.Send(new SaveQueueGridRtsCommand(
+                    ConfiguringWidget.Config?.StateGridId,
+                    null,
+                    (ConfigDisplayName ?? ConfiguringWidget.Name) + " [State]",
+                    stateColumnInputs,
+                    stateRowInputs,
+                    new Dictionary<string, int?>()
+                ), _cts.Token);
+
+                _asdStateGridId = stateRtsResult.GridId;
+
+                // Legacy GridId kept null for CC-009 widgets (dual-mode)
+                queueGridId = null;
             }
             catch (Exception ex)
             {
@@ -3843,6 +4036,15 @@
             ValueDisplay = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdValueDisplay : null,
             ShowLegend = ConfigAsdShowLegend,
             ShowValueLabels = ConfigAsdShowValueLabels,
+            // CC-009: Dual-mode
+            DistributionMode = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDistributionMode : null,
+            GroupGridId = IsAgentStateDistributionWidget(ConfiguringWidget) ? _asdGroupGridId : null,
+            StateGridId = IsAgentStateDistributionWidget(ConfiguringWidget) ? _asdStateGridId : null,
+            GroupColumnMetricIds = IsAgentStateDistributionWidget(ConfiguringWidget) && _asdGroupColumnMetricIds.Count > 0
+                ? _asdGroupColumnMetricIds.ToDictionary(kv => kv.Key, kv => kv.Value) : null,
+            StateColumnMetricIds = IsAgentStateDistributionWidget(ConfiguringWidget) && _asdStateColumnMetricIds.Count > 0
+                ? _asdStateColumnMetricIds.ToDictionary(kv => kv.Key, kv => kv.Value) : null,
+            // Legacy individual color fields (backward compat)
             ColorAvailable = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorAvailable : null,
             ColorOnPhone = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorOnPhone : null,
             ColorBreak = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorBreak : null,
@@ -3855,12 +4057,19 @@
             DarkColorPaperwork = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorPaperwork : null,
             DarkColorTraining = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorTraining : null,
             DarkColorOther = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorOther : null,
-            // Dynamic segment colors (keyed by AgentStateName)
-            SegmentColors = IsAgentStateDistributionWidget(ConfiguringWidget) && EditingSegmentColors.Count > 0
-                ? EditingSegmentColors.ToDictionary(kv => kv.Key, kv => kv.Value)
+            // CC-009: Group segment colors (keyed by CC code like AVAILABLE)
+            SegmentColors = IsAgentStateDistributionWidget(ConfiguringWidget) && EditingGroupSegmentColors.Count > 0
+                ? EditingGroupSegmentColors.ToDictionary(kv => kv.Key, kv => kv.Value)
                 : null,
-            DarkSegmentColors = IsAgentStateDistributionWidget(ConfiguringWidget) && EditingDarkSegmentColors.Count > 0
-                ? EditingDarkSegmentColors.ToDictionary(kv => kv.Key, kv => kv.Value)
+            DarkSegmentColors = IsAgentStateDistributionWidget(ConfiguringWidget) && EditingDarkGroupSegmentColors.Count > 0
+                ? EditingDarkGroupSegmentColors.ToDictionary(kv => kv.Key, kv => kv.Value)
+                : null,
+            // CC-009: State segment colors (keyed by AgentStateName)
+            StateSegmentColors = IsAgentStateDistributionWidget(ConfiguringWidget) && EditingStateSegmentColors.Count > 0
+                ? EditingStateSegmentColors.ToDictionary(kv => kv.Key, kv => kv.Value)
+                : null,
+            DarkStateSegmentColors = IsAgentStateDistributionWidget(ConfiguringWidget) && EditingDarkStateSegmentColors.Count > 0
+                ? EditingDarkStateSegmentColors.ToDictionary(kv => kv.Key, kv => kv.Value)
                 : null
         };
 
@@ -4257,10 +4466,13 @@
                 }
                 else if (IsAgentStateDistributionWidget(widget))
                 {
-                    // ASD is a Specialized Grid Widget — uses same RTSGrid_* tables as Queue Grid.
-                    // CC-009: when dual-mode is implemented, GroupGridId and StateGridId replace GridId.
-                    // Until then: single GridId (current CC-008 state).
-                    if (widget.Config?.GridId > 0)
+                    // ASD dual-mode (CC-009): delete both GroupGridId and StateGridId
+                    if (widget.Config?.GroupGridId > 0)
+                        await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.GroupGridId.Value), _cts.Token);
+                    if (widget.Config?.StateGridId > 0)
+                        await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.StateGridId.Value), _cts.Token);
+                    // Backward compat: legacy single GridId (CC-008)
+                    if (widget.Config?.GridId > 0 && widget.Config?.GroupGridId is null && widget.Config?.StateGridId is null)
                         await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.GridId.Value), _cts.Token);
                 }
             }
@@ -4624,9 +4836,34 @@
         public string? DarkColorTraining { get; set; }
         public string? DarkColorOther { get; set; }
 
-        // Agent State Distribution segment colors (dynamic, keyed by AgentStateName)
+        // Agent State Distribution segment colors (By Group mode, keyed by GroupName CC code)
         public Dictionary<string, string>? SegmentColors { get; set; }
         public Dictionary<string, string>? DarkSegmentColors { get; set; }
+
+        // CC-009: Dual distribution mode
+        public string? DistributionMode { get; set; }  // "group" (default) | "state"
+
+        // By Group RTSGrid
+        public int? GroupGridId { get; set; }
+        public int? GroupRtsHeaderRowId { get; set; }
+        public int? GroupRtsDataRowId { get; set; }
+        public Dictionary<string, int?> GroupRtsColumnIds { get; set; } = new();
+        public Dictionary<string, int?> GroupRtsHeaderCellIds { get; set; } = new();
+        public Dictionary<string, int?> GroupRtsDataCellIds { get; set; } = new();
+        public Dictionary<string, string>? GroupColumnMetricIds { get; set; }  // GroupName → MetricId
+
+        // By State RTSGrid
+        public int? StateGridId { get; set; }
+        public int? StateRtsHeaderRowId { get; set; }
+        public int? StateRtsDataRowId { get; set; }
+        public Dictionary<string, int?> StateRtsColumnIds { get; set; } = new();
+        public Dictionary<string, int?> StateRtsHeaderCellIds { get; set; } = new();
+        public Dictionary<string, int?> StateRtsDataCellIds { get; set; } = new();
+        public Dictionary<string, string>? StateColumnMetricIds { get; set; }  // AgentStateName → MetricId
+
+        // By State segment colors (keyed by AgentStateName)
+        public Dictionary<string, string>? StateSegmentColors { get; set; }
+        public Dictionary<string, string>? DarkStateSegmentColors { get; set; }
     }
 
     public record DayTrendMetricConfig(string MetricId, bool Enabled, string Color, string Label, string ValueType = "number")

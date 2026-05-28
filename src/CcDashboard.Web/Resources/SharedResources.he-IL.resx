@@ -592,6 +592,10 @@
   <!-- ── Agent State Distribution Widget ── -->
   <data name="Widget_ASD_Title"><value>התפלגות מצבי סוכנים</value></data>
   <data name="Widget_ASD_BusinessUnit"><value>יחידה עסקית</value></data>
+  <data name="Widget_DistributionMode"><value>מצב התפלגות</value></data>
+  <data name="Widget_ByGroup"><value>לפי קבוצה</value></data>
+  <data name="Widget_ByState"><value>לפי מצב</value></data>
+  <data name="Widget_DistributionModeHelp"><value>לפי קבוצה מציג קבוצות סטטוס מצטברות; לפי מצב מציג מצבי סוכן בודדים</value></data>
   <data name="Widget_ASD_ChartType"><value>סוג תרשים</value></data>
   <data name="Widget_ASD_ChartType_Donut"><value>טבעת</value></data>
   <data name="Widget_ASD_ChartType_Pie"><value>עוגה</value></data>
