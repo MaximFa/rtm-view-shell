@@ -13,7 +13,7 @@ namespace CcDashboard.Infrastructure.Handlers;
 
 public class GetAgentStateDefinitionsQueryHandler(
     AppDbContext db,
-    BackendEmulationDbContext beDb,
+    IDbContextFactory<BackendEmulationDbContext> beDbFactory,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetAgentStateDefinitionsQuery, IReadOnlyList<AgentStateDefinitionDto>>
 {
@@ -44,6 +44,8 @@ public class GetAgentStateDefinitionsQueryHandler(
 
         // UsersInStatusGroupCount metrics have MetricType = "Data" (not "Agent").
         // Multiple metrics may share the same MetricParameter → GroupBy avoids duplicate-key exception.
+        // Use factory to get isolated context — avoids "command already in progress" with concurrent widgets.
+        await using var beDb = await beDbFactory.CreateDbContextAsync(ct);
         var metricRows = await beDb.RtsGridMetrics
             .Where(m => m.MetricFunction == "UsersInStatusGroupCount"
                      && m.MetricParameter != null && m.MetricParameter != "")

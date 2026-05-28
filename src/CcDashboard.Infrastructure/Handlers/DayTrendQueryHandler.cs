@@ -10,7 +10,7 @@ using NpgsqlTypes;
 namespace CcDashboard.Infrastructure.Handlers;
 
 public sealed class DayTrendQueryHandler(
-    BackendEmulationDbContext beDb,
+    IDbContextFactory<BackendEmulationDbContext> beDbFactory,
     ITenantContext tenantContext,
     ILogger<DayTrendQueryHandler> logger)
     : IRequestHandler<DayTrendQuery, DayTrendResult>
@@ -21,6 +21,9 @@ public sealed class DayTrendQueryHandler(
             return DayTrendResult.Empty();
 
         var tenantId = tenantContext.TenantId;
+
+        // Create isolated DbContext to avoid "command already in progress" when widgets init concurrently
+        await using var beDb = await beDbFactory.CreateDbContextAsync(ct);
 
         // Resolve queues for the BU via NgcBusinessUnitQueueClassification
         var queues = await beDb.NgcBusinessUnitQueueClassifications
