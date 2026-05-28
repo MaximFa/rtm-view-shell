@@ -42,7 +42,7 @@ window.agentStateDistributionChart = {
             indexAxis: indexAxis,
             plugins: {
                 legend: {
-                    display: options?.showLegend ?? true,
+                    display: chartType === 'bar' ? false : (options?.showLegend ?? true),
                     position: 'bottom',
                     labels: {
                         usePointStyle: true,
@@ -110,27 +110,30 @@ window.agentStateDistributionChart = {
 
         // Bar chart specific options
         if (chartType === 'bar') {
+            const tickColor = options?.fontColor || undefined;
+            // Vertical bar: X = category, Y = value
             chartOptions.scales = {
                 x: {
                     grid: { display: false },
-                    ticks: { display: false }
+                    ticks: { color: tickColor }
                 },
                 y: {
                     beginAtZero: true,
                     grid: { color: 'rgba(128,128,128,0.2)' },
-                    ticks: {}
+                    ticks: { color: tickColor }
                 }
             };
+            // Horizontal bar: Y = category, X = value
             if (indexAxis === 'y') {
                 chartOptions.scales = {
                     y: {
                         grid: { display: false },
-                        ticks: { display: false }
+                        ticks: { color: tickColor }
                     },
                     x: {
                         beginAtZero: true,
                         grid: { color: 'rgba(128,128,128,0.2)' },
-                        ticks: {}
+                        ticks: { color: tickColor }
                     }
                 };
             }
