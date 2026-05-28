@@ -48,13 +48,12 @@ window.agentStateDistributionChart = {
                         usePointStyle: true,
                         padding: 10,
                         font: { size: 11 },
-                        // Bar/horizbar: one entry per bar, outlined circle style matching DayTrend
+                        // Unified per-segment legend for all chart types (pie, doughnut, bar, horizbar).
+                        // Chart.defaults.plugins.legend.labels.generateLabels is the GLOBAL (bar/line)
+                        // default — calling it from pie/doughnut yields one 'undefined' item.
+                        // Single implementation covers all types consistently.
                         generateLabels: function (chart) {
-                            if (chart.config.type !== 'bar') {
-                                return Chart.defaults.plugins.legend.labels.generateLabels(chart);
-                            }
                             const ds = chart.data.datasets[0];
-                            const fontColor = chart.options.plugins.legend.labels.color || '#333';
                             return (chart.data.labels || []).map((lbl, i) => {
                                 const clr = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
                                 return {
@@ -63,7 +62,6 @@ window.agentStateDistributionChart = {
                                     strokeStyle: clr,        // solid border
                                     lineWidth: 2,
                                     pointStyle: 'circle',
-                                    fontColor: fontColor,
                                     hidden: false,
                                     index: i
                                 };
