@@ -111,14 +111,15 @@ public class GetAgentStatesQueryHandler(
                 (s, d) => new { s, d })
             .Join(db.AgentStateGroups.IgnoreQueryFilters(),
                 x => x.d.AgentStateGroupId, g => g.Id,
-                (x, g) => new AgentStateDto(
-                    x.s.Id,
-                    x.s.AgentStateName,
-                    g.Id,
-                    g.GroupName,
-                    x.s.IsActive))
-            .OrderBy(s => s.GroupName)
-            .ThenBy(s => s.AgentStateName)
+                (x, g) => new { x.s, x.d, g })
+            .OrderBy(x => x.g.GroupName)
+            .ThenBy(x => x.s.AgentStateName)
+            .Select(x => new AgentStateDto(
+                x.s.Id,
+                x.s.AgentStateName,
+                x.g.Id,
+                x.g.GroupName,
+                x.s.IsActive))
             .ToListAsync(ct);
     }
 }
