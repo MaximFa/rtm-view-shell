@@ -48,7 +48,6 @@ window.agentStateDistributionChart = {
                         usePointStyle: true,
                         padding: 10,
                         font: { size: 11 },
-                        color: options?.fontColor || '#333',
                         // Bar/horizbar: one entry per bar, outlined circle style matching DayTrend
                         generateLabels: function (chart) {
                             if (chart.config.type !== 'bar') {
@@ -114,24 +113,24 @@ window.agentStateDistributionChart = {
             chartOptions.scales = {
                 x: {
                     grid: { display: false },
-                    ticks: { display: false }  // labels shown in legend
+                    ticks: { display: false }
                 },
                 y: {
                     beginAtZero: true,
                     grid: { color: 'rgba(128,128,128,0.2)' },
-                    ticks: { color: options?.fontColor || '#333' }
+                    ticks: {}
                 }
             };
             if (indexAxis === 'y') {
                 chartOptions.scales = {
                     y: {
                         grid: { display: false },
-                        ticks: { display: false }  // labels shown in legend
+                        ticks: { display: false }
                     },
                     x: {
                         beginAtZero: true,
                         grid: { color: 'rgba(128,128,128,0.2)' },
-                        ticks: { color: options?.fontColor || '#333' }
+                        ticks: {}
                     }
                 };
             }
