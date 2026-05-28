@@ -37,7 +37,8 @@ window.dayTrendChart = {
                     labels: {
                         usePointStyle: true,
                         padding: 12,
-                        font: { size: 11 }
+                        font: { size: 11 },
+                        color: options?.fontColor
                     }
                 },
                 tooltip: {

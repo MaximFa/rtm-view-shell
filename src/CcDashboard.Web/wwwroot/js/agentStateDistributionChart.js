@@ -48,6 +48,7 @@ window.agentStateDistributionChart = {
                         usePointStyle: true,
                         padding: 10,
                         font: { size: 11 },
+                        color: options?.fontColor,
                         // Unified per-segment legend for all chart types (pie, doughnut, bar, horizbar).
                         // Chart.defaults.plugins.legend.labels.generateLabels is the GLOBAL (bar/line)
                         // default — calling it from pie/doughnut yields one 'undefined' item.
@@ -58,9 +59,9 @@ window.agentStateDistributionChart = {
                                 const clr = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
                                 return {
                                     text: lbl,
-                                    fillStyle: clr + '40',  // 25% opacity fill (DayTrend style)
-                                    strokeStyle: clr,        // solid border
-                                    lineWidth: 2,
+                                    fillStyle: clr,
+                                    strokeStyle: clr,
+                                    lineWidth: 0,
                                     pointStyle: 'circle',
                                     hidden: false,
                                     index: i

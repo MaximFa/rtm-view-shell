@@ -140,7 +140,7 @@
     private string? _backgroundColor;
     private string? _fontColor;
     private string _darkBackgroundColor = "#1e1e1e";
-    private string _darkFontColor = "#ffffff";
+    private string _darkFontColor = "#f1f5f9";
 
     // CC-009: Distribution mode
     private string _distributionMode = "group"; // "group" | "state"
@@ -157,7 +157,7 @@
         ? (string.IsNullOrEmpty(_darkBackgroundColor) ? "#1e1e1e" : _darkBackgroundColor) 
         : (string.IsNullOrEmpty(_backgroundColor) ? "" : _backgroundColor);
     private string EffectiveFontColor => DarkMode 
-        ? (string.IsNullOrEmpty(_darkFontColor) ? "#ffffff" : _darkFontColor) 
+        ? (string.IsNullOrEmpty(_darkFontColor) ? "#f1f5f9" : _darkFontColor) 
         : (string.IsNullOrEmpty(_fontColor) ? "#333333" : _fontColor);
 
     // CC-009: Dual-mode grid selection
@@ -261,7 +261,7 @@
         _backgroundColor = Config.BackgroundColor;
         _fontColor = Config.FontColor;
         _darkBackgroundColor = Config.DarkBackgroundColor ?? "#1e1e1e";
-        _darkFontColor = Config.DarkFontColor ?? "#ffffff";
+        _darkFontColor = Config.DarkFontColor ?? "#f1f5f9";
 
         // CC-009: Distribution mode
         _distributionMode = Config.DistributionMode ?? "group";
