@@ -63,6 +63,7 @@ window.agentStateDistributionChart = {
                                     strokeStyle: clr,      // solid border
                                     lineWidth: 2,
                                     pointStyle: 'circle',
+                                    fontColor: options?.fontColor || undefined, // explicit per-item override
                                     hidden: false,
                                     index: i
                                 };
