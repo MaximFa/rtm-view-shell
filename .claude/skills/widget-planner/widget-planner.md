@@ -34,9 +34,10 @@ Before starting, answer with the user:
 
 | If the widget shows… | Use |
 |---|---|
-| Live agent/queue state, updated by server push | **Grid architecture** (SignalR + RTS tables) — `widget-creator.md §1–19` |
+| Live agent/queue state, updated by server push, **displayed as a table** | **Grid architecture** (SignalR + RTS tables) — `widget-creator.md §1–19` |
 | Historical aggregates, trend charts, intraday data | **Chart/Analytics architecture** — `widget-creator.md §20` |
 | KPI summary tiles (last N minutes) | Chart/Analytics (polling) |
+| Live data from RTSGrid, **displayed as chart / gauge / tile / distribution** (not a table) | **Specialized Grid Widget** — Queue Grid infrastructure + custom renderer (see L-22) |
 
 **Queue Grid vs Agent Grid — mandatory question for all Grid widgets:**
 
@@ -47,6 +48,23 @@ Before starting, answer with the user:
 
 > Ask the user directly: "Как Queue Grid или как Agent Grid?" — determines all downstream commands and RTS table writes.
 > Wrong choice here means rewriting the entire save/delete/clone flow.
+
+> **⚠ DELETION RULE — applies to ALL Specialized Grid Widgets (L-26):**
+> A Specialized Grid Widget uses Queue Grid infrastructure. Therefore its **deletion process
+> must be EXACTLY identical to Queue Grid** — same deferred mechanism, same command.
+>
+> Deletion is NOT done in `DisposeAsync`. It is deferred through `ScreenEditorPage.razor`:
+> `RemoveWidget` → `ConfirmDeleteWidget` → `WidgetsPendingRtsDeletion` → `DeleteQueueGridRtsCommand` on Save.
+>
+> **Invariant: the number of `DeleteQueueGridRtsCommand` calls on delete MUST equal
+> the number of `SaveQueueGridRtsCommand` calls on config save.**
+> ASD (CC-009) calls `SaveQueueGridRtsCommand` twice (GroupGridId + StateGridId) →
+> must call `DeleteQueueGridRtsCommand` twice on delete.
+> A widget with 1 grid → 1 delete call. 3 grids → 3 delete calls. No exceptions.
+>
+> **Every new Specialized Grid Widget MUST be added to all 3 places in `ScreenEditorPage.razor`
+> before the PR is merged.** Missing even one place leaves orphaned `RTSGrid_*` records.
+> See Phase 5 checklist and L-26 for the exact three locations.
 
 > **⚠ Grid widgets — mandatory gate before any further planning:**
 > Before designing any Grid (SignalR) widget, the **exact metric must be identified first**.
@@ -422,6 +440,15 @@ Before saying "готово, запускай CC":
 - [ ] **Real-time Grid widgets only:** CC task includes simulator step (L-19):
       `GridRowData` has `UnionId`, `GetMetricsForGridAsync` covers new MetricIds,
       `QueueDataGenerator` populates `UnionId` from DB rows
+- [ ] **⚠ Specialized Grid Widget deletion — all 3 places in `ScreenEditorPage.razor` (L-26):**
+  - [ ] Delete dialog `@if` condition — new widget predicate added
+  - [ ] `ConfirmDeleteWidget()` `if` condition — new widget predicate added
+  - [ ] Save loop `foreach (WidgetsPendingRtsDeletion)` — new `else if` block with `DeleteQueueGridRtsCommand`
+  - [ ] **`DeleteQueueGridRtsCommand` called once per GridId** — count must match `SaveQueueGridRtsCommand` count on save
+    - 1 grid (standard) → 1 delete call
+    - 2 grids (e.g. ASD dual-mode: GroupGridId + StateGridId) → 2 delete calls
+    - N grids → N delete calls
+- [ ] Acceptance criteria in CC task include: "Deleting widget + Save removes **all** RTSGrid_* records from DB (verify count = 0 for each GridId)"
 - [ ] Git commit: `docs/widget-specification.md` + `docs/backend-tasks.md` together
 
 ---
@@ -636,6 +663,193 @@ BusinessUnitId = int.TryParse(ConfigBusinessUnit, out var parsedBuId) ? parsedBu
 
 ---
 
+
+---
+
+## Lessons Learned (2026-05-28 — ASD Widget / Specialized Grid Pattern)
+
+### L-22: 90% of widgets are Specialized Grid Widgets — Queue Grid with custom renderer
+
+**Critical architectural insight (2026-05-28, ASD planning session).**
+
+The **Queue Grid** is not just a "table widget" — it is the **universal real-time data layer**
+for any BU-scoped, SignalR-pushed metric. The table view is only one renderer on top of it.
+
+**Specialized Grid Widget** = Queue Grid infrastructure + a non-table renderer (chart, gauge, tile, bar, etc.)
+
+This pattern covers approximately **90% of RTM widgets**:
+- Agent State Distribution (ASD) — donut / bar chart over `UsersInStatusGroupCount` / `UsersInStatusCount` metrics
+- SLA gauge — gauge chart over queue SLA metrics
+- Occupancy gauge — gauge over occupancy metrics
+- KPI tile row — tiles over queue/agent aggregate metrics
+- Abandoned calls bar — bar chart over abandoned call metrics
+
+**All of these reuse the same infrastructure as Queue Grid:**
+- `SaveQueueGridRtsCommand` for RTS configuration
+- `SignalRQueueGridHub` for real-time push
+- `RTSGrid_Grid / RTSGrid_Row / RTSGrid_Cell` tables
+- `GridId` from `Config.GridId` (not `DashboardWidget.GridId` — see L-20)
+- BU-scoped rows with `UnionId = BusinessUnitId`
+
+**What differs from a standard Queue Grid:**
+- The Blazor component renders a chart/gauge/tile instead of a `<table>`
+- SignalR subscription and data parsing are identical
+- Config modal has custom fields (e.g., segment colors, distribution mode) in addition to standard fields
+
+**Rule for planning:**
+> "Is this widget showing live BU-scoped data?"
+> → YES → It is a Specialized Grid Widget. Start from Queue Grid patterns, add custom renderer.
+> → NO → Chart/Analytics (historical) or Agent Grid (per-agent rows).
+
+**Queue Grid spec section (§15 of widget-creator.md) and `QueueGridWidget.razor` are the
+primary reference for all Specialized Grid Widgets — read them before planning any new widget.**
+
+---
+
+### L-23: Two-RTSGrid pattern for dual-mode widgets (By Group / By State)
+
+Some widgets must support two aggregation levels on the same data, switchable by the user.
+The canonical example is ASD (Agent State Distribution):
+- **By Group** mode: aggregates agents by Status Group (`UsersInStatusGroupCount`) — shows e.g. Available, Break, On Phone
+- **By State** mode: shows individual Agent States (`UsersInStatusCount`) — shows e.g. Available, Short Break, Lunch, Coffee Break
+
+**Pattern: two separate GridIds in `WidgetConfig`**
+
+```csharp
+// In WidgetConfig
+public int? GridId { get; set; }       // Group mode: RTSGrid for UsersInStatusGroupCount
+public int? StateGridId { get; set; }  // State mode:  RTSGrid for UsersInStatusCount
+```
+
+At render time:
+```csharp
+private int RtsGridId => DistributionMode == "state"
+    ? (Config?.StateGridId ?? GridId)
+    : (Config?.GridId ?? GridId);
+
+var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={RtsGridId}";
+```
+
+At config save time: two `SaveQueueGridRtsCommand` calls, one per GridId.
+
+**When to use this pattern:**
+- Widget needs two incompatible MetricFunctions for the same display
+- User switches between detail and summary levels
+- Different column sets required per mode
+
+**Phase 0 question — if dual-mode is possible:** "Should the user be able to switch between
+summary (By Group) and detail (By State) views? If yes, two GridIds must be configured."
+
+**MetricId resolver pattern — both grids use the same lookup logic, different MetricFunction:**
+
+| Grid | MetricFunction | MetricParameter | Source table |
+|---|---|---|---|
+| GroupGridId | `UsersInStatusGroupCount` | `AgentStateGroup.GroupName` (CC code: `AVAILABLE`, `BREAK`, …) | `tenant_agent_state_groups` |
+| StateGridId | `UsersInStatusCount` | `AgentState.AgentStateName` (e.g. `Available`, `Short Break`, `Lunch`) | `tenant_agent_states` |
+
+Both MetricIds are **concrete entries in `RTSGrid_Metric`** — not dynamically generated.
+The resolver queries `RTSGrid_Metric WHERE MetricFunction = X AND MetricParameter = Y`.
+Existing `GetAgentStateDefinitionsQueryHandler` covers Group mode. State mode needs an analogous lookup.
+
+**SaveQueueGridRtsCommand is called twice** when saving ASD config (once per GridId).
+Both grids are always saved regardless of current DistributionMode — so mode switching
+never requires reconfiguration.
+
+---
+
+### L-24: UsersInStatusGroupCount vs UsersInStatusCount — MetricFunction selection rule
+
+Two MetricFunctions serve the ASD domain:
+
+| MetricFunction | MetricParameter | What it counts | Use when |
+|---|---|---|---|
+| `UsersInStatusGroupCount` | CC platform code (e.g. `AVAILABLE`, `BREAK`) | Agents in a **Status Group** — ALL states mapped to that group | Aggregate / summary view |
+| `UsersInStatusCount` | Agent State name (e.g. `LUNCH`, `SHORT_BREAK`) | Agents in one **specific Agent State** | Detailed / per-state view |
+
+**Key distinction:**
+- `UsersInStatusGroupCount` uses the **Status Group code** as MetricParameter (e.g. `BREAK` covers Lunch + Short Break + Coffee Break)
+- `UsersInStatusCount` uses the **Agent State name** as MetricParameter (platform-specific, client-defined, e.g. `Available`, `Short Break`, `Lunch`)
+
+**MetricParameter format matters:** `UsersInStatusCount` MetricParameters match `AgentState.AgentStateName` exactly
+as stored in the catalogue (case-sensitive). Verify against actual `RTSGrid_Metric` rows before coding.
+
+**MetricType for both is `"Data"`** (not `"Agent"`) — both are BU-aggregate metrics, not per-agent.
+This was a critical bug in CC-008: filtering by `MetricType == "Agent"` excluded all ASD metrics.
+**Always filter by `MetricFunction` name, not `MetricType`.**
+
+**MetricParameter lookup rule:**
+- For `UsersInStatusGroupCount`: MetricParameter = `GroupName` (CC code stored in `AgentStateGroup.GroupName`)
+- For `UsersInStatusCount`: MetricParameter = `AgentStateName` (raw CC state name in `AgentState.AgentStateName`)
+
+---
+
+### L-25: Agent State vs Status Group — two distinct concepts
+
+These are often confused. Clear definitions:
+
+| Concept | Where defined | Examples | Used by |
+|---|---|---|---|
+| **Agent State** | CC platform (client-configurable) | `AVAILABLE`, `LUNCH`, `SHORT_BREAK`, `COFFEE_BREAK`, `BACK_OFFICE` | `UsersInStatusCount`, `tenant_agent_states` |
+| **Status Group** | SignalR Server config (CC platform concept), mirrored by Superadmin | `AVAILABLE`, `BREAK`, `ONPHONE`, `PAPERWORK`, `TRAINING` | `UsersInStatusGroupCount`, `tenant_agent_state_groups` |
+
+- **One Status Group → many Agent States** (e.g. BREAK = {SHORT_BREAK, LUNCH, COFFEE_BREAK, GYM_BREAK, ...})
+- The mapping is maintained in `tenant_agent_state_definitions` (AgentStateId → AgentStateGroupId)
+- **Status Group codes are canonical** (fixed CC platform values); Agent States are deployment-specific
+- When a Superadmin adds a new Agent State, they assign it to an existing Status Group
+
+**For metric queries:**
+- Always use `GroupName` (CC code like `BREAK`) — not the display name ("Break") — as MetricParameter for `UsersInStatusGroupCount`
+- `GetAgentStateDefinitionsQueryHandler` resolves MetricIds at query time by joining on `GroupName`
+- MetricId is **never stored** in the DB — derived from `RTSGrid_Metric.MetricParameter = GroupName`
+
+### L-26: Specialized Grid Widgets — deletion must mirror Queue Grid EXACTLY (3 places)
+
+**Bug found post-CC-008 (2026-05-28):** ASD widget left orphaned `RTSGrid_*` records on deletion because
+`ScreenEditorPage.razor` had no ASD case in its deletion chain.
+
+**The deletion flow for ANY Specialized Grid Widget is deferred (not in DisposeAsync):**
+1. User clicks ✕ on widget → `RemoveWidget(widgetId)` → shows confirmation dialog
+2. Dialog shows `@L["Widget_DeleteRtsWarning"]` only if the widget IS in the deletion check
+3. User confirms → `ConfirmDeleteWidget()` → adds to `WidgetsPendingRtsDeletion` list
+4. On "Save layout" click → `foreach (WidgetsPendingRtsDeletion)` → `DeleteQueueGridRtsCommand`
+
+**Three places in `ScreenEditorPage.razor` that ALL must include the new widget type:**
+
+| # | Location | What to add |
+|---|---|---|
+| 1 | Delete dialog `@if` condition (~line 1926) | `\|\| (IsYourWidget(WidgetToDelete) && WidgetToDelete.Config?.GridId > 0)` |
+| 2 | `ConfirmDeleteWidget()` `if` condition (~line 2809) | Same condition as #1 |
+| 3 | Save loop `foreach (WidgetsPendingRtsDeletion)` (~line 4241) | New `else if` block calling `DeleteQueueGridRtsCommand` |
+
+**For dual-mode widgets (two GridIds — e.g. CC-009 ASD):** call `DeleteQueueGridRtsCommand` twice:
+```csharp
+else if (IsAgentStateDistributionWidget(widget))
+{
+    if (widget.Config?.GroupGridId > 0)
+        await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.GroupGridId.Value), _cts.Token);
+    if (widget.Config?.StateGridId > 0)
+        await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.StateGridId.Value), _cts.Token);
+}
+```
+
+**Core invariant:**
+> `DeleteQueueGridRtsCommand` call count on delete = `SaveQueueGridRtsCommand` call count on save.
+>
+> - Standard widget (1 RTSGrid) → 1 `SaveQueueGridRtsCommand` on save → 1 `DeleteQueueGridRtsCommand` on delete
+> - ASD dual-mode (2 RTSGrids: GroupGridId + StateGridId) → 2 `Save...` → 2 `Delete...`
+> - Any widget with N RTSGrids → N deletes. **Never fewer.**
+
+**Rule for every new Specialized Grid Widget:**
+> Add the widget predicate to all 3 places in `ScreenEditorPage.razor` BEFORE merging the widget PR.
+> Add to Phase 5 checklist: "All 3 ScreenEditorPage.razor deletion places updated?""
+
+**Add to Phase 5 Final Checklist:**
+- [ ] `ScreenEditorPage.razor` — delete dialog warning includes new widget
+- [ ] `ScreenEditorPage.razor` — `ConfirmDeleteWidget()` adds new widget to `WidgetsPendingRtsDeletion`
+- [ ] `ScreenEditorPage.razor` — save loop calls `DeleteQueueGridRtsCommand` for new widget's GridId(s)
+
+---
+
 ## Quick Reference — Key Paths
 
 | Artifact | Path |
@@ -650,5 +864,6 @@ BusinessUnitId = int.TryParse(ConfigBusinessUnit, out var parsedBuId) ? parsedBu
 
 ---
 
-*Widget Planner Skill — created 2026-05-27. Based on DayTrend + metric architecture sessions.*
-*Captures: metric design methodology, narrow format rationale, spec structure, CC task template, 17 lessons learned.*
+*Widget Planner Skill — created 2026-05-27. Updated 2026-05-28 (L-22–L-26).*
+*L-22: Specialized Grid Widget pattern. L-23: dual-mode RTSGrid. L-24: MetricFunction rules. L-25: State vs Group. L-26: 3-place deletion rule.*
+*22 lessons learned.*
