@@ -37,16 +37,16 @@ After any Cowork session interruption or recovery:
    (`unable to unlink: Operation not permitted`).
 4. Only after working tree is verified clean should new work begin.
 
-### §0.3 File writes in this repository — use Python, not Edit tool
+### §0.3 File writes in this repository — use Python ONLY, Edit tool is BANNED
 
 The project folder is a **Cowork mount** where the `Edit` tool has a known
 partial-write failure mode: the tool returns `success` but the file may be
 truncated, with the truncation not reflected in the tool's output. This has
-occurred three times in one session (PD-005, 2026-05-25).
+occurred **multiple times** (PD-005, 2026-05-25; PD-006, 2026-05-28).
 
-**Rule:** for any file that requires ≥2 changes, or any critical file
-(production code, security-findings.md, process-deviations.md,
-PROJECT_STATUS.md, CLAUDE.md), use an atomic Python script:
+**THE EDIT TOOL IS BANNED IN THIS REPOSITORY. NO EXCEPTIONS.**
+
+Every file write — including single-line changes — must use an atomic Python script:
 
 ```python
 with open(path, "r", encoding="utf-8") as f:
@@ -91,28 +91,62 @@ Warnings `unable to unlink '.git/objects/XX/tmp_obj_*'` in the output are
 **benign** — git cleans up its own temp objects, fails harmlessly on this mount.
 Verify success with `git log --oneline -1` and `git status --short`.
 
+If **`HEAD.lock`** also blocks the commit (`cannot lock ref 'HEAD'`):
+- `rm .git/HEAD.lock` will fail with "Operation not permitted" — that's OK
+- Use `commit-tree` + direct Python write to `refs/heads/<branch>`:
+
+```bash
+# 1. Stage in temp index (index.lock workaround above)
+cp .git/index /tmp/cc-idx
+GIT_INDEX_FILE=/tmp/cc-idx git add <files>
+
+# 2. Write tree and commit object
+TREE=$(GIT_INDEX_FILE=/tmp/cc-idx git write-tree)
+COMMIT=$(git commit-tree "$TREE" -p HEAD -m "message")
+
+# 3. Update branch ref directly via Python (bypasses HEAD.lock)
+python3 -c "
+import os, subprocess
+git_dir = subprocess.check_output(['git','rev-parse','--git-dir']).decode().strip()
+head = open(os.path.join(git_dir,'HEAD')).read().strip()
+ref = head[5:] if head.startswith('ref: ') else None
+if ref:
+    open(os.path.join(git_dir, ref), 'w').write('$COMMIT
+')
+    print('HEAD updated')
+"
+
+# 4. Sync index
+cp /tmp/cc-idx .git/index
+```
+
 
 ### §0.5 Pre-commit file verification — MANDATORY, NO EXCEPTIONS
 
-Before **every** `git add` / `git commit`, verify **every file** being staged:
+Before **every** `git add` / `git commit`, run the verification script:
 
 ```bash
-# For each file you are about to stage:
-tail -3 <path>   # must end with proper closing line (}, sentence, ```)
-wc -l <path>     # compare against expected / previous line count
+bash .claude/pre-commit-check.sh [file1 file2 ...]
+# No args = checks all modified files vs HEAD
 ```
 
-If `tail -3` shows a truncated line, mid-comment ending, or dangling identifier —
-**stop immediately**. Restore via `git show HEAD:<path> > <path>` and retry the write.
-Do NOT stage or commit a file that fails the tail-3 check.
+The script automatically:
+- Detects files shortened >20% vs HEAD (hard FAIL — blocks commit)
+- Verifies last line is a proper closing token (`}`, `)`, `;`, `>`, etc.)
+- Warns on files shortened 10–20% (review required)
 
-Recommended one-liner before staging a set of files:
+**If the script exits with code 1 — DO NOT COMMIT.**
+Restore truncated files: `git show HEAD:<path> > <path>`, then retry the write via Python.
 
-```bash
-for f in file1.cs file2.cs file3.cs; do
-  echo "=== $f ===" && tail -3 "$f" && wc -l "$f"
-done
+**Recognising a truncated last line** (when checking manually):
+These are truncated endings — NEVER commit a file ending like this:
 ```
+foreach (v                   ← mid-identifier
+if (await beDb.SomeTable     ← mid-expression
+segments.Add(new { label = "Tra   ← mid-string
+m.Descript                   ← mid-word
+```
+A proper ending looks like: `}`, `}`, `});`, `</Project>`, `` ``` ``.
 
 ### §0.6 Post-commit integrity verification — MANDATORY, NO EXCEPTIONS
 
@@ -1779,4 +1813,4 @@ updated: YYYY-MM-DD
 
 ---
 
-*TZ version: 1.4 | CLAUDE.md last updated: 2026-05-28*
+*TZ version: 1.4 | CLAUDE.md last updated: 2026-05-28 (§0.3 Edit ban; §0.4 HEAD.lock; §0.5 pre-commit-check.sh)*
