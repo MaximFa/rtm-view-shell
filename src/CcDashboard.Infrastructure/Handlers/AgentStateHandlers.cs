@@ -66,16 +66,30 @@ public class GetAgentStateGroupsQueryHandler(
     {
         var tenantId = query.TenantId ?? currentUser.TenantId!.Value;
 
-        return await db.AgentStateGroups
+        // Step 1 — fetch groups (no navigation property access)
+        var groups = await db.AgentStateGroups
             .IgnoreQueryFilters()
             .Where(g => g.TenantId == tenantId)
+            .OrderBy(g => g.GroupName)
+            .ToListAsync(ct);
+
+        // Step 2 — fetch active definition counts per group
+        var groupIds = groups.Select(g => g.Id).ToList();
+        var counts = await db.AgentStateDefinitions
+            .IgnoreQueryFilters()
+            .Where(d => d.TenantId == tenantId && groupIds.Contains(d.AgentStateGroupId) && d.IsActive)
+            .GroupBy(d => d.AgentStateGroupId)
+            .Select(g => new { GroupId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.GroupId, x => x.Count, ct);
+
+        // Step 3 — project in memory (no EF translation needed)
+        return groups
             .Select(g => new AgentStateGroupDto(
                 g.Id,
                 g.GroupName,
                 g.IsActive,
-                g.Definitions.Count(d => d.IsActive)))
-            .OrderBy(g => g.GroupName)
-            .ToListAsync(ct);
+                counts.GetValueOrDefault(g.Id, 0)))
+            .ToList();
     }
 }
 
