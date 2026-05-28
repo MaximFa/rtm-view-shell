@@ -59,9 +59,9 @@ window.agentStateDistributionChart = {
                                 const clr = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
                                 return {
                                     text: lbl,
-                                    fillStyle: clr,
-                                    strokeStyle: clr,
-                                    lineWidth: 0,
+                                    fillStyle: clr + '40', // 25% opacity — matches DayTrend
+                                    strokeStyle: clr,      // solid border
+                                    lineWidth: 2,
                                     pointStyle: 'circle',
                                     hidden: false,
                                     index: i
