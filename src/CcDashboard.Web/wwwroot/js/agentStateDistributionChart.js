@@ -108,7 +108,7 @@ window.agentStateDistributionChart = {
             chartOptions.scales = {
                 x: {
                     grid: { display: false },
-                    ticks: { color: options?.fontColor || '#333' }
+                    ticks: { display: false }  // labels shown in legend
                 },
                 y: {
                     beginAtZero: true,
@@ -120,7 +120,7 @@ window.agentStateDistributionChart = {
                 chartOptions.scales = {
                     y: {
                         grid: { display: false },
-                        ticks: { color: options?.fontColor || '#333' }
+                        ticks: { display: false }  // labels shown in legend
                     },
                     x: {
                         beginAtZero: true,
