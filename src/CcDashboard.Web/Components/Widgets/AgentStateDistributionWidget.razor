@@ -220,12 +220,23 @@
     protected override async Task OnParametersSetAsync()
     {
         ApplyConfig();
-        if (RtsGridId != 0 && _previousGridId == 0 && _hub is null && _businessUnitId > 0)
+        var currentGridId = RtsGridId;
+
+        // First connection
+        if (currentGridId != 0 && _previousGridId == 0 && _hub is null && _businessUnitId > 0)
         {
-            _previousGridId = RtsGridId;
+            _previousGridId = currentGridId;
             await ConnectAsync();
         }
-        _previousGridId = RtsGridId;
+        // Grid changed (mode switch) — reconnect to new grid
+        else if (currentGridId != 0 && currentGridId != _previousGridId && _businessUnitId > 0)
+        {
+            _previousGridId = currentGridId;
+            _chartRendered = false;
+            await ReconnectAsync();
+        }
+
+        _previousGridId = currentGridId;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
