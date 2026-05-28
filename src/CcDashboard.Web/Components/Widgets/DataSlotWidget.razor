@@ -71,6 +71,7 @@
 
     private HubConnection? _hub;
     private ConnectionState _connectionState = ConnectionState.Connecting;
+    private readonly CancellationTokenSource _cts = new();
 
     // Config values
     private string? _title;
@@ -230,15 +231,24 @@
 
     private async Task ConnectAsync()
     {
+        // Stagger concurrent widget connections — same pattern as QueueGrid
+        await Task.Delay(Random.Shared.Next(100, 500), _cts.Token);
+
         try
         {
-            var settings = await Mediator.Send(new GetTenantSettingsQuery());
+            var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
             var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
             var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={GridId}";
 
             _hub = new HubConnectionBuilder()
                 .WithUrl(fullUrl)
-                .WithAutomaticReconnect()
+                .WithAutomaticReconnect(new[] {
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(5),
+                    TimeSpan.FromSeconds(10),
+                    TimeSpan.FromSeconds(30)
+                })
                 .Build();
 
             // Same handler as QueueGrid - receives GridUpdate
@@ -248,15 +258,20 @@
             _hub.Reconnected += _ => { _connectionState = ConnectionState.Connected; return InvokeAsync(StateHasChanged); };
             _hub.Closed += _ => { _connectionState = ConnectionState.Failed; return InvokeAsync(StateHasChanged); };
 
-            await _hub.StartAsync();
+            await _hub.StartAsync(_cts.Token);
             _connectionState = ConnectionState.Connected;
 
             // Subscribe to grid updates (same as QueueGrid)
-            await _hub.InvokeAsync("SubscribeToGrid", GridId);
+            await _hub.InvokeAsync("SubscribeToGrid", GridId, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Widget disposed before connection completed — not an error
         }
         catch
         {
             _connectionState = ConnectionState.Failed;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -484,6 +499,8 @@
 
     public async ValueTask DisposeAsync()
     {
+        await _cts.CancelAsync();
+        _cts.Dispose();
         if (_hub is not null)
         {
             await _hub.DisposeAsync();
