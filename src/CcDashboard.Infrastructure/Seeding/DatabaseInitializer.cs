@@ -736,16 +736,18 @@ public class DatabaseInitializer(
 
     /// <summary>
     /// Seeds 5 standard agent state definitions for all active tenants (CC-008).
+    /// State = display name, Group = CC platform code (used for MetricId lookup).
     /// </summary>
     private async Task SeedAgentStateDefinitionsAsync(CancellationToken ct)
     {
+        // State = display name, Group = CC platform code (matches RTSGrid_Metric.MetricParameter)
         var standardDefinitions = new (string State, string Group)[]
         {
-            ("AVAILABLE", "Available"),
-            ("ONPHONE", "On Phone"),
-            ("BREAK", "Break"),
-            ("PAPERWORK", "Paperwork"),
-            ("TRAINING", "Training"),
+            ("Available",  "AVAILABLE"),
+            ("On Phone",   "ONPHONE"),
+            ("Break",      "BREAK"),
+            ("Paperwork",  "PAPERWORK"),
+            ("Training",   "TRAINING"),
         };
 
         var activeTenants = await db.Tenants.IgnoreQueryFilters()
@@ -755,6 +757,29 @@ public class DatabaseInitializer(
 
         foreach (var tenantId in activeTenants)
         {
+            // One-time cleanup: delete old seed data with swapped values (v1 bug)
+            var oldGroupNames = new[] { "Available", "On Phone", "Break", "Paperwork", "Training" };
+            var oldGroups = await db.AgentStateGroups.IgnoreQueryFilters()
+                .Where(g => g.TenantId == tenantId && oldGroupNames.Contains(g.GroupName))
+                .ToListAsync(ct);
+            if (oldGroups.Any())
+            {
+                var oldGroupIds = oldGroups.Select(g => g.Id).ToList();
+                var oldDefs = await db.AgentStateDefinitions.IgnoreQueryFilters()
+                    .Where(d => d.TenantId == tenantId && oldGroupIds.Contains(d.AgentStateGroupId))
+                    .ToListAsync(ct);
+                var oldStateIds = oldDefs.Select(d => d.AgentStateId).ToList();
+                var oldStates = await db.AgentStates.IgnoreQueryFilters()
+                    .Where(s => s.TenantId == tenantId && oldStateIds.Contains(s.Id))
+                    .ToListAsync(ct);
+
+                db.AgentStateDefinitions.RemoveRange(oldDefs);
+                db.AgentStates.RemoveRange(oldStates);
+                db.AgentStateGroups.RemoveRange(oldGroups);
+                await db.SaveChangesAsync(ct);
+                logger.LogInformation("Cleaned up old agent state seed data for tenant {TenantId}", tenantId);
+            }
+
             var existingGroups = await db.AgentStateGroups.IgnoreQueryFilters()
                 .Where(g => g.TenantId == tenantId)
                 .ToDictionaryAsync(g => g.GroupName, g => g, StringComparer.OrdinalIgnoreCase, ct);

@@ -46,12 +46,13 @@ public class GetAgentStateDefinitionsQueryHandler(
             .Where(m => m.MetricType == "Agent")
             .ToDictionaryAsync(m => m.MetricParameter ?? "", m => m.MetricId, ct);
 
+        // MetricId lookup uses GroupName (CC platform code), not AgentState (display name)
         return definitions.Select(d => new AgentStateDefinitionDto(
             d.StateId,
             d.AgentState,
             d.GroupId,
             d.GroupName,
-            metricLookup.TryGetValue(d.AgentState, out var metricId) ? metricId : null
+            metricLookup.TryGetValue(d.GroupName, out var metricId) ? metricId : null
         )).ToList();
     }
 }
