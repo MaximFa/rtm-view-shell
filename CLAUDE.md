@@ -148,6 +148,17 @@ m.Descript                   ← mid-word
 ```
 A proper ending looks like: `}`, `}`, `});`, `</Project>`, `` ``` ``.
 
+**Every CC task prompt issued by Cowork must include this mandatory commit block:**
+
+```bash
+# MANDATORY before every commit — no exceptions
+bash tools/pre-commit-check.sh
+# If exit code 1: restore truncated files, retry Python write, then re-check
+# Only after exit code 0: proceed with git add
+```
+
+Cowork agent adds this block to every CC task automatically. CC agent must not omit it.
+
 ### §0.6 Post-commit integrity verification — MANDATORY, NO EXCEPTIONS
 
 After **every** `git commit` (including plumbing-based commits), verify the committed
