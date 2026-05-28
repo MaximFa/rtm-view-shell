@@ -126,7 +126,7 @@ cp /tmp/cc-idx .git/index
 Before **every** `git add` / `git commit`, run the verification script:
 
 ```bash
-bash .claude/pre-commit-check.sh [file1 file2 ...]
+bash tools/pre-commit-check.sh [file1 file2 ...]
 # No args = checks all modified files vs HEAD
 ```
 
