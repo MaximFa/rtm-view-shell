@@ -48,7 +48,22 @@ window.agentStateDistributionChart = {
                         usePointStyle: true,
                         padding: 10,
                         font: { size: 11 },
-                        color: options?.fontColor || '#333'
+                        color: options?.fontColor || '#333',
+                        // Bar charts: one legend entry per bar (same as doughnut/pie)
+                        generateLabels: function (chart) {
+                            if (chart.config.type !== 'bar') {
+                                return Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                            }
+                            const ds = chart.data.datasets[0];
+                            return (chart.data.labels || []).map((lbl, i) => ({
+                                text: lbl,
+                                fillStyle: Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor,
+                                strokeStyle: Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor,
+                                pointStyle: 'circle',
+                                hidden: false,
+                                index: i
+                            }));
+                        }
                     }
                 },
                 tooltip: {
@@ -120,6 +135,7 @@ window.agentStateDistributionChart = {
             ? {
                 labels: labels,
                 datasets: [{
+                    label: '',
                     data: data,
                     backgroundColor: colors,
                     borderColor: colors.map(c => c),
