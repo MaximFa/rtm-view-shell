@@ -17,6 +17,7 @@
 @using CcDashboard.Domain.Enums
 @using CcDashboard.Application.Queries.TenantSettings
 @using CcDashboard.Application.Queries.WidgetTemplates
+@using CcDashboard.Application.Queries.AgentStates
 @using CcDashboard.Application.Commands.WidgetTemplates
 @using Microsoft.AspNetCore.Authorization
 @implements IDisposable
@@ -197,7 +198,7 @@
                                 <i class="bi bi-bookmark-plus"></i>
                             </button>
                             <button class="widget-toolbar-btn" title="@L["Widgets_Configure"]"
-                                    @onclick="() => OpenWidgetConfig(widget)" @onclick:stopPropagation="true">
+                                    @onclick="async () => await OpenWidgetConfig(widget)" @onclick:stopPropagation="true">
                                 <i class="bi bi-gear"></i>
                             </button>
                             <button class="widget-toolbar-btn danger" title="@L["Delete"]"
@@ -874,87 +875,34 @@
                                     <div class="col-4 text-center small text-muted fw-semibold">Light</div>
                                     <div class="col-4 text-center small text-muted fw-semibold">Dark</div>
                                 </div>
-                                <!-- Available -->
-                                <div class="row g-2 align-items-center mb-2">
-                                    <div class="col-4 small">@L["Widget_ASD_Segment_Available"]</div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdColorAvailable"
-                                               @onchange="e => { ConfigAsdColorAvailable = e.Value?.ToString() ?? ConfigAsdColorAvailable; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                @foreach (var stateName in _asdDefinitions.Select(d => d.AgentState).Distinct().OrderBy(x => x))
+                                {
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <div class="col-4 small">@stateName</div>
+                                        <div class="col-4 d-flex justify-content-center">
+                                            <input type="color" value="@GetAsdSegmentColor(stateName, false)"
+                                                   @onchange="e => SetAsdSegmentColor(stateName, e.Value?.ToString(), false)"
+                                                   style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                        </div>
+                                        <div class="col-4 d-flex justify-content-center">
+                                            <input type="color" value="@GetAsdSegmentColor(stateName, true)"
+                                                   @onchange="e => SetAsdSegmentColor(stateName, e.Value?.ToString(), true)"
+                                                   style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                        </div>
                                     </div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdDarkColorAvailable"
-                                               @onchange="e => { ConfigAsdDarkColorAvailable = e.Value?.ToString() ?? ConfigAsdDarkColorAvailable; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                </div>
-                                <!-- On Phone -->
-                                <div class="row g-2 align-items-center mb-2">
-                                    <div class="col-4 small">@L["Widget_ASD_Segment_OnPhone"]</div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdColorOnPhone"
-                                               @onchange="e => { ConfigAsdColorOnPhone = e.Value?.ToString() ?? ConfigAsdColorOnPhone; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdDarkColorOnPhone"
-                                               @onchange="e => { ConfigAsdDarkColorOnPhone = e.Value?.ToString() ?? ConfigAsdDarkColorOnPhone; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                </div>
-                                <!-- Break -->
-                                <div class="row g-2 align-items-center mb-2">
-                                    <div class="col-4 small">@L["Widget_ASD_Segment_Break"]</div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdColorBreak"
-                                               @onchange="e => { ConfigAsdColorBreak = e.Value?.ToString() ?? ConfigAsdColorBreak; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdDarkColorBreak"
-                                               @onchange="e => { ConfigAsdDarkColorBreak = e.Value?.ToString() ?? ConfigAsdDarkColorBreak; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                </div>
-                                <!-- Paperwork -->
-                                <div class="row g-2 align-items-center mb-2">
-                                    <div class="col-4 small">@L["Widget_ASD_Segment_Paperwork"]</div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdColorPaperwork"
-                                               @onchange="e => { ConfigAsdColorPaperwork = e.Value?.ToString() ?? ConfigAsdColorPaperwork; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdDarkColorPaperwork"
-                                               @onchange="e => { ConfigAsdDarkColorPaperwork = e.Value?.ToString() ?? ConfigAsdDarkColorPaperwork; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                </div>
-                                <!-- Training -->
-                                <div class="row g-2 align-items-center mb-2">
-                                    <div class="col-4 small">@L["Widget_ASD_Segment_Training"]</div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdColorTraining"
-                                               @onchange="e => { ConfigAsdColorTraining = e.Value?.ToString() ?? ConfigAsdColorTraining; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdDarkColorTraining"
-                                               @onchange="e => { ConfigAsdDarkColorTraining = e.Value?.ToString() ?? ConfigAsdDarkColorTraining; }"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                </div>
-                                <!-- Other -->
+                                }
+                                @{ var otherKey = "Other"; }
+                                <!-- Other (always shown) -->
                                 <div class="row g-2 align-items-center mb-2">
                                     <div class="col-4 small">@L["Widget_ASD_Segment_Other"]</div>
                                     <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdColorOther"
-                                               @onchange="e => { ConfigAsdColorOther = e.Value?.ToString() ?? ConfigAsdColorOther; }"
+                                        <input type="color" value="@GetAsdSegmentColor(otherKey, false)"
+                                               @onchange="e => SetAsdSegmentColor(otherKey, e.Value?.ToString(), false)"
                                                style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
                                     </div>
                                     <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@ConfigAsdDarkColorOther"
-                                               @onchange="e => { ConfigAsdDarkColorOther = e.Value?.ToString() ?? ConfigAsdDarkColorOther; }"
+                                        <input type="color" value="@GetAsdSegmentColor(otherKey, true)"
+                                               @onchange="e => SetAsdSegmentColor(otherKey, e.Value?.ToString(), true)"
                                                style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
                                     </div>
                                 </div>
@@ -2180,13 +2128,38 @@
     private string ConfigAsdColorPaperwork = "#8b5cf6";
     private string ConfigAsdColorTraining = "#06b6d4";
     private string ConfigAsdColorOther = "#6b7280";
-    // ASD segment colors dark
+    // ASD segment colors dark (legacy)
     private string ConfigAsdDarkColorAvailable = "#4ade80";
     private string ConfigAsdDarkColorOnPhone = "#60a5fa";
     private string ConfigAsdDarkColorBreak = "#fbbf24";
     private string ConfigAsdDarkColorPaperwork = "#a78bfa";
     private string ConfigAsdDarkColorTraining = "#22d3ee";
     private string ConfigAsdDarkColorOther = "#9ca3af";
+
+    // ASD dynamic segment colors (keyed by AgentStateName)
+    private IReadOnlyList<AgentStateDefinitionDto> _asdDefinitions = Array.Empty<AgentStateDefinitionDto>();
+    private Dictionary<string, string> EditingSegmentColors = new();
+    private Dictionary<string, string> EditingDarkSegmentColors = new();
+
+    private static readonly Dictionary<string, string> AsdFallbackColors = new()
+    {
+        ["Available"]  = "#22c55e",
+        ["On Phone"]   = "#3b82f6",
+        ["Break"]      = "#f59e0b",
+        ["Paperwork"]  = "#8b5cf6",
+        ["Training"]   = "#06b6d4",
+        ["Other"]      = "#6b7280",
+    };
+
+    private static readonly Dictionary<string, string> AsdDarkFallbackColors = new()
+    {
+        ["Available"]  = "#4ade80",
+        ["On Phone"]   = "#60a5fa",
+        ["Break"]      = "#fbbf24",
+        ["Paperwork"]  = "#a78bfa",
+        ["Training"]   = "#22d3ee",
+        ["Other"]      = "#9ca3af",
+    };
 
     // Widget deletion confirmation
     private PlacedWidget? WidgetToDelete;
@@ -2847,7 +2820,7 @@
         WidgetToDelete = null;
     }
 
-    private void OpenWidgetConfig(PlacedWidget widget)
+    private async Task OpenWidgetConfig(PlacedWidget widget)
     {
         ConfiguringWidget = widget;
         ConfigActiveTab = "general";
@@ -2993,18 +2966,30 @@
             ConfigAsdValueDisplay = widget.Config.ValueDisplay ?? "percentages";
             ConfigAsdShowLegend = widget.Config.ShowLegend;
             ConfigAsdShowValueLabels = widget.Config.ShowValueLabels;
-            ConfigAsdColorAvailable = widget.Config.ColorAvailable ?? "#22c55e";
-            ConfigAsdColorOnPhone = widget.Config.ColorOnPhone ?? "#3b82f6";
-            ConfigAsdColorBreak = widget.Config.ColorBreak ?? "#f59e0b";
-            ConfigAsdColorPaperwork = widget.Config.ColorPaperwork ?? "#8b5cf6";
-            ConfigAsdColorTraining = widget.Config.ColorTraining ?? "#06b6d4";
-            ConfigAsdColorOther = widget.Config.ColorOther ?? "#6b7280";
-            ConfigAsdDarkColorAvailable = widget.Config.DarkColorAvailable ?? "#4ade80";
-            ConfigAsdDarkColorOnPhone = widget.Config.DarkColorOnPhone ?? "#60a5fa";
-            ConfigAsdDarkColorBreak = widget.Config.DarkColorBreak ?? "#fbbf24";
-            ConfigAsdDarkColorPaperwork = widget.Config.DarkColorPaperwork ?? "#a78bfa";
-            ConfigAsdDarkColorTraining = widget.Config.DarkColorTraining ?? "#22d3ee";
-            ConfigAsdDarkColorOther = widget.Config.DarkColorOther ?? "#9ca3af";
+
+            // Load definitions for dynamic segment colors
+            await LoadAsdDefinitionsAsync();
+
+            // Initialize dictionaries from saved config or fallbacks
+            EditingSegmentColors = widget.Config.SegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
+            EditingDarkSegmentColors = widget.Config.DarkSegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
+
+            // Merge legacy individual color fields into dictionaries (backward compat)
+            MergeLegacyAsdColors(widget.Config);
+
+            // Ensure all definitions have a color entry
+            foreach (var def in _asdDefinitions)
+            {
+                if (!EditingSegmentColors.ContainsKey(def.AgentState))
+                    EditingSegmentColors[def.AgentState] = AsdFallbackColors.GetValueOrDefault(def.AgentState, "#64748b");
+                if (!EditingDarkSegmentColors.ContainsKey(def.AgentState))
+                    EditingDarkSegmentColors[def.AgentState] = AsdDarkFallbackColors.GetValueOrDefault(def.AgentState, "#64748b");
+            }
+            // Always include "Other"
+            if (!EditingSegmentColors.ContainsKey("Other"))
+                EditingSegmentColors["Other"] = AsdFallbackColors["Other"];
+            if (!EditingDarkSegmentColors.ContainsKey("Other"))
+                EditingDarkSegmentColors["Other"] = AsdDarkFallbackColors["Other"];
         }
 
         // Initialize search fields with selected values
@@ -3067,6 +3052,61 @@
     private static bool IsAgentStateDistributionWidget(PlacedWidget? widget) =>
         widget?.Name.Contains("agent state", StringComparison.OrdinalIgnoreCase) == true ||
         widget?.CatalogItemId == Guid.Parse("a4d1e3f7-2b8c-4e9a-b1d5-6f3c2a7e0d11");
+
+    private async Task LoadAsdDefinitionsAsync()
+    {
+        try
+        {
+            _asdDefinitions = await Mediator.Send(new GetAgentStateDefinitionsQuery(), _cts.Token);
+        }
+        catch
+        {
+            _asdDefinitions = Array.Empty<AgentStateDefinitionDto>();
+        }
+    }
+
+    private void MergeLegacyAsdColors(WidgetConfig cfg)
+    {
+        // Merge legacy individual color fields if dictionaries are empty
+        if (!EditingSegmentColors.ContainsKey("Available") && !string.IsNullOrEmpty(cfg.ColorAvailable))
+            EditingSegmentColors["Available"] = cfg.ColorAvailable;
+        if (!EditingSegmentColors.ContainsKey("On Phone") && !string.IsNullOrEmpty(cfg.ColorOnPhone))
+            EditingSegmentColors["On Phone"] = cfg.ColorOnPhone;
+        if (!EditingSegmentColors.ContainsKey("Break") && !string.IsNullOrEmpty(cfg.ColorBreak))
+            EditingSegmentColors["Break"] = cfg.ColorBreak;
+        if (!EditingSegmentColors.ContainsKey("Paperwork") && !string.IsNullOrEmpty(cfg.ColorPaperwork))
+            EditingSegmentColors["Paperwork"] = cfg.ColorPaperwork;
+        if (!EditingSegmentColors.ContainsKey("Training") && !string.IsNullOrEmpty(cfg.ColorTraining))
+            EditingSegmentColors["Training"] = cfg.ColorTraining;
+        if (!EditingSegmentColors.ContainsKey("Other") && !string.IsNullOrEmpty(cfg.ColorOther))
+            EditingSegmentColors["Other"] = cfg.ColorOther;
+
+        if (!EditingDarkSegmentColors.ContainsKey("Available") && !string.IsNullOrEmpty(cfg.DarkColorAvailable))
+            EditingDarkSegmentColors["Available"] = cfg.DarkColorAvailable;
+        if (!EditingDarkSegmentColors.ContainsKey("On Phone") && !string.IsNullOrEmpty(cfg.DarkColorOnPhone))
+            EditingDarkSegmentColors["On Phone"] = cfg.DarkColorOnPhone;
+        if (!EditingDarkSegmentColors.ContainsKey("Break") && !string.IsNullOrEmpty(cfg.DarkColorBreak))
+            EditingDarkSegmentColors["Break"] = cfg.DarkColorBreak;
+        if (!EditingDarkSegmentColors.ContainsKey("Paperwork") && !string.IsNullOrEmpty(cfg.DarkColorPaperwork))
+            EditingDarkSegmentColors["Paperwork"] = cfg.DarkColorPaperwork;
+        if (!EditingDarkSegmentColors.ContainsKey("Training") && !string.IsNullOrEmpty(cfg.DarkColorTraining))
+            EditingDarkSegmentColors["Training"] = cfg.DarkColorTraining;
+        if (!EditingDarkSegmentColors.ContainsKey("Other") && !string.IsNullOrEmpty(cfg.DarkColorOther))
+            EditingDarkSegmentColors["Other"] = cfg.DarkColorOther;
+    }
+
+    private string GetAsdSegmentColor(string stateName, bool dark) =>
+        dark ? EditingDarkSegmentColors.GetValueOrDefault(stateName, AsdDarkFallbackColors.GetValueOrDefault(stateName, "#64748b"))
+             : EditingSegmentColors.GetValueOrDefault(stateName, AsdFallbackColors.GetValueOrDefault(stateName, "#64748b"));
+
+    private void SetAsdSegmentColor(string stateName, string? value, bool dark)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        if (dark)
+            EditingDarkSegmentColors[stateName] = value;
+        else
+            EditingSegmentColors[stateName] = value;
+    }
 
     private void SetDayTrendChartType(string chartType)
     {
@@ -3812,7 +3852,14 @@
             DarkColorBreak = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorBreak : null,
             DarkColorPaperwork = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorPaperwork : null,
             DarkColorTraining = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorTraining : null,
-            DarkColorOther = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorOther : null
+            DarkColorOther = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdDarkColorOther : null,
+            // Dynamic segment colors (keyed by AgentStateName)
+            SegmentColors = IsAgentStateDistributionWidget(ConfiguringWidget) && EditingSegmentColors.Count > 0
+                ? EditingSegmentColors.ToDictionary(kv => kv.Key, kv => kv.Value)
+                : null,
+            DarkSegmentColors = IsAgentStateDistributionWidget(ConfiguringWidget) && EditingDarkSegmentColors.Count > 0
+                ? EditingDarkSegmentColors.ToDictionary(kv => kv.Key, kv => kv.Value)
+                : null
         };
 
         ConfiguringWidget.Config = newConfig;
@@ -4566,6 +4613,10 @@
         public string? DarkColorPaperwork { get; set; }
         public string? DarkColorTraining { get; set; }
         public string? DarkColorOther { get; set; }
+
+        // Agent State Distribution segment colors (dynamic, keyed by AgentStateName)
+        public Dictionary<string, string>? SegmentColors { get; set; }
+        public Dictionary<string, string>? DarkSegmentColors { get; set; }
     }
 
     public record DayTrendMetricConfig(string MetricId, bool Enabled, string Color, string Label, string ValueType = "number")

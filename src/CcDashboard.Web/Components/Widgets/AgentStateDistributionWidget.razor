@@ -1,5 +1,6 @@
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Application.Queries.TenantSettings
+@using CcDashboard.Application.Queries.AgentStates
 @using Microsoft.AspNetCore.SignalR.Client
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
@@ -77,14 +78,25 @@
     [Inject] private ILogger<AgentStateDistributionWidget> Logger { get; set; } = null!;
     [Inject] private IMediator Mediator { get; set; } = null!;
 
-    private static readonly IReadOnlyList<string> FixedMetricIds = new[]
+    // Fallback colors keyed by AgentStateName (display name)
+    private static readonly Dictionary<string, string> FallbackColors = new()
     {
-        "QueueLoginDataNumAvailableUsers",
-        "QueueNumOnCallAgents",
-        "QueueLoginDataNumBreakUsers",
-        "QueueLoginDataNumPaperworkUsers",
-        "QueueLoginDataNumTrainingUsers",
-        "QueueLoginDataNumLoggedUsers",
+        ["Available"]  = "#22c55e",
+        ["On Phone"]   = "#3b82f6",
+        ["Break"]      = "#f59e0b",
+        ["Paperwork"]  = "#8b5cf6",
+        ["Training"]   = "#06b6d4",
+        ["Other"]      = "#6b7280",
+    };
+
+    private static readonly Dictionary<string, string> DarkFallbackColors = new()
+    {
+        ["Available"]  = "#4ade80",
+        ["On Phone"]   = "#60a5fa",
+        ["Break"]      = "#fbbf24",
+        ["Paperwork"]  = "#a78bfa",
+        ["Training"]   = "#22d3ee",
+        ["Other"]      = "#9ca3af",
     };
 
     private HubConnection? _hub;
@@ -94,6 +106,9 @@
     private string _chartElementId = $"asd-chart-{Guid.NewGuid():N}";
     private Dictionary<string, string> _cellValues = new();
     private int _totalAgents;
+
+    // Agent state definitions loaded from DB
+    private IReadOnlyList<AgentStateDefinitionDto> _definitions = Array.Empty<AgentStateDefinitionDto>();
 
     // Config values
     private int _businessUnitId;
@@ -108,41 +123,43 @@
     private string _darkBackgroundColor = "#1e1e1e";
     private string _darkFontColor = "#ffffff";
 
-    // Segment colors (light mode)
-    private string _colorAvailable = "#22c55e";
-    private string _colorOnPhone = "#3b82f6";
-    private string _colorBreak = "#f59e0b";
-    private string _colorPaperwork = "#8b5cf6";
-    private string _colorTraining = "#06b6d4";
-    private string _colorOther = "#6b7280";
-
-    // Segment colors (dark mode)
-    private string _darkColorAvailable = "#4ade80";
-    private string _darkColorOnPhone = "#60a5fa";
-    private string _darkColorBreak = "#fbbf24";
-    private string _darkColorPaperwork = "#a78bfa";
-    private string _darkColorTraining = "#22d3ee";
-    private string _darkColorOther = "#9ca3af";
+    // Segment colors (dictionaries keyed by AgentStateName)
+    private Dictionary<string, string> _segmentColors = new();
+    private Dictionary<string, string> _darkSegmentColors = new();
 
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
     private string EffectiveBackgroundColor => DarkMode ? _darkBackgroundColor : (_backgroundColor ?? "");
     private string EffectiveFontColor => DarkMode ? _darkFontColor : (_fontColor ?? "");
-    private string EffectiveColorAvailable => DarkMode ? _darkColorAvailable : _colorAvailable;
-    private string EffectiveColorOnPhone => DarkMode ? _darkColorOnPhone : _colorOnPhone;
-    private string EffectiveColorBreak => DarkMode ? _darkColorBreak : _colorBreak;
-    private string EffectiveColorPaperwork => DarkMode ? _darkColorPaperwork : _colorPaperwork;
-    private string EffectiveColorTraining => DarkMode ? _darkColorTraining : _colorTraining;
-    private string EffectiveColorOther => DarkMode ? _darkColorOther : _colorOther;
-
     private int RtsGridId => Config?.GridId ?? GridId;
+
+    private string GetSegmentColor(string stateName)
+    {
+        var colors = DarkMode ? _darkSegmentColors : _segmentColors;
+        var fallback = DarkMode ? DarkFallbackColors : FallbackColors;
+        return colors.GetValueOrDefault(stateName) ?? fallback.GetValueOrDefault(stateName, "#64748b");
+    }
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadDefinitionsAsync();
         ApplyConfig();
         if (RtsGridId > 0 && _businessUnitId > 0)
         {
             await ConnectAsync();
+        }
+    }
+
+    private async Task LoadDefinitionsAsync()
+    {
+        try
+        {
+            _definitions = await Mediator.Send(new GetAgentStateDefinitionsQuery(), _cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load agent state definitions");
+            _definitions = Array.Empty<AgentStateDefinitionDto>();
         }
     }
 
@@ -184,20 +201,36 @@
         _darkBackgroundColor = Config.DarkBackgroundColor ?? "#1e1e1e";
         _darkFontColor = Config.DarkFontColor ?? "#ffffff";
 
-        // Segment colors
-        if (!string.IsNullOrEmpty(Config.ColorAvailable)) _colorAvailable = Config.ColorAvailable;
-        if (!string.IsNullOrEmpty(Config.ColorOnPhone)) _colorOnPhone = Config.ColorOnPhone;
-        if (!string.IsNullOrEmpty(Config.ColorBreak)) _colorBreak = Config.ColorBreak;
-        if (!string.IsNullOrEmpty(Config.ColorPaperwork)) _colorPaperwork = Config.ColorPaperwork;
-        if (!string.IsNullOrEmpty(Config.ColorTraining)) _colorTraining = Config.ColorTraining;
-        if (!string.IsNullOrEmpty(Config.ColorOther)) _colorOther = Config.ColorOther;
+        // Segment colors from dictionaries (new format) or legacy individual fields
+        _segmentColors = Config.SegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
+        _darkSegmentColors = Config.DarkSegmentColors?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new();
 
-        if (!string.IsNullOrEmpty(Config.DarkColorAvailable)) _darkColorAvailable = Config.DarkColorAvailable;
-        if (!string.IsNullOrEmpty(Config.DarkColorOnPhone)) _darkColorOnPhone = Config.DarkColorOnPhone;
-        if (!string.IsNullOrEmpty(Config.DarkColorBreak)) _darkColorBreak = Config.DarkColorBreak;
-        if (!string.IsNullOrEmpty(Config.DarkColorPaperwork)) _darkColorPaperwork = Config.DarkColorPaperwork;
-        if (!string.IsNullOrEmpty(Config.DarkColorTraining)) _darkColorTraining = Config.DarkColorTraining;
-        if (!string.IsNullOrEmpty(Config.DarkColorOther)) _darkColorOther = Config.DarkColorOther;
+        // Backward compat: merge legacy individual color fields into dictionaries
+        if (!string.IsNullOrEmpty(Config.ColorAvailable) && !_segmentColors.ContainsKey("Available"))
+            _segmentColors["Available"] = Config.ColorAvailable;
+        if (!string.IsNullOrEmpty(Config.ColorOnPhone) && !_segmentColors.ContainsKey("On Phone"))
+            _segmentColors["On Phone"] = Config.ColorOnPhone;
+        if (!string.IsNullOrEmpty(Config.ColorBreak) && !_segmentColors.ContainsKey("Break"))
+            _segmentColors["Break"] = Config.ColorBreak;
+        if (!string.IsNullOrEmpty(Config.ColorPaperwork) && !_segmentColors.ContainsKey("Paperwork"))
+            _segmentColors["Paperwork"] = Config.ColorPaperwork;
+        if (!string.IsNullOrEmpty(Config.ColorTraining) && !_segmentColors.ContainsKey("Training"))
+            _segmentColors["Training"] = Config.ColorTraining;
+        if (!string.IsNullOrEmpty(Config.ColorOther) && !_segmentColors.ContainsKey("Other"))
+            _segmentColors["Other"] = Config.ColorOther;
+
+        if (!string.IsNullOrEmpty(Config.DarkColorAvailable) && !_darkSegmentColors.ContainsKey("Available"))
+            _darkSegmentColors["Available"] = Config.DarkColorAvailable;
+        if (!string.IsNullOrEmpty(Config.DarkColorOnPhone) && !_darkSegmentColors.ContainsKey("On Phone"))
+            _darkSegmentColors["On Phone"] = Config.DarkColorOnPhone;
+        if (!string.IsNullOrEmpty(Config.DarkColorBreak) && !_darkSegmentColors.ContainsKey("Break"))
+            _darkSegmentColors["Break"] = Config.DarkColorBreak;
+        if (!string.IsNullOrEmpty(Config.DarkColorPaperwork) && !_darkSegmentColors.ContainsKey("Paperwork"))
+            _darkSegmentColors["Paperwork"] = Config.DarkColorPaperwork;
+        if (!string.IsNullOrEmpty(Config.DarkColorTraining) && !_darkSegmentColors.ContainsKey("Training"))
+            _darkSegmentColors["Training"] = Config.DarkColorTraining;
+        if (!string.IsNullOrEmpty(Config.DarkColorOther) && !_darkSegmentColors.ContainsKey("Other"))
+            _darkSegmentColors["Other"] = Config.DarkColorOther;
     }
 
     private async Task ConnectAsync()
@@ -318,30 +351,51 @@
 
     private List<object> BuildSegments()
     {
-        var available = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumAvailableUsers"));
-        var onPhone = ParseInt(_cellValues.GetValueOrDefault("QueueNumOnCallAgents"));
-        var breakCount = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumBreakUsers"));
-        var paperwork = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumPaperworkUsers"));
-        var training = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumTrainingUsers"));
+        var segments = new List<object>();
         var total = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumLoggedUsers"));
-
         _totalAgents = total;
 
-        var sumFive = available + onPhone + breakCount + paperwork + training;
-        var other = Math.Max(0, total - sumFive);
-
-        var segments = new List<object>
+        if (_definitions.Count == 0)
         {
-            new { label = "Available", value = available, color = EffectiveColorAvailable },
-            new { label = "On Phone", value = onPhone, color = EffectiveColorOnPhone },
-            new { label = "Break", value = breakCount, color = EffectiveColorBreak },
-            new { label = "Paperwork", value = paperwork, color = EffectiveColorPaperwork },
-            new { label = "Training", value = training, color = EffectiveColorTraining }
-        };
+            // Fallback to hardcoded metrics if no definitions loaded
+            var available = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumAvailableUsers"));
+            var onPhone = ParseInt(_cellValues.GetValueOrDefault("QueueNumOnCallAgents"));
+            var breakCount = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumBreakUsers"));
+            var paperwork = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumPaperworkUsers"));
+            var training = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumTrainingUsers"));
 
-        if (other > 0)
+            segments.Add(new { label = "Available", value = available, color = GetSegmentColor("Available") });
+            segments.Add(new { label = "On Phone", value = onPhone, color = GetSegmentColor("On Phone") });
+            segments.Add(new { label = "Break", value = breakCount, color = GetSegmentColor("Break") });
+            segments.Add(new { label = "Paperwork", value = paperwork, color = GetSegmentColor("Paperwork") });
+            segments.Add(new { label = "Training", value = training, color = GetSegmentColor("Training") });
+
+            var sumFive = available + onPhone + breakCount + paperwork + training;
+            var other = Math.Max(0, total - sumFive);
+            if (other > 0)
+                segments.Add(new { label = "Other", value = other, color = GetSegmentColor("Other") });
+
+            return segments;
+        }
+
+        // Use dynamic definitions: group by GroupName, label by AgentStateName
+        var sumFromDefs = 0;
+        foreach (var group in _definitions.GroupBy(d => d.GroupName).OrderBy(g => g.Key))
         {
-            segments.Add(new { label = "Other", value = other, color = EffectiveColorOther });
+            var metricId = group.First().MetricId;
+            var value = metricId != null ? ParseInt(_cellValues.GetValueOrDefault(metricId)) : 0;
+            var displayName = group.First().AgentState; // AgentStateName = display name
+            var color = GetSegmentColor(displayName);
+
+            sumFromDefs += value;
+            segments.Add(new { label = displayName, value, color });
+        }
+
+        // "Other" = total - sum of known states
+        var otherCount = Math.Max(0, total - sumFromDefs);
+        if (otherCount > 0)
+        {
+            segments.Add(new { label = "Other", value = otherCount, color = GetSegmentColor("Other") });
         }
 
         return segments;
