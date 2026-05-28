@@ -49,20 +49,26 @@ window.agentStateDistributionChart = {
                         padding: 10,
                         font: { size: 11 },
                         color: options?.fontColor || '#333',
-                        // Bar charts: one legend entry per bar (same as doughnut/pie)
+                        // Bar/horizbar: one entry per bar, outlined circle style matching DayTrend
                         generateLabels: function (chart) {
                             if (chart.config.type !== 'bar') {
                                 return Chart.defaults.plugins.legend.labels.generateLabels(chart);
                             }
                             const ds = chart.data.datasets[0];
-                            return (chart.data.labels || []).map((lbl, i) => ({
-                                text: lbl,
-                                fillStyle: Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor,
-                                strokeStyle: Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor,
-                                pointStyle: 'circle',
-                                hidden: false,
-                                index: i
-                            }));
+                            const fontColor = chart.options.plugins.legend.labels.color || '#333';
+                            return (chart.data.labels || []).map((lbl, i) => {
+                                const clr = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
+                                return {
+                                    text: lbl,
+                                    fillStyle: clr + '40',  // 25% opacity fill (DayTrend style)
+                                    strokeStyle: clr,        // solid border
+                                    lineWidth: 2,
+                                    pointStyle: 'circle',
+                                    fontColor: fontColor,
+                                    hidden: false,
+                                    index: i
+                                };
+                            });
                         }
                     }
                 },
