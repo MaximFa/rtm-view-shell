@@ -42,11 +42,19 @@ public class GetAgentStateDefinitionsQueryHandler(
             .ThenBy(x => x.AgentState)
             .ToListAsync(ct);
 
-        var metricLookup = await beDb.RtsGridMetrics
-            .Where(m => m.MetricType == "Agent")
-            .ToDictionaryAsync(m => m.MetricParameter ?? "", m => m.MetricId, ct);
+        // UsersInStatusGroupCount metrics have MetricType = "Data" (not "Agent").
+        // Multiple metrics may share the same MetricParameter → GroupBy avoids duplicate-key exception.
+        var metricRows = await beDb.RtsGridMetrics
+            .Where(m => m.MetricFunction == "UsersInStatusGroupCount"
+                     && m.MetricParameter != null && m.MetricParameter != "")
+            .Select(m => new { m.MetricParameter, m.MetricId })
+            .ToListAsync(ct);
 
-        // MetricId lookup uses GroupName (CC platform code), not AgentState (display name)
+        var metricLookup = metricRows
+            .GroupBy(m => m.MetricParameter!)
+            .ToDictionary(g => g.Key, g => g.First().MetricId);
+
+        // MetricId lookup uses GroupName (CC platform code e.g. "AVAILABLE"), not AgentState display name
         return definitions.Select(d => new AgentStateDefinitionDto(
             d.StateId,
             d.AgentState,
