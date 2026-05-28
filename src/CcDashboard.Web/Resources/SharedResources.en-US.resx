@@ -557,7 +557,39 @@
   <data name="Tenants_TabGeneral"><value>General</value></data>
   <data name="Tenants_TabSettings"><value>Settings</value></data>
   <data name="Tenants_TabAppearance"><value>Appearance</value></data>
+  <data name="Tenants_TabAgentStates"><value>Agent States</value></data>
   <data name="Tenants_SlugReadOnly"><value>Slug cannot be changed after creation</value></data>
+
+  <!-- ── Agent States ── -->
+  <data name="AgentStates_StateGroups"><value>State Groups</value></data>
+  <data name="AgentStates_AgentStates"><value>Agent States</value></data>
+  <data name="AgentStates_AddGroup"><value>Add Group</value></data>
+  <data name="AgentStates_AddState"><value>Add State</value></data>
+  <data name="AgentStates_GroupName"><value>Group Name</value></data>
+  <data name="AgentStates_StateName"><value>State Name</value></data>
+  <data name="AgentStates_StateNameHelp"><value>Raw state name from CC platform (e.g. AVAILABLE, LUNCH)</value></data>
+  <data name="AgentStates_MappedGroup"><value>Mapped Group</value></data>
+  <data name="AgentStates_Status"><value>Status</value></data>
+  <data name="AgentStates_States"><value>States</value></data>
+  <data name="AgentStates_NoGroups"><value>No state groups defined</value></data>
+  <data name="AgentStates_NoStates"><value>No agent states defined</value></data>
+  <data name="AgentStates_CreateGroup"><value>New State Group</value></data>
+  <data name="AgentStates_EditGroup"><value>Edit State Group</value></data>
+  <data name="AgentStates_CreateState"><value>New Agent State</value></data>
+  <data name="AgentStates_EditState"><value>Edit Agent State</value></data>
+  <data name="AgentStates_DeactivateGroup"><value>Deactivate Group</value></data>
+  <data name="AgentStates_DeactivateState"><value>Deactivate State</value></data>
+  <data name="AgentStates_DeactivateGroupConfirm"><value>Are you sure you want to deactivate the group "{0}"?</value></data>
+  <data name="AgentStates_DeactivateStateConfirm"><value>Are you sure you want to deactivate the state "{0}"?</value></data>
+  <data name="AgentStates_GroupHasStates"><value>This group has {0} state(s) assigned.</value></data>
+  <data name="AgentStates_ReassignStates"><value>Reassign states to another group</value></data>
+  <data name="AgentStates_DeactivateAllStates"><value>Deactivate all states in this group</value></data>
+  <data name="AgentStates_SelectGroup"><value>Select a group...</value></data>
+  <data name="AgentStates_SelectTargetGroup"><value>Please select a target group for reassignment.</value></data>
+  <data name="AgentStates_Deactivate"><value>Deactivate</value></data>
+  <data name="AgentStates_GroupNameRequired"><value>Group name is required.</value></data>
+  <data name="AgentStates_StateNameRequired"><value>State name is required.</value></data>
+  <data name="AgentStates_GroupRequired"><value>Please select a group.</value></data>
 
   <!-- ── Common ── -->
   <data name="Common_Widgets"><value>Widgets</value></data>

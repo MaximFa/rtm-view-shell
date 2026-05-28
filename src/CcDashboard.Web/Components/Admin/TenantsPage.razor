@@ -11,6 +11,8 @@
 @using CcDashboard.Contracts.DTOs.Tenants
 @using CcDashboard.Contracts.DTOs.TenantSettings
 @using CcDashboard.Domain.Enums
+@using CcDashboard.Application.Queries.AgentStates
+@using CcDashboard.Application.Commands.AgentStates
 @using Microsoft.AspNetCore.Authorization
 @implements IDisposable
 
@@ -144,6 +146,12 @@ else
                             <button class="nav-link @(EditTab == "appearance" ? "active" : "")"
                                     @onclick='() => EditTab = "appearance"'>
                                 @L["Tenants_TabAppearance"]
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(EditTab == "agentstates" ? "active" : "")"
+                                    @onclick="OpenAgentStatesTab">
+                                @L["Tenants_TabAgentStates"]
                             </button>
                         </li>
                     </ul>
@@ -357,6 +365,138 @@ else
                             </div>
                         </div>
                     }
+                    else if (EditTab == "agentstates")
+                    {
+                        @if (AgentStatesLoading)
+                        {
+                            <div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+                        }
+                        else
+                        {
+                            <div class="row g-3">
+                                <!-- State Groups Section -->
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header fw-semibold small d-flex justify-content-between align-items-center">
+                                            @L["AgentStates_StateGroups"]
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="OpenCreateGroupModal">
+                                                <i class="bi bi-plus"></i> @L["AgentStates_AddGroup"]
+                                            </button>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div class="table-responsive">
+                                                <table class="table table-hover table-sm mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>@L["AgentStates_GroupName"]</th>
+                                                            <th class="text-center" style="width:80px;">@L["AgentStates_States"]</th>
+                                                            <th class="text-center" style="width:80px;">@L["AgentStates_Status"]</th>
+                                                            <th style="width:120px;"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var g in AgentStateGroups)
+                                                        {
+                                                            <tr @key="g.Id">
+                                                                <td>@g.GroupName</td>
+                                                                <td class="text-center">@g.StateCount</td>
+                                                                <td class="text-center">
+                                                                    @if (g.IsActive)
+                                                                    {
+                                                                        <span class="badge bg-success">@L["Common_Active"]</span>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span class="badge bg-secondary">@L["Common_Inactive"]</span>
+                                                                    }
+                                                                </td>
+                                                                <td>
+                                                                    @if (g.IsActive)
+                                                                    {
+                                                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditGroupModal(g)">
+                                                                            <i class="bi bi-pencil"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeactivateGroupModal(g)">
+                                                                            <i class="bi bi-x-circle"></i>
+                                                                        </button>
+                                                                    }
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                        @if (!AgentStateGroups.Any())
+                                                        {
+                                                            <tr><td colspan="4" class="text-center text-muted py-3">@L["AgentStates_NoGroups"]</td></tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Agent States Section -->
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header fw-semibold small d-flex justify-content-between align-items-center">
+                                            @L["AgentStates_AgentStates"]
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="OpenCreateStateModal"
+                                                    disabled="@(!AgentStateGroups.Any(g => g.IsActive))">
+                                                <i class="bi bi-plus"></i> @L["AgentStates_AddState"]
+                                            </button>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div class="table-responsive">
+                                                <table class="table table-hover table-sm mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>@L["AgentStates_StateName"]</th>
+                                                            <th>@L["AgentStates_MappedGroup"]</th>
+                                                            <th class="text-center" style="width:80px;">@L["AgentStates_Status"]</th>
+                                                            <th style="width:120px;"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var s in AgentStates)
+                                                        {
+                                                            <tr @key="s.Id">
+                                                                <td><code>@s.AgentStateName</code></td>
+                                                                <td>@s.GroupName</td>
+                                                                <td class="text-center">
+                                                                    @if (s.IsActive)
+                                                                    {
+                                                                        <span class="badge bg-success">@L["Common_Active"]</span>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span class="badge bg-secondary">@L["Common_Inactive"]</span>
+                                                                    }
+                                                                </td>
+                                                                <td>
+                                                                    @if (s.IsActive)
+                                                                    {
+                                                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditStateModal(s)">
+                                                                            <i class="bi bi-pencil"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeactivateStateModal(s)">
+                                                                            <i class="bi bi-x-circle"></i>
+                                                                        </button>
+                                                                    }
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                        @if (!AgentStates.Any())
+                                                        {
+                                                            <tr><td colspan="4" class="text-center text-muted py-3">@L["AgentStates_NoStates"]</td></tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
 
                     <!-- Danger Zone (not for platform tenant) -->
                     @if (EditTenant.Status != TenantStatus.Deleted && EditTenant.Slug != "platform")
@@ -420,6 +560,179 @@ else
     <div class="modal-backdrop fade show modal-overlay"></div>
 }
 
+<!-- Create/Edit Group Modal -->
+@if (ShowGroupModal)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(EditingGroup is null ? L["AgentStates_CreateGroup"] : L["AgentStates_EditGroup"])</h5>
+                    <button type="button" class="btn-close" @onclick="CloseGroupModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (GroupModalError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@GroupModalError</div>
+                    }
+                    <div class="mb-0">
+                        <label class="form-label">@L["AgentStates_GroupName"] <span class="text-danger">*</span></label>
+                        <input class="form-control" @bind="GroupModalName" maxlength="100" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseGroupModal">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveGroup" disabled="@GroupModalSaving">
+                        @(GroupModalSaving ? L["Common_Saving"].Value : L["Common_Save"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
+<!-- Deactivate Group Modal -->
+@if (DeactivatingGroup is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">@L["AgentStates_DeactivateGroup"]</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseDeactivateGroupModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (DeactivateGroupError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@DeactivateGroupError</div>
+                    }
+                    <p>@L["AgentStates_DeactivateGroupConfirm", DeactivatingGroup.GroupName]</p>
+                    @if (DeactivatingGroup.StateCount > 0)
+                    {
+                        <div class="alert alert-warning py-2">
+                            <strong>@L["AgentStates_GroupHasStates", DeactivatingGroup.StateCount]</strong>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" id="actionReassign" name="deactivateAction"
+                                       checked="@(DeactivateGroupAction == DeactivateGroupAction.ReassignStates)"
+                                       @onchange="() => DeactivateGroupAction = DeactivateGroupAction.ReassignStates" />
+                                <label class="form-check-label" for="actionReassign">@L["AgentStates_ReassignStates"]</label>
+                            </div>
+                            @if (DeactivateGroupAction == DeactivateGroupAction.ReassignStates)
+                            {
+                                <select class="form-select form-select-sm ms-4 mb-2" style="width:auto;" @bind="ReassignToGroupId">
+                                    <option value="">@L["AgentStates_SelectGroup"]</option>
+                                    @foreach (var g in AgentStateGroups.Where(x => x.IsActive && x.Id != DeactivatingGroup.Id))
+                                    {
+                                        <option value="@g.Id">@g.GroupName</option>
+                                    }
+                                </select>
+                            }
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" id="actionDeactivate" name="deactivateAction"
+                                       checked="@(DeactivateGroupAction == DeactivateGroupAction.DeactivateAllStates)"
+                                       @onchange="() => DeactivateGroupAction = DeactivateGroupAction.DeactivateAllStates" />
+                                <label class="form-check-label" for="actionDeactivate">@L["AgentStates_DeactivateAllStates"]</label>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseDeactivateGroupModal">@L["Common_Cancel"]</button>
+                    <button class="btn btn-danger" @onclick="ConfirmDeactivateGroup" disabled="@DeactivateGroupSaving">
+                        @(DeactivateGroupSaving ? L["Common_Saving"].Value : L["AgentStates_Deactivate"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
+<!-- Create/Edit State Modal -->
+@if (ShowStateModal)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(EditingState is null ? L["AgentStates_CreateState"] : L["AgentStates_EditState"])</h5>
+                    <button type="button" class="btn-close" @onclick="CloseStateModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (StateModalError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@StateModalError</div>
+                    }
+                    @if (EditingState is null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">@L["AgentStates_StateName"] <span class="text-danger">*</span></label>
+                            <input class="form-control" @bind="StateModalName" maxlength="100" placeholder="AVAILABLE" />
+                            <div class="form-text">@L["AgentStates_StateNameHelp"]</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">@L["AgentStates_StateName"]</label>
+                            <input class="form-control" value="@EditingState.AgentStateName" disabled />
+                        </div>
+                    }
+                    <div class="mb-0">
+                        <label class="form-label">@L["AgentStates_MappedGroup"] <span class="text-danger">*</span></label>
+                        <select class="form-select" @bind="StateModalGroupId">
+                            <option value="">@L["AgentStates_SelectGroup"]</option>
+                            @foreach (var g in AgentStateGroups.Where(x => x.IsActive))
+                            {
+                                <option value="@g.Id">@g.GroupName</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseStateModal">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveState" disabled="@StateModalSaving">
+                        @(StateModalSaving ? L["Common_Saving"].Value : L["Common_Save"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
+<!-- Deactivate State Modal -->
+@if (DeactivatingState is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">@L["AgentStates_DeactivateState"]</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseDeactivateStateModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (DeactivateStateError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@DeactivateStateError</div>
+                    }
+                    <p>@L["AgentStates_DeactivateStateConfirm", DeactivatingState.AgentStateName]</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseDeactivateStateModal">@L["Common_Cancel"]</button>
+                    <button class="btn btn-danger" @onclick="ConfirmDeactivateState" disabled="@DeactivateStateSaving">
+                        @(DeactivateStateSaving ? L["Common_Saving"].Value : L["AgentStates_Deactivate"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
 @code {
     private List<TenantDto> Tenants = [];
     private bool Loading = true;
@@ -460,6 +773,38 @@ else
     private string NewBackgroundColor = "#FFFFFF";
     private string NewFontColor = "#000000";
     private string NewFontSize = "14";
+
+    // Agent States tab
+    private bool AgentStatesLoading;
+    private List<AgentStateGroupDto> AgentStateGroups = new();
+    private List<AgentStateDto> AgentStates = new();
+
+    // Group modal
+    private bool ShowGroupModal;
+    private AgentStateGroupDto? EditingGroup;
+    private string GroupModalName = "";
+    private string? GroupModalError;
+    private bool GroupModalSaving;
+
+    // Deactivate Group modal
+    private AgentStateGroupDto? DeactivatingGroup;
+    private DeactivateGroupAction DeactivateGroupAction = DeactivateGroupAction.ReassignStates;
+    private Guid? ReassignToGroupId;
+    private string? DeactivateGroupError;
+    private bool DeactivateGroupSaving;
+
+    // State modal
+    private bool ShowStateModal;
+    private AgentStateDto? EditingState;
+    private string StateModalName = "";
+    private Guid? StateModalGroupId;
+    private string? StateModalError;
+    private bool StateModalSaving;
+
+    // Deactivate State modal
+    private AgentStateDto? DeactivatingState;
+    private string? DeactivateStateError;
+    private bool DeactivateStateSaving;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -526,6 +871,9 @@ else
         EditSaveError = null;
         EditSaveSuccess = false;
         ConfirmDeleteInModal = false;
+        // Reset agent states data for new tenant
+        AgentStateGroups = new();
+        AgentStates = new();
         await LoadEditSettings(t.Id);
     }
 
@@ -640,6 +988,217 @@ else
         TenantStatus.Suspended => @<span class="badge bg-warning text-dark">@L["Tenants_Suspended"]</span>,
         _ => @<span class="badge bg-secondary">@L["Tenants_Deleted"]</span>
     };
+
+    // =============== Agent States Tab ===============
+
+    private async Task OpenAgentStatesTab()
+    {
+        EditTab = "agentstates";
+        if (EditTenant is not null && !AgentStateGroups.Any())
+        {
+            await LoadAgentStatesAsync(EditTenant.Id);
+        }
+    }
+
+    private async Task LoadAgentStatesAsync(Guid tenantId)
+    {
+        AgentStatesLoading = true;
+        try
+        {
+            AgentStateGroups = (await Mediator.Send(new GetAgentStateGroupsQuery(tenantId), _cts.Token)).ToList();
+            AgentStates = (await Mediator.Send(new GetAgentStatesQuery(tenantId), _cts.Token)).ToList();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { EditSaveError = ex.Message; }
+        finally { AgentStatesLoading = false; }
+    }
+
+    // =============== Group Modal ===============
+
+    private void OpenCreateGroupModal()
+    {
+        EditingGroup = null;
+        GroupModalName = "";
+        GroupModalError = null;
+        ShowGroupModal = true;
+    }
+
+    private void OpenEditGroupModal(AgentStateGroupDto g)
+    {
+        EditingGroup = g;
+        GroupModalName = g.GroupName;
+        GroupModalError = null;
+        ShowGroupModal = true;
+    }
+
+    private void CloseGroupModal()
+    {
+        ShowGroupModal = false;
+        EditingGroup = null;
+        GroupModalError = null;
+    }
+
+    private async Task SaveGroup()
+    {
+        if (string.IsNullOrWhiteSpace(GroupModalName))
+        {
+            GroupModalError = L["AgentStates_GroupNameRequired"];
+            return;
+        }
+        if (EditTenant is null) return;
+
+        GroupModalSaving = true;
+        GroupModalError = null;
+        try
+        {
+            if (EditingGroup is null)
+            {
+                await Mediator.Send(new CreateAgentStateGroupCommand(GroupModalName.Trim(), EditTenant.Id), _cts.Token);
+            }
+            else
+            {
+                await Mediator.Send(new UpdateAgentStateGroupCommand(EditingGroup.Id, GroupModalName.Trim()), _cts.Token);
+            }
+            CloseGroupModal();
+            await LoadAgentStatesAsync(EditTenant.Id);
+        }
+        catch (Exception ex) { GroupModalError = ex.Message; }
+        finally { GroupModalSaving = false; }
+    }
+
+    // =============== Deactivate Group Modal ===============
+
+    private void OpenDeactivateGroupModal(AgentStateGroupDto g)
+    {
+        DeactivatingGroup = g;
+        DeactivateGroupAction = DeactivateGroupAction.ReassignStates;
+        ReassignToGroupId = null;
+        DeactivateGroupError = null;
+    }
+
+    private void CloseDeactivateGroupModal()
+    {
+        DeactivatingGroup = null;
+        DeactivateGroupError = null;
+    }
+
+    private async Task ConfirmDeactivateGroup()
+    {
+        if (DeactivatingGroup is null || EditTenant is null) return;
+
+        if (DeactivatingGroup.StateCount > 0 &&
+            DeactivateGroupAction == DeactivateGroupAction.ReassignStates &&
+            ReassignToGroupId is null)
+        {
+            DeactivateGroupError = L["AgentStates_SelectTargetGroup"];
+            return;
+        }
+
+        DeactivateGroupSaving = true;
+        DeactivateGroupError = null;
+        try
+        {
+            await Mediator.Send(new DeactivateAgentStateGroupCommand(
+                DeactivatingGroup.Id,
+                DeactivateGroupAction,
+                ReassignToGroupId), _cts.Token);
+            CloseDeactivateGroupModal();
+            await LoadAgentStatesAsync(EditTenant.Id);
+        }
+        catch (Exception ex) { DeactivateGroupError = ex.Message; }
+        finally { DeactivateGroupSaving = false; }
+    }
+
+    // =============== State Modal ===============
+
+    private void OpenCreateStateModal()
+    {
+        EditingState = null;
+        StateModalName = "";
+        StateModalGroupId = AgentStateGroups.FirstOrDefault(g => g.IsActive)?.Id;
+        StateModalError = null;
+        ShowStateModal = true;
+    }
+
+    private void OpenEditStateModal(AgentStateDto s)
+    {
+        EditingState = s;
+        StateModalName = s.AgentStateName;
+        StateModalGroupId = s.GroupId;
+        StateModalError = null;
+        ShowStateModal = true;
+    }
+
+    private void CloseStateModal()
+    {
+        ShowStateModal = false;
+        EditingState = null;
+        StateModalError = null;
+    }
+
+    private async Task SaveState()
+    {
+        if (EditTenant is null) return;
+
+        if (EditingState is null && string.IsNullOrWhiteSpace(StateModalName))
+        {
+            StateModalError = L["AgentStates_StateNameRequired"];
+            return;
+        }
+        if (StateModalGroupId is null)
+        {
+            StateModalError = L["AgentStates_GroupRequired"];
+            return;
+        }
+
+        StateModalSaving = true;
+        StateModalError = null;
+        try
+        {
+            if (EditingState is null)
+            {
+                await Mediator.Send(new CreateAgentStateCommand(StateModalName.Trim(), StateModalGroupId.Value, EditTenant.Id), _cts.Token);
+            }
+            else
+            {
+                await Mediator.Send(new UpdateAgentStateCommand(EditingState.Id, StateModalGroupId.Value), _cts.Token);
+            }
+            CloseStateModal();
+            await LoadAgentStatesAsync(EditTenant.Id);
+        }
+        catch (Exception ex) { StateModalError = ex.Message; }
+        finally { StateModalSaving = false; }
+    }
+
+    // =============== Deactivate State Modal ===============
+
+    private void OpenDeactivateStateModal(AgentStateDto s)
+    {
+        DeactivatingState = s;
+        DeactivateStateError = null;
+    }
+
+    private void CloseDeactivateStateModal()
+    {
+        DeactivatingState = null;
+        DeactivateStateError = null;
+    }
+
+    private async Task ConfirmDeactivateState()
+    {
+        if (DeactivatingState is null || EditTenant is null) return;
+
+        DeactivateStateSaving = true;
+        DeactivateStateError = null;
+        try
+        {
+            await Mediator.Send(new DeactivateAgentStateCommand(DeactivatingState.Id), _cts.Token);
+            CloseDeactivateStateModal();
+            await LoadAgentStatesAsync(EditTenant.Id);
+        }
+        catch (Exception ex) { DeactivateStateError = ex.Message; }
+        finally { DeactivateStateSaving = false; }
+    }
 
     private readonly CancellationTokenSource _cts = new();
     public void Dispose() => _cts.Cancel();

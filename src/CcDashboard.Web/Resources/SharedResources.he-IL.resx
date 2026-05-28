@@ -299,7 +299,39 @@
   <data name="Tenants_TabGeneral"><value>כללי</value></data>
   <data name="Tenants_TabSettings"><value>הגדרות</value></data>
   <data name="Tenants_TabAppearance"><value>מראה</value></data>
+  <data name="Tenants_TabAgentStates"><value>מצבי נציגים</value></data>
   <data name="Tenants_SlugReadOnly"><value>לא ניתן לשנות מזהה לאחר היצירה</value></data>
+
+  <!-- ── Agent States ── -->
+  <data name="AgentStates_StateGroups"><value>קבוצות מצב</value></data>
+  <data name="AgentStates_AgentStates"><value>מצבי נציגים</value></data>
+  <data name="AgentStates_AddGroup"><value>הוסף קבוצה</value></data>
+  <data name="AgentStates_AddState"><value>הוסף מצב</value></data>
+  <data name="AgentStates_GroupName"><value>שם קבוצה</value></data>
+  <data name="AgentStates_StateName"><value>שם מצב</value></data>
+  <data name="AgentStates_StateNameHelp"><value>שם מצב גולמי מפלטפורמת CC (למשל AVAILABLE, LUNCH)</value></data>
+  <data name="AgentStates_MappedGroup"><value>קבוצה משויכת</value></data>
+  <data name="AgentStates_Status"><value>סטטוס</value></data>
+  <data name="AgentStates_States"><value>מצבים</value></data>
+  <data name="AgentStates_NoGroups"><value>לא הוגדרו קבוצות מצב</value></data>
+  <data name="AgentStates_NoStates"><value>לא הוגדרו מצבי נציגים</value></data>
+  <data name="AgentStates_CreateGroup"><value>קבוצת מצב חדשה</value></data>
+  <data name="AgentStates_EditGroup"><value>עריכת קבוצת מצב</value></data>
+  <data name="AgentStates_CreateState"><value>מצב נציג חדש</value></data>
+  <data name="AgentStates_EditState"><value>עריכת מצב נציג</value></data>
+  <data name="AgentStates_DeactivateGroup"><value>השבת קבוצה</value></data>
+  <data name="AgentStates_DeactivateState"><value>השבת מצב</value></data>
+  <data name="AgentStates_DeactivateGroupConfirm"><value>האם אתה בטוח שברצונך להשבית את הקבוצה "{0}"?</value></data>
+  <data name="AgentStates_DeactivateStateConfirm"><value>האם אתה בטוח שברצונך להשבית את המצב "{0}"?</value></data>
+  <data name="AgentStates_GroupHasStates"><value>לקבוצה זו יש {0} מצב(ים) משויכים.</value></data>
+  <data name="AgentStates_ReassignStates"><value>שייך מצבים לקבוצה אחרת</value></data>
+  <data name="AgentStates_DeactivateAllStates"><value>השבת את כל המצבים בקבוצה זו</value></data>
+  <data name="AgentStates_SelectGroup"><value>בחר קבוצה...</value></data>
+  <data name="AgentStates_SelectTargetGroup"><value>אנא בחר קבוצת יעד להעברה.</value></data>
+  <data name="AgentStates_Deactivate"><value>השבת</value></data>
+  <data name="AgentStates_GroupNameRequired"><value>שם קבוצה נדרש.</value></data>
+  <data name="AgentStates_StateNameRequired"><value>שם מצב נדרש.</value></data>
+  <data name="AgentStates_GroupRequired"><value>אנא בחר קבוצה.</value></data>
 
   <!-- ── Common ── -->
   <data name="Common_Save"><value>שמור ←</value></data>

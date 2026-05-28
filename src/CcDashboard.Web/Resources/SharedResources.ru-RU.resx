@@ -372,7 +372,39 @@
   <data name="Tenants_TabGeneral"><value>Общее</value></data>
   <data name="Tenants_TabSettings"><value>Настройки</value></data>
   <data name="Tenants_TabAppearance"><value>Внешний вид</value></data>
+  <data name="Tenants_TabAgentStates"><value>Статусы агентов</value></data>
   <data name="Tenants_SlugReadOnly"><value>Слаг нельзя изменить после создания</value></data>
+
+  <!-- ── Agent States ── -->
+  <data name="AgentStates_StateGroups"><value>Группы статусов</value></data>
+  <data name="AgentStates_AgentStates"><value>Статусы агентов</value></data>
+  <data name="AgentStates_AddGroup"><value>Добавить группу</value></data>
+  <data name="AgentStates_AddState"><value>Добавить статус</value></data>
+  <data name="AgentStates_GroupName"><value>Название группы</value></data>
+  <data name="AgentStates_StateName"><value>Название статуса</value></data>
+  <data name="AgentStates_StateNameHelp"><value>Название статуса из CC-платформы (например, AVAILABLE, LUNCH)</value></data>
+  <data name="AgentStates_MappedGroup"><value>Группа</value></data>
+  <data name="AgentStates_Status"><value>Статус</value></data>
+  <data name="AgentStates_States"><value>Статусы</value></data>
+  <data name="AgentStates_NoGroups"><value>Группы статусов не заданы</value></data>
+  <data name="AgentStates_NoStates"><value>Статусы агентов не заданы</value></data>
+  <data name="AgentStates_CreateGroup"><value>Новая группа статусов</value></data>
+  <data name="AgentStates_EditGroup"><value>Редактировать группу</value></data>
+  <data name="AgentStates_CreateState"><value>Новый статус агента</value></data>
+  <data name="AgentStates_EditState"><value>Редактировать статус</value></data>
+  <data name="AgentStates_DeactivateGroup"><value>Деактивировать группу</value></data>
+  <data name="AgentStates_DeactivateState"><value>Деактивировать статус</value></data>
+  <data name="AgentStates_DeactivateGroupConfirm"><value>Вы уверены, что хотите деактивировать группу «{0}»?</value></data>
+  <data name="AgentStates_DeactivateStateConfirm"><value>Вы уверены, что хотите деактивировать статус «{0}»?</value></data>
+  <data name="AgentStates_GroupHasStates"><value>В этой группе {0} статус(ов).</value></data>
+  <data name="AgentStates_ReassignStates"><value>Переназначить статусы в другую группу</value></data>
+  <data name="AgentStates_DeactivateAllStates"><value>Деактивировать все статусы в этой группе</value></data>
+  <data name="AgentStates_SelectGroup"><value>Выберите группу...</value></data>
+  <data name="AgentStates_SelectTargetGroup"><value>Пожалуйста, выберите целевую группу для переназначения.</value></data>
+  <data name="AgentStates_Deactivate"><value>Деактивировать</value></data>
+  <data name="AgentStates_GroupNameRequired"><value>Название группы обязательно.</value></data>
+  <data name="AgentStates_StateNameRequired"><value>Название статуса обязательно.</value></data>
+  <data name="AgentStates_GroupRequired"><value>Пожалуйста, выберите группу.</value></data>
 
   <!-- ── Common ── -->
   <data name="Common_Widgets"><value>Виджеты</value></data>
