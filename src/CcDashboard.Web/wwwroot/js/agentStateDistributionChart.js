@@ -48,7 +48,7 @@ window.agentStateDistributionChart = {
                         usePointStyle: true,
                         padding: 10,
                         font: { size: 11 },
-                        color: options?.fontColor,
+                        color: options?.fontColor || undefined,
                         // Unified per-segment legend for all chart types (pie, doughnut, bar, horizbar).
                         // Chart.defaults.plugins.legend.labels.generateLabels is the GLOBAL (bar/line)
                         // default — calling it from pie/doughnut yields one 'undefined' item.

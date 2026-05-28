@@ -89,7 +89,9 @@
     private string _darkFontColor = "#f1f5f9";
 
     private string EffectiveBackgroundColor => DarkMode ? _darkBackgroundColor : _backgroundColor;
-    private string EffectiveFontColor => DarkMode ? _darkFontColor : _fontColor;
+    private string EffectiveFontColor => DarkMode
+        ? (string.IsNullOrEmpty(_darkFontColor) ? "#f1f5f9" : _darkFontColor)
+        : (string.IsNullOrEmpty(_fontColor) ? "#333333" : _fontColor);
 
     private int _lastBusinessUnitId;
     private int _lastIntervalMinutes;

@@ -38,7 +38,7 @@ window.dayTrendChart = {
                         usePointStyle: true,
                         padding: 12,
                         font: { size: 11 },
-                        color: options?.fontColor
+                        color: options?.fontColor || undefined
                     }
                 },
                 tooltip: {
