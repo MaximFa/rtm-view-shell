@@ -21,7 +21,7 @@ CC must mark a task `[done]` and record the commit hash when complete.
 | [CC-005](#cc-005) | ✅ Done | Fix RTSGrid_Metric data (dot-notation, MetricType, ValueType) + apply History_Metric migration |
 | [CC-006](#cc-006) | ✅ Done | DayTrend: migrate from RTSGrid_Metric to HistoryMetric (DB-driven metric list, ValueType rendering) |
 | [CC-007](#cc-007) | ✅ Done | Agent State Distribution: Queue Grid chart widget (Pie/Donut/Bar) |
-| [CC-008](#cc-008) | 🔲 Ready | Agent State Definitions registry (3 tables) + Edit Tenant tab + widget refactor |
+| [CC-008](#cc-008) | ✅ Done | Agent State Definitions registry (3 tables) + Edit Tenant tab + widget refactor |
 
 ---
 
@@ -2538,9 +2538,10 @@ dotnet ef database update --context BackendEmulationDbContext \
 
 ### Agent State Definitions — Dynamic State Group Registry + Widget Refactor
 
-**Status:** 🔲 Ready
+**Status:** ✅ Done
 **Priority:** 🟡 Medium
 **Depends on:** CC-007 ✅
+**Commit:** `5de22a6` (entities, migration, seed), `9b4b3f7` (queries, commands, handlers, UI)
 **Spec reference:** `docs/widget-specification.md` §5 — read before starting
 **Related:** `docs/widget-specification.md` §4.10 §5.6 — widget refactor details
 
