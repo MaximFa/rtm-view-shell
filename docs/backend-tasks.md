@@ -2863,3 +2863,402 @@ dotnet ef database update --context AppDbContext \
 ---
 
 *CC-008 written: 2026-05-28*
+
+---
+
+## CC-009
+
+### ASD Widget — Dual Distribution Mode (By Group / By State)
+
+**Status:** 🔲 Ready
+**Priority:** 🟡 Medium
+**Depends on:** CC-008 ✅
+**Spec reference:** `docs/widget-specification.md` §4 v1.6 — read **in full** before starting (§4.1, §4.3–§4.7, §4.10)
+**Skill:** `.claude/skills/widget-creator/widget-creator.md` — read §15 (Queue Grid), §16 (Dark Mode), §19 (RTS Infrastructure), §21 (Config Modal) before implementing
+
+---
+
+### Context
+
+CC-008 implemented the ASD widget with **By Group mode only** (fixed 5 groups: AVAILABLE, ONPHONE, BREAK, PAPERWORK, TRAINING). CC-009 extends it with **By State mode**, where each individual Agent State (e.g. Available, Short Break, Lunch, Coffee Break) is its own segment.
+
+Key architectural decisions (from spec §4.10):
+- **Two independent RTSGrids**: `GroupGridId` (existing, now renamed) + `StateGridId` (new)
+- **Both grids saved on every config save**, deleted together on widget delete
+- **No junction table** (`tenant_agent_state_definitions` not touched)
+- **Color dicts are independent**: `segmentColors` (By Group, keyed by GroupName CC code) and `stateSegmentColors` (By State, keyed by AgentStateName)
+- **MetricId resolution at save time**: stored in `GroupColumnMetricIds` / `StateColumnMetricIds` — zero DB calls at render time
+
+---
+
+### 1. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 1.1 | `AgentStateDistributionConfig` — new fields | `src/CcDashboard.Application/Queries/Widgets/AgentStateDistributionConfig.cs` (or wherever config is defined) |
+| 1.2 | `SaveAsdWidgetConfigCommandHandler` — dual-grid save | `src/CcDashboard.Infrastructure/Handlers/` |
+| 1.3 | `AgentStateDistributionWidget.razor` — mode switching, dynamic segments | `src/CcDashboard.Web/Components/Dashboard/Widgets/` |
+| 1.4 | `ScreenEditorPage.razor` — config modal: Distribution Mode + dynamic Segment Colors | `src/CcDashboard.Web/Components/Dashboard/` |
+| 1.5 | Simulator: verify both grids produce data | `tools/SignalRSimulator/` |
+
+---
+
+### 2. Changes in Detail
+
+#### 2.1 `AgentStateDistributionConfig` record changes
+
+Add these fields to the existing config record. **Keep all existing fields for backward compatibility** (old ConfigJson must still deserialize).
+
+```csharp
+// NEW fields — add alongside existing ones
+public string DistributionMode { get; set; } = "group"; // "group" | "state"
+
+// Rename existing GridId/RtsGridId fields → GroupGridId (or add GroupGridId as alias)
+public int GroupGridId { get; set; }
+public int GroupRtsHeaderRowId { get; set; }
+public int GroupRtsDataRowId { get; set; }
+public Dictionary<string, int> GroupRtsColumnIds { get; set; } = new();
+public Dictionary<string, int> GroupRtsHeaderCellIds { get; set; } = new();
+public Dictionary<string, int> GroupRtsDataCellIds { get; set; } = new();
+// MetricId map for render time (GroupName → MetricId)
+public Dictionary<string, string> GroupColumnMetricIds { get; set; } = new();
+
+// NEW: By State grid
+public int StateGridId { get; set; }
+public int StateRtsHeaderRowId { get; set; }
+public int StateRtsDataRowId { get; set; }
+public Dictionary<string, int> StateRtsColumnIds { get; set; } = new();
+public Dictionary<string, int> StateRtsHeaderCellIds { get; set; } = new();
+public Dictionary<string, int> StateRtsDataCellIds { get; set; } = new();
+// MetricId map for render time (AgentStateName → MetricId)
+public Dictionary<string, string> StateColumnMetricIds { get; set; } = new();
+
+// NEW: Segment colors keyed by GroupName CC code (e.g. "AVAILABLE", "BREAK")
+// Replaces the existing lowercased keys ("available", "break") — migrate on load (§4.10 note 9)
+// segmentColors and darkSegmentColors already exist — only key format changes
+
+// NEW: By State segment colors keyed by AgentStateName (e.g. "Available", "Short Break")
+public Dictionary<string, string> StateSegmentColors { get; set; } = new();
+public Dictionary<string, string> DarkStateSegmentColors { get; set; } = new();
+```
+
+**Legacy migration** (apply in the config constructor or a static `Migrate()` helper — call it in `SaveWidgetConfigCommandHandler` before using the config):
+
+```csharp
+public static AgentStateDistributionConfig Migrate(AgentStateDistributionConfig cfg)
+{
+    // Remap lowercased group color keys → uppercase CC codes
+    var keyMap = new Dictionary<string, string>
+    {
+        ["available"] = "AVAILABLE", ["onphone"] = "ONPHONE", ["break"] = "BREAK",
+        ["paperwork"] = "PAPERWORK", ["training"] = "TRAINING", ["other"] = "OTHER"
+    };
+    if (cfg.SegmentColors.Keys.Any(k => k == k.ToLower()))
+    {
+        cfg = cfg with
+        {
+            SegmentColors = cfg.SegmentColors
+                .ToDictionary(kv => keyMap.GetValueOrDefault(kv.Key, kv.Key), kv => kv.Value),
+            DarkSegmentColors = cfg.DarkSegmentColors
+                .ToDictionary(kv => keyMap.GetValueOrDefault(kv.Key, kv.Key), kv => kv.Value)
+        };
+    }
+    // Migrate old single-GridId field → GroupGridId if GroupGridId == 0
+    if (cfg.GroupGridId == 0 && cfg.GridId > 0)
+        cfg = cfg with { GroupGridId = cfg.GridId };
+    return cfg;
+}
+```
+
+Keep `GridId` as an `[Obsolete]` property (read-only, maps to GroupGridId) so old ConfigJson still deserializes.
+
+---
+
+#### 2.2 Save handler — dual-grid logic
+
+In `SaveAsdWidgetConfigCommandHandler` (or wherever the ASD config save is wired):
+
+```csharp
+// 1. Migrate legacy config
+config = AgentStateDistributionConfig.Migrate(config);
+
+// 2. Fetch By Group data
+var groups = await mediator.Send(new GetAgentStateGroupsQuery(tenantId), ct);
+// Resolve MetricIds for By Group
+var groupMetricIds = await ResolveMetricIdsAsync(
+    beDb, "UsersInStatusGroupCount",
+    groups.Select(g => g.GroupName).ToList(), ct);
+
+// 3. Fetch By State data
+var states = await mediator.Send(new GetAgentStatesQuery(tenantId), ct);
+// Resolve MetricIds for By State
+var stateMetricIds = await ResolveMetricIdsAsync(
+    beDb, "UsersInStatusCount",
+    states.Where(s => s.IsActive).Select(s => s.AgentStateName).ToList(), ct);
+
+// 4. Build columns for By Group Grid
+var groupColumns = groups
+    .Where(g => g.IsActive && groupMetricIds.ContainsKey(g.GroupName))
+    .Select((g, i) => new RtsColumn(i + 1, groupMetricIds[g.GroupName], g.GroupName))
+    .Append(new RtsColumn(groups.Count + 1, "QueueLoginDataNumLoggedUsers", "Total"))
+    .ToList();
+
+// 5. Build columns for By State Grid
+var stateColumns = states
+    .Where(s => s.IsActive && stateMetricIds.ContainsKey(s.AgentStateName))
+    .Select((s, i) => new RtsColumn(i + 1, stateMetricIds[s.AgentStateName], s.AgentStateName))
+    .Append(new RtsColumn(states.Count + 1, "QueueLoginDataNumLoggedUsers", "Total"))
+    .ToList();
+
+// 6. Save By Group RTSGrid (SaveQueueGridRtsCommand)
+var groupGridResult = await mediator.Send(new SaveQueueGridRtsCommand(
+    config.GroupGridId, config.BusinessUnitId, groupColumns,
+    config.GroupRtsHeaderRowId, config.GroupRtsDataRowId,
+    config.GroupRtsColumnIds, config.GroupRtsHeaderCellIds, config.GroupRtsDataCellIds), ct);
+
+// 7. Save By State RTSGrid
+var stateGridResult = await mediator.Send(new SaveQueueGridRtsCommand(
+    config.StateGridId, config.BusinessUnitId, stateColumns,
+    config.StateRtsHeaderRowId, config.StateRtsDataRowId,
+    config.StateRtsColumnIds, config.StateRtsHeaderCellIds, config.StateRtsDataCellIds), ct);
+
+// 8. Store MetricId maps and updated RTS IDs in config
+config = config with
+{
+    GroupColumnMetricIds = groupMetricIds,
+    StateColumnMetricIds = stateMetricIds,
+    // ... update GroupGridId, StateGridId, RowIds, ColumnIds, CellIds from results
+};
+```
+
+**`ResolveMetricIdsAsync` helper:**
+
+```csharp
+private static async Task<Dictionary<string, string>> ResolveMetricIdsAsync(
+    BackendEmulationDbContext beDb, string metricFunction,
+    IReadOnlyList<string> parameters, CancellationToken ct)
+{
+    var rows = await beDb.RtsGridMetrics
+        .Where(m => m.MetricFunction == metricFunction && parameters.Contains(m.MetricParameter!))
+        .Select(m => new { m.MetricParameter, m.MetricId })
+        .ToListAsync(ct);
+
+    return rows
+        .GroupBy(r => r.MetricParameter!)
+        .ToDictionary(g => g.Key, g => g.First().MetricId);
+}
+```
+
+---
+
+#### 2.3 `AgentStateDistributionWidget.razor` changes
+
+**Property for hub URL (mode-switched):**
+
+```csharp
+private int RtsGridId => Config?.DistributionMode == "state"
+    ? (Config?.StateGridId ?? GridId)
+    : (Config?.GroupGridId ?? GridId);
+
+private string HubUrl => $"{simulatorUrl}/hubs/queue-grid?gridId={RtsGridId}";
+```
+
+**When `DistributionMode` parameter changes** (via `SetParametersAsync` or `OnParametersSetAsync`): if the mode changed, disconnect current hub and reconnect with new `RtsGridId`.
+
+**Segment list (built once from config, no DB calls):**
+
+```csharp
+private List<SegmentDef> _segmentDefs = new();
+
+private record SegmentDef(string DisplayName, string MetricId, string LightColor, string DarkColor);
+
+private void LoadSegmentDefs()
+{
+    _segmentDefs = Config?.DistributionMode == "state"
+        ? BuildSegmentDefs(
+            Config.StateColumnMetricIds,
+            Config.StateSegmentColors,
+            Config.DarkStateSegmentColors)
+        : BuildSegmentDefs(
+            Config?.GroupColumnMetricIds ?? new(),
+            Config?.SegmentColors ?? new(),
+            Config?.DarkSegmentColors ?? new());
+}
+
+private static List<SegmentDef> BuildSegmentDefs(
+    Dictionary<string, string> metricIds,
+    Dictionary<string, string> lightColors,
+    Dictionary<string, string> darkColors)
+{
+    return metricIds
+        .Where(kv => kv.Key != "Total")   // exclude Total column
+        .Select(kv => new SegmentDef(
+            kv.Key,
+            kv.Value,
+            lightColors.GetValueOrDefault(kv.Key, DefaultPaletteColor(kv.Key, false)),
+            darkColors.GetValueOrDefault(kv.Key, DefaultPaletteColor(kv.Key, true))
+        ))
+        .ToList();
+}
+```
+
+Call `LoadSegmentDefs()` in `OnParametersSetAsync` whenever config or mode changes.
+
+**UpdateChartData** — use `_segmentDefs` (see spec §4.5 for full code).
+
+**Delete / Dispose:**
+
+```csharp
+protected override async ValueTask DisposeAsync()
+{
+    await DeleteRtsGridAsync(Config?.GroupGridId ?? 0);
+    await DeleteRtsGridAsync(Config?.StateGridId ?? 0);
+    await jsRuntime.InvokeVoidAsync("agentStateDistributionChart.destroy", elementId);
+}
+```
+
+---
+
+#### 2.4 Config modal in `ScreenEditorPage.razor`
+
+**Loading (when ASD config modal opens):**
+
+```csharp
+// Load both lists regardless of current mode
+_asdGroups = await mediator.Send(new GetAgentStateGroupsQuery(), ct);   // Status Groups
+_asdStates = await mediator.Send(new GetAgentStatesQuery(), ct);         // Agent States
+
+// Pre-fill missing group colors with defaults
+foreach (var g in _asdGroups.Where(g => g.IsActive))
+{
+    if (!ConfigAsd.SegmentColors.ContainsKey(g.GroupName))
+        ConfigAsd.SegmentColors[g.GroupName] = DefaultGroupColor(g.GroupName, dark: false);
+    if (!ConfigAsd.DarkSegmentColors.ContainsKey(g.GroupName))
+        ConfigAsd.DarkSegmentColors[g.GroupName] = DefaultGroupColor(g.GroupName, dark: true);
+}
+// Pre-fill missing state colors with palette defaults
+foreach (var (s, i) in _asdStates.Where(s => s.IsActive).Select((s, i) => (s, i)))
+{
+    if (!ConfigAsd.StateSegmentColors.ContainsKey(s.AgentStateName))
+        ConfigAsd.StateSegmentColors[s.AgentStateName] = PaletteColor(i, dark: false);
+    if (!ConfigAsd.DarkStateSegmentColors.ContainsKey(s.AgentStateName))
+        ConfigAsd.DarkStateSegmentColors[s.AgentStateName] = PaletteColor(i, dark: true);
+}
+```
+
+**General tab — add Distribution Mode field** (after Business Unit, before Chart Type):
+
+```razor
+<div class="mb-3">
+    <label class="form-label">@L["Widget.DistributionMode"]</label>
+    <div class="btn-group w-100" role="group">
+        <input type="radio" class="btn-check" id="mode-group" name="distMode"
+               checked="@(ConfigAsd.DistributionMode == "group")"
+               @onchange="@(() => { ConfigAsd.DistributionMode = "group"; StateHasChanged(); })" />
+        <label class="btn btn-outline-primary" for="mode-group">@L["Widget.ByGroup"]</label>
+        <input type="radio" class="btn-check" id="mode-state" name="distMode"
+               checked="@(ConfigAsd.DistributionMode == "state")"
+               @onchange="@(() => { ConfigAsd.DistributionMode = "state"; StateHasChanged(); })" />
+        <label class="btn btn-outline-primary" for="mode-state">@L["Widget.ByState"]</label>
+    </div>
+    <div class="form-text">@L["Widget.DistributionModeHelp"]</div>
+</div>
+```
+
+**Appearance tab — Segment Colors section** (dynamic based on mode):
+
+```razor
+@{
+    var segRows = ConfigAsd.DistributionMode == "state"
+        ? _asdStates.Where(s => s.IsActive)
+            .Select(s => (Key: s.AgentStateName, Label: s.AgentStateName,
+                          Light: ConfigAsd.StateSegmentColors,
+                          Dark: ConfigAsd.DarkStateSegmentColors))
+        : _asdGroups.Where(g => g.IsActive)
+            .Select(g => (Key: g.GroupName, Label: g.GroupName,
+                          Light: ConfigAsd.SegmentColors,
+                          Dark: ConfigAsd.DarkSegmentColors));
+}
+<h6 class="mt-3">@L["Widget.SegmentColors"]</h6>
+<table class="table table-sm">
+    <thead><tr>
+        <th>@L["Widget.Segment"]</th>
+        <th>@L["Appearance.LightMode"]</th>
+        <th>@L["Appearance.DarkMode"]</th>
+    </tr></thead>
+    <tbody>
+        @foreach (var row in segRows)
+        {
+            <tr>
+                <td>@row.Label</td>
+                <td><input type="color" class="form-control form-control-color"
+                           value="@row.Light.GetValueOrDefault(row.Key, "#6b7280")"
+                           @onchange="e => row.Light[row.Key] = e.Value!.ToString()!" /></td>
+                <td><input type="color" class="form-control form-control-color"
+                           value="@row.Dark.GetValueOrDefault(row.Key, "#9ca3af")"
+                           @onchange="e => row.Dark[row.Key] = e.Value!.ToString()!" /></td>
+            </tr>
+        }
+        <tr class="text-muted">
+            <td>Other (auto)</td>
+            <td><span class="color-swatch" style="background:#6b7280"></span> #6b7280</td>
+            <td><span class="color-swatch" style="background:#9ca3af"></span> #9ca3af</td>
+        </tr>
+    </tbody>
+</table>
+```
+
+**New `.resx` keys needed** (add to `SharedResources.resx` and `SharedResources.ru-RU.resx`):
+
+| Key | EN | RU |
+|---|---|---|
+| `Widget.DistributionMode` | Distribution Mode | Режим распределения |
+| `Widget.ByGroup` | By Group | По группам |
+| `Widget.ByState` | By State | По статусам |
+| `Widget.DistributionModeHelp` | By Group shows aggregated status groups; By State shows individual agent states | По группам — агрегированные группы статусов; По статусам — индивидуальные статусы агентов |
+| `Widget.Segment` | Segment | Сегмент |
+| `Widget.SegmentColors` | Segment Colors | Цвета сегментов |
+
+---
+
+### 3. Simulator Verification (mandatory — see L-19 in widget-planner.md)
+
+After implementing the widget:
+
+1. Confirm `tools/SignalRSimulator/Models/GridModels.cs` — `GridRowData` has `int? UnionId`. If absent, add it.
+2. In `DbMetricService.cs`: `GetMetricsForGridAsync(int gridId)` must cover `UsersInStatusCount` MetricIds (By State grid). If the description-prefix filter excludes them, extend to also include metrics with `MetricFunction = 'UsersInStatusCount'`.
+3. In `QueueDataGenerator.cs`: generator must populate `UnionId` from `RTSGrid_Row.UnionId` for both Group and State grids.
+4. Build simulator, restart, load ASD widget in both modes, confirm non-zero data within 5 s.
+
+---
+
+### 4. MANDATORY Pre-Commit Check
+
+```bash
+# MANDATORY before every commit — no exceptions
+bash tools/pre-commit-check.sh
+# If exit code 1: restore truncated files, retry Python write, then re-check
+# Only after exit code 0: proceed with git add
+```
+
+---
+
+### 5. Acceptance Criteria
+
+- [ ] Config modal — **Distribution Mode** selector present in General tab (By Group / By State)
+- [ ] Config modal — **Segment Colors** section shows Status Groups when mode = "group", Agent States when mode = "state"
+- [ ] Switching mode in config tab reloads segment colors list without losing colors already set for the other mode
+- [ ] Config save: `SaveQueueGridRtsCommand` called **twice** — once for GroupGridId, once for StateGridId
+- [ ] `GroupColumnMetricIds` and `StateColumnMetricIds` correctly populated in saved ConfigJson (verify via DevTools / DB)
+- [ ] Widget renders correctly in **By Group** mode: 5 group segments + OTHER (if > 0)
+- [ ] Widget renders correctly in **By State** mode: N state segments + OTHER (if > 0)
+- [ ] `RtsGridId` switches to `StateGridId` when `DistributionMode = "state"` (verified via SignalR connection URL in browser)
+- [ ] Changing mode on a live widget: SignalR disconnects from old grid, reconnects to new grid within 2 s
+- [ ] Legacy ConfigJson with lowercased keys (`"available"`, `"break"`) correctly migrated on load (no visible errors)
+- [ ] **Dispose**: both `DeleteQueueGridRtsCommand` calls fire (GroupGridId + StateGridId); no memory leak
+- [ ] Simulator: both grids produce non-zero data within 5 s (By Group and By State)
+- [ ] Build clean: `dotnet build CcDashboard.sln` — zero errors, zero warnings
+
+---
+
+*CC-009 written: 2026-05-28*

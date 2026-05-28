@@ -1164,14 +1164,20 @@ new WidgetCatalogItem
 |---|---|
 | Widget name | `Agent State Distribution` |
 | Component file | `AgentStateDistributionWidget.razor` |
-| Architecture | **Queue Grid** (SignalR push, §15 widget-creator.md) |
-| Data source | SignalR hub → `ReceiveQueueGridData` via `GridId` |
-| RTS pattern | `SaveQueueGridRtsCommand` / `DeleteQueueGridRtsCommand` |
+| Architecture | **Specialized Grid Widget** — Queue Grid infrastructure + Chart.js renderer |
+| Data source | SignalR hub → `ReceiveQueueGridData` via `GridId` (mode-switched) |
+| RTS pattern | `SaveQueueGridRtsCommand` / `DeleteQueueGridRtsCommand` (×2 per widget instance) |
 | Rendering | Chart.js — Pie / Donut / Bar / HorizontalBar (configurable) |
 | Filter | Single Business Unit (int `BusinessUnitId`) |
+| Distribution modes | **By Group** (`UsersInStatusGroupCount`) — aggregated by Status Group (default) |
+| | **By State** (`UsersInStatusCount`) — one segment per individual Agent State |
 | Audience | All authenticated roles (Viewer, Editor, Administrator, Superadmin) |
 
-Shows the current distribution of agents across 5 status groups (AVAILABLE, ONPHONE, BREAK, PAPERWORK, TRAINING) as a configurable chart. A 6th segment **OTHER** appears automatically when `LoggedUsers > SUM(5 groups)`. Total denominator = `QueueLoginDataNumLoggedUsers`.
+**By Group mode (default):** shows agents distributed across Status Groups (AVAILABLE, ONPHONE, BREAK, PAPERWORK, TRAINING). Segment list sourced from `tenant_agent_state_groups`. An extra **OTHER** segment appears when `LoggedUsers > SUM(all groups)`.
+
+**By State mode:** shows agents distributed across individual Agent States (e.g. Available, Short Break, Lunch, Coffee Break, …). Segment list sourced from `tenant_agent_states`. An extra **OTHER** segment appears when `LoggedUsers > SUM(all states)`.
+
+Each mode has its own RTSGrid (`GroupGridId` / `StateGridId`) — both are saved on every config save. At render time, `RtsGridId = distributionMode == "state" ? StateGridId : GroupGridId`.
 
 ---
 
@@ -1209,8 +1215,9 @@ For **Bar / HorizontalBar** chart type: one bar per segment, value shown on bar 
 |---|---|---|---|
 | `displayName` | string | No | Shown in widget header. Default: "Agent State Distribution" |
 | `businessUnitId` | int | Yes | Selected BU. Searchable dropdown (§18.1). 0 = unconfigured |
+| `distributionMode` | string | No | `"group"` (default) \| `"state"` — switches aggregation level |
 | `chartType` | string | No | `"donut"` (default) \| `"pie"` \| `"bar"` \| `"horizontalbar"` |
-| `valueDisplay` | string | No | `"percentages"` (default) \| `"numbers"` — controls whether segment labels show % or raw count |
+| `valueDisplay` | string | No | `"percentages"` (default) \| `"numbers"` |
 | `showLegend` | bool | No | Show legend below chart. Default: `true` |
 | `showValueLabels` | bool | No | Show per-segment labels on chart. Default: `true` |
 
@@ -1223,50 +1230,84 @@ For **Bar / HorizontalBar** chart type: one bar per segment, value shown on bar 
 | `fontColor` | string | `""` | Label / legend text color (light) |
 | `darkFontColor` | string | `"#ffffff"` | Label / legend text color (dark) |
 
-**Segment colors (per status group, light + dark):**
+**Segment colors — By Group mode** (one row per Status Group, sourced from `GetAgentStateGroupsQuery`):
 
-| Segment | Default light | Default dark |
+| Segment key | Default light | Default dark |
 |---|---|---|
-| AVAILABLE | `#22c55e` | `#4ade80` |
-| ONPHONE | `#3b82f6` | `#60a5fa` |
-| BREAK | `#f59e0b` | `#fbbf24` |
-| PAPERWORK | `#8b5cf6` | `#a78bfa` |
-| TRAINING | `#06b6d4` | `#22d3ee` |
-| OTHER | `#6b7280` | `#9ca3af` |
+| `AVAILABLE` | `#22c55e` | `#4ade80` |
+| `ONPHONE` | `#3b82f6` | `#60a5fa` |
+| `BREAK` | `#f59e0b` | `#fbbf24` |
+| `PAPERWORK` | `#8b5cf6` | `#a78bfa` |
+| `TRAINING` | `#06b6d4` | `#22d3ee` |
+| `OTHER` | `#6b7280` | `#9ca3af` |
 
-Each segment has two color pickers in the Appearance tab (Light Mode / Dark Mode columns, §16.2 dual-column layout).
+**Segment colors — By State mode** (one row per Agent State, sourced from `GetAgentStatesQuery`):
+- Segment keys = `AgentState.AgentStateName` (e.g. `"Available"`, `"Short Break"`, `"Lunch"`)
+- Defaults: cycle through a predefined palette; OTHER always `#6b7280` / `#9ca3af`
+- Stored in `stateSegmentColors` / `darkStateSegmentColors` (separate dicts from group colors)
+
+Both color dicts are keyed by the **CC platform code / display name** exactly as stored in the DB — no normalisation or lowercasing.
 
 ---
 
 ### 4.4 RTS Table Structure
 
-This widget follows the **Queue Grid pattern** (§15 widget-creator.md). The CC platform uses these records to know which metrics to stream via SignalR.
+This widget maintains **two independent RTSGrids** — one per distribution mode. Both are saved on every config save and deleted together on widget delete. At runtime, the widget subscribes to the grid that matches the current `distributionMode`.
 
-**Grid** (1 record per widget instance):
-```
-RTSGrid_Grid.Id         → stored as DashboardWidget.GridId and Config.RtsGridId
-```
+#### 4.4.1 By Group Grid (`GroupGridId`)
 
-**Columns** (6 fixed, one per MetricId — created on first save):
+**Columns** — one per active Status Group + Total (sourced from `GetAgentStateGroupsQuery`):
 
-| ColumnNumber | MetricId | Name (header cell value) |
-|---|---|---|
-| 1 | `QueueLoginDataNumAvailableUsers` | `Available` |
-| 2 | `QueueNumOnCallAgents` | `On Phone` |
-| 3 | `QueueLoginDataNumBreakUsers` | `Break` |
-| 4 | `QueueLoginDataNumPaperworkUsers` | `Paperwork` |
-| 5 | `QueueLoginDataNumTrainingUsers` | `Training` |
-| 6 | `QueueLoginDataNumLoggedUsers` | `Total` |
+| ColumnNumber | MetricId | MetricFunction | MetricParameter | Header |
+|---|---|---|---|---|
+| 1 | `QueueLoginDataNumAvailableUsers` | `UsersInStatusGroupCount` | `AVAILABLE` | `Available` |
+| 2 | `QueueNumOnCallAgents` | `UsersInStatusGroupCount` | `ONPHONE` | `On Phone` |
+| 3 | `QueueLoginDataNumBreakUsers` | `UsersInStatusGroupCount` | `BREAK` | `Break` |
+| 4 | `QueueLoginDataNumPaperworkUsers` | `UsersInStatusGroupCount` | `PAPERWORK` | `Paperwork` |
+| 5 | `QueueLoginDataNumTrainingUsers` | `UsersInStatusGroupCount` | `TRAINING` | `Training` |
+| N+1 | `QueueLoginDataNumLoggedUsers` | — | — | `Total` |
 
-**Header row** (RowNumber=1, UnionId=-1): 6 cells with CellType=`"Text"`, Value=column name above.
+MetricId per group is resolved at save time: `RTSGrid_Metric WHERE MetricFunction = 'UsersInStatusGroupCount' AND MetricParameter = group.GroupName`. Column count = number of active Status Groups + 1 (Total).
 
-**Data row** (RowNumber=2, UnionId=`BusinessUnitId`): 6 cells with CellType=`"Data"`, Value=MetricId.
+#### 4.4.2 By State Grid (`StateGridId`)
 
-> **Note:** When the BU changes in config, the existing data row must be updated (new UnionId). Use `SaveQueueGridRtsCommand` with the existing `RowId` and new `BusinessUnitId`.
+**Columns** — one per active Agent State + Total (sourced from `GetAgentStatesQuery`):
+
+| ColumnNumber | MetricId | MetricFunction | MetricParameter | Header |
+|---|---|---|---|---|
+| 1 | (resolved) | `UsersInStatusCount` | `Available` | `Available` |
+| 2 | (resolved) | `UsersInStatusCount` | `Short Break` | `Short Break` |
+| 3 | (resolved) | `UsersInStatusCount` | `Lunch` | `Lunch` |
+| … | … | … | … | … |
+| N+1 | `QueueLoginDataNumLoggedUsers` | — | — | `Total` |
+
+MetricId per state is resolved at save time: `RTSGrid_Metric WHERE MetricFunction = 'UsersInStatusCount' AND MetricParameter = state.AgentStateName`.
+
+> **Important:** If a MetricId cannot be resolved for a given GroupName or AgentStateName, that segment is skipped during RTSGrid save and a warning is logged. The widget still renders — unresolvable segments show 0.
+
+#### 4.4.3 Row structure (both grids)
+
+**Header row** (RowNumber=1, UnionId=-1): N+1 cells with CellType=`"Text"`, Value=column header name.
+
+**Data row** (RowNumber=2, UnionId=`BusinessUnitId`): N+1 cells with CellType=`"Data"`, Value=MetricId.
+
+When BU changes in config: update the data row's UnionId via `SaveQueueGridRtsCommand` (pass existing RowId). Both grids updated in sequence.
 
 ---
 
 ### 4.5 Rendering Requirements
+
+#### Mode switching
+
+```csharp
+private int RtsGridId => Config?.DistributionMode == "state"
+    ? (Config?.StateGridId ?? GridId)
+    : (Config?.GridId ?? GridId);
+
+private string HubUrl => $"{simulatorUrl}/hubs/queue-grid?gridId={RtsGridId}";
+```
+
+When `distributionMode` changes in config: disconnect current hub, reconnect with new `RtsGridId`.
 
 #### SignalR Data Reception
 
@@ -1283,23 +1324,37 @@ _hub.On<List<QueueRowData>>("ReceiveQueueGridData", data =>
 });
 ```
 
-#### OTHER Segment Logic
+#### Segment Building (both modes)
+
+The widget stores a resolved list of `(MetricId, DisplayName, LightColor, DarkColor)` tuples in `_segmentDefs`. This list is populated:
+- **By Group mode**: from `Config.GroupColumnMetricIds` (Dictionary<GroupName, MetricId>) + `Config.SegmentColors`
+- **By State mode**: from `Config.StateColumnMetricIds` (Dictionary<AgentStateName, MetricId>) + `Config.StateSegmentColors`
+
+No DB queries at render time — everything is resolved from saved config.
 
 ```csharp
 private void UpdateChartData()
 {
-    var available  = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumAvailableUsers"));
-    var onphone    = ParseInt(_metrics.GetValueOrDefault("QueueNumOnCallAgents"));
-    var breakCount = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumBreakUsers"));
-    var paperwork  = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumPaperworkUsers"));
-    var training   = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumTrainingUsers"));
-    var total      = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumLoggedUsers"));
+    var total = ParseInt(_metrics.GetValueOrDefault("QueueLoginDataNumLoggedUsers"));
+    var sumAll = 0;
+    var segments = new List<ChartSegment>();
 
-    var sumFive = available + onphone + breakCount + paperwork + training;
-    var other   = Math.Max(0, total - sumFive);
+    foreach (var def in _segmentDefs)
+    {
+        var value = ParseInt(_metrics.GetValueOrDefault(def.MetricId));
+        sumAll += value;
+        var color = DarkMode ? def.DarkColor : def.LightColor;
+        segments.Add(new ChartSegment(def.DisplayName, value, color));
+    }
 
-    // Build chart segments — include OTHER only if > 0
-    _segments = BuildSegments(available, onphone, breakCount, paperwork, training, other);
+    var other = Math.Max(0, total - sumAll);
+    if (other > 0)
+    {
+        var otherColor = DarkMode ? OtherDarkColor : OtherLightColor;
+        segments.Add(new ChartSegment("Other", other, otherColor));
+    }
+
+    _segments = segments;
 }
 
 private static int ParseInt(string? value) =>
@@ -1356,19 +1411,31 @@ window.agentStateDistributionChart = {
 {
   "displayName": "Agent State Distribution",
   "businessUnitId": 0,
-  "rtsGridId": 0,
-  "rtsHeaderRowId": 0,
-  "rtsDataRowId": 0,
-  "rtsColumnIds": {
-    "QueueLoginDataNumAvailableUsers": 0,
-    "QueueNumOnCallAgents": 0,
-    "QueueLoginDataNumBreakUsers": 0,
-    "QueueLoginDataNumPaperworkUsers": 0,
-    "QueueLoginDataNumTrainingUsers": 0,
-    "QueueLoginDataNumLoggedUsers": 0
+
+  "distributionMode": "group",
+
+  "groupGridId": 0,
+  "groupRtsHeaderRowId": 0,
+  "groupRtsDataRowId": 0,
+  "groupRtsColumnIds": { "AVAILABLE": 0, "ONPHONE": 0, "BREAK": 0, "PAPERWORK": 0, "TRAINING": 0, "Total": 0 },
+  "groupRtsHeaderCellIds": {},
+  "groupRtsDataCellIds": {},
+  "groupColumnMetricIds": {
+    "AVAILABLE": "QueueLoginDataNumAvailableUsers",
+    "ONPHONE": "QueueNumOnCallAgents",
+    "BREAK": "QueueLoginDataNumBreakUsers",
+    "PAPERWORK": "QueueLoginDataNumPaperworkUsers",
+    "TRAINING": "QueueLoginDataNumTrainingUsers"
   },
-  "rtsHeaderCellIds": {},
-  "rtsDataCellIds": {},
+
+  "stateGridId": 0,
+  "stateRtsHeaderRowId": 0,
+  "stateRtsDataRowId": 0,
+  "stateRtsColumnIds": {},
+  "stateRtsHeaderCellIds": {},
+  "stateRtsDataCellIds": {},
+  "stateColumnMetricIds": {},
+
   "chartType": "donut",
   "valueDisplay": "percentages",
   "showLegend": true,
@@ -1381,24 +1448,33 @@ window.agentStateDistributionChart = {
   "darkHeaderBackgroundColor": "default",
   "headerFontColor": "default",
   "darkHeaderFontColor": "default",
+
   "segmentColors": {
-    "available": "#22c55e",
-    "onphone": "#3b82f6",
-    "break": "#f59e0b",
-    "paperwork": "#8b5cf6",
-    "training": "#06b6d4",
-    "other": "#6b7280"
+    "AVAILABLE": "#22c55e",
+    "ONPHONE": "#3b82f6",
+    "BREAK": "#f59e0b",
+    "PAPERWORK": "#8b5cf6",
+    "TRAINING": "#06b6d4"
   },
   "darkSegmentColors": {
-    "available": "#4ade80",
-    "onphone": "#60a5fa",
-    "break": "#fbbf24",
-    "paperwork": "#a78bfa",
-    "training": "#22d3ee",
-    "other": "#9ca3af"
-  }
+    "AVAILABLE": "#4ade80",
+    "ONPHONE": "#60a5fa",
+    "BREAK": "#fbbf24",
+    "PAPERWORK": "#a78bfa",
+    "TRAINING": "#22d3ee"
+  },
+
+  "stateSegmentColors": {},
+  "darkStateSegmentColors": {}
 }
 ```
+
+**Notes on key naming:**
+- `segmentColors` keys = `GroupName` (CC platform code, e.g. `"AVAILABLE"`) — **not** lowercased
+- `stateSegmentColors` keys = `AgentStateName` exactly as in DB (e.g. `"Available"`, `"Short Break"`)
+- `*ColumnMetricIds` — populated at save time by resolving `RTSGrid_Metric`; used at render time to map MetricId → segment without DB calls
+- `OTHER` segment color is hardcoded (`#6b7280` / `#9ca3af`) — not user-configurable
+- Old config with lowercased keys (`"available"`, `"break"`, …) must be migrated on load (see §4.10 note 9)
 
 ---
 
@@ -1406,22 +1482,28 @@ window.agentStateDistributionChart = {
 
 **Tab: General**
 - `DisplayName` — text input, placeholder "Agent State Distribution"
-- `Business Unit` — searchable dropdown (§18.1 pattern), shows `BusinessUnitName`. On select: stores `BusinessUnitId` (int). "All" option not available — BU is required.
+- `Business Unit` — searchable dropdown (§18.1 pattern); BU is required
+- `Distribution Mode` — segmented control / radio:
+  - **By Group** (default) — aggregates by Status Group; uses `UsersInStatusGroupCount` metrics
+  - **By State** — shows individual Agent States; uses `UsersInStatusCount` metrics
+  - Changing mode does NOT reset colors already configured for the other mode
 - `Chart Type` — icon button group: Donut / Pie / Bar / Horizontal Bar
-- `Value Display` — radio group or segmented control: **Percentages** (default) / **Numbers**. Controls whether segment labels show `34%` or `34`.
+- `Value Display` — **Percentages** (default) / **Numbers**
 - `Show Legend` — toggle (default on)
-- `Show Value Labels` — toggle; shows per-segment labels on the chart (default on)
+- `Show Value Labels` — toggle (default on)
 
 **Tab: Appearance**
-- Colors — dual-column Light/Dark layout (§16.2):
 - Colors — dual-column Light/Dark layout (§16.2):
   - `Widget Background` — ColorPicker (light) + ColorPicker (dark)
   - `Font Color` — ColorPicker (light) + ColorPicker (dark)
   - `Header Background` / `Header Font` — with `"default"` option (§17.4)
-- Segment colors — dual-column table, one row per segment:
-  - Available, On Phone, Break, Paperwork, Training, Other
+- **Segment Colors section** — adapts to current `distributionMode`:
+  - **By Group**: rows sourced from `GetAgentStateGroupsQuery` (active groups only). One row per group showing `GroupName` + dual color pickers. "Other" row always shown at bottom (hardcoded, read-only color info note).
+  - **By State**: rows sourced from `GetAgentStatesQuery` (active states only). One row per state showing `AgentStateName` + dual color pickers. "Other" row always shown at bottom.
+  - When mode switches in the tab, segment color section reloads with the appropriate list.
+  - Unsaved colors for the non-active mode are preserved in memory and saved together with active mode colors.
 
-> Tabs **Columns**, **Thresholds**, **Filters**, **Score** are **hidden** for this widget type (not applicable).
+> Tabs **Columns**, **Thresholds**, **Filters**, **Score** are **hidden** for this widget type.
 
 ---
 
@@ -1472,28 +1554,40 @@ new WidgetCatalogItem
 
 ### 4.10 Implementation Notes
 
-1. **Fixed columns, no user configuration.** The 6 MetricIds are hardcoded in the widget. No Columns tab needed. `SaveQueueGridRtsCommand` is called with a fixed `Columns` list on every config save.
+1. **Two RTSGrids, always both saved.** On every config save, `SaveQueueGridRtsCommand` is called twice — once for `GroupGridId`, once for `StateGridId`. Both grids are saved regardless of the current `distributionMode`, so switching modes never requires reconfiguration. On widget delete / dispose, both grids are deleted.
 
-2. **Localization.**
-   - **Segment labels** (Available, On Phone, Break, Paperwork, Training, Other) — hardcoded English; these are platform-standard terms, not translated.
-   - **Config modal UI** (field names, tab headers, buttons) — use `@L["Key"]` via `IStringLocalizer<SharedResources>`. Reuse existing keys first; add new keys only if no match exists.
-   - **Empty / error state messages** — use `@L["Key"]` (e.g. `@L["Widget.ConfigureFirst"]`, `@L["Widget.NoAgentsLoggedIn"]`). Check `.resx` for existing equivalents before adding new keys.
+2. **No junction table.** `tenant_agent_state_definitions` is not used by this widget. By Group segments come from `GetAgentStateGroupsQuery`; By State segments come from `GetAgentStatesQuery`. No three-way join needed.
 
-3. **BU is required.** Widget shows `@L["Widget.ConfigureFirst"]` state when `BusinessUnitId == 0` (same as `GridId == 0` check for table widgets).
+3. **MetricId resolution at save time only.** At config save, the handler resolves MetricIds:
+   - By Group: `beDb.RtsGridMetrics WHERE MetricFunction = 'UsersInStatusGroupCount' AND MetricParameter = group.GroupName`
+   - By State: `beDb.RtsGridMetrics WHERE MetricFunction = 'UsersInStatusCount' AND MetricParameter = state.AgentStateName`
+   - Resolved MetricIds are stored in `GroupColumnMetricIds` / `StateColumnMetricIds` in ConfigJson.
+   - At render time: look up values from SignalR push using stored MetricIds — zero DB calls.
 
-4. **OTHER segment.** Displayed only when `total > sumFive`. If `total == 0` (no data yet), show all segments as 0 with equal placeholder sizes or empty state.
+4. **Dynamic column count.** Both grids have N+1 columns (N segments + 1 Total). Column count changes when Superadmin adds/deactivates groups or states. Re-saving widget config rebuilds the RTSGrid columns.
 
-5. **MetricFormat is empty for all 6 metrics** — values arrive as plain integer strings. Use `int.TryParse`, never `double.Parse`.
+5. **Localization.**
+   - Segment labels (group/state names from DB) — displayed as-is, not translated (user-defined content).
+   - Config modal UI labels — use `@L["Key"]`. Check `.resx` for existing equivalents first.
+   - Empty/error states — use `@L["Widget.ConfigureFirst"]`, `@L["Widget.NoAgentsLoggedIn"]`.
 
-6. **Chart.js destroy on dispose.** `IAsyncDisposable` — call `window.agentStateDistributionChart.destroy(elementId)` in `DisposeAsync` to prevent canvas memory leaks.
+6. **BU is required.** Widget shows `@L["Widget.ConfigureFirst"]` when `BusinessUnitId == 0`.
 
-7. **Dark mode.** Pass `DarkMode` parameter (§16.4). Use `Effective*` color properties for segment colors and background.
+7. **OTHER segment.** Computed as `Math.Max(0, total - sumAll)`. Shown only if > 0. Color hardcoded (`#6b7280` / `#9ca3af`) — not user-configurable.
 
-8. **CASCADE delete.** `RTSGrid_Grid` has CASCADE to Columns, Rows, Cells — `DeleteQueueGridRtsCommand` cleans up all three levels automatically. Call it in `DisposeAsync`.
+8. **MetricFormat is empty** for all status count metrics — values arrive as plain integer strings. Use `int.TryParse`, never `double.Parse`.
+
+9. **Legacy config migration.** Old ConfigJson uses lowercased keys (`"available"`, `"break"`, …). On deserialization: detect lowercase keys and remap to uppercase CC codes. Keep migration logic in `AgentStateDistributionConfig` constructor or a static `Migrate()` helper.
+
+10. **Chart.js destroy on dispose.** Call `window.agentStateDistributionChart.destroy(elementId)` in `DisposeAsync`.
+
+11. **Dark mode.** Pass `DarkMode` parameter (§16.4). Segment color selection: `DarkMode ? darkSegmentColors[key] : segmentColors[key]`.
+
+12. **CASCADE delete.** `DeleteQueueGridRtsCommand` handles cascade automatically. Must be called for both `GroupGridId` and `StateGridId`.
 
 ---
 
-*Widget Specification v1.4 — §4 Agent State Distribution added. Next: CC-007, CC-008.*
+*Widget Specification v1.6 — §4 ASD dual-mode (By Group / By State) added. Two RTSGrids, independent color dicts, no definitions junction. Next: CC-009.*
 
 ---
 
