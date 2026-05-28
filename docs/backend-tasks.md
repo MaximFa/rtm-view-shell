@@ -3106,14 +3106,42 @@ Call `LoadSegmentDefs()` in `OnParametersSetAsync` whenever config or mode chang
 
 **UpdateChartData** — use `_segmentDefs` (see spec §4.5 for full code).
 
-**Delete / Dispose:**
+**Delete / Dispose (widget component):**
 
 ```csharp
-protected override async ValueTask DisposeAsync()
+public async ValueTask DisposeAsync()
 {
-    await DeleteRtsGridAsync(Config?.GroupGridId ?? 0);
-    await DeleteRtsGridAsync(Config?.StateGridId ?? 0);
+    _cts.Cancel();
+    if (_hub != null)
+    {
+        try { await _hub.DisposeAsync(); } catch { /* ignore */ }
+    }
+    _cts.Dispose();
     await jsRuntime.InvokeVoidAsync("agentStateDistributionChart.destroy", elementId);
+    // NOTE: RTSGrid cleanup is NOT done here — it is deferred to ScreenEditorPage.razor
+    // save flow (WidgetsPendingRtsDeletion pattern). See L-26 in widget-planner.md.
+}
+```
+
+**Delete / ScreenEditorPage.razor (3 mandatory places — see L-26 in widget-planner.md):**
+
+Update all three places to use `GroupGridId` + `StateGridId` (replacing the CC-008 single `GridId`):
+
+```csharp
+// Place 1 & 2 — dialog warning + ConfirmDeleteWidget condition:
+(IsAgentStateDistributionWidget(widget) &&
+    (widget.Config?.GroupGridId > 0 || widget.Config?.StateGridId > 0))
+
+// Place 3 — save loop:
+else if (IsAgentStateDistributionWidget(widget))
+{
+    if (widget.Config?.GroupGridId > 0)
+        await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.GroupGridId.Value), _cts.Token);
+    if (widget.Config?.StateGridId > 0)
+        await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.StateGridId.Value), _cts.Token);
+    // Legacy fallback: single GridId (CC-008 config, before GroupGridId migration)
+    if (widget.Config?.GroupGridId == 0 && widget.Config?.GridId > 0)
+        await Mediator.Send(new DeleteQueueGridRtsCommand(widget.Config.GridId.Value), _cts.Token);
 }
 ```
 
@@ -3257,8 +3285,10 @@ bash tools/pre-commit-check.sh
 - [ ] Legacy ConfigJson with lowercased keys (`"available"`, `"break"`) correctly migrated on load (no visible errors)
 - [ ] **Dispose**: both `DeleteQueueGridRtsCommand` calls fire (GroupGridId + StateGridId); no memory leak
 - [ ] Simulator: both grids produce non-zero data within 5 s (By Group and By State)
+- [ ] **Deletion — ScreenEditorPage.razor updated in all 3 places** (dialog warning, `ConfirmDeleteWidget`, save loop) to use `GroupGridId` + `StateGridId` with legacy `GridId` fallback
+- [ ] Deleting an ASD widget and saving: both `GroupGridId` and `StateGridId` records removed from `RTSGrid_Grid` (verify via DB query)
 - [ ] Build clean: `dotnet build CcDashboard.sln` — zero errors, zero warnings
 
 ---
 
-*CC-009 written: 2026-05-28*
+*CC-009 written: 2026-05-28. Updated 2026-05-28: corrected deletion pattern (3-place ScreenEditorPage rule, L-26)*
