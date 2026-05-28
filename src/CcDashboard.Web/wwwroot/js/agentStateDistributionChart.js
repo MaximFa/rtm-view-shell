@@ -90,7 +90,7 @@ window.agentStateDistributionChart = {
         // Configure data labels on segments
         if (options?.showValueLabels) {
             chartOptions.plugins.datalabels = {
-                color: options?.fontColor || '#fff',
+                color: '#fff',
                 font: { weight: 'bold', size: 12 },
                 formatter: function (value, ctx) {
                     if (value === 0) return '';
