@@ -897,37 +897,44 @@
                                     <div class="col-4 text-center small text-muted fw-semibold">Light</div>
                                     <div class="col-4 text-center small text-muted fw-semibold">Dark</div>
                                 </div>
-                                @foreach (var stateName in _asdDefinitions.Select(d => d.AgentState).Distinct().OrderBy(x => x))
+                                @if (ConfigAsdDistributionMode == "group")
                                 {
-                                    <div class="row g-2 align-items-center mb-2">
-                                        <div class="col-4 small">@stateName</div>
-                                        <div class="col-4 d-flex justify-content-center">
-                                            <input type="color" value="@GetAsdSegmentColor(stateName, false)"
-                                                   @onchange="e => SetAsdSegmentColor(stateName, e.Value?.ToString(), false)"
-                                                   style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                    @foreach (var group in _asdGroups.Where(g => g.IsActive).OrderBy(g => g.GroupName))
+                                    {
+                                        <div class="row g-2 align-items-center mb-2">
+                                            <div class="col-4 small">@group.GroupName</div>
+                                            <div class="col-4 d-flex justify-content-center">
+                                                <input type="color" value="@GetAsdGroupColor(group.GroupName, false)"
+                                                       @onchange="e => SetAsdGroupColor(group.GroupName, e.Value?.ToString(), false)"
+                                                       style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                            </div>
+                                            <div class="col-4 d-flex justify-content-center">
+                                                <input type="color" value="@GetAsdGroupColor(group.GroupName, true)"
+                                                       @onchange="e => SetAsdGroupColor(group.GroupName, e.Value?.ToString(), true)"
+                                                       style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                            </div>
                                         </div>
-                                        <div class="col-4 d-flex justify-content-center">
-                                            <input type="color" value="@GetAsdSegmentColor(stateName, true)"
-                                                   @onchange="e => SetAsdSegmentColor(stateName, e.Value?.ToString(), true)"
-                                                   style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                        </div>
-                                    </div>
+                                    }
                                 }
-                                @{ var otherKey = "Other"; }
-                                <!-- Other (always shown) -->
-                                <div class="row g-2 align-items-center mb-2">
-                                    <div class="col-4 small">@L["Widget_ASD_Segment_Other"]</div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@GetAsdSegmentColor(otherKey, false)"
-                                               @onchange="e => SetAsdSegmentColor(otherKey, e.Value?.ToString(), false)"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                    <div class="col-4 d-flex justify-content-center">
-                                        <input type="color" value="@GetAsdSegmentColor(otherKey, true)"
-                                               @onchange="e => SetAsdSegmentColor(otherKey, e.Value?.ToString(), true)"
-                                               style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
-                                    </div>
-                                </div>
+                                else
+                                {
+                                    @foreach (var state in _asdStates.Where(s => s.IsActive).OrderBy(s => s.AgentStateName))
+                                    {
+                                        <div class="row g-2 align-items-center mb-2">
+                                            <div class="col-4 small">@state.AgentStateName</div>
+                                            <div class="col-4 d-flex justify-content-center">
+                                                <input type="color" value="@GetAsdStateColor(state.AgentStateName, false)"
+                                                       @onchange="e => SetAsdStateColor(state.AgentStateName, e.Value?.ToString(), false)"
+                                                       style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                            </div>
+                                            <div class="col-4 d-flex justify-content-center">
+                                                <input type="color" value="@GetAsdStateColor(state.AgentStateName, true)"
+                                                       @onchange="e => SetAsdStateColor(state.AgentStateName, e.Value?.ToString(), true)"
+                                                       style="width:36px; height:28px; padding:2px; border:1px solid #ccc; border-radius:4px; cursor:pointer;" />
+                                            </div>
+                                        </div>
+                                    }
+                                }
                             </div>
                         }
 
@@ -3245,6 +3252,31 @@
             EditingDarkSegmentColors["Other"] = cfg.DarkColorOther;
     }
 
+    // By Group colors (keyed by GroupName CC code: AVAILABLE, ONPHONE, etc.)
+    private string GetAsdGroupColor(string groupName, bool dark) =>
+        dark ? EditingDarkGroupSegmentColors.GetValueOrDefault(groupName, AsdDarkGroupFallbackColors.GetValueOrDefault(groupName, "#64748b"))
+             : EditingGroupSegmentColors.GetValueOrDefault(groupName, AsdGroupFallbackColors.GetValueOrDefault(groupName, "#64748b"));
+
+    private void SetAsdGroupColor(string groupName, string? value, bool dark)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        if (dark) EditingDarkGroupSegmentColors[groupName] = value;
+        else      EditingGroupSegmentColors[groupName] = value;
+    }
+
+    // By State colors (keyed by AgentStateName: Available, Short Break, etc.)
+    private string GetAsdStateColor(string stateName, bool dark) =>
+        dark ? EditingDarkStateSegmentColors.GetValueOrDefault(stateName, "#64748b")
+             : EditingStateSegmentColors.GetValueOrDefault(stateName, "#64748b");
+
+    private void SetAsdStateColor(string stateName, string? value, bool dark)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        if (dark) EditingDarkStateSegmentColors[stateName] = value;
+        else      EditingStateSegmentColors[stateName] = value;
+    }
+
+    // Legacy (kept for backward compat — not called from UI anymore)
     private string GetAsdSegmentColor(string stateName, bool dark) =>
         dark ? EditingDarkSegmentColors.GetValueOrDefault(stateName, AsdDarkFallbackColors.GetValueOrDefault(stateName, "#64748b"))
              : EditingSegmentColors.GetValueOrDefault(stateName, AsdFallbackColors.GetValueOrDefault(stateName, "#64748b"));
@@ -3252,10 +3284,8 @@
     private void SetAsdSegmentColor(string stateName, string? value, bool dark)
     {
         if (string.IsNullOrEmpty(value)) return;
-        if (dark)
-            EditingDarkSegmentColors[stateName] = value;
-        else
-            EditingSegmentColors[stateName] = value;
+        if (dark) EditingDarkSegmentColors[stateName] = value;
+        else      EditingSegmentColors[stateName] = value;
     }
 
     // CC-009: Resolve MetricId from Metrics list by MetricFunction + MetricParameter
