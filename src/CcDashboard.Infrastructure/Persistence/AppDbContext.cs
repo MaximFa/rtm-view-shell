@@ -23,6 +23,12 @@ public class AppDbContext(
     public DbSet<WidgetCatalogItem> WidgetCatalogItems => Set<WidgetCatalogItem>();
     public DbSet<WidgetTemplate> WidgetTemplates => Set<WidgetTemplate>();
     public DbSet<HistoryMetric> HistoryMetrics => Set<HistoryMetric>();
+
+    // Agent State Registry (CC-008)
+    public DbSet<AgentState> AgentStates => Set<AgentState>();
+    public DbSet<AgentStateGroup> AgentStateGroups => Set<AgentStateGroup>();
+    public DbSet<AgentStateDefinition> AgentStateDefinitions => Set<AgentStateDefinition>();
+
     // PG permission join tables
     public DbSet<PgQueue> PgQueues => Set<PgQueue>();
     public DbSet<PgSkill> PgSkills => Set<PgSkill>();
@@ -196,6 +202,40 @@ public class AppDbContext(
             e.Property(x => x.DefaultValue).HasMaxLength(20).IsRequired();
             e.Property(x => x.ValueType).HasMaxLength(20).IsRequired();
             e.Property(x => x.MetricType).HasMaxLength(50).IsRequired();
+        });
+
+        // Agent State Registry (CC-008) — tenant-scoped with GQF
+        mb.Entity<AgentState>(e =>
+        {
+            e.ToTable("tenant_agent_states");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.AgentStateName).HasColumnName("AgentState").HasMaxLength(100).IsRequired();
+            e.HasIndex(x => new { x.TenantId, x.AgentStateName }).IsUnique();
+            e.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        mb.Entity<AgentStateGroup>(e =>
+        {
+            e.ToTable("tenant_agent_state_groups");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.GroupName).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => new { x.TenantId, x.GroupName }).IsUnique();
+            e.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        mb.Entity<AgentStateDefinition>(e =>
+        {
+            e.ToTable("tenant_agent_state_definitions");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.HasIndex(x => new { x.TenantId, x.AgentStateId }).IsUnique();
+            e.HasOne(x => x.State).WithOne(x => x.Definition).HasForeignKey<AgentStateDefinition>(x => x.AgentStateId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Group).WithMany(x => x.Definitions).HasForeignKey(x => x.AgentStateGroupId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
         // PG resource join tables

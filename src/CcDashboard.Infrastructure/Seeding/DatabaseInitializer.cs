@@ -48,6 +48,7 @@ public class DatabaseInitializer(
         await SeedRtsGridMetricsAsync(ct);
         await SeedHistoryMetricsAsync(ct);
         await SeedSampleCcEntitiesAsync(platformTenant, ct);
+        await SeedAgentStateDefinitionsAsync(ct);
 
         // Dev-only: seed RTSData test rows for DayTrend widget
         if (env.IsDevelopment())
@@ -731,5 +732,92 @@ public class DatabaseInitializer(
         beDb.RtsDataUserStatusLogs.AddRange(rows);
         await beDb.SaveChangesAsync(ct);
         logger.LogInformation("Seeded {Count} dev RTSData_UserStatusLog rows", rows.Count);
+    }
+
+    /// <summary>
+    /// Seeds 5 standard agent state definitions for all active tenants (CC-008).
+    /// </summary>
+    private async Task SeedAgentStateDefinitionsAsync(CancellationToken ct)
+    {
+        var standardDefinitions = new (string State, string Group)[]
+        {
+            ("AVAILABLE", "Available"),
+            ("ONPHONE", "On Phone"),
+            ("BREAK", "Break"),
+            ("PAPERWORK", "Paperwork"),
+            ("TRAINING", "Training"),
+        };
+
+        var activeTenants = await db.Tenants.IgnoreQueryFilters()
+            .Where(t => t.Status == TenantStatus.Active)
+            .Select(t => t.Id)
+            .ToListAsync(ct);
+
+        foreach (var tenantId in activeTenants)
+        {
+            var existingGroups = await db.AgentStateGroups.IgnoreQueryFilters()
+                .Where(g => g.TenantId == tenantId)
+                .ToDictionaryAsync(g => g.GroupName, g => g, StringComparer.OrdinalIgnoreCase, ct);
+
+            var existingStates = await db.AgentStates.IgnoreQueryFilters()
+                .Where(s => s.TenantId == tenantId)
+                .ToDictionaryAsync(s => s.AgentStateName, s => s, StringComparer.OrdinalIgnoreCase, ct);
+
+            var now = DateTime.UtcNow;
+
+            foreach (var (stateName, groupName) in standardDefinitions)
+            {
+                if (!existingGroups.TryGetValue(groupName, out var group))
+                {
+                    group = new AgentStateGroup
+                    {
+                        Id = Uuid.NewSequential(),
+                        TenantId = tenantId,
+                        GroupName = groupName,
+                        IsActive = true,
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    };
+                    db.AgentStateGroups.Add(group);
+                    existingGroups[groupName] = group;
+                }
+
+                if (!existingStates.TryGetValue(stateName, out var state))
+                {
+                    state = new AgentState
+                    {
+                        Id = Uuid.NewSequential(),
+                        TenantId = tenantId,
+                        AgentStateName = stateName,
+                        IsActive = true,
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    };
+                    db.AgentStates.Add(state);
+                    existingStates[stateName] = state;
+                }
+
+                var existingDef = await db.AgentStateDefinitions.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(d => d.TenantId == tenantId && d.AgentStateId == state.Id, ct);
+
+                if (existingDef == null)
+                {
+                    db.AgentStateDefinitions.Add(new AgentStateDefinition
+                    {
+                        Id = Uuid.NewSequential(),
+                        TenantId = tenantId,
+                        AgentStateId = state.Id,
+                        AgentStateGroupId = group.Id,
+                        IsActive = true,
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    });
+                }
+            }
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        logger.LogInformation("Seeded agent state definitions for {Count} tenants", activeTenants.Count);
     }
 }
