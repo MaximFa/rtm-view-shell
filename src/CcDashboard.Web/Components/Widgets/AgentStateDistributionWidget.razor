@@ -154,7 +154,7 @@
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
     private string EffectiveBackgroundColor => DarkMode ? _darkBackgroundColor : (_backgroundColor ?? "");
-    private string EffectiveFontColor => DarkMode ? _darkFontColor : (_fontColor ?? "");
+    private string EffectiveFontColor => DarkMode ? (_darkFontColor ?? "#ffffff") : (_fontColor ?? "#333333");
 
     // CC-009: Dual-mode grid selection
     private int RtsGridId
