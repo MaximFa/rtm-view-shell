@@ -157,6 +157,7 @@
     {
         if (Config?.InfoSlotId is null) return;
 
+        await CurrentUser.InitAsync(); // ensure auth state loaded
         _tenantId = CurrentUser.TenantId;
         if (_tenantId is null) return; // not authenticated — no hub
 
@@ -164,7 +165,16 @@
         {
             var hubUrl = Navigation.ToAbsoluteUri("/hubs/info-slot");
             _hub = new HubConnectionBuilder()
-                .WithUrl(hubUrl)
+                .WithUrl(hubUrl, options =>
+                {
+                    // Server-to-server loopback: bypass SSL cert validation.
+                    // Safe: hub is [AllowAnonymous] read-only; tenant verified via DB.
+                    options.HttpMessageHandlerFactory = _ => new HttpClientHandler
+                    {
+                        ServerCertificateCustomValidationCallback =
+                            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                    };
+                })
                 .WithAutomaticReconnect()
                 .Build();
 
@@ -255,4 +265,3 @@
         }
     }
 }
-                                                                                                  
