@@ -3911,14 +3911,85 @@ Write audit in every command handler. `InfoSlot.MessageExpired` is written by `I
 
 ### 5. Security Checklist
 
-- [ ] `[Authorize]` on `InfoSlotHub` class
-- [ ] `TenantId` verified inside `JoinSlot` from `ClaimsPrincipal`
-- [ ] Write access to IS checked in `CreateInfoSlotMessageCommand` handler (not UI only) — [PG-04]
-- [ ] Own-message-only deactivation enforced in handler
-- [ ] Admin page guarded by `[Authorize(Roles = "Superadmin,Administrator")]`
-- [ ] Superadmin cross-tenant queries use `IgnoreQueryFilters()` + explicit `TenantId` filter + `Tenant.CrossTenantAccess` audit event
-- [ ] No PII in Serilog log output from `InfoSlotExpiryService`
-- [ ] `EnsureNotPlacedOnDashboardsAsync` called before every deactivate/delete
+#### 5.1 Authentication & Page Authorization
+
+- [ ] `/admin/info-slots` — `[Authorize(Roles = "Superadmin,Administrator")]` attribute on page/component
+- [ ] `/info-slots` — `[Authorize]` on page (all authenticated users; PG gate enforced in Application layer)
+- [ ] `InfoSlotWidget.razor` — rendered only inside authenticated Blazor circuit (standard `[Authorize]` on parent page)
+- [ ] `InfoSlotHub` — `[Authorize]` attribute on hub class; unauthenticated connections rejected before reaching any method
+
+#### 5.2 SignalR Hub Security
+
+- [ ] `JoinSlot`: extract `tenant_id` from `Context.User` claims — **not** from method parameter
+- [ ] `JoinSlot`: compare extracted `tenant_id` against `ITenantContext.TenantId`; mismatch → `throw new HubException("Tenant mismatch")` (generic message, no detail)
+- [ ] `JoinSlot`: verify the requested `InfoSlotId` belongs to the resolved tenant before adding to group — query `info_slots` with active GQF; slot not found → `throw new HubException("Not found")`
+- [ ] `JoinSlot`: verify user has VIEW access to the IS (is admin, or their PG is in `info_slot_permissions`, or IS is placed on a dashboard they can access); block subscription otherwise
+- [ ] Hub methods never return sensitive data in exception messages — use generic strings only
+- [ ] SignalR hub URL (`/hubs/info-slot`) not exposed in client-side JS before authentication
+
+#### 5.3 Application Layer Authorization — [PG-04] Enforcement
+
+- [ ] `CreateInfoSlotMessageCommand` handler: verify `InfoSlot.TenantId == currentUser.TenantId` (GQF covers this, but assert explicitly for defence-in-depth)
+- [ ] `CreateInfoSlotMessageCommand` handler: verify user's `PermissionGroupId` is present in `info_slot_permissions` for this IS — **or** user role is Admin/Superadmin; reject with `ForbiddenException` otherwise
+- [ ] `DeactivateInfoSlotMessageCommand` handler: verify message `TenantId == currentUser.TenantId`
+- [ ] `DeactivateInfoSlotMessageCommand` handler: Viewer/Editor role → `message.CreatedByUserId == currentUser.UserId` required; Admin/Superadmin → unrestricted
+- [ ] `DeleteInfoSlotCommand` / `DeactivateInfoSlotCommand` handlers: `EnsureNotPlacedOnDashboardsAsync` called **before** any DB mutation — never skip
+- [ ] `GetInfoSlotsForViewerQuery` handler: non-admin users receive only IS where their PG is in `info_slot_permissions` — filter applied in query, not post-processing
+- [ ] UI hiding (disabled buttons, hidden menu items) is cosmetic only — all checks above are **also** enforced in Application layer
+
+#### 5.4 Input Validation (FluentValidation)
+
+- [ ] `CreateInfoSlotCommand`: `Name` required, max 200 chars; `DisplayMode` must be `"Ticker"` or `"Sequential"`; `SecondsPerMessage` 3–3600; `PermissionGroupIds` must all belong to current tenant
+- [ ] `CreateInfoSlotMessageCommand`: `Content` required, max 2000 chars; `Priority` must be `"Normal"` or `"High"`; `ExpiresAt` if provided must be **in the future** (`> UtcNow`)
+- [ ] `UpdateInfoSlotCommand`: same field rules as Create; `Id` must resolve to existing IS in current tenant
+- [ ] All validators registered in MediatR `ValidationBehavior` pipeline — not called manually
+
+#### 5.5 XSS Protection — [CODE-02]
+
+- [ ] `InfoSlotWidget.razor`: message `Content` rendered via standard Blazor `@msg.Content` — Blazor auto-encodes; **never** use `@((MarkupString)msg.Content)` without sanitisation
+- [ ] Author name in widget: same rule — `@msg.AuthorName` only, no MarkupString
+- [ ] IS `Name` displayed in admin/viewer pages: standard `@slot.Name` — no MarkupString
+- [ ] If rich-text content is ever added in future: use `Ganss.Xss.HtmlSanitizer` before rendering
+
+#### 5.6 Multi-Tenancy Isolation
+
+- [ ] All 3 new entities have `TenantId` column with Global Query Filter in `AppDbContext` — verify GQF is active in `OnModelCreating`
+- [ ] `info_slot_permissions` GQF: `x.TenantId == _tenantContext.TenantId`
+- [ ] `InfoSlotExpiryService`: uses `IgnoreQueryFilters()` legitimately (cross-tenant system operation) — **must** write `Tenant.CrossTenantAccess` audit event per ARCH-01 (one event per service run, not per message)
+- [ ] Superadmin cross-tenant handlers: `IgnoreQueryFilters()` + explicit `.Where(x => x.TenantId == targetTenantId)` + `Tenant.CrossTenantAccess` audit event
+- [ ] No `IgnoreQueryFilters()` in any regular (non-system) repository path without explicit audit
+- [ ] SignalR group name includes `tenantId`: `t:{tenantId}:is:{slotId}` — prevents cross-tenant message leakage if slot IDs coincide across tenants
+
+#### 5.7 Rate Limiting — Message Spam Prevention
+
+- [ ] `CreateInfoSlotMessageCommand` handler: Redis rate limit per `(UserId, InfoSlotId)` — max 20 messages per IS per hour; on exceed → return `TooManyRequestsException` (HTTP 429 equivalent in Application layer)
+- [ ] Redis key: `"{tenantId}:is_msg_rate:{userId}:{infoSlotId}"` with TTL 1 hour; increment on each create
+- [ ] Rate limit values configurable in `appsettings` — not hardcoded
+
+#### 5.8 Background Service Safety
+
+- [ ] `InfoSlotExpiryService.ExecuteAsync`: create a **fresh DI scope per run** (`scopeFactory.CreateScope()`) — no tenant context leakage between iterations
+- [ ] Serilog log output: log only `Count` of expired messages — **never** log `Content`, `AuthorName`, or any message body
+- [ ] Exception in one run must not crash the service — wrap `ExpireMessagesAsync` in `try/catch`; log error and continue loop
+- [ ] Service respects `CancellationToken stoppingToken` — check before each iteration and pass to all async calls
+
+#### 5.9 Audit Trail Completeness
+
+- [ ] `InfoSlot.Created` — written in `CreateInfoSlotCommand` handler
+- [ ] `InfoSlot.Updated` — written in `UpdateInfoSlotCommand` handler; `Details` includes changed fields (old/new values for Name, DisplayMode, IsActive, PG list diff)
+- [ ] `InfoSlot.Deactivated` — written in `DeactivateInfoSlotCommand` handler
+- [ ] `InfoSlot.Deleted` — written in `DeleteInfoSlotCommand` handler; `Details` includes IS name
+- [ ] `InfoSlot.MessageAdded` — written in `CreateInfoSlotMessageCommand` handler; `Details` includes `InfoSlotId`, `Priority`, `ExpiresAt` — **not** `Content` (PII risk)
+- [ ] `InfoSlot.MessageDeactivated` — written in `DeactivateInfoSlotMessageCommand` handler; `Details` includes `MessageId`, `InfoSlotId`, `DeactivatedBy`
+- [ ] `InfoSlot.MessageExpired` — written by `InfoSlotExpiryService` per expired message; `Details` includes `MessageId`, `InfoSlotId`
+- [ ] `Tenant.CrossTenantAccess` — written on every `IgnoreQueryFilters()` call path per ARCH-01
+
+#### 5.10 Cascade Delete & Data Integrity
+
+- [ ] EF `ON DELETE CASCADE` configured on `info_slot_permissions.InfoSlotId` → `info_slots.Id`
+- [ ] EF `ON DELETE CASCADE` configured on `info_slot_messages.InfoSlotId` → `info_slots.Id`
+- [ ] Before IS deletion: push `MessageDeactivated` for all currently active messages via hub — prevents widget showing stale data after IS is gone
+- [ ] Before IS deletion: `EnsureNotPlacedOnDashboardsAsync` — never skip even if called from admin context
 
 ---
 
