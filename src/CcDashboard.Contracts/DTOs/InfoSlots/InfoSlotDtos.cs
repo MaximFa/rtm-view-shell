@@ -2,6 +2,7 @@ namespace CcDashboard.Contracts.DTOs.InfoSlots;
 
 public record InfoSlotListDto(
     Guid Id,
+    Guid TenantId,
     string Name,
     string? Description,
     string DisplayMode,
@@ -13,6 +14,7 @@ public record InfoSlotListDto(
 
 public record InfoSlotViewerDto(
     Guid Id,
+    Guid TenantId,
     string Name,
     string DisplayMode,
     int SecondsPerMessage,
@@ -27,9 +29,15 @@ public record InfoSlotMessageDto(
     string Priority,
     DateTime? ExpiresAt,
     string AuthorName,
+    Guid CreatedByUserId,
     DateTime CreatedAt);
 
 public record InfoSlotSummaryDto(Guid Id, string Name, string DisplayMode);
+
+public record InfoSlotWidgetDataDto(
+    string DisplayMode,
+    int SecondsPerMessage,
+    List<InfoSlotMessageDto> Messages);
 
 public record InfoSlotWidgetConfig
 {

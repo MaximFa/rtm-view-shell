@@ -1949,4 +1949,288 @@ new QueueGridColumnInput("asd-c1", null, "Available", "QueueLoginDataNumAvailabl
 
 *§25 добавлен 2026-05-28 по результатам CC-007 ASD widget debug session.*
 *4 итерации фиксов: SaveQueueGridRtsCommand → BusinessUnitId save → UnionId в симуляторе → Config.GridId для URL хаба.*
+---
 
+## §26 PostgreSQL jsonb — DO NOT use .Contains() or LIKE
+
+### §26.1 Problem: jsonb column with LINQ .Contains()
+
+**Symptom:** PostgreSQL error:
+```
+42883: operator does not exist: jsonb ~~ jsonb
+```
+or
+```
+42883: function pg_catalog.like_escape(jsonb, unknown) does not exist
+```
+
+**Cause:** EF Core translates `.Contains(string)` and `EF.Functions.ILike()` to SQL `LIKE`/`ILIKE`, but PostgreSQL does not support these operators on `jsonb` columns directly.
+
+**Wrong:**
+```csharp
+// FAILS — jsonb ~~ jsonb error
+var results = await db.DashboardWidgets
+    .Where(w => w.ConfigJson != null && w.ConfigJson.Contains(idString))
+    .ToListAsync(ct);
+
+// ALSO FAILS — like_escape(jsonb, unknown) error
+var results = await db.DashboardWidgets
+    .Where(w => w.ConfigJson != null && EF.Functions.ILike(w.ConfigJson, "%" + idString + "%"))
+    .ToListAsync(ct);
+```
+
+### §26.2 Solution: Raw SQL with ::text cast
+
+**Correct — use SqlQueryRaw with explicit cast:**
+```csharp
+var dashboardNames = await db.Database
+    .SqlQueryRaw<string>(
+        @"SELECT DISTINCT d.""Name"" FROM dashboard_widgets w 
+          JOIN dashboards d ON w.""DashboardId"" = d.""Id"" 
+          WHERE w.""ConfigJson""::text ILIKE {0}",
+        $"%{idString}%")
+    .ToListAsync(ct);
+```
+
+Key points:
+- `::text` casts jsonb to text, enabling ILIKE
+- Use `{0}` parameter placeholder for SQL injection safety
+- Double-quote column names for PostgreSQL case sensitivity
+
+### §26.3 When this applies
+
+This issue occurs when:
+1. Entity property is `string?` in C# (e.g., `public string? ConfigJson { get; set; }`)
+2. But mapped to `jsonb` in PostgreSQL: `.HasColumnType("jsonb")`
+3. And you use `.Contains()`, `.StartsWith()`, `EF.Functions.Like/ILike` in LINQ
+
+**Common in widget code:** searching for widget placement by checking if `ConfigJson` contains a specific ID.
+
+---
+
+*§26 added 2026-05-29 after CC-010 Info Slot Widget — jsonb search fix.*
+
+---
+
+## §27 Blazor Server + EF Core — Concurrent DbContext Access
+
+### §27.1 Problem: "A command is already in progress"
+
+**Symptom:** `NpgsqlOperationInProgressException: A command is already in progress`
+
+**Cause:** In Blazor Server, multiple components can call `OnInitializedAsync` simultaneously during SSR prerendering. If they all use the same scoped `AppDbContext`, concurrent async queries on the same connection cause this error.
+
+**Impact:** Unhandled exception crashes the Blazor circuit → all widgets lose connection → "Connecting..." state forever.
+
+### §27.2 Solution: IDbContextFactory + Explicit TenantId Filter
+
+For widget query handlers that may run concurrently with other queries:
+
+```csharp
+public class GetWidgetDataQueryHandler(
+    IDbContextFactory<AppDbContext> dbFactory,    // Isolated context per call
+    ICurrentUserAccessor currentUser)             // TenantId from scoped service
+    : IRequestHandler<GetWidgetDataQuery, WidgetDataDto?>
+{
+    public async Task<WidgetDataDto?> Handle(GetWidgetDataQuery query, CancellationToken ct)
+    {
+        var tenantId = currentUser.TenantId!.Value;
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        
+        // IgnoreQueryFilters() bypasses automatic tenant filter
+        // Explicit TenantId filter maintains security
+        var data = await db.SomeTable
+            .IgnoreQueryFilters()
+            .Where(x => x.Id == query.Id && x.TenantId == tenantId)
+            .FirstOrDefaultAsync(ct);
+        
+        return data;
+    }
+}
+```
+
+**Pattern:**
+- `IDbContextFactory<AppDbContext>` — creates isolated DbContext (no concurrent access)
+- `ICurrentUserAccessor` — TenantId from scoped service (still available)
+- `IgnoreQueryFilters()` — bypasses automatic filter (since we filter manually)
+- Explicit `TenantId == tenantId` — security preserved
+
+### §27.3 Hub Connection — Fire-and-Forget with Error Handling
+
+Widget hub connections that fail should NOT crash the circuit:
+
+```csharp
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender && Config?.SomeId is not null)
+    {
+        StartTimer();
+        _ = ConnectHubAsync();  // Fire and forget — errors handled inside
+    }
+}
+
+private async Task ConnectHubAsync()
+{
+    try
+    {
+        var hubUrl = Navigation.ToAbsoluteUri("/hubs/my-hub");
+        _hub = new HubConnectionBuilder()
+            .WithUrl(hubUrl)
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hub.On<MyDto>("EventName", dto => { ... });
+
+        await _hub.StartAsync();
+        await _hub.InvokeAsync("JoinGroup", Config.SomeId.Value);
+    }
+    catch
+    {
+        // Hub connection failed — widget still works with initial data
+        // No live updates, but no circuit crash
+    }
+}
+```
+
+**Key points:**
+- `_ = ConnectHubAsync()` — fire-and-forget, doesn't block render
+- Full `try-catch` around ALL hub operations
+- Widget degrades gracefully: initial data loads, just no real-time updates
+
+### §27.4 When to Use This Pattern
+
+Use `IDbContextFactory` + explicit tenant filter for:
+- Widget data query handlers called during SSR
+- Any handler that may run concurrently with other DB queries
+- Handlers for components that render on pages with multiple widgets
+
+Use fire-and-forget hub connection for:
+- Any widget that connects to internal SignalR hub
+- Widgets that can function (degraded) without real-time updates
+
+---
+
+*§27 added 2026-05-29 after CC-010 Info Slot Widget — concurrent DbContext + hub connection patterns.*
+
+---
+
+## §28 Build Process — Always Stop Running Processes First
+
+### §28.1 Problem: File Lock Errors During Build
+
+When running `dotnet build` while the web app or simulator is running, the build fails with:
+
+```
+error MSB3027: Could not copy "...CcDashboard.Infrastructure.dll" to "...". 
+Exceeded retry count of 10. Failed. The file is locked by: "CcDashboard.Web (PID)"
+```
+
+### §28.2 Solution: Stop All dotnet Processes Before Build
+
+**Always run this before `dotnet build`:**
+
+```powershell
+Get-Process -Name dotnet -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 2
+dotnet build CcDashboard.sln --no-restore
+```
+
+**Why `Start-Sleep`:** File handles may not release immediately after process termination. A 2-second delay ensures all locks are cleared.
+
+### §28.3 Background Processes
+
+If you started web/simulator with `run_in_background`, they're still running. The build will fail until you stop them:
+
+```powershell
+# Find and stop all dotnet processes (web, simulator, watch)
+Get-Process -Name dotnet -ErrorAction SilentlyContinue | Stop-Process -Force
+```
+
+After a successful build, restart the services as needed.
+
+---
+
+*§28 added 2026-05-29 — build process best practice after repeated file lock issues.*
+
+---
+
+## §29 Multi-Tenant Tables — Superadmin UI Requirements
+
+### §29.1 Rule: All Admin Tables Must Support Tenant Context
+
+For **Superadmin** users, every admin/list table must include:
+
+1. **Tenant Selector** in the header (top-right) — dropdown to filter by tenant or "All Tenants"
+2. **Tenant Column** in the table — shows which tenant each row belongs to
+
+### §29.2 Implementation Pattern
+
+```razor
+@* Header with tenant selector *@
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">@L["Page_Title"]</h1>
+    <AuthorizeView Roles="Superadmin">
+        <div class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0 small text-muted">@L["PG_Tenant"]</label>
+            <select class="form-select form-select-sm" style="width:auto"
+                    value="@SelectedTenantId" @onchange="OnTenantChanged">
+                <option value="">@L["Audit_AllTenants"]</option>
+                @foreach (var t in Tenants)
+                {
+                    <option value="@t.Id">@t.Name</option>
+                }
+            </select>
+        </div>
+    </AuthorizeView>
+</div>
+
+@* Table with Tenant column for Superadmin *@
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <AuthorizeView Roles="Superadmin">
+                <th>@L["PG_Tenant"]</th>
+            </AuthorizeView>
+            <th>Name</th>
+            @* ... other columns *@
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Items)
+        {
+            <tr>
+                <AuthorizeView Roles="Superadmin">
+                    <td>@GetTenantName(item.TenantId)</td>
+                </AuthorizeView>
+                <td>@item.Name</td>
+            </tr>
+        }
+    </tbody>
+</table>
+```
+
+### §29.3 DTO Requirements
+
+DTOs for list queries must include `TenantId` so Superadmin can see/filter by tenant:
+
+```csharp
+public record ItemListDto(
+    Guid Id,
+    Guid TenantId,  // Required for Superadmin tenant column
+    string Name,
+    // ...
+);
+```
+
+### §29.4 Applies To
+
+- User Management (`/admin/users`)
+- Permission Groups (`/admin/permission-groups`)
+- Info Slots (`/info-slots`)
+- Dashboards/Screens (`/screens`)
+- Audit Log (`/admin/audit`)
+- Any other admin list page
+
+---
+
+*§29 added 2026-05-29 — Superadmin must see Tenant selector + Tenant column in all tables.*

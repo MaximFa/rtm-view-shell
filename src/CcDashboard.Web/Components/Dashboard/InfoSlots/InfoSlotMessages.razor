@@ -59,40 +59,58 @@ else if (!InfoSlots.Any())
 }
 else
 {
-    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-        @foreach (var slot in InfoSlots)
-        {
-            <div class="col" @key="slot.Id">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="card-title mb-0">@slot.Name</h5>
-                            <span class="badge @(slot.DisplayMode == "Ticker" ? "bg-info text-dark" : "bg-secondary")">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <AuthorizeView Roles="Superadmin">
+                        <th>@L["PG_Tenant"]</th>
+                    </AuthorizeView>
+                    <th>@L["InfoSlots_Name"]</th>
+                    <th>@L["InfoSlots_DisplayMode"]</th>
+                    <th class="text-center">@L["InfoSlots_Messages"]</th>
+                    <th>@L["InfoSlots_PlacedOn"]</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var slot in InfoSlots)
+                {
+                    <tr @key="slot.Id">
+                        <AuthorizeView Roles="Superadmin">
+                            <td class="text-muted small">@GetTenantName(slot.TenantId)</td>
+                        </AuthorizeView>
+                        <td><strong>@slot.Name</strong></td>
+                        <td>
+                            <span class="badge @(slot.DisplayMode == "Ticker" ? "bg-info text-dark" : "bg-warning text-dark")">
                                 @(slot.DisplayMode == "Ticker" ? L["InfoSlots_ModeTicker"] : L["InfoSlots_ModeSequential"])
                             </span>
-                        </div>
-                        <p class="small text-muted mb-2">
-                            <span class="badge bg-primary">@slot.ActiveMessageCount @L["InfoSlots_Messages"]</span>
-                        </p>
-                        @if (slot.DashboardNames.Any())
-                        {
-                            <div class="small text-muted mb-2">
-                                @L["InfoSlots_PlacedOn"]:
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary">@slot.ActiveMessageCount</span>
+                        </td>
+                        <td>
+                            @if (slot.DashboardNames.Any())
+                            {
                                 @foreach (var name in slot.DashboardNames)
                                 {
                                     <span class="badge bg-light text-dark me-1">@name</span>
                                 }
-                            </div>
-                        }
-                    </div>
-                    <div class="card-footer bg-transparent border-top-0 pt-0">
-                        <button class="btn btn-outline-primary btn-sm w-100" @onclick="() => OpenMessagesModal(slot)">
-                            <i class="bi bi-chat-text me-1"></i>@L["InfoSlots_ManageMessages"]
-                        </button>
-                    </div>
-                </div>
-            </div>
-        }
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenMessagesModal(slot)">
+                                <i class="bi bi-chat-text me-1"></i>@L["InfoSlots_ManageMessages"]
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
 }
 
@@ -111,6 +129,30 @@ else
                         <div class="alert alert-danger py-2">@ModalError</div>
                     }
 
+                    @* Display Mode toggle — CC-012 *@
+                    <div class="d-flex align-items-center mb-3 pb-3 border-bottom">
+                        <span class="me-2">@L["InfoSlot_DisplayMode"]:</span>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button"
+                                class="btn @(_currentDisplayMode == "Ticker" ? "btn-primary" : "btn-outline-secondary")"
+                                @onclick='() => SetDisplayMode("Ticker")'>
+                                @L["InfoSlot_Ticker"]
+                            </button>
+                            <button type="button"
+                                class="btn @(_currentDisplayMode == "Sequential" ? "btn-primary" : "btn-outline-secondary")"
+                                @onclick='() => SetDisplayMode("Sequential")'>
+                                @L["InfoSlot_Sequential"]
+                            </button>
+                        </div>
+                        @if (_currentDisplayMode == "Sequential")
+                        {
+                            <span class="ms-3">@L["InfoSlot_SecondsPerMessage"]:</span>
+                            <input type="number" min="3" max="3600" @bind="_currentSeconds"
+                                   @bind:event="oninput" @bind:after="OnSecondsChangedDebounced"
+                                   class="form-control form-control-sm ms-1" style="width:70px" />
+                        }
+                    </div>
+
                     <h6 class="mb-3">@L["InfoSlots_ActiveMessages"] <span class="badge bg-primary">@SelectedSlot.ActiveMessages.Count</span></h6>
 
                     @if (SelectedSlot.ActiveMessages.Any())
@@ -118,31 +160,88 @@ else
                         <div class="list-group mb-4">
                             @foreach (var msg in SelectedSlot.ActiveMessages)
                             {
-                                <div class="list-group-item d-flex justify-content-between align-items-start" @key="msg.Id">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex align-items-center mb-1">
-                                            @if (msg.Priority == "High")
-                                            {
-                                                <span class="badge bg-danger me-2"><i class="bi bi-star-fill me-1"></i>@L["InfoSlots_PriorityHigh"]</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-secondary me-2">@L["InfoSlots_PriorityNormal"]</span>
-                                            }
-                                            <small class="text-muted">@msg.AuthorName · @msg.CreatedAt.ToLocalTime().ToString("dd.MM HH:mm")</small>
-                                        </div>
-                                        <p class="mb-1">@msg.Content</p>
-                                        @if (msg.ExpiresAt.HasValue)
-                                        {
-                                            <small class="text-muted">@L["InfoSlots_ExpiresAt"]: @msg.ExpiresAt.Value.ToLocalTime().ToString("dd.MM HH:mm")</small>
-                                        }
-                                    </div>
-                                    @if (IsAdmin)
+                                <div class="list-group-item" @key="msg.Id">
+                                    @if (_editingMessageId == msg.Id)
                                     {
-                                        <button class="btn btn-outline-danger btn-sm ms-2" @onclick="() => DeactivateMessage(msg.Id)"
-                                                disabled="@Deactivating">
-                                            <i class="bi bi-x-circle"></i>
-                                        </button>
+                                        @* Inline edit form *@
+                                        <div class="mb-2">
+                                            <textarea class="form-control form-control-sm" rows="2" @bind="_editContent" maxlength="2000"></textarea>
+                                        </div>
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-auto">
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="editPriority" id="editPrioNormal"
+                                                           checked="@(_editPriority == "Normal")"
+                                                           @onchange='() => _editPriority = "Normal"' />
+                                                    <label class="form-check-label small" for="editPrioNormal">@L["InfoSlots_PriorityNormal"]</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="editPriority" id="editPrioHigh"
+                                                           checked="@(_editPriority == "High")"
+                                                           @onchange='() => _editPriority = "High"' />
+                                                    <label class="form-check-label small" for="editPrioHigh">@L["InfoSlots_PriorityHigh"]</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-auto">
+                                                <input type="datetime-local" class="form-control form-control-sm" @bind="_editExpiresAt" disabled="@_editNeverExpires" />
+                                            </div>
+                                            <div class="col-auto d-flex align-items-center">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="editNeverExpires" @bind="_editNeverExpires" />
+                                                    <label class="form-check-label small" for="editNeverExpires">@L["InfoSlots_NeverExpires"]</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @if (_editError is not null)
+                                        {
+                                            <div class="alert alert-danger py-1 small mb-2">@_editError</div>
+                                        }
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-primary btn-sm" @onclick="SaveEdit" disabled="@_editSaving">
+                                                @if (_editSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                                @L["Common_Save"]
+                                            </button>
+                                            <button class="btn btn-secondary btn-sm" @onclick="CancelEdit" disabled="@_editSaving">@L["Common_Cancel"]</button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @* Display mode *@
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center mb-1">
+                                                    @if (msg.Priority == "High")
+                                                    {
+                                                        <span class="badge bg-danger me-2"><i class="bi bi-star-fill me-1"></i>@L["InfoSlots_PriorityHigh"]</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary me-2">@L["InfoSlots_PriorityNormal"]</span>
+                                                    }
+                                                    <small class="text-muted">@msg.AuthorName · @msg.CreatedAt.ToLocalTime().ToString("dd.MM HH:mm")</small>
+                                                </div>
+                                                <p class="mb-1">@msg.Content</p>
+                                                @if (msg.ExpiresAt.HasValue)
+                                                {
+                                                    <small class="text-muted">@L["InfoSlots_ExpiresAt"]: @msg.ExpiresAt.Value.ToLocalTime().ToString("dd.MM HH:mm")</small>
+                                                }
+                                            </div>
+                                            <div class="d-flex gap-1">
+                                                @if (CanEditMessage(msg))
+                                                {
+                                                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => StartEdit(msg)" title="@L["Common_Edit"]">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                }
+                                                @if (IsAdmin)
+                                                {
+                                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeactivateMessage(msg.Id)"
+                                                            disabled="@Deactivating" title="@L["InfoSlots_Deactivate"]">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
                                     }
                                 </div>
                             }
@@ -225,10 +324,36 @@ else
     private DateTime? NewExpiresAt;
     private bool NeverExpires = true;
 
+    // Edit message state
+    private Guid? _editingMessageId;
+    private string _editContent = "";
+    private string _editPriority = "Normal";
+    private DateTime? _editExpiresAt;
+    private bool _editNeverExpires = true;
+    private bool _editSaving;
+    private string? _editError;
+
+    // Display mode toggle state — CC-012
+    private string _currentDisplayMode = "Ticker";
+    private int _currentSeconds = 10;
+    private CancellationTokenSource? _secondsDebounce;
+
+    // Args record for display mode sync
+    private record InfoSlotDisplayModeUpdatedArgs(Guid InfoSlotId, string DisplayMode, int SecondsPerMessage);
+
     private bool IsSuperadmin => CurrentUser.Role == "Superadmin";
     private bool IsAdmin => CurrentUser.Role == "Administrator" || CurrentUser.Role == "Superadmin";
 
+    private string GetTenantName(Guid tenantId) =>
+        Tenants.FirstOrDefault(t => t.Id == tenantId)?.Name ?? tenantId.ToString()[..8];
+
     private bool CanWriteMessages => IsAdmin || SelectedSlot is not null;
+
+    private bool CanEditMessage(InfoSlotMessageDto msg)
+    {
+        if (IsSuperadmin || IsAdmin) return true;
+        return msg.CreatedByUserId == CurrentUser.UserId;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -264,6 +389,9 @@ else
         NewPriority = "Normal";
         NewExpiresAt = null;
         NeverExpires = true;
+        // Initialize display mode from slot
+        _currentDisplayMode = slot.DisplayMode;
+        _currentSeconds = slot.SecondsPerMessage;
     }
 
     private void CloseMessagesModal()
@@ -346,9 +474,140 @@ else
         finally { Deactivating = false; }
     }
 
+    private void StartEdit(InfoSlotMessageDto msg)
+    {
+        _editingMessageId = msg.Id;
+        _editContent = msg.Content;
+        _editPriority = msg.Priority;
+        _editExpiresAt = msg.ExpiresAt?.ToLocalTime();
+        _editNeverExpires = !msg.ExpiresAt.HasValue;
+        _editError = null;
+    }
+
+    private void CancelEdit()
+    {
+        _editingMessageId = null;
+        _editContent = "";
+        _editPriority = "Normal";
+        _editExpiresAt = null;
+        _editNeverExpires = true;
+        _editError = null;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_editingMessageId is null || SelectedSlot is null) return;
+        if (string.IsNullOrWhiteSpace(_editContent))
+        {
+            _editError = L["InfoSlots_MsgContent"] + " is required.";
+            return;
+        }
+
+        _editSaving = true;
+        _editError = null;
+        try
+        {
+            var expiresAt = _editNeverExpires ? null : _editExpiresAt?.ToUniversalTime();
+            var dto = await Mediator.Send(new UpdateInfoSlotMessageCommand(
+                _editingMessageId.Value,
+                _editContent.Trim(),
+                _editPriority,
+                expiresAt), _cts.Token);
+
+            // Push MessageUpdated to SignalR group
+            var tenantId = CurrentUser.TenantId;
+            if (tenantId.HasValue)
+            {
+                var group = $"t:{tenantId}:is:{SelectedSlot.Id}";
+                await HubContext.Clients.Group(group).SendAsync("MessageUpdated", dto, _cts.Token);
+            }
+
+            CancelEdit();
+            await LoadSlotsAsync();
+            SelectedSlot = InfoSlots.FirstOrDefault(s => s.Id == SelectedSlot.Id);
+        }
+        catch (Exception ex) { _editError = ex.Message; }
+        finally { _editSaving = false; }
+    }
+
+
+    // Display Mode handlers — CC-012
+    private async Task SetDisplayMode(string mode)
+    {
+        if (SelectedSlot is null || mode == _currentDisplayMode) return;
+        _currentDisplayMode = mode;
+        await SendDisplayModeUpdate();
+    }
+
+    private async Task OnSecondsChangedDebounced()
+    {
+        // Debounce 800ms before sending
+        _secondsDebounce?.Cancel();
+        _secondsDebounce = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(800, _secondsDebounce.Token);
+            await SendDisplayModeUpdate();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task SendDisplayModeUpdate()
+    {
+        if (SelectedSlot is null || _currentSeconds < 3) return;
+        try
+        {
+            var result = await Mediator.Send(new UpdateInfoSlotDisplayModeCommand(
+                SelectedSlot.Id,
+                _currentDisplayMode,
+                _currentSeconds), _cts.Token);
+
+            if (result.IsSuccess)
+            {
+                // Update local list so badge reflects new mode immediately
+                HandleDisplayModeChanged(new(SelectedSlot.Id, _currentDisplayMode, _currentSeconds));
+
+                // Push DisplayModeChanged to SignalR group
+                var tenantId = CurrentUser.TenantId;
+                if (tenantId.HasValue)
+                {
+                    var group = $"t:{tenantId}:is:{SelectedSlot.Id}";
+                    await HubContext.Clients.Group(group).SendAsync(
+                        "DisplayModeChanged",
+                        new { DisplayMode = _currentDisplayMode, SecondsPerMessage = _currentSeconds },
+                        _cts.Token);
+                }
+            }
+            else
+            {
+                ModalError = result.Error;
+            }
+        }
+        catch (Exception ex) { ModalError = ex.Message; }
+    }
+
+    private void HandleDisplayModeChanged(InfoSlotDisplayModeUpdatedArgs args)
+    {
+        var slot = InfoSlots.FirstOrDefault(s => s.Id == args.InfoSlotId);
+        if (slot is null) return;
+        var idx = InfoSlots.IndexOf(slot);
+        InfoSlots[idx] = slot with
+        {
+            DisplayMode = args.DisplayMode,
+            SecondsPerMessage = args.SecondsPerMessage
+        };
+        // Also update SelectedSlot if it's the same
+        if (SelectedSlot?.Id == args.InfoSlotId)
+        {
+            SelectedSlot = InfoSlots[idx];
+        }
+    }
+
     private readonly CancellationTokenSource _cts = new();
     public void Dispose()
     {
+        _secondsDebounce?.Cancel();
+        _secondsDebounce?.Dispose();
         _cts.Cancel();
         _cts.Dispose();
     }

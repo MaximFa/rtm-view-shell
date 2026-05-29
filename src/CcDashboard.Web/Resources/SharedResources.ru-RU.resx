@@ -661,5 +661,45 @@
   <data name="Error_Forbidden"><value>У вас нет прав для выполнения этого действия.</value></data>
   <data name="Error_Concurrency"><value>Запись была изменена другим пользователем. Обновите страницу и повторите попытку.</value></data>
   <data name="Error_Generic"><value>Произошла непредвиденная ошибка. Попробуйте ещё раз.</value></data>
+
+  <!-- ── Info Slots ── -->
+  <data name="InfoSlots_Title"><value>Информационные слоты</value></data>
+  <data name="InfoSlots_ViewerTitle"><value>Информационные слоты</value></data>
+  <data name="InfoSlots_NewSlot"><value>+ Новый слот</value></data>
+  <data name="InfoSlots_EditSlot"><value>Редактировать слот</value></data>
+  <data name="InfoSlots_DeleteSlot"><value>Удалить слот</value></data>
+  <data name="InfoSlots_Name"><value>Название</value></data>
+  <data name="InfoSlots_Description"><value>Описание</value></data>
+  <data name="InfoSlots_DisplayMode"><value>Режим отображения</value></data>
+  <data name="InfoSlots_ModeTicker"><value>Бегущая строка</value></data>
+  <data name="InfoSlots_ModeSequential"><value>Последовательный</value></data>
+  <data name="InfoSlots_SecondsPerMessage"><value>Секунд на сообщение</value></data>
+  <data name="InfoSlots_SecondsHelp"><value>Время отображения каждого сообщения (5-120 секунд)</value></data>
+  <data name="InfoSlots_ActiveMessages"><value>Активные сообщения</value></data>
+  <data name="InfoSlots_PgCount"><value>Групп</value></data>
+  <data name="InfoSlots_NoSlots"><value>Информационные слоты не настроены.</value></data>
+  <data name="InfoSlots_NoSlotsViewer"><value>Нет доступных информационных слотов.</value></data>
+  <data name="InfoSlots_TabGeneral"><value>Общее</value></data>
+  <data name="InfoSlots_TabAccess"><value>Доступ</value></data>
+  <data name="InfoSlots_AccessNote"><value>Выберите группы разрешений, участники которых смогут создавать сообщения в этом слоте.</value></data>
+  <data name="InfoSlots_Messages"><value>сообщений</value></data>
+  <data name="InfoSlots_ManageMessages"><value>Управление сообщениями</value></data>
+  <data name="InfoSlots_AddMessage"><value>Добавить сообщение</value></data>
+  <data name="InfoSlots_AddMessageBtn"><value>Добавить сообщение →</value></data>
+  <data name="InfoSlots_MsgContent"><value>Текст сообщения</value></data>
+  <data name="InfoSlots_Priority"><value>Приоритет</value></data>
+  <data name="InfoSlots_PriorityNormal"><value>Обычный</value></data>
+  <data name="InfoSlots_PriorityHigh"><value>Высокий</value></data>
+  <data name="InfoSlots_ExpiresAt"><value>Истекает</value></data>
+  <data name="InfoSlots_NeverExpires"><value>Не истекает</value></data>
+  <data name="InfoSlots_PlacedOn"><value>Размещён на</value></data>
+  <data name="InfoSlots_Deactivate"><value>Деактивировать</value></data>
+  <data name="InfoSlot_DisplayMode"><value>Режим отображения</value></data>
+  <data name="InfoSlot_Ticker"><value>Бегущая строка</value></data>
+  <data name="InfoSlot_Sequential"><value>Последовательный</value></data>
+  <data name="InfoSlot_SecondsPerMessage"><value>Секунд на сообщение</value></data>
+  <data name="InfoSlot_NoMessages"><value>Нет сообщений</value></data>
+  <data name="InfoSlot_ExpiresAt"><value>Истекает</value></data>
+
 </root>
 

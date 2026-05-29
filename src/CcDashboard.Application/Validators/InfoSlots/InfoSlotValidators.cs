@@ -65,6 +65,28 @@ public class CreateInfoSlotMessageCommandValidator : AbstractValidator<CreateInf
     }
 }
 
+public class UpdateInfoSlotMessageCommandValidator : AbstractValidator<UpdateInfoSlotMessageCommand>
+{
+    public UpdateInfoSlotMessageCommandValidator()
+    {
+        RuleFor(x => x.MessageId).NotEmpty().WithMessage("Message ID is required");
+
+        RuleFor(x => x.Content)
+            .NotEmpty().WithMessage("Content is required")
+            .MaximumLength(2000).WithMessage("Content must not exceed 2000 characters");
+
+        RuleFor(x => x.Priority)
+            .NotEmpty().WithMessage("Priority is required")
+            .Must(x => x == "Normal" || x == "High")
+            .WithMessage("Priority must be 'Normal' or 'High'");
+
+        RuleFor(x => x.ExpiresAt)
+            .GreaterThan(DateTime.UtcNow)
+            .When(x => x.ExpiresAt.HasValue)
+            .WithMessage("Expiration date must be in the future");
+    }
+}
+
 public class DeactivateInfoSlotMessageCommandValidator : AbstractValidator<DeactivateInfoSlotMessageCommand>
 {
     public DeactivateInfoSlotMessageCommandValidator()
@@ -78,5 +100,22 @@ public class DeleteInfoSlotCommandValidator : AbstractValidator<DeleteInfoSlotCo
     public DeleteInfoSlotCommandValidator()
     {
         RuleFor(x => x.Id).NotEmpty().WithMessage("Id is required");
+    }
+}
+
+public class UpdateInfoSlotDisplayModeCommandValidator : AbstractValidator<UpdateInfoSlotDisplayModeCommand>
+{
+    public UpdateInfoSlotDisplayModeCommandValidator()
+    {
+        RuleFor(x => x.InfoSlotId).NotEmpty().WithMessage("Info Slot ID is required");
+
+        RuleFor(x => x.DisplayMode)
+            .NotEmpty().WithMessage("Display mode is required")
+            .Must(x => x == "Ticker" || x == "Sequential")
+            .WithMessage("Display mode must be 'Ticker' or 'Sequential'");
+
+        RuleFor(x => x.SecondsPerMessage)
+            .InclusiveBetween(3, 3600)
+            .WithMessage("Seconds per message must be between 3 and 3600");
     }
 }
