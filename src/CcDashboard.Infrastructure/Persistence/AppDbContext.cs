@@ -40,6 +40,11 @@ public class AppDbContext(
     public DbSet<UserPasswordHistory> UserPasswordHistories => Set<UserPasswordHistory>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
 
+    // Info Slot message system (CC-010)
+    public DbSet<InfoSlot> InfoSlots => Set<InfoSlot>();
+    public DbSet<InfoSlotPermission> InfoSlotPermissions => Set<InfoSlotPermission>();
+    public DbSet<InfoSlotMessage> InfoSlotMessages => Set<InfoSlotMessage>();
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         base.OnModelCreating(mb);
@@ -280,6 +285,41 @@ public class AppDbContext(
             e.Property(x => x.IpAddress).HasMaxLength(45);
             e.Property(x => x.UserAgent).HasMaxLength(500);
             e.HasIndex(x => new { x.UserId, x.IsRevoked, x.ExpiresAt });
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        // Info Slot message system (CC-010)
+        mb.Entity<InfoSlot>(e =>
+        {
+            e.ToTable("info_slots");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.DisplayMode).HasMaxLength(20).IsRequired();
+            e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        mb.Entity<InfoSlotPermission>(e =>
+        {
+            e.ToTable("info_slot_permissions");
+            e.HasKey(x => new { x.InfoSlotId, x.PermissionGroupId });
+            e.HasOne(x => x.InfoSlot).WithMany(x => x.Permissions).HasForeignKey(x => x.InfoSlotId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.PermissionGroup).WithMany().HasForeignKey(x => x.PermissionGroupId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        mb.Entity<InfoSlotMessage>(e =>
+        {
+            e.ToTable("info_slot_messages");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Content).IsRequired();
+            e.Property(x => x.Priority).HasMaxLength(10).IsRequired();
+            e.HasIndex(x => new { x.InfoSlotId, x.IsActive, x.ExpiresAt });
+            e.HasIndex(x => new { x.TenantId, x.CreatedAt });
+            e.HasOne(x => x.InfoSlot).WithMany(x => x.Messages).HasForeignKey(x => x.InfoSlotId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 

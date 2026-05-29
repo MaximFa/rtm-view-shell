@@ -1,0 +1,202 @@
+@using CcDashboard.Application.Queries.InfoSlots
+@using CcDashboard.Contracts.DTOs.InfoSlots
+@using Microsoft.AspNetCore.SignalR.Client
+@using MediatR
+@using Microsoft.Extensions.Localization
+@implements IAsyncDisposable
+
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+@* Info Slot Widget — CC-010 *@
+
+<div class="is-widget @DirectionClass"
+     data-bg="@(Config?.BackgroundColor ?? "auto")"
+     data-text="@(Config?.TextColor ?? "auto")"
+     style="@WidgetStyle">
+
+    @if (_messages.Count == 0)
+    {
+        <div class="is-empty">
+            @(string.IsNullOrEmpty(Config?.EmptyStateMessage) ? L["InfoSlot_NoMessages"] : Config.EmptyStateMessage)
+        </div>
+    }
+    else if (_displayMode == "Ticker")
+    {
+        <div class="is-ticker">
+            <div class="is-ticker-track" style="--is-anim-duration: @AnimDuration">
+                @foreach (var msg in OrderedMessages)
+                {
+                    <span class="is-msg @(msg.Priority == "High" ? "is-high" : "")" style="@MsgStyle">
+                        @if (msg.Priority == "High") { <span class="is-star">★</span> }
+                        @msg.Content
+                        @if (Config?.ShowAuthor == true) { <span class="is-author">@msg.AuthorName</span> }
+                        @if (Config?.ShowTimestamp == true) { <span class="is-time">@msg.CreatedAt.ToString("HH:mm")</span> }
+                    </span>
+                    <span class="is-sep">·····</span>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="is-sequential">
+            @if (_currentIndex < OrderedMessages.Count())
+            {
+                var msg = OrderedMessages.ElementAt(_currentIndex);
+                <div class="is-msg-content @(msg.Priority == "High" ? "is-high" : "")">
+                    @if (msg.Priority == "High") { <span class="is-star">★</span> }
+                    @msg.Content
+                </div>
+                <div class="is-msg-meta">
+                    @if (Config?.ShowAuthor == true) { <span>@msg.AuthorName</span> }
+                    @if (Config?.ShowTimestamp == true) { <span>· @msg.CreatedAt.ToString("HH:mm")</span> }
+                    @if (msg.ExpiresAt.HasValue) { <span>· @L["InfoSlot_ExpiresAt"]: @msg.ExpiresAt.Value.ToString("HH:mm")</span> }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public InfoSlotWidgetConfig? Config { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+
+    private List<InfoSlotMessageDto> _messages = new();
+    private int _currentIndex = 0;
+    private string _displayMode = "Ticker";
+    private HubConnection? _hub;
+    private Timer? _timer;
+
+    private IEnumerable<InfoSlotMessageDto> OrderedMessages =>
+        _messages.OrderByDescending(m => m.Priority == "High")
+                 .ThenByDescending(m => m.CreatedAt)
+                 .Take(Config?.MaxMessagesVisible > 0 ? Config.MaxMessagesVisible : int.MaxValue);
+
+    private string DirectionClass => $"is-dir-{(Config?.ScrollDirection ?? "LeftToRight").ToLowerInvariant()}";
+
+    private string AnimDuration => (Config?.ScrollSpeed ?? "Medium") switch
+    {
+        "Slow" => "40s",
+        "Fast" => "10s",
+        _ => "20s"
+    };
+
+    private string WidgetStyle
+    {
+        get
+        {
+            var styles = new List<string>();
+            var bg = Config?.BackgroundColor ?? "auto";
+            var text = Config?.TextColor ?? "auto";
+            var fontSize = Config?.FontSize ?? 14;
+
+            if (bg != "auto" && bg != "transparent")
+                styles.Add($"background-color: {bg}");
+            if (text != "auto")
+                styles.Add($"color: {text}");
+            styles.Add($"font-size: {fontSize}px");
+
+            return string.Join("; ", styles);
+        }
+    }
+
+    private string MsgStyle
+    {
+        get
+        {
+            if (Config is null) return "";
+            var styles = new List<string>();
+            // Priority high styling via CSS variables
+            if (!string.IsNullOrEmpty(Config.PriorityHighBackgroundColor) && Config.PriorityHighBackgroundColor != "auto")
+                styles.Add($"--is-priority-high-bg: {Config.PriorityHighBackgroundColor}");
+            if (!string.IsNullOrEmpty(Config.PriorityHighTextColor) && Config.PriorityHighTextColor != "auto")
+                styles.Add($"--is-priority-high-text: {Config.PriorityHighTextColor}");
+            return string.Join("; ", styles);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Config?.InfoSlotId is null) return;
+
+        _displayMode = await GetDisplayModeAsync(Config.InfoSlotId.Value);
+        await LoadMessagesAsync();
+        await ConnectHubAsync();
+        StartSequentialTimer();
+    }
+
+    private async Task<string> GetDisplayModeAsync(Guid infoSlotId)
+    {
+        var slots = await Mediator.Send(new GetInfoSlotsForWidgetConfigQuery());
+        var slot = slots.FirstOrDefault(s => s.Id == infoSlotId);
+        return slot?.DisplayMode ?? "Ticker";
+    }
+
+    private async Task LoadMessagesAsync()
+    {
+        if (Config?.InfoSlotId is null) return;
+        _messages = (await Mediator.Send(new GetActiveMessagesQuery(Config.InfoSlotId.Value))).ToList();
+    }
+
+    private async Task ConnectHubAsync()
+    {
+        if (Config?.InfoSlotId is null) return;
+
+        var hubUrl = Navigation.ToAbsoluteUri("/hubs/info-slot");
+        _hub = new HubConnectionBuilder()
+            .WithUrl(hubUrl)
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hub.On<InfoSlotMessageDto>("MessageAdded", msg =>
+        {
+            _messages.Add(msg);
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hub.On<object>("MessageDeactivated", data =>
+        {
+            var msgId = ((dynamic)data).MessageId;
+            _messages.RemoveAll(m => m.Id == (Guid)msgId);
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hub.On<object>("MessageExpired", data =>
+        {
+            var msgId = ((dynamic)data).MessageId;
+            _messages.RemoveAll(m => m.Id == (Guid)msgId);
+            InvokeAsync(StateHasChanged);
+        });
+
+        await _hub.StartAsync();
+        await _hub.InvokeAsync("JoinSlot", Config.InfoSlotId.Value);
+    }
+
+    private void StartSequentialTimer()
+    {
+        if (_displayMode != "Sequential") return;
+
+        var interval = (Config?.SecondsPerMessage ?? 10) * 1000;
+        _timer = new Timer(_ =>
+        {
+            _currentIndex = (_currentIndex + 1) % Math.Max(1, _messages.Count);
+            InvokeAsync(StateHasChanged);
+        }, null, interval, interval);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _timer?.Dispose();
+        if (_hub is not null)
+        {
+            if (Config?.InfoSlotId.HasValue == true)
+            {
+                try { await _hub.InvokeAsync("LeaveSlot", Config.InfoSlotId.Value); }
+                catch { /* ignore on dispose */ }
+            }
+            await _hub.DisposeAsync();
+        }
+    }
+}

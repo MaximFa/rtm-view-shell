@@ -13,6 +13,8 @@
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
 @using CcDashboard.Web.Components.Shared
+@using CcDashboard.Application.Queries.InfoSlots
+@using CcDashboard.Contracts.DTOs.InfoSlots
 @implements IDisposable
 
 <PageTitle>@L["PG_Title"] — RTM View Shell</PageTitle>
@@ -206,6 +208,14 @@ else
                                           SelectedIds="SelectedSupergroupIds"
                                           SelectedIdsChanged="ids => { SelectedSupergroupIds = ids; }" />
                     }
+                    else if (ActiveTab == "InfoSlots")
+                    {
+                        <p class="text-muted small mb-3">@L["PG_InfoSlotsNote"]</p>
+                        <DualPaneSelector TKey="Guid"
+                                          AllItems="AvailableInfoSlots.Select(x => (x.Id, x.Name)).ToList()"
+                                          SelectedIds="SelectedInfoSlotIds"
+                                          SelectedIdsChanged="ids => { SelectedInfoSlotIds = ids; }" />
+                    }
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary btn-sm" @onclick="CloseModal">@L["Common_Cancel"]</button>
@@ -251,6 +261,7 @@ else
         new("Audit Log",          "menu.audit",             "Superadmin, Administrator"),
         new("Tenant Settings",    "menu.tenantSettings",    "Superadmin, Administrator"),
         new("Tenant Management",  "menu.tenants",           "Superadmin only", Restricted: true),
+        new("Info Slots",         "menu.infoSlots",         "All"),
     ];
 
     private static readonly TabDef[] Tabs =
@@ -261,6 +272,7 @@ else
         new("AgentGroups", "PG_TabAgentGroups"),
         new("BU",          "PG_TabBu"),
         new("SG",          "PG_TabSg"),
+        new("InfoSlots",   "PG_TabInfoSlots"),
     ];
 
     private List<PermissionGroupDto> Groups = [];
@@ -287,6 +299,7 @@ else
     private HashSet<Guid> SelectedAgentGroupIds = [];
     private HashSet<int> SelectedBusinessUnitIds = [];
     private HashSet<int> SelectedSupergroupIds = [];
+    private HashSet<Guid> SelectedInfoSlotIds = [];
     private string ActiveTab = "Menu";
 
     // Available entities for dual-pane selection
@@ -295,6 +308,7 @@ else
     private List<AvailableEntityDto> AvailableAgentGroups = [];
     private List<AvailableEntityIntDto> AvailableBUs = [];
     private List<AvailableEntityIntDto> AvailableSGs = [];
+    private List<InfoSlotSummaryDto> AvailableInfoSlots = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -336,6 +350,7 @@ else
             AvailableAgentGroups = result.AgentGroups.ToList();
             AvailableBUs = result.BusinessUnits.ToList();
             AvailableSGs = result.Supergroups.ToList();
+            AvailableInfoSlots = (await Mediator.Send(new GetInfoSlotsForWidgetConfigQuery())).ToList();
         }
         catch { /* fallback to empty */ }
         finally { ModalLoading = false; }
@@ -351,6 +366,7 @@ else
         SelectedAgentGroupIds   = [];
         SelectedBusinessUnitIds = [];
         SelectedSupergroupIds   = [];
+        SelectedInfoSlotIds     = [];
         ActiveTab = "Menu"; SaveError = null; SaveSuccess = false;
         ShowModal = true;
 
@@ -369,6 +385,7 @@ else
         SelectedAgentGroupIds   = g.AllowedAgentGroupIds.ToHashSet();
         SelectedBusinessUnitIds = g.AllowedBusinessUnitIds.ToHashSet();
         SelectedSupergroupIds   = g.AllowedSupergroupIds.ToHashSet();
+        SelectedInfoSlotIds     = [];
         ActiveTab = "Menu"; SaveError = null; SaveSuccess = false;
         ShowModal = true;
 

@@ -10,6 +10,11 @@
             <span class="nav-link-content"><i class="bi bi-puzzle"></i><span>@L["Nav_WidgetCatalogue"]</span></span>
         </NavLink>
     </li>
+    <li class="nav-item">
+        <NavLink href="/info-slots" class="nav-link" Match="NavLinkMatch.Prefix">
+            <span class="nav-link-content"><i class="bi bi-broadcast-pin"></i><span>@L["Nav_InfoSlots"]</span></span>
+        </NavLink>
+    </li>
 
     <AuthorizeView Roles="Superadmin,Administrator">
         <li class="nav-section-label">@L["Nav_Configuration"]</li>
@@ -26,6 +31,11 @@
         <li class="nav-item">
             <NavLink href="/admin/configuration/sites" class="nav-link" Match="NavLinkMatch.Prefix">
                 <span class="nav-link-content"><i class="bi bi-geo-alt"></i><span>@L["Nav_Sites"]</span></span>
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="/admin/info-slots" class="nav-link" Match="NavLinkMatch.Prefix">
+                <span class="nav-link-content"><i class="bi bi-broadcast"></i><span>@L["Nav_InfoSlotsAdmin"]</span></span>
             </NavLink>
         </li>
     </AuthorizeView>

@@ -1,0 +1,106 @@
+/* Info Slot Widget CSS — CC-010 */
+
+/* Ticker mode — horizontal */
+.is-widget { overflow: hidden; position: relative; height: 100%; }
+.is-ticker { white-space: nowrap; overflow: hidden; }
+.is-ticker-track { display: inline-block; }
+
+.is-dir-lefttoright .is-ticker-track {
+    animation: ticker-ltr var(--is-anim-duration, 20s) linear infinite;
+}
+@keyframes ticker-ltr {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(-100%); }
+}
+
+.is-dir-righttoleft .is-ticker-track {
+    animation: ticker-rtl var(--is-anim-duration, 20s) linear infinite;
+}
+@keyframes ticker-rtl {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+/* Ticker — vertical */
+.is-vertical { white-space: normal; overflow: hidden; height: 100%; }
+
+.is-dir-toptobottom .is-ticker-track {
+    animation: ticker-ttb var(--is-anim-duration, 20s) linear infinite;
+}
+@keyframes ticker-ttb {
+    from { transform: translateY(-100%); }
+    to   { transform: translateY(100%); }
+}
+
+.is-dir-bottomtotop .is-ticker-track {
+    animation: ticker-btt var(--is-anim-duration, 20s) linear infinite;
+}
+@keyframes ticker-btt {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(-100%); }
+}
+
+/* Message styling */
+.is-msg {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+}
+
+.is-sep {
+    margin: 0 1rem;
+    opacity: 0.5;
+}
+
+.is-star {
+    color: var(--bs-warning);
+    margin-inline-end: 0.25rem;
+}
+
+/* Priority High */
+.is-high {
+    background-color: var(--is-priority-high-bg, var(--bs-warning-bg-subtle));
+    color: var(--is-priority-high-text, var(--bs-warning-text-emphasis));
+    border-radius: 3px;
+}
+
+/* auto colour mode */
+.is-widget[data-bg="auto"] { background: var(--widget-bg); }
+.is-widget[data-text="auto"] { color: var(--widget-text); }
+
+/* Sequential mode */
+.is-sequential {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    padding: 1rem;
+}
+
+.is-sequential .is-msg-content {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.is-sequential .is-msg-meta {
+    font-size: 0.85rem;
+    opacity: 0.75;
+}
+
+/* Empty state */
+.is-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--bs-secondary-color);
+    font-style: italic;
+}
+
+/* Message author/time */
+.is-author, .is-time {
+    font-size: 0.8em;
+    opacity: 0.7;
+    margin-inline-start: 0.5rem;
+}

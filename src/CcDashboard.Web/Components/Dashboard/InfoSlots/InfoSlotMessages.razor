@@ -1,0 +1,355 @@
+@page "/info-slots"
+@rendermode InteractiveServer
+@layout MainLayout
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject ICurrentUserAccessor CurrentUser
+@inject IHubContext<CcDashboard.Web.Hubs.InfoSlotHub> HubContext
+@using MediatR
+@using CcDashboard.Application.Commands.InfoSlots
+@using CcDashboard.Application.Queries.InfoSlots
+@using CcDashboard.Application.Queries.Tenants
+@using CcDashboard.Contracts.DTOs.InfoSlots
+@using CcDashboard.Contracts.DTOs.Tenants
+@using CcDashboard.Domain.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.SignalR
+@implements IDisposable
+
+<PageTitle>@L["InfoSlots_ViewerTitle"] — RTM View Shell</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">@L["InfoSlots_ViewerTitle"]</h1>
+    <AuthorizeView Roles="Superadmin">
+        @if (Tenants.Count > 0)
+        {
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-label mb-0 small text-muted">@L["PG_Tenant"]</label>
+                <select class="form-select form-select-sm" style="width:auto"
+                        value="@SelectedTenantId"
+                        @onchange="OnTenantChanged">
+                    <option value="">@L["Audit_AllTenants"]</option>
+                    @foreach (var t in Tenants)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+            </div>
+        }
+    </AuthorizeView>
+</div>
+
+@if (Error is not null)
+{
+    <div class="alert alert-danger py-2 alert-dismissible">
+        @Error <button class="btn-close btn-sm" @onclick="() => Error = null"></button>
+    </div>
+}
+
+@if (Loading)
+{
+    <div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+}
+else if (!InfoSlots.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-broadcast-pin display-4 d-block mb-2"></i>
+        <p>@L["InfoSlots_NoSlotsViewer"]</p>
+    </div>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+        @foreach (var slot in InfoSlots)
+        {
+            <div class="col" @key="slot.Id">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">@slot.Name</h5>
+                            <span class="badge @(slot.DisplayMode == "Ticker" ? "bg-info text-dark" : "bg-secondary")">
+                                @(slot.DisplayMode == "Ticker" ? L["InfoSlots_ModeTicker"] : L["InfoSlots_ModeSequential"])
+                            </span>
+                        </div>
+                        <p class="small text-muted mb-2">
+                            <span class="badge bg-primary">@slot.ActiveMessageCount @L["InfoSlots_Messages"]</span>
+                        </p>
+                        @if (slot.DashboardNames.Any())
+                        {
+                            <div class="small text-muted mb-2">
+                                @L["InfoSlots_PlacedOn"]:
+                                @foreach (var name in slot.DashboardNames)
+                                {
+                                    <span class="badge bg-light text-dark me-1">@name</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div class="card-footer bg-transparent border-top-0 pt-0">
+                        <button class="btn btn-outline-primary btn-sm w-100" @onclick="() => OpenMessagesModal(slot)">
+                            <i class="bi bi-chat-text me-1"></i>@L["InfoSlots_ManageMessages"]
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (SelectedSlot is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-msgs-title">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-msgs-title">@SelectedSlot.Name — @L["InfoSlots_Messages"]</h5>
+                    <button class="btn-close" @onclick="CloseMessagesModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (ModalError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@ModalError</div>
+                    }
+
+                    <h6 class="mb-3">@L["InfoSlots_ActiveMessages"] <span class="badge bg-primary">@SelectedSlot.ActiveMessages.Count</span></h6>
+
+                    @if (SelectedSlot.ActiveMessages.Any())
+                    {
+                        <div class="list-group mb-4">
+                            @foreach (var msg in SelectedSlot.ActiveMessages)
+                            {
+                                <div class="list-group-item d-flex justify-content-between align-items-start" @key="msg.Id">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center mb-1">
+                                            @if (msg.Priority == "High")
+                                            {
+                                                <span class="badge bg-danger me-2"><i class="bi bi-star-fill me-1"></i>@L["InfoSlots_PriorityHigh"]</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary me-2">@L["InfoSlots_PriorityNormal"]</span>
+                                            }
+                                            <small class="text-muted">@msg.AuthorName · @msg.CreatedAt.ToLocalTime().ToString("dd.MM HH:mm")</small>
+                                        </div>
+                                        <p class="mb-1">@msg.Content</p>
+                                        @if (msg.ExpiresAt.HasValue)
+                                        {
+                                            <small class="text-muted">@L["InfoSlots_ExpiresAt"]: @msg.ExpiresAt.Value.ToLocalTime().ToString("dd.MM HH:mm")</small>
+                                        }
+                                    </div>
+                                    @if (IsAdmin)
+                                    {
+                                        <button class="btn btn-outline-danger btn-sm ms-2" @onclick="() => DeactivateMessage(msg.Id)"
+                                                disabled="@Deactivating">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info mb-4">@L["InfoSlot_NoMessages"]</div>
+                    }
+
+                    @if (CanWriteMessages)
+                    {
+                        <hr />
+                        <h6 class="mb-3">@L["InfoSlots_AddMessage"]</h6>
+                        <div class="mb-3">
+                            <label class="form-label">@L["InfoSlots_MsgContent"] *</label>
+                            <textarea class="form-control" rows="3" @bind="NewContent" maxlength="1000"></textarea>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">@L["InfoSlots_Priority"]</label>
+                                <div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="priority" id="prioNormal"
+                                               checked="@(NewPriority == "Normal")"
+                                               @onchange='() => NewPriority = "Normal"' />
+                                        <label class="form-check-label" for="prioNormal">@L["InfoSlots_PriorityNormal"]</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="priority" id="prioHigh"
+                                               checked="@(NewPriority == "High")"
+                                               @onchange='() => NewPriority = "High"' />
+                                        <label class="form-check-label" for="prioHigh">@L["InfoSlots_PriorityHigh"]</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">@L["InfoSlots_ExpiresAt"]</label>
+                                <input type="datetime-local" class="form-control" @bind="NewExpiresAt" disabled="@NeverExpires" />
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="neverExpires" @bind="NeverExpires" />
+                                    <label class="form-check-label" for="neverExpires">@L["InfoSlots_NeverExpires"]</label>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="CloseMessagesModal">@L["Common_Close"]</button>
+                    @if (CanWriteMessages)
+                    {
+                        <button class="btn btn-primary btn-sm" @onclick="AddMessage" disabled="@Adding">
+                            @if (Adding) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            @L["InfoSlots_AddMessageBtn"]
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
+@code {
+    private List<InfoSlotViewerDto> InfoSlots = [];
+    private List<TenantDto> Tenants = [];
+    private Guid? SelectedTenantId;
+    private bool Loading = true;
+    private string? Error;
+
+    private InfoSlotViewerDto? SelectedSlot;
+    private string? ModalError;
+    private bool Adding;
+    private bool Deactivating;
+
+    private string NewContent = "";
+    private string NewPriority = "Normal";
+    private DateTime? NewExpiresAt;
+    private bool NeverExpires = true;
+
+    private bool IsSuperadmin => CurrentUser.Role == "Superadmin";
+    private bool IsAdmin => CurrentUser.Role == "Administrator" || CurrentUser.Role == "Superadmin";
+
+    private bool CanWriteMessages => IsAdmin || SelectedSlot is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CurrentUser.InitAsync();
+        if (CurrentUser.Role == "Superadmin")
+        {
+            try { Tenants = (await Mediator.Send(new GetTenantsQuery(), _cts.Token)).ToList(); }
+            catch { }
+        }
+        await LoadSlotsAsync();
+    }
+
+    private async Task OnTenantChanged(ChangeEventArgs e)
+    {
+        SelectedTenantId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        await LoadSlotsAsync();
+    }
+
+    private async Task LoadSlotsAsync()
+    {
+        Loading = true;
+        try { InfoSlots = (await Mediator.Send(new GetInfoSlotsForViewerQuery(SelectedTenantId), _cts.Token)).ToList(); }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Error = ex.Message; }
+        finally { Loading = false; }
+    }
+
+    private void OpenMessagesModal(InfoSlotViewerDto slot)
+    {
+        SelectedSlot = slot;
+        ModalError = null;
+        NewContent = "";
+        NewPriority = "Normal";
+        NewExpiresAt = null;
+        NeverExpires = true;
+    }
+
+    private void CloseMessagesModal()
+    {
+        SelectedSlot = null;
+        ModalError = null;
+    }
+
+    private async Task AddMessage()
+    {
+        if (SelectedSlot is null) return;
+        if (string.IsNullOrWhiteSpace(NewContent))
+        {
+            ModalError = L["InfoSlots_MsgContent"] + " is required.";
+            return;
+        }
+
+        Adding = true;
+        ModalError = null;
+        try
+        {
+            var expiresAt = NeverExpires ? null : NewExpiresAt?.ToUniversalTime();
+            var result = await Mediator.Send(new CreateInfoSlotMessageCommand(
+                SelectedSlot.Id,
+                NewContent.Trim(),
+                NewPriority,
+                expiresAt), _cts.Token);
+
+            if (!result.IsSuccess)
+            {
+                ModalError = result.Error;
+                return;
+            }
+
+            var tenantId = CurrentUser.TenantId;
+            if (tenantId.HasValue)
+            {
+                var group = $"t:{tenantId}:is:{SelectedSlot.Id}";
+                await HubContext.Clients.Group(group).SendAsync("MessageAdded", result.Value, _cts.Token);
+            }
+
+            NewContent = "";
+            NewPriority = "Normal";
+            NewExpiresAt = null;
+            NeverExpires = true;
+
+            await LoadSlotsAsync();
+            SelectedSlot = InfoSlots.FirstOrDefault(s => s.Id == SelectedSlot.Id);
+        }
+        catch (Exception ex) { ModalError = ex.Message; }
+        finally { Adding = false; }
+    }
+
+    private async Task DeactivateMessage(Guid messageId)
+    {
+        if (SelectedSlot is null) return;
+
+        Deactivating = true;
+        ModalError = null;
+        try
+        {
+            var result = await Mediator.Send(new DeactivateInfoSlotMessageCommand(messageId), _cts.Token);
+            if (!result.IsSuccess)
+            {
+                ModalError = result.Error;
+                return;
+            }
+
+            var tenantId = CurrentUser.TenantId;
+            if (tenantId.HasValue)
+            {
+                var group = $"t:{tenantId}:is:{SelectedSlot.Id}";
+                await HubContext.Clients.Group(group).SendAsync("MessageDeactivated", new { MessageId = messageId }, _cts.Token);
+            }
+
+            await LoadSlotsAsync();
+            SelectedSlot = InfoSlots.FirstOrDefault(s => s.Id == SelectedSlot.Id);
+        }
+        catch (Exception ex) { ModalError = ex.Message; }
+        finally { Deactivating = false; }
+    }
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

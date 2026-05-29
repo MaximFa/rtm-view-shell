@@ -195,6 +195,7 @@ public class DatabaseInitializer(
             new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Data Slot",                  Description = "Single metric display with target comparison",                         IsActive = true },
             new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Day Trend Chart",            Description = "Intraday call volume chart showing configured metrics broken down by time interval (15/30/60 min). Supports line, bar, area, and step chart types.", IsActive = true },
             new() { Id = Guid.Parse("a4d1e3f7-2b8c-4e9a-b1d5-6f3c2a7e0d11"), Category = "Agents", Name = "Agent State Distribution", Description = "Real-time pie/donut/bar chart showing agent distribution across status groups (Available, On Phone, Break, Paperwork, Training) for a selected Business Unit.", IsActive = true },
+            new() { Id = Uuid.NewSequential(), Category = "General metrics", Name = "Info Slot", Description = "Message display widget with ticker or sequential mode. Displays messages from a shell-managed Info Slot.", IsActive = true },
         };
 
         var existingNames = (await db.WidgetCatalogItems

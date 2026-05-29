@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -459,6 +459,8 @@
   <data name="PG_TabAgentGroups"><value>Agent Groups</value></data>
   <data name="PG_TabBu"><value>Business Units</value></data>
   <data name="PG_TabSg"><value>Super Groups</value></data>
+  <data name="PG_TabInfoSlots"><value>Info Slots</value></data>
+  <data name="PG_InfoSlotsNote"><value>Select info slots this permission group can write messages to.</value></data>
   <data name="PG_ColMenuItem"><value>Menu item</value></data>
   <data name="PG_ColPermissionKey"><value>Permission key</value></data>
   <data name="PG_ColAllowedRoles"><value>Allowed roles</value></data>
@@ -723,5 +725,40 @@
   <data name="Error_Forbidden"><value>You do not have permission to perform this action.</value></data>
   <data name="Error_Concurrency"><value>This record was modified by another user. Please refresh and try again.</value></data>
   <data name="Error_Generic"><value>An unexpected error occurred. Please try again.</value></data>
+
+  <!-- ── Info Slots ── -->
+  <data name="Nav_InfoSlots"><value>Info Slots</value></data>
+  <data name="Nav_InfoSlotsAdmin"><value>Info Slots</value></data>
+  <data name="InfoSlots_Title"><value>Info Slots</value></data>
+  <data name="InfoSlots_ViewerTitle"><value>Info Slots</value></data>
+  <data name="InfoSlots_NewSlot"><value>+ New Info Slot</value></data>
+  <data name="InfoSlots_EditSlot"><value>Edit Info Slot</value></data>
+  <data name="InfoSlots_DeleteSlot"><value>Delete Info Slot</value></data>
+  <data name="InfoSlots_Name"><value>Name</value></data>
+  <data name="InfoSlots_Description"><value>Description</value></data>
+  <data name="InfoSlots_DisplayMode"><value>Display Mode</value></data>
+  <data name="InfoSlots_ModeTicker"><value>Ticker</value></data>
+  <data name="InfoSlots_ModeSequential"><value>Sequential</value></data>
+  <data name="InfoSlots_SecondsPerMessage"><value>Seconds per Message</value></data>
+  <data name="InfoSlots_SecondsHelp"><value>Time to display each message (5-120 seconds)</value></data>
+  <data name="InfoSlots_ActiveMessages"><value>Active Messages</value></data>
+  <data name="InfoSlots_PgCount"><value>PGs</value></data>
+  <data name="InfoSlots_NoSlots"><value>No info slots configured.</value></data>
+  <data name="InfoSlots_NoSlotsViewer"><value>No info slots available.</value></data>
+  <data name="InfoSlots_TabGeneral"><value>General</value></data>
+  <data name="InfoSlots_TabAccess"><value>Access</value></data>
+  <data name="InfoSlots_AccessNote"><value>Select permission groups whose members can write messages to this Info Slot.</value></data>
+  <data name="InfoSlots_Messages"><value>messages</value></data>
+  <data name="InfoSlots_ManageMessages"><value>Manage Messages</value></data>
+  <data name="InfoSlots_AddMessage"><value>Add Message</value></data>
+  <data name="InfoSlots_AddMessageBtn"><value>Add Message →</value></data>
+  <data name="InfoSlots_MsgContent"><value>Message Content</value></data>
+  <data name="InfoSlots_Priority"><value>Priority</value></data>
+  <data name="InfoSlots_PriorityNormal"><value>Normal</value></data>
+  <data name="InfoSlots_PriorityHigh"><value>High</value></data>
+  <data name="InfoSlots_ExpiresAt"><value>Expires At</value></data>
+  <data name="InfoSlots_NeverExpires"><value>Never expires</value></data>
+  <data name="InfoSlots_PlacedOn"><value>Placed on</value></data>
+  <data name="InfoSlot_NoMessages"><value>No messages to display.</value></data>
 </root>
 
