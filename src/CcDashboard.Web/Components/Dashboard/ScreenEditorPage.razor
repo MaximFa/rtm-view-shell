@@ -19,6 +19,8 @@
 @using CcDashboard.Application.Queries.WidgetTemplates
 @using CcDashboard.Application.Queries.AgentStates
 @using CcDashboard.Application.Commands.WidgetTemplates
+@using CcDashboard.Application.Queries.InfoSlots
+@using CcDashboard.Contracts.DTOs.InfoSlots
 @using Microsoft.AspNetCore.Authorization
 @implements IDisposable
 
@@ -311,7 +313,7 @@
                             <input type="text" class="form-control" @bind="ConfigDisplayName" />
                         </div>
 
-                        @if (!IsQueueGridWidget(ConfiguringWidget) && !IsDayTrendWidget(ConfiguringWidget))
+                        @if (!IsQueueGridWidget(ConfiguringWidget) && !IsDayTrendWidget(ConfiguringWidget) && !IsInfoSlotWidget(ConfiguringWidget))
                         {
                             <div class="mb-3">
                                 <label class="form-label">@L["Widgets_BusinessUnit"]</label>
@@ -340,6 +342,21 @@
                                         </div>
                                     }
                                 </div>
+                            </div>
+                        }
+
+                        @if (IsInfoSlotWidget(ConfiguringWidget))
+                        {
+                            <!-- Info Slot: Select Info Slot -->
+                            <div class="mb-3">
+                                <label class="form-label">@L["InfoSlots_Name"]</label>
+                                <select class="form-select" @bind="ConfigInfoSlotId">
+                                    <option value="">— @L["Common_Select"] —</option>
+                                    @foreach (var slot in AvailableInfoSlots)
+                                    {
+                                        <option value="@slot.Id">@slot.Name (@slot.DisplayMode)</option>
+                                    }
+                                </select>
                             </div>
                         }
 
@@ -484,6 +501,36 @@
                     <!-- Tab: Appearance -->
                     @if (ConfigActiveTab == "appearance")
                     {
+                        @if (IsInfoSlotWidget(ConfiguringWidget))
+                        {
+                            <!-- Scroll Behaviour Section (InfoSlot only) -->
+                            <div class="appearance-section mb-4">
+                                <h6 class="section-label">@L["InfoSlot_ScrollBehaviour"]</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">@L["InfoSlot_ScrollDirection"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigScrollDirection">
+                                            <option value="LeftToRight">@L["InfoSlot_LeftToRight"]</option>
+                                            <option value="RightToLeft">@L["InfoSlot_RightToLeft"]</option>
+                                            <option value="TopToBottom">@L["InfoSlot_TopToBottom"]</option>
+                                            <option value="BottomToTop">@L["InfoSlot_BottomToTop"]</option>
+                                        </select>
+                                    </div>
+                                    @if (GetSelectedInfoSlotDisplayMode() == "Ticker")
+                                    {
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted mb-1">@L["InfoSlot_ScrollSpeed"]</label>
+                                            <select class="form-select form-select-sm" @bind="ConfigScrollSpeed">
+                                                <option value="Slow">@L["InfoSlot_SpeedSlow"]</option>
+                                                <option value="Medium">@L["InfoSlot_SpeedMedium"]</option>
+                                                <option value="Fast">@L["InfoSlot_SpeedFast"]</option>
+                                            </select>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
                         <!-- Typography Section -->
                         <div class="appearance-section mb-4">
                             <h6 class="section-label">Typography</h6>
@@ -785,6 +832,129 @@
                                     </div>
                                 </div>
 
+                                @if (IsInfoSlotWidget(ConfiguringWidget))
+                                {
+                                    <!-- High Priority Background (InfoSlot only) -->
+                                    <div class="color-setting-row-dual">
+                                        <span class="color-setting-label">@L["InfoSlot_PriorityHighBackground"]</span>
+                                        <div class="position-relative">
+                                            <span class="clr-swatch clr-swatch-lg"
+                                                  title="@GetColorName(ConfigPriorityHighBgColor, BackgroundColors)"
+                                                  style="@GetColorStyle(ConfigPriorityHighBgColor); cursor: pointer;"
+                                                  @onclick="@(() => ToggleColorPalette("priorityHighBg"))"
+                                                  @onclick:stopPropagation></span>
+                                            @if (_openColorPalette == "priorityHighBg")
+                                            {
+                                                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                     @onclick="CloseColorPalette"></div>
+                                                <div class="color-palette-dropdown">
+                                                    <span class="clr-swatch @(ConfigPriorityHighBgColor == "auto" ? "selected" : "")"
+                                                          title="Auto"
+                                                          style="background: linear-gradient(135deg, #ffc107 50%, #fff3cd 50%); cursor: pointer;"
+                                                          @onclick="@(() => { ConfigPriorityHighBgColor = "auto"; CloseColorPalette(); })"
+                                                          @onclick:stopPropagation></span>
+                                                    @foreach (var color in BackgroundColors.Where(c => c.Value != "auto"))
+                                                    {
+                                                        <span class="clr-swatch @(ConfigPriorityHighBgColor == color.Value ? "selected" : "")"
+                                                              title="@color.Name"
+                                                              style="@GetColorStyle(color.Value)"
+                                                              @onclick="() => { ConfigPriorityHighBgColor = color.Value; CloseColorPalette(); }"
+                                                              @onclick:stopPropagation></span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="position-relative">
+                                            <span class="clr-swatch clr-swatch-lg"
+                                                  title="@GetColorName(ConfigDarkPriorityHighBgColor, BackgroundColors)"
+                                                  style="@GetColorStyle(ConfigDarkPriorityHighBgColor); cursor: pointer;"
+                                                  @onclick="@(() => ToggleColorPalette("darkPriorityHighBg"))"
+                                                  @onclick:stopPropagation></span>
+                                            @if (_openColorPalette == "darkPriorityHighBg")
+                                            {
+                                                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                     @onclick="CloseColorPalette"></div>
+                                                <div class="color-palette-dropdown">
+                                                    <span class="clr-swatch @(ConfigDarkPriorityHighBgColor == "auto" ? "selected" : "")"
+                                                          title="Auto"
+                                                          style="background: linear-gradient(135deg, #ffc107 50%, #664d03 50%); cursor: pointer;"
+                                                          @onclick="@(() => { ConfigDarkPriorityHighBgColor = "auto"; CloseColorPalette(); })"
+                                                          @onclick:stopPropagation></span>
+                                                    @foreach (var color in BackgroundColors.Where(c => c.Value != "auto"))
+                                                    {
+                                                        <span class="clr-swatch @(ConfigDarkPriorityHighBgColor == color.Value ? "selected" : "")"
+                                                              title="@color.Name"
+                                                              style="@GetColorStyle(color.Value)"
+                                                              @onclick="() => { ConfigDarkPriorityHighBgColor = color.Value; CloseColorPalette(); }"
+                                                              @onclick:stopPropagation></span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- High Priority Text (InfoSlot only) -->
+                                    <div class="color-setting-row-dual">
+                                        <span class="color-setting-label">@L["InfoSlot_PriorityHighText"]</span>
+                                        <div class="position-relative">
+                                            <span class="clr-swatch clr-swatch-lg"
+                                                  title="@GetColorName(ConfigPriorityHighTextColor, FontColors)"
+                                                  style="@GetColorStyle(ConfigPriorityHighTextColor); cursor: pointer;"
+                                                  @onclick="@(() => ToggleColorPalette("priorityHighText"))"
+                                                  @onclick:stopPropagation></span>
+                                            @if (_openColorPalette == "priorityHighText")
+                                            {
+                                                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                     @onclick="CloseColorPalette"></div>
+                                                <div class="color-palette-dropdown">
+                                                    <span class="clr-swatch @(ConfigPriorityHighTextColor == "auto" ? "selected" : "")"
+                                                          title="Auto"
+                                                          style="background: linear-gradient(135deg, #664d03 50%, #997404 50%); cursor: pointer;"
+                                                          @onclick="@(() => { ConfigPriorityHighTextColor = "auto"; CloseColorPalette(); })"
+                                                          @onclick:stopPropagation></span>
+                                                    @foreach (var color in FontColors.Where(c => c.Value != "auto"))
+                                                    {
+                                                        <span class="clr-swatch @(ConfigPriorityHighTextColor == color.Value ? "selected" : "")"
+                                                              title="@color.Name"
+                                                              style="@GetColorStyle(color.Value)"
+                                                              @onclick="() => { ConfigPriorityHighTextColor = color.Value; CloseColorPalette(); }"
+                                                              @onclick:stopPropagation></span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="position-relative">
+                                            <span class="clr-swatch clr-swatch-lg"
+                                                  title="@GetColorName(ConfigDarkPriorityHighTextColor, FontColors)"
+                                                  style="@GetColorStyle(ConfigDarkPriorityHighTextColor); cursor: pointer;"
+                                                  @onclick="@(() => ToggleColorPalette("darkPriorityHighText"))"
+                                                  @onclick:stopPropagation></span>
+                                            @if (_openColorPalette == "darkPriorityHighText")
+                                            {
+                                                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                     @onclick="CloseColorPalette"></div>
+                                                <div class="color-palette-dropdown">
+                                                    <span class="clr-swatch @(ConfigDarkPriorityHighTextColor == "auto" ? "selected" : "")"
+                                                          title="Auto"
+                                                          style="background: linear-gradient(135deg, #ffc107 50%, #ffda6a 50%); cursor: pointer;"
+                                                          @onclick="@(() => { ConfigDarkPriorityHighTextColor = "auto"; CloseColorPalette(); })"
+                                                          @onclick:stopPropagation></span>
+                                                    @foreach (var color in FontColors.Where(c => c.Value != "auto"))
+                                                    {
+                                                        <span class="clr-swatch @(ConfigDarkPriorityHighTextColor == color.Value ? "selected" : "")"
+                                                              title="@color.Name"
+                                                              style="@GetColorStyle(color.Value)"
+                                                              @onclick="() => { ConfigDarkPriorityHighTextColor = color.Value; CloseColorPalette(); }"
+                                                              @onclick:stopPropagation></span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (!IsInfoSlotWidget(ConfiguringWidget))
+                                {
                                 <!-- Header Text Color -->
                                 <div class="color-setting-row-dual">
                                     <span class="color-setting-label">Header Text</span>
@@ -833,6 +1003,7 @@
                                         }
                                     </div>
                                 </div>
+                                }
 
                                 @if (IsAgentGridWidget(ConfiguringWidget) || IsQueueGridWidget(ConfiguringWidget))
                                 {
@@ -887,6 +1058,24 @@
                                 }
                             </div>
                         </div>
+
+                        @if (IsInfoSlotWidget(ConfiguringWidget))
+                        {
+                            <!-- Display Options Section (InfoSlot only) -->
+                            <div class="appearance-section mt-4">
+                                <h6 class="section-label">@L["Widgets_DisplayOptions"]</h6>
+                                <div class="d-flex flex-wrap gap-4">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input" id="infoSlotShowAuthor" @bind="ConfigShowAuthor" />
+                                        <label class="form-check-label" for="infoSlotShowAuthor">@L["InfoSlot_ShowAuthor"]</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input" id="infoSlotShowTimestamp" @bind="ConfigShowTimestamp" />
+                                        <label class="form-check-label" for="infoSlotShowTimestamp">@L["InfoSlot_ShowTimestamp"]</label>
+                                    </div>
+                                </div>
+                            </div>
+                        }
 
                         @if (IsAgentStateDistributionWidget(ConfiguringWidget))
                         {
@@ -2068,6 +2257,17 @@
     private string ConfigActiveTab = "general";  // general, appearance, thresholds, columns
     private string ConfigDisplayName = "";
     private string? ConfigBusinessUnit;
+    private Guid? ConfigInfoSlotId;
+    private List<InfoSlotSummaryDto> AvailableInfoSlots = [];
+    // Info Slot specific config
+    private string ConfigScrollDirection = "LeftToRight";
+    private string ConfigScrollSpeed = "Medium";
+    private string ConfigPriorityHighBgColor = "auto";
+    private string ConfigPriorityHighTextColor = "auto";
+    private string ConfigDarkPriorityHighBgColor = "auto";
+    private string ConfigDarkPriorityHighTextColor = "auto";
+    private bool ConfigShowAuthor = true;
+    private bool ConfigShowTimestamp = true;
     private string? ConfigMetric;
     private string ConfigFontSize = "14";
     private string ConfigBackgroundColor = "#FFFFFF";
@@ -2651,6 +2851,13 @@
                 }
                 catch { BusinessUnits = []; }
 
+                // Load available Info Slots
+                try
+                {
+                    AvailableInfoSlots = (await Mediator.Send(new GetInfoSlotsForWidgetConfigQuery(), _cts.Token)).ToList();
+                }
+                catch { AvailableInfoSlots = []; }
+
                 // Load tenant color palettes
                 try
                 {
@@ -2910,6 +3117,16 @@
         ConfigActiveTab = "general";
         ConfigDisplayName = widget.Config.DisplayName ?? widget.Name;
         ConfigBusinessUnit = widget.Config.BusinessUnit;
+        ConfigInfoSlotId = widget.Config.InfoSlotId;
+        // Info Slot specific
+        ConfigScrollDirection = widget.Config.ScrollDirection ?? "LeftToRight";
+        ConfigScrollSpeed = widget.Config.ScrollSpeed ?? "Medium";
+        ConfigPriorityHighBgColor = widget.Config.PriorityHighBackgroundColor ?? "auto";
+        ConfigPriorityHighTextColor = widget.Config.PriorityHighTextColor ?? "auto";
+        ConfigDarkPriorityHighBgColor = widget.Config.DarkPriorityHighBackgroundColor ?? "auto";
+        ConfigDarkPriorityHighTextColor = widget.Config.DarkPriorityHighTextColor ?? "auto";
+        ConfigShowAuthor = widget.Config.ShowAuthor;
+        ConfigShowTimestamp = widget.Config.ShowTimestamp;
         ConfigMetric = widget.Config.Metric;
         ConfigFontSize = ResolveFontSizeToPixel(widget.Config.FontSize);
         ConfigBackgroundColor = widget.Config.BackgroundColor ?? "#FFFFFF";
@@ -3159,6 +3376,20 @@
         if (widget is null) return false;
         var name = widget.OriginalWidgetName?.ToLower() ?? widget.Name.ToLower();
         return name.Contains("day") && name.Contains("trend");
+    }
+
+    private static bool IsInfoSlotWidget(PlacedWidget? widget)
+    {
+        if (widget is null) return false;
+        var name = widget.OriginalWidgetName?.ToLower() ?? widget.Name.ToLower();
+        return name.Contains("info") && name.Contains("slot");
+    }
+
+    private string GetSelectedInfoSlotDisplayMode()
+    {
+        if (ConfigInfoSlotId is null) return "Ticker";
+        var slot = AvailableInfoSlots.FirstOrDefault(s => s.Id == ConfigInfoSlotId);
+        return slot?.DisplayMode ?? "Ticker";
     }
 
     private static bool IsAgentStateDistributionWidget(PlacedWidget? widget) =>
@@ -3973,6 +4204,16 @@
         {
             DisplayName = ConfigDisplayName,
             BusinessUnit = ConfigBusinessUnit,
+            InfoSlotId = ConfigInfoSlotId,
+            // Info Slot specific
+            ScrollDirection = IsInfoSlotWidget(ConfiguringWidget) ? ConfigScrollDirection : null,
+            ScrollSpeed = IsInfoSlotWidget(ConfiguringWidget) ? ConfigScrollSpeed : null,
+            PriorityHighBackgroundColor = IsInfoSlotWidget(ConfiguringWidget) ? ConfigPriorityHighBgColor : null,
+            PriorityHighTextColor = IsInfoSlotWidget(ConfiguringWidget) ? ConfigPriorityHighTextColor : null,
+            DarkPriorityHighBackgroundColor = IsInfoSlotWidget(ConfiguringWidget) ? ConfigDarkPriorityHighBgColor : null,
+            DarkPriorityHighTextColor = IsInfoSlotWidget(ConfiguringWidget) ? ConfigDarkPriorityHighTextColor : null,
+            ShowAuthor = IsInfoSlotWidget(ConfiguringWidget) ? ConfigShowAuthor : true,
+            ShowTimestamp = IsInfoSlotWidget(ConfiguringWidget) ? ConfigShowTimestamp : true,
             BusinessUnitId = IsAgentStateDistributionWidget(ConfiguringWidget)
                 && int.TryParse(ConfigBusinessUnit, out var parsedAsdBuId)
                 ? parsedAsdBuId
@@ -4832,6 +5073,17 @@
         public int? DataSlotColumnId { get; set; }  // RTSGrid_Column.ColumnId
         public int? DataSlotRowId { get; set; }  // RTSGrid_Row.RowId
         public int? DataSlotCellId { get; set; }  // RTSGrid_Cell.CellId
+
+        // Info Slot widget specific
+        public Guid? InfoSlotId { get; set; }
+        public string? ScrollDirection { get; set; }  // LeftToRight | RightToLeft | TopToBottom | BottomToTop
+        public string? ScrollSpeed { get; set; }  // Slow | Medium | Fast
+        public string? PriorityHighBackgroundColor { get; set; }
+        public string? PriorityHighTextColor { get; set; }
+        public string? DarkPriorityHighBackgroundColor { get; set; }
+        public string? DarkPriorityHighTextColor { get; set; }
+        public bool ShowAuthor { get; set; } = true;
+        public bool ShowTimestamp { get; set; } = true;
 
         // DayTrend widget specific
         public int? DayTrendBusinessUnitId { get; set; }

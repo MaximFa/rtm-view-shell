@@ -766,5 +766,19 @@
   <data name="InfoSlot_Sequential"><value>Sequential</value></data>
   <data name="InfoSlot_SecondsPerMessage"><value>Seconds per message</value></data>
   <data name="InfoSlot_NoMessages"><value>No messages to display.</value></data>
+  <data name="InfoSlot_ScrollBehaviour"><value>Scroll Behaviour</value></data>
+  <data name="InfoSlot_ScrollDirection"><value>Scroll Direction</value></data>
+  <data name="InfoSlot_LeftToRight"><value>Left → Right</value></data>
+  <data name="InfoSlot_RightToLeft"><value>Right → Left</value></data>
+  <data name="InfoSlot_TopToBottom"><value>Top → Bottom</value></data>
+  <data name="InfoSlot_BottomToTop"><value>Bottom → Top</value></data>
+  <data name="InfoSlot_ScrollSpeed"><value>Scroll Speed</value></data>
+  <data name="InfoSlot_SpeedSlow"><value>Slow</value></data>
+  <data name="InfoSlot_SpeedMedium"><value>Medium</value></data>
+  <data name="InfoSlot_SpeedFast"><value>Fast</value></data>
+  <data name="InfoSlot_PriorityHighBackground"><value>High Priority Background</value></data>
+  <data name="InfoSlot_PriorityHighText"><value>High Priority Text</value></data>
+  <data name="InfoSlot_ShowAuthor"><value>Show Author</value></data>
+  <data name="InfoSlot_ShowTimestamp"><value>Show Timestamp</value></data>
 </root>
 

@@ -700,6 +700,20 @@
   <data name="InfoSlot_SecondsPerMessage"><value>Секунд на сообщение</value></data>
   <data name="InfoSlot_NoMessages"><value>Нет сообщений</value></data>
   <data name="InfoSlot_ExpiresAt"><value>Истекает</value></data>
+  <data name="InfoSlot_ScrollBehaviour"><value>Поведение прокрутки</value></data>
+  <data name="InfoSlot_ScrollDirection"><value>Направление прокрутки</value></data>
+  <data name="InfoSlot_LeftToRight"><value>Слева → Направо</value></data>
+  <data name="InfoSlot_RightToLeft"><value>Справа → Налево</value></data>
+  <data name="InfoSlot_TopToBottom"><value>Сверху → Вниз</value></data>
+  <data name="InfoSlot_BottomToTop"><value>Снизу → Вверх</value></data>
+  <data name="InfoSlot_ScrollSpeed"><value>Скорость прокрутки</value></data>
+  <data name="InfoSlot_SpeedSlow"><value>Медленно</value></data>
+  <data name="InfoSlot_SpeedMedium"><value>Средне</value></data>
+  <data name="InfoSlot_SpeedFast"><value>Быстро</value></data>
+  <data name="InfoSlot_PriorityHighBackground"><value>Фон высокого приоритета</value></data>
+  <data name="InfoSlot_PriorityHighText"><value>Текст высокого приоритета</value></data>
+  <data name="InfoSlot_ShowAuthor"><value>Показать автора</value></data>
+  <data name="InfoSlot_ShowTimestamp"><value>Показать время</value></data>
 
 </root>
 
