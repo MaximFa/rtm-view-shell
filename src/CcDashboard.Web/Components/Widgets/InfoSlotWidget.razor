@@ -32,8 +32,8 @@
                     <span class="is-msg @(msg.Priority == "High" ? "is-high" : "")" style="@MsgStyle">
                         @if (msg.Priority == "High") { <span class="is-star">★</span> }
                         @msg.Content
-                        @if (true) { <span class="is-author">@msg.AuthorName</span> }
-                        @if (true) { <span class="is-time">@msg.CreatedAt.ToString("HH:mm")</span> }
+                        @if (ShowAuthor) { <span class="is-author">@msg.AuthorName</span> }
+                        @if (ShowTimestamp) { <span class="is-time">@msg.CreatedAt.ToString("HH:mm")</span> }
                     </span>
                     <span class="is-sep">·····</span>
                 }
@@ -51,8 +51,8 @@
                     @msg.Content
                 </div>
                 <div class="is-msg-meta">
-                    @if (true) { <span>@msg.AuthorName</span> }
-                    @if (true) { <span>· @msg.CreatedAt.ToString("HH:mm")</span> }
+                    @if (ShowAuthor) { <span>@msg.AuthorName</span> }
+                    @if (ShowTimestamp) { <span>@(ShowAuthor ? "· " : "")@msg.CreatedAt.ToString("HH:mm")</span> }
                     @if (msg.ExpiresAt.HasValue) { <span>· @L["InfoSlot_ExpiresAt"]: @msg.ExpiresAt.Value.ToString("HH:mm")</span> }
                 </div>
             }
@@ -76,14 +76,17 @@
                  .ThenByDescending(m => m.CreatedAt)
                  .Take(int.MaxValue);
 
-    private string DirectionClass => $"is-dir-{("LeftToRight").ToLowerInvariant()}";
+    private string DirectionClass => $"is-dir-{(Config?.ScrollDirection ?? "LeftToRight").ToLowerInvariant()}";
 
-    private string AnimDuration => "Medium" switch
+    private string AnimDuration => (Config?.ScrollSpeed ?? "Medium") switch
     {
         "Slow" => "40s",
         "Fast" => "10s",
         _ => "20s"
     };
+
+    private bool ShowAuthor => Config?.ShowAuthor ?? true;
+    private bool ShowTimestamp => Config?.ShowTimestamp ?? true;
 
     private string EffectiveBackgroundColor => DarkMode
         ? (Config?.DarkBackgroundColor ?? Config?.BackgroundColor ?? "auto")

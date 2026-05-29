@@ -2647,6 +2647,136 @@ button.clr-swatch,
     color: #E4E4E7 !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   INFO SLOT WIDGET
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.is-widget {
+    height: 100%;
+    padding: var(--sp-3);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.is-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--clr-text-muted);
+    font-style: italic;
+}
+
+/* Sequential mode */
+.is-sequential {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+.is-msg-content {
+    font-size: 1.1em;
+    line-height: 1.4;
+}
+
+.is-msg-content.is-high {
+    font-weight: var(--fw-semibold);
+}
+
+.is-msg-meta {
+    font-size: 0.85em;
+    opacity: 0.7;
+}
+
+.is-star {
+    color: #f59e0b;
+    margin-inline-end: var(--sp-1);
+}
+
+/* Ticker mode */
+.is-ticker {
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.is-ticker-track {
+    display: inline-block;
+    animation: is-scroll var(--is-anim-duration, 20s) linear infinite;
+}
+
+.is-ticker .is-msg {
+    display: inline;
+}
+
+.is-ticker .is-author,
+.is-ticker .is-time {
+    font-size: 0.85em;
+    opacity: 0.7;
+    margin-inline-start: var(--sp-2);
+}
+
+.is-sep {
+    margin-inline: var(--sp-4);
+    opacity: 0.3;
+}
+
+@keyframes is-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+/* RTL support */
+.is-dir-righttoleft .is-ticker-track {
+    animation-name: is-scroll-rtl;
+}
+
+@keyframes is-scroll-rtl {
+    from { transform: translateX(0); }
+    to { transform: translateX(50%); }
+}
+
+/* Vertical scroll directions */
+.is-dir-toptobottom .is-ticker,
+.is-dir-bottomtotop .is-ticker {
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.is-dir-toptobottom .is-ticker-track,
+.is-dir-bottomtotop .is-ticker-track {
+    flex-direction: column;
+    animation-name: is-scroll-ttb;
+}
+
+.is-dir-bottomtotop .is-ticker-track {
+    animation-name: is-scroll-btt;
+}
+
+@keyframes is-scroll-ttb {
+    from { transform: translateY(0); }
+    to { transform: translateY(-50%); }
+}
+
+@keyframes is-scroll-btt {
+    from { transform: translateY(0); }
+    to { transform: translateY(50%); }
+}
+
+.is-dir-toptobottom .is-msg,
+.is-dir-bottomtotop .is-msg {
+    display: block;
+    white-space: normal;
+    padding: var(--sp-2) 0;
+}
+
+.is-dir-toptobottom .is-sep,
+.is-dir-bottomtotop .is-sep {
+    display: block;
+    text-align: center;
+    padding: var(--sp-1) 0;
+}
+
 .editor-fullscreen.dark-mode .widget-toolbar {
     background-color: #2D2D2D !important;
     border-color: rgba(255, 255, 255, 0.08) !important;

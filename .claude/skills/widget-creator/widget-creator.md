@@ -2148,6 +2148,20 @@ Get-Process -Name dotnet -ErrorAction SilentlyContinue | Stop-Process -Force
 
 After a successful build, restart the services as needed.
 
+### §28.4 Service URLs
+
+| Service | URL |
+|---------|-----|
+| Web App | https://localhost:5239/ |
+| SignalR Simulator | https://localhost:5054/ |
+
+**Start both services:**
+
+```powershell
+Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "src/CcDashboard.Web" -WindowStyle Hidden
+Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "tools/SignalRSimulator" -WindowStyle Hidden
+```
+
 ---
 
 *§28 added 2026-05-29 — build process best practice after repeated file lock issues.*
