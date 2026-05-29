@@ -2745,6 +2745,7 @@ button.clr-swatch,
 
 .is-dir-toptobottom .is-ticker-track,
 .is-dir-bottomtotop .is-ticker-track {
+    display: flex;
     flex-direction: column;
     animation-name: is-scroll-ttb;
 }
