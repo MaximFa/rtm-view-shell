@@ -4027,3 +4027,233 @@ bash tools/pre-commit-check.sh
 ---
 
 *CC-010 written: 2026-05-29.*
+
+---
+
+## CC-011
+
+### Implement Info Slot Message Edit
+
+**Status:** 🔲 Ready
+**Priority:** 🟡 Medium
+**Depends on:** CC-010 ✅
+**Spec reference:** `docs/widget-specification.md` §6.8 — "Edit mode" section
+
+---
+
+### 1. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 1.1 | `UpdateInfoSlotMessageCommand` + validator + handler | `src/CcDashboard.Application/Commands/InfoSlots/` + `src/CcDashboard.Infrastructure/Handlers/` |
+| 1.2 | `MessageUpdated` hub event in `InfoSlotHub` push | `src/CcDashboard.Web/Hubs/InfoSlotHub.cs` (push only — no new hub method) |
+| 1.3 | Inline edit UI in `InfoSlotMessages.razor` | `src/CcDashboard.Web/Components/Dashboard/InfoSlots/InfoSlotMessages.razor` |
+| 1.4 | `MessageUpdated` handler in `InfoSlotWidget.razor` | `src/CcDashboard.Web/Components/Widgets/InfoSlotWidget.razor` |
+| 1.5 | Audit event `InfoSlot.MessageUpdated` | in handler (1.1) |
+| 1.6 | Localization keys | `SharedResources.resx` + `SharedResources.ru-RU.resx` |
+
+---
+
+### 2. Command
+
+```csharp
+public record UpdateInfoSlotMessageCommand(
+    Guid MessageId,
+    string Content,
+    string Priority,
+    DateTime? ExpiresAt
+) : IRequest<InfoSlotMessageDto>;
+```
+
+**Validator:**
+- `Content` required, max 2000 chars
+- `Priority` must be `"Normal"` or `"High"`
+- `ExpiresAt` if provided must be in the future (`> UtcNow`)
+
+**Handler:**
+1. Load message by `MessageId` (GQF ensures tenant isolation)
+2. Verify `message.IsActive == true` — cannot edit deactivated message; throw `DomainException` if false
+3. **Authorization check:**
+   - Role is Viewer or Editor → `message.CreatedByUserId == currentUser.UserId` required; else `ForbiddenException`
+   - Role is Admin or Superadmin → allowed unconditionally
+4. Apply changes: `Content`, `Priority`, `ExpiresAt`
+5. `await db.SaveChangesAsync(ct)`
+6. Push `MessageUpdated` via `IHubContext<InfoSlotHub>`:
+   ```csharp
+   var group = $"t:{message.TenantId}:is:{message.InfoSlotId}";
+   await hubContext.Clients.Group(group).SendAsync("MessageUpdated", updatedDto, ct);
+   ```
+7. Write audit event `InfoSlot.MessageUpdated`:
+   - `Details`: `{ MessageId, InfoSlotId, ChangedFields: { Priority: {old, new}, ExpiresAt: {old, new} } }`
+   - **Do NOT include Content in audit** (PII)
+8. Return `InfoSlotMessageDto`
+
+---
+
+### 3. Inline Edit UI (`InfoSlotMessages.razor`)
+
+**State per component:**
+```csharp
+private Guid? _editingMessageId;       // null = no row in edit mode
+private string _editContent = "";
+private string _editPriority = "Normal";
+private DateTime? _editExpiresAt;
+private bool _editNeverExpires = true;
+private bool _editSaving;
+private string? _editError;
+```
+
+**Row rendering logic:**
+```razor
+@foreach (var msg in ActiveMessages)
+{
+    @if (_editingMessageId == msg.Id)
+    {
+        <!-- EDIT MODE -->
+        <div class="is-msg-edit">
+            <textarea @bind="_editContent" rows="2" class="form-control" />
+            <div class="is-msg-edit-footer">
+                <div>
+                    <label><input type="radio" @onchange='_ => _editPriority = "Normal"'
+                        checked='@(_editPriority == "Normal")' /> @L["Normal"]</label>
+                    <label><input type="radio" @onchange='_ => _editPriority = "High"'
+                        checked='@(_editPriority == "High")' /> @L["High"]</label>
+                </div>
+                <div>
+                    <input type="datetime-local" @bind="_editExpiresAt"
+                        disabled="@_editNeverExpires" class="form-control form-control-sm" />
+                    <label><input type="checkbox" @bind="_editNeverExpires" /> @L["InfoSlot_NeverExpires"]</label>
+                </div>
+                @if (_editError != null) { <div class="text-danger small">@_editError</div> }
+                <button class="btn btn-sm btn-secondary" @onclick="CancelEdit">@L["Cancel"]</button>
+                <button class="btn btn-sm btn-primary" @onclick="() => SaveEdit(msg.Id)"
+                    disabled="@_editSaving">@L["InfoSlot_SaveMessage"] →</button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- DISPLAY MODE -->
+        <div class="is-msg-row">
+            <!-- priority badge + author + timestamp + content + expiry -->
+            @if (CanEditMessage(msg))
+            {
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(msg)"
+                    title="@L["Edit"]"><i class="bi bi-pencil"></i></button>
+            }
+            @if (CanDeactivateMessage(msg))
+            {
+                <button class="btn btn-sm btn-outline-danger" @onclick="() => Deactivate(msg.Id)">
+                    <i class="bi bi-x-circle"></i></button>
+            }
+        </div>
+    }
+}
+```
+
+**Helper methods:**
+```csharp
+private void StartEdit(InfoSlotMessageDto msg)
+{
+    _editingMessageId = msg.Id;
+    _editContent = msg.Content;
+    _editPriority = msg.Priority;
+    _editNeverExpires = msg.ExpiresAt == null;
+    _editExpiresAt = msg.ExpiresAt?.ToLocalTime();
+    _editError = null;
+}
+
+private void CancelEdit()
+{
+    _editingMessageId = null;
+    _editError = null;
+}
+
+private async Task SaveEdit(Guid messageId)
+{
+    _editSaving = true;
+    _editError = null;
+    try
+    {
+        await Mediator.Send(new UpdateInfoSlotMessageCommand(
+            messageId,
+            _editContent,
+            _editPriority,
+            _editNeverExpires ? null : _editExpiresAt?.ToUniversalTime()));
+        _editingMessageId = null;
+        // list updated via MessageUpdated hub push
+    }
+    catch (Exception ex) { _editError = ex.Message; }
+    finally { _editSaving = false; StateHasChanged(); }
+}
+
+private bool CanEditMessage(InfoSlotMessageDto msg) =>
+    CurrentUser.IsAdminOrSuperadmin() || msg.AuthorUserId == CurrentUser.UserId;
+```
+
+**One-edit-at-a-time rule:** `StartEdit` always sets `_editingMessageId` — previous open row closes automatically because `@if (_editingMessageId == msg.Id)` becomes false.
+
+---
+
+### 4. Widget Update (`InfoSlotWidget.razor`)
+
+Register `MessageUpdated` handler alongside existing `MessageAdded` / `MessageExpired`:
+
+```csharp
+_hubConnection.On<InfoSlotMessageDto>("MessageUpdated", msg =>
+{
+    var idx = _messages.FindIndex(m => m.Id == msg.Id);
+    if (idx >= 0) _messages[idx] = msg;
+    InvokeAsync(StateHasChanged);
+});
+```
+
+---
+
+### 5. New Localization Keys
+
+| Key | EN | RU |
+|---|---|---|
+| `InfoSlot_SaveMessage` | Save message | Сохранить сообщение |
+| `InfoSlot_NeverExpires` | Never expires | Без срока действия |
+| `InfoSlot_EditMessage` | Edit message | Редактировать сообщение |
+| `InfoSlot_CannotEditInactive` | Cannot edit a deactivated message | Нельзя редактировать деактивированное сообщение |
+
+---
+
+### 6. Security
+
+- [ ] `UpdateInfoSlotMessageCommand` handler: Viewer/Editor → own message only (`CreatedByUserId == currentUser.UserId`); else `ForbiddenException`
+- [ ] Cannot edit `IsActive = false` message — `DomainException` in handler
+- [ ] `Content` rendered via `@_editContent` / `@msg.Content` — Blazor auto-encode, no MarkupString
+- [ ] `ExpiresAt` validated as future date in FluentValidation
+- [ ] Edit button hidden in UI for unauthorized users (cosmetic) — authorization enforced in handler [PG-04]
+- [ ] Audit Details excludes Content (PII)
+
+---
+
+### 7. Acceptance Criteria
+
+- [ ] Edit (✎) button visible only on own messages for Viewer/Editor; visible on all messages for Admin/Superadmin
+- [ ] Clicking ✎ opens inline edit form pre-filled with current Content, Priority, ExpiresAt
+- [ ] Only one row can be in edit mode at a time — opening second row closes first
+- [ ] Save → `UpdateInfoSlotMessageCommand` → row updates instantly via `MessageUpdated` push (no reload)
+- [ ] Widget on open dashboard updates the message in place within 2 s of Save
+- [ ] Cancel → row returns to display mode, no changes saved
+- [ ] Trying to edit a deactivated message (direct API call) → `DomainException`
+- [ ] Viewer editing another user's message (direct API call) → `ForbiddenException`
+- [ ] `ExpiresAt` in the past → validation error shown inline
+- [ ] Audit event `InfoSlot.MessageUpdated` written; Content absent from Details
+- [ ] All new strings use `@L["Key"]`; resx files updated
+- [ ] Build clean: `dotnet build CcDashboard.sln` — zero errors
+
+```bash
+# MANDATORY before every commit — no exceptions
+bash tools/pre-commit-check.sh
+# If exit code 1: restore truncated files, retry Python write, then re-check
+# Only after exit code 0: proceed with git add
+```
+
+---
+
+*CC-011 written: 2026-05-29.*

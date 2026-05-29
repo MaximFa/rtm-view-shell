@@ -2046,8 +2046,42 @@ Widget DisposeAsync
 - User sees only IS where their PG is in `info_slot_permissions` (Admin/Superadmin see all)
 
 **Manage messages modal (per IS):**
-- Active messages list: Content (truncated) | Priority badge | ExpiresAt | Author | CreatedAt | Deactivate button
-  - Deactivate: own messages → always; others' messages → Admin/Superadmin only
+
+*Active messages list:* Priority badge | Author · Timestamp | Content | ExpiresAt | **Edit (pencil)** | Deactivate (⊗)
+
+Each row has two modes:
+
+**Display mode (default):**
+```
+[★ High]  System Administrator · 29.05 10:35                              [✎] [⊗]
+Message 2
+
+[Normal]  System Administrator · 29.05 10:35                              [✎] [⊗]
+Test Message
+```
+
+**Edit mode** (click ✎ → row expands inline):
+```
+[★ High]  System Administrator · 29.05 10:35
+┌─────────────────────────────────────────────┐
+│ Message 2 (editable)                        │
+└─────────────────────────────────────────────┘
+Priority: ○ Normal  ● High     Expires At: [29/05/2025 --:--]  ☑ Never expires
+                                                          [Cancel]  [Save →]
+```
+- Clicking ✎ on another row while one is open → closes open row (one edit at a time)
+- Save → `UpdateInfoSlotMessageCommand` → push `MessageUpdated` to hub group → row returns to display mode
+- Cancel → discard changes, return to display mode
+- Push `MessageUpdated` received by open widgets → update message in place (no full reload)
+
+**Authorization (Edit):**
+- Viewer / Editor: can edit **own** messages only (`CreatedByUserId == currentUser.UserId`) — pencil hidden on others' messages
+- Admin / Superadmin: can edit any message — pencil always visible
+
+**Deactivate:** own messages → always; others' messages → Admin/Superadmin only
+
+**Audit event:** `InfoSlot.MessageUpdated` — `Details` includes `MessageId`, `InfoSlotId`, changed fields (old/new Priority, old/new ExpiresAt) — **not** Content (PII)
+
 - "+ Add Message" button → inline form:
   - Content (textarea, required)
   - Priority (Normal / High)
@@ -2174,4 +2208,4 @@ Admin/Superadmin: omit the `Permissions.Any(...)` filter.
 
 ---
 
-*Widget Specification v1.6 — §6 Info Slot Message Display Widget added. Next: CC-010.*
+*Widget Specification v1.7 — §6.8 Message Edit added (inline edit mode, UpdateInfoSlotMessageCommand, MessageUpdated hub event). Next: CC-011.*
