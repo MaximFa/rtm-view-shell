@@ -9,6 +9,7 @@
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject IMediator Mediator
 @inject NavigationManager Navigation
+@inject CcDashboard.Domain.Interfaces.ICurrentUserAccessor CurrentUser
 
 @* Info Slot Widget — CC-010 *@
 
@@ -70,6 +71,7 @@
     private int _secondsPerMessage = 10;
     private HubConnection? _hub;
     private Timer? _timer;
+    private Guid? _tenantId;
 
     private IEnumerable<InfoSlotMessageDto> OrderedMessages =>
         _messages.OrderByDescending(m => m.Priority == "High")
@@ -155,6 +157,9 @@
     {
         if (Config?.InfoSlotId is null) return;
 
+        _tenantId = CurrentUser.TenantId;
+        if (_tenantId is null) return; // not authenticated — no hub
+
         try
         {
             var hubUrl = Navigation.ToAbsoluteUri("/hubs/info-slot");
@@ -202,7 +207,7 @@
             });
 
             await _hub.StartAsync();
-            await _hub.InvokeAsync("JoinSlot", Config.InfoSlotId.Value);
+            await _hub.InvokeAsync("JoinSlot", Config.InfoSlotId.Value, _tenantId.Value);
         }
         catch
         {
@@ -243,10 +248,11 @@
         {
             if (Config?.InfoSlotId.HasValue == true)
             {
-                try { await _hub.InvokeAsync("LeaveSlot", Config.InfoSlotId.Value); }
+                try { await _hub.InvokeAsync("LeaveSlot", Config.InfoSlotId.Value, _tenantId ?? Guid.Empty); }
                 catch { /* ignore on dispose */ }
             }
             await _hub.DisposeAsync();
         }
     }
 }
+                                                                                                  

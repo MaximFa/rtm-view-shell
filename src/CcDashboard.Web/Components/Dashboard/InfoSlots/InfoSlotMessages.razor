@@ -172,13 +172,13 @@ else
                                                 <div class="form-check form-check-inline">
                                                     <input class="form-check-input" type="radio" name="editPriority" id="editPrioNormal"
                                                            checked="@(_editPriority == "Normal")"
-                                                           @onchange='() => _editPriority = "Normal"' />
+                                                           @onclick='() => _editPriority = "Normal"' />
                                                     <label class="form-check-label small" for="editPrioNormal">@L["InfoSlots_PriorityNormal"]</label>
                                                 </div>
                                                 <div class="form-check form-check-inline">
                                                     <input class="form-check-input" type="radio" name="editPriority" id="editPrioHigh"
                                                            checked="@(_editPriority == "High")"
-                                                           @onchange='() => _editPriority = "High"' />
+                                                           @onclick='() => _editPriority = "High"' />
                                                     <label class="form-check-label small" for="editPrioHigh">@L["InfoSlots_PriorityHigh"]</label>
                                                 </div>
                                             </div>
@@ -267,13 +267,13 @@ else
                                     <div class="form-check form-check-inline">
                                         <input class="form-check-input" type="radio" name="priority" id="prioNormal"
                                                checked="@(NewPriority == "Normal")"
-                                               @onchange='() => NewPriority = "Normal"' />
+                                               @onclick='() => NewPriority = "Normal"' />
                                         <label class="form-check-label" for="prioNormal">@L["InfoSlots_PriorityNormal"]</label>
                                     </div>
                                     <div class="form-check form-check-inline">
                                         <input class="form-check-input" type="radio" name="priority" id="prioHigh"
                                                checked="@(NewPriority == "High")"
-                                               @onchange='() => NewPriority = "High"' />
+                                               @onclick='() => NewPriority = "High"' />
                                         <label class="form-check-label" for="prioHigh">@L["InfoSlots_PriorityHigh"]</label>
                                     </div>
                                 </div>
