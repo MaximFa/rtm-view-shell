@@ -2047,6 +2047,19 @@ Widget DisposeAsync
 
 **Manage messages modal (per IS):**
 
+**Modal header area — Display Mode toggle:**
+```
+General Messages — messages                                              [×]
+
+Display Mode:  [● Ticker]  [○ Sequential]   Seconds per message: [10 ▲▼]
+───────────────────────────────────────────────────────────────────────
+Active Messages [2]
+```
+- Toggle switches between `Ticker` and `Sequential` immediately on click
+- `Seconds per message` input visible only when Sequential is selected (min 3, default 10)
+- Change → `UpdateInfoSlotDisplayModeCommand` → persists to DB → pushes `DisplayModeChanged` hub event to all widgets showing this IS → widget switches rendering mode in real time
+- **Authorization:** same as message write — users whose PG is in `info_slot_permissions` + Admin/Superadmin
+
 *Active messages list:* Priority badge | Author · Timestamp | Content | ExpiresAt | **Edit (pencil)** | Deactivate (⊗)
 
 Each row has two modes:
@@ -2208,4 +2221,4 @@ Admin/Superadmin: omit the `Permissions.Any(...)` filter.
 
 ---
 
-*Widget Specification v1.7 — §6.8 Message Edit added (inline edit mode, UpdateInfoSlotMessageCommand, MessageUpdated hub event). Next: CC-011.*
+*Widget Specification v1.8 — §6.8 DisplayMode toggle added to messages modal (UpdateInfoSlotDisplayModeCommand, DisplayModeChanged hub event). Next: CC-012.*

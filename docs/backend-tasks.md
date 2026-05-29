@@ -4257,3 +4257,181 @@ bash tools/pre-commit-check.sh
 ---
 
 *CC-011 written: 2026-05-29.*
+
+---
+
+## CC-012
+
+### Info Slot — Display Mode toggle in messages modal
+
+**Status:** 🔲 Ready
+**Priority:** 🟡 Medium
+**Depends on:** CC-011 ✅
+**Spec reference:** `docs/widget-specification.md` §6.8 — "Modal header area — Display Mode toggle"
+
+---
+
+### 1. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 1.1 | `UpdateInfoSlotDisplayModeCommand` + validator + handler | `src/CcDashboard.Application/Commands/InfoSlots/` + `src/CcDashboard.Infrastructure/Handlers/` |
+| 1.2 | `DisplayModeChanged` push in handler | via `IHubContext<InfoSlotHub>` |
+| 1.3 | Display Mode toggle UI in `InfoSlotMessages.razor` | `src/CcDashboard.Web/Components/Dashboard/InfoSlots/InfoSlotMessages.razor` |
+| 1.4 | `DisplayModeChanged` handler in `InfoSlotWidget.razor` | `src/CcDashboard.Web/Components/Widgets/InfoSlotWidget.razor` |
+| 1.5 | Localization keys | `SharedResources.resx` + `SharedResources.ru-RU.resx` |
+
+---
+
+### 2. Command
+
+```csharp
+public record UpdateInfoSlotDisplayModeCommand(
+    Guid InfoSlotId,
+    string DisplayMode,       // "Ticker" | "Sequential"
+    int SecondsPerMessage     // min 3, default 10; relevant only for Sequential
+) : IRequest;
+```
+
+**Validator:**
+- `DisplayMode` must be `"Ticker"` or `"Sequential"`
+- `SecondsPerMessage` range 3–3600
+
+**Handler:**
+1. Load `InfoSlot` by `InfoSlotId` (GQF — tenant isolation automatic)
+2. **Authorization:** verify user's `PermissionGroupId` is in `info_slot_permissions` for this IS — **or** role is Admin/Superadmin; else `ForbiddenException`
+3. Update `slot.DisplayMode` and `slot.SecondsPerMessage`
+4. `await db.SaveChangesAsync(ct)`
+5. Push `DisplayModeChanged` via `IHubContext<InfoSlotHub>`:
+   ```csharp
+   var group = $"t:{slot.TenantId}:is:{slot.Id}";
+   await hubContext.Clients.Group(group).SendAsync(
+       "DisplayModeChanged",
+       new { DisplayMode = slot.DisplayMode, SecondsPerMessage = slot.SecondsPerMessage },
+       ct);
+   ```
+6. Write audit event `InfoSlot.Updated` — `Details`: `{ InfoSlotId, Field: "DisplayMode", Old: oldMode, New: newMode }`
+
+---
+
+### 3. UI — `InfoSlotMessages.razor`
+
+Add to modal header, between modal title and "Active Messages" label:
+
+```razor
+<div class="is-mode-toggle">
+    <span class="me-2">@L["InfoSlot_DisplayMode"]:</span>
+    <div class="btn-group btn-group-sm" role="group">
+        <button type="button"
+            class="btn @(_currentDisplayMode == "Ticker" ? "btn-primary" : "btn-outline-secondary")"
+            @onclick='() => SetDisplayMode("Ticker")'>
+            @L["InfoSlot_Ticker"]
+        </button>
+        <button type="button"
+            class="btn @(_currentDisplayMode == "Sequential" ? "btn-primary" : "btn-outline-secondary")"
+            @onclick='() => SetDisplayMode("Sequential")'>
+            @L["InfoSlot_Sequential"]
+        </button>
+    </div>
+    @if (_currentDisplayMode == "Sequential")
+    {
+        <span class="ms-3">@L["InfoSlot_SecondsPerMessage"]:</span>
+        <input type="number" min="3" max="3600" @bind="_currentSeconds"
+               @bind:event="onchange" @onchange="OnSecondsChanged"
+               class="form-control form-control-sm ms-1" style="width:70px" />
+    }
+</div>
+```
+
+**State:**
+```csharp
+private string _currentDisplayMode = "Ticker";
+private int _currentSeconds = 10;
+
+// Initialise on modal open from InfoSlotViewerDto:
+_currentDisplayMode = slot.DisplayMode;
+_currentSeconds = slot.SecondsPerMessage;
+```
+
+**Handlers:**
+```csharp
+private async Task SetDisplayMode(string mode)
+{
+    if (mode == _currentDisplayMode) return;
+    _currentDisplayMode = mode;
+    await Mediator.Send(new UpdateInfoSlotDisplayModeCommand(
+        _currentSlot.Id, _currentDisplayMode, _currentSeconds));
+    StateHasChanged();
+}
+
+private async Task OnSecondsChanged(ChangeEventArgs e)
+{
+    if (int.TryParse(e.Value?.ToString(), out var s) && s >= 3)
+    {
+        _currentSeconds = s;
+        await Mediator.Send(new UpdateInfoSlotDisplayModeCommand(
+            _currentSlot.Id, _currentDisplayMode, _currentSeconds));
+    }
+}
+```
+
+`SecondsPerMessage` change: debounce 800 ms before sending command (avoid rapid-fire on spinner clicks). Use `System.Threading.Timer` or `Task.Delay` cancellation pattern.
+
+---
+
+### 4. Widget — `InfoSlotWidget.razor`
+
+Register `DisplayModeChanged` handler alongside existing events:
+
+```csharp
+_hubConnection.On<DisplayModeChangedPayload>("DisplayModeChanged", payload =>
+{
+    _displayMode = payload.DisplayMode;
+    _secondsPerMessage = payload.SecondsPerMessage;
+    // restart Sequential timer if running
+    if (_displayMode == "Sequential") RestartSequentialTimer();
+    else _sequentialTimer?.Dispose();
+    InvokeAsync(StateHasChanged);
+});
+
+private record DisplayModeChangedPayload(string DisplayMode, int SecondsPerMessage);
+```
+
+`_displayMode` drives the render branch (`@if (_displayMode == "Ticker")` vs Sequential). On `DisplayModeChanged` the widget switches rendering mode in real time without page reload.
+
+---
+
+### 5. Localization Keys
+
+| Key | EN | RU |
+|---|---|---|
+| `InfoSlot_DisplayMode` | Display Mode | Режим отображения |
+| `InfoSlot_Ticker` | Ticker | Бегущая строка |
+| `InfoSlot_Sequential` | Sequential | Последовательный |
+| `InfoSlot_SecondsPerMessage` | Seconds per message | Секунд на сообщение |
+
+---
+
+### 6. Acceptance Criteria
+
+- [ ] Messages modal header shows Ticker / Sequential toggle pre-filled from current IS `DisplayMode`
+- [ ] Switching Ticker → Sequential: `SecondsPerMessage` input appears; command sent; DB updated
+- [ ] Switching Sequential → Ticker: `SecondsPerMessage` input hidden; command sent; DB updated
+- [ ] Changing `SecondsPerMessage` (with 800 ms debounce): command sent; DB updated
+- [ ] Widget on open dashboard switches rendering mode in real time via `DisplayModeChanged` push (no reload)
+- [ ] Sequential timer restarts with new `SecondsPerMessage` after `DisplayModeChanged`
+- [ ] Viewer without PG access trying to change mode (direct API) → `ForbiddenException`
+- [ ] Audit event `InfoSlot.Updated` with DisplayMode old/new written
+- [ ] `SecondsPerMessage < 3` → validation error (not sent)
+- [ ] Build clean: `dotnet build CcDashboard.sln` — zero errors
+
+```bash
+# MANDATORY before every commit — no exceptions
+bash tools/pre-commit-check.sh
+# If exit code 1: restore truncated files, retry Python write, then re-check
+# Only after exit code 0: proceed with git add
+```
+
+---
+
+*CC-012 written: 2026-05-29.*
