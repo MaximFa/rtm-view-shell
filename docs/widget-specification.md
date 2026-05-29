@@ -1752,3 +1752,426 @@ OTHER segment logic unchanged: `Math.Max(0, loggedIn - SUM(all active group valu
 ---
 
 *Widget Specification v1.5 — §5 Agent State Definitions registry added. Next: CC-008.*
+
+
+---
+
+## 6. Info Slot — Message Display Widget
+
+> **⚠ MANDATORY for CC implementation:** before writing any code for this widget, read
+> `.claude/skills/widget-creator/widget-creator.md` — specifically **§22** (CC task template structure).
+> This widget does **NOT** use Queue Grid or Agent Grid infrastructure.
+> It is a **shell-managed widget** with its own SignalR hub (`InfoSlotHub`),
+> new DB entities, and new admin/viewer pages.
+> Inspect `InfoSlotWidget.razor` (to be created) alongside `DayTrendWidget.razor` for Blazor patterns.
+
+### 6.1 Overview
+
+**Widget name:** Info Slot
+**WidgetCatalogItem.Category:** `General`
+**WidgetCatalogItem.Name:** `Info Slot`
+
+**Purpose:** Displays scrolling messages written by management staff in real time on contact-centre dashboards. Messages are stored in the shell's own database and pushed to widgets via a shell-owned SignalR hub (`InfoSlotHub`). This widget is **not** backed by CC platform RTS metrics.
+
+**Key concepts:**
+
+| Concept | Description |
+|---|---|
+| **Info Slot (IS)** | Named container created by an Administrator. Has a display mode; assigned to Permission Groups that can write messages. |
+| **Message** | Text written by a Viewer (or higher) with optional expiry date and priority level. |
+| **Widget instance** | Blazor component placed on a dashboard, connected to exactly one IS. Multiple instances on different dashboards can share the same IS. |
+
+**Architecture:** Shell-managed. New DB entities (`info_slots`, `info_slot_permissions`, `info_slot_messages`) + `InfoSlotHub` (Blazor Server SignalR hub, separate from `SignalRQueueGridHub`) + `InfoSlotExpiryService` (BackgroundService).
+
+---
+
+### 6.2 Visual Layout
+
+**Ticker mode (`DisplayMode = "Ticker"`):**
+
+All active messages concatenated into one continuous scrolling band. High-priority messages shown first, prefixed with `★`.
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│ ★ Urgent: Server maintenance at 18:00  ·····  Team meeting at 15:30  ·····  │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+Scroll direction (per widget config): left→right, right→left, top→bottom, bottom→top.
+High-priority message segment rendered with `priorityHighBackgroundColor` + `priorityHighTextColor`.
+
+**Sequential mode (`DisplayMode = "Sequential"`):**
+
+One message at a time, auto-advances every `SecondsPerMessage` seconds. High-priority messages shown first, then Normal in descending `CreatedAt` order.
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                                                                    │
+│   ★  Urgent: Server maintenance at 18:00                           │
+│      Admin · 14:23  ·  expires 18:00                               │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+**Empty state:**
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                    No active messages                              │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+Text from `emptyStateMessage` config field; falls back to `@L["InfoSlot_NoMessages"]` if empty.
+
+---
+
+### 6.3 Configuration Options
+
+#### Tab: General
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `displayName` | string | No | Widget label in dashboard editor. Default: IS name. |
+| `infoSlotId` | uuid | Yes | Selected Info Slot. Dropdown: IS name only. |
+
+#### Tab: Appearance
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `scrollDirection` | enum | Yes | `LeftToRight` / `RightToLeft` / `TopToBottom` / `BottomToTop`. Default: `LeftToRight`. |
+| `scrollSpeed` | enum | No | `Slow` / `Medium` / `Fast`. Default: `Medium`. Ticker only; hidden in Sequential mode. |
+| `fontSize` | integer | No | Font size in px. Default: `14`. |
+| `backgroundColor` | string | No | Hex colour, `"transparent"`, or `"auto"` (follows Light/Dark mode). Default: `"auto"`. |
+| `textColor` | string | No | Hex colour or `"auto"`. Default: `"auto"`. |
+| `priorityHighBackgroundColor` | string | No | Background for High-priority messages. Default: `"auto"` (Bootstrap warning-bg-subtle). |
+| `priorityHighTextColor` | string | No | Text colour for High-priority messages. Default: `"auto"` (Bootstrap warning-text-emphasis). |
+| `showAuthor` | bool | No | Show author name under message. Default: `true`. |
+| `showTimestamp` | bool | No | Show creation timestamp. Default: `true`. |
+
+#### Tab: Advanced
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `emptyStateMessage` | string | No | Text shown when no active messages. Default: `""` → uses `@L["InfoSlot_NoMessages"]`. |
+| `maxMessagesVisible` | integer | No | Maximum messages in Ticker at once. `0` = all. Default: `0`. Ticker only. |
+
+---
+
+### 6.4 Data Model
+
+#### `info_slots`
+
+| Column | Type | Notes |
+|---|---|---|
+| Id | uuid (UUIDv7) | PK |
+| TenantId | uuid | FK → tenants; GQF |
+| Name | varchar(200) | Required; unique per tenant |
+| Description | varchar(500) | Optional |
+| DisplayMode | varchar(20) | `Ticker` / `Sequential` |
+| SecondsPerMessage | integer | Sequential only; default 10; min 3 |
+| IsActive | boolean | Deactivation/deletion blocked if placed on any dashboard |
+| CreatedAt | timestamptz | UTC |
+| CreatedByUserId | uuid | |
+| UpdatedAt | timestamptz | UTC |
+| UpdatedByUserId | uuid | |
+
+Unique index: `(TenantId, Name)`.
+
+#### `info_slot_permissions`
+
+| Column | Type | Notes |
+|---|---|---|
+| InfoSlotId | uuid | FK → info_slots CASCADE DELETE |
+| PermissionGroupId | uuid | FK → permission_groups CASCADE DELETE |
+| TenantId | uuid | For GQF |
+
+PK: `(InfoSlotId, PermissionGroupId)`.
+
+#### `info_slot_messages`
+
+| Column | Type | Notes |
+|---|---|---|
+| Id | uuid (UUIDv7) | PK |
+| InfoSlotId | uuid | FK → info_slots CASCADE DELETE |
+| TenantId | uuid | For GQF |
+| Content | text | Required |
+| Priority | varchar(10) | `Normal` / `High` |
+| ExpiresAt | timestamptz? | Nullable — if null, never expires |
+| IsActive | boolean | Default true; set false on deactivation or expiry |
+| CreatedAt | timestamptz | UTC |
+| CreatedByUserId | uuid | |
+| DeactivatedAt | timestamptz? | Set when IsActive → false |
+| DeactivatedByUserId | uuid? | |
+
+Index: `(InfoSlotId, IsActive, ExpiresAt)` for background service batch query.
+Index: `(TenantId, CreatedAt DESC)` for Viewer page listing.
+
+---
+
+### 6.5 Real-Time Architecture
+
+**Hub:** `InfoSlotHub : Hub` (shell-owned, separate from `SignalRQueueGridHub`)
+**URL:** `/hubs/info-slot`
+**Group naming:** `t:{tenantId}:is:{infoSlotId}` — per ARCH-09
+**Auth:** `[Authorize]` on hub class; verify `TenantId` from `ClaimsPrincipal` inside each hub method — per CLAUDE.md §25.
+
+#### Connection flow
+
+```
+Widget mounts
+  → GetActiveMessagesQuery(infoSlotId, tenantId)   ← DB: IsActive=true, ExpiresAt IS NULL OR ExpiresAt > NOW()
+  → Render initial message list
+  → Connect to InfoSlotHub, join group "t:{tenantId}:is:{infoSlotId}"
+
+Viewer submits message
+  → CreateInfoSlotMessageCommand → DB INSERT → push MessageAdded to hub group
+
+Admin/Viewer deactivates message
+  → DeactivateInfoSlotMessageCommand → DB UPDATE → push MessageDeactivated to hub group
+
+Background service (every 60 s)
+  → Batch UPDATE expired messages → push MessageExpired per message to hub group
+
+Widget DisposeAsync
+  → HubConnection.DisposeAsync()
+```
+
+#### Server-push events
+
+| Event | Payload | Trigger |
+|---|---|---|
+| `MessageAdded` | `InfoSlotMessageDto` | Message created via `CreateInfoSlotMessageCommand` |
+| `MessageDeactivated` | `{ MessageId: Guid }` | Message deactivated by author or Admin |
+| `MessageExpired` | `{ MessageId: Guid }` | `InfoSlotExpiryService` batch run |
+
+#### Background service: `InfoSlotExpiryService`
+
+- Inherits `BackgroundService`; registered in DI as hosted service.
+- Runs every 60 seconds (configurable via `appsettings`).
+- Must create a DI scope and set `TenantId` per tenant — per ARCH-07.
+- Query pattern (runs for all tenants):
+  ```sql
+  UPDATE info_slot_messages
+  SET "IsActive" = false, "DeactivatedAt" = NOW()
+  WHERE "IsActive" = true
+    AND "ExpiresAt" IS NOT NULL
+    AND "ExpiresAt" <= NOW()
+  RETURNING "Id", "TenantId", "InfoSlotId"
+  ```
+- For each expired row: push `MessageExpired` via `IHubContext<InfoSlotHub>` to correct group.
+- Logs count of expired messages per run at Information level; no PII in log.
+
+---
+
+### 6.6 ConfigJson Schema
+
+```json
+{
+  "infoSlotId": null,
+  "displayName": "",
+  "scrollDirection": "LeftToRight",
+  "scrollSpeed": "Medium",
+  "fontSize": 14,
+  "backgroundColor": "auto",
+  "textColor": "auto",
+  "priorityHighBackgroundColor": "auto",
+  "priorityHighTextColor": "auto",
+  "showAuthor": true,
+  "showTimestamp": true,
+  "emptyStateMessage": "",
+  "maxMessagesVisible": 0
+}
+```
+
+---
+
+### 6.7 Widget Settings Panel (for CC)
+
+**Tab: General**
+- **Widget display name** — text input. Label: `@L["Widget_DisplayName"]`. Placeholder: IS name.
+- **Info Slot** — dropdown. Label: `@L["InfoSlot_SelectSlot"]`. Loads all IS accessible to user (Admin/Superadmin: all for tenant; Editor/Viewer: only IS where their PG is in `info_slot_permissions`). Shows IS name only. Required — cannot save without selection.
+
+**Tab: Appearance**
+- **Scroll Direction** — `<select>`. Label: `@L["InfoSlot_ScrollDirection"]`. Options: Left→Right, Right→Left, Top→Bottom, Bottom→Top.
+- **Scroll Speed** — `<select>`. Label: `@L["InfoSlot_ScrollSpeed"]`. Options: Slow / Medium / Fast. Visible only when selected IS has `DisplayMode = "Ticker"`.
+- **Font Size** — number input (px). Label: `@L["Widget_FontSize"]`.
+- **Background Color** — colour picker with `transparent` and `auto` options. Label: `@L["Widget_BackgroundColor"]`. `auto` → CSS variable `var(--widget-bg)`.
+- **Text Color** — colour picker with `auto`. Label: `@L["Widget_TextColor"]`.
+- **High Priority Background** — colour picker with `auto`. Label: `@L["InfoSlot_PriorityHighBackground"]`. `auto` → `var(--bs-warning-bg-subtle)`.
+- **High Priority Text Color** — colour picker with `auto`. Label: `@L["InfoSlot_PriorityHighText"]`. `auto` → `var(--bs-warning-text-emphasis)`.
+- **Show Author** — checkbox. Label: `@L["InfoSlot_ShowAuthor"]`.
+- **Show Timestamp** — checkbox. Label: `@L["InfoSlot_ShowTimestamp"]`.
+
+**Tab: Advanced**
+- **Empty State Message** — text input. Label: `@L["InfoSlot_EmptyStateMessage"]`. Placeholder: `@L["InfoSlot_NoMessages"]`.
+- **Max Messages Visible** — number input. Label: `@L["InfoSlot_MaxMessages"]`. Min 0 (= all). Visible only when `DisplayMode = "Ticker"`.
+
+---
+
+### 6.8 New Pages
+
+#### `/admin/info-slots` — Info Slot Management (Admin + Superadmin)
+
+**Superadmin tenant selector:** Dropdown at the top of the page — "All Tenants" or a specific tenant. Loads tenant list via `GetTenantsQuery`. Selection reloads the IS list filtered by `SelectedTenantId`. "All Tenants" → handler uses `IgnoreQueryFilters()` + no TenantId filter → writes `Tenant.CrossTenantAccess` audit event.
+
+**List view:**
+- Table: Name | DisplayMode badge | Active messages count | PG count | Status (active/inactive) | Edit button | Delete button
+- "+ New Info Slot" button (top right) → opens create modal
+
+**Create/Edit modal — 2 tabs:**
+
+*Tab: General*
+- Name (required, unique per tenant)
+- Description (optional)
+- Display Mode: Ticker / Sequential
+- Seconds Per Message (number, min 3, default 10) — visible only when DisplayMode = Sequential
+- Is Active (toggle) — on deactivate/delete: check `dashboard_widgets` for any widget with `ConfigJson` containing this IS id; if found → block action + show warning modal listing dashboard names
+
+*Tab: Access — PG Assignment*
+- Dual-pane selector (standard project pattern): Available PGs ↔ Assigned PGs
+- Label: `@L["InfoSlot_AssignedGroups"]`
+
+**Delete IS:**
+- Confirmation dialog: `@L["InfoSlot_Delete_Confirm"]`
+- Pre-check: if any `DashboardWidget.ConfigJson` references this IS id → show blocking modal with list of dashboard names; delete button disabled until all placements removed
+- On confirm: hard delete (CASCADE handles permissions + messages)
+- Audit event: `InfoSlot.Deleted`
+
+#### `/info-slots` — Message Management (all roles; PG-gated per IS)
+
+**Superadmin tenant selector:** Same pattern as `/admin/info-slots` — dropdown "All Tenants" / specific tenant at top of page. Switching tenant reloads IS list. "All Tenants" → show all IS across all tenants (with tenant name badge on each IS card).
+
+**List view:**
+- Cards or table: IS name | DisplayMode badge | Active messages count | Dashboard list (names of dashboards where IS is placed) | "Manage messages" button
+- User sees only IS where their PG is in `info_slot_permissions` (Admin/Superadmin see all)
+
+**Manage messages modal (per IS):**
+- Active messages list: Content (truncated) | Priority badge | ExpiresAt | Author | CreatedAt | Deactivate button
+  - Deactivate: own messages → always; others' messages → Admin/Superadmin only
+- "+ Add Message" button → inline form:
+  - Content (textarea, required)
+  - Priority (Normal / High)
+  - Expires At (datetime picker, optional)
+  - Submit → `CreateInfoSlotMessageCommand` → push `MessageAdded` to hub group
+
+---
+
+### 6.9 Permission Groups — New Info Slots Tab
+
+In the PG editor (Screen 03, `/admin/permission-groups`), add a new tab **"Info Slots"**:
+
+- Heading: `@L["PermGroup_InfoSlots"]` — `info_slot_permissions`
+- Note: `@L["PermGroup_InfoSlots_Note"]` — "Members of this group can write messages to assigned Info Slots"
+- List of assigned IS with remove (×) button
+- "+ Add Info Slot" button → search/select dialog (IS name search)
+
+New `MenuKey`: `menu.infoSlots` — accessible to all roles (each user sees only IS their PG can write to). Add to `menu_permissions` seed and NavMenu.
+
+---
+
+### 6.10 Access Control
+
+| Action | Superadmin | Administrator | Editor | Viewer |
+|---|---|---|---|---|
+| View `/admin/info-slots` | ✅ | ✅ | — | — |
+| Create / Edit Info Slot | ✅ | ✅ | — | — |
+| Delete / Deactivate Info Slot | ✅ | ✅ | — | — |
+| Assign PG to Info Slot | ✅ | ✅ | — | — |
+| View `/info-slots` page | ✅ | ✅ | ✅ | ✅ (PG-gated) |
+| Write message to IS | ✅ | ✅ | ✅ | ✅ (PG-gated) |
+| Deactivate own message | ✅ | ✅ | ✅ | ✅ (own only) |
+| Deactivate any message | ✅ | ✅ | — | — |
+| Place IS widget on dashboard | ✅ | ✅ | ✅ (PG) | — |
+| View IS widget on dashboard | ✅ | ✅ | ✅ | ✅ |
+
+**PG-gated:** user must belong to a PG listed in `info_slot_permissions` for the given IS.
+**[PG-04] enforced:** IS write access is checked in Application Layer (`AuthorizationBehavior`), not UI only.
+
+---
+
+### 6.11 WidgetCatalogItem Seed
+
+```csharp
+new WidgetCatalogItem
+{
+    Id = Uuid.NewSequential(),
+    Category = "General",
+    Name = "Info Slot",
+    Description = "Displays scrolling messages written by management staff. " +
+                  "Supports Ticker (continuous band) and Sequential (one-at-a-time) display modes " +
+                  "with configurable scroll direction and priority highlighting.",
+    IconUrl = "/icons/widgets/info-slot.svg",
+    IsActive = true
+}
+```
+
+---
+
+### 6.12 Implementation Notes
+
+**Scroll animation (CSS):**
+Use `@keyframes` + `animation` on a wrapper `<div>`. Map `ScrollSpeed` to animation duration:
+
+| Speed | Ticker duration | Notes |
+|---|---|---|
+| Slow | 40 s | `animation: ticker-scroll 40s linear infinite` |
+| Medium | 20 s | Default |
+| Fast | 10 s | |
+
+Direction determines keyframe axis and sign:
+- `LeftToRight`: `translateX(-100%) → translateX(100%)`
+- `RightToLeft`: `translateX(100%) → translateX(-100%)`
+- `TopToBottom`: `translateY(-100%) → translateY(100%)`
+- `BottomToTop`: `translateY(100%) → translateY(-100%)`
+
+Sequential mode: CSS `opacity` fade or slide transition between messages; JS timer advances index every `SecondsPerMessage × 1000` ms.
+
+**Light/Dark mode colours:**
+- `backgroundColor = "auto"` → `var(--widget-bg)` (already defined in project theme)
+- `textColor = "auto"` → `var(--widget-text)`
+- Priority High `auto` → `var(--bs-warning-bg-subtle)` / `var(--bs-warning-text-emphasis)`
+
+**Message ordering rule:**
+High priority first → within same priority, descending `CreatedAt`. In Ticker: concatenate with `·····` (5 middle dots) separator. In Sequential: cycle index; wrap around after last message.
+
+**IS deactivation / deletion guard:**
+Before UPDATE `IsActive = false` or DELETE on `info_slots`:
+```csharp
+var placements = await db.DashboardWidgets
+    .Where(w => w.ConfigJson.Contains(infoSlotId.ToString()))
+    .Select(w => new { w.Dashboard.Name })
+    .ToListAsync(ct);
+if (placements.Any())
+    throw new DomainException($"Info Slot is placed on {placements.Count} dashboard(s): {string.Join(", ", placements.Select(p => p.Name))}");
+```
+
+**Audit events** (add to CLAUDE.md §16):
+`InfoSlot.Created`, `InfoSlot.Updated`, `InfoSlot.Deactivated`, `InfoSlot.Deleted`,
+`InfoSlot.MessageAdded`, `InfoSlot.MessageDeactivated`, `InfoSlot.MessageExpired`
+
+**SignalR group naming example:**
+`t:3fa85f64-5717-4562-b3fc-2c963f66afa6:is:7f3b1c2d-4e5a-6b7c-8d9e-0f1a2b3c4d5e`
+
+**Viewer page IS list query:**
+```csharp
+var slots = await db.InfoSlots
+    .Where(s => s.TenantId == tenantId && s.IsActive &&
+                s.Permissions.Any(p => p.PermissionGroupId == currentUser.PermissionGroupId))
+    .Select(s => new InfoSlotListDto
+    {
+        Id = s.Id,
+        Name = s.Name,
+        DisplayMode = s.DisplayMode,
+        ActiveMessageCount = s.Messages.Count(m => m.IsActive && (m.ExpiresAt == null || m.ExpiresAt > DateTime.UtcNow)),
+        Dashboards = db.DashboardWidgets
+            .Where(w => w.ConfigJson.Contains(s.Id.ToString()))
+            .Select(w => w.Dashboard.Name)
+            .ToList()
+    })
+    .ToListAsync(ct);
+```
+Admin/Superadmin: omit the `Permissions.Any(...)` filter.
+
+---
+
+*Widget Specification v1.6 — §6 Info Slot Message Display Widget added. Next: CC-010.*

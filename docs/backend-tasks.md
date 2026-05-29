@@ -3292,3 +3292,667 @@ bash tools/pre-commit-check.sh
 ---
 
 *CC-009 written: 2026-05-28. Updated 2026-05-28: corrected deletion pattern (3-place ScreenEditorPage rule, L-26)*
+
+
+---
+
+## CC-010
+
+### Implement Info Slot Widget — Message Display System
+
+**Status:** 🔲 Ready
+**Priority:** 🔴 High
+**Depends on:** CC-009 ✅
+**Spec reference:** `docs/widget-specification.md` §6 — read in full before starting
+**Skill:** `.claude/skills/widget-creator/widget-creator.md` — read §22 (task template) for structure reference
+
+---
+
+### 1. Overview
+
+This task implements a complete new feature: the **Info Slot** message display system.
+It is **not** a Queue Grid or Agent Grid widget. It uses its own DB tables, SignalR hub,
+and background service — all managed by the shell, not the CC platform.
+
+Deliverables span four areas: infrastructure (DB + hub + service), application layer
+(CQRS commands/queries), UI pages (admin + viewer), and the dashboard widget component.
+
+---
+
+### 2. Deliverables
+
+| # | Deliverable | Location |
+|---|---|---|
+| 2.1 | EF migration `AddInfoSlotTables` | `src/CcDashboard.Infrastructure/Migrations/` |
+| 2.2 | Domain entities: `InfoSlot`, `InfoSlotPermission`, `InfoSlotMessage` | `src/CcDashboard.Domain/Domain/` |
+| 2.3 | EF configurations for all 3 entities | `src/CcDashboard.Infrastructure/Persistence/Configurations/` |
+| 2.4 | Application layer: commands, queries, handlers, validators | `src/CcDashboard.Application/` |
+| 2.5 | `InfoSlotHub` (SignalR hub) | `src/CcDashboard.Web/Hubs/InfoSlotHub.cs` |
+| 2.6 | `InfoSlotExpiryService` (BackgroundService) | `src/CcDashboard.Infrastructure/BackgroundServices/` |
+| 2.7 | Admin page `/admin/info-slots` | `src/CcDashboard.Web/Components/Admin/InfoSlotAdmin.razor` |
+| 2.8 | Viewer page `/info-slots` | `src/CcDashboard.Web/Components/Dashboard/InfoSlots/InfoSlotMessages.razor` |
+| 2.9 | PG editor — new "Info Slots" tab | `src/CcDashboard.Web/Components/Admin/GroupAdmin.razor` (extend) |
+| 2.10 | NavMenu — new menu item `menu.infoSlots` | `src/CcDashboard.Web/Components/Layout/NavMenu.razor` (extend) |
+| 2.11 | `InfoSlotWidget.razor` (dashboard widget) | `src/CcDashboard.Web/Components/Dashboard/Widgets/InfoSlotWidget.razor` |
+| 2.12 | CSS animations for scroll directions | `src/CcDashboard.Web/wwwroot/css/widgets/info-slot.css` |
+| 2.13 | `WidgetCatalogItem` seed + `MenuKey` seed | `src/CcDashboard.Infrastructure/Persistence/Seed/` |
+
+---
+
+### 3. Implementation Instructions
+
+#### 3.1 Domain Entities
+
+```csharp
+// InfoSlot.cs
+public class InfoSlot : IAuditableEntity
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = default!;
+    public string? Description { get; set; }
+    public string DisplayMode { get; set; } = "Ticker"; // "Ticker" | "Sequential"
+    public int SecondsPerMessage { get; set; } = 10;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public Guid CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public Guid UpdatedByUserId { get; set; }
+
+    public ICollection<InfoSlotPermission> Permissions { get; set; } = [];
+    public ICollection<InfoSlotMessage> Messages { get; set; } = [];
+}
+
+// InfoSlotPermission.cs
+public class InfoSlotPermission
+{
+    public Guid InfoSlotId { get; set; }
+    public Guid PermissionGroupId { get; set; }
+    public Guid TenantId { get; set; }
+
+    public InfoSlot InfoSlot { get; set; } = default!;
+    public PermissionGroup PermissionGroup { get; set; } = default!;
+}
+
+// InfoSlotMessage.cs
+public class InfoSlotMessage
+{
+    public Guid Id { get; set; }
+    public Guid InfoSlotId { get; set; }
+    public Guid TenantId { get; set; }
+    public string Content { get; set; } = default!;
+    public string Priority { get; set; } = "Normal"; // "Normal" | "High"
+    public DateTime? ExpiresAt { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public Guid CreatedByUserId { get; set; }
+    public DateTime? DeactivatedAt { get; set; }
+    public Guid? DeactivatedByUserId { get; set; }
+
+    public InfoSlot InfoSlot { get; set; } = default!;
+}
+```
+
+#### 3.2 EF Configuration
+
+```csharp
+// InfoSlotConfiguration.cs
+builder.ToTable("info_slots");
+builder.HasKey(x => x.Id);
+builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
+builder.Property(x => x.DisplayMode).HasMaxLength(20).IsRequired();
+builder.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+builder.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+
+// InfoSlotPermissionConfiguration.cs
+builder.ToTable("info_slot_permissions");
+builder.HasKey(x => new { x.InfoSlotId, x.PermissionGroupId });
+builder.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+
+// InfoSlotMessageConfiguration.cs
+builder.ToTable("info_slot_messages");
+builder.HasKey(x => x.Id);
+builder.HasIndex(x => new { x.InfoSlotId, x.IsActive, x.ExpiresAt });
+builder.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+```
+
+#### 3.3 Application Layer — Commands and Queries
+
+**Commands:**
+
+```csharp
+// CreateInfoSlotCommand
+public record CreateInfoSlotCommand(
+    string Name,
+    string? Description,
+    string DisplayMode,
+    int SecondsPerMessage,
+    List<Guid> PermissionGroupIds
+) : IRequest<Guid>;
+
+// UpdateInfoSlotCommand
+public record UpdateInfoSlotCommand(
+    Guid Id,
+    string Name,
+    string? Description,
+    string DisplayMode,
+    int SecondsPerMessage,
+    bool IsActive,
+    List<Guid> PermissionGroupIds
+) : IRequest;
+
+// DeleteInfoSlotCommand — fails if any DashboardWidget references this IS
+public record DeleteInfoSlotCommand(Guid Id) : IRequest;
+
+// DeactivateInfoSlotCommand — same guard as delete
+public record DeactivateInfoSlotCommand(Guid Id) : IRequest;
+
+// CreateInfoSlotMessageCommand
+public record CreateInfoSlotMessageCommand(
+    Guid InfoSlotId,
+    string Content,
+    string Priority,
+    DateTime? ExpiresAt
+) : IRequest<InfoSlotMessageDto>;
+
+// DeactivateInfoSlotMessageCommand
+public record DeactivateInfoSlotMessageCommand(Guid MessageId) : IRequest;
+```
+
+**Queries:**
+
+```csharp
+// GetInfoSlotsQuery — admin list; optional TenantId for Superadmin cross-tenant
+public record GetInfoSlotsQuery(Guid? TenantId = null) : IRequest<IReadOnlyList<InfoSlotListDto>>;
+
+// GetInfoSlotsForViewerQuery — PG-gated; includes dashboard placements
+public record GetInfoSlotsForViewerQuery(Guid? TenantId = null) : IRequest<IReadOnlyList<InfoSlotViewerDto>>;
+
+// GetActiveMessagesQuery — called by widget on mount
+public record GetActiveMessagesQuery(Guid InfoSlotId) : IRequest<IReadOnlyList<InfoSlotMessageDto>>;
+
+// GetInfoSlotsForWidgetConfigQuery — dropdown in widget config modal
+public record GetInfoSlotsForWidgetConfigQuery : IRequest<IReadOnlyList<InfoSlotSummaryDto>>;
+```
+
+**DTOs:**
+
+```csharp
+public record InfoSlotListDto(
+    Guid Id, string Name, string? Description,
+    string DisplayMode, int SecondsPerMessage,
+    bool IsActive, int ActiveMessageCount, int AssignedPgCount);
+
+public record InfoSlotViewerDto(
+    Guid Id, string Name, string DisplayMode,
+    int ActiveMessageCount, List<string> DashboardNames,
+    List<InfoSlotMessageDto> ActiveMessages);
+
+public record InfoSlotMessageDto(
+    Guid Id, Guid InfoSlotId, string Content,
+    string Priority, DateTime? ExpiresAt,
+    string AuthorName, DateTime CreatedAt);
+
+public record InfoSlotSummaryDto(Guid Id, string Name, string DisplayMode);
+```
+
+**Guard (shared, call in Delete + Deactivate handlers):**
+
+```csharp
+private async Task EnsureNotPlacedOnDashboardsAsync(Guid infoSlotId, CancellationToken ct)
+{
+    var idString = infoSlotId.ToString();
+    var dashboardNames = await db.DashboardWidgets
+        .Where(w => EF.Functions.Like(w.ConfigJson, $"%{idString}%"))
+        .Select(w => w.Dashboard.Name)
+        .Distinct()
+        .ToListAsync(ct);
+
+    if (dashboardNames.Count > 0)
+        throw new DomainException(
+            $"Info Slot is placed on {dashboardNames.Count} dashboard(s): {string.Join(", ", dashboardNames)}. " +
+            "Remove all widget placements before deactivating or deleting.");
+}
+```
+
+**Authorization in handlers:**
+- `CreateInfoSlotMessageCommand` handler: verify user's PG is in `info_slot_permissions` for the given IS (or user is Admin/Superadmin).
+- `DeactivateInfoSlotMessageCommand` handler: Viewer can only deactivate own messages (`CreatedByUserId == currentUser.UserId`); Admin/Superadmin can deactivate any.
+
+#### 3.4 InfoSlotHub
+
+```csharp
+[Authorize]
+public class InfoSlotHub : Hub
+{
+    private readonly ITenantContext _tenantContext;
+
+    public InfoSlotHub(ITenantContext tenantContext) =>
+        _tenantContext = tenantContext;
+
+    public async Task JoinSlot(Guid infoSlotId)
+    {
+        var tenantId = Context.User!.FindFirst("tenant_id")?.Value
+            ?? throw new HubException("Missing tenant_id claim");
+
+        // Verify TenantId matches resolved tenant (ARCH-04 pattern)
+        if (tenantId != _tenantContext.TenantId.ToString())
+            throw new HubException("Tenant mismatch");
+
+        var groupName = $"t:{tenantId}:is:{infoSlotId}";
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+    }
+
+    public async Task LeaveSlot(Guid infoSlotId)
+    {
+        var tenantId = Context.User!.FindFirst("tenant_id")?.Value!;
+        var groupName = $"t:{tenantId}:is:{infoSlotId}";
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+    }
+}
+```
+
+Register in `Program.cs`:
+```csharp
+app.MapHub<InfoSlotHub>("/hubs/info-slot");
+```
+
+Push from handlers via `IHubContext<InfoSlotHub>`:
+```csharp
+// After DB insert in CreateInfoSlotMessageCommand handler:
+var group = $"t:{tenantId}:is:{command.InfoSlotId}";
+await hubContext.Clients.Group(group).SendAsync("MessageAdded", messageDto, ct);
+```
+
+#### 3.5 InfoSlotExpiryService
+
+```csharp
+public class InfoSlotExpiryService(
+    IServiceScopeFactory scopeFactory,
+    IHubContext<InfoSlotHub> hubContext,
+    ILogger<InfoSlotExpiryService> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await ExpireMessagesAsync(stoppingToken);
+            await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
+        }
+    }
+
+    private async Task ExpireMessagesAsync(CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        // Cross-tenant: IgnoreQueryFilters + explicit where
+        var expired = await db.InfoSlotMessages
+            .IgnoreQueryFilters()
+            .Where(m => m.IsActive &&
+                        m.ExpiresAt.HasValue &&
+                        m.ExpiresAt.Value <= DateTime.UtcNow)
+            .Select(m => new { m.Id, m.TenantId, m.InfoSlotId })
+            .ToListAsync(ct);
+
+        if (!expired.Any()) return;
+
+        await db.InfoSlotMessages
+            .IgnoreQueryFilters()
+            .Where(m => expired.Select(e => e.Id).Contains(m.Id))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(m => m.IsActive, false)
+                .SetProperty(m => m.DeactivatedAt, DateTime.UtcNow), ct);
+
+        foreach (var msg in expired)
+        {
+            var group = $"t:{msg.TenantId}:is:{msg.InfoSlotId}";
+            await hubContext.Clients.Group(group)
+                .SendAsync("MessageExpired", new { MessageId = msg.Id }, ct);
+        }
+
+        logger.LogInformation("InfoSlotExpiryService: expired {Count} messages", expired.Count);
+    }
+}
+```
+
+Register in `Program.cs`:
+```csharp
+builder.Services.AddHostedService<InfoSlotExpiryService>();
+```
+
+#### 3.6 Admin Page `/admin/info-slots`
+
+Route: `@page "/admin/info-slots"`
+Auth: `@attribute [Authorize(Roles = "Superadmin,Administrator")]`
+RenderMode: `@rendermode InteractiveServer`
+
+**Superadmin tenant selector:** At the top of the page, if `currentUser.Role == "Superadmin"`:
+- Dropdown: "All Tenants" + list of all tenants (loaded via `GetTenantsQuery`)
+- Selection changes `SelectedTenantId` → reloads IS list via `GetInfoSlotsQuery(SelectedTenantId)`
+- "All Tenants" option → `GetInfoSlotsQuery(null)` with `IgnoreQueryFilters` in handler
+
+**List:** Table with columns: Name | DisplayMode | Active messages | PG count | Status pill | Edit (pencil) | Delete (trash)
+
+**Create/Edit modal — 2 tabs:**
+- Tab "General": Name, Description, DisplayMode (select), SecondsPerMessage (shown if Sequential), IsActive toggle
+- Tab "Access": dual-pane PG assignment (standard `DualPaneSelector` component)
+
+**Delete flow:**
+1. Click trash → call `CheckInfoSlotPlacementsQuery(id)` → if placements exist: show blocking modal with dashboard list (cannot delete); else show confirmation dialog
+2. Confirm → `DeleteInfoSlotCommand` → reload list
+3. Audit event: `InfoSlot.Deleted`
+
+**Deactivate guard (IsActive toggle off):**
+Same placement check as delete. If placements exist: revert toggle + show warning modal.
+
+#### 3.7 Viewer Page `/info-slots`
+
+Route: `@page "/info-slots"`
+Auth: `@attribute [Authorize]` (all authenticated users)
+RenderMode: `@rendermode InteractiveServer`
+
+**Superadmin tenant selector:** Same pattern as admin page — dropdown "All Tenants" / specific tenant at top. Changes `SelectedTenantId` → reloads IS list.
+
+**IS list:** Cards or table rows per IS accessible to current user:
+- IS name + DisplayMode badge
+- Active message count badge
+- Dashboard list: small pills showing dashboard names where IS is placed (from `InfoSlotViewerDto.DashboardNames`)
+- "Manage Messages →" button → opens messages modal
+
+**Messages modal (per IS):**
+
+*Active messages section:*
+- List: `[HIGH ★]` or `[NORMAL]` badge | Content (full text) | ExpiresAt | Author | CreatedAt | Deactivate button
+- Deactivate → `DeactivateInfoSlotMessageCommand` → push `MessageDeactivated` → update list reactively
+- Admin/Superadmin see Deactivate on all messages; Viewer/Editor only on own
+
+*Add message form (bottom of modal):*
+```
+Content:    [textarea, required]
+Priority:   ○ Normal  ● High
+Expires at: [datetime picker]  □ Never expires
+            [Add Message →]
+```
+Submit → `CreateInfoSlotMessageCommand` → on success: hub pushes `MessageAdded` → modal list updates
+
+#### 3.8 PG Editor — New Info Slots Tab
+
+Extend `GroupAdmin.razor`: add tab **"Info Slots"** after the "BU / SG" tab.
+
+Tab content:
+- Heading: `@L["PermGroup_InfoSlots"]`
+- Sub-heading note: `@L["PermGroup_InfoSlots_Note"]` ("Members of this group can write messages to assigned Info Slots")
+- List: assigned IS names with remove (×) button
+- "+ Add Info Slot" button → search/select dialog (loads `GetInfoSlotsForSelectQuery`, search by name)
+- On save: `UpdatePermissionGroupInfoSlotsCommand(pgId, List<Guid> infoSlotIds)`
+
+#### 3.9 NavMenu — New Menu Item
+
+Add to `NavMenu.razor` under the "Content" section:
+
+```razor
+@if (_menuPermissions.Contains("menu.infoSlots"))
+{
+    <NavLink href="/info-slots">@L["Menu_InfoSlots"]</NavLink>
+}
+```
+
+Add `menu.infoSlots` to `menu_permissions` seed: accessible to all roles (Superadmin, Administrator, Editor, Viewer).
+
+#### 3.10 InfoSlotWidget.razor
+
+Location: `src/CcDashboard.Web/Components/Dashboard/Widgets/InfoSlotWidget.razor`
+
+**Parameters:** `[Parameter] public InfoSlotWidgetConfig Config { get; set; }` + standard widget parameters (`GridId`, `TenantId`, etc.)
+
+**WidgetConfig record:**
+```csharp
+public record InfoSlotWidgetConfig
+{
+    public Guid? InfoSlotId { get; init; }
+    public string DisplayName { get; init; } = "";
+    public string ScrollDirection { get; init; } = "LeftToRight";
+    public string ScrollSpeed { get; init; } = "Medium";
+    public int FontSize { get; init; } = 14;
+    public string BackgroundColor { get; init; } = "auto";
+    public string TextColor { get; init; } = "auto";
+    public string PriorityHighBackgroundColor { get; init; } = "auto";
+    public string PriorityHighTextColor { get; init; } = "auto";
+    public bool ShowAuthor { get; init; } = true;
+    public bool ShowTimestamp { get; init; } = true;
+    public string EmptyStateMessage { get; init; } = "";
+    public int MaxMessagesVisible { get; init; } = 0;
+}
+```
+
+**Lifecycle:**
+1. `OnInitializedAsync`: call `GetActiveMessagesQuery` → populate `_messages` list
+2. `OnAfterRenderAsync(firstRender)`: connect `HubConnection` to `/hubs/info-slot`, call `JoinSlot(Config.InfoSlotId)`
+3. Register handlers: `"MessageAdded"` → add to list + `StateHasChanged()`; `"MessageDeactivated"` / `"MessageExpired"` → remove from list + `StateHasChanged()`
+4. `DisposeAsync`: `await _hubConnection.DisposeAsync()`
+
+**Message ordering:**
+```csharp
+private IEnumerable<InfoSlotMessageDto> OrderedMessages =>
+    _messages.OrderByDescending(m => m.Priority == "High")
+             .ThenByDescending(m => m.CreatedAt);
+```
+
+Apply `MaxMessagesVisible` filter if > 0.
+
+**Rendering:**
+
+Ticker mode — CSS class `is-ticker is-dir-{scrollDirection.ToLower()}`:
+```razor
+<div class="is-ticker-wrapper">
+    <div class="is-ticker-track" style="animation-duration: @AnimDuration">
+        @foreach (var msg in OrderedMessages)
+        {
+            <span class="is-msg @(msg.Priority == "High" ? "is-high" : "")" style="@MsgStyle(msg)">
+                @if (msg.Priority == "High") { <span class="is-star">★</span> }
+                @msg.Content
+                @if (Config.ShowAuthor) { <small>@msg.AuthorName</small> }
+                @if (Config.ShowTimestamp) { <small>@msg.CreatedAt.ToString("HH:mm")</small> }
+            </span>
+            <span class="is-sep">·····</span>
+        }
+    </div>
+</div>
+```
+
+Sequential mode — show `_currentIndex` message, advance via `System.Threading.Timer` every `SecondsPerMessage × 1000` ms.
+
+Empty state:
+```razor
+@if (!_messages.Any())
+{
+    <div class="is-empty">@(string.IsNullOrEmpty(Config.EmptyStateMessage) ? L["InfoSlot_NoMessages"] : Config.EmptyStateMessage)</div>
+}
+```
+
+#### 3.11 CSS Animations (`info-slot.css`)
+
+```css
+/* Ticker — horizontal (LeftToRight / RightToLeft) */
+.is-ticker { overflow: hidden; white-space: nowrap; }
+.is-ticker-track { display: inline-block; }
+
+.is-dir-lefttoright .is-ticker-track {
+    animation: ticker-ltr var(--is-anim-duration, 20s) linear infinite;
+}
+@keyframes ticker-ltr {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+.is-dir-righttoleft .is-ticker-track {
+    animation: ticker-rtl var(--is-anim-duration, 20s) linear infinite;
+}
+@keyframes ticker-rtl {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(-100%); }
+}
+
+/* Ticker — vertical (TopToBottom / BottomToTop) */
+.is-ticker.is-vertical { white-space: normal; overflow: hidden; height: 100%; }
+
+.is-dir-toptobottom .is-ticker-track {
+    animation: ticker-ttb var(--is-anim-duration, 20s) linear infinite;
+}
+@keyframes ticker-ttb {
+    from { transform: translateY(-100%); }
+    to   { transform: translateY(100%); }
+}
+
+.is-dir-bottomtotop .is-ticker-track {
+    animation: ticker-btt var(--is-anim-duration, 20s) linear infinite;
+}
+@keyframes ticker-btt {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(-100%); }
+}
+
+/* Speed → CSS variable (set inline on wrapper) */
+/* Slow=40s, Medium=20s, Fast=10s — set via style="--is-anim-duration: 20s" */
+
+/* Priority High */
+.is-high {
+    background-color: var(--is-priority-high-bg, var(--bs-warning-bg-subtle));
+    color: var(--is-priority-high-text, var(--bs-warning-text-emphasis));
+    border-radius: 3px;
+    padding: 0 4px;
+}
+
+/* auto colour mode */
+.is-widget[data-bg="auto"] { background: var(--widget-bg); }
+.is-widget[data-text="auto"] { color: var(--widget-text); }
+
+/* Empty state */
+.is-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--bs-secondary-color);
+    font-style: italic;
+}
+```
+
+#### 3.12 Seed Data
+
+```csharp
+// In WidgetCatalogSeeder or DatabaseInitializer:
+if (!await db.WidgetCatalogItems.AnyAsync(w => w.Name == "Info Slot"))
+{
+    db.WidgetCatalogItems.Add(new WidgetCatalogItem
+    {
+        Id = Uuid.NewSequential(),
+        Category = "General",
+        Name = "Info Slot",
+        Description = "Displays scrolling messages written by management staff. " +
+                      "Supports Ticker (continuous band) and Sequential (one-at-a-time) modes.",
+        IconUrl = "/icons/widgets/info-slot.svg",
+        IsActive = true
+    });
+}
+
+// menu_permissions seed — add menu.infoSlots for all roles:
+// Seeded for every PG created (default grant = true for menu.infoSlots)
+```
+
+#### 3.13 Localization Keys to Add
+
+Add to `SharedResources.resx` and `SharedResources.ru-RU.resx`:
+
+| Key | EN | RU |
+|---|---|---|
+| `InfoSlot_SelectSlot` | Select Info Slot | Выберите Info Slot |
+| `InfoSlot_ScrollDirection` | Scroll Direction | Направление прокрутки |
+| `InfoSlot_ScrollSpeed` | Scroll Speed | Скорость прокрутки |
+| `InfoSlot_EmptyStateMessage` | Empty State Message | Сообщение при отсутствии данных |
+| `InfoSlot_NoMessages` | No active messages | Нет активных сообщений |
+| `InfoSlot_MaxMessages` | Max Messages Visible | Макс. сообщений |
+| `InfoSlot_ShowAuthor` | Show Author | Показывать автора |
+| `InfoSlot_ShowTimestamp` | Show Timestamp | Показывать время |
+| `InfoSlot_PriorityHighBackground` | High Priority Background | Фон высокого приоритета |
+| `InfoSlot_PriorityHighText` | High Priority Text Color | Цвет текста высокого приоритета |
+| `InfoSlot_WriteMessage` | Write Message | Написать сообщение |
+| `InfoSlot_Priority` | Priority | Приоритет |
+| `InfoSlot_ExpiresAt` | Expires At | Действует до |
+| `InfoSlot_Delete_Confirm` | Delete Info Slot? | Удалить Info Slot? |
+| `InfoSlot_Delete_Warning` | This Info Slot is placed on dashboards | Info Slot размещён на дашбордах |
+| `InfoSlot_Deactivate_Warning` | Cannot deactivate — remove from dashboards first | Нельзя деактивировать — сначала уберите с дашбордов |
+| `InfoSlot_AssignedGroups` | Assigned Permission Groups | Назначенные группы |
+| `InfoSlot_AddMessage` | Add Message | Добавить сообщение |
+| `PermGroup_InfoSlots` | Info Slots | Info Slots |
+| `PermGroup_InfoSlots_Note` | Members of this group can write messages to assigned Info Slots | Участники группы могут писать сообщения в назначенные Info Slots |
+| `Menu_InfoSlots` | Info Slots | Info Slots |
+
+---
+
+### 4. Audit Events
+
+Add to `AuditService` and `AuditEventType` enum:
+
+```csharp
+InfoSlot_Created,
+InfoSlot_Updated,
+InfoSlot_Deactivated,
+InfoSlot_Deleted,
+InfoSlot_MessageAdded,
+InfoSlot_MessageDeactivated,
+InfoSlot_MessageExpired
+```
+
+Write audit in every command handler. `InfoSlot.MessageExpired` is written by `InfoSlotExpiryService` (batch — one event per expired message).
+
+---
+
+### 5. Security Checklist
+
+- [ ] `[Authorize]` on `InfoSlotHub` class
+- [ ] `TenantId` verified inside `JoinSlot` from `ClaimsPrincipal`
+- [ ] Write access to IS checked in `CreateInfoSlotMessageCommand` handler (not UI only) — [PG-04]
+- [ ] Own-message-only deactivation enforced in handler
+- [ ] Admin page guarded by `[Authorize(Roles = "Superadmin,Administrator")]`
+- [ ] Superadmin cross-tenant queries use `IgnoreQueryFilters()` + explicit `TenantId` filter + `Tenant.CrossTenantAccess` audit event
+- [ ] No PII in Serilog log output from `InfoSlotExpiryService`
+- [ ] `EnsureNotPlacedOnDashboardsAsync` called before every deactivate/delete
+
+---
+
+### 6. Acceptance Criteria
+
+- [ ] Migration `AddInfoSlotTables` applies cleanly: tables `info_slots`, `info_slot_permissions`, `info_slot_messages` created with all indexes
+- [ ] Admin can create IS with DisplayMode Ticker and Sequential; Sequential shows `SecondsPerMessage` field only
+- [ ] Dual-pane PG assignment saves correctly to `info_slot_permissions`
+- [ ] Deactivating IS with dashboard placements → blocking modal shows dashboard names, IsActive not changed
+- [ ] Deleting IS with placements → blocked; deleting IS without placements → cascade removes permissions + messages
+- [ ] Viewer page shows only IS where user's PG has access; Admin/Superadmin sees all
+- [ ] Superadmin sees tenant dropdown ("All Tenants" / specific tenant) on **both** `/admin/info-slots` and `/info-slots`; switching tenant reloads the list
+- [ ] Viewer can add message (Normal + High priority, with and without ExpiresAt)
+- [ ] Message appears on open widget within 2 s via SignalR push (no page reload)
+- [ ] `InfoSlotExpiryService`: expired messages (ExpiresAt past) set `IsActive = false`; `MessageExpired` pushed to hub group; widget removes message without reload
+- [ ] Widget Ticker mode: all 4 scroll directions animate correctly
+- [ ] Widget Sequential mode: messages advance every `SecondsPerMessage` s; cycles back to first
+- [ ] High-priority messages: shown first + distinct background/text colour in both Ticker and Sequential
+- [ ] `backgroundColor = "auto"` → uses `var(--widget-bg)`; High-priority `auto` → Bootstrap warning vars
+- [ ] Empty state message shown when no active messages (uses config text or `@L["InfoSlot_NoMessages"]`)
+- [ ] PG editor "Info Slots" tab saves assignments; assignments visible in Viewer page IS list
+- [ ] `menu.infoSlots` appears in NavMenu for all roles with PG grant
+- [ ] All new UI strings use `@L["Key"]`; `SharedResources.resx` and `.ru-RU.resx` updated
+- [ ] All 7 audit event types written to `audit.audit_logs` on corresponding actions
+- [ ] `DisposeAsync` in `InfoSlotWidget.razor` disconnects SignalR; no memory leak
+- [ ] Build clean: `dotnet build CcDashboard.sln` — zero errors
+
+```bash
+# MANDATORY before every commit — no exceptions
+bash tools/pre-commit-check.sh
+# If exit code 1: restore truncated files, retry Python write, then re-check
+# Only after exit code 0: proceed with git add
+```
+
+---
+
+*CC-010 written: 2026-05-29.*
