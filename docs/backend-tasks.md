@@ -4353,6 +4353,15 @@ _currentDisplayMode = slot.DisplayMode;
 _currentSeconds = slot.SecondsPerMessage;
 ```
 
+**Add `EventCallback` parameter** so the parent list (IS cards/table) stays in sync:
+
+```csharp
+// Parameter on InfoSlotMessages.razor
+[Parameter] public EventCallback<InfoSlotDisplayModeUpdatedArgs> OnDisplayModeChanged { get; set; }
+
+public record InfoSlotDisplayModeUpdatedArgs(Guid InfoSlotId, string DisplayMode, int SecondsPerMessage);
+```
+
 **Handlers:**
 ```csharp
 private async Task SetDisplayMode(string mode)
@@ -4361,6 +4370,9 @@ private async Task SetDisplayMode(string mode)
     _currentDisplayMode = mode;
     await Mediator.Send(new UpdateInfoSlotDisplayModeCommand(
         _currentSlot.Id, _currentDisplayMode, _currentSeconds));
+    // Notify parent list so badge reflects new mode immediately
+    await OnDisplayModeChanged.InvokeAsync(
+        new(_currentSlot.Id, _currentDisplayMode, _currentSeconds));
     StateHasChanged();
 }
 
@@ -4371,11 +4383,47 @@ private async Task OnSecondsChanged(ChangeEventArgs e)
         _currentSeconds = s;
         await Mediator.Send(new UpdateInfoSlotDisplayModeCommand(
             _currentSlot.Id, _currentDisplayMode, _currentSeconds));
+        await OnDisplayModeChanged.InvokeAsync(
+            new(_currentSlot.Id, _currentDisplayMode, _currentSeconds));
     }
 }
 ```
 
 `SecondsPerMessage` change: debounce 800 ms before sending command (avoid rapid-fire on spinner clicks). Use `System.Threading.Timer` or `Task.Delay` cancellation pattern.
+
+**Parent page (`InfoSlots.razor`) — wire the callback:**
+
+```csharp
+// In _slots list (InfoSlotViewerDto must include DisplayMode + SecondsPerMessage):
+private void HandleDisplayModeChanged(InfoSlotDisplayModeUpdatedArgs args)
+{
+    var slot = _slots.FirstOrDefault(s => s.Id == args.InfoSlotId);
+    if (slot is null) return;
+    // Replace the DTO in the list with updated values
+    var idx = _slots.IndexOf(slot);
+    _slots[idx] = slot with
+    {
+        DisplayMode = args.DisplayMode,
+        SecondsPerMessage = args.SecondsPerMessage
+    };
+    StateHasChanged(); // badge in list updates immediately
+}
+```
+
+```razor
+<InfoSlotMessages Slot="_openSlot"
+                  OnDisplayModeChanged="HandleDisplayModeChanged" />
+```
+
+**Why this works:** the IS list stays in memory while the modal is open. The callback mutates the list item in place → when modal closes, the parent re-renders with the already-updated `DisplayMode` badge. No round-trip to DB needed.
+
+**`InfoSlotViewerDto` — ensure it includes these fields** (add if missing in CC-010 DTO):
+```csharp
+public record InfoSlotViewerDto(
+    Guid Id, string Name, string DisplayMode, int SecondsPerMessage,
+    int ActiveMessageCount, List<string> DashboardNames,
+    List<InfoSlotMessageDto> ActiveMessages);
+```
 
 ---
 
@@ -4418,6 +4466,7 @@ private record DisplayModeChangedPayload(string DisplayMode, int SecondsPerMessa
 - [ ] Switching Ticker → Sequential: `SecondsPerMessage` input appears; command sent; DB updated
 - [ ] Switching Sequential → Ticker: `SecondsPerMessage` input hidden; command sent; DB updated
 - [ ] Changing `SecondsPerMessage` (with 800 ms debounce): command sent; DB updated
+- [ ] After changing DisplayMode or SecondsPerMessage: closing the modal shows the **updated** badge in the IS list immediately (no page reload, no stale value)
 - [ ] Widget on open dashboard switches rendering mode in real time via `DisplayModeChanged` push (no reload)
 - [ ] Sequential timer restarts with new `SecondsPerMessage` after `DisplayModeChanged`
 - [ ] Viewer without PG access trying to change mode (direct API) → `ForbiddenException`
