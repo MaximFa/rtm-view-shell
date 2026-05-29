@@ -1824,4 +1824,55 @@ updated: YYYY-MM-DD
 
 ---
 
-*TZ version: 1.4 | CLAUDE.md last updated: 2026-05-28 (§0.3 Edit ban; §0.4 HEAD.lock; §0.5 pre-commit-check.sh)*
+
+---
+
+## 32. Proactive documentation maintenance
+
+At the **start of every Cowork session**, Claude must check project status and proactively
+ask Max about documentation updates if warranted — before starting any other work.
+
+### Check sequence (run at session start)
+
+```bash
+# 1. Last sync date from inventory
+grep -E "last_synced" "docs/DOCS_INVENTORY.md" 2>/dev/null || echo "No inventory"
+
+# 2. Sprint status from PROJECT_STATUS.md
+grep -E "CLOSED|DELIVERED" PROJECT_STATUS.md | tail -5
+
+# 3. Commits since last sync
+git log <last_synced_commit>..HEAD --oneline --no-merges 2>/dev/null | wc -l
+```
+
+### Trigger conditions — ask Max if ANY of these are true
+
+| Condition | Signal |
+|-----------|--------|
+| A sprint changed to ✅ CLOSED since `last_synced_date` | Sprint completed, docs likely need update |
+| 5+ commits since last doc sync | Significant codebase evolution |
+| `CLAUDE.md` modified since last sync | Spec changed |
+| `last_synced_date` > 30 days ago | Docs are stale regardless |
+| `docs/DOCS_INVENTORY.md` does not exist | Documentation package not started |
+
+### How to ask
+
+```
+"I notice [specific condition: e.g. T6 sprint was closed on 2026-05-26 /
+N commits since last doc sync on YYYY-MM-DD / CLAUDE.md was updated].
+Should I run the documentation sync?
+(doc-sync-agent will show what needs updating before touching any files.)"
+```
+
+- If Max says **yes** → invoke `doc-sync-agent`
+- If Max says **no** → proceed normally, do not ask again this session
+- If `docs/DOCS_INVENTORY.md` does not exist → suggest running `user-doc-expert` first
+  to create the initial documentation package
+
+### Do not ask if
+
+- The session is clearly mid-task (user gave specific code/test instructions)
+- Max already said "no" earlier in the same session
+- The only changes since last sync are to test files or internal tooling with no user impact
+
+*TZ version: 1.4 | CLAUDE.md last updated: 2026-05-29 (§32 proactive doc maintenance added)*
