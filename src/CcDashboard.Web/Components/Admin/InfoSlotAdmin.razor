@@ -61,6 +61,7 @@ else
             <thead class="table-light">
                 <tr>
                     <th>@L["InfoSlots_Name"]</th>
+                    @if (IsSuperadmin) { <th>@L["PG_Tenant"]</th> }
                     <th>@L["InfoSlots_DisplayMode"]</th>
                     <th class="text-center">@L["InfoSlots_ActiveMessages"]</th>
                     <th class="text-center">@L["InfoSlots_PgCount"]</th>
@@ -73,15 +74,14 @@ else
                 {
                     <tr @key="s.Id">
                         <td class="fw-semibold">@s.Name</td>
+                        @if (IsSuperadmin)
+                        {
+                            <td class="small text-muted">@(Tenants.FirstOrDefault(t => t.Id == s.TenantId)?.Name ?? "—")</td>
+                        }
                         <td>
-                            @if (s.DisplayMode == "Ticker")
-                            {
-                                <span class="badge bg-info text-dark">@L["InfoSlots_ModeTicker"]</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-secondary">@L["InfoSlots_ModeSequential"]</span>
-                            }
+                            <span class="badge @(s.DisplayMode == "Ticker" ? "bg-info text-dark" : "bg-warning text-dark")">
+                                @(s.DisplayMode == "Ticker" ? L["InfoSlots_ModeTicker"] : L["InfoSlots_ModeSequential"])
+                            </span>
                         </td>
                         <td class="text-center">
                             <span class="badge bg-primary">@s.ActiveMessageCount</span>

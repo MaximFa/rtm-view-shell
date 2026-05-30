@@ -1,4 +1,5 @@
 using CcDashboard.Application.Extensions;
+using CcDashboard.Web.Hubs;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -151,6 +152,8 @@ try
 
     app.MapHealthChecks("/health");
     app.MapHealthChecks("/health/ready");
+
+    app.MapHub<InfoSlotHub>("/hubs/info-slot");
 
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();

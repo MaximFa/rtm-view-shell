@@ -308,7 +308,7 @@ else
     private List<AvailableEntityDto> AvailableAgentGroups = [];
     private List<AvailableEntityIntDto> AvailableBUs = [];
     private List<AvailableEntityIntDto> AvailableSGs = [];
-    private List<InfoSlotSummaryDto> AvailableInfoSlots = [];
+    private List<InfoSlotListDto> AvailableInfoSlots = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -350,7 +350,7 @@ else
             AvailableAgentGroups = result.AgentGroups.ToList();
             AvailableBUs = result.BusinessUnits.ToList();
             AvailableSGs = result.Supergroups.ToList();
-            AvailableInfoSlots = (await Mediator.Send(new GetInfoSlotsForWidgetConfigQuery())).ToList();
+            AvailableInfoSlots = (await Mediator.Send(new GetInfoSlotsQuery(tenantId))).ToList();
         }
         catch { /* fallback to empty */ }
         finally { ModalLoading = false; }
@@ -385,11 +385,15 @@ else
         SelectedAgentGroupIds   = g.AllowedAgentGroupIds.ToHashSet();
         SelectedBusinessUnitIds = g.AllowedBusinessUnitIds.ToHashSet();
         SelectedSupergroupIds   = g.AllowedSupergroupIds.ToHashSet();
-        SelectedInfoSlotIds     = [];
         ActiveTab = "Menu"; SaveError = null; SaveSuccess = false;
         ShowModal = true;
 
         await LoadAvailableEntitiesAsync(g.TenantId);
+        // Populate SelectedInfoSlotIds from Info Slots that have this PG in their permissions
+        SelectedInfoSlotIds = AvailableInfoSlots
+            .Where(s => s.PermissionGroupIds.Contains(g.Id))
+            .Select(s => s.Id)
+            .ToHashSet();
     }
 
     private void CloseModal() { ShowModal = false; SaveError = null; SaveSuccess = false; }

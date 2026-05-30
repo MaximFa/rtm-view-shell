@@ -14,3 +14,6 @@ public record GetActiveMessagesQuery(Guid InfoSlotId) : IRequest<IReadOnlyList<I
 
 /// <summary>Widget config dropdown: summary list</summary>
 public record GetInfoSlotsForWidgetConfigQuery : IRequest<IReadOnlyList<InfoSlotSummaryDto>>;
+
+/// <summary>Widget runtime: display mode + messages in one query</summary>
+public record GetInfoSlotWidgetDataQuery(Guid InfoSlotId) : IRequest<InfoSlotWidgetDataDto?>;

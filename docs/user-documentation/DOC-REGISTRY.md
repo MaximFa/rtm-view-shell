@@ -2,7 +2,8 @@
 
 > Maintained by `user-doc-expert` skill. Legend: 🟢 Current | 🟡 Draft / Needs review | 🔴 Not started | ⚪ Deferred
 
-**Last updated:** 2026-05-29  
+**Last updated:** 2026-05-30  
+**B-02 status:** 🟢 Published v1.3 — 41 real screenshots embedded (all sections §4–§11, all 6 widget config tabs)  
 **Spec baseline:** TZ v1.4 (CLAUDE.md 2026-05-28)  
 **Widget spec:** `docs/widget-specification.md` v1.8  
 
@@ -13,7 +14,7 @@
 | ID | Document | File | Status | Notes |
 |---|---|---|---|---|
 | A-01 | Installation & Deployment Guide | `A-01_InstallDeployGuide_v1.0.docx` | 🔴 | Covers §24 DEPLOY-01–15; IIS, PostgreSQL, Redis, Memurai |
-| A-02 | Administrator's Guide | `A-02_AdminGuide_v1.0.docx` | 🔴 | Users, PGs, Tenant settings, Audit log |
+| A-02 | Administrator's Guide | `admin/A-02_AdminGuide_v1.0_EN.docx` | 🟢 | v1.0 released 2026-05-30. 14 real screenshots: User Management, Permission Groups (4 tabs), Tenant Management (3 tabs), Dashboards, Audit Log. 1.3 MB. |
 | A-03 | Permission Groups Configuration | `A-03_PermGroupsConfig_v1.0.docx` | 🔴 | Menu/Screens/Queues/Skills/BU/SG tabs detail |
 | A-04 | Security Configuration Guide | `A-04_SecurityConfig_v1.0.docx` | 🔴 | JWT, SSO, 2FA, brute-force, headers |
 | A-05 | SSO Integration Guide | `A-05_SSOIntegration_v1.0.docx` | 🔴 | SAML2 / OIDC / AD-LDAP; claim mappings |
@@ -29,7 +30,7 @@
 | ID | Document | File | Status | Notes |
 |---|---|---|---|---|
 | B-01 | Quick Start Guide | `B-01_QuickStart_v1.0.docx` | 🔴 | First login, 2FA, change password, basic nav |
-| B-02 | Dashboard Management User Guide | `B-02_DashboardUserGuide_v1.0.docx` | 🔴 | Create / edit / delete screens; widget picker |
+| B-02 | Dashboard Management User Guide | `user/B-02_DashboardUserGuide_v1.3_EN.docx` | 🟢 | v1.3 released 2026-05-30. 41 real screenshots: all sections §4–§11 + all 6 widget configuration tab screenshots. 1.9 MB. |
 | B-03 | Info Slot Message Management Guide | `B-03_InfoSlotMessages_v1.0.docx` | 🔴 | Viewer flow: list IS, write/edit messages, priority, expiry |
 | B-04 | Profile & Settings Guide | `B-04_ProfileSettings_v1.0.docx` | 🔴 | Password change, 2FA toggle, locale, theme |
 | B-05 | Dashboard Viewer Guide | `B-05_DashboardViewer_v1.0.docx` | 🔴 | Screen 05; queue filter tabs; live updates |
