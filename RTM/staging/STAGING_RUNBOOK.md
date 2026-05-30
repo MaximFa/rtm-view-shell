@@ -219,6 +219,22 @@ FROM tmp_userstatuslog;
 This table has **no DDL in SQL Server** — it was reconstructed from stored procedure parameters.
 It starts empty in PostgreSQL and will be populated by the RTM backend during normal operation.
 
+### EF Core varchar(N) Columns
+
+EF Core creates `varchar(N)` columns for string properties. PL/pgSQL functions that declare
+`RETURNS TABLE` with `text` columns must explicitly cast varchar values using `::text`.
+All functions in `00_deploy_all_functions.sql` include these casts.
+
+**Example:**
+```sql
+-- Wrong: causes "Returned type character varying(50) does not match expected type text"
+SELECT s."SiteId" FROM "NGC_Site" s;
+
+-- Correct: explicit cast to text
+SELECT s."SiteId"::text FROM "NGC_Site" s;
+```
+
+
 ### RTSUserView_GetHTMLSettings
 
 This function is a **stub** returning empty results. The original SQL Server SP reads from

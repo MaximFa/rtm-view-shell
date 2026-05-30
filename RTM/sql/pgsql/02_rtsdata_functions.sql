@@ -267,17 +267,17 @@ BEGIN
     RETURN QUERY
     SELECT
         i."TenantId",
-        i."InteractionId",
+        i."InteractionId"::text,
         i."Segment",
-        i."OnDate",
-        i."ServerId",
-        i."Workgroup",
-        i."UserId",
-        i."ClassificationCode",
-        i."InteractionType",
-        i."CallType",
-        i."Direction",
-        i."CustomCallData",
+        i."OnDate"::text,
+        i."ServerId"::text,
+        i."Workgroup"::text,
+        i."UserId"::text,
+        i."ClassificationCode"::text,
+        i."InteractionType"::text,
+        i."CallType"::text,
+        i."Direction"::text,
+        i."CustomCallData"::text,
         i."IsTransferred",
         i."IsAnswered",
         i."IsInQueue",
@@ -288,12 +288,12 @@ BEGIN
         i."InQueueDateTime",
         i."AnsweredDateTime",
         i."UpdateTime",
-        i."LastUserId",
-        i."LastWorkgroup",
+        i."LastUserId"::text,
+        i."LastWorkgroup"::text,
         i."IsMessaging",
-        i."RemoteAddress",
+        i."RemoteAddress"::text,
         i."IsCallbackRequest",
-        i."TimeZone"
+        i."TimeZone"::text
     FROM "RTSData_Interaction" i;
 END;
 $$;
@@ -363,18 +363,18 @@ BEGIN
     RETURN QUERY
     SELECT
         s."TenantId",
-        s."UserId",
-        s."StatusId",
-        s."ServerId",
-        s."OnDate",
-        s."StatusName",
-        s."StatusGroup",
+        s."UserId"::text,
+        s."StatusId"::text,
+        s."ServerId"::text,
+        s."OnDate"::text,
+        s."StatusName"::text,
+        s."StatusGroup"::text,
         s."TotalDuration",
         s."MaxDuration",
         s."TotalCount",
         s."UpdateTime",
-        s."DisplayName",
-        s."TimeZone"
+        s."DisplayName"::text,
+        s."TimeZone"::text
     FROM "RTSData_UserStatus" s;
 END;
 $$;

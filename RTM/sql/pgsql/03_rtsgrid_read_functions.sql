@@ -35,15 +35,15 @@ BEGIN
     RETURN QUERY
     SELECT
         c."CellId",
-        c."CellType",
+        c."CellType"::text,
         g."GridId",
         o."ColumnId",
         r."RowId",
         c."UnionId",
         g."UnionId" AS "GridUnionId",
         r."UnionId" AS "RowUnionId",
-        c."Value" AS "Metric",
-        t."Value" AS "ColumnMetric"
+        c."Value"::text AS "Metric",
+        t."Value"::text AS "ColumnMetric"
     FROM "RTSGrid_Grid" g, "RTSGrid_Row" r, "RTSGrid_Cell" c,
          "RTSGrid_Column" o, "RTSGrid_TemplateCell" t
     WHERE g."GridId" = r."GridId"
@@ -73,7 +73,7 @@ BEGIN
     SELECT
         c."CellId",
         g."GridId",
-        c."Value" AS "Title"
+        c."Value"::text AS "Title"
     FROM "RTSGrid_Grid" g, "RTSGrid_Row" r, "RTSGrid_Cell" c
     WHERE g."GridId" = r."GridId"
       AND c."RowId" = r."RowId"
@@ -108,10 +108,10 @@ BEGIN
     RETURN QUERY
     SELECT
         u."BusinessUnitId" AS "BusinessUnitID",
-        u."QueueId" AS "QueueID",
-        u."ClassificationId" AS "ClassificationID",
-        s."TimeZone",
-        s."ClearTime"
+        u."QueueId"::text AS "QueueID",
+        u."ClassificationId"::text AS "ClassificationID",
+        s."TimeZone"::text,
+        s."ClearTime"::text
     FROM "NGC_BusinessUnitQueueClassification" u,
          "NGC_BusinessUnit" b,
          "NGC_Site" s
@@ -142,9 +142,9 @@ BEGIN
     SELECT
         u."BusinessUnitId" AS "BusinessUnitID",
         s."SupergroupId" AS "SupergroupID",
-        s."AgentgroupId" AS "AgentgroupID",
-        t."TimeZone",
-        t."ClearTime"
+        s."AgentgroupId"::text AS "AgentgroupID",
+        t."TimeZone"::text,
+        t."ClearTime"::text
     FROM "NGC_SupergroupAgentgroup" s,
          "NGC_BusinessUnitSupergroup" u,
          "NGC_BusinessUnit" b,
@@ -176,16 +176,16 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        m."MetricId",
+        m."MetricId"::text,
         CASE WHEN m."Description" IS NULL OR m."Description" = ''
-             THEN m."MetricId"
-             ELSE m."Description"
+             THEN m."MetricId"::text
+             ELSE m."Description"::text
         END AS "Description",
-        m."DataType",
-        m."MetricFunction",
-        m."MetricParameter",
-        m."MetricFormat",
-        m."DefaultValue"
+        m."DataType"::text,
+        m."MetricFunction"::text,
+        m."MetricParameter"::text,
+        m."MetricFormat"::text,
+        m."DefaultValue"::text
     FROM "RTSGrid_Metric" m;
 END;
 $$;
@@ -228,28 +228,28 @@ BEGIN
     RETURN QUERY
     SELECT
         s."StatisticId",
-        s."Category",
-        s."Definition",
-        s."ParamType1",
-        s."ParamValue1",
-        s."ParamType2",
-        s."ParamValue2",
-        s."ParamType3",
-        s."ParamValue3",
-        s."ParamType4",
-        s."ParamValue4",
-        s."ParamType5",
-        s."ParamValue5",
-        s."ParamType6",
-        s."ParamValue6",
-        s."ParamType7",
-        s."ParamValue7",
-        s."ParamType8",
-        s."ParamValue8",
-        s."ParamType9",
-        s."ParamValue9",
-        s."ParamType10",
-        s."ParamValue10"
+        s."Category"::text,
+        s."Definition"::text,
+        s."ParamType1"::text,
+        s."ParamValue1"::text,
+        s."ParamType2"::text,
+        s."ParamValue2"::text,
+        s."ParamType3"::text,
+        s."ParamValue3"::text,
+        s."ParamType4"::text,
+        s."ParamValue4"::text,
+        s."ParamType5"::text,
+        s."ParamValue5"::text,
+        s."ParamType6"::text,
+        s."ParamValue6"::text,
+        s."ParamType7"::text,
+        s."ParamValue7"::text,
+        s."ParamType8"::text,
+        s."ParamValue8"::text,
+        s."ParamType9"::text,
+        s."ParamValue9"::text,
+        s."ParamType10"::text,
+        s."ParamValue10"::text
     FROM "RTSGrid_Statistic" s;
 END;
 $$;
@@ -271,7 +271,7 @@ BEGIN
     RETURN QUERY
     SELECT DISTINCT
         g."UnionId",
-        c."MetricId"
+        c."MetricId"::text
     FROM "RTSUserGrid_Column" c, "RTSUserGrid_Grid" g
     WHERE c."ColumnsSetId" = g."ColumnsSetId"
     ORDER BY g."UnionId";
@@ -304,10 +304,10 @@ BEGIN
         g."GridId",
         g."UnionId",
         g."StyleId" AS "CSS",
-        g."Title",
-        g."RowsFilterNew",
+        g."Title"::text,
+        g."RowsFilterNew"::text,
         g."PageSize",
-        g."ThresholdScript"
+        g."ThresholdScript"::text
     FROM "RTSUserGrid_Grid" g;
 END;
 $$;

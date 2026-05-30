@@ -1,38 +1,31 @@
 -- ============================================================================
--- RTM Backend PostgreSQL Migration — Combined Function Deployment Script
+-- Combined PL/pgSQL Functions for RTM Backend PostgreSQL Staging
+-- Auto-generated: 2026-05-31
 --
--- This script deploys all 37 PL/pgSQL functions for the RTM backend.
--- Idempotent: safe to re-run (uses CREATE OR REPLACE FUNCTION).
+-- This file combines all 37 functions from:
+--   - 01_ngc_functions.sql (18 functions)
+--   - 02_rtsdata_functions.sql (8 functions including aliases)
+--   - 03_rtsgrid_read_functions.sql (8 functions)
+--   - 04_missing_functions.sql (3 functions)
 --
--- Contents:
---   Section 1: NGC_* functions (18) — Business Unit / Supergroup management
---   Section 2: RTSData_* functions (8) — Real-time data UPSERT and reads
---   Section 3: RTSGrid_* read functions (8) — Grid configuration reads
---   Section 4: Missing/stub functions (3) — Reverse-engineered + DNN stub
---
--- Usage:
---   psql -U cc_rtm_app -d cc_rtm_staging -f 00_deploy_all_functions.sql
---
--- Prerequisites:
---   - EF migrations applied (tables must exist)
---   - BackendEmulationDbContext tables created
+-- Run AFTER EF migrations (BackendEmulationDbContext) to create tables.
+-- All varchar columns cast to ::text for RETURNS TABLE compatibility.
 -- ============================================================================
 
--- Setup
-CREATE SCHEMA IF NOT EXISTS public;
-SET search_path = public;
+-- ============================================================================
+-- SOURCE: 01_ngc_functions.sql
+-- ============================================================================
 
-\echo '============================================================'
-\echo 'RTM Backend Function Deployment'
-\echo '============================================================'
-
--- ############################################################################
--- SECTION 1: NGC_* Functions (18 total)
--- Source: RTM-M3 task
--- ############################################################################
-
-\echo ''
-\echo '>>> Section 1: NGC_* Functions (18)'
+-- ============================================================================
+-- NGC_* PL/pgSQL Functions for RTM Backend Migration
+-- Output of RTM-M3 task
+--
+-- These functions replace SQL Server stored procedures called from
+-- RTM/RTM/BusinessUnitData.cs via DBAdapter.
+--
+-- All identifiers are double-quoted (PostgreSQL case-sensitivity).
+-- SERIAL columns use RETURNING for insert functions.
+-- ============================================================================
 
 -- ============================================================================
 -- 1. NGC_GetBusinessUnitTable
@@ -56,11 +49,11 @@ BEGIN
     SELECT
         bu."BusinessUnitId",
         bu."TenantId",
-        bu."BusinessUnitName",
-        bu."Description",
+        bu."BusinessUnitName"::text,
+        bu."Description"::text,
         bu."CreatedDatetime",
-        bu."CreatedBy",
-        bu."SiteId"
+        bu."CreatedBy"::text,
+        bu."SiteId"::text
     FROM "NGC_BusinessUnit" bu
     ORDER BY bu."BusinessUnitId";
 END;
@@ -88,10 +81,10 @@ BEGIN
     SELECT
         sg."SupergroupId",
         sg."TenantId",
-        sg."SupergroupName",
-        sg."Description",
+        sg."SupergroupName"::text,
+        sg."Description"::text,
         sg."CreatedDatetime",
-        sg."CreatedBy",
+        sg."CreatedBy"::text,
         sg."SupergroupIdOld"
     FROM "NGC_Supergroup" sg
     ORDER BY sg."SupergroupId";
@@ -118,11 +111,11 @@ BEGIN
     RETURN QUERY
     SELECT
         bq."BusinessUnitId",
-        bq."QueueId",
+        bq."QueueId"::text,
         bq."TenantId",
-        bq."ClassificationId",
+        bq."ClassificationId"::text,
         bq."CreatedDatetime",
-        bq."CreatedBy"
+        bq."CreatedBy"::text
     FROM "NGC_BusinessUnitQueueClassification" bq;
 END;
 $$;
@@ -149,7 +142,7 @@ BEGIN
         bs."SupergroupId",
         bs."TenantId",
         bs."CreatedDatetime",
-        bs."CreatedBy"
+        bs."CreatedBy"::text
     FROM "NGC_BusinessUnitSupergroup" bs;
 END;
 $$;
@@ -175,10 +168,10 @@ BEGIN
     SELECT
         sa."Id",
         sa."SupergroupId",
-        sa."AgentgroupId",
+        sa."AgentgroupId"::text,
         sa."TenantId",
         sa."CreatedDatetime",
-        sa."CreatedBy"
+        sa."CreatedBy"::text
     FROM "NGC_SupergroupAgentgroup" sa;
 END;
 $$;
@@ -202,18 +195,19 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        s."SiteId",
+        s."SiteId"::text,
         s."TenantId",
-        s."SiteName",
-        s."Description",
-        s."TimeZone",
-        s."ClearTime"
+        s."SiteName"::text,
+        s."Description"::text,
+        s."TimeZone"::text,
+        s."ClearTime"::text
     FROM "NGC_Site" s;
 END;
 $$;
 
 -- ============================================================================
 -- 7. NGC_CreateBusinessUnit
+--    Returns generated BusinessUnitId (SERIAL)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnit"(text, text);
 
@@ -272,6 +266,7 @@ $$;
 
 -- ============================================================================
 -- 10. NGC_CreateSupergroup
+--     Returns generated SupergroupId (SERIAL)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateSupergroup"(text, text);
 
@@ -330,6 +325,7 @@ $$;
 
 -- ============================================================================
 -- 13. NGC_CreateBusinessUnitQueueClassificationMapping
+--     UPSERT: ON CONFLICT DO NOTHING (idempotent create)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitQueueClassificationMapping"(integer, text);
 
@@ -368,6 +364,7 @@ $$;
 
 -- ============================================================================
 -- 15. NGC_CreateBusinessUnitSupergroupMapping
+--     UPSERT: ON CONFLICT DO NOTHING (idempotent create)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitSupergroupMapping"(integer, integer);
 
@@ -406,6 +403,14 @@ $$;
 
 -- ============================================================================
 -- 17. NGC_CreateSupergroupAgentgroupMapping
+--     Note: NGC_SupergroupAgentgroup has surrogate PK "Id" (SERIAL).
+--     The logical uniqueness is (SupergroupId, AgentgroupId) but EF model
+--     doesn't define a unique constraint on it. We use ON CONFLICT DO NOTHING
+--     on the surrogate PK which means duplicates are possible.
+--     If business logic requires uniqueness, add:
+--       CREATE UNIQUE INDEX IF NOT EXISTS "IX_NGC_SupergroupAgentgroup_Logical"
+--       ON "NGC_SupergroupAgentgroup" ("SupergroupId", "AgentgroupId");
+--     For now, simple INSERT matching original T-SQL behavior.
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateSupergroupAgentgroupMapping"(integer, text);
 
@@ -441,18 +446,29 @@ BEGIN
 END;
 $$;
 
-\echo '    NGC_* functions: 18 deployed'
+-- ============================================================================
+-- End of NGC_* functions (18 total)
+-- ============================================================================
 
--- ############################################################################
--- SECTION 2: RTSData_* Functions (8 total: 6 main + 2 aliases)
--- Source: RTM-M4 task
--- ############################################################################
 
-\echo ''
-\echo '>>> Section 2: RTSData_* Functions (8)'
+-- ============================================================================
+-- SOURCE: 02_rtsdata_functions.sql
+-- ============================================================================
+
+-- ============================================================================
+-- RTSData_* PL/pgSQL Functions for RTM Backend Migration
+-- Output of RTM-M4 task
+--
+-- These functions handle real-time data writes and reads from RTM/RTM/DBMng.cs.
+-- UPSERT conflict keys differ from EF PK for some tables — see comments.
+--
+-- All identifiers are double-quoted (PostgreSQL case-sensitivity).
+-- ============================================================================
 
 -- ============================================================================
 -- 1. RTSData_SetInteraction
+--    UPSERT using ON CONFLICT on 3-col UNIQUE index (InteractionId, Segment, ServerId)
+--    NOT the 5-col EF PK (InteractionId, Segment, OnDate, ServerId, Workgroup)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_SetInteraction"(
     text, integer, text, text, text, text,
@@ -540,6 +556,8 @@ $$;
 
 -- ============================================================================
 -- 2. RTSData_SetUserStatus
+--    UPSERT using ON CONFLICT on 4-col PK (UserId, StatusId, ServerId, OnDate)
+--    No mismatch between EF PK and UPSERT key
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_SetUserStatus"(
     text, text, text, text, integer, integer,
@@ -589,6 +607,9 @@ $$;
 
 -- ============================================================================
 -- 3. RTSData_SetChatMessage
+--    UPSERT using ON CONFLICT on 2-col UNIQUE index (MessageId, ServerId)
+--    NOT the 3-col EF PK (MessageId, ServerId, OnDate)
+--    Note: C# entity uses MsgTimeStamp but DB column is "TimeStamp"
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_SetChatMessage"(
     text, text, integer, text, text, text,
@@ -644,6 +665,8 @@ $$;
 
 -- ============================================================================
 -- 4. RTSData_MidnightClear
+--    CRITICAL: Function name is "RTSData_MidnightClear" (NOT "_1" suffix)
+--    Clears Interaction and UserStatus tables — ChatMessage is NOT cleared
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_MidnightClear"();
 
@@ -654,11 +677,13 @@ AS $$
 BEGIN
     DELETE FROM "RTSData_Interaction";
     DELETE FROM "RTSData_UserStatus";
+    -- RTSData_ChatMessage is intentionally NOT cleared per production behavior
 END;
 $$;
 
 -- ============================================================================
 -- 5. RTSData_GetInteractions
+--    Returns all columns from RTSData_Interaction
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_GetInteractions"();
 
@@ -698,34 +723,78 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        i."TenantId", i."InteractionId", i."Segment", i."OnDate", i."ServerId",
-        i."Workgroup", i."UserId", i."ClassificationCode", i."InteractionType",
-        i."CallType", i."Direction", i."CustomCallData", i."IsTransferred",
-        i."IsAnswered", i."IsInQueue", i."IsTalk", i."IsAbandoned",
-        i."TimeInQueue", i."TalkTime", i."InQueueDateTime", i."AnsweredDateTime",
-        i."UpdateTime", i."LastUserId", i."LastWorkgroup", i."IsMessaging",
-        i."RemoteAddress", i."IsCallbackRequest", i."TimeZone"
+        i."TenantId",
+        i."InteractionId"::text,
+        i."Segment",
+        i."OnDate"::text,
+        i."ServerId"::text,
+        i."Workgroup"::text,
+        i."UserId"::text,
+        i."ClassificationCode"::text,
+        i."InteractionType"::text,
+        i."CallType"::text,
+        i."Direction"::text,
+        i."CustomCallData"::text,
+        i."IsTransferred",
+        i."IsAnswered",
+        i."IsInQueue",
+        i."IsTalk",
+        i."IsAbandoned",
+        i."TimeInQueue",
+        i."TalkTime",
+        i."InQueueDateTime",
+        i."AnsweredDateTime",
+        i."UpdateTime",
+        i."LastUserId"::text,
+        i."LastWorkgroup"::text,
+        i."IsMessaging",
+        i."RemoteAddress"::text,
+        i."IsCallbackRequest",
+        i."TimeZone"::text
     FROM "RTSData_Interaction" i;
 END;
 $$;
 
--- Lowercase alias
+-- Lowercase alias (C# calls "RTSData_getInteractions")
 DROP FUNCTION IF EXISTS "RTSData_getInteractions"();
+
 CREATE OR REPLACE FUNCTION "RTSData_getInteractions"()
 RETURNS TABLE(
-    "TenantId" uuid, "InteractionId" text, "Segment" integer, "OnDate" text,
-    "ServerId" text, "Workgroup" text, "UserId" text, "ClassificationCode" text,
-    "InteractionType" text, "CallType" text, "Direction" text, "CustomCallData" text,
-    "IsTransferred" boolean, "IsAnswered" boolean, "IsInQueue" boolean,
-    "IsTalk" boolean, "IsAbandoned" boolean, "TimeInQueue" integer, "TalkTime" integer,
-    "InQueueDateTime" timestamptz, "AnsweredDateTime" timestamptz, "UpdateTime" timestamptz,
-    "LastUserId" text, "LastWorkgroup" text, "IsMessaging" boolean,
-    "RemoteAddress" text, "IsCallbackRequest" boolean, "TimeZone" text
+    "TenantId" uuid,
+    "InteractionId" text,
+    "Segment" integer,
+    "OnDate" text,
+    "ServerId" text,
+    "Workgroup" text,
+    "UserId" text,
+    "ClassificationCode" text,
+    "InteractionType" text,
+    "CallType" text,
+    "Direction" text,
+    "CustomCallData" text,
+    "IsTransferred" boolean,
+    "IsAnswered" boolean,
+    "IsInQueue" boolean,
+    "IsTalk" boolean,
+    "IsAbandoned" boolean,
+    "TimeInQueue" integer,
+    "TalkTime" integer,
+    "InQueueDateTime" timestamptz,
+    "AnsweredDateTime" timestamptz,
+    "UpdateTime" timestamptz,
+    "LastUserId" text,
+    "LastWorkgroup" text,
+    "IsMessaging" boolean,
+    "RemoteAddress" text,
+    "IsCallbackRequest" boolean,
+    "TimeZone" text
 )
-LANGUAGE sql AS $$ SELECT * FROM "RTSData_GetInteractions"(); $$;
+LANGUAGE sql
+AS $$ SELECT * FROM "RTSData_GetInteractions"(); $$;
 
 -- ============================================================================
 -- 6. RTSData_GetUsersStatuses
+--    Returns all columns from RTSData_UserStatus
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_GetUsersStatuses"();
 
@@ -750,51 +819,100 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        s."TenantId", s."UserId", s."StatusId", s."ServerId", s."OnDate",
-        s."StatusName", s."StatusGroup", s."TotalDuration", s."MaxDuration",
-        s."TotalCount", s."UpdateTime", s."DisplayName", s."TimeZone"
+        s."TenantId",
+        s."UserId"::text,
+        s."StatusId"::text,
+        s."ServerId"::text,
+        s."OnDate"::text,
+        s."StatusName"::text,
+        s."StatusGroup"::text,
+        s."TotalDuration",
+        s."MaxDuration",
+        s."TotalCount",
+        s."UpdateTime",
+        s."DisplayName"::text,
+        s."TimeZone"::text
     FROM "RTSData_UserStatus" s;
 END;
 $$;
 
--- Lowercase alias
+-- Lowercase alias (C# calls "RTSData_getUsersStatuses")
 DROP FUNCTION IF EXISTS "RTSData_getUsersStatuses"();
+
 CREATE OR REPLACE FUNCTION "RTSData_getUsersStatuses"()
 RETURNS TABLE(
-    "TenantId" uuid, "UserId" text, "StatusId" text, "ServerId" text, "OnDate" text,
-    "StatusName" text, "StatusGroup" text, "TotalDuration" integer, "MaxDuration" integer,
-    "TotalCount" integer, "UpdateTime" timestamptz, "DisplayName" text, "TimeZone" text
+    "TenantId" uuid,
+    "UserId" text,
+    "StatusId" text,
+    "ServerId" text,
+    "OnDate" text,
+    "StatusName" text,
+    "StatusGroup" text,
+    "TotalDuration" integer,
+    "MaxDuration" integer,
+    "TotalCount" integer,
+    "UpdateTime" timestamptz,
+    "DisplayName" text,
+    "TimeZone" text
 )
-LANGUAGE sql AS $$ SELECT * FROM "RTSData_GetUsersStatuses"(); $$;
+LANGUAGE sql
+AS $$ SELECT * FROM "RTSData_GetUsersStatuses"(); $$;
 
-\echo '    RTSData_* functions: 8 deployed (6 main + 2 aliases)'
+-- ============================================================================
+-- End of RTSData_* functions (6 main + 2 lowercase aliases = 8 total)
+-- ============================================================================
 
--- ############################################################################
--- SECTION 3: RTSGrid_* Read Functions (8 total)
--- Source: RTM-M5 task
--- ############################################################################
 
-\echo ''
-\echo '>>> Section 3: RTSGrid_* Read Functions (8)'
+-- ============================================================================
+-- SOURCE: 03_rtsgrid_read_functions.sql
+-- ============================================================================
+
+-- ============================================================================
+-- RTSGrid_* and RTSUserGrid_* Read Functions for RTM Backend Migration
+-- Output of RTM-M5 task
+--
+-- These functions are called from RTM/RTM/RealtimeData.cs.
+-- C# reads columns BY INDEX — column ORDER must match original T-SQL SELECT.
+-- All identifiers are double-quoted (PostgreSQL case-sensitivity).
+--
+-- CRITICAL DEPENDENCY: Functions 1-2 require RTSGrid_TemplateCell table from RTM-M1.
+-- ============================================================================
 
 -- ============================================================================
 -- 1. RTSGrid_GetDataCells
+--    Returns data cells with grid/row/column info for rendering.
+--    Column order fixed per original T-SQL.
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSGrid_GetDataCells"();
 
 CREATE OR REPLACE FUNCTION "RTSGrid_GetDataCells"()
 RETURNS TABLE(
-    "CellId" integer, "CellType" text, "GridId" integer, "ColumnId" integer,
-    "RowId" integer, "UnionId" integer, "GridUnionId" integer, "RowUnionId" integer,
-    "Metric" text, "ColumnMetric" text
+    "CellId" integer,
+    "CellType" text,
+    "GridId" integer,
+    "ColumnId" integer,
+    "RowId" integer,
+    "UnionId" integer,
+    "GridUnionId" integer,
+    "RowUnionId" integer,
+    "Metric" text,
+    "ColumnMetric" text
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT c."CellId", c."CellType", g."GridId", o."ColumnId", r."RowId",
-           c."UnionId", g."UnionId" AS "GridUnionId", r."UnionId" AS "RowUnionId",
-           c."Value" AS "Metric", t."Value" AS "ColumnMetric"
+    SELECT
+        c."CellId",
+        c."CellType"::text,
+        g."GridId",
+        o."ColumnId",
+        r."RowId",
+        c."UnionId",
+        g."UnionId" AS "GridUnionId",
+        r."UnionId" AS "RowUnionId",
+        c."Value"::text AS "Metric",
+        t."Value"::text AS "ColumnMetric"
     FROM "RTSGrid_Grid" g, "RTSGrid_Row" r, "RTSGrid_Cell" c,
          "RTSGrid_Column" o, "RTSGrid_TemplateCell" t
     WHERE g."GridId" = r."GridId"
@@ -807,54 +925,99 @@ $$;
 
 -- ============================================================================
 -- 2. RTSGrid_GetStatisticCells
+--    Returns statistic cells for grids.
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSGrid_GetStatisticCells"();
 
 CREATE OR REPLACE FUNCTION "RTSGrid_GetStatisticCells"()
-RETURNS TABLE("CellId" integer, "GridId" integer, "Title" text)
+RETURNS TABLE(
+    "CellId" integer,
+    "GridId" integer,
+    "Title" text
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT c."CellId", g."GridId", c."Value" AS "Title"
+    SELECT
+        c."CellId",
+        g."GridId",
+        c."Value"::text AS "Title"
     FROM "RTSGrid_Grid" g, "RTSGrid_Row" r, "RTSGrid_Cell" c
-    WHERE g."GridId" = r."GridId" AND c."RowId" = r."RowId" AND c."CellType" = 'Statistic';
+    WHERE g."GridId" = r."GridId"
+      AND c."RowId" = r."RowId"
+      AND c."CellType" = 'Statistic';
 END;
 $$;
 
 -- ============================================================================
--- 3. RTSGrid_GetAllUnionQueueClassifications
+-- 3. NGC_GetSiteTable — SKIP
+--    Already defined in RTM-M3 (01_ngc_functions.sql). Do NOT duplicate.
+-- ============================================================================
+
+-- ============================================================================
+-- 4. RTSGrid_GetAllUnionQueueClassifications
+--    Returns queue classifications with site timezone info.
+--    Column order matches original T-SQL: BusinessUnitID, QueueID,
+--    ClassificationID, TimeZone, ClearTime
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSGrid_GetAllUnionQueueClassifications"();
 
 CREATE OR REPLACE FUNCTION "RTSGrid_GetAllUnionQueueClassifications"()
-RETURNS TABLE("BusinessUnitID" integer, "QueueID" text, "ClassificationID" text, "TimeZone" text, "ClearTime" text)
+RETURNS TABLE(
+    "BusinessUnitID" integer,
+    "QueueID" text,
+    "ClassificationID" text,
+    "TimeZone" text,
+    "ClearTime" text
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT u."BusinessUnitId" AS "BusinessUnitID", u."QueueId" AS "QueueID",
-           u."ClassificationId" AS "ClassificationID", s."TimeZone", s."ClearTime"
-    FROM "NGC_BusinessUnitQueueClassification" u, "NGC_BusinessUnit" b, "NGC_Site" s
-    WHERE b."BusinessUnitId" = u."BusinessUnitId" AND b."SiteId" = s."SiteId";
+    SELECT
+        u."BusinessUnitId" AS "BusinessUnitID",
+        u."QueueId"::text AS "QueueID",
+        u."ClassificationId"::text AS "ClassificationID",
+        s."TimeZone"::text,
+        s."ClearTime"::text
+    FROM "NGC_BusinessUnitQueueClassification" u,
+         "NGC_BusinessUnit" b,
+         "NGC_Site" s
+    WHERE b."BusinessUnitId" = u."BusinessUnitId"
+      AND b."SiteId" = s."SiteId";
 END;
 $$;
 
 -- ============================================================================
--- 4. RTSGrid_GetAllUnionUserGroups
+-- 5. RTSGrid_GetAllUnionUserGroups
+--    Returns user groups (agentgroups) mapped to business units with site info.
+--    Column order: BusinessUnitID, SupergroupID, AgentgroupID, TimeZone, ClearTime
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSGrid_GetAllUnionUserGroups"();
 
 CREATE OR REPLACE FUNCTION "RTSGrid_GetAllUnionUserGroups"()
-RETURNS TABLE("BusinessUnitID" integer, "SupergroupID" integer, "AgentgroupID" text, "TimeZone" text, "ClearTime" text)
+RETURNS TABLE(
+    "BusinessUnitID" integer,
+    "SupergroupID" integer,
+    "AgentgroupID" text,
+    "TimeZone" text,
+    "ClearTime" text
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT u."BusinessUnitId" AS "BusinessUnitID", s."SupergroupId" AS "SupergroupID",
-           s."AgentgroupId" AS "AgentgroupID", t."TimeZone", t."ClearTime"
-    FROM "NGC_SupergroupAgentgroup" s, "NGC_BusinessUnitSupergroup" u,
-         "NGC_BusinessUnit" b, "NGC_Site" t
+    SELECT
+        u."BusinessUnitId" AS "BusinessUnitID",
+        s."SupergroupId" AS "SupergroupID",
+        s."AgentgroupId"::text AS "AgentgroupID",
+        t."TimeZone"::text,
+        t."ClearTime"::text
+    FROM "NGC_SupergroupAgentgroup" s,
+         "NGC_BusinessUnitSupergroup" u,
+         "NGC_BusinessUnit" b,
+         "NGC_Site" t
     WHERE b."BusinessUnitId" = u."BusinessUnitId"
       AND s."SupergroupId" = u."SupergroupId"
       AND b."SiteId" = t."SiteId";
@@ -862,63 +1025,122 @@ END;
 $$;
 
 -- ============================================================================
--- 5. RTSGrid_GetAllMetrics
+-- 6. RTSGrid_GetAllMetrics
+--    Returns all metric definitions with fallback for empty Description.
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSGrid_GetAllMetrics"();
 
 CREATE OR REPLACE FUNCTION "RTSGrid_GetAllMetrics"()
-RETURNS TABLE("MetricId" text, "Description" text, "DataType" text, "MetricFunction" text,
-              "MetricParameter" text, "MetricFormat" text, "DefaultValue" text)
+RETURNS TABLE(
+    "MetricId" text,
+    "Description" text,
+    "DataType" text,
+    "MetricFunction" text,
+    "MetricParameter" text,
+    "MetricFormat" text,
+    "DefaultValue" text
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT m."MetricId",
-           CASE WHEN m."Description" IS NULL OR m."Description" = '' THEN m."MetricId" ELSE m."Description" END,
-           m."DataType", m."MetricFunction", m."MetricParameter", m."MetricFormat", m."DefaultValue"
+    SELECT
+        m."MetricId"::text,
+        CASE WHEN m."Description" IS NULL OR m."Description" = ''
+             THEN m."MetricId"::text
+             ELSE m."Description"::text
+        END AS "Description",
+        m."DataType"::text,
+        m."MetricFunction"::text,
+        m."MetricParameter"::text,
+        m."MetricFormat"::text,
+        m."DefaultValue"::text
     FROM "RTSGrid_Metric" m;
 END;
 $$;
 
 -- ============================================================================
--- 6. RTSGrid_GetAllStatistics
+-- 7. RTSGrid_GetAllStatistics
+--    Returns all statistic definitions (23 columns).
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSGrid_GetAllStatistics"();
 
 CREATE OR REPLACE FUNCTION "RTSGrid_GetAllStatistics"()
 RETURNS TABLE(
-    "StatisticId" integer, "Category" text, "Definition" text,
-    "ParamType1" text, "ParamValue1" text, "ParamType2" text, "ParamValue2" text,
-    "ParamType3" text, "ParamValue3" text, "ParamType4" text, "ParamValue4" text,
-    "ParamType5" text, "ParamValue5" text, "ParamType6" text, "ParamValue6" text,
-    "ParamType7" text, "ParamValue7" text, "ParamType8" text, "ParamValue8" text,
-    "ParamType9" text, "ParamValue9" text, "ParamType10" text, "ParamValue10" text
+    "StatisticId" integer,
+    "Category" text,
+    "Definition" text,
+    "ParamType1" text,
+    "ParamValue1" text,
+    "ParamType2" text,
+    "ParamValue2" text,
+    "ParamType3" text,
+    "ParamValue3" text,
+    "ParamType4" text,
+    "ParamValue4" text,
+    "ParamType5" text,
+    "ParamValue5" text,
+    "ParamType6" text,
+    "ParamValue6" text,
+    "ParamType7" text,
+    "ParamValue7" text,
+    "ParamType8" text,
+    "ParamValue8" text,
+    "ParamType9" text,
+    "ParamValue9" text,
+    "ParamType10" text,
+    "ParamValue10" text
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    RETURN QUERY SELECT s."StatisticId", s."Category", s."Definition",
-        s."ParamType1", s."ParamValue1", s."ParamType2", s."ParamValue2",
-        s."ParamType3", s."ParamValue3", s."ParamType4", s."ParamValue4",
-        s."ParamType5", s."ParamValue5", s."ParamType6", s."ParamValue6",
-        s."ParamType7", s."ParamValue7", s."ParamType8", s."ParamValue8",
-        s."ParamType9", s."ParamValue9", s."ParamType10", s."ParamValue10"
+    RETURN QUERY
+    SELECT
+        s."StatisticId",
+        s."Category"::text,
+        s."Definition"::text,
+        s."ParamType1"::text,
+        s."ParamValue1"::text,
+        s."ParamType2"::text,
+        s."ParamValue2"::text,
+        s."ParamType3"::text,
+        s."ParamValue3"::text,
+        s."ParamType4"::text,
+        s."ParamValue4"::text,
+        s."ParamType5"::text,
+        s."ParamValue5"::text,
+        s."ParamType6"::text,
+        s."ParamValue6"::text,
+        s."ParamType7"::text,
+        s."ParamValue7"::text,
+        s."ParamType8"::text,
+        s."ParamValue8"::text,
+        s."ParamType9"::text,
+        s."ParamValue9"::text,
+        s."ParamType10"::text,
+        s."ParamValue10"::text
     FROM "RTSGrid_Statistic" s;
 END;
 $$;
 
 -- ============================================================================
--- 7. RTSGrid_GetUnionUsersMetrics
+-- 8. RTSGrid_GetUnionUsersMetrics
+--    Returns distinct UnionId/MetricId pairs from user grids.
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSGrid_GetUnionUsersMetrics"();
 
 CREATE OR REPLACE FUNCTION "RTSGrid_GetUnionUsersMetrics"()
-RETURNS TABLE("UnionId" integer, "MetricId" text)
+RETURNS TABLE(
+    "UnionId" integer,
+    "MetricId" text
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT DISTINCT g."UnionId", c."MetricId"
+    SELECT DISTINCT
+        g."UnionId",
+        c."MetricId"::text
     FROM "RTSUserGrid_Column" c, "RTSUserGrid_Grid" g
     WHERE c."ColumnsSetId" = g."ColumnsSetId"
     ORDER BY g."UnionId";
@@ -926,68 +1148,159 @@ END;
 $$;
 
 -- ============================================================================
--- 8. RTSUserGrid_GetAllGrids
+-- 9. RTSUserGrid_GetAllGrids
+--    Returns all user grid definitions.
+--    Column order matches original T-SQL: GridId, UnionId, CSS, Title,
+--    RowsFilterNew, PageSize, ThresholdScript
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSUserGrid_GetAllGrids"();
 
 CREATE OR REPLACE FUNCTION "RTSUserGrid_GetAllGrids"()
-RETURNS TABLE("GridId" integer, "UnionId" integer, "CSS" integer, "Title" text,
-              "RowsFilterNew" text, "PageSize" integer, "ThresholdScript" text)
+RETURNS TABLE(
+    "GridId" integer,
+    "UnionId" integer,
+    "CSS" integer,
+    "Title" text,
+    "RowsFilterNew" text,
+    "PageSize" integer,
+    "ThresholdScript" text
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    RETURN QUERY SELECT g."GridId", g."UnionId", g."StyleId" AS "CSS", g."Title",
-                        g."RowsFilterNew", g."PageSize", g."ThresholdScript"
+    RETURN QUERY
+    SELECT
+        g."GridId",
+        g."UnionId",
+        g."StyleId" AS "CSS",
+        g."Title"::text,
+        g."RowsFilterNew"::text,
+        g."PageSize",
+        g."ThresholdScript"::text
     FROM "RTSUserGrid_Grid" g;
 END;
 $$;
 
-\echo '    RTSGrid_* read functions: 8 deployed'
+-- ============================================================================
+-- End of RTSGrid/RTSUserGrid read functions (8 total)
+-- Note: NGC_GetSiteTable is in 01_ngc_functions.sql
+-- ============================================================================
 
--- ############################################################################
--- SECTION 4: Missing/Stub Functions (3 total)
--- Source: RTM-M6 task
--- ############################################################################
-
-\echo ''
-\echo '>>> Section 4: Missing/Stub Functions (3)'
 
 -- ============================================================================
--- 1. NGC_GetDataGrid
+-- SOURCE: 04_missing_functions.sql
+-- ============================================================================
+
+-- ============================================================================
+-- Missing Functions — Reverse-Engineered from C# + DNN Stub
+-- Output of RTM-M6 task
+--
+-- OPEN QUESTIONS:
+-- OQ-01: RTSUserView_GetHTMLSettings is a stub. The C# caller (RealtimeData.cs:475)
+--        reads HTML settings from DNN ModuleSettings. Decide: stub / port table / move to config.
+-- OQ-03: NGC_GetDataGrid and NGC_GetCellsByDataGrid were absent from H_RTM.sql dump.
+--        Functions below are reverse-engineered from C# column-index access patterns.
+--        Validate against production SQL Server before go-live.
+--
+-- All identifiers are double-quoted (PostgreSQL case-sensitivity).
+-- ============================================================================
+
+-- ============================================================================
+-- 1. NGC_GetDataGrid(p_grid_id integer)
+--    Called from RealtimeData.cs lines 335-360.
+--    C# accesses 7 columns BY INDEX:
+--      row[0] → title (string)
+--      row[1] → businessUnitID (int)      → maps to RTSGrid_Grid.UnionId
+--      row[2] → cssStyleID (int)          → maps to RTSGrid_Grid.StyleId
+--      row[3] → thresholdID (int)         → NOT in table; return NULL
+--      row[4] → thresholdScript (string)  → maps to RTSGrid_Grid.ThresholdScript
+--      row[5] → isToggle (bool)           → NOT in table; return false
+--      row[6] → toggleDefault (bool)      → NOT in table; return false
+--
+--    NOTE: RTSGrid_Grid only has: GridId, UnionId, StyleId, Title, ThresholdScript.
+--    ThresholdId, IsToggle, ToggleDefault are absent from SQL Server DDL.
+--    Returning NULL/false defaults — validate against production behavior.
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetDataGrid"(integer);
 
 CREATE OR REPLACE FUNCTION "NGC_GetDataGrid"(p_grid_id integer)
-RETURNS TABLE("Title" text, "BusinessUnitID" integer, "CssStyleID" integer,
-              "ThresholdID" integer, "ThresholdScript" text, "IsToggle" boolean, "ToggleDefault" boolean)
+RETURNS TABLE(
+    "Title" text,
+    "BusinessUnitID" integer,
+    "CssStyleID" integer,
+    "ThresholdID" integer,
+    "ThresholdScript" text,
+    "IsToggle" boolean,
+    "ToggleDefault" boolean
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT g."Title"::text, g."UnionId" AS "BusinessUnitID", g."StyleId" AS "CssStyleID",
-           NULL::integer AS "ThresholdID", COALESCE(g."ThresholdScript", '')::text,
-           false AS "IsToggle", false AS "ToggleDefault"
-    FROM "RTSGrid_Grid" g WHERE g."GridId" = p_grid_id;
+    SELECT
+        g."Title"::text,
+        g."UnionId" AS "BusinessUnitID",
+        g."StyleId" AS "CssStyleID",
+        NULL::integer AS "ThresholdID",          -- Column not in RTSGrid_Grid DDL
+        COALESCE(g."ThresholdScript", '')::text AS "ThresholdScript",
+        false AS "IsToggle",                      -- Column not in RTSGrid_Grid DDL
+        false AS "ToggleDefault"                  -- Column not in RTSGrid_Grid DDL
+    FROM "RTSGrid_Grid" g
+    WHERE g."GridId" = p_grid_id;
 END;
 $$;
 
 -- ============================================================================
--- 2. NGC_GetCellsByDataGrid
+-- 2. NGC_GetCellsByDataGrid(p_grid_id integer)
+--    Called from RealtimeData.cs lines 371-398.
+--    C# accesses 11 columns BY INDEX:
+--      row[0]  → cellID (int)             → RTSGrid_Cell.CellId
+--      row[1]  → (unused in C#)           → RTSGrid_Cell.ColumnId (filler)
+--      row[2]  → rowNumber (int)          → RTSGrid_Row.RowNumber
+--      row[3]  → (unused in C#)           → RTSGrid_Row.RowId (filler)
+--      row[4]  → cssStyleID (int)         → RTSGrid_Cell.StyleId
+--      row[5]  → gridStyleId (int)        → RTSGrid_Grid.StyleId
+--      row[6]  → rowStyleId (int)         → RTSGrid_Row.StyleId
+--      row[7]  → cellType (string)        → RTSGrid_Cell.CellType
+--      row[8]  → value (string)           → RTSGrid_Cell.Value
+--      row[9]  → tooltip (string)         → RTSGrid_TemplateCell.Tooltip (via Column)
+--      row[10] → onClick (string)         → RTSGrid_TemplateCell.OnClick (via Column)
+--
+--    Columns 1 and 3 (row[1], row[3]) are not used in C# but must be present
+--    for index alignment. Using ColumnId and RowId as logical fillers.
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetCellsByDataGrid"(integer);
 
 CREATE OR REPLACE FUNCTION "NGC_GetCellsByDataGrid"(p_grid_id integer)
-RETURNS TABLE("CellID" integer, "ColumnId" integer, "RowNumber" integer, "RowId" integer,
-              "CssStyleID" integer, "GridStyleId" integer, "RowStyleId" integer,
-              "CellType" text, "Value" text, "Tooltip" text, "OnClick" text)
+RETURNS TABLE(
+    "CellID" integer,
+    "ColumnId" integer,
+    "RowNumber" integer,
+    "RowId" integer,
+    "CssStyleID" integer,
+    "GridStyleId" integer,
+    "RowStyleId" integer,
+    "CellType" text,
+    "Value" text,
+    "Tooltip" text,
+    "OnClick" text
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT c."CellId" AS "CellID", c."ColumnId", r."RowNumber", r."RowId",
-           c."StyleId" AS "CssStyleID", g."StyleId" AS "GridStyleId", r."StyleId" AS "RowStyleId",
-           COALESCE(c."CellType", '')::text, COALESCE(c."Value", '')::text,
-           COALESCE(t."Tooltip", '')::text, COALESCE(t."OnClick", '')::text
+    SELECT
+        c."CellId" AS "CellID",
+        c."ColumnId",
+        r."RowNumber",
+        r."RowId",
+        c."StyleId" AS "CssStyleID",
+        g."StyleId" AS "GridStyleId",
+        r."StyleId" AS "RowStyleId",
+        COALESCE(c."CellType", '')::text AS "CellType",
+        COALESCE(c."Value", '')::text AS "Value",
+        COALESCE(t."Tooltip", '')::text AS "Tooltip",
+        COALESCE(t."OnClick", '')::text AS "OnClick"
     FROM "RTSGrid_Cell" c
     JOIN "RTSGrid_Row" r ON c."RowId" = r."RowId"
     JOIN "RTSGrid_Grid" g ON r."GridId" = g."GridId"
@@ -998,7 +1311,10 @@ END;
 $$;
 
 -- ============================================================================
--- 3. RTSUserView_GetHTMLSettings (STUB)
+-- 3. RTSUserView_GetHTMLSettings()
+--    STUB: Original SP reads from DNN ModuleSettings (portal CMS table).
+--    DNN is not migrated to PostgreSQL. Returns empty result set.
+--    TODO (OQ-01): Replace with appsettings.json config read in C#.
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSUserView_GetHTMLSettings"();
 
@@ -1007,29 +1323,15 @@ RETURNS TABLE("SettingValue" text)
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    -- STUB: DNN ModuleSettings not migrated. Returns empty.
+    -- STUB: Original SP reads from DNN ModuleSettings (portal CMS table).
+    -- DNN is not migrated to PostgreSQL. Returns empty result set.
+    -- TODO: Replace with appsettings.json config read in C# (OQ-01).
     RETURN;
 END;
 $$;
 
-\echo '    Missing/stub functions: 3 deployed'
+-- ============================================================================
+-- End of missing functions (3 total)
+-- ============================================================================
 
--- ############################################################################
--- DEPLOYMENT COMPLETE
--- ############################################################################
 
-\echo ''
-\echo '============================================================'
-\echo 'DEPLOYMENT COMPLETE: 37 functions deployed'
-\echo '  - NGC_*: 18'
-\echo '  - RTSData_*: 8 (6 main + 2 aliases)'
-\echo '  - RTSGrid_*: 8'
-\echo '  - Missing/stub: 3'
-\echo '============================================================'
-
--- Verification query
-SELECT COUNT(*) AS function_count
-FROM pg_proc p
-JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE n.nspname = 'public'
-  AND p.proname LIKE ANY(ARRAY['ngc_%', 'rts%']);

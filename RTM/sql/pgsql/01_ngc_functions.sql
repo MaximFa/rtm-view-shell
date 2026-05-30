@@ -31,11 +31,11 @@ BEGIN
     SELECT
         bu."BusinessUnitId",
         bu."TenantId",
-        bu."BusinessUnitName",
-        bu."Description",
+        bu."BusinessUnitName"::text,
+        bu."Description"::text,
         bu."CreatedDatetime",
-        bu."CreatedBy",
-        bu."SiteId"
+        bu."CreatedBy"::text,
+        bu."SiteId"::text
     FROM "NGC_BusinessUnit" bu
     ORDER BY bu."BusinessUnitId";
 END;
@@ -63,10 +63,10 @@ BEGIN
     SELECT
         sg."SupergroupId",
         sg."TenantId",
-        sg."SupergroupName",
-        sg."Description",
+        sg."SupergroupName"::text,
+        sg."Description"::text,
         sg."CreatedDatetime",
-        sg."CreatedBy",
+        sg."CreatedBy"::text,
         sg."SupergroupIdOld"
     FROM "NGC_Supergroup" sg
     ORDER BY sg."SupergroupId";
@@ -93,11 +93,11 @@ BEGIN
     RETURN QUERY
     SELECT
         bq."BusinessUnitId",
-        bq."QueueId",
+        bq."QueueId"::text,
         bq."TenantId",
-        bq."ClassificationId",
+        bq."ClassificationId"::text,
         bq."CreatedDatetime",
-        bq."CreatedBy"
+        bq."CreatedBy"::text
     FROM "NGC_BusinessUnitQueueClassification" bq;
 END;
 $$;
@@ -124,7 +124,7 @@ BEGIN
         bs."SupergroupId",
         bs."TenantId",
         bs."CreatedDatetime",
-        bs."CreatedBy"
+        bs."CreatedBy"::text
     FROM "NGC_BusinessUnitSupergroup" bs;
 END;
 $$;
@@ -150,10 +150,10 @@ BEGIN
     SELECT
         sa."Id",
         sa."SupergroupId",
-        sa."AgentgroupId",
+        sa."AgentgroupId"::text,
         sa."TenantId",
         sa."CreatedDatetime",
-        sa."CreatedBy"
+        sa."CreatedBy"::text
     FROM "NGC_SupergroupAgentgroup" sa;
 END;
 $$;
@@ -177,12 +177,12 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        s."SiteId",
+        s."SiteId"::text,
         s."TenantId",
-        s."SiteName",
-        s."Description",
-        s."TimeZone",
-        s."ClearTime"
+        s."SiteName"::text,
+        s."Description"::text,
+        s."TimeZone"::text,
+        s."ClearTime"::text
     FROM "NGC_Site" s;
 END;
 $$;
