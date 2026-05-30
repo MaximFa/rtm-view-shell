@@ -378,6 +378,7 @@
 
     private int _previousGridId;
     private string _lastColumnsKey = "";
+    private int _rtsGridId;   // RTSUserGrid_Grid.GridId — used in init(); may differ from GridId param
 
     protected override async Task OnParametersSetAsync()
     {
@@ -418,6 +419,8 @@
             _darkFontColor = Config.DarkFontColor ?? "#FFFFFF";
             _darkTableBackgroundColor = Config.DarkTableBackgroundColor ?? "#333333";
             _columnDefs = Config.AgentGridColumnDefs?.ToList() ?? new();
+            if (Config.RtsUserGridId is > 0)
+                _rtsGridId = Config.RtsUserGridId.Value;
 
             // Avatar, Score, Pagination
             _showAvatar = Config.ShowAvatar;
@@ -563,7 +566,7 @@
             _hub.Reconnected += async _ =>
             {
                 _connectionState = ConnectionState.Connected;
-                await _hub.InvokeAsync("init", $"u{GridId}");
+                await _hub.InvokeAsync("init", $"u{(_rtsGridId > 0 ? _rtsGridId : GridId)}");
                 await InvokeAsync(StateHasChanged);
             };
 
@@ -580,7 +583,7 @@
             await _hub.StartAsync(_cts.Token);
             _connectionState = ConnectionState.Connected;
 
-            await _hub.InvokeAsync("init", $"u{GridId}", _cts.Token);
+            await _hub.InvokeAsync("init", $"u{(_rtsGridId > 0 ? _rtsGridId : GridId)}", _cts.Token);
 
             Logger.LogInformation("Connected to AgentGrid simulator for GridId {GridId}", GridId);
         }

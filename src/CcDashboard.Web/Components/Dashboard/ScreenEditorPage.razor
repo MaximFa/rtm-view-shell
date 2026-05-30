@@ -3996,6 +3996,10 @@
                 rtsUserGridId = rtsResult.GridId;
                 columnsSetId = rtsResult.ColumnsSetId;
 
+                // Sync DashboardWidget.GridId with RTSUserGrid_Grid.GridId so that
+                // AgentGridWidget's init("u{GridId}") matches the simulator's SQL query.
+                preassignedGridId = rtsUserGridId;
+
                 // Update column DbColumnIds from RTS result
                 foreach (var (title, dbColumnId) in rtsResult.SavedColumns)
                 {
