@@ -1,0 +1,148 @@
+-- ============================================================================
+-- pgloader Script: SQL Server → PostgreSQL Migration for RTM Backend
+-- Output of RTM-M7 task
+--
+-- Usage:
+--   pgloader rtm_staging.load
+--
+-- Prerequisites:
+--   1. PostgreSQL database cc_rtm_staging created with user cc_rtm_app
+--   2. EF migrations applied (AppDbContext + BackendEmulationDbContext)
+--   3. PL/pgSQL functions deployed (01-04 SQL files)
+--
+-- Notes:
+--   - RTSData_UserStatusLog requires separate handling (Duration * 1000)
+--   - RTSGrid_UserStatus has no SQL Server DDL — starts empty
+--   - Update connection strings before running
+-- ============================================================================
+
+LOAD DATABASE
+    FROM mssql://sa:YOUR_SQL_SERVER_PASSWORD@localhost/H_RTM
+    INTO postgresql://cc_rtm_app:changeme@localhost/cc_rtm_staging
+
+WITH
+    include drop,
+    create tables,
+    create indexes,
+    reset sequences,
+    foreign keys,
+    workers = 4,
+    concurrency = 2
+
+SET
+    work_mem to '128MB',
+    maintenance_work_mem to '512MB'
+
+CAST
+    type datetime to timestamptz using zero-dates-to-null,
+    type smalldatetime to timestamptz,
+    type bit to boolean,
+    type nvarchar to text,
+    type ntext to text,
+    type varchar to text,
+    type uniqueidentifier to uuid
+
+-- ============================================================================
+-- Category A: Core existing tables (19 tables)
+-- ============================================================================
+INCLUDING ONLY TABLE NAMES MATCHING
+    -- NGC Configuration tables
+    'NGC_Site',
+    'NGC_BusinessUnit',
+    'NGC_Supergroup',
+    'NGC_Queues',
+    'NGC_AgentGroups',
+    'NGC_BusinessUnitQueueClassification',
+    'NGC_BusinessUnitSupergroup',
+    'NGC_SupergroupAgentgroup',
+    'NGC_RTMServer',
+
+    -- RTSGrid tables (Queue Grid)
+    'RTSGrid_Metric',
+    'RTSGrid_Grid',
+    'RTSGrid_Column',
+    'RTSGrid_Row',
+    'RTSGrid_Cell',
+
+    -- RTSUserGrid tables (Agent Grid)
+    'RTSUserGrid_Grid',
+    'RTSUserGrid_ColumnsSet',
+    'RTSUserGrid_Column',
+
+    -- RTSData tables (real-time data)
+    'RTSData_Interaction',
+    'RTSData_UserStatus',
+
+-- ============================================================================
+-- Category B: New tables added in RTM-M1 (3 tables)
+-- ============================================================================
+    'RTSData_ChatMessage',
+    'RTSGrid_Statistic',
+    'RTSGrid_TemplateCell',
+
+-- ============================================================================
+-- Category D: Admin UI / configuration tables (11 tables)
+-- ============================================================================
+    'RTSGrid_Style',
+    'RTSGrid_CellImage',
+    'RTSGrid_Threshold',
+    'RTSGrid_ThresholdSet',
+    'RTSGrid_Union',
+    'RTSGrid_UnionMetric',
+    'RTSGrid_UnionSupergroup',
+    'RTSGrid_Supergroup',
+    'RTSGrid_SupergroupUsergroup',
+    'RTSUserGrid_Style'
+
+-- ============================================================================
+-- Excluded tables:
+-- - Category C: RTSGrid_UserStatus — no SQL Server DDL, starts empty
+-- - Category E: Backup/temp tables — matched by regex below
+-- - RTSData_UserStatusLog — requires Duration * 1000 transform (separate script)
+-- ============================================================================
+
+EXCLUDING TABLE NAMES MATCHING
+    -- Backup tables
+    ~/BackUp/,
+    ~/Old$/,
+    ~/Old2$/,
+    ~/tmp_/,
+    -- Date-stamped backups
+    ~/_05082024$/,
+    ~/_17032024$/,
+    ~/_13_2$/,
+    -- UserStatusLog handled separately
+    'RTSData_UserStatusLog'
+
+BEFORE LOAD DO
+    $$ SET session_replication_role = replica; $$
+
+AFTER LOAD DO
+    $$ SET session_replication_role = DEFAULT; $$,
+    $$ ANALYZE; $$
+;
+
+-- ============================================================================
+-- Post-migration: RTSData_UserStatusLog (run manually)
+-- ============================================================================
+-- pgloader cannot multiply a column during migration. Use two-pass approach:
+--
+-- Pass 1: Load to temp table (run pgloader with only RTSData_UserStatusLog)
+--   CREATE TEMP TABLE tmp_userstatuslog AS
+--   SELECT * FROM "RTSData_UserStatusLog" LIMIT 0;
+--   -- Then pgloader with target = tmp_userstatuslog
+--
+-- Pass 2: Transform and insert (run in psql):
+--   INSERT INTO "RTSData_UserStatusLog" (
+--       "UserId", "StatusId", "StatusGroup", "ServerId", "OnDate",
+--       "StartTime", "EndTime", "Duration", "UpdateTime", "TimeZone"
+--   )
+--   SELECT
+--       "UserId", "StatusId", "StatusGroup", "ServerId", "OnDate",
+--       "StartTime", "EndTime",
+--       "Duration" * 1000,  -- seconds → milliseconds
+--       "UpdateTime", "TimeZone"
+--   FROM tmp_userstatuslog;
+--
+--   DROP TABLE tmp_userstatuslog;
+-- ============================================================================
