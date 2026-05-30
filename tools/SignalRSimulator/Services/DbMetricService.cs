@@ -11,6 +11,9 @@ public interface IDbMetricService
     Task<List<GridRowInfo>> GetRowsForGridAsync(int gridId, CancellationToken ct = default);
     Task<List<MetricDefinition>> GetMetricsForGridAsync(int gridId, CancellationToken ct = default);
     Task<List<RtmCellInfo>> GetCellsForGridAsync(int gridId, CancellationToken ct = default);
+    /// <summary>Returns MetricDefinitions configured in RTSUserGrid_Column for the given UnionId.</summary>
+    Task<List<MetricDefinition>> GetConfiguredMetricsForUnionAsync(int unionId, CancellationToken ct = default);
+    void InvalidateCaches();
 }
 
 public class DbMetricService : IDbMetricService
@@ -20,6 +23,20 @@ public class DbMetricService : IDbMetricService
     private List<MetricDefinition>? _cachedMetrics;
     private DateTime _cacheTime = DateTime.MinValue;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
+
+    // Per-union configured metric cache (cleared on /LoadData)
+    private readonly Dictionary<int, List<MetricDefinition>> _unionMetricCache = new();
+
+    /// <summary>
+    /// Clears all in-memory caches. Called by /LoadData endpoint so the next
+    /// generation cycle re-reads fresh config (including newly added columns).
+    /// </summary>
+    public void InvalidateCaches()
+    {
+        _cachedMetrics = null;
+        _cacheTime = DateTime.MinValue;
+        lock (_unionMetricCache) { _unionMetricCache.Clear(); }
+    }
 
     public DbMetricService(IConfiguration configuration, ILogger<DbMetricService> logger)
     {
@@ -127,6 +144,53 @@ public class DbMetricService : IDbMetricService
         var all = await GetAllMetricsAsync(ct);
         return all.Where(m => metricIds.Contains(m.MetricId)).ToList();
     }
+    public async Task<List<MetricDefinition>> GetConfiguredMetricsForUnionAsync(int unionId, CancellationToken ct = default)
+    {
+        lock (_unionMetricCache)
+        {
+            if (_unionMetricCache.TryGetValue(unionId, out var cached))
+                return cached;
+        }
+
+        var result = new List<MetricDefinition>();
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+
+        const string sql = @"
+            SELECT DISTINCT
+                c.""MetricId"",
+                COALESCE(m.""Description"", c.""MetricId"") AS ""Description"",
+                COALESCE(m.""DataType"", 'String')          AS ""DataType"",
+                m.""MetricFormat"",
+                m.""DefaultValue""
+            FROM ""RTSUserGrid_Column"" c
+            JOIN ""RTSUserGrid_ColumnsSet"" cs ON cs.""ColumnsSetId"" = c.""ColumnsSetId""
+            JOIN ""RTSUserGrid_Grid""      g  ON g.""ColumnsSetId""  = cs.""ColumnsSetId""
+            LEFT JOIN ""RTSGrid_Metric""   m  ON m.""MetricId""      = c.""MetricId""
+            WHERE g.""UnionId"" = @unionId
+              AND c.""MetricId"" IS NOT NULL
+              AND c.""MetricId"" <> ''";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("unionId", unionId);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            result.Add(new MetricDefinition(
+                MetricId:     reader.GetString(0),
+                Description:  reader.IsDBNull(1) ? null : reader.GetString(1),
+                DataType:     reader.GetString(2),
+                MetricFormat: reader.IsDBNull(3) ? null : reader.GetString(3),
+                DefaultValue: reader.IsDBNull(4) ? null : reader.GetString(4)
+            ));
+        }
+
+        _logger.LogDebug("Loaded {Count} configured metrics for union {UnionId}", result.Count, unionId);
+
+        lock (_unionMetricCache) { _unionMetricCache[unionId] = result; }
+        return result;
+    }
+
     public async Task<List<RtmCellInfo>> GetCellsForGridAsync(int gridId, CancellationToken ct = default)
     {
         var cells = new List<RtmCellInfo>();
