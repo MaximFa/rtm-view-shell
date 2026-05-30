@@ -81,3 +81,25 @@ public class RtsDataUserStatusLog
     public DateTime? UpdateTime { get; set; }
     public string? TimeZone { get; set; }
 }
+
+/// <summary>
+/// RTSData_ChatMessage - chat message records written by the CC backend.
+/// Shell access: read-only. PK: (MessageId, ServerId, OnDate).
+/// UPSERT uses UNIQUE index on (MessageId, ServerId) - different from PK.
+/// </summary>
+public class RtsDataChatMessage
+{
+    public string MessageId { get; set; } = string.Empty;
+    public string ServerId { get; set; } = string.Empty;
+    public string OnDate { get; set; } = string.Empty;   // DD/MM/YYYY
+    public string? InteractionId { get; set; }
+    public int? SegmentId { get; set; }
+    public string? UserId { get; set; }
+    public string? MsgDirection { get; set; }
+    public string? Sender { get; set; }
+    public string? Recipient { get; set; }
+    public string? Body { get; set; }
+    public string? DeliveryStatus { get; set; }
+    public DateTime? UpdateTime { get; set; }
+    public DateTime? MsgTimeStamp { get; set; }  // Maps to column "TimeStamp"
+}

@@ -43,6 +43,14 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
     public DbSet<RtsDataUserStatus> RtsDataUserStatuses => Set<RtsDataUserStatus>();
     public DbSet<RtsDataUserStatusLog> RtsDataUserStatusLogs => Set<RtsDataUserStatusLog>();
 
+    // RTSData tables - RTM-M1 additions
+    public DbSet<RtsDataChatMessage> RtsDataChatMessages => Set<RtsDataChatMessage>();
+
+    // RTSGrid tables - RTM-M1 additions
+    public DbSet<RtsGridStatistic> RtsGridStatistics => Set<RtsGridStatistic>();
+    public DbSet<RtsGridTemplateCell> RtsGridTemplateCells => Set<RtsGridTemplateCell>();
+    public DbSet<RtsGridUserStatus> RtsGridUserStatuses => Set<RtsGridUserStatus>();
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         base.OnModelCreating(mb);
@@ -240,6 +248,10 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.LastUserId).HasMaxLength(50);
             e.Property(x => x.LastWorkgroup).HasMaxLength(100);
             e.Property(x => x.TimeZone).HasMaxLength(10);
+            // UPSERT conflict key is (InteractionId, Segment, ServerId) - 3 cols, not the 5-col PK
+            e.HasIndex(x => new { x.InteractionId, x.Segment, x.ServerId })
+                .IsUnique()
+                .HasDatabaseName("IX_RTSData_Interaction_UpsertKey");
             // No Global Query Filter: RTSData tables are backend-owned cross-tenant tables.
             // Shell filters by TenantId explicitly in every query.
         });
@@ -270,6 +282,79 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.OnDate).HasMaxLength(50);
             e.Property(x => x.TimeZone).HasMaxLength(10);
             e.Property(x => x.Duration).HasColumnType("bigint"); // milliseconds
+        });
+
+        // --- RTM-M1: 4 new entities for RTM stored procedures ---
+
+        mb.Entity<RtsDataChatMessage>(e =>
+        {
+            e.ToTable("RTSData_ChatMessage");
+            e.HasKey(x => new { x.MessageId, x.ServerId, x.OnDate });
+            e.Property(x => x.MessageId).HasMaxLength(100);
+            e.Property(x => x.ServerId).HasMaxLength(50);
+            e.Property(x => x.OnDate).HasMaxLength(50);
+            e.Property(x => x.InteractionId).HasMaxLength(100);
+            e.Property(x => x.UserId).HasMaxLength(100);
+            e.Property(x => x.MsgDirection).HasMaxLength(50);
+            e.Property(x => x.Sender).HasMaxLength(200);
+            e.Property(x => x.Recipient).HasMaxLength(200);
+            e.Property(x => x.Body).HasColumnType("text");
+            e.Property(x => x.DeliveryStatus).HasMaxLength(50);
+            e.Property(x => x.MsgTimeStamp).HasColumnName("TimeStamp");
+            // UPSERT conflict key is (MessageId, ServerId) - 2 cols, not the 3-col PK
+            e.HasIndex(x => new { x.MessageId, x.ServerId }).IsUnique();
+        });
+
+        mb.Entity<RtsGridStatistic>(e =>
+        {
+            e.ToTable("RTSGrid_Statistic");
+            e.HasKey(x => x.StatisticId);
+            e.Property(x => x.StatisticId).ValueGeneratedOnAdd();
+            e.Property(x => x.Category).HasMaxLength(100);
+            e.Property(x => x.Definition).HasMaxLength(500);
+            e.Property(x => x.ParamType1).HasMaxLength(100);
+            e.Property(x => x.ParamValue1).HasMaxLength(500);
+            e.Property(x => x.ParamType2).HasMaxLength(100);
+            e.Property(x => x.ParamValue2).HasMaxLength(500);
+            e.Property(x => x.ParamType3).HasMaxLength(100);
+            e.Property(x => x.ParamValue3).HasMaxLength(500);
+            e.Property(x => x.ParamType4).HasMaxLength(100);
+            e.Property(x => x.ParamValue4).HasMaxLength(500);
+            e.Property(x => x.ParamType5).HasMaxLength(100);
+            e.Property(x => x.ParamValue5).HasMaxLength(500);
+            e.Property(x => x.ParamType6).HasMaxLength(100);
+            e.Property(x => x.ParamValue6).HasMaxLength(500);
+            e.Property(x => x.ParamType7).HasMaxLength(100);
+            e.Property(x => x.ParamValue7).HasMaxLength(500);
+            e.Property(x => x.ParamType8).HasMaxLength(100);
+            e.Property(x => x.ParamValue8).HasMaxLength(500);
+            e.Property(x => x.ParamType9).HasMaxLength(100);
+            e.Property(x => x.ParamValue9).HasMaxLength(500);
+            e.Property(x => x.ParamType10).HasMaxLength(100);
+            e.Property(x => x.ParamValue10).HasMaxLength(500);
+        });
+
+        mb.Entity<RtsGridTemplateCell>(e =>
+        {
+            e.ToTable("RTSGrid_TemplateCell");
+            e.HasKey(x => x.CellTemplateId);
+            e.Property(x => x.CellTemplateId).ValueGeneratedOnAdd();
+            e.Property(x => x.CellType).HasMaxLength(50);
+            e.Property(x => x.Value).HasMaxLength(500);
+            e.Property(x => x.Tooltip).HasMaxLength(500);
+            e.Property(x => x.OnClick).HasMaxLength(500);
+        });
+
+        mb.Entity<RtsGridUserStatus>(e =>
+        {
+            e.ToTable("RTSGrid_UserStatus");
+            e.HasKey(x => new { x.UserId, x.StatusId });
+            e.Property(x => x.UserId).HasMaxLength(100);
+            e.Property(x => x.StatusId).HasMaxLength(100);
+            e.Property(x => x.StatusName).HasMaxLength(100);
+            e.Property(x => x.StatusGroup).HasMaxLength(100);
+            e.Property(x => x.SourceServer).HasMaxLength(50);
+            e.Property(x => x.OnDate).HasMaxLength(50);
         });
     }
 }
