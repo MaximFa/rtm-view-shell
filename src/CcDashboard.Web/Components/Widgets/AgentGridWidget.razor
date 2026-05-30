@@ -303,6 +303,15 @@
         string? FontColor
     );
 
+    // RTM protocol models
+    private class RtmUsersResult
+    {
+        [Newtonsoft.Json.JsonProperty("Data")]
+        public List<Dictionary<string, string>>? Data { get; set; }
+        [Newtonsoft.Json.JsonProperty("Count")]
+        public int Count { get; set; }
+    }
+
     // Column filters
     private string? _activeFilterColumn;
     private string? _listDropdownOpen;
@@ -449,12 +458,13 @@
         {
             var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
             var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var fullUrl = $"{simulatorUrl}/hubs/agent-grid?gridId={GridId}";
+            var fullUrl = $"{simulatorUrl}/signalr";
 
             Logger.LogInformation("AgentGridWidget: Connecting to {Url}", fullUrl);
 
             _hub = new HubConnectionBuilder()
                 .WithUrl(fullUrl)
+                .AddNewtonsoftJsonProtocol()
                 .WithAutomaticReconnect(new[] {
                     TimeSpan.Zero,
                     TimeSpan.FromSeconds(2),
@@ -464,21 +474,42 @@
                 })
                 .Build();
 
-            _hub.On<GridUpdate>("AgentGridUpdate", async update =>
+            _hub.On<DateTime, int, RtmUsersResult>("updateUserGrid", async (ts, unionId, result) =>
             {
+                if (result.Data is null) return;
                 var isFirstData = _rows.Count == 0;
-                _rows = update.Rows.Select(r => new AgentRowData
+                foreach (var agentDict in result.Data)
                 {
-                    RowId = r.RowId,
-                    Metrics = r.Metrics
-                }).ToList();
-
-                // Detect column data types on first data received
-                if (isFirstData)
-                {
-                    DetectColumnDataTypes();
+                    var userId = agentDict.GetValueOrDefault("USERID")
+                                 ?? agentDict.GetValueOrDefault("AgentLoginName") ?? "";
+                    if (string.IsNullOrEmpty(userId)) continue;
+                    var existing = _rows.FirstOrDefault(r => r.RowId == userId);
+                    if (existing is not null)
+                    {
+                        foreach (var kv in agentDict)
+                            existing.Metrics[kv.Key] = StripTimerPrefix(kv.Value);
+                    }
+                    else
+                    {
+                        _rows.Add(new AgentRowData
+                        {
+                            RowId = userId,
+                            Metrics = agentDict.ToDictionary(kv => kv.Key, kv => StripTimerPrefix(kv.Value))
+                        });
+                    }
                 }
+                if (isFirstData) DetectColumnDataTypes();
+                await InvokeAsync(StateHasChanged);
+            });
 
+            _hub.On<int, List<Dictionary<string, string>>>("removeUser", async (unionId, users) =>
+            {
+                foreach (var agentDict in users)
+                {
+                    var userId = agentDict.GetValueOrDefault("USERID")
+                                 ?? agentDict.GetValueOrDefault("AgentLoginName") ?? "";
+                    _rows.RemoveAll(r => r.RowId == userId);
+                }
                 await InvokeAsync(StateHasChanged);
             });
 
@@ -491,6 +522,7 @@
             _hub.Reconnected += async _ =>
             {
                 _connectionState = ConnectionState.Connected;
+                await _hub.InvokeAsync("init", $"u{GridId}");
                 await InvokeAsync(StateHasChanged);
             };
 
@@ -506,6 +538,8 @@
 
             await _hub.StartAsync(_cts.Token);
             _connectionState = ConnectionState.Connected;
+
+            await _hub.InvokeAsync("init", $"u{GridId}", _cts.Token);
 
             Logger.LogInformation("Connected to AgentGrid simulator for GridId {GridId}", GridId);
         }
@@ -1313,6 +1347,9 @@
         null or "" => "14px",
         _ => value.EndsWith("px") ? value : $"{value}px"
     };
+
+    private static string StripTimerPrefix(string value)
+        => value?.StartsWith('+') == true ? value[1..] : value ?? "";
 
     public async ValueTask DisposeAsync()
     {

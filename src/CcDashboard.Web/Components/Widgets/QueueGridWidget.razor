@@ -267,6 +267,10 @@
     // Detected column data types (from actual values)
     private Dictionary<string, string> _detectedDataTypes = new();
 
+    // RTM protocol: CellId -> (RowDefId, MetricId) reverse map
+    private record RtmCellData(int CellId, string Value, string Value2);
+    private Dictionary<int, (string RowDefId, string MetricId)> _cellMap = new();
+
     // Column thresholds
     private Dictionary<string, List<ColumnThreshold>> _columnThresholds = new(StringComparer.OrdinalIgnoreCase);
 
@@ -391,6 +395,13 @@
                 RowId = r.Id,
                 QueueName = r.QueueName ?? r.BusinessUnitName ?? ""
             }).ToList();
+
+            // Build CellId -> (RowDefId, MetricId) reverse map for RTM protocol
+            _cellMap = new Dictionary<int, (string RowDefId, string MetricId)>();
+            foreach (var row in _rowDefs)
+                foreach (var col in _columnDefs)
+                    if (row.CellIds.TryGetValue(col.Id, out var cid) && cid.HasValue)
+                        _cellMap[cid.Value] = (row.Id, col.MetricId);
         }
     }
 
@@ -411,12 +422,13 @@
         {
             var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
             var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={GridId}";
+            var fullUrl = $"{simulatorUrl}/signalr";
 
             Logger.LogInformation("QueueGridWidget: Connecting to {Url}", fullUrl);
 
             _hub = new HubConnectionBuilder()
                 .WithUrl(fullUrl)
+                .AddNewtonsoftJsonProtocol()
                 .WithAutomaticReconnect(new[] {
                     TimeSpan.Zero,
                     TimeSpan.FromSeconds(2),
@@ -426,25 +438,20 @@
                 })
                 .Build();
 
-            _hub.On<GridUpdate>("QueueGridUpdate", async update =>
+            _hub.On<List<RtmCellData>>("updateGridData", async cells =>
             {
                 var isFirstData = _rows.All(r => r.Metrics.Count == 0);
-
-                foreach (var incomingRow in update.Rows)
+                foreach (var cell in cells)
                 {
-                    var existingRow = _rows.FirstOrDefault(r => r.RowId == incomingRow.RowId);
-                    if (existingRow != null)
-                    {
-                        existingRow.Metrics = incomingRow.Metrics;
-                    }
+                    if (!_cellMap.TryGetValue(cell.CellId, out var mapping)) continue;
+                    var (rowDefId, metricId) = mapping;
+                    var row = _rows.FirstOrDefault(r => r.RowId == rowDefId);
+                    if (row is null) continue;
+                    // Strip '+' timer prefix
+                    row.Metrics[metricId] = cell.Value?.StartsWith('+') == true
+                        ? cell.Value[1..] : cell.Value ?? "";
                 }
-
-                // Detect column data types on first data received
-                if (isFirstData)
-                {
-                    DetectColumnDataTypes();
-                }
-
+                if (isFirstData) DetectColumnDataTypes();
                 await InvokeAsync(StateHasChanged);
             });
 
@@ -457,7 +464,7 @@
             _hub.Reconnected += async _ =>
             {
                 _connectionState = ConnectionState.Connected;
-                await SendRowConfig();
+                await _hub.InvokeAsync("init", GridId.ToString());
                 await InvokeAsync(StateHasChanged);
             };
 
@@ -474,7 +481,7 @@
             await _hub.StartAsync(_cts.Token);
             _connectionState = ConnectionState.Connected;
 
-            await SendRowConfig();
+            await _hub.InvokeAsync("init", GridId.ToString(), _cts.Token);
 
             Logger.LogInformation("Connected to QueueGrid simulator for GridId {GridId}", GridId);
         }
@@ -482,26 +489,6 @@
         {
             Logger.LogError(ex, "QueueGridWidget: Failed to connect. Error: {Message}", ex.Message);
             _connectionState = ConnectionState.Failed;
-        }
-    }
-
-    private async Task SendRowConfig()
-    {
-        if (_hub is null || _hub.State != HubConnectionState.Connected) return;
-
-        var rowConfigs = _rowDefs.Select((r, idx) => new RowConfig(
-            RowId: r.Id,
-            RowIndex: idx,
-            DisplayName: r.QueueName ?? r.BusinessUnitName ?? $"Queue {idx + 1}"
-        )).ToList();
-
-        try
-        {
-            await _hub.SendAsync("UpdateRowConfig", GridId, rowConfigs, _cts.Token);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to send row config");
         }
     }
 

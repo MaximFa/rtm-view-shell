@@ -1,19 +1,26 @@
-using SignalRSimulator.Generators;
+﻿using SignalRSimulator.Generators;
 using SignalRSimulator.Hubs;
 using SignalRSimulator.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService(); // enables running as Windows Service
 
-builder.Services.AddSignalR();
+builder.Services.AddSignalR()
+    .AddNewtonsoftJsonProtocol(options =>
+    {
+        options.PayloadSerializerSettings.ContractResolver =
+            new Newtonsoft.Json.Serialization.DefaultContractResolver();
+    });
+
+// CORS origins loaded from appsettings — CcDashboard.Web URL must be listed
+var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:5000" };
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(
-                "https://localhost:7196",
-                "http://localhost:5196",
-                "https://localhost:5239",
-                "http://localhost:5238")
+        policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -52,10 +59,9 @@ catch (Exception ex)
 
 app.UseCors();
 
-app.MapGet("/", () => "SignalR Simulator is running.\n\nAvailable hubs:\n- /hubs/agent-grid?gridId={int}\n- /hubs/queue-grid?gridId={int}\n\nMetrics are loaded from database (rtsgrid_metric table).");
+app.MapGet("/", () => "RTM SignalR Simulator is running.\n\nHub: /signalr\nClient calls init(gridId) after connecting:\n- Queue/DataSlot: init(\"42\") - numeric gridId\n- Agent: init(\"u5\") - u + UnionId\n\nMetrics are loaded from database.");
 
-// Widget Hubs
-app.MapHub<AgentGridHub>("/hubs/agent-grid");
-app.MapHub<QueueGridHub>("/hubs/queue-grid");
+// RTM protocol hub (single endpoint like real RTM server)
+app.MapHub<RtmSimulatorHub>("/signalr");
 
 app.Run();

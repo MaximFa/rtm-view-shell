@@ -33,3 +33,30 @@ public record GridUpdate(
     DateTime Timestamp,
     List<GridRowData> Rows
 );
+
+/// <summary>
+/// Cell info from database for RTM protocol
+/// </summary>
+public record RtmCellInfo(int CellId, string MetricId, string DataType, string? DefaultValue);
+
+/// <summary>
+/// RTM protocol cell data (PascalCase to match real RTM server)
+/// </summary>
+public class RtmCellData
+{
+    public int CellId { get; set; }
+    public string Value { get; set; } = "";
+    public string Value2 { get; set; } = "";
+    public RtmGridRef Grid { get; set; } = new();
+}
+
+public class RtmGridRef { public int GridId { get; set; } }
+
+/// <summary>
+/// RTM protocol agent grid result
+/// </summary>
+public class RtmUsersResult
+{
+    public List<Dictionary<string, string>> Data { get; set; } = new();
+    public int Count { get; set; }
+}

@@ -63,9 +63,8 @@
     [Parameter] public int GridId { get; set; }
     [Parameter] public bool DarkMode { get; set; }
 
-    // Local record types matching SignalR simulator
-    private record GridRowData(string RowId, Dictionary<string, string> Metrics);
-    private record GridUpdate(int GridId, DateTime Timestamp, List<GridRowData> Rows);
+    // RTM protocol record
+    private record RtmCellData(int CellId, string Value, string Value2);
 
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
@@ -238,10 +237,11 @@
         {
             var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
             var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={GridId}";
+            var fullUrl = $"{simulatorUrl}/signalr";
 
             _hub = new HubConnectionBuilder()
                 .WithUrl(fullUrl)
+                .AddNewtonsoftJsonProtocol()
                 .WithAutomaticReconnect(new[] {
                     TimeSpan.Zero,
                     TimeSpan.FromSeconds(2),
@@ -251,18 +251,22 @@
                 })
                 .Build();
 
-            // Same handler as QueueGrid - receives GridUpdate
-            _hub.On<GridUpdate>("QueueGridUpdate", OnQueueGridUpdate);
+            // RTM protocol handler - receives cell updates
+            _hub.On<List<RtmCellData>>("updateGridData", OnUpdateGridData);
 
             _hub.Reconnecting += _ => { _connectionState = ConnectionState.Reconnecting; return InvokeAsync(StateHasChanged); };
-            _hub.Reconnected += _ => { _connectionState = ConnectionState.Connected; return InvokeAsync(StateHasChanged); };
+            _hub.Reconnected += async _ => {
+                _connectionState = ConnectionState.Connected;
+                await _hub.InvokeAsync("init", GridId.ToString());
+                await InvokeAsync(StateHasChanged);
+            };
             _hub.Closed += _ => { _connectionState = ConnectionState.Failed; return InvokeAsync(StateHasChanged); };
 
             await _hub.StartAsync(_cts.Token);
             _connectionState = ConnectionState.Connected;
 
             // Subscribe to grid updates (same as QueueGrid)
-            await _hub.InvokeAsync("SubscribeToGrid", GridId, _cts.Token);
+            await _hub.InvokeAsync("init", GridId.ToString(), _cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -283,24 +287,26 @@
         StateHasChanged();
     }
 
-    private void OnQueueGridUpdate(GridUpdate update)
+    private void OnUpdateGridData(List<RtmCellData> cells)
     {
-        // Data Slot has 1 row and 1 column - get the first value
-        var row = update.Rows.FirstOrDefault();
-        if (row is null) return;
+        // Find the cell we're displaying
+        string? rawValue = null;
 
-        // Get value for our metric, or the first metric if not specified
-        string? value = null;
-        if (!string.IsNullOrEmpty(_metricId) && row.Metrics.TryGetValue(_metricId, out var metricValue))
+        if (Config?.DataSlotCellId is int targetCellId && targetCellId > 0)
         {
-            value = metricValue;
+            var cell = cells.FirstOrDefault(c => c.CellId == targetCellId);
+            rawValue = cell?.Value;
         }
-        else if (row.Metrics.Count > 0)
+        else if (cells.Count > 0)
         {
-            value = row.Metrics.Values.First();
+            // Fallback: first cell in update (backward compat / unconfigured widget)
+            rawValue = cells[0].Value;
         }
 
-        if (value is null) return;
+        if (rawValue is null) return;
+
+        // Timer cells: strip '+' prefix, e.g. "+01:23:45" -> "01:23:45"
+        var value = rawValue.StartsWith('+') ? rawValue[1..] : rawValue;
 
         // Try parse as time format first (HH:MM:SS or MM:SS)
         if (TryParseTimeFormat(value, out var timeSeconds))
