@@ -49,4 +49,7 @@ public interface IRtsRepository
     Task DeleteQueueGridCellAsync(int cellId, CancellationToken ct = default);
     Task DeleteQueueGridCellsByRowIdAsync(int rowId, CancellationToken ct = default);
     Task DeleteQueueGridCellsByColumnIdAsync(int columnId, CancellationToken ct = default);
+
+    /// <summary>CellId -> MetricId map for all cells in a queue grid (RTSGrid_Cell.Value).</summary>
+    Task<Dictionary<int, string>> GetCellMapForGridAsync(int gridId, CancellationToken ct = default);
 }

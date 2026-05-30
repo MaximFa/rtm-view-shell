@@ -294,4 +294,31 @@ public class RtsRepository(BackendEmulationDbContext db) : IRtsRepository
         var sql = @"DELETE FROM ""RTSGrid_Cell"" WHERE ""ColumnId"" = @p0";
         await db.Database.ExecuteSqlRawAsync(sql, [columnId], ct);
     }
+
+    public async Task<Dictionary<int, string>> GetCellMapForGridAsync(int gridId, CancellationToken ct = default)
+    {
+        var result = new Dictionary<int, string>();
+        var conn = (NpgsqlConnection)db.Database.GetDbConnection();
+        var wasOpen = conn.State == System.Data.ConnectionState.Open;
+        if (!wasOpen) await conn.OpenAsync(ct);
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT c.""CellId"", c.""Value""
+                FROM ""RTSGrid_Cell"" c
+                JOIN ""RTSGrid_Row"" r ON r.""RowId"" = c.""RowId""
+                WHERE r.""GridId"" = @gridId
+                  AND c.""Value"" IS NOT NULL AND c.""Value"" <> ''";
+            cmd.Parameters.AddWithValue("gridId", gridId);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+                result[reader.GetInt32(0)] = reader.GetString(1);
+        }
+        finally
+        {
+            if (!wasOpen) await conn.CloseAsync();
+        }
+        return result;
+    }
 }

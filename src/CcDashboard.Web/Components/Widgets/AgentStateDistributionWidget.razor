@@ -3,6 +3,8 @@
 @using CcDashboard.Application.Queries.AgentStates
 @using Microsoft.AspNetCore.SignalR.Client
 @using MediatR
+@using CcDashboard.Application.Queries.Widgets
+@using Newtonsoft.Json.Serialization
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using Microsoft.Extensions.Localization
 @implements IAsyncDisposable
@@ -124,6 +126,7 @@
 
     private string _chartElementId = $"asd-chart-{Guid.NewGuid():N}";
     private Dictionary<string, string> _cellValues = new();
+    private Dictionary<int, string> _cellIdToMetric = new();
     private int _totalAgents;
 
     // Agent state definitions loaded from DB
@@ -324,14 +327,21 @@
 
         try
         {
+            // Load CellId → MetricId map so updateGridData pushes can be decoded
+            _cellIdToMetric = await Mediator.Send(new GetRtsGridCellMapQuery(RtsGridId), _cts.Token);
+            Logger.LogInformation("AgentStateDistributionWidget: loaded {Count} cells for grid {GridId}",
+                _cellIdToMetric.Count, RtsGridId);
+
             var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
-            var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var fullUrl = $"{simulatorUrl}/hubs/queue-grid?gridId={RtsGridId}";
+            var rtmUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
+            var fullUrl = $"{rtmUrl.TrimEnd('/')}/signalr";
 
             Logger.LogInformation("AgentStateDistributionWidget: Connecting to {Url}", fullUrl);
 
             _hub = new HubConnectionBuilder()
                 .WithUrl(fullUrl)
+                .AddNewtonsoftJsonProtocol(o =>
+                    o.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver())
                 .WithAutomaticReconnect(new[] {
                     TimeSpan.Zero,
                     TimeSpan.FromSeconds(2),
@@ -341,18 +351,23 @@
                 })
                 .Build();
 
-            _hub.On<GridUpdate>("QueueGridUpdate", async update =>
+            _hub.On<List<RtmCellData>>("updateGridData", async cells =>
             {
-                var buRow = update.Rows.FirstOrDefault(r => r.UnionId == _businessUnitId);
-                if (buRow is not null)
+                var updated = false;
+                foreach (var cell in cells)
                 {
-                    _cellValues = buRow.Metrics;
+                    if (_cellIdToMetric.TryGetValue(cell.CellId, out var metricId))
+                    {
+                        _cellValues[metricId] = cell.Value ?? string.Empty;
+                        updated = true;
+                    }
+                }
+                if (updated)
                     await InvokeAsync(async () =>
                     {
                         StateHasChanged();
                         await RenderChartAsync();
                     });
-                }
             });
 
             _hub.Reconnecting += async _ =>
@@ -378,9 +393,10 @@
             };
 
             await _hub.StartAsync(_cts.Token);
+            await _hub.InvokeAsync("init", RtsGridId.ToString(), _cts.Token);
             _connectionState = ConnectionState.Connected;
 
-            Logger.LogInformation("Connected to QueueGrid simulator for RtsGridId {RtsGridId}", RtsGridId);
+            Logger.LogInformation("AgentStateDistributionWidget: connected, init({GridId}) sent", RtsGridId);
         }
         catch (Exception ex)
         {
@@ -604,6 +620,5 @@
         _cts.Dispose();
     }
 
-    private record GridUpdate(int GridId, List<GridRowUpdate> Rows);
-    private record GridRowUpdate(string RowId, int? UnionId, Dictionary<string, string> Metrics);
+    private record RtmCellData(int CellId, string Value, string Value2);
 }

@@ -137,7 +137,11 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IRtsRepository, RtsRepository>();
 
         // API hook (no-op until CC-platform API is available)
-        services.AddScoped<IConfigurationApiHook, NoOpConfigurationApiHook>();
+        services.AddScoped<IConfigurationApiHook, RtmConfigurationApiHook>();
+        services.AddHttpClient("RtmServer", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
 
         // MediatR handlers in Infrastructure (e.g., DayTrendQueryHandler)
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<DayTrendQueryHandler>());
