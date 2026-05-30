@@ -127,7 +127,7 @@ AS $$
 BEGIN
     INSERT INTO "RTSData_UserStatus" (
         "UserId", "StatusId", "ServerId", "OnDate",
-        "StatusName", "StatusGroup", "TotalDuration", "MaxDuration",
+        "StatusName", "StatusGroup", "TotalDuration", "MaxDuraction",
         "TotalCount", "UpdateTime", "DisplayName", "TimeZone"
     )
     VALUES (
@@ -140,7 +140,7 @@ BEGIN
         "StatusName" = EXCLUDED."StatusName",
         "StatusGroup" = EXCLUDED."StatusGroup",
         "TotalDuration" = EXCLUDED."TotalDuration",
-        "MaxDuration" = EXCLUDED."MaxDuration",
+        "MaxDuraction" = EXCLUDED."MaxDuraction",
         "TotalCount" = EXCLUDED."TotalCount",
         "UpdateTime" = EXCLUDED."UpdateTime",
         "DisplayName" = EXCLUDED."DisplayName",
@@ -351,7 +351,7 @@ RETURNS TABLE(
     "StatusName" text,
     "StatusGroup" text,
     "TotalDuration" integer,
-    "MaxDuration" integer,
+    "MaxDuraction" integer,
     "TotalCount" integer,
     "UpdateTime" timestamptz,
     "DisplayName" text,
@@ -370,7 +370,7 @@ BEGIN
         s."StatusName"::text,
         s."StatusGroup"::text,
         s."TotalDuration",
-        s."MaxDuration",
+        s."MaxDuraction",
         s."TotalCount",
         s."UpdateTime",
         s."DisplayName"::text,
@@ -392,7 +392,7 @@ RETURNS TABLE(
     "StatusName" text,
     "StatusGroup" text,
     "TotalDuration" integer,
-    "MaxDuration" integer,
+    "MaxDuraction" integer,
     "TotalCount" integer,
     "UpdateTime" timestamptz,
     "DisplayName" text,
