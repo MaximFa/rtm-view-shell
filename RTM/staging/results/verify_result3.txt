@@ -1,0 +1,112 @@
+             table_name              | row_count 
+-------------------------------------+-----------
+ NGC_BusinessUnit                    |         3
+ NGC_BusinessUnitQueueClassification |         5
+ NGC_BusinessUnitSupergroup          |         0
+ NGC_Site                            |         2
+ NGC_Supergroup                      |         3
+ NGC_SupergroupAgentgroup            |         0
+ RTSData_ChatMessage                 |         0
+ RTSData_Interaction                 |      1553
+ RTSData_UserStatus                  |         0
+ RTSData_UserStatusLog               |      1080
+ RTSGrid_Cell                        |         0
+ RTSGrid_Column                      |         0
+ RTSGrid_Grid                        |         0
+ RTSGrid_Metric                      |       196
+ RTSGrid_Row                         |         0
+ RTSGrid_Statistic                   |         0
+ RTSGrid_TemplateCell                |         0
+ RTSUserGrid_Column                  |         7
+ RTSUserGrid_ColumnsSet              |         1
+ RTSUserGrid_Grid                    |         1
+(20 rows)
+
+DO
+                function_name                | result_rows 
+---------------------------------------------+-------------
+ NGC_GetSiteTable                            |           2
+ NGC_GetBusinessUnitTable                    |           3
+ NGC_GetSupergroupTable                      |           3
+ NGC_GetBusinessUnitQueueClassificationTable |           5
+ NGC_GetBusinessUnitSupergroupTable          |           0
+ NGC_GetSupergroupAgentgroupTable            |           0
+(6 rows)
+
+              function_name              | result_rows 
+-----------------------------------------+-------------
+ RTSGrid_GetAllMetrics                   |         196
+ RTSGrid_GetAllStatistics                |           0
+ RTSGrid_GetDataCells                    |           0
+ RTSGrid_GetStatisticCells               |           0
+ RTSGrid_GetAllUnionQueueClassifications |           5
+ RTSGrid_GetAllUnionUserGroups           |           0
+ RTSGrid_GetUnionUsersMetrics            |           7
+ RTSUserGrid_GetAllGrids                 |           1
+(8 rows)
+
+          function_name           | result_rows 
+----------------------------------+-------------
+ RTSData_GetInteractions          |        1553
+ RTSData_getInteractions (alias)  |        1553
+ RTSData_GetUsersStatuses         |           0
+ RTSData_getUsersStatuses (alias) |           0
+(4 rows)
+
+              ?column?              | count 
+------------------------------------+-------
+ RTSUserView_GetHTMLSettings (stub) |     0
+(1 row)
+
+                     duration_check                     | total_rows | min_duration | max_duration | avg_duration 
+--------------------------------------------------------+------------+--------------+--------------+--------------
+ PASS: All Duration values appear to be in milliseconds |       1080 |        60000 |      1740000 |       911500
+(1 row)
+
+ UserId  |     StatusId     | Duration |       StartTime        |        EndTime         
+---------+------------------+----------+------------------------+------------------------
+ agent03 | training_status  |    60000 | 2026-05-30 20:59:00+03 | 2026-05-30 21:00:00+03
+ agent05 | break_status     |   180000 | 2026-05-30 20:57:00+03 | 2026-05-30 21:00:00+03
+ agent04 | break_status     |   660000 | 2026-05-30 20:49:00+03 | 2026-05-30 21:00:00+03
+ agent01 | onphone_status   |   660000 | 2026-05-30 20:49:00+03 | 2026-05-30 21:00:00+03
+ agent05 | training_status  |   660000 | 2026-05-30 20:46:00+03 | 2026-05-30 20:57:00+03
+ agent02 | break_status     |   900000 | 2026-05-30 20:45:00+03 | 2026-05-30 21:00:00+03
+ agent04 | onphone_status   |   600000 | 2026-05-30 20:39:00+03 | 2026-05-30 20:49:00+03
+ agent03 | paperwork_status |  1200000 | 2026-05-30 20:39:00+03 | 2026-05-30 20:59:00+03
+ agent01 | break_status     |   780000 | 2026-05-30 20:36:00+03 | 2026-05-30 20:49:00+03
+ agent05 | training_status  |  1200000 | 2026-05-30 20:26:00+03 | 2026-05-30 20:46:00+03
+(10 rows)
+
+           check_name            | orphan_count 
+---------------------------------+--------------
+ NGC_BusinessUnit.SiteId orphans |            0
+(1 row)
+
+                    check_name                     | orphan_count 
+---------------------------------------------------+--------------
+ NGC_BusinessUnitSupergroup.BusinessUnitId orphans |            0
+(1 row)
+
+                   check_name                    | orphan_count 
+-------------------------------------------------+--------------
+ NGC_BusinessUnitSupergroup.SupergroupId orphans |            0
+(1 row)
+
+         check_name         | orphan_count 
+----------------------------+--------------
+ RTSGrid_Row.GridId orphans |            0
+(1 row)
+
+         check_name         | orphan_count 
+----------------------------+--------------
+ RTSGrid_Cell.RowId orphans |            0
+(1 row)
+
+ schemaname |      tablename      |                 indexname                 |                                                                         indexdef                                                                         
+------------+---------------------+-------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------
+ public     | RTSData_ChatMessage | IX_RTSData_ChatMessage_MessageId_ServerId | CREATE UNIQUE INDEX "IX_RTSData_ChatMessage_MessageId_ServerId" ON public."RTSData_ChatMessage" USING btree ("MessageId", "ServerId")
+ public     | RTSData_ChatMessage | PK_RTSData_ChatMessage                    | CREATE UNIQUE INDEX "PK_RTSData_ChatMessage" ON public."RTSData_ChatMessage" USING btree ("MessageId", "ServerId", "OnDate")
+ public     | RTSData_Interaction | IX_RTSData_Interaction_UpsertKey          | CREATE UNIQUE INDEX "IX_RTSData_Interaction_UpsertKey" ON public."RTSData_Interaction" USING btree ("InteractionId", "Segment", "ServerId")
+ public     | RTSData_Interaction | PK_RTSData_Interaction                    | CREATE UNIQUE INDEX "PK_RTSData_Interaction" ON public."RTSData_Interaction" USING btree ("InteractionId", "Segment", "OnDate", "ServerId", "Workgroup")
+(4 rows)
+
