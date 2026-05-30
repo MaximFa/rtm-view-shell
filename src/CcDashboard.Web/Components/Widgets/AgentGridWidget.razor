@@ -377,16 +377,31 @@
     }
 
     private int _previousGridId;
+    private string _lastColumnsKey = "";
 
     protected override async Task OnParametersSetAsync()
     {
+        var prevColumnsKey = _lastColumnsKey;
         ApplyConfig();
+        _lastColumnsKey = string.Join(",", _columnDefs.Select(c => c.MetricId));
 
         if (GridId != 0 && _previousGridId == 0 && _hub is null)
         {
             _previousGridId = GridId;
             await ConnectAsync();
         }
+        else if (_hub?.State == HubConnectionState.Connected
+                 && _lastColumnsKey != prevColumnsKey
+                 && prevColumnsKey.Length > 0)
+        {
+            // Column set changed on a live connection — reconnect so RTM pushes
+            // fresh data for all current MetricIds and DetectColumnDataTypes() runs.
+            Logger.LogInformation(
+                "AgentGrid {GridId}: column set changed, reconnecting. Old={Old} New={New}",
+                GridId, prevColumnsKey, _lastColumnsKey);
+            await ReconnectAsync();
+        }
+
         _previousGridId = GridId;
     }
 
