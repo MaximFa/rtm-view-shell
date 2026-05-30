@@ -2471,29 +2471,24 @@ namespace RTM
                     }}";
 
 
-                // Base directory where the application's assemblies are located
-                string baseDirectory = AppContext.BaseDirectory;
-
                 // Parse the source code into a syntax tree
                 var syntaxTree = CSharpSyntaxTree.ParseText(codeToCompile);
 
+                // .NET 8: Use TRUSTED_PLATFORM_ASSEMBLIES for all runtime references
+                var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+                    .Split(Path.PathSeparator)
+                    .Where(p => File.Exists(p))
+                    .Select(p => MetadataReference.CreateFromFile(p))
+                    .Cast<MetadataReference>()
+                    .ToList();
+                // Add RTM assembly (for IDInteraction, etc.)
+                trustedAssemblies.Add(MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location));
 
                 // Compile the syntax tree into an assembly
                 var compilation = CSharpCompilation.Create($"Metric{metricDef.ID}Assembly",
                     options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
                     syntaxTrees: new[] { syntaxTree },
-                    references: new MetadataReference[]
-                    {
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "mscorlib.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Core.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Linq.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Runtime.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Collections.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Private.CoreLib.dll")),
-                MetadataReference.CreateFromFile(typeof(ConcurrentBag<>).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location),
-                        // Add other necessary assemblies...
-                    });
+                    references: trustedAssemblies);
 
                 using (var ms = new MemoryStream())
                 {
@@ -2554,30 +2549,24 @@ namespace RTM
                     }}";
 
 
-                // Base directory where the application's assemblies are located
-                string baseDirectory = AppContext.BaseDirectory;
-
                 // Parse the source code into a syntax tree
                 var syntaxTree = CSharpSyntaxTree.ParseText(codeToCompile);
 
+                // .NET 8: Use TRUSTED_PLATFORM_ASSEMBLIES for all runtime references
+                var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+                    .Split(Path.PathSeparator)
+                    .Where(p => File.Exists(p))
+                    .Select(p => MetadataReference.CreateFromFile(p))
+                    .Cast<MetadataReference>()
+                    .ToList();
+                // Add RTM assembly (for IDInteraction, etc.)
+                trustedAssemblies.Add(MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location));
 
                 // Compile the syntax tree into an assembly
                 var compilation = CSharpCompilation.Create($"Metric{metricDef.ID}Assembly",
                     options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
                     syntaxTrees: new[] { syntaxTree },
-                    references: new MetadataReference[]
-                    {
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "mscorlib.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Core.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Linq.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Runtime.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Private.CoreLib.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Collections.dll")),
-                MetadataReference.CreateFromFile(typeof(TimeSpan).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(ConcurrentBag<>).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location),
-                        // Add other necessary assemblies...
-                    });
+                    references: trustedAssemblies);
 
                 using (var ms = new MemoryStream())
                 {
@@ -2644,30 +2633,24 @@ namespace RTM
                     }}";
 
 
-                // Base directory where the application's assemblies are located
-                string baseDirectory = AppContext.BaseDirectory;
-
                 // Parse the source code into a syntax tree
                 var syntaxTree = CSharpSyntaxTree.ParseText(codeToCompile);
 
+                // .NET 8: Use TRUSTED_PLATFORM_ASSEMBLIES for all runtime references
+                var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+                    .Split(Path.PathSeparator)
+                    .Where(p => File.Exists(p))
+                    .Select(p => MetadataReference.CreateFromFile(p))
+                    .Cast<MetadataReference>()
+                    .ToList();
+                // Add RTM assembly (for IDInteraction, etc.)
+                trustedAssemblies.Add(MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location));
 
                 // Compile the syntax tree into an assembly
                 var compilation = CSharpCompilation.Create($"Metric{metricDef.ID}Assembly",
                     options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
                     syntaxTrees: new[] { syntaxTree },
-                    references: new MetadataReference[]
-                    {
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "mscorlib.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Core.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Linq.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Runtime.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Private.CoreLib.dll")),
-                MetadataReference.CreateFromFile(Path.Combine(baseDirectory, "System.Collections.dll")),
-                MetadataReference.CreateFromFile(typeof(ConcurrentBag<>).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location),
-                 MetadataReference.CreateFromFile(typeof(List<>).Assembly.Location),
-                        // Add other necessary assemblies...
-                    });
+                    references: trustedAssemblies);
 
                 using (var ms = new MemoryStream())
                 {
