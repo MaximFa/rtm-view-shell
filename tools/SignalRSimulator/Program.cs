@@ -61,15 +61,6 @@ app.UseCors();
 
 app.MapGet("/", () => "RTM SignalR Simulator is running.\n\nHub: /signalr\nClient calls init(gridId) after connecting:\n- Queue/DataSlot: init(\"42\") - numeric gridId\n- Agent: init(\"u5\") - u + UnionId\n\nMetrics are loaded from database.");
 
-// Matches real RTM Server endpoint — called by RtmConfigurationApiHook after config changes.
-// Invalidates the metric cache so the next push includes newly configured MetricIds.
-app.MapGet("/LoadData", (IDbMetricService db, ILogger<Program> logger) =>
-{
-    db.InvalidateCaches();
-    logger.LogInformation("[Simulator] /LoadData called — metric cache cleared");
-    return Results.Ok("LoadData OK");
-});
-
 // RTM protocol hub (single endpoint like real RTM server)
 app.MapHub<RtmSimulatorHub>("/signalr");
 
