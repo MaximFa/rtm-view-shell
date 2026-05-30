@@ -31,12 +31,60 @@ public static class MetricDataGenerator
         "Sales", "Support", "Billing", "Technical", "General", "VIP", "Complaints"
     };
 
+    /// <summary>
+    /// Generate a fake value for the given metric.
+    /// Dispatches on ValueType (from RTSGrid_Metric.ValueType):
+    ///   "Time"   → "+HH:MM:SS" or "+MM:SS"  ('+' prefix = live timer in AgentGridWidget)
+    ///   "Number" → integer or percent based on DataType / MetricFormat
+    ///   "String" → description-heuristic text (names, states, IDs, etc.)
+    /// </summary>
     public static string GenerateValue(MetricDefinition metric)
+    {
+        return (metric.ValueType ?? "String") switch
+        {
+            "Time"   => GenerateTimeValue(metric),
+            "Number" => GenerateNumberValue(metric),
+            _        => GenerateStringValue(metric)
+        };
+    }
+
+    public static Dictionary<string, string> GenerateMetrics(IEnumerable<MetricDefinition> metrics)
+        => metrics.ToDictionary(m => m.MetricId, m => GenerateValue(m));
+
+    // ── Time ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// All Time metrics get the '+' prefix so AgentGridWidget creates a TimerAnchor
+    /// and increments the value every second via its PeriodicTimer.
+    /// Format choice: MetricFormat containing "hh" → long (HH:MM:SS), else short (MM:SS).
+    /// </summary>
+    private static string GenerateTimeValue(MetricDefinition metric)
+    {
+        var isLong = metric.MetricFormat?.Contains("hh", StringComparison.OrdinalIgnoreCase) == true
+                     || metric.DataType?.Equals("Time", StringComparison.OrdinalIgnoreCase) == true;
+        return "+" + (isLong ? GenerateLongTime() : GenerateShortTime());
+    }
+
+    // ── Number ───────────────────────────────────────────────────────────────
+
+    private static string GenerateNumberValue(MetricDefinition metric)
+    {
+        // Percent: DataType == "Percent" OR MetricFormat contains '%'
+        if (metric.DataType?.Equals("Percent", StringComparison.OrdinalIgnoreCase) == true
+            || metric.MetricFormat?.Contains('%') == true)
+            return GeneratePercent(metric.MetricFormat);
+
+        // Default integer
+        return _rng.Next(0, 200).ToString();
+    }
+
+    // ── String ───────────────────────────────────────────────────────────────
+
+    private static string GenerateStringValue(MetricDefinition metric)
     {
         var desc = metric.Description ?? "";
         var metricId = metric.MetricId;
 
-        // Text fields - names, IDs, statuses
         if (desc.Contains("Login Name"))
             return AgentNames[_rng.Next(AgentNames.Length)];
 
@@ -67,99 +115,24 @@ public static class MetricDataGenerator
         if (desc.Contains("Today Login") || desc.Contains("Change -ID"))
             return _rng.Next(0, 2) == 0 ? "" : AgentNames[_rng.Next(AgentNames.Length)];
 
-        // Timestamps - HH:MM:SS format
         if (desc.Contains("Time Stamp") || desc.Contains("TimeStamp"))
             return GenerateTimestamp();
 
-        // Percentages - check MetricFormat first, then description
-        if (metric.MetricFormat?.Contains('%') == true ||
-            desc.Contains("Percent") || desc.Contains("Pct") ||
-            metricId.Contains("Pct") || metricId.Contains("Percent"))
-            return GeneratePercent(metric.MetricFormat);
-
-        // Cumulative durations - long format HH:MM:SS
-        if (desc.Contains("Cumulative") && desc.Contains("Duration"))
-            return GenerateLongTime();
-
-        if (desc.Contains("Current Login Duration"))
-            return GenerateLongTime();
-
-        // Average/Max/Current durations - short format MM:SS
-        if (desc.Contains("Duration") || desc.Contains("Talk Time"))
-            return GenerateShortTime();
-
-        // Wait time, Response time - short format MM:SS
-        if (desc.Contains("Wait Time") || desc.Contains("Response Time") || desc.Contains("Time to Aband"))
-            return GenerateShortTime();
-
-        // CPH (calls per hour) - decimal
-        if (metricId.Contains("CPH"))
-            return (_rng.NextDouble() * 10 + 2).ToString("F2");
-
-        // Numbers - all "Number of" metrics
-        if (desc.Contains("Number of") || desc.Contains("Num"))
-            return GenerateNumber(desc, metricId);
-
-        // Default - treat as number
+        // Fallback: return a small number as text
         return _rng.Next(0, 100).ToString();
     }
 
-    public static Dictionary<string, string> GenerateMetrics(IEnumerable<MetricDefinition> metrics)
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    public static string GenerateShortTime()
     {
-        return metrics.ToDictionary(m => m.MetricId, m => GenerateValue(m));
-    }
-
-    private static string GenerateNumber(string description, string metricId = "")
-    {
-        // ASD-style agent counts (small numbers)
-        if (description.Contains("Break") || description.Contains("Paperwork") ||
-            description.Contains("Training") || description.Contains("OnCall") ||
-            metricId.Contains("NumBreak") || metricId.Contains("NumPaperwork") ||
-            metricId.Contains("NumTraining") || metricId.Contains("OnCallAgents"))
-            return _rng.Next(0, 15).ToString();
-
-        // Different ranges based on what we're counting
-        if (description.Contains("Active"))
-            return _rng.Next(0, 15).ToString();
-
-        if (description.Contains("Waiting"))
-            return _rng.Next(0, 30).ToString();
-
-        if (description.Contains("Logged") || description.Contains("Available"))
-            return _rng.Next(5, 50).ToString();
-
-        if (description.Contains("Answered") || description.Contains("Incoming"))
-            return _rng.Next(20, 200).ToString();
-
-        if (description.Contains("Abandoned"))
-            return _rng.Next(0, 20).ToString();
-
-        if (description.Contains("Missed"))
-            return _rng.Next(0, 10).ToString();
-
-        if (description.Contains("Outbound") || description.Contains("Otbound"))
-            return _rng.Next(10, 80).ToString();
-
-        if (description.Contains("Callback"))
-            return _rng.Next(0, 30).ToString();
-
-        if (description.Contains("Chat"))
-            return _rng.Next(0, 25).ToString();
-
-        return _rng.Next(0, 100).ToString();
-    }
-
-    private static string GenerateShortTime()
-    {
-        // MM:SS - up to 30 minutes
         var seconds = _rng.Next(0, 1800);
         var ts = TimeSpan.FromSeconds(seconds);
         return $"{ts.Minutes:D2}:{ts.Seconds:D2}";
     }
 
-    private static string GenerateLongTime()
+    public static string GenerateLongTime()
     {
-        // HH:MM:SS - up to 9 hours
         var seconds = _rng.Next(0, 32400);
         var ts = TimeSpan.FromSeconds(seconds);
         return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
@@ -168,18 +141,13 @@ public static class MetricDataGenerator
     private static string GeneratePercent(string? format)
     {
         var value = _rng.Next(60, 100) + _rng.NextDouble();
-
-        if (format?.Contains("##0.00%") == true)
-            return $"{value:F2}%";
-        if (format?.Contains("##0.0%") == true)
-            return $"{value:F1}%";
-
+        if (format?.Contains("##0.00%") == true) return $"{value:F2}%";
+        if (format?.Contains("##0.0%") == true)  return $"{value:F1}%";
         return $"{(int)value}%";
     }
 
     private static string GenerateTimestamp()
     {
-        // Today's time - random time in last 8 hours
         var now = DateTime.Now;
         var offset = TimeSpan.FromMinutes(_rng.Next(0, 480));
         return (now - offset).ToString("HH:mm:ss");

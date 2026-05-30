@@ -59,7 +59,7 @@ public class DbMetricService : IDbMetricService
         await conn.OpenAsync(ct);
 
         const string sql = @"
-            SELECT ""MetricId"", ""Description"", ""DataType"", ""MetricFormat"", ""DefaultValue""
+            SELECT ""MetricId"", ""Description"", ""DataType"", ""MetricFormat"", ""DefaultValue"", ""ValueType""
             FROM ""RTSGrid_Metric""
             ORDER BY ""MetricId""";
 
@@ -73,7 +73,8 @@ public class DbMetricService : IDbMetricService
                 Description: reader.IsDBNull(1) ? null : reader.GetString(1),
                 DataType: reader.GetString(2),
                 MetricFormat: reader.IsDBNull(3) ? null : reader.GetString(3),
-                DefaultValue: reader.IsDBNull(4) ? null : reader.GetString(4)
+                DefaultValue: reader.IsDBNull(4) ? null : reader.GetString(4),
+                ValueType: reader.IsDBNull(5) ? "String" : reader.GetString(5)
             ));
         }
 
@@ -168,7 +169,8 @@ public class DbMetricService : IDbMetricService
                 COALESCE(m.""Description"", c.""MetricId"") AS ""Description"",
                 COALESCE(m.""DataType"", 'String')          AS ""DataType"",
                 m.""MetricFormat"",
-                m.""DefaultValue""
+                m.""DefaultValue"",
+                COALESCE(m.""ValueType"", 'String')         AS ""ValueType""
             FROM ""RTSUserGrid_Column"" c
             JOIN ""RTSUserGrid_ColumnsSet"" cs ON cs.""ColumnsSetId"" = c.""ColumnsSetId""
             JOIN ""RTSUserGrid_Grid""      g  ON g.""ColumnsSetId""  = cs.""ColumnsSetId""
@@ -187,7 +189,8 @@ public class DbMetricService : IDbMetricService
                 Description:  reader.IsDBNull(1) ? null : reader.GetString(1),
                 DataType:     reader.GetString(2),
                 MetricFormat: reader.IsDBNull(3) ? null : reader.GetString(3),
-                DefaultValue: reader.IsDBNull(4) ? null : reader.GetString(4)
+                DefaultValue: reader.IsDBNull(4) ? null : reader.GetString(4),
+                ValueType:    reader.IsDBNull(5) ? "String" : reader.GetString(5)
             ));
         }
 

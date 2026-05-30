@@ -6,9 +6,10 @@ namespace SignalRSimulator.Models;
 public record MetricDefinition(
     string MetricId,
     string? Description,
-    string DataType,       // Integer, Time, Percent, String
+    string DataType,       // Integer, Time, Percent, String  (format hint)
     string? MetricFormat,  // N0, mm:ss, P0, P1
-    string? DefaultValue
+    string? DefaultValue,
+    string ValueType = "String"   // String | Time | Number  (semantic type from RTSGrid_Metric)
 );
 
 /// <summary>
