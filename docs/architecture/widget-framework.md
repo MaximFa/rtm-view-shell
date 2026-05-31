@@ -1,9 +1,9 @@
-# Widget Framework Architecture — RTM View Shell v1.3
+# Widget Framework Architecture — RTM View Shell v1.6
 
 **Document type:** Technical Architecture  
-**Version:** 1.3.1
-**Date:** 2026-05-26 (DataSlot RTS persistence added)
-**Status:** Current (v1.3 scope defined; rendering deferred to widget-library sprint)
+**Version:** 1.6.0
+**Date:** 2026-05-31 (RTM Relay architecture added)
+**Status:** Current (v1.6 scope defined; rendering deferred to widget-library sprint)
 
 ---
 
@@ -299,25 +299,70 @@ public class GridNotificationHub : Hub
 }
 ```
 
-### 6.2 External: per-tenant widget feed URL
+### 6.2 RTM Relay — single-port data feed (CC-003, 2026-05-31)
 
-The CC backend's widget data feed is a separate SignalR hub (external service).
-The shell exposes its URL via REST API endpoint:
+**Previous design (two-port model, superseded):** the widget library opened a second
+WebSocket directly to RTM Service on a separate port. This required RTM Service to
+be publicly reachable from every client browser — impractical in corporate CC networks.
+
+**Current design — Shell as relay (CLAUDE.md §34):**
 
 ```
-GET /api/v1/tenants/current/signalr-endpoint
-Authorization: Bearer <access_token>
-
-Response 200:
-{
-  "url": "https://backend.example.com/hubs/rtm",  // null if not configured
-  "tenantId": "..."
-}
+Browser
+  └── WSS (port 443) ──▶ Kestrel/Shell
+                              │ in-process
+                        RtmRelayService  (Singleton)
+                              │ server-to-server, internal network
+                        HubConnection ──▶ RTM Service SignalR Hub
 ```
 
-URL stored in `tenant_settings.BackendSignalRUrl` (NULL = not configured).
-Widget library calls this endpoint on startup to obtain the feed hub connection string.
-See ADR-004 for rationale.
+The shell registers `RtmRelayService` as a **Singleton**. It maintains one `HubConnection`
+per `(TenantId, UnionId)` and `(TenantId, GridId)` — shared across all Blazor circuits.
+When RTM Service pushes a message, `RtmRelayService` fans it out to all registered
+subscriber handlers in-process.
+
+**Blazor Server widget components** subscribe directly:
+
+```csharp
+@inject IRtmRelayService RtmRelay
+
+// OnInitializedAsync:
+_handler = async change => await InvokeAsync(() => { ApplyChange(change); StateHasChanged(); });
+await RtmRelay.SubscribeUnionAsync(TenantId, unionId, _handler, ct);
+
+// DisposeAsync:
+await RtmRelay.UnsubscribeUnionAsync(TenantId, unionId, _handler);
+```
+
+**JS / external widget clients** connect to the shell hub:
+
+```javascript
+const conn = new signalR.HubConnectionBuilder().withUrl("/hubs/rtm-relay").build();
+conn.on("unionUpdate", handler);
+conn.on("gridUpdate",  handler);
+await conn.start();
+await conn.invoke("subscribeUnion", unionId);
+```
+
+Hub URL per tenant is configured in `tenant_settings.SignalRConnectionUrl`.
+Redis cache: `{tenantId}:rtm:hub_url` (TTL 5 min).
+
+**RTM Hub protocol (server sends):**
+
+| Method | Parameters | Notes |
+|---|---|---|
+| `updateUserGrid` | `(JsonElement, JsonElement, JsonElement)` | 3 params; only 3rd (payload) used |
+| `removeUser` | `(JsonElement, JsonElement)` | 2nd param = `[{"name":"loginName"}]` |
+| `updateGridData` | `JsonElement` | Array `[{CellId, Value}]` |
+
+Always use `JsonElement` — typed parameters cause silent message drops.
+DataGrid requires `init` + `refreshCells` on connect; `init` alone gives no initial push.
+
+**Ref-count + grace timer:** connection stays alive for 30 s after the last
+subscriber unsubscribes (handles page navigation without reconnecting).
+
+**Tenant lifecycle:** `DisconnectTenantAsync(tenantId)` disconnects all active
+connections for a tenant — called when tenant is Suspended or Deleted.
 
 ---
 
@@ -366,7 +411,7 @@ record write moves inside the transaction scope.
 | OQ-W-01 | Widget library integration API contract (endpoint format, auth) | Open |
 | OQ-W-02 | `PositionJson` schema for layout engine | Open (widget-library sprint) |
 | OQ-W-03 | `ConfigJson` schema per widget type | Open (widget-library sprint) |
-| OQ-W-04 | How does widget library authenticate to backend SignalR hub? | Open (ADR-004 OQ-1) |
+| OQ-W-04 | How does widget library authenticate to backend SignalR hub? | **Resolved (CC-003):** Blazor components inject `IRtmRelayService` directly; JS clients use `/hubs/rtm-relay` with the same Identity cookie. |
 
 ---
 

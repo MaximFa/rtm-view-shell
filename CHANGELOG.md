@@ -6,6 +6,37 @@ Versions correspond to Technical Specification revisions.
 
 ---
 
+## [1.6.0] — 2026-05-31
+
+### Summary
+
+RTM Relay Infrastructure (CC-003): single-port browser model replacing the
+two-port design. Shell now acts as a server-side SignalR client to RTM Service;
+browsers only need one connection (port 443).
+
+### Added
+
+- `IRtmRelayService` (Application layer) — subscribe/unsubscribe per `(TenantId, UnionId/GridId)`
+- `RtmRelayService` (Infrastructure, Singleton) — `HubConnection` per `(TenantId, UnionId)` and
+  `(TenantId, GridId)` with ref-count, 30 s grace timer, in-memory snapshot, reconnect backoff
+- Domain models: `CellValue`, `AgentSnapshot`, `UnionStateChange`, `GridCellUpdate`
+- `RtmRelayHub` — browser-facing `/hubs/rtm-relay` for JS / external widget clients
+- `DisconnectTenantAsync(tenantId)` — called on tenant Suspend/Delete
+
+### Changed
+
+- `DI`: `AddSingleton<IRtmRelayService, RtmRelayService>()` + `MapHub<RtmRelayHub>` in Program.cs
+- `tenant_settings.SignalRConnectionUrl` — existing field, now used by `RtmRelayService`
+- Architecture docs updated: widget-framework.md §6.2, diagrams/architecture.md
+
+### Architecture note
+
+Previous design required browser to open two WebSockets (Shell port 443 + RTM Service port N).
+New design: one WebSocket (port 443) only. RTM Service is internal-network only.
+See CLAUDE.md §34.
+
+---
+
 ## [1.3.3] — 2026-05-26
 
 ### Summary

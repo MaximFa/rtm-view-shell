@@ -24,6 +24,8 @@ C4Context
     Rel(shell, redis, "StackExchange.Redis")
     Rel(shell, smtp, "SmtpClient / SMTP")
     Rel(shell, sso, "OIDC / SAML2 / LDAP")
+    System_Ext(rtm, "RTM Service", "Windows Service; collects real-time CC data; exposes SignalR hub (internal network only)")
+    Rel(shell, rtm, "SignalR client (server-to-server, internal)")
 ```
 
 ## C4 Container
@@ -48,6 +50,10 @@ C4Container
     Rel(api, redis, "TCP")
     Rel(bg, postgres, "TCP")
     Rel(bg, redis, "TCP")
+    Container(relay, "RtmRelayService", "Singleton (.NET 8)", "Server-side SignalR client to RTM Service; fans out real-time data to Blazor widgets in-process (CLAUDE.md §34)")
+    System_Ext(rtm, "RTM Service", "Windows Service", "Collects CC real-time data; exposes SignalR hub on internal network")
+    Rel(relay, rtm, "WSS (internal)", "SignalR client — HubConnection per (TenantId, UnionId/GridId)")
+    Rel(web, relay, "in-process", "IRtmRelayService.SubscribeUnionAsync / SubscribeGridAsync")
 ```
 
 ## Dependency Rules (Clean Architecture)
@@ -185,4 +191,25 @@ erDiagram
         bool is_deleted
         uint row_version
     }
+```
+
+## RTM Relay — data flow sequence
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant BlazorCircuit as Blazor Circuit (Web)
+    participant Relay as RtmRelayService (Singleton)
+    participant RTM as RTM Service Hub
+
+    Browser->>BlazorCircuit: WebSocket (port 443)
+    BlazorCircuit->>Relay: SubscribeUnionAsync(tenantId, unionId, handler)
+    Relay->>RTM: HubConnection.StartAsync() + init("u{unionId}")
+    RTM-->>Relay: updateUserGrid(_, _, payload)
+    Relay->>Relay: update snapshot, fan-out handlers
+    Relay-->>BlazorCircuit: handler(AgentsUpserted) → InvokeAsync(StateHasChanged)
+    BlazorCircuit-->>Browser: Blazor diff push (WSS)
+
+    Note over Relay: On last unsubscribe: 30 s grace timer, then DisposeAsync
+    Note over Relay: On tenant suspend: DisconnectTenantAsync(tenantId)
 ```
