@@ -87,6 +87,25 @@ Last updated: 2026-05-31
 
 ---
 
+---
+
+### 5. RTM.Twilio Transitive Vulnerabilities (Multiple)
+
+| Field | Value |
+|-------|-------|
+| Package | `log4net`, `System.Text.Json`, `Microsoft.IdentityModel.JsonWebTokens`, `System.IdentityModel.Tokens.Jwt` |
+| Affected Versions | log4net 2.0.15, System.Text.Json 8.0.0, JWT libs 6.19.0 (all transitive) |
+| Fixed Versions | log4net 3.3.1, System.Text.Json 8.0.5, JWT libs 8.0.2 |
+| Severity | **High** (System.Text.Json), **Moderate** (others) |
+| Advisory | GHSA-4f7c-pmjv-c25w, GHSA-hh2w-p6rv-4g7w, GHSA-8g4q-xg66-9fp4, GHSA-59j7-ghrg-fj52 |
+| Project | `RTM/RTM.Twilio/RTM.Twilio.csproj` |
+| Fixed In | Commit `pending` |
+| Fixed Date | 2026-05-31 |
+
+**Description:** Multiple transitive vulnerabilities from Twilio.AspNet.Core and RTM.Tools dependencies.
+
+**Fix:** Added explicit package overrides: log4net 3.3.1, System.Text.Json 8.0.5, Microsoft.IdentityModel.JsonWebTokens 8.0.2, System.IdentityModel.Tokens.Jwt 8.0.2.
+
 ## Open Package Vulnerabilities
 
 > Scan date: 2026-05-31
@@ -226,6 +245,7 @@ dotnet list RTM/RTM/RTM.csproj package --vulnerable --include-transitive
 | 2026-05-31 | Fixed log4net 2.0.15 → 3.3.1 | `8cdaf22` | Claude Code |
 | 2026-05-31 | Fixed Microsoft.Identity.Client, System.Text.Json, System.Security.Cryptography.Xml | `7093d35` | Claude Code |
 | 2026-05-31 | Full solution vulnerability scan - found 3 additional vuln types in 6 projects | - | Claude Code |
+| 2026-05-31 | Fixed RTM.Twilio transitive vulns (log4net, System.Text.Json, JWT libs) | `pending` | Claude Code |
 
 ---
 
