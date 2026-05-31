@@ -234,7 +234,11 @@ Cowork agent (this chat) is responsible for:
 
 Cowork agent must NOT directly write or edit source code files (`.cs`, `.sql`, `.csproj`, `.json`, `.razor`, etc.).
 
-**Why:** Cowork writes files over a network mount (Linux VM → Windows NTFS). This mount has a known partial-write failure mode — the tool returns success but the file may be truncated (PD-005, PD-006, PD-007, 2026-05). CC runs locally on Windows and writes directly to the filesystem without this risk. Every CC session also automatically enforces pre-commit-check.sh and post-commit verification.
+**Why:** Two reasons:
+
+1. **Reliability:** Cowork writes files over a network mount (Linux VM → Windows NTFS). This mount has a known partial-write failure mode — the tool returns success but the file may be truncated (PD-005, PD-006, PD-007, 2026-05). CC runs locally on Windows and writes directly to the filesystem without this risk. Every CC session also automatically enforces pre-commit-check.sh and post-commit verification.
+
+2. **Plugins:** CC supports plugins (e.g. Superpowers) that Cowork cannot access. These plugins extend CC capabilities — database introspection, external API calls, specialised tooling — and are only available in CC sessions.
 
 **Exceptions** (Cowork may write directly):
 - `CLAUDE.md` updates (documentation, not code)
