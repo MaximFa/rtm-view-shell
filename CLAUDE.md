@@ -246,6 +246,15 @@ Cowork agent must NOT directly write or edit source code files (`.cs`, `.sql`, `
 - `tools/cc_prompt_*.md` CC prompt files
 - Any file in `docs/`
 
+**CC prompt delivery format:**
+Cowork saves the task to a file (e.g. `tools/cc_prompt_tenantid.md`), then issues the instruction as a code box:
+
+```
+Выполни задачу из файла tools/cc_prompt_tenantid.md
+```
+
+This keeps prompts versioned in git, reviewable before execution, and avoids truncation in chat.
+
 ### §0.8 Session and chat naming convention
 
 All Cowork sessions and Claude chats related to this project must start with the prefix **`RTM`**.
