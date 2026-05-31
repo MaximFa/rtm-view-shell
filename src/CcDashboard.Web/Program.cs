@@ -1,10 +1,12 @@
 using CcDashboard.Application.Extensions;
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Web.Hubs;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Extensions;
+using CcDashboard.Infrastructure.RtmRelay;
 using CcDashboard.Infrastructure.Seeding;
 using CcDashboard.Web.Components;
 using CcDashboard.Web.Middleware;
@@ -125,6 +127,9 @@ try
     // Blazor circuit handler: resolves tenant context for SignalR circuits [ARCH-03]
     services.AddScoped<CircuitHandler, TenantCircuitHandler>();
 
+    // RTM Relay — Singleton, server-side SignalR client to RTM Service (CLAUDE.md §34)
+    services.AddSingleton<IRtmRelayService, RtmRelayService>();
+
     var app = builder.Build();
 
     // Run database seed on startup
@@ -154,6 +159,7 @@ try
     app.MapHealthChecks("/health/ready");
 
     app.MapHub<InfoSlotHub>("/hubs/info-slot");
+    app.MapHub<RtmRelayHub>("/hubs/rtm-relay");
 
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
