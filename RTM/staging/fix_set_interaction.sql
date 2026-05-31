@@ -39,7 +39,19 @@ DROP FUNCTION IF EXISTS "RTSData_SetInteraction"(
 );
 
 -- Create function matching exact C# parameter order (DBMng.cs lines 376-422)
-CREATE OR REPLACE FUNCTION "RTSData_SetInteraction"(
+DROP PROCEDURE IF EXISTS "RTSData_SetUserStatus"(
+    text, integer, text, text, text, text, text, text, text, text,
+    boolean, boolean, boolean, boolean, boolean, boolean,
+    double precision, double precision,
+    timestamptz, timestamptz,
+    text, text,
+    text, text, text, text, text, text, text, text, text, text,
+    text, text, text, text, text, text, text, text, text, text,
+    boolean, text, text,
+    timestamp with time zone, text
+);
+
+CREATE OR REPLACE PROCEDURE "RTSData_SetInteraction"(
     p_interaction_id        text,               -- @InteractionId
     p_segment               integer,            -- @Segment
     p_workgroup             text,               -- @Workgroup
@@ -88,7 +100,6 @@ CREATE OR REPLACE FUNCTION "RTSData_SetInteraction"(
     p_update_time           timestamp with time zone,       -- @UpdateTime
     p_on_date               text                -- @OnDate
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN

@@ -1,4 +1,4 @@
-﻿using RTM.Tools;
+using RTM.Tools;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -256,6 +256,7 @@ namespace RTM
             
             try
             {             
+                if (string.IsNullOrWhiteSpace(TimeZone)) return localTime;
                 TimeSpan offset = TimeSpan.Parse(TimeZone.Replace("+", "").Replace("-", ""));
                 if (TimeZone.StartsWith("-"))
                 {

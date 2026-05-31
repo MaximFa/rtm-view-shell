@@ -27,7 +27,13 @@ DROP FUNCTION IF EXISTS "RTSData_SetUserStatus"(
 
 -- Create function matching exact C# parameter order (DBMng.cs lines 354-367)
 -- After DateTime.SpecifyKind fix: StartTime, EndTime, UpdateTime are all timestamptz
-CREATE OR REPLACE FUNCTION "RTSData_SetUserStatus"(
+DROP PROCEDURE IF EXISTS "RTSData_SetUserStatus"(
+    text, text, text, text, text, text,
+    double precision, double precision, integer, text,
+    timestamptz, timestamptz, text, timestamptz
+);
+
+CREATE OR REPLACE PROCEDURE "RTSData_SetUserStatus"(
     p_user_id           text,               -- @UserId
     p_status_id         text,               -- @StatusId
     p_server_id         text,               -- @ServerId
@@ -43,7 +49,6 @@ CREATE OR REPLACE FUNCTION "RTSData_SetUserStatus"(
     p_time_zone         text,               -- @TimeZone
     p_update_time       timestamptz         -- @UpdateTime
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN

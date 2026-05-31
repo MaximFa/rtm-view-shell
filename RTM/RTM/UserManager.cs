@@ -1,4 +1,4 @@
-﻿using ExpressionEvaluator;
+using ExpressionEvaluator;
 using log4net;
 using RTM.Tools;
 using System.Collections.Concurrent;
@@ -177,6 +177,7 @@ namespace RTM
             DateTime localTime = DateTime.UtcNow;
             try
             {
+                if (string.IsNullOrWhiteSpace(TimeZone)) return localTime;
                 TimeSpan offset = TimeSpan.Parse(TimeZone.Replace("+", "").Replace("-", ""));
                 if (TimeZone.StartsWith("-"))
                 {
