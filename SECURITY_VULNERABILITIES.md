@@ -99,7 +99,7 @@ Last updated: 2026-05-31
 | Severity | **High** (System.Text.Json), **Moderate** (others) |
 | Advisory | GHSA-4f7c-pmjv-c25w, GHSA-hh2w-p6rv-4g7w, GHSA-8g4q-xg66-9fp4, GHSA-59j7-ghrg-fj52 |
 | Project | `RTM/RTM.Twilio/RTM.Twilio.csproj` |
-| Fixed In | Commit `pending` |
+| Fixed In | Commit `03756f5` |
 | Fixed Date | 2026-05-31 |
 
 **Description:** Multiple transitive vulnerabilities from Twilio.AspNet.Core and RTM.Tools dependencies.
@@ -245,7 +245,7 @@ dotnet list RTM/RTM/RTM.csproj package --vulnerable --include-transitive
 | 2026-05-31 | Fixed log4net 2.0.15 → 3.3.1 | `8cdaf22` | Claude Code |
 | 2026-05-31 | Fixed Microsoft.Identity.Client, System.Text.Json, System.Security.Cryptography.Xml | `7093d35` | Claude Code |
 | 2026-05-31 | Full solution vulnerability scan - found 3 additional vuln types in 6 projects | - | Claude Code |
-| 2026-05-31 | Fixed RTM.Twilio transitive vulns (log4net, System.Text.Json, JWT libs) | `pending` | Claude Code |
+| 2026-05-31 | Fixed RTM.Twilio transitive vulns (log4net, System.Text.Json, JWT libs) | `03756f5` | Claude Code |
 
 ---
 
