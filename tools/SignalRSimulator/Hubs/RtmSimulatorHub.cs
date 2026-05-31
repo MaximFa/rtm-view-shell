@@ -119,7 +119,7 @@ public class RtmSimulatorHub : Hub
         {
             try
             {
-                cellInfos ??= await _db.GetCellsForGridAsync(numericGridId, ct);
+                cellInfos = await _db.GetCellsForGridAsync(numericGridId, ct);
 
                 if (cellInfos.Count == 0)
                 {

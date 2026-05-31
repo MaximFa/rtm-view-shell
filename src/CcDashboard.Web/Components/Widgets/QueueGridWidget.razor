@@ -344,17 +344,33 @@
     }
 
     private int _previousGridId;
+    private string _lastColumnsKey = "";  // Detects column additions
 
     protected override async Task OnParametersSetAsync()
     {
         ApplyConfig();
 
+        // Initial connect
         if (GridId != 0 && _previousGridId == 0 && _hub is null)
         {
             _previousGridId = GridId;
             await ConnectAsync();
         }
         _previousGridId = GridId;
+
+        // Reconnect when columns change (new column added -> new CellIds in Config)
+        var newColumnsKey = string.Join(",", (_columnDefs ?? []).Select(c => c.Id));
+        if (_lastColumnsKey != "" && newColumnsKey != _lastColumnsKey && _hub is not null)
+        {
+            Logger.LogInformation("QueueGrid: columns changed ({Old} -> {New}), reconnecting",
+                _lastColumnsKey, newColumnsKey);
+            _lastColumnsKey = newColumnsKey;
+            await ReconnectAsync();
+        }
+        else
+        {
+            _lastColumnsKey = newColumnsKey;
+        }
     }
 
     private void ApplyConfig()

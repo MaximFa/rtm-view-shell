@@ -70,6 +70,7 @@
 
     private HubConnection? _hub;
     private int _rtsGridId;  // RTSGrid_Grid.GridId — set from Config.DataSlotGridId
+    private int _prevRtsGridId;
     private ConnectionState _connectionState = ConnectionState.Connecting;
     private readonly CancellationTokenSource _cts = new();
 
@@ -138,9 +139,19 @@
         }
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         ApplyConfig();
+        // Reconnect when DataSlotGridId becomes available (e.g. first Save after widget placed)
+        if (_rtsGridId > 0 && _rtsGridId != _prevRtsGridId)
+        {
+            _prevRtsGridId = _rtsGridId;
+            await ReconnectAsync();
+        }
+        else
+        {
+            _prevRtsGridId = _rtsGridId;
+        }
     }
 
     private void ApplyConfig()
@@ -287,6 +298,7 @@
 
     private async Task ReconnectAsync()
     {
+        if (_hub != null) { try { await _hub.DisposeAsync(); } catch { } _hub = null; }
         _connectionState = ConnectionState.Connecting;
         StateHasChanged();
         await ConnectAsync();
