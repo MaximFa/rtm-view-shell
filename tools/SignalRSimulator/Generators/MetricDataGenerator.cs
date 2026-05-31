@@ -69,8 +69,12 @@ public static class MetricDataGenerator
 
     private static string GenerateNumberValue(MetricDefinition metric)
     {
-        // Time-stored-as-Number (e.g. wait time in seconds) — show as live timer
-        if (metric.DataType?.Equals("Time", StringComparison.OrdinalIgnoreCase) == true)
+        // Time-stored-as-Number: detect by DataType=="Time" OR by MetricFormat containing ':'
+        // Common RTM pattern: ValueType="Number", DataType="Integer", MetricFormat="mm:ss"
+        var isTimeMetric =
+            metric.DataType?.Equals("Time", StringComparison.OrdinalIgnoreCase) == true
+            || (metric.MetricFormat != null && metric.MetricFormat.Contains(':'));
+        if (isTimeMetric)
         {
             var isLong = metric.MetricFormat?.Contains("hh", StringComparison.OrdinalIgnoreCase) == true;
             return "+" + (isLong ? GenerateLongTime() : GenerateShortTime());
