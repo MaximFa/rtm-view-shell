@@ -34,6 +34,8 @@ namespace RTM.Configuration
         public static string LocalIPAddress { get; private set; }
         public static string Version { get; private set; }
 
+        public static Guid TenantId { get; private set; }
+
 
 
         public static void Initialize(IConfiguration configuration, string dataFilePath)
@@ -47,6 +49,9 @@ namespace RTM.Configuration
                 AgentWGPerfix = configuration["RTM:AgentWGPerfixList"];
                 CalcInterval = int.Parse(configuration["RTM:CalcInterval"]);
                 DefaultTimeZone = configuration["RTM:DefaultTimeZone"];
+
+                TenantId = Guid.Parse(configuration["RTM:TenantId"]);
+                AsyncLogger.Info($"AppConfig.TenantId = {TenantId}");
 
                 AdapterServiceName = configuration["RTM:AdaptorServiceName"];
 
@@ -120,6 +125,11 @@ namespace RTM.Configuration
                 if (string.IsNullOrEmpty(LicenseKey))
                 {
                     throw new InvalidOperationException("LicenseKey configuration is missing or empty.");
+                }
+
+                if (TenantId == Guid.Empty)
+                {
+                    throw new InvalidOperationException("RTM:TenantId is not configured. Set a valid tenant UUID in appsettings.json.");
                 }
 
                 // Add additional validation as necessary

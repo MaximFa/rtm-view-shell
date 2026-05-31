@@ -48,7 +48,8 @@ CREATE OR REPLACE FUNCTION "RTSData_SetInteraction"(
     p_is_messaging boolean,
     p_remote_address text,
     p_is_callback_request boolean,
-    p_time_zone text
+    p_time_zone text,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -59,14 +60,16 @@ BEGIN
         "ClassificationCode", "InteractionType", "CallType", "Direction", "CustomCallData",
         "IsTransferred", "IsAnswered", "IsInQueue", "IsTalk", "IsAbandoned",
         "TimeInQueue", "TalkTime", "InQueueDateTime", "AnsweredDateTime", "UpdateTime",
-        "LastUserId", "LastWorkgroup", "IsMessaging", "RemoteAddress", "IsCallbackRequest", "TimeZone"
+        "LastUserId", "LastWorkgroup", "IsMessaging", "RemoteAddress", "IsCallbackRequest", "TimeZone",
+        "TenantId"
     )
     VALUES (
         p_interaction_id, p_segment, p_on_date, p_server_id, p_workgroup, p_user_id,
         p_classification_code, p_interaction_type, p_call_type, p_direction, p_custom_call_data,
         p_is_transferred, p_is_answered, p_is_in_queue, p_is_talk, p_is_abandoned,
         p_time_in_queue, p_talk_time, p_in_queue_date_time, p_answered_date_time, p_update_time,
-        p_last_user_id, p_last_workgroup, p_is_messaging, p_remote_address, p_is_callback_request, p_time_zone
+        p_last_user_id, p_last_workgroup, p_is_messaging, p_remote_address, p_is_callback_request, p_time_zone,
+        p_tenant_id
     )
     ON CONFLICT ("InteractionId", "Segment", "ServerId")
     DO UPDATE SET
@@ -93,7 +96,8 @@ BEGIN
         "IsMessaging" = EXCLUDED."IsMessaging",
         "RemoteAddress" = EXCLUDED."RemoteAddress",
         "IsCallbackRequest" = EXCLUDED."IsCallbackRequest",
-        "TimeZone" = EXCLUDED."TimeZone";
+        "TimeZone" = EXCLUDED."TimeZone",
+        "TenantId" = EXCLUDED."TenantId";
 END;
 $$;
 
@@ -119,7 +123,8 @@ CREATE OR REPLACE FUNCTION "RTSData_SetUserStatus"(
     p_on_date text,
     p_update_time timestamptz,
     p_display_name text,
-    p_time_zone text
+    p_time_zone text,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -128,12 +133,12 @@ BEGIN
     INSERT INTO "RTSData_UserStatus" (
         "UserId", "StatusId", "ServerId", "OnDate",
         "StatusName", "StatusGroup", "TotalDuration", "MaxDuraction",
-        "TotalCount", "UpdateTime", "DisplayName", "TimeZone"
+        "TotalCount", "UpdateTime", "DisplayName", "TimeZone", "TenantId"
     )
     VALUES (
         p_user_id, p_status_id, p_source_server, p_on_date,
         p_status_name, p_status_group, p_total_duration, p_max_duration,
-        p_total_count, p_update_time, p_display_name, p_time_zone
+        p_total_count, p_update_time, p_display_name, p_time_zone, p_tenant_id
     )
     ON CONFLICT ("UserId", "StatusId", "ServerId", "OnDate")
     DO UPDATE SET
@@ -144,7 +149,8 @@ BEGIN
         "TotalCount" = EXCLUDED."TotalCount",
         "UpdateTime" = EXCLUDED."UpdateTime",
         "DisplayName" = EXCLUDED."DisplayName",
-        "TimeZone" = EXCLUDED."TimeZone";
+        "TimeZone" = EXCLUDED."TimeZone",
+        "TenantId" = EXCLUDED."TenantId";
 END;
 $$;
 
@@ -172,7 +178,8 @@ CREATE OR REPLACE FUNCTION "RTSData_SetChatMessage"(
     p_server_id text,
     p_update_time timestamptz,
     p_on_date text,
-    p_time_stamp timestamptz
+    p_time_stamp timestamptz,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -182,13 +189,13 @@ BEGIN
         "MessageId", "ServerId", "OnDate",
         "InteractionId", "SegmentId", "UserId", "MsgDirection",
         "Sender", "Recipient", "Body", "DeliveryStatus",
-        "UpdateTime", "TimeStamp"
+        "UpdateTime", "TimeStamp", "TenantId"
     )
     VALUES (
         p_message_id, p_server_id, p_on_date,
         p_interaction_id, p_segment_id, p_user_id, p_msg_direction,
         p_sender, p_recipient, p_body, p_delivery_status,
-        p_update_time, p_time_stamp
+        p_update_time, p_time_stamp, p_tenant_id
     )
     ON CONFLICT ("MessageId", "ServerId")
     DO UPDATE SET
@@ -202,7 +209,8 @@ BEGIN
         "Body" = EXCLUDED."Body",
         "DeliveryStatus" = EXCLUDED."DeliveryStatus",
         "UpdateTime" = EXCLUDED."UpdateTime",
-        "TimeStamp" = EXCLUDED."TimeStamp";
+        "TimeStamp" = EXCLUDED."TimeStamp",
+        "TenantId" = EXCLUDED."TenantId";
 END;
 $$;
 
@@ -212,14 +220,16 @@ $$;
 --    Clears Interaction and UserStatus tables — ChatMessage is NOT cleared
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_MidnightClear"();
+DROP FUNCTION IF EXISTS "RTSData_MidnightClear"(uuid);
 
-CREATE OR REPLACE FUNCTION "RTSData_MidnightClear"()
+CREATE OR REPLACE FUNCTION "RTSData_MidnightClear"(p_tenant_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    DELETE FROM "RTSData_Interaction";
-    DELETE FROM "RTSData_UserStatus";
+    -- [RTM-SEC-001] CRITICAL: Must scope DELETE by TenantId to prevent cross-tenant data loss
+    DELETE FROM "RTSData_Interaction" WHERE "TenantId" = p_tenant_id;
+    DELETE FROM "RTSData_UserStatus" WHERE "TenantId" = p_tenant_id;
     -- RTSData_ChatMessage is intentionally NOT cleared per production behavior
 END;
 $$;
@@ -229,8 +239,9 @@ $$;
 --    Returns all columns from RTSData_Interaction
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_GetInteractions"();
+DROP FUNCTION IF EXISTS "RTSData_GetInteractions"(uuid);
 
-CREATE OR REPLACE FUNCTION "RTSData_GetInteractions"()
+CREATE OR REPLACE FUNCTION "RTSData_GetInteractions"(p_tenant_id uuid)
 RETURNS TABLE(
     "TenantId" uuid,
     "InteractionId" text,
@@ -294,14 +305,16 @@ BEGIN
         i."RemoteAddress"::text,
         i."IsCallbackRequest",
         i."TimeZone"::text
-    FROM "RTSData_Interaction" i;
+    FROM "RTSData_Interaction" i
+    WHERE i."TenantId" = p_tenant_id;
 END;
 $$;
 
 -- Lowercase alias (C# calls "RTSData_getInteractions")
 DROP FUNCTION IF EXISTS "RTSData_getInteractions"();
+DROP FUNCTION IF EXISTS "RTSData_getInteractions"(uuid);
 
-CREATE OR REPLACE FUNCTION "RTSData_getInteractions"()
+CREATE OR REPLACE FUNCTION "RTSData_getInteractions"(p_tenant_id uuid)
 RETURNS TABLE(
     "TenantId" uuid,
     "InteractionId" text,
@@ -333,15 +346,16 @@ RETURNS TABLE(
     "TimeZone" text
 )
 LANGUAGE sql
-AS $$ SELECT * FROM "RTSData_GetInteractions"(); $$;
+AS $$ SELECT * FROM "RTSData_GetInteractions"(p_tenant_id); $$;
 
 -- ============================================================================
 -- 6. RTSData_GetUsersStatuses
 --    Returns all columns from RTSData_UserStatus
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_GetUsersStatuses"();
+DROP FUNCTION IF EXISTS "RTSData_GetUsersStatuses"(uuid);
 
-CREATE OR REPLACE FUNCTION "RTSData_GetUsersStatuses"()
+CREATE OR REPLACE FUNCTION "RTSData_GetUsersStatuses"(p_tenant_id uuid)
 RETURNS TABLE(
     "TenantId" uuid,
     "UserId" text,
@@ -375,14 +389,16 @@ BEGIN
         s."UpdateTime",
         s."DisplayName"::text,
         s."TimeZone"::text
-    FROM "RTSData_UserStatus" s;
+    FROM "RTSData_UserStatus" s
+    WHERE s."TenantId" = p_tenant_id;
 END;
 $$;
 
 -- Lowercase alias (C# calls "RTSData_getUsersStatuses")
 DROP FUNCTION IF EXISTS "RTSData_getUsersStatuses"();
+DROP FUNCTION IF EXISTS "RTSData_getUsersStatuses"(uuid);
 
-CREATE OR REPLACE FUNCTION "RTSData_getUsersStatuses"()
+CREATE OR REPLACE FUNCTION "RTSData_getUsersStatuses"(p_tenant_id uuid)
 RETURNS TABLE(
     "TenantId" uuid,
     "UserId" text,
@@ -399,7 +415,7 @@ RETURNS TABLE(
     "TimeZone" text
 )
 LANGUAGE sql
-AS $$ SELECT * FROM "RTSData_GetUsersStatuses"(); $$;
+AS $$ SELECT * FROM "RTSData_GetUsersStatuses"(p_tenant_id); $$;
 
 -- ============================================================================
 -- End of RTSData_* functions (6 main + 2 lowercase aliases = 8 total)

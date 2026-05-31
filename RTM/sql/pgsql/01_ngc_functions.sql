@@ -13,8 +13,9 @@
 -- 1. NGC_GetBusinessUnitTable
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetBusinessUnitTable"();
+DROP FUNCTION IF EXISTS "NGC_GetBusinessUnitTable"(uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_GetBusinessUnitTable"()
+CREATE OR REPLACE FUNCTION "NGC_GetBusinessUnitTable"(p_tenant_id uuid)
 RETURNS TABLE(
     "BusinessUnitId" integer,
     "TenantId" uuid,
@@ -37,6 +38,7 @@ BEGIN
         bu."CreatedBy"::text,
         bu."SiteId"::text
     FROM "NGC_BusinessUnit" bu
+    WHERE bu."TenantId" = p_tenant_id
     ORDER BY bu."BusinessUnitId";
 END;
 $$;
@@ -45,8 +47,9 @@ $$;
 -- 2. NGC_GetSupergroupTable
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetSupergroupTable"();
+DROP FUNCTION IF EXISTS "NGC_GetSupergroupTable"(uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_GetSupergroupTable"()
+CREATE OR REPLACE FUNCTION "NGC_GetSupergroupTable"(p_tenant_id uuid)
 RETURNS TABLE(
     "SupergroupId" integer,
     "TenantId" uuid,
@@ -69,6 +72,7 @@ BEGIN
         sg."CreatedBy"::text,
         sg."SupergroupIdOld"
     FROM "NGC_Supergroup" sg
+    WHERE sg."TenantId" = p_tenant_id
     ORDER BY sg."SupergroupId";
 END;
 $$;
@@ -77,8 +81,9 @@ $$;
 -- 3. NGC_GetBusinessUnitQueueClassificationTable
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetBusinessUnitQueueClassificationTable"();
+DROP FUNCTION IF EXISTS "NGC_GetBusinessUnitQueueClassificationTable"(uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_GetBusinessUnitQueueClassificationTable"()
+CREATE OR REPLACE FUNCTION "NGC_GetBusinessUnitQueueClassificationTable"(p_tenant_id uuid)
 RETURNS TABLE(
     "BusinessUnitId" integer,
     "QueueId" text,
@@ -98,7 +103,8 @@ BEGIN
         bq."ClassificationId"::text,
         bq."CreatedDatetime",
         bq."CreatedBy"::text
-    FROM "NGC_BusinessUnitQueueClassification" bq;
+    FROM "NGC_BusinessUnitQueueClassification" bq
+    WHERE bq."TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -106,8 +112,9 @@ $$;
 -- 4. NGC_GetBusinessUnitSupergroupTable
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetBusinessUnitSupergroupTable"();
+DROP FUNCTION IF EXISTS "NGC_GetBusinessUnitSupergroupTable"(uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_GetBusinessUnitSupergroupTable"()
+CREATE OR REPLACE FUNCTION "NGC_GetBusinessUnitSupergroupTable"(p_tenant_id uuid)
 RETURNS TABLE(
     "BusinessUnitId" integer,
     "SupergroupId" integer,
@@ -125,7 +132,8 @@ BEGIN
         bs."TenantId",
         bs."CreatedDatetime",
         bs."CreatedBy"::text
-    FROM "NGC_BusinessUnitSupergroup" bs;
+    FROM "NGC_BusinessUnitSupergroup" bs
+    WHERE bs."TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -133,8 +141,9 @@ $$;
 -- 5. NGC_GetSupergroupAgentgroupTable
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetSupergroupAgentgroupTable"();
+DROP FUNCTION IF EXISTS "NGC_GetSupergroupAgentgroupTable"(uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_GetSupergroupAgentgroupTable"()
+CREATE OR REPLACE FUNCTION "NGC_GetSupergroupAgentgroupTable"(p_tenant_id uuid)
 RETURNS TABLE(
     "Id" integer,
     "SupergroupId" integer,
@@ -154,7 +163,8 @@ BEGIN
         sa."TenantId",
         sa."CreatedDatetime",
         sa."CreatedBy"::text
-    FROM "NGC_SupergroupAgentgroup" sa;
+    FROM "NGC_SupergroupAgentgroup" sa
+    WHERE sa."TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -162,8 +172,9 @@ $$;
 -- 6. NGC_GetSiteTable
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetSiteTable"();
+DROP FUNCTION IF EXISTS "NGC_GetSiteTable"(uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_GetSiteTable"()
+CREATE OR REPLACE FUNCTION "NGC_GetSiteTable"(p_tenant_id uuid)
 RETURNS TABLE(
     "SiteId" text,
     "TenantId" uuid,
@@ -183,7 +194,8 @@ BEGIN
         s."Description"::text,
         s."TimeZone"::text,
         s."ClearTime"::text
-    FROM "NGC_Site" s;
+    FROM "NGC_Site" s
+    WHERE s."TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -192,18 +204,20 @@ $$;
 --    Returns generated BusinessUnitId (SERIAL)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnit"(text, text);
+DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnit"(text, text, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnit"(
     p_business_unit_name text,
-    p_description text
+    p_description text,
+    p_tenant_id uuid
 )
 RETURNS TABLE("BusinessUnitId" integer)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    INSERT INTO "NGC_BusinessUnit" ("BusinessUnitName", "Description", "CreatedDatetime")
-    VALUES (p_business_unit_name, p_description, NOW())
+    INSERT INTO "NGC_BusinessUnit" ("BusinessUnitName", "Description", "CreatedDatetime", "TenantId")
+    VALUES (p_business_unit_name, p_description, NOW(), p_tenant_id)
     RETURNING "NGC_BusinessUnit"."BusinessUnitId";
 END;
 $$;
@@ -212,11 +226,13 @@ $$;
 -- 8. NGC_ModifyBusinessUnit
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_ModifyBusinessUnit"(integer, text, text);
+DROP FUNCTION IF EXISTS "NGC_ModifyBusinessUnit"(integer, text, text, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_ModifyBusinessUnit"(
     p_business_unit_id integer,
     p_business_unit_name text,
-    p_description text
+    p_description text,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -225,7 +241,8 @@ BEGIN
     UPDATE "NGC_BusinessUnit"
     SET "BusinessUnitName" = p_business_unit_name,
         "Description" = p_description
-    WHERE "BusinessUnitId" = p_business_unit_id;
+    WHERE "BusinessUnitId" = p_business_unit_id
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -233,16 +250,19 @@ $$;
 -- 9. NGC_DeleteBusinessUnit
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnit"(integer);
+DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnit"(integer, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_DeleteBusinessUnit"(
-    p_business_unit_id integer
+    p_business_unit_id integer,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
     DELETE FROM "NGC_BusinessUnit"
-    WHERE "BusinessUnitId" = p_business_unit_id;
+    WHERE "BusinessUnitId" = p_business_unit_id
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -251,18 +271,20 @@ $$;
 --     Returns generated SupergroupId (SERIAL)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateSupergroup"(text, text);
+DROP FUNCTION IF EXISTS "NGC_CreateSupergroup"(text, text, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_CreateSupergroup"(
     p_supergroup_name text,
-    p_description text
+    p_description text,
+    p_tenant_id uuid
 )
 RETURNS TABLE("SupergroupId" integer)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    INSERT INTO "NGC_Supergroup" ("SupergroupName", "Description", "CreatedDatetime")
-    VALUES (p_supergroup_name, p_description, NOW())
+    INSERT INTO "NGC_Supergroup" ("SupergroupName", "Description", "CreatedDatetime", "TenantId")
+    VALUES (p_supergroup_name, p_description, NOW(), p_tenant_id)
     RETURNING "NGC_Supergroup"."SupergroupId";
 END;
 $$;
@@ -271,11 +293,13 @@ $$;
 -- 11. NGC_ModifySupergroup
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_ModifySupergroup"(integer, text, text);
+DROP FUNCTION IF EXISTS "NGC_ModifySupergroup"(integer, text, text, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_ModifySupergroup"(
     p_supergroup_id integer,
     p_supergroup_name text,
-    p_description text
+    p_description text,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -284,7 +308,8 @@ BEGIN
     UPDATE "NGC_Supergroup"
     SET "SupergroupName" = p_supergroup_name,
         "Description" = p_description
-    WHERE "SupergroupId" = p_supergroup_id;
+    WHERE "SupergroupId" = p_supergroup_id
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -292,16 +317,19 @@ $$;
 -- 12. NGC_DeleteSupergroup
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_DeleteSupergroup"(integer);
+DROP FUNCTION IF EXISTS "NGC_DeleteSupergroup"(integer, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_DeleteSupergroup"(
-    p_supergroup_id integer
+    p_supergroup_id integer,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
     DELETE FROM "NGC_Supergroup"
-    WHERE "SupergroupId" = p_supergroup_id;
+    WHERE "SupergroupId" = p_supergroup_id
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -310,17 +338,19 @@ $$;
 --     UPSERT: ON CONFLICT DO NOTHING (idempotent create)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitQueueClassificationMapping"(integer, text);
+DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitQueueClassificationMapping"(integer, text, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnitQueueClassificationMapping"(
     p_business_unit_id integer,
-    p_queue_id text
+    p_queue_id text,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO "NGC_BusinessUnitQueueClassification" ("BusinessUnitId", "QueueId", "CreatedDatetime")
-    VALUES (p_business_unit_id, p_queue_id, NOW())
+    INSERT INTO "NGC_BusinessUnitQueueClassification" ("BusinessUnitId", "QueueId", "CreatedDatetime", "TenantId")
+    VALUES (p_business_unit_id, p_queue_id, NOW(), p_tenant_id)
     ON CONFLICT ("BusinessUnitId", "QueueId") DO NOTHING;
 END;
 $$;
@@ -329,10 +359,12 @@ $$;
 -- 14. NGC_DeleteBusinessUnitQueueClassificationMapping
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitQueueClassificationMapping"(integer, text);
+DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitQueueClassificationMapping"(integer, text, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_DeleteBusinessUnitQueueClassificationMapping"(
     p_business_unit_id integer,
-    p_queue_id text
+    p_queue_id text,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -340,7 +372,8 @@ AS $$
 BEGIN
     DELETE FROM "NGC_BusinessUnitQueueClassification"
     WHERE "BusinessUnitId" = p_business_unit_id
-      AND "QueueId" = p_queue_id;
+      AND "QueueId" = p_queue_id
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -349,17 +382,19 @@ $$;
 --     UPSERT: ON CONFLICT DO NOTHING (idempotent create)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitSupergroupMapping"(integer, integer);
+DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitSupergroupMapping"(integer, integer, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnitSupergroupMapping"(
     p_business_unit_id integer,
-    p_supergroup_id integer
+    p_supergroup_id integer,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO "NGC_BusinessUnitSupergroup" ("BusinessUnitId", "SupergroupId", "CreatedDatetime")
-    VALUES (p_business_unit_id, p_supergroup_id, NOW())
+    INSERT INTO "NGC_BusinessUnitSupergroup" ("BusinessUnitId", "SupergroupId", "CreatedDatetime", "TenantId")
+    VALUES (p_business_unit_id, p_supergroup_id, NOW(), p_tenant_id)
     ON CONFLICT ("BusinessUnitId", "SupergroupId") DO NOTHING;
 END;
 $$;
@@ -368,10 +403,12 @@ $$;
 -- 16. NGC_DeleteBusinessUnitSupergroupMapping
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitSupergroupMapping"(integer, integer);
+DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitSupergroupMapping"(integer, integer, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_DeleteBusinessUnitSupergroupMapping"(
     p_business_unit_id integer,
-    p_supergroup_id integer
+    p_supergroup_id integer,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -379,7 +416,8 @@ AS $$
 BEGIN
     DELETE FROM "NGC_BusinessUnitSupergroup"
     WHERE "BusinessUnitId" = p_business_unit_id
-      AND "SupergroupId" = p_supergroup_id;
+      AND "SupergroupId" = p_supergroup_id
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -395,17 +433,19 @@ $$;
 --     For now, simple INSERT matching original T-SQL behavior.
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_CreateSupergroupAgentgroupMapping"(integer, text);
+DROP FUNCTION IF EXISTS "NGC_CreateSupergroupAgentgroupMapping"(integer, text, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_CreateSupergroupAgentgroupMapping"(
     p_supergroup_id integer,
-    p_agentgroup_id text
+    p_agentgroup_id text,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO "NGC_SupergroupAgentgroup" ("SupergroupId", "AgentgroupId", "CreatedDatetime")
-    VALUES (p_supergroup_id, p_agentgroup_id, NOW());
+    INSERT INTO "NGC_SupergroupAgentgroup" ("SupergroupId", "AgentgroupId", "CreatedDatetime", "TenantId")
+    VALUES (p_supergroup_id, p_agentgroup_id, NOW(), p_tenant_id);
 END;
 $$;
 
@@ -413,10 +453,12 @@ $$;
 -- 18. NGC_DeleteSupergroupAgentgroupMapping
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_DeleteSupergroupAgentgroupMapping"(integer, text);
+DROP FUNCTION IF EXISTS "NGC_DeleteSupergroupAgentgroupMapping"(integer, text, uuid);
 
 CREATE OR REPLACE FUNCTION "NGC_DeleteSupergroupAgentgroupMapping"(
     p_supergroup_id integer,
-    p_agentgroup_id text
+    p_agentgroup_id text,
+    p_tenant_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -424,7 +466,8 @@ AS $$
 BEGIN
     DELETE FROM "NGC_SupergroupAgentgroup"
     WHERE "SupergroupId" = p_supergroup_id
-      AND "AgentgroupId" = p_agentgroup_id;
+      AND "AgentgroupId" = p_agentgroup_id
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 

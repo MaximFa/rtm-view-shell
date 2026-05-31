@@ -1,11 +1,9 @@
 -- ============================================================================
--- Fix RTSData_SetInteraction signature
--- C# DBMng.cs sends 47 parameters in positional order.
--- Old function had wrong signature (27 params, different order).
+-- Fix RTSData_SetInteraction — correct 47-param signature, PROCEDURE
+-- C# DBMng.cs sends params in positional order; DateTime.SpecifyKind(Utc) applied.
 -- Deploy: psql -U ccdashboard_user -d rtmviewdb -h 127.0.0.1 -f fix_set_interaction.sql
 -- ============================================================================
 
--- Drop old signature variants
 DROP FUNCTION IF EXISTS "RTSData_SetInteraction"(
     text, integer, text, text, text, text,
     text, text, text, text, text,
@@ -38,18 +36,7 @@ DROP FUNCTION IF EXISTS "RTSData_SetInteraction"(
     timestamp with time zone, text
 );
 
--- Create function matching exact C# parameter order (DBMng.cs lines 376-422)
-DROP PROCEDURE IF EXISTS "RTSData_SetUserStatus"(
-    text, integer, text, text, text, text, text, text, text, text,
-    boolean, boolean, boolean, boolean, boolean, boolean,
-    double precision, double precision,
-    timestamptz, timestamptz,
-    text, text,
-    text, text, text, text, text, text, text, text, text, text,
-    text, text, text, text, text, text, text, text, text, text,
-    boolean, text, text,
-    timestamp with time zone, text
-);
+DROP PROCEDURE IF EXISTS "RTSData_SetInteraction";
 
 CREATE OR REPLACE PROCEDURE "RTSData_SetInteraction"(
     p_interaction_id        text,               -- @InteractionId
@@ -70,8 +57,8 @@ CREATE OR REPLACE PROCEDURE "RTSData_SetInteraction"(
     p_is_messaging          boolean,            -- @IsMessaging
     p_time_in_queue         double precision,   -- @TimeInQueue
     p_talk_time             double precision,   -- @TalkTime
-    p_in_queue_date_time    timestamp with time zone,       -- @InQueueDateTime
-    p_answered_date_time    timestamptz,                    -- @AnsweredDateTime
+    p_in_queue_date_time    timestamptz,        -- @InQueueDateTime
+    p_answered_date_time    timestamptz,        -- @AnsweredDateTime
     p_last_user_id          text,               -- @LastUserId
     p_last_workgroup        text,               -- @LastWorkgroup
     p_custom_call_data1     text,               -- @CustomCallData1
@@ -97,8 +84,9 @@ CREATE OR REPLACE PROCEDURE "RTSData_SetInteraction"(
     p_is_callback_request   boolean,            -- @IsCallbackRequest
     p_time_zone             text,               -- @TimeZone
     p_server_id             text,               -- @ServerId
-    p_update_time           timestamp with time zone,       -- @UpdateTime
-    p_on_date               text                -- @OnDate
+    p_update_time           timestamptz,        -- @UpdateTime
+    p_on_date               text,               -- @OnDate
+    p_tenant_id             uuid                -- @TenantId
 )
 LANGUAGE plpgsql
 AS $$
@@ -115,7 +103,7 @@ BEGIN
         "CustomCallData9",  "CustomCallData10", "CustomCallData11", "CustomCallData12",
         "CustomCallData13", "CustomCallData14", "CustomCallData15", "CustomCallData16",
         "CustomCallData17", "CustomCallData18", "CustomCallData19", "CustomCallData20",
-        "IsCallbackRequest", "TimeZone"
+        "IsCallbackRequest", "TimeZone", "TenantId"
     )
     VALUES (
         p_interaction_id, p_segment, p_on_date, p_server_id, p_workgroup, p_user_id,
@@ -129,7 +117,7 @@ BEGIN
         p_custom_call_data9,  p_custom_call_data10, p_custom_call_data11, p_custom_call_data12,
         p_custom_call_data13, p_custom_call_data14, p_custom_call_data15, p_custom_call_data16,
         p_custom_call_data17, p_custom_call_data18, p_custom_call_data19, p_custom_call_data20,
-        p_is_callback_request, p_time_zone
+        p_is_callback_request, p_time_zone, p_tenant_id
     )
     ON CONFLICT ("InteractionId", "Segment", "ServerId")
     DO UPDATE SET
@@ -176,6 +164,7 @@ BEGIN
         "CustomCallData19"    = EXCLUDED."CustomCallData19",
         "CustomCallData20"    = EXCLUDED."CustomCallData20",
         "IsCallbackRequest"   = EXCLUDED."IsCallbackRequest",
-        "TimeZone"            = EXCLUDED."TimeZone";
+        "TimeZone"            = EXCLUDED."TimeZone",
+        "TenantId"            = EXCLUDED."TenantId";
 END;
 $$;

@@ -189,6 +189,7 @@ namespace RTM
     {
         private string _connectionString;
         private string _machineName;
+        private readonly Guid _tenantId = RTM.Configuration.AppConfig.TenantId;
         private BlockingCollection<DBRequest> _requestsQueue = new BlockingCollection<DBRequest>();
 
         private const string ProviderType = "data";
@@ -365,6 +366,7 @@ namespace RTM
                             parameters.Add(new NpgsqlParameter("@EndTime", DateTime.SpecifyKind(userStatusRequest.EndTime, DateTimeKind.Utc)));
                             parameters.Add(new NpgsqlParameter("@TimeZone", userStatusRequest.TimeZone));
                             parameters.Add(new NpgsqlParameter("@UpdateTime", DateTime.SpecifyKind(userStatusRequest.UpdateTime, DateTimeKind.Utc)));                           
+                            parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
                             DBAdapter.ExecuteNonQuery("RTSData_SetUserStatus", parameters);
                         }
                         else if (dbRequest.GetType() == typeof(InteractionDBRequest))
@@ -420,6 +422,7 @@ namespace RTM
                             parameters.Add(new NpgsqlParameter("@ServerId", interactionRequest.ServerId));
                             parameters.Add(new NpgsqlParameter("@UpdateTime", DateTime.SpecifyKind(interactionRequest.UpdateTime, DateTimeKind.Utc)));
                             parameters.Add(new NpgsqlParameter("@OnDate", interactionRequest.OnDate));
+                            parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
                             DBAdapter.ExecuteNonQuery("RTSData_SetInteraction", parameters);
                         }
                         else if (dbRequest.GetType() == typeof(ChatMessageDBRequest))
@@ -440,6 +443,7 @@ namespace RTM
                             parameters.Add(new NpgsqlParameter("@UpdateTime", DateTime.SpecifyKind(interactionRequest.UpdateTime, DateTimeKind.Utc)));
                             parameters.Add(new NpgsqlParameter("@OnDate", interactionRequest.OnDate));
                             parameters.Add(new NpgsqlParameter("@TimeStamp", interactionRequest.TimeStamp));
+                            parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
                             DBAdapter.ExecuteNonQuery("RTSData_SetChatMessage", parameters);
                         }
                     }
@@ -457,7 +461,9 @@ namespace RTM
         {
             try
             {
-                DBAdapter.ExecuteNonQuery("RTSData_MidnightClear", null);
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
+                DBAdapter.ExecuteNonQuery("RTSData_MidnightClear", parameters);
             }
             catch (Exception ex)
             {
@@ -473,6 +479,7 @@ namespace RTM
 
             var parameters = new List<NpgsqlParameter>();
             parameters.Add(new NpgsqlParameter("@OnDate", OnDate));
+            parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
             return DBAdapter.GetDataTable("RTSData_getUsersStatuses", parameters);
         }
 
@@ -483,6 +490,7 @@ namespace RTM
 
             var parameters = new List<NpgsqlParameter>();
             parameters.Add(new NpgsqlParameter("@OnDate", OnDate));
+            parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
             return DBAdapter.GetDataTable("RTSData_getInteractions", parameters);
         }
 

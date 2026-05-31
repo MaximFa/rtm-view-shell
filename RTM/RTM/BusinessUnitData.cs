@@ -1,4 +1,5 @@
 ﻿using RTM.Tools;
+using RTM.Configuration;
 using Npgsql;
 using System.Data;
 
@@ -16,7 +17,9 @@ namespace RTM
 
             try
             {
-                var dataTable = DBAdapter.GetDataTable("NGC_GetBusinessUnitTable", null);
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                var dataTable = DBAdapter.GetDataTable("NGC_GetBusinessUnitTable", parameters);
 
                 foreach (DataRow row in dataTable.Rows)
                 {
@@ -50,7 +53,9 @@ namespace RTM
 
             try
             {
-                var dataTable = DBAdapter.GetDataTable("NGC_GetSupergroupTable", null);
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                var dataTable = DBAdapter.GetDataTable("NGC_GetSupergroupTable", parameters);
 
                 foreach (DataRow row in dataTable.Rows)
                 {
@@ -82,7 +87,9 @@ namespace RTM
 
             try
             {
-                var dataTable = DBAdapter.GetDataTable("NGC_GetBusinessUnitQueueClassificationTable", null);
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                var dataTable = DBAdapter.GetDataTable("NGC_GetBusinessUnitQueueClassificationTable", parameters);
 
                 foreach (DataRow row in dataTable.Rows)
                 {
@@ -115,7 +122,9 @@ namespace RTM
 
             try
             {
-                var dataTable = DBAdapter.GetDataTable("NGC_GetBusinessUnitSupergroupTable", null);
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                var dataTable = DBAdapter.GetDataTable("NGC_GetBusinessUnitSupergroupTable", parameters);
 
                 foreach (DataRow row in dataTable.Rows)
                 {
@@ -147,7 +156,9 @@ namespace RTM
 
             try
             {
-                var dataTable = DBAdapter.GetDataTable("NGC_GetSupergroupAgentgroupTable", null);
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                var dataTable = DBAdapter.GetDataTable("NGC_GetSupergroupAgentgroupTable", parameters);
 
                 foreach (DataRow row in dataTable.Rows)
                 {
@@ -182,6 +193,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@Description", description));
                 parameters.Add(new NpgsqlParameter("@SiteId", siteId));
                 parameters.Add(new NpgsqlParameter("@CreatedBy", createdBy));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 int businessUnitID = Convert.ToInt32(DBAdapter.GetScalar("NGC_CreateBusinessUnit", parameters));
 
                 retVal = businessUnitID;
@@ -204,6 +216,7 @@ namespace RTM
             {
                 var parameters = new List<NpgsqlParameter>();
                 parameters.Add(new NpgsqlParameter("@BusinessUnitID", businessUnitID));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_DeleteBusinessUnit", parameters);
 
                 retVal = true;
@@ -228,6 +241,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@BusinessUnitID", businessUnitID));
                 parameters.Add(new NpgsqlParameter("@BusinessUnitName", name));
                 parameters.Add(new NpgsqlParameter("@Description", description));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_ModifyBusinessUnit", parameters);
 
                 retVal = true;
@@ -254,6 +268,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@SupergroupName", name));
                 parameters.Add(new NpgsqlParameter("@Description", description));
                 parameters.Add(new NpgsqlParameter("@CreatedBy", createdBy));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 supergroupId = Convert.ToInt32(DBAdapter.GetScalar("NGC_CreateSupergroup", parameters));
             }
             catch (Exception ex)
@@ -277,6 +292,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@SupergroupName", name));
                 parameters.Add(new NpgsqlParameter("@Description", description));
                 parameters.Add(new NpgsqlParameter("@CreatedBy", createdBy));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_CreateSupergroup", parameters);
 
                 retVal = true;
@@ -299,6 +315,7 @@ namespace RTM
             {
                 var parameters = new List<NpgsqlParameter>();
                 parameters.Add(new NpgsqlParameter("@SupergroupID", supergroupID));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_DeleteSupergroup", parameters);
 
                 retVal = true;
@@ -323,6 +340,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@SupergroupID", supergroupID));
                 parameters.Add(new NpgsqlParameter("@SupergroupName", name));
                 parameters.Add(new NpgsqlParameter("@Description", description));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_ModifySupergroup", parameters);
 
                 retVal = true;
@@ -349,6 +367,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@QueueID", queueID));
                 parameters.Add(new NpgsqlParameter("@ClassificationID", classificationID));
                 parameters.Add(new NpgsqlParameter("@CreatedBy", createdBy));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_CreateBusinessUnitQueueClassificationMapping", parameters);
 
                 retVal = true;
@@ -373,6 +392,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@BusinessUnitID", businessUnitID));
                 parameters.Add(new NpgsqlParameter("@QueueID", queueID));
                 parameters.Add(new NpgsqlParameter("@ClassificationID", classificationID));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_DeleteBusinessUnitQueueClassificationMapping", parameters);
 
                 retVal = true;
@@ -398,6 +418,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@BusinessUnitID", businessUnitID));
                 parameters.Add(new NpgsqlParameter("@SupergroupID", supergroupID));
                 parameters.Add(new NpgsqlParameter("@CreatedBy", createdBy));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_CreateBusinessUnitSupergroupMapping", parameters);
 
                 retVal = true;
@@ -421,6 +442,7 @@ namespace RTM
                 var parameters = new List<NpgsqlParameter>();
                 parameters.Add(new NpgsqlParameter("@BusinessUnitID", businessUnitID));
                 parameters.Add(new NpgsqlParameter("@SupergroupID", supergroupID));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_DeleteBusinessUnitSupergroupMapping", parameters);
 
                 retVal = true;
@@ -445,6 +467,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@SupergroupID", supergroupID));
                 parameters.Add(new NpgsqlParameter("@AgentgroupID", agentgroupID));
                 parameters.Add(new NpgsqlParameter("@CreatedBy", createdBy));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_CreateSupergroupAgentgroupMapping", parameters);
 
                 retVal = true;
@@ -468,6 +491,7 @@ namespace RTM
                 var parameters = new List<NpgsqlParameter>();
                 parameters.Add(new NpgsqlParameter("@SupergroupID", supergroupID));
                 parameters.Add(new NpgsqlParameter("@AgentgroupID", agentgroupID));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 DBAdapter.ExecuteNonQuery("NGC_DeleteSupergroupAgentgroupMapping", parameters);
 
                 retVal = true;

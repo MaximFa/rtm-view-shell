@@ -93,8 +93,9 @@ $$;
 --    ClassificationID, TimeZone, ClearTime
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSGrid_GetAllUnionQueueClassifications"();
+DROP FUNCTION IF EXISTS "RTSGrid_GetAllUnionQueueClassifications"(uuid);
 
-CREATE OR REPLACE FUNCTION "RTSGrid_GetAllUnionQueueClassifications"()
+CREATE OR REPLACE FUNCTION "RTSGrid_GetAllUnionQueueClassifications"(p_tenant_id uuid)
 RETURNS TABLE(
     "BusinessUnitID" integer,
     "QueueID" text,
@@ -116,7 +117,10 @@ BEGIN
          "NGC_BusinessUnit" b,
          "NGC_Site" s
     WHERE b."BusinessUnitId" = u."BusinessUnitId"
-      AND b."SiteId" = s."SiteId";
+      AND b."SiteId" = s."SiteId"
+      AND u."TenantId" = p_tenant_id
+      AND b."TenantId" = p_tenant_id
+      AND s."TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -126,8 +130,9 @@ $$;
 --    Column order: BusinessUnitID, SupergroupID, AgentgroupID, TimeZone, ClearTime
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSGrid_GetAllUnionUserGroups"();
+DROP FUNCTION IF EXISTS "RTSGrid_GetAllUnionUserGroups"(uuid);
 
-CREATE OR REPLACE FUNCTION "RTSGrid_GetAllUnionUserGroups"()
+CREATE OR REPLACE FUNCTION "RTSGrid_GetAllUnionUserGroups"(p_tenant_id uuid)
 RETURNS TABLE(
     "BusinessUnitID" integer,
     "SupergroupID" integer,
@@ -151,7 +156,11 @@ BEGIN
          "NGC_Site" t
     WHERE b."BusinessUnitId" = u."BusinessUnitId"
       AND s."SupergroupId" = u."SupergroupId"
-      AND b."SiteId" = t."SiteId";
+      AND b."SiteId" = t."SiteId"
+      AND s."TenantId" = p_tenant_id
+      AND u."TenantId" = p_tenant_id
+      AND b."TenantId" = p_tenant_id
+      AND t."TenantId" = p_tenant_id;
 END;
 $$;
 

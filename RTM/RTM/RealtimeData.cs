@@ -1,4 +1,5 @@
 ﻿using RTM.Tools;
+using RTM.Configuration;
 using System.Collections.Concurrent;
 using Npgsql;
 using System.Data;
@@ -97,7 +98,9 @@ namespace RTM
 
             try
             {
-                var dataTable = DBAdapter.GetDataTable("NGC_GetSiteTable", null);
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                var dataTable = DBAdapter.GetDataTable("NGC_GetSiteTable", parameters);
 
                 foreach (DataRow row in dataTable.Rows)
                 {
@@ -138,7 +141,9 @@ namespace RTM
         {
             List<Dictionary<string, string>> list = new List<Dictionary<string, string>>();
 
-            var dataTable = DBAdapter.GetDataTable("RTSGrid_GetAllUnionQueueClassifications", null);
+            var parameters = new List<NpgsqlParameter>();
+            parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+            var dataTable = DBAdapter.GetDataTable("RTSGrid_GetAllUnionQueueClassifications", parameters);
 
             foreach (DataRow row in dataTable.Rows)
             {
@@ -167,7 +172,9 @@ namespace RTM
         {
             List<Dictionary<string, string>> list = new List<Dictionary<string, string>>();
 
-            var dataTable = DBAdapter.GetDataTable("RTSGrid_GetAllUnionUserGroups", null);
+            var parameters = new List<NpgsqlParameter>();
+            parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+            var dataTable = DBAdapter.GetDataTable("RTSGrid_GetAllUnionUserGroups", parameters);
 
             foreach (DataRow row in dataTable.Rows)
             {
