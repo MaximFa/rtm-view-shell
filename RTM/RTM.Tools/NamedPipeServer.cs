@@ -49,9 +49,6 @@ namespace RTM.Tools
             Pipe.EndWaitForConnection(result);
             OnClientConnected();
 
-            // Start a new listener for the next client (multi-service support)
-            _ = Start();
-
             StartReading().GetAwaiter().GetResult();
         }
 
