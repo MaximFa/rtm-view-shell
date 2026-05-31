@@ -7,6 +7,9 @@
 > **Wireframes** (interactive HTML prototypes) are in `wireframes/en/` — open them in a browser
 > to see the intended UI before implementing any screen.
 
+> **Working folder:** `D:\Claude\Projects\RTM View Shell`
+> All file reads and writes must use this path. Do NOT use `C:\Users\farbe\Documents\Claude\Projects\RTM View Shell` — work ONLY with the D:\ folder.
+
 ---
 
 ## 0. Environment rules — executor must read first
@@ -219,6 +222,14 @@ overwrite them), but it maximises the window before truncation occurs, and
 §0.2 at the start of the next session will detect and restore any remaining issues.
 
 **Every CC task prompt issued by Cowork must include this re-sync block at the end.**
+
+### §0.7 Session and chat naming convention
+
+All Cowork sessions and Claude chats related to this project must start with the prefix **`RTM`**.
+
+Examples: `RTM — TenantId migration`, `RTM — Sprint 7 deploy`, `RTM — DB fix`.
+
+This makes sessions easy to find and distinguishes them from other projects in the session list.
 
 ---
 
