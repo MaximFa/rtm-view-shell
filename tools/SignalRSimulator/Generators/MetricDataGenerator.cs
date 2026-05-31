@@ -69,16 +69,17 @@ public static class MetricDataGenerator
 
     private static string GenerateNumberValue(MetricDefinition metric)
     {
-        // Time-stored-as-Number: detect by DataType=="Time" OR by MetricFormat containing ':'
-        // Common RTM pattern: ValueType="Number", DataType="Integer", MetricFormat="mm:ss"
-        var isTimeMetric =
-            metric.DataType?.Equals("Time", StringComparison.OrdinalIgnoreCase) == true
-            || (metric.MetricFormat != null && metric.MetricFormat.Contains(':'));
-        if (isTimeMetric)
+        // Time-formatted snapshot: MetricFormat contains ':' (e.g. "mm:ss", "hh:mm:ss")
+        // ValueType="Number" -> snapshot value, NO '+' prefix (not a live ticker)
+        // Only ValueType="Time" gets '+' (handled in GenerateTimeValue)
+        if (metric.MetricFormat != null && metric.MetricFormat.Contains(':'))
         {
-            var isLong = metric.MetricFormat?.Contains("hh", StringComparison.OrdinalIgnoreCase) == true;
-            return "+" + (isLong ? GenerateLongTime() : GenerateShortTime());
+            var isLong = metric.MetricFormat.Contains("hh", StringComparison.OrdinalIgnoreCase);
+            return isLong ? GenerateLongTime() : GenerateShortTime();
         }
+        // DataType=="Time" fallback when MetricFormat is null - also snapshot, no '+'
+        if (metric.DataType?.Equals("Time", StringComparison.OrdinalIgnoreCase) == true)
+            return GenerateShortTime();
         // Percent: DataType == "Percent" OR MetricFormat contains '%'
         if (metric.DataType?.Equals("Percent", StringComparison.OrdinalIgnoreCase) == true
             || metric.MetricFormat?.Contains('%') == true)
