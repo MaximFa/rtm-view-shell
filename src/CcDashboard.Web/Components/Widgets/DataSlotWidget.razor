@@ -236,7 +236,7 @@
         // Stagger concurrent widget connections — same pattern as QueueGrid
         await Task.Delay(Random.Shared.Next(100, 500), _cts.Token);
 
-        if (_rtsGridId == 0 && GridId == 0)
+        if (_rtsGridId == 0)
             return;
 
         try
@@ -263,7 +263,7 @@
             _hub.Reconnecting += _ => { _connectionState = ConnectionState.Reconnecting; return InvokeAsync(StateHasChanged); };
             _hub.Reconnected += async _ => {
                 _connectionState = ConnectionState.Connected;
-                await _hub.InvokeAsync("init", (_rtsGridId > 0 ? _rtsGridId : GridId).ToString());
+                await _hub.InvokeAsync("init", _rtsGridId.ToString());
                 await InvokeAsync(StateHasChanged);
             };
             _hub.Closed += _ => { _connectionState = ConnectionState.Failed; return InvokeAsync(StateHasChanged); };
@@ -272,7 +272,7 @@
             _connectionState = ConnectionState.Connected;
 
             // Subscribe to grid updates (same as QueueGrid)
-            await _hub.InvokeAsync("init", (_rtsGridId > 0 ? _rtsGridId : GridId).ToString(), _cts.Token);
+            await _hub.InvokeAsync("init", _rtsGridId.ToString(), _cts.Token);
         }
         catch (OperationCanceledException)
         {

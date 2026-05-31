@@ -131,7 +131,8 @@ public class RtmSimulatorHub : Hub
                 var cells = cellInfos.Select(ci => new RtmCellData
                 {
                     CellId = ci.CellId,
-                    Value  = GenerateFakeValue(ci.DataType, ci.DefaultValue),
+                    Value  = MetricDataGenerator.GenerateValue(
+                        new MetricDefinition(ci.MetricId, null, ci.DataType, null, ci.DefaultValue, ci.ValueType)),
                     Value2 = "",
                     Grid   = new RtmGridRef { GridId = numericGridId }
                 }).ToList();

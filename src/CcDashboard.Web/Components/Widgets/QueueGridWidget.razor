@@ -410,9 +410,9 @@
 
     private async Task ConnectAsync()
     {
-        if (_rtsGridId == 0 && GridId == 0)
+        if (_rtsGridId == 0)
         {
-            Logger.LogWarning("QueueGridWidget: no RTS GridId configured, skipping connection");
+            Logger.LogWarning("QueueGridWidget: Config.GridId not set, skipping connection");
             return;
         }
 
@@ -467,7 +467,7 @@
             _hub.Reconnected += async _ =>
             {
                 _connectionState = ConnectionState.Connected;
-                await _hub.InvokeAsync("init", (_rtsGridId > 0 ? _rtsGridId : GridId).ToString());
+                await _hub.InvokeAsync("init", _rtsGridId.ToString());
                 await InvokeAsync(StateHasChanged);
             };
 
@@ -484,7 +484,7 @@
             await _hub.StartAsync(_cts.Token);
             _connectionState = ConnectionState.Connected;
 
-            await _hub.InvokeAsync("init", (_rtsGridId > 0 ? _rtsGridId : GridId).ToString(), _cts.Token);
+            await _hub.InvokeAsync("init", _rtsGridId.ToString(), _cts.Token);
 
             Logger.LogInformation("Connected to QueueGrid simulator for GridId {GridId}", GridId);
         }

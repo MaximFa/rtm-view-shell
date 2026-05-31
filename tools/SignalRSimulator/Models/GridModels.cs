@@ -38,7 +38,7 @@ public record GridUpdate(
 /// <summary>
 /// Cell info from database for RTM protocol
 /// </summary>
-public record RtmCellInfo(int CellId, string MetricId, string DataType, string? DefaultValue);
+public record RtmCellInfo(int CellId, string MetricId, string DataType, string? DefaultValue, string ValueType = "Number");
 
 /// <summary>
 /// RTM protocol cell data (PascalCase to match real RTM server)

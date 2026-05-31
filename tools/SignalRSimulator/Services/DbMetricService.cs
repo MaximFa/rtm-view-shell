@@ -206,7 +206,8 @@ public class DbMetricService : IDbMetricService
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(ct);
         const string sql = @"
-            SELECT c.""CellId"", c.""Value"" AS MetricId, m.""DataType"", m.""DefaultValue""
+            SELECT c.""CellId"", c.""Value"" AS MetricId, m.""DataType"", m.""DefaultValue"",
+                   COALESCE(m.""ValueType"", 'Number') AS ""ValueType""
             FROM ""RTSGrid_Cell"" c
             JOIN ""RTSGrid_Row"" r ON c.""RowId"" = r.""RowId""
             LEFT JOIN ""RTSGrid_Metric"" m ON c.""Value"" = m.""MetricId""
@@ -221,7 +222,8 @@ public class DbMetricService : IDbMetricService
                 CellId: reader.GetInt32(0),
                 MetricId: reader.IsDBNull(1) ? "" : reader.GetString(1),
                 DataType: reader.IsDBNull(2) ? "String" : reader.GetString(2),
-                DefaultValue: reader.IsDBNull(3) ? null : reader.GetString(3)
+                DefaultValue: reader.IsDBNull(3) ? null : reader.GetString(3),
+                ValueType: reader.IsDBNull(4) ? "Number" : reader.GetString(4)
             ));
         }
         return cells;
