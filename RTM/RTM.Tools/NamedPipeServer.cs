@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO.Pipes;
 using System.Linq;
@@ -28,7 +28,8 @@ namespace RTM.Tools
 
         public async Task Start()
         {
-            Initialize(new NamedPipeServerStream(_name, PipeDirection.InOut, 1,
+            Initialize(new NamedPipeServerStream(_name, PipeDirection.InOut,
+                  NamedPipeServerStream.MaxAllowedServerInstances,
                   PipeTransmissionMode.Message, PipeOptions.Asynchronous));
 
             try
@@ -47,6 +48,9 @@ namespace RTM.Tools
         {
             Pipe.EndWaitForConnection(result);
             OnClientConnected();
+
+            // Start a new listener for the next client (multi-service support)
+            _ = Start();
 
             StartReading().GetAwaiter().GetResult();
         }
