@@ -1910,3 +1910,107 @@ Should I run the documentation sync?
 - The only changes since last sync are to test files or internal tooling with no user impact
 
 *TZ version: 1.4 | CLAUDE.md last updated: 2026-05-29 (§32 proactive doc maintenance added)*
+---
+
+## 33. RTM Service — Multi-tenancy Architecture
+
+> This section documents the TenantId integration for RTM Service (`RTM/` directory).
+> Decision made: 2026-05-31. Analysed by Cowork session.
+
+### §33.1 Overview
+
+RTM Service is a Windows Service collecting real-time CC data. It has no HTTP context and no
+authenticated user — TenantId cannot be derived from a request. It is configured statically in
+`appsettings.json` at deployment time.
+
+**One RTM Service instance = one Tenant.**
+
+### §33.2 Configuration
+
+Add to `RTM/RTM/appsettings.json`, section `RTM`:
+
+```json
+"RTM": {
+  "TenantId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  ...
+}
+```
+
+`AppConfig.cs` must expose:
+```csharp
+public static Guid TenantId { get; private set; }
+// In Initialize(): TenantId = Guid.Parse(configuration["RTM:TenantId"]);
+```
+
+**Validation rule:** `TenantId` must not be `Guid.Empty`. Add to `ValidateConfiguration()`.
+Missing/empty TenantId is a fatal startup error — service must not start.
+
+### §33.3 Affected SQL functions (22 total)
+
+| Group | Functions | Action |
+|---|---|---|
+| A — NGC_* reads (5) | NGC_GetBusinessUnitTable, NGC_GetSupergroupTable, NGC_GetBusinessUnitQueueClassificationTable, NGC_GetBusinessUnitSupergroupTable, NGC_GetSupergroupAgentgroupTable | Add `p_tenant_id uuid`, filter WHERE |
+| A — NGC_* writes (12) | NGC_Create/Modify/Delete BusinessUnit, Supergroup, and all mapping functions | Add `p_tenant_id uuid`, set on INSERT, scope UPDATE/DELETE |
+| B — RTSData writes (3) | RTSData_SetInteraction, RTSData_SetUserStatus, RTSData_SetChatMessage | Add `p_tenant_id uuid` as last param, set on UPSERT |
+| C — RTSData reads (2) | RTSData_getUsersStatuses, RTSData_getInteractions | Add `p_tenant_id uuid`, add WHERE filter |
+| D — CRITICAL (1) | RTSData_MidnightClear | Add `p_tenant_id uuid`, add WHERE — see §33.5 |
+| E — No change | All RTSGrid_*, RTSUserGrid_* | Platform-wide config, no TenantId column |
+
+RTSGrid_GetAllUnionQueueClassifications and RTSGrid_GetAllUnionUserGroups join NGC_ tables
+and also need TenantId filter propagated through the JOIN.
+
+### §33.4 Implementation pattern
+
+`AppConfig.TenantId` (static `Guid`) is read by all three caller classes:
+
+```csharp
+// DBMng.cs — store at construction
+private readonly Guid _tenantId = AppConfig.TenantId;
+// Pass as last parameter to all ExecuteNonQuery/GetDataTable calls
+
+// BusinessUnitData.cs and RealtimeData.cs — read directly
+parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+```
+
+SQL functions receive `p_tenant_id uuid` appended as the **last parameter** to minimise
+positional breaks in existing C# code. Never insert in the middle of existing param lists.
+
+### §33.5 Security note — MidnightClear critical bug
+
+**[RTM-SEC-001]** Prior to TenantId fix, `RTSData_MidnightClear` executed:
+```sql
+DELETE FROM "RTSData_Interaction";   -- wipes ALL tenants
+DELETE FROM "RTSData_UserStatus";    -- wipes ALL tenants
+```
+
+**Do NOT run MidnightClear until this fix is deployed.** Fix:
+```sql
+WHERE "TenantId" = p_tenant_id
+```
+
+### §33.6 Deployment checklist
+
+When deploying RTM Service to a new server:
+1. Get TenantId UUID from CcDashboard admin UI (Tenant Management -> copy UUID)
+2. Set `"TenantId": "<uuid>"` in `appsettings.json` before starting the service
+3. Verify in startup log: `AppConfig.TenantId = <uuid>` (add this log line)
+4. Confirm data is scoped: `SELECT COUNT(*) FROM "NGC_BusinessUnit" WHERE "TenantId" = '<uuid>'`
+   must return > 0 if BUs exist for this tenant
+
+### §33.7 Files to modify
+
+| File | Change |
+|---|---|
+| `RTM/RTM/appsettings.json` | Add `"TenantId"` to `RTM` section |
+| `RTM/RTM.Configuration/AppConfig.cs` | Add `TenantId` property + parse + validate |
+| `RTM/RTM/DBMng.cs` | Store `_tenantId`, pass to all 5 SP calls |
+| `RTM/RTM/BusinessUnitData.cs` | Add `@TenantId` param to all 17 NGC_ calls |
+| `RTM/RTM/RealtimeData.cs` | Add `@TenantId` to 4 NGC_* + 2 RTSGrid_* calls |
+| `RTM/sql/pgsql/01_ngc_functions.sql` | Add `p_tenant_id uuid` to all 17 NGC_ functions |
+| `RTM/sql/pgsql/02_rtsdata_functions.sql` | Add `p_tenant_id uuid` to 6 RTSData_ functions |
+| `RTM/sql/pgsql/03_rtsgrid_read_functions.sql` | Add TenantId filter to 2 RTSGrid_ functions joining NGC_ |
+| `RTM/staging/fix_set_interaction.sql` | Add `p_tenant_id uuid` to existing fix |
+| `RTM/staging/fix_set_userstatus.sql` | Add `p_tenant_id uuid` to existing fix |
+
+*TZ version: 1.5 | CLAUDE.md last updated: 2026-05-31 (§33 RTM multi-tenancy added)*
+
