@@ -132,7 +132,7 @@ public class RtmSimulatorHub : Hub
                 {
                     CellId = ci.CellId,
                     Value  = MetricDataGenerator.GenerateValue(
-                        new MetricDefinition(ci.MetricId, null, ci.DataType, null, ci.DefaultValue, ci.ValueType)),
+                        new MetricDefinition(ci.MetricId, null, ci.DataType, ci.MetricFormat, ci.DefaultValue, ci.ValueType)),
                     Value2 = "",
                     Grid   = new RtmGridRef { GridId = numericGridId }
                 }).ToList();

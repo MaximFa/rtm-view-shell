@@ -149,7 +149,7 @@
                             <td class="text-start">@row.QueueName</td>
                             @foreach (var colDef in _columnDefs)
                             {
-                                var cellValue = GetMetricValue(row.Metrics, colDef.MetricId);
+                                var cellValue = GetCellDisplay(row, colDef.MetricId);
                                 var useMono = IsNumericColumn(colDef.MetricId);
                                 var (thresholdBg, thresholdFg) = GetThresholdStyle(colDef.MetricId, cellValue);
                                 var hasThreshold = !string.IsNullOrEmpty(thresholdBg) || !string.IsNullOrEmpty(thresholdFg);
@@ -249,6 +249,7 @@
     private List<QueueRowData> _rows = new();
     private ConnectionState _connectionState = ConnectionState.Connecting;
     private CancellationTokenSource _cts = new();
+    private PeriodicTimer? _tickTimer;
 
     // Configuration
     private List<QueueGridColumnDef> _columnDefs = new();
@@ -318,6 +319,7 @@
         public string RowId { get; set; } = "";
         public string QueueName { get; set; } = "";
         public Dictionary<string, string> Metrics { get; set; } = new();
+        public Dictionary<string, (int BaseSecs, DateTime StartedAt)> TimerAnchors { get; set; } = new();
     }
 
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
@@ -466,9 +468,7 @@
                     var (rowDefId, metricId) = mapping;
                     var row = _rows.FirstOrDefault(r => r.RowId == rowDefId);
                     if (row is null) continue;
-                    // Strip '+' timer prefix
-                    row.Metrics[metricId] = cell.Value?.StartsWith('+') == true
-                        ? cell.Value[1..] : cell.Value ?? "";
+                    ApplyMetricValue(row, metricId, cell.Value ?? "");
                 }
                 if (isFirstData) DetectColumnDataTypes();
                 await InvokeAsync(StateHasChanged);
@@ -501,6 +501,7 @@
             _connectionState = ConnectionState.Connected;
 
             await _hub.InvokeAsync("init", _rtsGridId.ToString(), _cts.Token);
+            _ = StartTickLoopAsync();
 
             Logger.LogInformation("Connected to QueueGrid simulator for GridId {GridId}", GridId);
         }
@@ -1300,9 +1301,76 @@
         _ => value.EndsWith("px") ? value : $"{value}px"
     };
 
+    private static void ApplyMetricValue(QueueRowData row, string metricId, string rawValue)
+    {
+        if (rawValue.StartsWith('+'))
+        {
+            var secs = ParseTimeToSeconds(rawValue[1..]);
+            row.TimerAnchors[metricId] = (secs, DateTime.UtcNow);
+            row.Metrics[metricId] = rawValue[1..];
+        }
+        else
+        {
+            row.Metrics[metricId] = rawValue;
+            row.TimerAnchors.Remove(metricId);
+        }
+    }
+
+    private string GetCellDisplay(QueueRowData row, string metricId)
+    {
+        if (row.TimerAnchors.TryGetValue(metricId, out var anchor))
+        {
+            var elapsed = (int)(DateTime.UtcNow - anchor.StartedAt).TotalSeconds;
+            return FormatSeconds(anchor.BaseSecs + elapsed);
+        }
+        return GetMetricValue(row.Metrics, metricId);
+    }
+
+    private static int ParseTimeToSeconds(string time)
+    {
+        var parts = time.Split(':');
+        return parts.Length switch
+        {
+            2 when int.TryParse(parts[0], out var m) && int.TryParse(parts[1], out var s)
+                => m * 60 + s,
+            3 when int.TryParse(parts[0], out var h) && int.TryParse(parts[1], out var m) && int.TryParse(parts[2], out var s)
+                => h * 3600 + m * 60 + s,
+            _ => 0
+        };
+    }
+
+    private static string FormatSeconds(int totalSecs)
+    {
+        if (totalSecs < 0) totalSecs = 0;
+        var h = totalSecs / 3600;
+        var m = (totalSecs % 3600) / 60;
+        var s = totalSecs % 60;
+        return h > 0 ? $"{h}:{m:D2}:{s:D2}" : $"{m:D2}:{s:D2}";
+    }
+
+    private async Task StartTickLoopAsync()
+    {
+        _tickTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        try
+        {
+            while (await _tickTimer.WaitForNextTickAsync(_cts.Token))
+            {
+                if (_rows.Any(r => r.TimerAnchors.Count > 0))
+                    await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            _tickTimer?.Dispose();
+            _tickTimer = null;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         _cts.Cancel();
+        _tickTimer?.Dispose();
         if (_hub != null)
         {
             try

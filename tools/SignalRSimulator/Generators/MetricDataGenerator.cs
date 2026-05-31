@@ -69,6 +69,12 @@ public static class MetricDataGenerator
 
     private static string GenerateNumberValue(MetricDefinition metric)
     {
+        // Time-stored-as-Number (e.g. wait time in seconds) — show as live timer
+        if (metric.DataType?.Equals("Time", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            var isLong = metric.MetricFormat?.Contains("hh", StringComparison.OrdinalIgnoreCase) == true;
+            return "+" + (isLong ? GenerateLongTime() : GenerateShortTime());
+        }
         // Percent: DataType == "Percent" OR MetricFormat contains '%'
         if (metric.DataType?.Equals("Percent", StringComparison.OrdinalIgnoreCase) == true
             || metric.MetricFormat?.Contains('%') == true)

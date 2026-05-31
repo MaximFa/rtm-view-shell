@@ -207,11 +207,12 @@ public class DbMetricService : IDbMetricService
         await conn.OpenAsync(ct);
         const string sql = @"
             SELECT c.""CellId"", c.""Value"" AS MetricId, m.""DataType"", m.""DefaultValue"",
-                   COALESCE(m.""ValueType"", 'Number') AS ""ValueType""
+                   COALESCE(m.""ValueType"", 'Number') AS ""ValueType"",
+                   m.""MetricFormat""
             FROM ""RTSGrid_Cell"" c
             JOIN ""RTSGrid_Row"" r ON c.""RowId"" = r.""RowId""
             LEFT JOIN ""RTSGrid_Metric"" m ON c.""Value"" = m.""MetricId""
-            WHERE r.""GridId"" = @gridId AND c.""CellType"" = 'Data' AND r.""RowNumber"" > 1
+            WHERE r.""GridId"" = @gridId AND c.""CellType"" = 'Data'
             ORDER BY r.""RowNumber"", c.""CellId""";
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("gridId", gridId);
@@ -223,7 +224,8 @@ public class DbMetricService : IDbMetricService
                 MetricId: reader.IsDBNull(1) ? "" : reader.GetString(1),
                 DataType: reader.IsDBNull(2) ? "String" : reader.GetString(2),
                 DefaultValue: reader.IsDBNull(3) ? null : reader.GetString(3),
-                ValueType: reader.IsDBNull(4) ? "Number" : reader.GetString(4)
+                ValueType: reader.IsDBNull(4) ? "Number" : reader.GetString(4),
+                MetricFormat: reader.IsDBNull(5) ? null : reader.GetString(5)
             ));
         }
         return cells;
