@@ -245,6 +245,7 @@
     [Inject] private IMediator Mediator { get; set; } = null!;
 
     private HubConnection? _hub;
+    private int _rtsGridId;  // RTSGrid_Grid.GridId — set from Config.GridId
     private List<QueueRowData> _rows = new();
     private ConnectionState _connectionState = ConnectionState.Connecting;
     private CancellationTokenSource _cts = new();
@@ -369,6 +370,8 @@
             _darkFontColor = Config.DarkFontColor ?? "#FFFFFF";
             _darkTableBackgroundColor = Config.DarkTableBackgroundColor ?? "#333333";
             _showPagination = Config.ShowPagination;
+            if (Config?.GridId is > 0)
+                _rtsGridId = Config.GridId.Value;
 
             _rowDefs = Config.QueueGridRows?.ToList() ?? new();
             _columnDefs = Config.QueueGridColumnDefs?.ToList() ?? new();
@@ -407,9 +410,9 @@
 
     private async Task ConnectAsync()
     {
-        if (GridId == 0)
+        if (_rtsGridId == 0 && GridId == 0)
         {
-            Logger.LogWarning("QueueGridWidget: GridId is 0, skipping connection");
+            Logger.LogWarning("QueueGridWidget: no RTS GridId configured, skipping connection");
             return;
         }
 
@@ -464,7 +467,7 @@
             _hub.Reconnected += async _ =>
             {
                 _connectionState = ConnectionState.Connected;
-                await _hub.InvokeAsync("init", GridId.ToString());
+                await _hub.InvokeAsync("init", (_rtsGridId > 0 ? _rtsGridId : GridId).ToString());
                 await InvokeAsync(StateHasChanged);
             };
 
@@ -481,7 +484,7 @@
             await _hub.StartAsync(_cts.Token);
             _connectionState = ConnectionState.Connected;
 
-            await _hub.InvokeAsync("init", GridId.ToString(), _cts.Token);
+            await _hub.InvokeAsync("init", (_rtsGridId > 0 ? _rtsGridId : GridId).ToString(), _cts.Token);
 
             Logger.LogInformation("Connected to QueueGrid simulator for GridId {GridId}", GridId);
         }
