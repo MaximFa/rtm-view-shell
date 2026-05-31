@@ -175,21 +175,35 @@ namespace RTM
         public DateTime getLocalDateTime()
         {
             DateTime localTime = DateTime.UtcNow;
+
+            if (string.IsNullOrWhiteSpace(TimeZone))
+                return localTime;
+
             try
             {
-                if (string.IsNullOrWhiteSpace(TimeZone)) return localTime;
-                TimeSpan offset = TimeSpan.Parse(TimeZone.Replace("+", "").Replace("-", ""));
-                if (TimeZone.StartsWith("-"))
+                TimeSpan offset;
+
+                // Try offset format first: "+03:00", "-05:00", "03:00"
+                string cleaned = TimeZone.Trim();
+                bool negative = cleaned.StartsWith("-");
+                string stripped = cleaned.TrimStart('+').TrimStart('-');
+
+                if (TimeSpan.TryParse(stripped, out offset))
                 {
-                    offset = offset.Negate();
+                    if (negative) offset = offset.Negate();
+                }
+                else
+                {
+                    // Fallback: Windows / IANA timezone ID (e.g. "Israel", "UTC")
+                    var tzi = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
+                    offset = tzi.GetUtcOffset(DateTime.UtcNow);
                 }
 
                 localTime = localTime.Add(offset);
             }
-            catch (Exception ex)
+            catch
             {
-                AsyncLogger.Error($"getLocalDateTime userId={userId}", ex);
-                //AsyncLogger.Error($"UserManager getLocalDateTime UserId={_userId} Workgroups={_workgroups} TimeZone={TimeZone} localTime={localTime}", ex);
+                // Unknown timezone format — return UTC silently
             }
 
             return localTime;
