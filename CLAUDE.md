@@ -49,16 +49,26 @@ occurred **multiple times** (PD-005, 2026-05-25; PD-006, 2026-05-28).
 Every file write — including single-line changes — must use an atomic Python script:
 
 ```python
+import os
 with open(path, "r", encoding="utf-8") as f:
     text = f.read()
 # ... all str.replace / insertions ...
 with open(path, "w", encoding="utf-8") as f:
     f.write(text)
+    f.flush()
+    os.fsync(f.fileno())   # MANDATORY: flush OS buffers to the mount filesystem
 ```
+
+**Why `os.fsync()` is mandatory:** this project folder is a Cowork network mount
+(Linux VM → Windows NTFS). Without `fsync`, the OS buffer cache may show the full
+file while the underlying Windows filesystem still has truncated content. `tail -3`
+and `wc -l` read from the same buffer cache → verification passes → but Cowork reads
+truncated content. `os.fsync()` forces the full write through before verification.
 
 **After every Python write — NO EXCEPTIONS — run both checks before doing anything else:**
 
 ```bash
+sync                    # additional OS-level buffer flush
 tail -3 <path>          # must end with proper closing line (closing brace, sentence, backtick)
 wc -l <path>            # compare against expected line count
 ```
@@ -66,7 +76,7 @@ wc -l <path>            # compare against expected line count
 Recommended pattern — combine write + verify in one shell block:
 
 ```bash
-python3 /tmp/write_x.py && \
+python3 /tmp/write_x.py && sync && \
 tail -3 <path> && wc -l <path>
 ```
 
@@ -161,8 +171,8 @@ Cowork agent adds this block to every CC task automatically. CC agent must not o
 
 ### §0.6 Post-commit integrity verification — MANDATORY, NO EXCEPTIONS
 
-After **every** `git commit` (including plumbing-based commits), verify the committed
-tree matches the working tree:
+After **every** `git commit` (including plumbing-based commits), verify and then
+re-sync the working tree:
 
 ```bash
 # 1. Working tree must be clean — zero M/A/D lines
@@ -185,6 +195,30 @@ Do NOT proceed. Either:
 - Roll back with `git reset --hard HEAD~1` and redo.
 
 **Never leave a commit where working tree ≠ HEAD tree.**
+
+**[PD-007] Mandatory re-sync after every commit — FINAL step, NO EXCEPTIONS:**
+
+Cowork caches file content and asynchronously writes its cache back to disk AFTER
+the CC session ends, overwriting the files CC just committed. This causes the
+working tree to become truncated in the next session even though HEAD is correct.
+
+To counteract this, always re-sync all committed files from HEAD as the LAST action
+before the CC session ends:
+
+```bash
+# Re-sync committed files from HEAD (counteracts Cowork cache write-back)
+for f in <file1> <file2> ...; do
+    git show HEAD:"$f" > "$f"
+    echo "Re-synced: $f ($(wc -l < "$f") lines)"
+done
+sync
+```
+
+This does not guarantee the files stay intact after the session (Cowork may still
+overwrite them), but it maximises the window before truncation occurs, and
+§0.2 at the start of the next session will detect and restore any remaining issues.
+
+**Every CC task prompt issued by Cowork must include this re-sync block at the end.**
 
 ---
 
