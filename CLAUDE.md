@@ -223,7 +223,26 @@ overwrite them), but it maximises the window before truncation occurs, and
 
 **Every CC task prompt issued by Cowork must include this re-sync block at the end.**
 
-### §0.7 Session and chat naming convention
+### §0.7 All code changes via CC prompts — NO direct Cowork writes
+
+**All code additions and modifications must be implemented exclusively through Claude Code (CC) prompts.**
+
+Cowork agent (this chat) is responsible for:
+- Analysis, planning, and research
+- Writing CC task prompts
+- Reviewing results and next steps
+
+Cowork agent must NOT directly write or edit source code files (`.cs`, `.sql`, `.csproj`, `.json`, `.razor`, etc.).
+
+**Why:** Cowork writes files over a network mount (Linux VM → Windows NTFS). This mount has a known partial-write failure mode — the tool returns success but the file may be truncated (PD-005, PD-006, PD-007, 2026-05). CC runs locally on Windows and writes directly to the filesystem without this risk. Every CC session also automatically enforces pre-commit-check.sh and post-commit verification.
+
+**Exceptions** (Cowork may write directly):
+- `CLAUDE.md` updates (documentation, not code)
+- `staging/*.sql` deployment scripts (not compiled)
+- `tools/cc_prompt_*.md` CC prompt files
+- Any file in `docs/`
+
+### §0.8 Session and chat naming convention
 
 All Cowork sessions and Claude chats related to this project must start with the prefix **`RTM`**.
 
