@@ -1,5 +1,6 @@
 @using CcDashboard.Application.Queries.TenantSettings
-@using Microsoft.AspNetCore.SignalR.Client
+@using CcDashboard.Domain.Domain.Rtm
+@using CcDashboard.Application.Interfaces
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using Microsoft.Extensions.Localization
@@ -7,6 +8,7 @@
 
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject ISender Mediator
+@inject IRtmRelayService RtmRelay
 
 <div class="data-slot-widget" style="@GetWidgetStyle()">
     @if (GridId == 0)
@@ -68,7 +70,8 @@
 
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
-    private HubConnection? _hub;
+    private Guid _tenantId;
+    private Func<IReadOnlyList<GridCellUpdate>, Task>? _gridHandler;
     private int _rtsGridId;  // RTSGrid_Grid.GridId — set from Config.DataSlotGridId
     private int _prevRtsGridId;
     private ConnectionState _connectionState = ConnectionState.Connecting;
@@ -244,46 +247,65 @@
 
     private async Task ConnectAsync()
     {
-        // Stagger concurrent widget connections — same pattern as QueueGrid
-        await Task.Delay(Random.Shared.Next(100, 500), _cts.Token);
-
         if (_rtsGridId == 0)
             return;
 
+        _connectionState = ConnectionState.Connecting;
+
         try
         {
-            var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
-            var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var fullUrl = $"{simulatorUrl}/signalr";
+            if (_tenantId == Guid.Empty)
+            {
+                var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
+                _tenantId = settings!.TenantId;
+            }
 
-            _hub = new HubConnectionBuilder()
-                .WithUrl(fullUrl)
-                .AddNewtonsoftJsonProtocol()
-                .WithAutomaticReconnect(new[] {
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(2),
-                    TimeSpan.FromSeconds(5),
-                    TimeSpan.FromSeconds(10),
-                    TimeSpan.FromSeconds(30)
-                })
-                .Build();
+            _gridHandler = async updates =>
+            {
+                // Find the cell we're displaying
+                var targetCellId = Config?.DataSlotCellId ?? 0;
+                GridCellUpdate? match = null;
 
-            // RTM protocol handler - receives cell updates
-            _hub.On<List<RtmCellData>>("updateGridData", OnUpdateGridData);
+                if (targetCellId > 0)
+                    match = updates.FirstOrDefault(u => u.CellId == targetCellId);
+                else if (updates.Count > 0)
+                    match = updates[0];
 
-            _hub.Reconnecting += _ => { _connectionState = ConnectionState.Reconnecting; return InvokeAsync(StateHasChanged); };
-            _hub.Reconnected += async _ => {
-                _connectionState = ConnectionState.Connected;
-                await _hub.InvokeAsync("init", _rtsGridId.ToString());
+                if (match is null) return;
+
+                // Process the value (same logic as OnUpdateGridData)
+                var rawValue = match.Value;
+                var value = rawValue.StartsWith('+') ? rawValue[1..] : rawValue;
+
+                if (TryParseTimeFormat(value, out var timeSeconds))
+                {
+                    _currentValue = timeSeconds;
+                    _displayValue = value;
+                    _isTimeFormat = true;
+                    CalculateDelta();
+                    ApplyThresholds();
+                }
+                else if (decimal.TryParse(value.TrimEnd('%').Replace(",", ""), out var numValue))
+                {
+                    _currentValue = numValue;
+                    _displayValue = value;
+                    _isTimeFormat = false;
+                    CalculateDelta();
+                    ApplyThresholds();
+                }
+                else
+                {
+                    _currentValue = null;
+                    _displayValue = value;
+                    _showDelta = false;
+                    ApplyThresholds();
+                }
+
                 await InvokeAsync(StateHasChanged);
             };
-            _hub.Closed += _ => { _connectionState = ConnectionState.Failed; return InvokeAsync(StateHasChanged); };
 
-            await _hub.StartAsync(_cts.Token);
+            await RtmRelay.SubscribeGridAsync(_tenantId, _rtsGridId, _gridHandler, _cts.Token);
             _connectionState = ConnectionState.Connected;
-
-            // Subscribe to grid updates (same as QueueGrid)
-            await _hub.InvokeAsync("init", _rtsGridId.ToString(), _cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -298,61 +320,18 @@
 
     private async Task ReconnectAsync()
     {
-        if (_hub != null) { try { await _hub.DisposeAsync(); } catch { } _hub = null; }
+        if (_gridHandler != null && _rtsGridId > 0 && _tenantId != Guid.Empty)
+        {
+            await RtmRelay.UnsubscribeGridAsync(_tenantId, _rtsGridId, _gridHandler);
+            _gridHandler = null;
+        }
         _connectionState = ConnectionState.Connecting;
         StateHasChanged();
         await ConnectAsync();
         StateHasChanged();
     }
 
-    private void OnUpdateGridData(List<RtmCellData> cells)
-    {
-        // Find the cell we're displaying
-        string? rawValue = null;
 
-        if (Config?.DataSlotCellId is int targetCellId && targetCellId > 0)
-        {
-            var cell = cells.FirstOrDefault(c => c.CellId == targetCellId);
-            rawValue = cell?.Value;
-        }
-        else if (cells.Count > 0)
-        {
-            // Fallback: first cell in update (backward compat / unconfigured widget)
-            rawValue = cells[0].Value;
-        }
-
-        if (rawValue is null) return;
-
-        // Timer cells: strip '+' prefix, e.g. "+01:23:45" -> "01:23:45"
-        var value = rawValue.StartsWith('+') ? rawValue[1..] : rawValue;
-
-        // Try parse as time format first (HH:MM:SS or MM:SS)
-        if (TryParseTimeFormat(value, out var timeSeconds))
-        {
-            _currentValue = timeSeconds;
-            _displayValue = value;
-            _isTimeFormat = true;
-            CalculateDelta();
-            ApplyThresholds();
-        }
-        else if (decimal.TryParse(value.TrimEnd('%').Replace(",", ""), out var numValue))
-        {
-            _currentValue = numValue;
-            _displayValue = value;
-            _isTimeFormat = false;
-            CalculateDelta();
-            ApplyThresholds();
-        }
-        else
-        {
-            _currentValue = null;
-            _displayValue = value;
-            _showDelta = false;
-            ApplyThresholds();
-        }
-
-        InvokeAsync(StateHasChanged);
-    }
 
     private static bool TryParseTimeFormat(string text, out decimal seconds)
     {
@@ -525,9 +504,10 @@
     {
         await _cts.CancelAsync();
         _cts.Dispose();
-        if (_hub is not null)
+        if (_gridHandler != null && _rtsGridId > 0 && _tenantId != Guid.Empty)
         {
-            await _hub.DisposeAsync();
+            try { await RtmRelay.UnsubscribeGridAsync(_tenantId, _rtsGridId, _gridHandler); } catch { }
+            _gridHandler = null;
         }
     }
 }

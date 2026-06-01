@@ -1,12 +1,14 @@
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Application.Queries.TenantSettings
-@using Microsoft.AspNetCore.SignalR.Client
+@using CcDashboard.Domain.Domain.Rtm
+@using CcDashboard.Application.Interfaces
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using Microsoft.Extensions.Localization
 @implements IAsyncDisposable
 
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject IRtmRelayService RtmRelay
 
 @* Agent Grid Widget - connects to external SignalR simulator for real-time data *@
 
@@ -261,7 +263,8 @@
     [Inject] private ILogger<AgentGridWidget> Logger { get; set; } = null!;
     [Inject] private IMediator Mediator { get; set; } = null!;
 
-    private HubConnection? _hub;
+    private Guid _tenantId;
+    private Func<UnionStateChange, Task>? _unionHandler;
     private List<AgentRowData> _rows = new();
     private ConnectionState _connectionState = ConnectionState.Connecting;
     private CancellationTokenSource _cts = new();
@@ -386,12 +389,12 @@
         ApplyConfig();
         _lastColumnsKey = string.Join(",", _columnDefs.Select(c => c.MetricId));
 
-        if (GridId != 0 && _previousGridId == 0 && _hub is null)
+        if (GridId != 0 && _previousGridId == 0 && _unionHandler is null)
         {
             _previousGridId = GridId;
             await ConnectAsync();
         }
-        else if (_hub?.State == HubConnectionState.Connected
+        else if (_connectionState == ConnectionState.Connected
                  && _lastColumnsKey != prevColumnsKey
                  && prevColumnsKey.Length > 0)
         {
@@ -494,112 +497,88 @@
         }
 
         _connectionState = ConnectionState.Connecting;
-        Logger.LogInformation("AgentGridWidget: Starting connection for GridId {GridId}", GridId);
+        var unionId = _rtsGridId > 0 ? _rtsGridId : GridId;
+        Logger.LogInformation("AgentGridWidget: Subscribing to union {UnionId}", unionId);
 
         await Task.Delay(Random.Shared.Next(100, 500), _cts.Token);
 
         try
         {
-            var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
-            var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var fullUrl = $"{simulatorUrl}/signalr";
-
-            Logger.LogInformation("AgentGridWidget: Connecting to {Url}", fullUrl);
-
-            _hub = new HubConnectionBuilder()
-                .WithUrl(fullUrl)
-                .AddNewtonsoftJsonProtocol()
-                .WithAutomaticReconnect(new[] {
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(2),
-                    TimeSpan.FromSeconds(5),
-                    TimeSpan.FromSeconds(10),
-                    TimeSpan.FromSeconds(30)
-                })
-                .Build();
-
-            _hub.On<DateTime, int, RtmUsersResult>("updateUserGrid", async (ts, unionId, result) =>
+            if (_tenantId == Guid.Empty)
             {
-                if (result.Data is null) return;
-                var isFirstData = _rows.Count == 0;
-                foreach (var agentDict in result.Data)
+                var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
+                _tenantId = settings!.TenantId;
+            }
+
+            _unionHandler = async change =>
+            {
+                await InvokeAsync(async () =>
                 {
-                    var userId = agentDict.GetValueOrDefault("USERID")
-                                 ?? agentDict.GetValueOrDefault("AgentLoginName") ?? "";
-                    if (string.IsNullOrEmpty(userId)) continue;
-                    var existing = _rows.FirstOrDefault(r => r.RowId == userId);
-                    var now = DateTime.UtcNow;
-                    if (existing is not null)
+                    switch (change)
                     {
-                        foreach (var kv in agentDict)
-                            ApplyMetricValue(existing, kv.Key, kv.Value, now);
+                        case UnionStateChange.InitialSnapshot snap:
+                            _rows.Clear();
+                            var now = DateTime.UtcNow;
+                            foreach (var (_, agent) in snap.Agents)
+                            {
+                                var row = new AgentRowData { RowId = agent.AgentLoginName };
+                                foreach (var kv in agent.Fields)
+                                    ApplyMetricValue(row, kv.Key, kv.Value.Raw, now);
+                                _rows.Add(row);
+                            }
+                            if (_rows.Count > 0) DetectColumnDataTypes();
+                            break;
+
+                        case UnionStateChange.AgentsUpserted upserted:
+                            var isFirstData = _rows.Count == 0;
+                            var upsertNow = DateTime.UtcNow;
+                            foreach (var agent in upserted.Agents)
+                            {
+                                var existing = _rows.FirstOrDefault(r => r.RowId == agent.AgentLoginName);
+                                if (existing is not null)
+                                {
+                                    foreach (var kv in agent.Fields)
+                                        ApplyMetricValue(existing, kv.Key, kv.Value.Raw, upsertNow);
+                                }
+                                else
+                                {
+                                    var row = new AgentRowData { RowId = agent.AgentLoginName };
+                                    foreach (var kv in agent.Fields)
+                                        ApplyMetricValue(row, kv.Key, kv.Value.Raw, upsertNow);
+                                    _rows.Add(row);
+                                }
+                            }
+                            if (isFirstData) DetectColumnDataTypes();
+                            break;
+
+                        case UnionStateChange.AgentsRemoved removed:
+                            foreach (var name in removed.AgentLoginNames)
+                                _rows.RemoveAll(r => r.RowId == name);
+                            break;
                     }
-                    else
-                    {
-                        var row = new AgentRowData { RowId = userId };
-                        foreach (var kv in agentDict)
-                            ApplyMetricValue(row, kv.Key, kv.Value, now);
-                        _rows.Add(row);
-                    }
-                }
-                if (isFirstData) DetectColumnDataTypes();
-                await InvokeAsync(StateHasChanged);
-            });
-
-            _hub.On<int, List<Dictionary<string, string>>>("removeUser", async (unionId, users) =>
-            {
-                foreach (var agentDict in users)
-                {
-                    var userId = agentDict.GetValueOrDefault("USERID")
-                                 ?? agentDict.GetValueOrDefault("AgentLoginName") ?? "";
-                    _rows.RemoveAll(r => r.RowId == userId);
-                }
-                await InvokeAsync(StateHasChanged);
-            });
-
-            _hub.Reconnecting += async _ =>
-            {
-                _connectionState = ConnectionState.Reconnecting;
-                await InvokeAsync(StateHasChanged);
+                    _connectionState = ConnectionState.Connected;
+                    StateHasChanged();
+                });
             };
 
-            _hub.Reconnected += async _ =>
-            {
-                _connectionState = ConnectionState.Connected;
-                await _hub.InvokeAsync("init", $"u{(_rtsGridId > 0 ? _rtsGridId : GridId)}");
-                await InvokeAsync(StateHasChanged);
-            };
-
-            _hub.Closed += async ex =>
-            {
-                if (ex != null)
-                {
-                    Logger.LogWarning(ex, "SignalR connection closed with error");
-                    _connectionState = ConnectionState.Failed;
-                    await InvokeAsync(StateHasChanged);
-                }
-            };
-
-            await _hub.StartAsync(_cts.Token);
+            await RtmRelay.SubscribeUnionAsync(_tenantId, unionId, _unionHandler, _cts.Token);
             _connectionState = ConnectionState.Connected;
-
-            await _hub.InvokeAsync("init", $"u{(_rtsGridId > 0 ? _rtsGridId : GridId)}", _cts.Token);
-
-            Logger.LogInformation("Connected to AgentGrid simulator for GridId {GridId}", GridId);
+            Logger.LogInformation("AgentGridWidget: subscribed to union {UnionId}", unionId);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "AgentGridWidget: Failed to connect. Error: {Message}", ex.Message);
+            Logger.LogError(ex, "AgentGridWidget: Failed to subscribe. Error: {Message}", ex.Message);
             _connectionState = ConnectionState.Failed;
         }
     }
 
     private async Task ReconnectAsync()
     {
-        if (_hub != null)
+        if (_unionHandler != null && _tenantId != Guid.Empty)
         {
-            try { await _hub.DisposeAsync(); } catch { }
-            _hub = null;
+            var unionId = _rtsGridId > 0 ? _rtsGridId : GridId;
+            await RtmRelay.UnsubscribeUnionAsync(_tenantId, unionId, _unionHandler);
+            _unionHandler = null;
         }
         _rows.Clear();
         await ConnectAsync();
@@ -1441,18 +1420,13 @@
 
     public async ValueTask DisposeAsync()
     {
-        _cts.Cancel();
+        await _cts.CancelAsync();
         _tickTimer?.Dispose();
-        if (_hub != null)
+        if (_unionHandler != null && _tenantId != Guid.Empty)
         {
-            try
-            {
-                await _hub.DisposeAsync();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Error disposing hub connection");
-            }
+            var unionId = _rtsGridId > 0 ? _rtsGridId : GridId;
+            try { await RtmRelay.UnsubscribeUnionAsync(_tenantId, unionId, _unionHandler); } catch { }
+            _unionHandler = null;
         }
         _cts.Dispose();
     }

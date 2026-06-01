@@ -1,6 +1,7 @@
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Application.Queries.TenantSettings
-@using Microsoft.AspNetCore.SignalR.Client
+@using CcDashboard.Domain.Domain.Rtm
+@using CcDashboard.Application.Interfaces
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using Microsoft.Extensions.Localization
@@ -8,6 +9,7 @@
 
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject IJSRuntime JS
+@inject IRtmRelayService RtmRelay
 
 @* Queue Grid Widget - connects to external SignalR simulator for real-time data *@
 
@@ -244,7 +246,8 @@
     [Inject] private ILogger<QueueGridWidget> Logger { get; set; } = null!;
     [Inject] private IMediator Mediator { get; set; } = null!;
 
-    private HubConnection? _hub;
+    private Guid _tenantId;
+    private Func<IReadOnlyList<GridCellUpdate>, Task>? _gridHandler;
     private int _rtsGridId;  // RTSGrid_Grid.GridId — set from Config.GridId
     private List<QueueRowData> _rows = new();
     private ConnectionState _connectionState = ConnectionState.Connecting;
@@ -353,7 +356,7 @@
         ApplyConfig();
 
         // Initial connect
-        if (GridId != 0 && _previousGridId == 0 && _hub is null)
+        if (GridId != 0 && _previousGridId == 0 && _gridHandler is null)
         {
             _previousGridId = GridId;
             await ConnectAsync();
@@ -362,7 +365,7 @@
 
         // Reconnect when columns change (new column added -> new CellIds in Config)
         var newColumnsKey = string.Join(",", (_columnDefs ?? []).Select(c => c.Id));
-        if (_lastColumnsKey != "" && newColumnsKey != _lastColumnsKey && _hub is not null)
+        if (_lastColumnsKey != "" && newColumnsKey != _lastColumnsKey && _gridHandler is not null)
         {
             Logger.LogInformation("QueueGrid: columns changed ({Old} -> {New}), reconnecting",
                 _lastColumnsKey, newColumnsKey);
@@ -435,34 +438,20 @@
         }
 
         _connectionState = ConnectionState.Connecting;
-        Logger.LogInformation("QueueGridWidget: Starting connection for GridId {GridId}", GridId);
-
-        await Task.Delay(Random.Shared.Next(100, 500), _cts.Token);
+        Logger.LogInformation("QueueGridWidget: Subscribing to GridId {GridId}", _rtsGridId);
 
         try
         {
-            var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
-            var simulatorUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var fullUrl = $"{simulatorUrl}/signalr";
+            if (_tenantId == Guid.Empty)
+            {
+                var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
+                _tenantId = settings!.TenantId;
+            }
 
-            Logger.LogInformation("QueueGridWidget: Connecting to {Url}", fullUrl);
-
-            _hub = new HubConnectionBuilder()
-                .WithUrl(fullUrl)
-                .AddNewtonsoftJsonProtocol()
-                .WithAutomaticReconnect(new[] {
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(2),
-                    TimeSpan.FromSeconds(5),
-                    TimeSpan.FromSeconds(10),
-                    TimeSpan.FromSeconds(30)
-                })
-                .Build();
-
-            _hub.On<List<RtmCellData>>("updateGridData", async cells =>
+            _gridHandler = async updates =>
             {
                 var isFirstData = _rows.All(r => r.Metrics.Count == 0);
-                foreach (var cell in cells)
+                foreach (var cell in updates)
                 {
                     if (!_cellMap.TryGetValue(cell.CellId, out var mapping)) continue;
                     var (rowDefId, metricId) = mapping;
@@ -472,52 +461,26 @@
                 }
                 if (isFirstData) DetectColumnDataTypes();
                 await InvokeAsync(StateHasChanged);
-            });
-
-            _hub.Reconnecting += async _ =>
-            {
-                _connectionState = ConnectionState.Reconnecting;
-                await InvokeAsync(StateHasChanged);
             };
 
-            _hub.Reconnected += async _ =>
-            {
-                _connectionState = ConnectionState.Connected;
-                await _hub.InvokeAsync("init", _rtsGridId.ToString());
-                await InvokeAsync(StateHasChanged);
-            };
-
-            _hub.Closed += async ex =>
-            {
-                if (ex != null)
-                {
-                    Logger.LogWarning(ex, "SignalR connection closed with error");
-                    _connectionState = ConnectionState.Failed;
-                    await InvokeAsync(StateHasChanged);
-                }
-            };
-
-            await _hub.StartAsync(_cts.Token);
+            await RtmRelay.SubscribeGridAsync(_tenantId, _rtsGridId, _gridHandler, _cts.Token);
             _connectionState = ConnectionState.Connected;
-
-            await _hub.InvokeAsync("init", _rtsGridId.ToString(), _cts.Token);
             _ = StartTickLoopAsync();
-
-            Logger.LogInformation("Connected to QueueGrid simulator for GridId {GridId}", GridId);
+            Logger.LogInformation("QueueGridWidget: subscribed to GridId {GridId}", _rtsGridId);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "QueueGridWidget: Failed to connect. Error: {Message}", ex.Message);
+            Logger.LogError(ex, "QueueGridWidget: Failed to subscribe. Error: {Message}", ex.Message);
             _connectionState = ConnectionState.Failed;
         }
     }
 
     private async Task ReconnectAsync()
     {
-        if (_hub != null)
+        if (_gridHandler != null && _rtsGridId > 0 && _tenantId != Guid.Empty)
         {
-            try { await _hub.DisposeAsync(); } catch { }
-            _hub = null;
+            await RtmRelay.UnsubscribeGridAsync(_tenantId, _rtsGridId, _gridHandler);
+            _gridHandler = null;
         }
 
         _rows = _rowDefs.Select(r => new QueueRowData
@@ -1371,16 +1334,10 @@
     {
         _cts.Cancel();
         _tickTimer?.Dispose();
-        if (_hub != null)
+        if (_gridHandler != null && _rtsGridId > 0 && _tenantId != Guid.Empty)
         {
-            try
-            {
-                await _hub.DisposeAsync();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Error disposing hub connection");
-            }
+            try { await RtmRelay.UnsubscribeGridAsync(_tenantId, _rtsGridId, _gridHandler); } catch { }
+            _gridHandler = null;
         }
         _cts.Dispose();
     }

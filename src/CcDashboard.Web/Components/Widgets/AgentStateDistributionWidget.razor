@@ -1,7 +1,8 @@
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Application.Queries.TenantSettings
 @using CcDashboard.Application.Queries.AgentStates
-@using Microsoft.AspNetCore.SignalR.Client
+@using CcDashboard.Domain.Domain.Rtm
+@using CcDashboard.Application.Interfaces
 @using MediatR
 @using CcDashboard.Application.Queries.Widgets
 @using Newtonsoft.Json.Serialization
@@ -11,6 +12,7 @@
 
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject IJSRuntime JS
+@inject IRtmRelayService RtmRelay
 
 <div class="agent-state-distribution-widget h-100 d-flex flex-column" style="@GetWidgetStyle()">
     @if (_connectionState == ConnectionState.Reconnecting)
@@ -120,7 +122,8 @@
         ["Other"]      = "#9ca3af",
     };
 
-    private HubConnection? _hub;
+    private Guid _tenantId;
+    private Func<IReadOnlyList<GridCellUpdate>, Task>? _gridHandler;
     private ConnectionState _connectionState = ConnectionState.Connecting;
     private CancellationTokenSource _cts = new();
 
@@ -226,7 +229,7 @@
         var currentGridId = RtsGridId;
 
         // First connection
-        if (currentGridId != 0 && _previousGridId == 0 && _hub is null && _businessUnitId > 0)
+        if (currentGridId != 0 && _previousGridId == 0 && _gridHandler is null && _businessUnitId > 0)
         {
             _previousGridId = currentGridId;
             await ConnectAsync();
@@ -321,40 +324,25 @@
         }
 
         _connectionState = ConnectionState.Connecting;
-        Logger.LogInformation("AgentStateDistributionWidget: Starting connection for RtsGridId {RtsGridId}", RtsGridId);
-
-        await Task.Delay(Random.Shared.Next(100, 500), _cts.Token);
+        Logger.LogInformation("AgentStateDistributionWidget: Subscribing to GridId {GridId}", RtsGridId);
 
         try
         {
-            // Load CellId → MetricId map so updateGridData pushes can be decoded
+            // Load CellId → MetricId map so GridCellUpdate items can be decoded
             _cellIdToMetric = await Mediator.Send(new GetRtsGridCellMapQuery(RtsGridId), _cts.Token);
             Logger.LogInformation("AgentStateDistributionWidget: loaded {Count} cells for grid {GridId}",
                 _cellIdToMetric.Count, RtsGridId);
 
-            var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
-            var rtmUrl = settings?.SignalRConnectionUrl ?? "http://localhost:5045";
-            var fullUrl = $"{rtmUrl.TrimEnd('/')}/signalr";
+            if (_tenantId == Guid.Empty)
+            {
+                var settings = await Mediator.Send(new GetTenantSettingsQuery(), _cts.Token);
+                _tenantId = settings!.TenantId;
+            }
 
-            Logger.LogInformation("AgentStateDistributionWidget: Connecting to {Url}", fullUrl);
-
-            _hub = new HubConnectionBuilder()
-                .WithUrl(fullUrl)
-                .AddNewtonsoftJsonProtocol(o =>
-                    o.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver())
-                .WithAutomaticReconnect(new[] {
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(2),
-                    TimeSpan.FromSeconds(5),
-                    TimeSpan.FromSeconds(10),
-                    TimeSpan.FromSeconds(30)
-                })
-                .Build();
-
-            _hub.On<List<RtmCellData>>("updateGridData", async cells =>
+            _gridHandler = async updates =>
             {
                 var updated = false;
-                foreach (var cell in cells)
+                foreach (var cell in updates)
                 {
                     if (_cellIdToMetric.TryGetValue(cell.CellId, out var metricId))
                     {
@@ -368,49 +356,25 @@
                         StateHasChanged();
                         await RenderChartAsync();
                     });
-            });
-
-            _hub.Reconnecting += async _ =>
-            {
-                _connectionState = ConnectionState.Reconnecting;
-                await InvokeAsync(StateHasChanged);
             };
 
-            _hub.Reconnected += async _ =>
-            {
-                _connectionState = ConnectionState.Connected;
-                await InvokeAsync(StateHasChanged);
-            };
-
-            _hub.Closed += async ex =>
-            {
-                if (ex != null)
-                {
-                    Logger.LogWarning(ex, "SignalR connection closed with error");
-                    _connectionState = ConnectionState.Failed;
-                    await InvokeAsync(StateHasChanged);
-                }
-            };
-
-            await _hub.StartAsync(_cts.Token);
-            await _hub.InvokeAsync("init", RtsGridId.ToString(), _cts.Token);
+            await RtmRelay.SubscribeGridAsync(_tenantId, RtsGridId, _gridHandler, _cts.Token);
             _connectionState = ConnectionState.Connected;
-
-            Logger.LogInformation("AgentStateDistributionWidget: connected, init({GridId}) sent", RtsGridId);
+            Logger.LogInformation("AgentStateDistributionWidget: subscribed to GridId {GridId}", RtsGridId);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "AgentStateDistributionWidget: Failed to connect. Error: {Message}", ex.Message);
+            Logger.LogError(ex, "AgentStateDistributionWidget: Failed to subscribe. Error: {Message}", ex.Message);
             _connectionState = ConnectionState.Failed;
         }
     }
 
     private async Task ReconnectAsync()
     {
-        if (_hub != null)
+        if (_gridHandler != null && RtsGridId > 0 && _tenantId != Guid.Empty)
         {
-            try { await _hub.DisposeAsync(); } catch { }
-            _hub = null;
+            await RtmRelay.UnsubscribeGridAsync(_tenantId, RtsGridId, _gridHandler);
+            _gridHandler = null;
         }
         _cellValues.Clear();
         _chartRendered = false;
@@ -605,20 +569,13 @@
             Logger.LogDebug(ex, "Error destroying chart");
         }
 
-        if (_hub != null)
+        if (_gridHandler != null && RtsGridId > 0 && _tenantId != Guid.Empty)
         {
-            try
-            {
-                await _hub.DisposeAsync();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Error disposing hub connection");
-            }
+            try { await RtmRelay.UnsubscribeGridAsync(_tenantId, RtsGridId, _gridHandler); } catch { }
+            _gridHandler = null;
         }
 
         _cts.Dispose();
     }
 
-    private record RtmCellData(int CellId, string Value, string Value2);
 }
