@@ -7,7 +7,7 @@
 .PARAMETER PgBinPath
     Path to PostgreSQL bin directory (default: C:\Program Files\PostgreSQL\18\bin)
 .PARAMETER DbName
-    Database name (default: RTMViewDB)
+    Database name (default: rtmviewdb)
 .PARAMETER DbUser
     Database user (default: ccdashboard_user)
 .PARAMETER BackupDir
@@ -15,13 +15,13 @@
 .PARAMETER BackupFile
     Backup filename (auto-generated if not specified)
 .EXAMPLE
-    .\Backup-RTMDb.ps1 -DbName "RTMViewDB" -BackupDir "D:\Backups"
+    .\Backup-RTMDb.ps1 -DbName "rtmviewdb" -BackupDir "D:\Backups"
 #>
 
 [CmdletBinding()]
 param(
     [string]$PgBinPath = "C:\Program Files\PostgreSQL\18\bin",
-    [string]$DbName = "RTMViewDB",
+    [string]$DbName = "rtmviewdb",
     [string]$DbUser = "ccdashboard_user",
     [string]$BackupDir = "D:\Backups\RTM",
     [string]$BackupFile = ""
