@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Serialization;
 using StackExchange.Redis;
 
 namespace CcDashboard.Infrastructure.RtmRelay;
@@ -61,7 +62,11 @@ public sealed class RtmRelayService : IRtmRelayService
                 $"RTM Hub URL not configured for tenant {tenantId}. " +
                 "Set SignalRConnectionUrl in Tenant Settings → SignalR Widgets.");
 
-        // 3. Cache for 5 minutes
+        // 3. Normalise: append /signalr hub path (SignalRConnectionUrl stores base URL)
+        if (!url.TrimEnd('/').EndsWith("/signalr", StringComparison.OrdinalIgnoreCase))
+            url = url.TrimEnd('/') + "/signalr";
+
+        // 4. Cache for 5 minutes
         await db.StringSetAsync(cacheKey, url, TimeSpan.FromMinutes(5));
         return url;
     }
@@ -146,6 +151,8 @@ public sealed class RtmRelayService : IRtmRelayService
     {
         var conn = new HubConnectionBuilder()
             .WithUrl(hubUrl)
+            .AddNewtonsoftJsonProtocol(opts =>
+                opts.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver())
             .ConfigureLogging(b => b.SetMinimumLevel(LogLevel.Information))
             .Build();
 
@@ -470,6 +477,8 @@ public sealed class RtmRelayService : IRtmRelayService
     {
         var conn = new HubConnectionBuilder()
             .WithUrl(hubUrl)
+            .AddNewtonsoftJsonProtocol(opts =>
+                opts.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver())
             .ConfigureLogging(b => b.SetMinimumLevel(LogLevel.Information))
             .Build();
 

@@ -12,21 +12,6 @@ builder.Services.AddSignalR()
             new Newtonsoft.Json.Serialization.DefaultContractResolver();
     });
 
-// CORS origins loaded from appsettings — CcDashboard.Web URL must be listed
-var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:5000" };
-
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins(corsOrigins)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    });
-});
-
 builder.Services.AddLogging(logging =>
 {
     logging.AddConsole();
@@ -57,7 +42,6 @@ catch (Exception ex)
     app.Logger.LogError(ex, "Failed to connect to database. Check connection string in appsettings.json");
 }
 
-app.UseCors();
 
 app.MapGet("/", () => "RTM SignalR Simulator is running.\n\nHub: /signalr\nClient calls init(gridId) after connecting:\n- Queue/DataSlot: init(\"42\") - numeric gridId\n- Agent: init(\"u5\") - u + UnionId\n\nMetrics are loaded from database.");
 
