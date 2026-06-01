@@ -49,6 +49,7 @@ param(
     [string]$DBUser      = "postgres",
     [string]$DBPassword  = "",
     [switch]$SkipDB,
+    [string]$DumpFile    = "",
     [switch]$SkipBuild,
     [string]$MemuraiMsi  = ""
 )
@@ -182,20 +183,27 @@ if ($BuildRTM) {
 
 # ── Step 3: DB Backup ─────────────────────────────────────────────────────────
 Write-Host ""
-if (-not $SkipDB) {
+if ($DumpFile -ne "" -and (Test-Path $DumpFile)) {
+    Write-Host "[ 3/4 ] Using existing dump: $DumpFile" -ForegroundColor Cyan
+    New-Item -ItemType Directory -Path $PublishDB -Force | Out-Null
+    $destDump = Join-Path $PublishDB ([System.IO.Path]::GetFileName($DumpFile))
+    Copy-Item $DumpFile -Destination $destDump -Force
+    $sizeMB = [math]::Round((Get-Item $destDump).Length / 1MB, 2)
+    Write-Host "  Dump  : $destDump ($sizeMB MB)" -ForegroundColor Green
+} elseif (-not $SkipDB) {
     Write-Host "[ 3/4 ] Running pg_dump for $DBName..." -ForegroundColor Cyan
     New-Item -ItemType Directory -Path $PublishDB -Force | Out-Null
-    $dumpFile = Join-Path $PublishDB ("$DBName`_" + (Get-Date -Format "ddMMyyyy") + ".sql")
+    $pgDumpFile = Join-Path $PublishDB ("$DBName`_" + (Get-Date -Format "ddMMyyyy") + ".sql")
 
     $env:PGPASSWORD = $DBPassword
-    & pg_dump -h $DBHost -p $DBPort -U $DBUser -d $DBName -F p --no-password --clean --if-exists -f $dumpFile
+    & pg_dump -h $DBHost -p $DBPort -U $DBUser -d $DBName -F c --no-password -f $pgDumpFile
     $env:PGPASSWORD = ""
 
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dumpFile)) {
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pgDumpFile)) {
         Write-Host "  [WARN] pg_dump failed. DB backup will not be included." -ForegroundColor Yellow
     } else {
-        $sizeMB = [math]::Round((Get-Item $dumpFile).Length / 1MB, 2)
-        Write-Host "  Dump  : $dumpFile ($sizeMB MB)" -ForegroundColor Green
+        $sizeMB = [math]::Round((Get-Item $pgDumpFile).Length / 1MB, 2)
+        Write-Host "  Dump  : $pgDumpFile ($sizeMB MB)" -ForegroundColor Green
     }
 } else {
     Write-Host "[ 3/4 ] DB backup skipped." -ForegroundColor Yellow
@@ -226,6 +234,24 @@ if ($BuildRTM -and (Test-Path $PublishRTM)) {
     } else {
         Write-Host "  [WARN] RTM\deployment\app.dat not found — skipping" -ForegroundColor Yellow
     }
+
+    # data.sys
+    $dataSysSrc = Join-Path $Root "RTM\deployment\data.sys"
+    if (Test-Path $dataSysSrc) {
+        Copy-Item $dataSysSrc -Destination $stgRTM -Force
+        Write-Host "  + RTM/data.sys" -ForegroundColor Gray
+    } else {
+        Write-Host "  [WARN] RTM\deployment\data.sys not found" -ForegroundColor Yellow
+    }
+
+    # log4net.config — from published output
+    $log4netSrc = Join-Path $PublishRTM "log4net.config"
+    if (Test-Path $log4netSrc) {
+        Copy-Item $log4netSrc -Destination $stgRTM -Force
+        Write-Host "  + RTM/log4net.config" -ForegroundColor Gray
+    } else {
+        Write-Host "  [WARN] log4net.config not found in publish\rtm\" -ForegroundColor Yellow
+    }
 }
 
 # DB backup
@@ -244,7 +270,7 @@ if ($BuildRTM -and $MemuraiMsi -and (Test-Path $MemuraiMsi)) {
 }
 
 # Deploy scripts and README
-foreach ($f in @("Install-RTMView.ps1", "Update-RTMView.ps1", "README.txt")) {
+foreach ($f in @("Install-RTMView.ps1", "Update-RTMView.ps1", "Restore-SqlDump.ps1", "README.txt")) {
     $src = Join-Path $DeployDir $f
     if (Test-Path $src) {
         Copy-Item $src -Destination $StagingDir -Force

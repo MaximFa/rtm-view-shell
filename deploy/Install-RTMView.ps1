@@ -222,56 +222,24 @@ if ($SkipDB) {
     } else {
         if ($DBPassword) { $env:PGPASSWORD = $DBPassword }
 
-        # 5a — Create database if not exists
-        Write-Host "  Checking database '$DBName'..." -ForegroundColor Gray
-        $existsRaw = & $psql -h $DBHost -p $DBPort -U $DBUser -d postgres -tAc `
-            "SELECT 1 FROM pg_database WHERE datname='$DBName';" 2>&1
-        $exists = if ($existsRaw -ne $null) { "$existsRaw".Trim() } else { "" }
-        if ($exists -eq "1") {
-            Write-Host "  DB '$DBName' already exists." -ForegroundColor Gray
+        # 5 — Restore via Restore-SqlDump.ps1
+        $restoreScript = Join-Path $ScriptDir "Restore-SqlDump.ps1"
+        $dbDumpFile = Get-ChildItem -Path (Join-Path $ScriptDir "DB") -ErrorAction SilentlyContinue |
+                      Sort-Object Name -Descending | Select-Object -First 1
+        if (-not (Test-Path $restoreScript)) {
+            Write-Host "  [WARN] Restore-SqlDump.ps1 not found — skipping DB restore." -ForegroundColor Yellow
+        } elseif (-not $dbDumpFile) {
+            Write-Host "  [WARN] No dump file found in DB\ — skipping DB restore." -ForegroundColor Yellow
         } else {
-            Write-Host "  Creating database '$DBName'..." -ForegroundColor Gray
-            & $psql -h $DBHost -p $DBPort -U $DBUser -d postgres -c "CREATE DATABASE $DBName ENCODING 'UTF8';" | Out-Null
-            Write-Host "  Created: $DBName" -ForegroundColor Green
-        }
-
-        # 5b — Create application user if specified and not exists
-        if ($DBAppUser -and $DBAppPassword) {
-            Write-Host "  Checking user '$DBAppUser'..." -ForegroundColor Gray
-            $userExistsRaw = & $psql -h $DBHost -p $DBPort -U $DBUser -d postgres -tAc `
-                "SELECT 1 FROM pg_roles WHERE rolname='$DBAppUser';" 2>&1
-            $userExists = if ($userExistsRaw -ne $null) { "$userExistsRaw".Trim() } else { "" }
-            if ($userExists -eq "1") {
-                Write-Host "  User '$DBAppUser' already exists." -ForegroundColor Gray
-                # Update password
-                & $psql -h $DBHost -p $DBPort -U $DBUser -d postgres -c `
-                    "ALTER USER `"$DBAppUser`" WITH PASSWORD '$DBAppPassword';" | Out-Null
-            } else {
-                & $psql -h $DBHost -p $DBPort -U $DBUser -d postgres -c `
-                    "CREATE USER `"$DBAppUser`" WITH PASSWORD '$DBAppPassword';" | Out-Null
-                Write-Host "  Created user: $DBAppUser" -ForegroundColor Green
-            }
-            # Grant privileges
-            & $psql -h $DBHost -p $DBPort -U $DBUser -d $DBName -c `
-                "GRANT ALL PRIVILEGES ON DATABASE `"$DBName`" TO `"$DBAppUser`";" | Out-Null
-            & $psql -h $DBHost -p $DBPort -U $DBUser -d $DBName -c `
-                "GRANT ALL ON SCHEMA public TO `"$DBAppUser`";" | Out-Null
-            Write-Host "  Grants applied." -ForegroundColor Gray
-        }
-
-        # 5c — Restore from SQL backup
-        $sqlFile = Get-ChildItem -Path (Join-Path $ScriptDir "DB") -Filter "*.sql" -ErrorAction SilentlyContinue |
-                   Sort-Object Name -Descending | Select-Object -First 1
-        if ($sqlFile) {
-            Write-Host "  Restoring $($sqlFile.Name)..." -ForegroundColor Gray
-            & $psql -h $DBHost -p $DBPort -U $DBUser -d $DBName -v ON_ERROR_STOP=0 -f $sqlFile.FullName
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "  DB restored successfully." -ForegroundColor Green
-            } else {
-                Write-Host "  [WARN] psql exited $LASTEXITCODE — check DB manually." -ForegroundColor Yellow
-            }
-        } else {
-            Write-Host "  No SQL backup found in DB\ — skipping restore." -ForegroundColor Gray
+            Write-Host "  Calling Restore-SqlDump.ps1 with $($dbDumpFile.Name)..." -ForegroundColor Gray
+            $prevPref = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            & powershell -ExecutionPolicy Bypass -File $restoreScript `
+                -DumpFile $dbDumpFile.FullName `
+                -DBPassword $DBPassword `
+                -DBAppUser $DBAppUser `
+                -DBAppPassword $DBAppPassword
+            $ErrorActionPreference = $prevPref
         }
 
         $env:PGPASSWORD = ""
