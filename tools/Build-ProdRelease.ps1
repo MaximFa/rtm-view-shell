@@ -244,8 +244,8 @@ if ($BuildRTM -and (Test-Path $PublishRTM)) {
         Write-Host "  [WARN] RTM\deployment\data.sys not found" -ForegroundColor Yellow
     }
 
-    # log4net.config — from published output
-    $log4netSrc = Join-Path $PublishRTM "log4net.config"
+    # log4net.config — from deployment folder
+    $log4netSrc = Join-Path $Root "RTM\deployment\log4net.config"
     if (Test-Path $log4netSrc) {
         Copy-Item $log4netSrc -Destination $stgRTM -Force
         Write-Host "  + RTM/log4net.config" -ForegroundColor Gray
