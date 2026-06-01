@@ -26,6 +26,8 @@ public sealed class RtmRelayService : IRtmRelayService
     private readonly ConcurrentDictionary<(Guid TenantId, int UnionId), UnionState> _unions = new();
     private readonly ConcurrentDictionary<(Guid TenantId, int GridId), GridState> _grids = new();
 
+    private const string _defaultHubBaseUrl = "http://localhost:5045";
+
     public RtmRelayService(
         IServiceScopeFactory scopeFactory,
         IConnectionMultiplexer redis,
@@ -58,9 +60,14 @@ public sealed class RtmRelayService : IRtmRelayService
             .FirstOrDefaultAsync(ct);
 
         if (string.IsNullOrEmpty(url))
-            throw new InvalidOperationException(
-                $"RTM Hub URL not configured for tenant {tenantId}. " +
-                "Set SignalRConnectionUrl in Tenant Settings → SignalR Widgets.");
+        {
+            // Fallback for dev environments — matches prior widget default
+            url = _defaultHubBaseUrl;
+            _logger.LogWarning(
+                "RtmRelayService: SignalRConnectionUrl not set for tenant {TenantId}. " +
+                "Using default: {Url}. Set it in Tenant Settings → SignalR Widgets.",
+                tenantId, url);
+        }
 
         // 3. Normalise: append /signalr hub path (SignalRConnectionUrl stores base URL)
         if (!url.TrimEnd('/').EndsWith("/signalr", StringComparison.OrdinalIgnoreCase))
@@ -97,12 +104,22 @@ public sealed class RtmRelayService : IRtmRelayService
 
             if (state.Connection == null)
             {
-                state.Connection = BuildUnionConnection(key, state, hubUrl);
-                await state.Connection.StartAsync(ct);
-                _logger.LogInformation(
-                    "RtmRelayService: connected to tenant {TenantId} union {UnionId}",
-                    tenantId, unionId);
-                await InitUnionAsync(state, unionId, ct);
+                var conn = BuildUnionConnection(key, state, hubUrl);
+                try
+                {
+                    await conn.StartAsync(ct);
+                    state.Connection = conn;
+                    _logger.LogInformation(
+                        "RtmRelayService: connected to tenant {TenantId} union {UnionId}",
+                        tenantId, unionId);
+                    await InitUnionAsync(state, unionId, ct);
+                }
+                catch
+                {
+                    await conn.DisposeAsync();
+                    state.Connection = null;   // allow retry on next Subscribe call
+                    throw;                      // propagate → widget catch → Failed state
+                }
             }
 
             // Deliver current snapshot immediately
@@ -421,12 +438,22 @@ public sealed class RtmRelayService : IRtmRelayService
 
             if (state.Connection == null)
             {
-                state.Connection = BuildGridConnection(key, state, hubUrl);
-                await state.Connection.StartAsync(ct);
-                _logger.LogInformation(
-                    "RtmRelayService: connected to tenant {TenantId} grid {GridId}",
-                    tenantId, gridId);
-                await GridInitAsync(state, gridId, ct);
+                var conn = BuildGridConnection(key, state, hubUrl);
+                try
+                {
+                    await conn.StartAsync(ct);
+                    state.Connection = conn;
+                    _logger.LogInformation(
+                        "RtmRelayService: connected to tenant {TenantId} grid {GridId}",
+                        tenantId, gridId);
+                    await GridInitAsync(state, gridId, ct);
+                }
+                catch
+                {
+                    await conn.DisposeAsync();
+                    state.Connection = null;   // allow retry on next Subscribe call
+                    throw;                      // propagate → widget catch → Failed state
+                }
             }
             else if (state.CellSnapshot.Count > 0)
             {
