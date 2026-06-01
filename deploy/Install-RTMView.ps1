@@ -264,7 +264,7 @@ if ($SkipDB) {
                    Sort-Object Name -Descending | Select-Object -First 1
         if ($sqlFile) {
             Write-Host "  Restoring $($sqlFile.Name)..." -ForegroundColor Gray
-            & $psql -h $DBHost -p $DBPort -U $DBUser -d $DBName -f $sqlFile.FullName
+            & $psql -h $DBHost -p $DBPort -U $DBUser -d $DBName -v ON_ERROR_STOP=0 -f $sqlFile.FullName
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "  DB restored successfully." -ForegroundColor Green
             } else {

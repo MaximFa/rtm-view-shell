@@ -188,7 +188,7 @@ if (-not $SkipDB) {
     $dumpFile = Join-Path $PublishDB ("$DBName`_" + (Get-Date -Format "ddMMyyyy") + ".sql")
 
     $env:PGPASSWORD = $DBPassword
-    & pg_dump -h $DBHost -p $DBPort -U $DBUser -d $DBName -F p --no-password -f $dumpFile
+    & pg_dump -h $DBHost -p $DBPort -U $DBUser -d $DBName -F p --no-password --clean --if-exists -f $dumpFile
     $env:PGPASSWORD = ""
 
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dumpFile)) {
