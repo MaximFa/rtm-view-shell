@@ -461,6 +461,9 @@ public sealed class RtmRelayService : IRtmRelayService
                 var snapshot = state.CellSnapshot
                     .Select(kvp => new GridCellUpdate(kvp.Key, kvp.Value))
                     .ToList();
+                _logger.LogInformation(
+                    "RtmRelayService: delivering snapshot of {Count} cells to late subscriber for grid {GridId}",
+                    snapshot.Count, gridId);
                 await handler(snapshot);
             }
         }
@@ -653,9 +656,9 @@ public sealed class RtmRelayService : IRtmRelayService
         }
         finally { state.Lock.Release(); }
 
-        _logger.LogDebug(
-            "RtmRelayService: updateGridData tenant {TenantId} grid {GridId}, {Count} cells updated",
-            key.TenantId, key.GridId, updates.Count);
+        _logger.LogInformation(
+            "RtmRelayService: updateGridData grid {GridId}: {Count} cells, {HandlerCount} handlers",
+            key.GridId, updates.Count, handlers.Count);
 
         if (updates.Count > 0)
             await FanOutGridAsync(handlers, updates);

@@ -332,19 +332,27 @@
 
     private bool _stateLoaded;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
         ApplyConfig();
-        await ConnectAsync();
+        // NOTE: ConnectAsync moved to OnAfterRenderAsync to avoid SSR pre-render subscribe cycling
+        return Task.CompletedTask;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && GridId != 0 && !_stateLoaded)
+        if (firstRender)
         {
-            _stateLoaded = true;
-            await LoadWidgetStateAsync();
-            StateHasChanged();
+            // Connect here (not in OnInitializedAsync) because OnAfterRenderAsync
+            // never runs during SSR pre-rendering — only in interactive mode.
+            await ConnectAsync();
+
+            if (GridId != 0 && !_stateLoaded)
+            {
+                _stateLoaded = true;
+                await LoadWidgetStateAsync();
+                StateHasChanged();
+            }
         }
     }
 
@@ -434,6 +442,13 @@
         if (_rtsGridId == 0)
         {
             Logger.LogWarning("QueueGridWidget: Config.GridId not set, skipping connection");
+            return;
+        }
+
+        // Guard: prevent double-subscribe (OnAfterRenderAsync + OnParametersSetAsync both call ConnectAsync)
+        if (_gridHandler is not null)
+        {
+            Logger.LogDebug("QueueGridWidget: already subscribed to GridId {GridId}, skipping duplicate ConnectAsync", _rtsGridId);
             return;
         }
 
