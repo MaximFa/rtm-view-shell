@@ -473,6 +473,8 @@ namespace RTM
                             union.Queues.Add(QueueId);
                             union.addWorkgroup(QueueId, _applicList);
                             newUnions.Add(union);
+                            // Persist queue to NGC_Queues
+                            BusinessUnitData.getOrCreateQueue(QueueId, QueueId);
                         }
                     }
                     else
@@ -1915,6 +1917,18 @@ namespace RTM
                 foreach (string skill in skills)
                 {
                     Agentgroups.TryAdd(skill, true);
+
+                    // Persist to NGC_AgentGroups
+                    BusinessUnitData.getOrCreateAgentGroup(skill, skill);
+
+                    // Get or create matching Supergroup
+                    int supergroupId = BusinessUnitData.getOrCreateSupergroup(skill, skill);
+
+                    // Create Supergroup <-> AgentGroup link
+                    if (supergroupId > 0)
+                    {
+                        BusinessUnitData.createSupergroupAgentgroupMapping(supergroupId, skill, "system");
+                    }
                 }
             }
             catch (Exception ex)

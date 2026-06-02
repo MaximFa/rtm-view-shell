@@ -67,6 +67,71 @@ BEGIN
 END;
 $$;
 
+
+-- ============================================================================
+-- 1c. NGC_GetOrCreateQueue - idempotent upsert into NGC_Queues
+-- ============================================================================
+DROP FUNCTION IF EXISTS "NGC_GetOrCreateQueue"(text, text, uuid);
+
+CREATE OR REPLACE FUNCTION "NGC_GetOrCreateQueue"(
+    p_external_id text,
+    p_name text,
+    p_tenant_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO "NGC_Queues" ("ExternalId", "Name", "CreatedDatetime", "TenantId")
+    VALUES (p_external_id, p_name, NOW(), p_tenant_id)
+    ON CONFLICT ("ExternalId", "TenantId") DO NOTHING;
+END;
+$$;
+
+-- ============================================================================
+-- 1d. NGC_GetOrCreateAgentGroup - idempotent upsert into NGC_AgentGroups
+-- ============================================================================
+DROP FUNCTION IF EXISTS "NGC_GetOrCreateAgentGroup"(text, text, uuid);
+
+CREATE OR REPLACE FUNCTION "NGC_GetOrCreateAgentGroup"(
+    p_external_id text,
+    p_name text,
+    p_tenant_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO "NGC_AgentGroups" ("ExternalId", "Name", "CreatedDatetime", "TenantId")
+    VALUES (p_external_id, p_name, NOW(), p_tenant_id)
+    ON CONFLICT ("ExternalId", "TenantId") DO NOTHING;
+END;
+$$;
+
+-- ============================================================================
+-- 1e. NGC_GetSupergroupIdByName - returns SupergroupId for existing supergroup or NULL
+-- ============================================================================
+DROP FUNCTION IF EXISTS "NGC_GetSupergroupIdByName"(text, uuid);
+
+CREATE OR REPLACE FUNCTION "NGC_GetSupergroupIdByName"(
+    p_name text,
+    p_tenant_id uuid
+)
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id integer;
+BEGIN
+    SELECT "SupergroupId" INTO v_id
+    FROM "NGC_Supergroup"
+    WHERE "SupergroupName" = p_name
+      AND "TenantId" = p_tenant_id
+    LIMIT 1;
+    RETURN v_id;
+END;
+$$;
+
 -- ============================================================================
 -- 2. NGC_GetSupergroupTable
 -- ============================================================================

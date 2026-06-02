@@ -223,6 +223,79 @@ namespace RTM
 
 
 
+        // Upsert queue into NGC_Queues (idempotent)
+        public static void getOrCreateQueue(string externalId, string name)
+        {
+            try
+            {
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@ExternalId", externalId));
+                parameters.Add(new NpgsqlParameter("@Name", name));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                DBAdapter.ExecuteNonQuery("NGC_GetOrCreateQueue", parameters);
+                AsyncLogger.Info($"getOrCreateQueue: upserted queue={externalId}");
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("NGC.DataProvider.BusinessUnitsData.getOrCreateQueue", ex);
+            }
+        }
+
+
+        // Upsert agent group into NGC_AgentGroups (idempotent)
+        public static void getOrCreateAgentGroup(string externalId, string name)
+        {
+            try
+            {
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@ExternalId", externalId));
+                parameters.Add(new NpgsqlParameter("@Name", name));
+                parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                DBAdapter.ExecuteNonQuery("NGC_GetOrCreateAgentGroup", parameters);
+                AsyncLogger.Info($"getOrCreateAgentGroup: upserted agentGroup={externalId}");
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("NGC.DataProvider.BusinessUnitsData.getOrCreateAgentGroup", ex);
+            }
+        }
+
+
+        // Get SupergroupId by name, or create if not exists. Returns SupergroupId.
+        public static int getOrCreateSupergroup(string name, string description)
+        {
+            int supergroupId = 0;
+            try
+            {
+                // Check if exists
+                var checkParams = new List<NpgsqlParameter>();
+                checkParams.Add(new NpgsqlParameter("@Name", name));
+                checkParams.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                var existingScalar = DBAdapter.GetScalar("NGC_GetSupergroupIdByName", checkParams);
+
+                if (!string.IsNullOrEmpty(existingScalar))
+                {
+                    supergroupId = int.Parse(existingScalar);
+                    AsyncLogger.Info($"getOrCreateSupergroup: existing supergroup={name} id={supergroupId}");
+                    return supergroupId;
+                }
+
+                // Create new
+                var createParams = new List<NpgsqlParameter>();
+                createParams.Add(new NpgsqlParameter("@SupergroupName", name));
+                createParams.Add(new NpgsqlParameter("@Description", description));
+                createParams.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                supergroupId = Convert.ToInt32(DBAdapter.GetScalar("NGC_CreateSupergroup", createParams));
+                AsyncLogger.Info($"getOrCreateSupergroup: created supergroup={name} id={supergroupId}");
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("NGC.DataProvider.BusinessUnitsData.getOrCreateSupergroup", ex);
+            }
+            return supergroupId;
+        }
+
+
         //  Delete BusinessUnit      
         public static bool deleteBusinessUnit(int businessUnitID, string deletedBy)
         {
