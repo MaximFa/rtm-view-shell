@@ -183,7 +183,10 @@ if ($SkipMemurai -or -not $InstallRTM) {
 # ── [3/6] Stop existing services ─────────────────────────────────────────────
 Write-Host ""
 Write-Host "[ 3/6 ] Stopping existing services..." -ForegroundColor Cyan
-foreach ($svcName in @($ShellSvcName, $RTMSvcName)) {
+$svcsToStop = @()
+if ($InstallShell) { $svcsToStop += $ShellSvcName }
+if ($InstallRTM)   { $svcsToStop += $RTMSvcName }
+foreach ($svcName in $svcsToStop) {
     $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
     if ($svc) {
         Stop-Service $svcName -Force -ErrorAction SilentlyContinue
