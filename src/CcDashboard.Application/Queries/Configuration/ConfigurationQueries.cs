@@ -35,6 +35,7 @@ public class GetBusinessUnitsQueryHandler(INgcBusinessUnitRepository repo, ICurr
         var items = await repo.GetAllByTenantAsync(tenantId, ct);
         return items.Select(bu => new BusinessUnitDto(
             bu.BusinessUnitId,
+            bu.TenantId,
             bu.BusinessUnitName,
             bu.Description,
             bu.SiteId,
@@ -62,6 +63,7 @@ public class GetMyBusinessUnitsQueryHandler(
             var allItems = await repo.GetAllByTenantAsync(user.TenantId, ct);
             return allItems.Select(bu => new BusinessUnitDto(
                 bu.BusinessUnitId,
+                bu.TenantId,
                 bu.BusinessUnitName,
                 bu.Description,
                 bu.SiteId,
@@ -87,6 +89,7 @@ public class GetMyBusinessUnitsQueryHandler(
             .Where(bu => allowedBuIds.Contains(bu.BusinessUnitId))
             .Select(bu => new BusinessUnitDto(
                 bu.BusinessUnitId,
+                bu.TenantId,
                 bu.BusinessUnitName,
                 bu.Description,
                 bu.SiteId,

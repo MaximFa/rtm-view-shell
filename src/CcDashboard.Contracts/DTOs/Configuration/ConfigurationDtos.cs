@@ -9,6 +9,7 @@ public record SiteDto(
 
 public record BusinessUnitDto(
     int BusinessUnitId,
+    Guid TenantId,
     string? BusinessUnitName,
     string? Description,
     string? SiteId,

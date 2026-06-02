@@ -60,6 +60,10 @@ else
             <thead class="table-light">
                 <tr>
                     <th>@L["BU_Name"]</th>
+                    @if (CurrentUser.Role == "Superadmin")
+                    {
+                        <th>@L["PG_Tenant"]</th>
+                    }
                     <th>@L["BU_Site"]</th>
                     <th>@L["BU_Queues"]</th>
                     <th>@L["BU_Supergroups"]</th>
@@ -71,6 +75,11 @@ else
                 {
                     <tr @key="bu.BusinessUnitId">
                         <td>@bu.BusinessUnitName</td>
+                        @if (CurrentUser.Role == "Superadmin")
+                        {
+                            var tenantName = Tenants.FirstOrDefault(t => t.Id == bu.TenantId)?.Name ?? bu.TenantId.ToString();
+                            <td><span class="badge bg-light text-dark border">@tenantName</span></td>
+                        }
                         <td>@(bu.SiteName ?? bu.SiteId)</td>
                         <td><span class="badge bg-secondary">@bu.QueueIds.Count</span></td>
                         <td><span class="badge bg-secondary">@bu.SupergroupIds.Count</span></td>
@@ -81,7 +90,7 @@ else
                 }
                 @if (!BusinessUnits.Any())
                 {
-                    <tr><td colspan="5" class="text-center text-muted py-3">@L["BU_Empty"]</td></tr>
+                    <tr><td colspan="@(CurrentUser.Role == "Superadmin" ? 6 : 5)" class="text-center text-muted py-3">@L["BU_Empty"]</td></tr>
                 }
             </tbody>
         </table>
