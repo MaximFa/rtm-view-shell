@@ -174,12 +174,11 @@ public sealed class RtmRelayService : IRtmRelayService
             .ConfigureLogging(b => b.SetMinimumLevel(LogLevel.Information))
             .Build();
 
-        // Server sends: (DateTime d, int unionId, object res) — JsonElement accepts any JSON shape.
-        conn.On<JsonElement, JsonElement, JsonElement>("updateUserGrid",
+        // Using On<JToken> — Newtonsoft protocol cannot deserialize to System.Text.Json.JsonElement.
+        conn.On<JToken, JToken, JToken>("updateUserGrid",
             (d, _, res) => HandleUpdateAsync(state, key, res));
 
-        // Server sends: (int unionId, array users) — JsonElement accepts any JSON shape.
-        conn.On<JsonElement, JsonElement>("removeUser",
+        conn.On<JToken, JToken>("removeUser",
             (_, users) => HandleRemoveAsync(state, key, users));
 
         conn.Closed += ex =>
@@ -303,11 +302,10 @@ public sealed class RtmRelayService : IRtmRelayService
 
     // ── Union event handlers ──────────────────────────────────────────────────
 
-    private async Task HandleUpdateAsync(UnionState state, (Guid TenantId, int UnionId) key, JsonElement res)
+    private async Task HandleUpdateAsync(UnionState state, (Guid TenantId, int UnionId) key, JToken res)
     {
-        if (!res.TryGetProperty("Data", out var dataEl) ||
-            dataEl.ValueKind != JsonValueKind.Array)
-            return;
+        if (res is not JObject resObj) return;
+        if (resObj["Data"] is not JArray dataArray) return;
 
         var upserted = new List<AgentSnapshot>();
         List<Func<UnionStateChange, Task>> handlers;
@@ -315,18 +313,19 @@ public sealed class RtmRelayService : IRtmRelayService
         await state.Lock.WaitAsync();
         try
         {
-            foreach (var item in dataEl.EnumerateArray())
+            foreach (var item in dataArray)
             {
-                if (!item.TryGetProperty("AgentLoginName", out var nameEl)) continue;
-                var agentLoginName = nameEl.GetString();
+                if (item is not JObject itemObj) continue;
+                var agentLoginName = itemObj["AgentLoginName"]?.Value<string>();
                 if (agentLoginName == null) continue;
 
                 var fields = new Dictionary<string, CellValue>();
-                foreach (var prop in item.EnumerateObject())
+                foreach (var prop in itemObj.Properties())
                 {
-                    fields[prop.Name] = prop.Value.ValueKind == JsonValueKind.String
-                        ? CellValue.Parse(prop.Value.GetString())
-                        : CellValue.Parse(prop.Value.ToString());
+                    fields[prop.Name] = CellValue.Parse(
+                        prop.Value.Type == JTokenType.String
+                            ? prop.Value.Value<string>()
+                            : prop.Value.ToString());
                 }
 
                 var snapshot = new AgentSnapshot(agentLoginName, fields, DateTime.UtcNow);
@@ -346,9 +345,9 @@ public sealed class RtmRelayService : IRtmRelayService
             await FanOutAsync(handlers, new UnionStateChange.AgentsUpserted(upserted));
     }
 
-    private async Task HandleRemoveAsync(UnionState state, (Guid TenantId, int UnionId) key, JsonElement users)
+    private async Task HandleRemoveAsync(UnionState state, (Guid TenantId, int UnionId) key, JToken users)
     {
-        if (users.ValueKind != JsonValueKind.Array) return;
+        if (users is not JArray usersArray) return;
 
         var removed = new List<string>();
         List<Func<UnionStateChange, Task>> handlers;
@@ -360,14 +359,14 @@ public sealed class RtmRelayService : IRtmRelayService
             {
                 _logger.LogInformation(
                     "RtmRelayService: removeUser first payload tenant {TenantId} union {UnionId} — raw: {Raw}",
-                    key.TenantId, key.UnionId, users.GetRawText());
+                    key.TenantId, key.UnionId, users.ToString());
                 state.HasLoggedRemovePayload = true;
             }
 
-            foreach (var userEl in users.EnumerateArray())
+            foreach (var userToken in usersArray)
             {
-                if (!userEl.TryGetProperty("name", out var nameEl)) continue;
-                var name = nameEl.GetString();
+                if (userToken is not JObject userObj) continue;
+                var name = userObj["name"]?.Value<string>();
                 if (name == null) continue;
 
                 if (state.Snapshot.Remove(name))

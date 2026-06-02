@@ -359,16 +359,18 @@
 
     private bool _stateLoaded;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
         ApplyConfig();
-        await ConnectAsync();
+        // ConnectAsync moved to OnAfterRenderAsync — does not run during SSR pre-render
+        return Task.CompletedTask;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            await ConnectAsync();
             _ = StartTickLoopAsync();
             if (GridId != 0 && !_stateLoaded)
             {
@@ -389,10 +391,10 @@
         ApplyConfig();
         _lastColumnsKey = string.Join(",", _columnDefs.Select(c => c.MetricId));
 
-        if (GridId != 0 && _previousGridId == 0 && _unionHandler is null)
+        if (GridId != 0 && _previousGridId == 0)
         {
             _previousGridId = GridId;
-            await ConnectAsync();
+            // Initial connect handled in OnAfterRenderAsync(firstRender)
         }
         else if (_connectionState == ConnectionState.Connected
                  && _lastColumnsKey != prevColumnsKey
@@ -493,6 +495,11 @@
         if (GridId == 0)
         {
             Logger.LogWarning("AgentGridWidget: GridId is 0, skipping connection");
+            return;
+        }
+        if (_unionHandler is not null)
+        {
+            Logger.LogDebug("AgentGridWidget: already subscribed to union {UnionId}, skipping duplicate ConnectAsync", _rtsGridId > 0 ? _rtsGridId : GridId);
             return;
         }
 

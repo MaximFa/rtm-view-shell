@@ -4,11 +4,13 @@
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
 @implements IAsyncDisposable
 
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject ISender Mediator
 @inject IRtmRelayService RtmRelay
+@inject ILogger<DataSlotWidget> Logger
 
 <div class="data-slot-widget" style="@GetWidgetStyle()">
     @if (GridId == 0)
@@ -129,24 +131,19 @@
         public string? FontColor { get; set; }
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
         ApplyConfig();
-        if (GridId > 0)
-        {
-            await ConnectAsync();
-        }
-        else
-        {
-            _connectionState = ConnectionState.Connected;
-        }
+        // ConnectAsync moved to OnAfterRenderAsync — does not run during SSR pre-render
+        return Task.CompletedTask;
     }
 
     protected override async Task OnParametersSetAsync()
     {
         ApplyConfig();
-        // Reconnect when DataSlotGridId becomes available (e.g. first Save after widget placed)
-        if (_rtsGridId > 0 && _rtsGridId != _prevRtsGridId)
+        // Reconnect when GridId changes on a live connection.
+        // Guard: _gridHandler is not null ensures we only reconnect after initial connect (OnAfterRenderAsync).
+        if (_gridHandler is not null && _rtsGridId > 0 && _rtsGridId != _prevRtsGridId)
         {
             _prevRtsGridId = _rtsGridId;
             await ReconnectAsync();
@@ -155,6 +152,12 @@
         {
             _prevRtsGridId = _rtsGridId;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await ConnectAsync();
     }
 
     private void ApplyConfig()
@@ -249,6 +252,11 @@
     {
         if (_rtsGridId == 0)
             return;
+        if (_gridHandler is not null)
+        {
+            Logger.LogDebug("DataSlotWidget: already subscribed to grid {GridId}, skipping duplicate ConnectAsync", _rtsGridId);
+            return;
+        }
 
         _connectionState = ConnectionState.Connecting;
 

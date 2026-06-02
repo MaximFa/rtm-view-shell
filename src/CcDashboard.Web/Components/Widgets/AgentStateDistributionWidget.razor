@@ -201,10 +201,7 @@
     {
         await LoadDefinitionsAsync();
         ApplyConfig();
-        if (RtsGridId > 0 && _businessUnitId > 0)
-        {
-            await ConnectAsync();
-        }
+        // ConnectAsync moved to OnAfterRenderAsync — does not run during SSR pre-render
     }
 
     private async Task LoadDefinitionsAsync()
@@ -228,14 +225,14 @@
         ApplyConfig();
         var currentGridId = RtsGridId;
 
-        // First connection
-        if (currentGridId != 0 && _previousGridId == 0 && _gridHandler is null && _businessUnitId > 0)
+        // Initial connect is handled in OnAfterRenderAsync(firstRender) to avoid SSR pre-render cycling.
+        // Track GridId for reconnect detection.
+        if (currentGridId != 0 && _previousGridId == 0)
         {
             _previousGridId = currentGridId;
-            await ConnectAsync();
         }
-        // Grid changed (mode switch) — reconnect to new grid
-        else if (currentGridId != 0 && currentGridId != _previousGridId && _businessUnitId > 0)
+        // Grid changed (mode switch) — reconnect only if already connected
+        else if (_gridHandler is not null && currentGridId != 0 && currentGridId != _previousGridId && _businessUnitId > 0)
         {
             _previousGridId = currentGridId;
             _chartRendered = false;
@@ -247,6 +244,9 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+            await ConnectAsync();
+
         if (_connectionState == ConnectionState.Connected && _cellValues.Count > 0 && !_chartRendered)
         {
             _chartRendered = true;
@@ -320,6 +320,11 @@
         if (RtsGridId == 0 || _businessUnitId == 0)
         {
             Logger.LogWarning("AgentStateDistributionWidget: RtsGridId or BusinessUnitId is 0, skipping connection");
+            return;
+        }
+        if (_gridHandler is not null)
+        {
+            Logger.LogDebug("AgentStateDistributionWidget: already subscribed to grid {GridId}, skipping duplicate ConnectAsync", RtsGridId);
             return;
         }
 
