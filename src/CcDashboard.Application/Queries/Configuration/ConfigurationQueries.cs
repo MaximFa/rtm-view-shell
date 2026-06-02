@@ -17,7 +17,7 @@ public class GetSitesQueryHandler(INgcSiteRepository repo, ICurrentUserAccessor 
     {
         var tenantId = user.Role == "Superadmin" ? q.TenantId : (q.TenantId ?? user.TenantId!.Value);
         var items = await repo.GetAllByTenantAsync(tenantId, ct);
-        return items.Select(s => new SiteDto(s.SiteId, s.SiteName, s.Description, s.TimeZone, s.ClearTime)).ToList();
+        return items.Select(s => new SiteDto(s.SiteId, s.TenantId, s.SiteName, s.Description, s.TimeZone, s.ClearTime)).ToList();
     }
 }
 
@@ -113,6 +113,7 @@ public class GetSupergroupsQueryHandler(INgcSupergroupRepository repo, ICurrentU
         var items = await repo.GetAllByTenantAsync(tenantId, ct);
         return items.Select(sg => new SupergroupDto(
             sg.SupergroupId,
+            sg.TenantId,
             sg.SupergroupName,
             sg.Description,
             sg.AgentGroupAssignments.Select(a => a.AgentgroupId ?? "").Where(id => !string.IsNullOrEmpty(id)).ToList())).ToList();

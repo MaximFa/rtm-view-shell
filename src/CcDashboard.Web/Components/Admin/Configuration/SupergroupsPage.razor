@@ -60,6 +60,10 @@ else
             <thead class="table-light">
                 <tr>
                     <th>@L["SG_Name"]</th>
+                    @if (CurrentUser.Role == "Superadmin")
+                    {
+                        <th>@L["PG_Tenant"]</th>
+                    }
                     <th>@L["SG_Description"]</th>
                     <th>@L["SG_AgentGroups"]</th>
                     <th></th>
@@ -70,6 +74,11 @@ else
                 {
                     <tr @key="sg.SupergroupId">
                         <td>@sg.SupergroupName</td>
+                        @if (CurrentUser.Role == "Superadmin")
+                        {
+                            var tenantName = Tenants.FirstOrDefault(t => t.Id == sg.TenantId)?.Name ?? sg.TenantId.ToString();
+                            <td><span class="badge bg-light text-dark border small">@tenantName</span></td>
+                        }
                         <td class="text-muted small">@sg.Description</td>
                         <td><span class="badge bg-secondary">@sg.AgentGroupIds.Count</span></td>
                         <td class="text-end">
@@ -79,7 +88,7 @@ else
                 }
                 @if (!Supergroups.Any())
                 {
-                    <tr><td colspan="4" class="text-center text-muted py-3">@L["SG_Empty"]</td></tr>
+                    <tr><td colspan="@(CurrentUser.Role == "Superadmin" ? 5 : 4)" class="text-center text-muted py-3">@L["SG_Empty"]</td></tr>
                 }
             </tbody>
         </table>

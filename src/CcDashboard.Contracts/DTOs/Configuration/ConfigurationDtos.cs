@@ -2,6 +2,7 @@ namespace CcDashboard.Contracts.DTOs.Configuration;
 
 public record SiteDto(
     string SiteId,
+    Guid TenantId,
     string? SiteName,
     string? Description,
     string? TimeZone,
@@ -19,6 +20,7 @@ public record BusinessUnitDto(
 
 public record SupergroupDto(
     int SupergroupId,
+    Guid TenantId,
     string? SupergroupName,
     string? Description,
     IReadOnlyList<string> AgentGroupIds);
