@@ -44,6 +44,30 @@ END;
 $$;
 
 -- ============================================================================
+-- 1b. NGC_GetBusinessUnitIdByName — returns existing BusinessUnitId or NULL
+-- ============================================================================
+DROP FUNCTION IF EXISTS "NGC_GetBusinessUnitIdByName"(text, uuid);
+
+CREATE OR REPLACE FUNCTION "NGC_GetBusinessUnitIdByName"(
+    p_business_unit_name text,
+    p_tenant_id uuid
+)
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id integer;
+BEGIN
+    SELECT "BusinessUnitId" INTO v_id
+    FROM "NGC_BusinessUnit"
+    WHERE "BusinessUnitName" = p_business_unit_name
+      AND "TenantId" = p_tenant_id
+    LIMIT 1;
+    RETURN v_id;  -- NULL if not found
+END;
+$$;
+
+-- ============================================================================
 -- 2. NGC_GetSupergroupTable
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetSupergroupTable"();

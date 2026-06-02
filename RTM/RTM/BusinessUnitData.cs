@@ -182,12 +182,26 @@ namespace RTM
 
 
 
-        //  Create BusinessUnit
-        public static int createBusinessUnit(string name, string description, string siteId,string createdBy)
+        //  Create BusinessUnit (idempotent: returns existing ID if name already exists)
+        public static int createBusinessUnit(string name, string description, string siteId, string createdBy)
         {
             int retVal = 0;
             try
             {
+                // Step 1: check if already exists
+                var checkParams = new List<NpgsqlParameter>();
+                checkParams.Add(new NpgsqlParameter("@BusinessUnitName", name));
+                checkParams.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
+                var existingScalar = DBAdapter.GetScalar("NGC_GetBusinessUnitIdByName", checkParams);
+
+                if (existingScalar != null && existingScalar != DBNull.Value)
+                {
+                    int existingId = Convert.ToInt32(existingScalar);
+                    AsyncLogger.Info($"createBusinessUnit: existing BU found name={name} id={existingId} (skipping INSERT)");
+                    return existingId;
+                }
+
+                // Step 2: insert new
                 var parameters = new List<NpgsqlParameter>();
                 parameters.Add(new NpgsqlParameter("@BusinessUnitName", name));
                 parameters.Add(new NpgsqlParameter("@Description", description));
@@ -196,6 +210,7 @@ namespace RTM
                 parameters.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 int businessUnitID = Convert.ToInt32(DBAdapter.GetScalar("NGC_CreateBusinessUnit", parameters));
 
+                AsyncLogger.Info($"createBusinessUnit: new BU created name={name} id={businessUnitID}");
                 retVal = businessUnitID;
             }
             catch (Exception ex)
