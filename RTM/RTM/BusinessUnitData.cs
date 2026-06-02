@@ -194,9 +194,9 @@ namespace RTM
                 checkParams.Add(new NpgsqlParameter("@TenantId", AppConfig.TenantId));
                 var existingScalar = DBAdapter.GetScalar("NGC_GetBusinessUnitIdByName", checkParams);
 
-                if (existingScalar != null && existingScalar != DBNull.Value)
+                if (!string.IsNullOrEmpty(existingScalar))
                 {
-                    int existingId = Convert.ToInt32(existingScalar);
+                    int existingId = int.Parse(existingScalar);
                     AsyncLogger.Info($"createBusinessUnit: existing BU found name={name} id={existingId} (skipping INSERT)");
                     return existingId;
                 }
