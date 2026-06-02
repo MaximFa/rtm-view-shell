@@ -4057,6 +4057,7 @@
                 ), _cts.Token);
 
                 queueGridId = rtsResult.GridId;
+                preassignedGridId = queueGridId;  // Sync dashboard_widgets.GridId with RTSGrid_Grid.GridId
                 headerRowId = rtsResult.HeaderRowId;
                 savedHeaderCellIds = rtsResult.HeaderCellIds.ToDictionary(kvp => kvp.Key, kvp => (int?)kvp.Value);
 
