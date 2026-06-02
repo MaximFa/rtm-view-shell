@@ -2248,3 +2248,112 @@ public record ItemListDto(
 ---
 
 *§29 added 2026-05-29 — Superadmin must see Tenant selector + Tenant column in all tables.*
+
+---
+
+## §24. QueueGrid / DataGrid relay — critical implementation lessons (2026-06-03)
+
+These lessons were discovered during production debugging of the QueueGrid widget.
+
+### §24.1 Newtonsoft SignalR protocol: NEVER use On<JsonElement>
+
+When the HubConnection uses `AddNewtonsoftJsonProtocol`, do NOT register
+`On<System.Text.Json.JsonElement>`. Newtonsoft cannot deserialize to this type.
+The handler SILENTLY NEVER FIRES. All incoming messages are dropped with no error.
+
+**Correct:**
+```csharp
+conn.On<JToken>("updateGridData", cells => HandleAsync(cells));
+
+// In handler:
+if (cells is not JArray arr) { LogWarning(...); return; }
+foreach (var item in arr)
+{
+    var cellId = item["CellId"]?.Value<int>() ?? continue;
+    var value  = item["Value"]?.Value<string>() ?? "";
+}
+```
+
+**Wrong (silent drop):**
+```csharp
+conn.On<JsonElement>("updateGridData", cells => HandleAsync(cells)); // NEVER!
+```
+
+### §24.2 Blazor SSR pre-render: subscribe only in OnAfterRenderAsync
+
+`OnInitializedAsync` and `OnParametersSetAsync` run during BOTH SSR pre-rendering
+AND the interactive circuit. During SSR, the component disposes immediately after
+HTML generation, causing rapid subscribe→unsubscribe (milliseconds), which creates
+a grace timer that fires 30 seconds later and disconnects the relay.
+
+**Correct (.NET 8):** Subscribe ONLY in `OnAfterRenderAsync(bool firstRender)`.
+This lifecycle method is NOT called during SSR pre-rendering.
+
+```csharp
+protected override async Task OnInitializedAsync()
+{
+    ApplyConfig();
+    // NO ConnectAsync here - it runs during SSR pre-render too
+}
+
+protected override async Task OnParametersSetAsync()
+{
+    ApplyConfig();
+    // Track parameter changes but NO ConnectAsync call
+    if (GridId != 0 && _previousGridId == 0)
+        _previousGridId = GridId;
+    _previousGridId = GridId;
+    // Reconnect on column change is ok here — _gridHandler is not null guard prevents SSR call
+}
+
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender)
+    {
+        await ConnectAsync();           // Only runs in interactive mode
+        if (!_stateLoaded) { ... }
+    }
+}
+```
+
+Also add guard in ConnectAsync to prevent double-subscribe:
+```csharp
+private async Task ConnectAsync()
+{
+    if (_rtsGridId == 0) return;
+    if (_gridHandler is not null) return;  // already subscribed
+    ...
+}
+```
+
+### §24.3 GridId in dashboard_widgets must come from RTSGrid_Grid
+
+When saving a QueueGrid widget, the `dashboard_widgets.GridId` field must store
+the `RTSGrid_Grid.GridId` value (the real grid ID from RTM Service), NOT the
+auto-increment PK of the `dashboard_widgets` table.
+
+After calling `SaveQueueGridRtsCommand` and getting `queueGridId`:
+```csharp
+queueGridId = rtsResult.GridId;  // from RTSGrid_Grid
+preassignedGridId = queueGridId;  // sync to dashboard_widgets.GridId
+```
+
+Without this sync, the widget config stores CellIds from a non-existent grid,
+and RTM Service pushes CellIds that never match the widget's _cellMap.
+
+### §24.4 UnitOfWork must save ALL DbContexts
+
+If the project has multiple DbContexts (e.g., `AppDbContext` + `BackendEmulationDbContext`),
+the `UnitOfWork.SaveChangesAsync()` must call `SaveChangesAsync()` on ALL of them.
+
+```csharp
+public async Task<int> SaveChangesAsync(CancellationToken ct = default)
+{
+    var result = await db.SaveChangesAsync(ct);
+    await beDb.SaveChangesAsync(ct);  // Don't forget secondary contexts!
+    return result;
+}
+```
+
+Without this, writes to secondary contexts silently succeed at the application layer
+but never reach the database.

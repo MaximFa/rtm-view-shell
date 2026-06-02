@@ -363,11 +363,10 @@
     {
         ApplyConfig();
 
-        // Initial connect
-        if (GridId != 0 && _previousGridId == 0 && _gridHandler is null)
+        // Track GridId changes (initial connect is handled in OnAfterRenderAsync)
+        if (GridId != 0 && _previousGridId == 0)
         {
             _previousGridId = GridId;
-            await ConnectAsync();
         }
         _previousGridId = GridId;
 

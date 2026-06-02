@@ -864,6 +864,32 @@ else if (IsAgentStateDistributionWidget(widget))
 
 ---
 
-*Widget Planner Skill — created 2026-05-27. Updated 2026-05-28 (L-22–L-26).*
+---
+
+## Lesson 11: QueueGrid production checklist (2026-06-03)
+
+Before marking a DataGrid/QueueGrid widget as delivered, verify:
+
+1. **GridId sync**: `dashboard_widgets.GridId` == `RTSGrid_Grid.GridId`
+   (NOT the auto-increment PK of dashboard_widgets)
+
+2. **CellMap populated**: After saving, `Config.QueueGridRows[i].CellIds[colId]`
+   contains real CellIds from `RTSGrid_GetDataCells(gridId)`.
+   If CellIds are null/empty, no data will ever display.
+
+3. **Newtonsoft + JToken**: If relay uses Newtonsoft protocol,
+   `On<JsonElement>` silently drops all messages. Use `On<JToken>`.
+
+4. **Blazor lifecycle**: Widget subscribe must be in `OnAfterRenderAsync(firstRender)`
+   only. SSR pre-render in `OnInitializedAsync`/`OnParametersSetAsync` causes
+   subscribe→dispose cycles that make the relay grace timer kill the connection.
+
+5. **RTM Service LoadData**: Calling `/LoadData` (e.g., after SaveQueueGridRts)
+   causes RTM Service to close all SignalR connections. The relay reconnects
+   automatically via backoff, but there will be a brief data interruption.
+
+---
+
+*Widget Planner Skill — created 2026-05-27. Updated 2026-05-28 (L-22–L-26), 2026-06-03 (L-11 QueueGrid checklist).*
 *L-22: Specialized Grid Widget pattern. L-23: dual-mode RTSGrid. L-24: MetricFunction rules. L-25: State vs Group. L-26: 3-place deletion rule.*
-*22 lessons learned.*
+*23 lessons learned.*
