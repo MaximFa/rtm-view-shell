@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using StackExchange.Redis;
 
@@ -512,8 +513,9 @@ public sealed class RtmRelayService : IRtmRelayService
             .ConfigureLogging(b => b.SetMinimumLevel(LogLevel.Information))
             .Build();
 
-        // Using On<JsonElement> matches the DNN function(cells) single-array-arg signature.
-        conn.On<JsonElement>("updateGridData",
+        // Using On<JToken> — Newtonsoft protocol cannot deserialize to System.Text.Json.JsonElement.
+        // JToken is the correct type when AddNewtonsoftJsonProtocol is active.
+        conn.On<JToken>("updateGridData",
             cells => HandleGridUpdateAsync(state, key, cells));
 
         conn.Closed += ex =>
@@ -626,13 +628,13 @@ public sealed class RtmRelayService : IRtmRelayService
 
     // ── Grid event handler ────────────────────────────────────────────────────
 
-    private async Task HandleGridUpdateAsync(GridState state, (Guid TenantId, int GridId) key, JsonElement cells)
+    private async Task HandleGridUpdateAsync(GridState state, (Guid TenantId, int GridId) key, JToken cells)
     {
-        if (cells.ValueKind != JsonValueKind.Array)
+        if (cells is not JArray cellsArray)
         {
             _logger.LogWarning(
-                "RtmRelayService: updateGridData tenant {TenantId} grid {GridId} — unexpected payload kind {Kind}",
-                key.TenantId, key.GridId, cells.ValueKind);
+                "RtmRelayService: updateGridData tenant {TenantId} grid {GridId} — unexpected payload type {Type}",
+                key.TenantId, key.GridId, cells?.Type.ToString() ?? "null");
             return;
         }
 
@@ -642,12 +644,13 @@ public sealed class RtmRelayService : IRtmRelayService
         await state.Lock.WaitAsync();
         try
         {
-            foreach (var item in cells.EnumerateArray())
+            foreach (var item in cellsArray)
             {
-                if (!item.TryGetProperty("CellId", out var cellIdEl)) continue;
-                if (!item.TryGetProperty("Value", out var valueEl)) continue;
-                var cellId = cellIdEl.GetInt32();
-                var value = valueEl.GetString() ?? "";
+                var cellIdToken = item["CellId"];
+                var valueToken = item["Value"];
+                if (cellIdToken == null || valueToken == null) continue;
+                var cellId = cellIdToken.Value<int>();
+                var value = valueToken.Value<string>() ?? "";
                 state.CellSnapshot[cellId] = value;
                 updates.Add(new GridCellUpdate(cellId, value));
             }
