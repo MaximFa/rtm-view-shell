@@ -529,10 +529,11 @@ public sealed class RtmRelayService : IRtmRelayService
     private async Task GridInitAsync(GridState state, int gridId, CancellationToken ct)
     {
         // Hub uses the same 'init' method for both unions ('u{id}') and grids ('{id}').
-        await state.Connection!.InvokeAsync<JsonElement>("init", gridId.ToString(), ct);
+        // Return type is string (datetime) - using JsonElement causes Newtonsoft/STJ conflict.
+        await state.Connection!.InvokeAsync<string>("init", gridId.ToString(), ct);
 
         // refreshCells causes the server to push updateGridData with all current values.
-        await state.Connection!.InvokeAsync<JsonElement>("refreshCells", gridId.ToString(), ct);
+        await state.Connection!.InvokeAsync<string>("refreshCells", gridId.ToString(), ct);
 
         _logger.LogInformation("RtmRelayService: init+refreshCells complete for grid {GridId}", gridId);
     }
@@ -579,6 +580,12 @@ public sealed class RtmRelayService : IRtmRelayService
             }
             catch (Exception ex)
             {
+                // Dispose connection that was started but failed init
+                if (state.Connection != null)
+                {
+                    try { await state.Connection.DisposeAsync(); } catch { }
+                    state.Connection = null;
+                }
                 state.IsDisposing = false;
                 _logger.LogWarning(ex,
                     "RtmRelayService: reconnect attempt failed for tenant {TenantId} grid {GridId}",
