@@ -377,7 +377,7 @@ public class DatabaseInitializer(
             void TryAdd(NgcBusinessUnit? bu, string queueId)
             {
                 if (bu != null && !existingSet.Contains($"{bu.BusinessUnitId}:{queueId}"))
-                    toAdd.Add(new NgcBusinessUnitQueueClassification { TenantId = tenant.Id, BusinessUnitId = bu.BusinessUnitId, QueueId = queueId, CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" });
+                    toAdd.Add(new NgcBusinessUnitQueueClassification { TenantId = tenant.Id, BusinessUnitId = bu.BusinessUnitId, QueueId = queueId, ClassificationId = "ALL", CreatedDatetime = DateTime.UtcNow, CreatedBy = "system" });
             }
 
             TryAdd(salesBu, "Q001");

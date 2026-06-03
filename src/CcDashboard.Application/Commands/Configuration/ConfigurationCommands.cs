@@ -127,6 +127,7 @@ public class SaveBusinessUnitCommandHandler(
                 BusinessUnitId = bu.BusinessUnitId,
                 QueueId = qid,
                 TenantId = tenantId,
+                ClassificationId = "ALL",
                 CreatedDatetime = now,
                 CreatedBy = createdBy
             });
