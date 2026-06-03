@@ -48,7 +48,6 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
 
     // RTSGrid tables - RTM-M1 additions
     public DbSet<RtsGridStatistic> RtsGridStatistics => Set<RtsGridStatistic>();
-    public DbSet<RtsGridTemplateCell> RtsGridTemplateCells => Set<RtsGridTemplateCell>();
     public DbSet<RtsGridUserStatus> RtsGridUserStatuses => Set<RtsGridUserStatus>();
 
     protected override void OnModelCreating(ModelBuilder mb)
@@ -332,17 +331,6 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.ParamValue9).HasMaxLength(500);
             e.Property(x => x.ParamType10).HasMaxLength(100);
             e.Property(x => x.ParamValue10).HasMaxLength(500);
-        });
-
-        mb.Entity<RtsGridTemplateCell>(e =>
-        {
-            e.ToTable("RTSGrid_TemplateCell");
-            e.HasKey(x => x.CellTemplateId);
-            e.Property(x => x.CellTemplateId).ValueGeneratedOnAdd();
-            e.Property(x => x.CellType).HasMaxLength(50);
-            e.Property(x => x.Value).HasMaxLength(500);
-            e.Property(x => x.Tooltip).HasMaxLength(500);
-            e.Property(x => x.OnClick).HasMaxLength(500);
         });
 
         mb.Entity<RtsGridUserStatus>(e =>

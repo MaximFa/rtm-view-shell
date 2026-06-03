@@ -118,20 +118,6 @@ public class RtsGridStatistic
 }
 
 /// <summary>
-/// RTSGrid_TemplateCell - cell template definitions referenced by RTSGrid_Column.CellTemplateId.
-/// PK: CellTemplateId (IDENTITY). FK from RtsGridColumn.CellTemplateId.
-/// </summary>
-public class RtsGridTemplateCell
-{
-    public int CellTemplateId { get; set; }
-    public int? StyleId { get; set; }
-    public string? CellType { get; set; }
-    public string? Value { get; set; }
-    public string? Tooltip { get; set; }
-    public string? OnClick { get; set; }
-}
-
-/// <summary>
 /// RTSGrid_UserStatus - user status records written by RTSGrid_SetUserStatus SP.
 /// PK: (UserId, StatusId). No DDL in SQL Server dump - reconstructed from SP params.
 /// </summary>

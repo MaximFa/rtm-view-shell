@@ -6,7 +6,7 @@
 -- C# reads columns BY INDEX — column ORDER must match original T-SQL SELECT.
 -- All identifiers are double-quoted (PostgreSQL case-sensitivity).
 --
--- CRITICAL DEPENDENCY: Functions 1-2 require RTSGrid_TemplateCell table from RTM-M1.
+-- TemplateCell dependency removed (always empty in all deployments)
 -- ============================================================================
 
 -- ============================================================================
@@ -40,17 +40,15 @@ BEGIN
         o."ColumnId",
         r."RowId",
         c."UnionId",
-        g."UnionId" AS "GridUnionId",
-        r."UnionId" AS "RowUnionId",
-        c."Value"::text AS "Metric",
-        t."Value"::text AS "ColumnMetric"
-    FROM "RTSGrid_Grid" g, "RTSGrid_Row" r, "RTSGrid_Cell" c,
-         "RTSGrid_Column" o, "RTSGrid_TemplateCell" t
-    WHERE g."GridId" = r."GridId"
-      AND c."RowId" = r."RowId"
-      AND c."ColumnId" = o."ColumnId"
-      AND o."CellTemplateId" = t."CellTemplateId"
-      AND (c."CellType" = 'Data' OR (c."CellType" = 'None' AND t."CellType" = 'Data'));
+        g."UnionId"  AS "GridUnionId",
+        r."UnionId"  AS "RowUnionId",
+        c."Value"::text  AS "Metric",
+        NULL::text   AS "ColumnMetric"
+    FROM "RTSGrid_Grid" g
+    JOIN "RTSGrid_Row"  r ON r."GridId"    = g."GridId"
+    JOIN "RTSGrid_Cell" c ON c."RowId"     = r."RowId"
+    JOIN "RTSGrid_Column" o ON o."ColumnId" = c."ColumnId"
+    WHERE c."CellType" = 'Data';
 END;
 $$;
 
