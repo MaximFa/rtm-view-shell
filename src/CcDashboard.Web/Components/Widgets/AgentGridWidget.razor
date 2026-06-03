@@ -424,8 +424,13 @@
             _darkFontColor = Config.DarkFontColor ?? "#FFFFFF";
             _darkTableBackgroundColor = Config.DarkTableBackgroundColor ?? "#333333";
             _columnDefs = Config.AgentGridColumnDefs?.ToList() ?? new();
-            if (Config.RtsUserGridId is > 0)
-                _rtsGridId = Config.RtsUserGridId.Value;
+            // Union ID for RTM Service = BusinessUnit.Id (BU.Id = Union ID in Engine.UnionList).
+            // RtsUserGridId is the RTSUserGrid_Grid row ID, NOT the union ID — do not use it here.
+            if (!string.IsNullOrEmpty(Config.BusinessUnit) &&
+                int.TryParse(Config.BusinessUnit, out var buId) && buId > 0)
+                _rtsGridId = buId;
+            else if (Config.RtsUserGridId is > 0)
+                _rtsGridId = Config.RtsUserGridId.Value; // fallback: legacy configs without BusinessUnit
 
             // Avatar, Score, Pagination
             _showAvatar = Config.ShowAvatar;
