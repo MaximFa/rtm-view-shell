@@ -144,8 +144,13 @@ public sealed class RtmRelayService : IRtmRelayService
         await state.Lock.WaitAsync();
         try
         {
-            state.Handlers.Remove(handler);
-            state.RefCount = Math.Max(0, state.RefCount - 1);
+            var removed = state.Handlers.Remove(handler);
+            if (removed)
+                state.RefCount = Math.Max(0, state.RefCount - 1);
+            else
+                _logger.LogWarning(
+                    "RtmRelayService: UnsubscribeUnionAsync — handler not found in list for union {UnionId} (RefCount={RefCount}), skipping decrement",
+                    unionId, state.RefCount);
 
             if (state.RefCount == 0)
             {
@@ -482,8 +487,13 @@ public sealed class RtmRelayService : IRtmRelayService
         await state.Lock.WaitAsync();
         try
         {
-            state.Handlers.Remove(handler);
-            state.RefCount = Math.Max(0, state.RefCount - 1);
+            var removed = state.Handlers.Remove(handler);
+            if (removed)
+                state.RefCount = Math.Max(0, state.RefCount - 1);
+            else
+                _logger.LogWarning(
+                    "RtmRelayService: UnsubscribeGridAsync — handler not found in list for grid {GridId} (RefCount={RefCount}), skipping decrement",
+                    gridId, state.RefCount);
 
             if (state.RefCount == 0)
             {
