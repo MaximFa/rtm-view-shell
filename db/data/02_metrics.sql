@@ -18,8 +18,6 @@ QueueNumIncomingOnlineCallbacks	QM - Number of Incoming Callbacks including Wait
 QueueNumIncomingOnlineCallsAndCallbacks	QM - Number of Incoming Calls and Callbacks including Waiting	Interactions Summary	InteractionsCount	(InteractionType=="Call" || InteractionType=="Callback") && (CallType=="External")  && Direction == "Incoming"	\N	\N	number	Data
 QueueNumIncomingOnlineChats	QM - Number of Incoming Chats including Waiting	Interactions Summary	InteractionsCount	(InteractionType=="Chat")  && Direction == "Incoming"	\N	\N	number	Data
 QueueNumIcomingOnlineInteractions	QM - Number of Incoming Interactions including Waiting	Interactions Summary	InteractionsCount	(CallType=="External")  && Direction == "Incoming" && (InteractionType=="Chat" || InteractionType=="email")	\N	\N	number	Data
-QueueNumAbandonefCalls	QM - Number of Abandoned Calls	Interactions Summary	InteractionsCount	(InteractionType=="Call") && (CallType=="External")  && Direction == "Incoming" && IsAbandoned && !IsCallbackRequest	\N	\N	number	Data
-QueueNumAbandonefCallbacks	QM - Number of Abandoned Callbacks	Interactions Summary	InteractionsCount	(InteractionType=="Callback") && (CallType=="External")  && Direction == "Incoming" && IsAbandoned && !IsCallbackRequest	\N	\N	number	Data
 QueueNumAbandonedCallsAndCallbacks	QM - Number of Abandoned Calls and Callbacks	Interactions Summary	InteractionsCount	(InteractionType=="Call" || InteractionType=="Callback") && (CallType=="External")  && Direction == "Incoming" && IsAbandoned && !IsCallbackRequest	\N	\N	number	Data
 QueueNumAbandonedChats	QM - Number of Abandoned Chats	Interactions Summary	InteractionsCount	(InteractionType=="Chat") && (CallType=="External")  && Direction == "Incoming" && IsAbandoned && !IsCallbackRequest	\N	\N	number	Data
 QueueNumAbandonedInteractions	QM - Number of Abandoned Interactions	Interactions Summary	InteractionsCount	(CallType=="External")  && Direction == "Incoming" && IsAbandoned && !IsCallbackRequest && (InteractionType=="Chat" || InteractionType=="email")	\N	\N	number	Data
@@ -37,6 +35,7 @@ QueueNumIncomingHandledInteractions	QM - Number of Completed Incoming Interactio
 QueueSLAIn30secFrom80PctInc	QM - Percent of Answered Calls in 30 sec from 80% Incoming	Interactions Summary	Calc	[QueueNumIncomingCompletedCalls]==0 ? 0 : ((double)[QueueNumAnsweredCalls30sec ]/([QueueNumIncomingCompletedCalls]*0.8))	##0.00%	\N	number	Data
 QueueNumWrapUpAgents	QM - Number of Wpap Up Agents in Queue Skill	Interactions Summary	UsersInStatusCount	Wrap Up	\N	\N	number	Data
 QueueNumAnsweredCallbacks	QM - Number of Answered Callbacks	Interactions Summary	InteractionsCount	(InteractionType=="Callback") && (CallType=="External")  && Direction == "Incoming" && IsAnswered	\N	\N	number	Data
+QueueNumAbandonedCallbacks	QM - Number of Abandoned Callbacks	Interactions Summary	InteractionsCount	(InteractionType=="Callback") && (CallType=="External")  && Direction == "Incoming" && IsAbandoned && !IsCallbackRequest	\N	\N	number	Data
 QueueNumAnsweredCallsAndCallbacks	QM - Number of Answered Calls and Callbacks	Interactions Summary	InteractionsCount	(InteractionType=="Call" || InteractionType=="Callback") && (CallType=="External")  && Direction == "Incoming" && IsAnswered	\N	\N	number	Data
 QueueNumAnsweredChats	QM - Number of Answered Chats	Interactions Summary	InteractionsCount	(InteractionType=="Chat") && (CallType=="External")  && Direction == "Incoming" && IsAnswered	\N	\N	number	Data
 QueueNumAnsweredInteractions	QM - Number of Answered Interactions	Interactions Summary	InteractionsCount	(CallType=="External")  && Direction == "Incoming" && IsAnswered && (InteractionType=="Chat" || InteractionType=="email")	\N	\N	number	Data
@@ -204,6 +203,7 @@ MonAgentAvailableDurationPct	Agent - Cumulative Available Duration Percent	User	
 MonAgentBreakDurationPct	Agent - Cumulative Break Duration Percent	User	TotalStatusGroupPercent	BREAK	\N	\N	number	Agent
 MonAgentPaperworkDurationPct	Agent - Cumulative Paperwork Duration Percent	User	TotalStatusGroupPercent	PAPERWORK	\N	\N	number	Agent
 MonAgentTrainingDurationPct	Agent - Cumulative Training Duration Percent	User	TotalStatusGroupPercent	TRAINING	\N	\N	number	Agent
+QueueNumAbandonedCalls	QM - Number of Abandoned Calls	Interactions Summary	InteractionsCount	(InteractionType=="Call") && (CallType=="External")  && Direction == "Incoming" && IsAbandoned && !IsCallbackRequest	\N	\N	number	Data
 \.
 
 -- RTSGrid_Statistic
