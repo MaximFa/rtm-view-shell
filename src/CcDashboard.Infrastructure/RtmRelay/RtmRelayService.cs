@@ -342,9 +342,17 @@ public sealed class RtmRelayService : IRtmRelayService
         }
         finally { state.Lock.Release(); }
 
-        _logger.LogDebug(
-            "RtmRelayService: updateUserGrid tenant {TenantId} union {UnionId}, {Count} agents upserted",
-            key.TenantId, key.UnionId, upserted.Count);
+        var agentLog = string.Join(" | ", upserted.Select(a =>
+        {
+            var state = a.Fields.TryGetValue("MonAgentState", out var sv) ? sv.Raw
+                      : a.Fields.TryGetValue("AgentState",    out var sv2) ? sv2.Raw
+                      : "(no state field)";
+            var fieldNames = string.Join(",", a.Fields.Keys.Take(8));
+            return $"{a.AgentLoginName}=>state={state} fields=[{fieldNames}]";
+        }));
+        _logger.LogInformation(
+            "RECV updateUserGrid union {UnionId}: {Count} agents [{Agents}]",
+            key.UnionId, upserted.Count, agentLog);
 
         if (upserted.Count > 0)
             await FanOutAsync(handlers, new UnionStateChange.AgentsUpserted(upserted));
@@ -668,9 +676,10 @@ public sealed class RtmRelayService : IRtmRelayService
         }
         finally { state.Lock.Release(); }
 
+        var cellLog = string.Join(", ", updates.Select(u => $"Cell{u.CellId}={u.Value}"));
         _logger.LogInformation(
-            "RtmRelayService: updateGridData grid {GridId}: {Count} cells, {HandlerCount} handlers",
-            key.GridId, updates.Count, handlers.Count);
+            "RECV updateGridData grid {GridId}: {Count} cells [{Cells}], {HandlerCount} handlers",
+            key.GridId, updates.Count, cellLog, handlers.Count);
 
         if (updates.Count > 0)
             await FanOutGridAsync(handlers, updates);
