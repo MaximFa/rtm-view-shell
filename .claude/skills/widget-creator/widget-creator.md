@@ -2328,18 +2328,25 @@ private async Task ConnectAsync()
 
 ### §24.3 GridId in dashboard_widgets must come from RTSGrid_Grid
 
-When saving a QueueGrid widget, the `dashboard_widgets.GridId` field must store
-the `RTSGrid_Grid.GridId` value (the real grid ID from RTM Service), NOT the
-auto-increment PK of the `dashboard_widgets` table.
+**Applies to: QueueGrid, AgentGrid, DataSlot** — any widget that creates an RTSGrid entry.
 
-After calling `SaveQueueGridRtsCommand` and getting `queueGridId`:
+The `dashboard_widgets.GridId` field must store the `RTSGrid_Grid.GridId` value
+(the real grid ID from RTM Service), NOT the auto-increment PK of `dashboard_widgets`.
+
+After calling the RTS save command and getting the GridId result:
 ```csharp
-queueGridId = rtsResult.GridId;  // from RTSGrid_Grid
+// QueueGrid:
+queueGridId = rtsResult.GridId;
 preassignedGridId = queueGridId;  // sync to dashboard_widgets.GridId
+
+// DataSlot (same pattern — 2026-06-05):
+_dataSlotGridId = rtsResult.GridId;
+preassignedGridId = _dataSlotGridId;  // sync to dashboard_widgets.GridId
 ```
 
-Without this sync, the widget config stores CellIds from a non-existent grid,
-and RTM Service pushes CellIds that never match the widget's _cellMap.
+Without this sync, `SaveDashboardWidgetCommand` uses `PreassignedGridId = null`
+and lets the DB auto-generate a new identity value. The widget config then stores
+the wrong GridId. RTM Service connects to a non-existent grid and pushes cells=[].
 
 ### §24.4 UnitOfWork must save ALL DbContexts
 
