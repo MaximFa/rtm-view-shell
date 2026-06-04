@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict yKnMAtFxtaz1JJYMaFK1If5geUPvD7BL3tD6HOcUc3geQScitXhK8vVlDOXKUWi
+\restrict tpbSZY7YuuRu0JIuKUONLJtV1raLcHKkcxkSd5yCbzDOFGYa5B6GUlClZJMWdvD
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -158,7 +158,8 @@ BEGIN
     INSERT INTO "NGC_Supergroup" ("SupergroupName", "Description", "CreatedDatetime", "TenantId")
     VALUES (p_supergroup_name, p_description, NOW(), p_tenant_id)
     RETURNING "NGC_Supergroup"."SupergroupId";
-END; $$;
+END;
+$$;
 
 
 --
@@ -332,7 +333,7 @@ BEGIN
     WHERE "BusinessUnitName" = p_business_unit_name
       AND "TenantId" = p_tenant_id
     LIMIT 1;
-    RETURN v_id;
+    RETURN v_id;  -- NULL if not found
 END;
 $$;
 
@@ -537,12 +538,17 @@ $$;
 CREATE FUNCTION public."NGC_GetSupergroupIdByName"(p_name text, p_tenant_id uuid) RETURNS integer
     LANGUAGE plpgsql
     AS $$
-DECLARE v_id integer;
+DECLARE
+    v_id integer;
 BEGIN
-    SELECT "SupergroupId" INTO v_id FROM "NGC_Supergroup"
-    WHERE "SupergroupName" = p_name AND "TenantId" = p_tenant_id LIMIT 1;
+    SELECT "SupergroupId" INTO v_id
+    FROM "NGC_Supergroup"
+    WHERE "SupergroupName" = p_name
+      AND "TenantId" = p_tenant_id
+    LIMIT 1;
     RETURN v_id;
-END; $$;
+END;
+$$;
 
 
 --
@@ -1172,14 +1178,14 @@ BEGIN
         o."ColumnId",
         r."RowId",
         c."UnionId",
-        g."UnionId"   AS "GridUnionId",
-        r."UnionId"   AS "RowUnionId",
-        c."Value"::text   AS "Metric",
-        NULL::text    AS "ColumnMetric"
-    FROM "RTSGrid_Grid"   g
-    JOIN "RTSGrid_Row"    r  ON r."GridId"    = g."GridId"
-    JOIN "RTSGrid_Cell"   c  ON c."RowId"     = r."RowId"
-    JOIN "RTSGrid_Column" o  ON o."ColumnId"  = c."ColumnId"
+        g."UnionId"  AS "GridUnionId",
+        r."UnionId"  AS "RowUnionId",
+        c."Value"::text  AS "Metric",
+        NULL::text   AS "ColumnMetric"
+    FROM "RTSGrid_Grid" g
+    JOIN "RTSGrid_Row"  r ON r."GridId"    = g."GridId"
+    JOIN "RTSGrid_Cell" c ON c."RowId"     = r."RowId"
+    JOIN "RTSGrid_Column" o ON o."ColumnId" = c."ColumnId"
     WHERE c."CellType" = 'Data';
 END;
 $$;
@@ -3968,5 +3974,5 @@ ALTER TABLE ONLY public.widget_templates
 -- PostgreSQL database dump complete
 --
 
-\unrestrict yKnMAtFxtaz1JJYMaFK1If5geUPvD7BL3tD6HOcUc3geQScitXhK8vVlDOXKUWi
+\unrestrict tpbSZY7YuuRu0JIuKUONLJtV1raLcHKkcxkSd5yCbzDOFGYa5B6GUlClZJMWdvD
 
