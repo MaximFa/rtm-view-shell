@@ -1557,6 +1557,17 @@ dotnet publish RTM/RTM -c Release -r win-x64 --self-contained -o "D:\Claude\Proj
 # RULE: Never publish to any other location. If a build script uses a different
 # output path, override it with -o and the paths above.
 
+# RTM Service publish — fixed output dir:
+dotnet publish RTM/RTM -c Release -r win-x64 --self-contained -o "D:\Claude\Projects\RTM View Shell\publish\rtm"
+
+# DB module is not compiled — deployed via SQL scripts, not dotnet publish.
+
+# After every publish — report changed files:
+# Compare published output against previous build and list all changed/added/removed files.
+# Example:
+# Get-ChildItem publish\rtm\*.dll,publish\rtm\*.exe | Select-Object Name,LastWriteTime,Length
+# This helps verify exactly what was deployed.
+
 # Add NuGet package to a project
 dotnet add src/CcDashboard.Infrastructure package Npgsql.EntityFrameworkCore.PostgreSQL
 ```
@@ -2365,5 +2376,186 @@ by the operator (Cowork) after verifying the commit is correct.
 explicitly instructs CC to push.
 
 *TZ version: 1.9 | CLAUDE.md last updated: 2026-06-04 (§37 CC prompt push rule)*
+
+---
+
+## 38. Database versioning via git
+
+### §38.1 What is tracked
+
+`RTM/sql/db_baseline.sql` — clean snapshot of the database containing:
+- Platform tenant + tenant_settings
+- Superadmin user + AspNetRoles
+- widget_catalog
+- RTSGrid_Metric, RTSGrid_Statistic, RTSGrid_Grid/Row/Cell/Column
+- RTSUserGrid_Grid/Column/ColumnsSet
+- NGC_Site
+
+**Excluded** (user-generated / runtime data):
+dashboards, dashboard_widgets, permission_groups, identity.users (non-SA),
+NGC_BusinessUnit/Supergroup/Queue/AgentGroups and their mappings,
+RTSData_*, RTSGrid_UserStatus, audit logs, refresh tokens.
+
+### §38.2 Export script
+
+```
+RTM/tools/Export-DbBaseline.ps1
+```
+
+**Usage:**
+```powershell
+# Export + commit
+cd "D:\Claude\Projects\RTM View Shell"
+powershell -ExecutionPolicy Bypass -File RTM\tools\Export-DbBaseline.ps1 `
+  -Password "!@#qweASDzxc" `
+  -CommitMessage "add RTSGrid definitions for QueueGrid"
+
+# Export only (no commit)
+powershell -ExecutionPolicy Bypass -File RTM\tools\Export-DbBaseline.ps1 `
+  -Password "!@#qweASDzxc" -DryRun
+```
+
+### §38.3 Workflow
+
+1. Make changes to DB (add metrics, update RTSGrid structure, etc.)
+2. Run `Export-DbBaseline.ps1` with a meaningful commit message
+3. Script exports, shows git diff, commits with prefix `db:`
+4. Push separately via `tools/cc_prompt_push.md`
+
+### §38.4 Restore from baseline
+
+```powershell
+psql -U ccdashboard_user -d rtmviewdb -f RTM\sql\db_baseline.sql
+```
+
+*TZ version: 1.9 | CLAUDE.md last updated: 2026-06-04 (§38 DB versioning)*
+
+---
+
+## 39. DB module — structure and rules
+
+### §39.1 Repository structure
+
+```
+db/                              ← All database artifacts (module in git, like RTM/)
+├── schema.sql                   ← Full DDL: all tables, indexes, constraints (pg_dump --schema-only)
+├── functions/                   ← PostgreSQL function definitions
+│   ├── 01_ngc_functions.sql     ← NGC_* CRUD functions (called by RTM Service)
+│   ├── 02_rtsdata_functions.sql ← RTSData_* read/write functions
+│   ├── 03_rtsgrid_read.sql      ← RTSGrid_* + RTSUserGrid_* read functions
+│   └── 04_misc_functions.sql    ← RTSUserView_* and other functions
+├── data/                        ← Seed data by category
+│   ├── 01_system.sql            ← Platform tenant + Superadmin + Roles
+│   ├── 02_metrics.sql           ← RTSGrid_Metric (196+ metrics)
+│   ├── 03_rtsgrid.sql           ← RTSGrid_Grid/Row/Column/Cell + RTSUserGrid
+│   └── 04_catalog.sql           ← widget_catalog + NGC_Site
+├── setup/
+│   └── 01_init_db.sql           ← CREATE USER, extensions, grants (run as postgres)
+└── tools/
+    ├── Export-All.ps1           ← Export full DB state → git (run after ANY DB change)
+    ├── Restore-All.ps1          ← Restore clean DB from git (DROP + recreate)
+    └── Create-FreshDb.ps1       ← Create DB from scratch (setup + schema + functions + data)
+```
+
+**NOTE:** `RTM/sql/pgsql/` is removed — functions are now only in `db/functions/`.
+
+### §39.1a DB versioning workflow
+
+**After any DB change** (new metric, new table, new function):
+
+```powershell
+cd "D:\Claude\Projects\RTM View Shell"
+powershell -ExecutionPolicy Bypass -File db\tools\Export-All.ps1 `
+  -Password "!@#qweASDzxc" `
+  -CommitMessage "add QueueSLAIn60sec metric"
+```
+
+`Export-All.ps1` exports:
+- `schema.sql` — full DDL via `pg_dump --schema-only`
+- `data/01_system.sql` — tenant + superadmin (filtered)
+- `data/02_metrics.sql` — all metrics
+- `data/03_rtsgrid.sql` — RTSGrid widget definitions
+- `data/04_catalog.sql` — widget catalog + NGC_Site
+
+Git diff shows exactly what changed. Commit message describes the change.
+
+**Fresh install from git:**
+
+```powershell
+# Option A: Full from scratch
+powershell -File db\tools\Restore-All.ps1 -AppPassword "pw" -SuperPassword "pgpw" -DropAndRecreate
+
+# Option B: Apply to existing DB
+powershell -File db\tools\Restore-All.ps1 -AppPassword "pw"
+```
+
+### §39.2 Three-module git structure
+
+| Module | Directory | What it is |
+|---|---|---|
+| Shell | `src/`, `tests/`, `wireframes/` | Blazor Server + API + tests |
+| RTM Service | `RTM/RTM/`, `RTM/RTM.*/` | Windows Service + config |
+| DB | `db/` | PostgreSQL functions + schema + seed data |
+
+Shared:
+- `CLAUDE.md` — single source of truth, always committed with any change
+- `tools/` — CC task prompts
+- `deploy/` — deployment scripts
+- `docs/` — documentation
+
+### §39.3 Commit conventions
+
+| Prefix | Module | Example |
+|---|---|---|
+| `web:` | Shell code | `web: fix AgentGrid filter` |
+| `rtm:` | RTM Service | `rtm: fix TotalStatusGroupPercent format` |
+| `db:` | DB functions/schema | `db: add RTSGrid for billing queue` |
+| `docs:` | CLAUDE.md, docs/ | `docs: update §39 DB module` |
+| `deploy:` | deploy/, tools/ | `deploy: update prod-release skill` |
+| `fix:` | Any bug fix | `fix: dropdown clipping in configurator` |
+| `feat:` | Any new feature | `feat: filter badge in widget header` |
+
+### §39.4 Deploy process — what goes where
+
+#### Fresh server install
+1. `Install-RTMView.ps1` → IIS sites, Memurai, EF migrations via `CcDashboard.Web.exe migrate`
+2. `psql -f db/functions/01_ngc_functions.sql` (and 02, 03, 04)
+3. Shell startup → `DatabaseInitializer` creates Platform tenant + roles + superadmin
+4. `psql -f db/baseline.sql` → RTSGrid metrics + definitions (if needed)
+
+#### Deploy DB changes only
+```powershell
+# Apply new/changed function:
+psql -U ccdashboard_user -d rtmviewdb -f db/functions/01_ngc_functions.sql
+
+# Apply migration:
+psql -U ccdashboard_user -d rtmviewdb -f db/migrations/20260605_001_add_queue_metric.sql
+```
+
+#### Deploy full release (Shell + RTM + DB)
+Use `prod-release` skill — it assembles all three modules.
+
+### §39.5 CLAUDE.md in git
+
+`CLAUDE.md` must be committed with **every change** to the project.
+It is the single source of truth — treated like a code file, not documentation.
+
+After any CLAUDE.md update, add to the commit:
+```bash
+GIT_INDEX_FILE=/tmp/cc-idx git add CLAUDE.md
+```
+Or include in the next `web:` / `docs:` commit.
+
+### §39.6 cc_prompt_push.md — three-way commit
+
+`tools/cc_prompt_push.md` creates **three** separate commits:
+1. `rtm:` — all files under `RTM/`
+2. `web:` — all files under `src/`, `tests/`, `wireframes/`
+3. `db:` — all files under `db/`
+4. `docs:` — `CLAUDE.md`, `docs/`, `tools/`, `.claude/`
+
+*TZ version: 2.0 | CLAUDE.md last updated: 2026-06-04 (§39 DB module + three-module structure)*
+
+
 
 
