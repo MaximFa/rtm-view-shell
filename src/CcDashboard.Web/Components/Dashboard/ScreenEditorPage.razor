@@ -4288,6 +4288,7 @@
                 ), _cts.Token);
 
                 _dataSlotGridId = rtsResult.GridId;
+                preassignedGridId = _dataSlotGridId;  // Sync dashboard_widgets.GridId with RTSGrid_Grid.GridId
                 _dataSlotColumnId = rtsResult.ColumnId;
                 _dataSlotRowId = rtsResult.RowId;
                 _dataSlotCellId = rtsResult.CellId;
