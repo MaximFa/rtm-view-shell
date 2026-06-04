@@ -52,3 +52,7 @@ Desktop.ini
 src/CcDashboard.Web/Components/Widgets/KpiWidget.razor
 src/CcDashboard.Web/Components/Widgets/AgentStatusWidget.razor
 src/CcDashboard.Web/Components/Widgets/QueueSummaryWidget.razor
+
+# Large installers
+Installations/Tools/*.exe
+Installations/*.zip
