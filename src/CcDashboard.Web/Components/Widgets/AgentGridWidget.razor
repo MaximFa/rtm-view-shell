@@ -1250,7 +1250,10 @@
             return FormatSeconds(anchor.BaseSecs + elapsed);
         }
         var raw = GetMetricValue(row.Metrics, metricId);
-        return FormatTimeString(raw);
+        var result = FormatTimeString(raw);
+        // RTM Service uses &nbsp; as placeholder for empty fields (legacy HTML client)
+        if (result == "&nbsp;") return string.Empty;
+        return result;
     }
 
     private string GetWidgetStyle()
