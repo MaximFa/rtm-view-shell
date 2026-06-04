@@ -4009,6 +4009,9 @@
                         colDef.DbColumnId = dbColumnId;
                     }
                 }
+
+                // Notify RTM Service to reload metrics so new columns are included in updateUserGrid
+                _ = NotifyRtmLoadDataAsync();
             }
             catch (Exception ex)
             {
@@ -4084,6 +4087,9 @@
                         }
                     }
                 }
+
+                // Notify RTM Service to reload metrics so new columns are included in updateGridData
+                _ = NotifyRtmLoadDataAsync();
             }
             catch (Exception ex)
             {
@@ -4170,6 +4176,9 @@
 
                 // Legacy GridId kept null for CC-009 widgets (dual-mode)
                 queueGridId = null;
+
+                // Notify RTM Service to reload metrics so new columns are included
+                _ = NotifyRtmLoadDataAsync();
             }
             catch (Exception ex)
             {
@@ -4761,6 +4770,29 @@
         finally
         {
             Saving = false;
+        }
+    }
+
+    private async Task NotifyRtmLoadDataAsync()
+    {
+        try
+        {
+            if (Dashboard?.TenantId == null) return;
+
+            var settings = await Mediator.Send(new GetTenantSettingsQuery(Dashboard.TenantId), _cts.Token);
+            if (string.IsNullOrEmpty(settings?.SignalRConnectionUrl)) return;
+
+            // Build base URL from SignalR URL (strip /signalr suffix if present)
+            var baseUrl = settings.SignalRConnectionUrl.TrimEnd('/');
+            if (baseUrl.EndsWith("/signalr", StringComparison.OrdinalIgnoreCase))
+                baseUrl = baseUrl[..^8];
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            await http.GetAsync($"{baseUrl}/LoadData");
+        }
+        catch
+        {
+            // RTM reload failed - non-critical, widget will show data after RTM restart
         }
     }
 
