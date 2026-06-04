@@ -210,14 +210,21 @@
                         </div>
                         @if (widget.Config?.HideHeader != true)
                         {
-                            <div class="widget-header widget-drag-handle"
+                            <div class="widget-header widget-drag-handle d-flex align-items-center"
                                  @onmousedown="e => StartMove(widget.Id, e)"
                                  @onmousedown:stopPropagation="true">
-                                <i class="bi bi-grip-horizontal me-1"></i>@widget.Name
+                                <i class="bi bi-grip-horizontal me-1"></i>
+                                <span>@widget.Name</span>
+                                @if (_widgetFilterCounts.GetValueOrDefault(widget.Id) > 0)
+                                {
+                                    <span class="badge rounded-pill bg-primary ms-1" style="font-size: 10px; padding: 2px 6px;">
+                                        @_widgetFilterCounts[widget.Id]
+                                    </span>
+                                }
                             </div>
                         }
                         <div class="widget-content">
-                            <RenderWidget Widget="widget" DarkMode="_darkMode" />
+                            <RenderWidget Widget="widget" DarkMode="_darkMode" ActiveFilterCountChanged="count => { _widgetFilterCounts[widget.Id] = count; InvokeAsync(StateHasChanged); }" />
                         </div>
                         @* Resize handles *@
                         <div class="resize-handle resize-e" @onmousedown="e => StartResizeE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
@@ -2248,6 +2255,9 @@
     // Dropdown positioning (fixed + flip)
     private record DropdownRect(double Top, double Left, double Width, bool OpenUpward);
     private Dictionary<string, DropdownRect?> _dropdownRects = new();
+
+    // Widget filter badge state
+    private Dictionary<Guid, int> _widgetFilterCounts = new();
 
     // Fullscreen editor state
     private bool PaletteOpen = false;

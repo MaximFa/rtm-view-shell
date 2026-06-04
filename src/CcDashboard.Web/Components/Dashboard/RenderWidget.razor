@@ -7,10 +7,10 @@
     @switch ((Widget.OriginalWidgetName ?? Widget.Name).ToLower())
     {
         case var n when n.Contains("agent") && n.Contains("grid"):
-            <AgentGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
+            <AgentGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" ActiveFilterCountChanged="ActiveFilterCountChanged" />
             break;
         case var n when n.Contains("queue") && n.Contains("grid"):
-            <QueueGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
+            <QueueGridWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" ActiveFilterCountChanged="ActiveFilterCountChanged" />
             break;
         case var n when n.Contains("data") && n.Contains("slot"):
             <DataSlotWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
@@ -36,4 +36,5 @@
 @code {
     [Parameter, EditorRequired] public PlacedWidget Widget { get; set; } = null!;
     [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public EventCallback<int> ActiveFilterCountChanged { get; set; }
 }

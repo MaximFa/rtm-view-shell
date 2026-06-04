@@ -65,21 +65,6 @@
         var activeFilterCount = GetActiveFilterCount();
 
         <div class="queue-grid-body" style="@GetTableStyle()">
-            @* Active filters toolbar *@
-            @if (activeFilterCount > 0)
-            {
-                <div class="d-flex align-items-center gap-2 px-2 py-1 border-bottom small" style="@GetTableStyle(); border-color: currentColor !important; opacity: 0.9;">
-                    <span class="badge rounded-pill" style="@GetBadgeInvertStyle()">@activeFilterCount</span>
-                    <span>@L["Widget_ActiveFilters"]</span>
-                    <button class="btn btn-link btn-sm p-0 ms-auto"
-                            style="@GetFontColorStyle() text-decoration: none;"
-                            @onclick="ClearAllFilters"
-                            aria-label="@L["Widget_ClearAllFilters"]">
-                        @L["Widget_ClearAllFilters"]
-                    </button>
-                </div>
-            }
-
             <table class="table table-sm table-hover mb-0 small queue-grid-table" style="@GetTableStyle()">
                 <thead class="queue-grid-thead" style="@GetTheadStyle()">
                     <tr style="@GetRowStyle()">
@@ -232,6 +217,7 @@
     [Parameter] public WidgetConfig? Config { get; set; }
     [Parameter] public int GridId { get; set; }
     [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public EventCallback<int> ActiveFilterCountChanged { get; set; }
 
     // Dark mode colors (from Config, with sensible defaults)
     private string _darkBackgroundColor = "#333333";
