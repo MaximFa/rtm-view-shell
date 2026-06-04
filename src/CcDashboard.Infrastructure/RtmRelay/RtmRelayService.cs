@@ -90,11 +90,11 @@ public sealed class RtmRelayService : IRtmRelayService
     public async Task SubscribeUnionAsync(Guid tenantId, int unionId,
         Func<UnionStateChange, Task> handler, CancellationToken ct = default)
     {
-        var hubUrl = await GetHubUrlAsync(tenantId, ct);
+        var hubUrl = await GetHubUrlAsync(tenantId, CancellationToken.None);
         var key = (tenantId, unionId);
         var state = _unions.GetOrAdd(key, _ => new UnionState());
 
-        await state.Lock.WaitAsync(ct);
+        await state.Lock.WaitAsync(CancellationToken.None);
         try
         {
             if (state.GraceCts != null)
@@ -439,11 +439,11 @@ public sealed class RtmRelayService : IRtmRelayService
     public async Task SubscribeGridAsync(Guid tenantId, int gridId,
         Func<IReadOnlyList<GridCellUpdate>, Task> handler, CancellationToken ct = default)
     {
-        var hubUrl = await GetHubUrlAsync(tenantId, ct);
+        var hubUrl = await GetHubUrlAsync(tenantId, CancellationToken.None);
         var key = (tenantId, gridId);
         var state = _grids.GetOrAdd(key, _ => new GridState());
 
-        await state.Lock.WaitAsync(ct);
+        await state.Lock.WaitAsync(CancellationToken.None);
         try
         {
             if (state.GraceCts != null)
@@ -473,11 +473,14 @@ public sealed class RtmRelayService : IRtmRelayService
                         tenantId, gridId);
                     await GridInitAsync(state, gridId, CancellationToken.None);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.LogError(ex,
+                        "RtmRelayService: failed to connect grid {GridId} - {ExType}: {Msg}",
+                        gridId, ex.GetType().Name, ex.Message);
                     await conn.DisposeAsync();
                     state.Connection = null;   // allow retry on next Subscribe call
-                    throw;                      // propagate → widget catch → Failed state
+                    throw;                      // propagate -> widget catch -> Failed state
                 }
             }
             else if (state.CellSnapshot.Count > 0)
@@ -567,7 +570,8 @@ public sealed class RtmRelayService : IRtmRelayService
         await state.Connection!.InvokeAsync<string>("init", gridId.ToString(), ct);
 
         // refreshCells causes the server to push updateGridData with all current values.
-        await state.Connection!.InvokeAsync<string>("refreshCells", gridId.ToString(), ct);
+        // Use SendAsync (fire-and-forget) - refreshCells is a void Hub method.
+        await state.Connection!.SendAsync("refreshCells", gridId.ToString(), CancellationToken.None);
 
         _logger.LogInformation("RtmRelayService: init+refreshCells complete for grid {GridId}", gridId);
     }
