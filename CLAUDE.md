@@ -2581,6 +2581,31 @@ Or include in the next `web:` / `docs:` commit.
 
 *TZ version: 2.1 | CLAUDE.md last updated: 2026-06-04 (§29.8 prod gotchas, PG18, §39.6 four-way commit)*
 
+---
+
+## 40. Mandatory skill loading — every session (Cowork AND CC)
+
+**Every Cowork session AND every CC session must read these two skills at the very start,
+before any analysis, planning, or implementation:**
+
+```
+.claude/skills/widget-planner/widget-planner.md
+.claude/skills/widget-creator/widget-creator.md
+```
+
+These skills contain:
+- All lessons learned (L-01 … L-31+) from production testing
+- Architecture decisions for Grid/DataSlot/AgentGrid widgets
+- Known bugs and their fixes (TemplateCell, ClassificationId, preassignedGridId, etc.)
+- DB export workflow, metric reference errors, fix patterns
+
+**Cowork agent:** read both files at the start of every session using the Read tool.
+**CC agent:** read both files before any widget/DB/Shell work.
+
+**Do NOT start any work without reading both skills first.**
+
+*TZ version: 2.2 | CLAUDE.md last updated: 2026-06-05 (§40 mandatory skill loading — all sessions)*
+
 
 
 

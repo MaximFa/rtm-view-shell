@@ -984,22 +984,23 @@ Then run `Export-All.ps1` and push.
 
 ---
 
-## L-31: DB push requires two steps in CC prompt (2026-06-05)
+## L-31: DB push — Export-All.ps1 + push DB commit only (2026-06-05)
 
-When pushing DB changes to git via CC, the prompt **must include both steps**:
+When pushing DB changes to git via CC:
 
-1. **Export-All.ps1** — regenerates `db/data/*.sql` from live DB and commits
-2. **git push** — pushes the commit to remote
+1. **Export-All.ps1** — regenerates `db/data/*.sql` and commits with `db:` prefix
+2. **git push** — pushes ONLY that `db:` commit
 
-A prompt with only `git push` won't include the DB changes (they haven't been
-exported yet). A prompt with only `Export-All.ps1` leaves the commit unpushed.
+**CRITICAL:** `cc_prompt_export_and_push.md` must NOT stage or commit any
+Shell/RTM/docs files. It must only push the `db:` commit created by Export-All.ps1.
+If other pending changes exist, they belong to `cc_prompt_push.md` (separate push).
 
-**Use `tools/cc_prompt_export_and_push.md`** — it does both in one prompt.
-
-Pattern to follow for any DB change workflow:
+Pattern:
 ```
 1. Make DB change (SQL on server)
 2. CC: Выполни задачу из файла tools/cc_prompt_export_and_push.md
+   → Export-All creates db: commit → prompt pushes only that commit
+3. Other code changes pushed separately via cc_prompt_push.md
 ```
 
-*Updated 2026-06-05 (L-31 DB push two-step rule).*
+*Updated 2026-06-05 (L-31 DB-only push rule, corrected after accidental full push).*
