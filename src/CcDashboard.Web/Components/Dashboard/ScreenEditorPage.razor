@@ -2131,7 +2131,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="CloseWidgetConfig">@L["Common_Cancel"]</button>
-                    <button class="btn btn-primary" @onclick="async () => await SaveWidgetConfig()">@L["Common_Save"]</button>
+                    <button class="btn btn-primary" @onclick="async () => await SaveWidgetConfig()" disabled="@_configSaving">@L["Common_Save"]</button>
                 </div>
             </div>
         </div>
@@ -2237,6 +2237,7 @@
     private List<PlacedWidget> PlacedWidgets = [];
     private bool Loading = true;
     private bool Saving;
+    private bool _configSaving;  // Guards SaveWidgetConfig against double-click
     private bool Cloning;
     private string? Error;
     private string EditName = "";
@@ -4007,6 +4008,11 @@
     private async Task SaveWidgetConfig()
     {
         if (ConfiguringWidget is null || Dashboard is null) return;
+        if (_configSaving) return;  // Guard against double-click
+        _configSaving = true;
+        StateHasChanged();
+        try
+        {
 
         int? preassignedGridId = null;
         int? columnsSetId = null;
@@ -4439,6 +4445,12 @@
 
         CloseWidgetConfig();
         StateHasChanged();
+        }
+        finally
+        {
+            _configSaving = false;
+            StateHasChanged();
+        }
     }
 
     // Threshold management
