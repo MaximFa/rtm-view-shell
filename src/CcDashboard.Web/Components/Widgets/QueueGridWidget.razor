@@ -1044,7 +1044,10 @@
     private static double? ParseToSeconds(string? value)
     {
         if (string.IsNullOrEmpty(value)) return null;
-        if (double.TryParse(value, out var num)) return num;
+        // Strip % for percentage values before numeric parse
+        var stripped = value.TrimEnd('%');
+        if (double.TryParse(stripped, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var num)) return num;
 
         var parts = value.Split(':');
         try

@@ -1218,7 +1218,8 @@ namespace RTM
                             long loginDur1 = _TotalStatuses.Values.Where(x => x.StatusId != "SIGNOFF").Sum(r => r.Dur.Ticks);
                             long statusGrpDur1 = _TotalStatuses.Values.Where(x => x.StatusId == metric.Parameter).Sum(r => r.Dur.Ticks);
                             double dCalc1 = (double)statusGrpDur1 / (double)loginDur1;
-                            val = dCalc1.ToString(metric.Format); // "#0.##%"
+                            var fmt1 = string.IsNullOrEmpty(metric.Format) ? "##0.0%" : metric.Format;
+                            val = dCalc1.ToString(fmt1); // "#0.##%"
                         }
                         break;
 
@@ -1229,7 +1230,8 @@ namespace RTM
                             long loginDur2 = _TotalStatuses.Values.Where(x => x.StatusId != "SIGNOFF").Sum(r => r.Dur.Ticks);
                             long statusGrpDur2 = _TotalStatuses.Values.Where(x => x.StatusGroup == metric.Parameter).Sum(r => r.Dur.Ticks);
                             double dCalc2 = (double)statusGrpDur2 / (double)loginDur2;
-                            val = dCalc2.ToString(metric.Format); // "#0.##%"
+                            var fmt2 = string.IsNullOrEmpty(metric.Format) ? "##0.0%" : metric.Format;
+                            val = dCalc2.ToString(fmt2); // "#0.##%"
                         }
                         break;
 
