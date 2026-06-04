@@ -420,12 +420,30 @@
                     StringComparer.OrdinalIgnoreCase
                 ) ?? new(StringComparer.OrdinalIgnoreCase);
 
-            // Initialize rows from row definitions
-            _rows = _rowDefs.Select(r => new QueueRowData
+            // Rebuild rows — preserve existing display values if row structure unchanged
+            var newRows = _rowDefs.Select(r => new QueueRowData
             {
                 RowId = r.Id,
                 QueueName = r.QueueName ?? r.BusinessUnitName ?? ""
             }).ToList();
+
+            // Carry over Metrics and TimerAnchors from existing rows (same RowId = same data)
+            // This prevents flicker when DarkMode/other params change without row changes
+            if (_rows.Count > 0)
+            {
+                var existingById = _rows.ToDictionary(r => r.RowId);
+                foreach (var row in newRows)
+                {
+                    if (existingById.TryGetValue(row.RowId, out var existing))
+                    {
+                        foreach (var kv in existing.Metrics)
+                            row.Metrics[kv.Key] = kv.Value;
+                        foreach (var kv in existing.TimerAnchors)
+                            row.TimerAnchors[kv.Key] = kv.Value;
+                    }
+                }
+            }
+            _rows = newRows;
 
             // Build CellId -> (RowDefId, MetricId) reverse map for RTM protocol
             _cellMap = new Dictionary<int, (string RowDefId, string MetricId)>();
