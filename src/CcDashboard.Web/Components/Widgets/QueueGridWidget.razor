@@ -1157,7 +1157,9 @@
     private string GetTheadCellStyle()
     {
         var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "#ffffff";
-        return $"white-space: nowrap; color: {color};";
+        var headerFs = !string.IsNullOrEmpty(_headerFontSize) ? _headerFontSize : _fontSize;
+        var fs = ResolveFontSizePx(headerFs);
+        return $"white-space: nowrap; color: {color}; font-size: {fs};";
     }
 
     private string GetFilterButtonStyle(bool hasFilter)
