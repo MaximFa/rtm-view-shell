@@ -1339,6 +1339,7 @@
     private static string FormatTimeString(string value)
     {
         if (string.IsNullOrEmpty(value)) return value;
+        if (value == "NaN" || value == "Infinity" || value == "-Infinity") return "-";
         var parts = value.Split(':');
         if (parts.Length == 3
             && int.TryParse(parts[0], out var h)
