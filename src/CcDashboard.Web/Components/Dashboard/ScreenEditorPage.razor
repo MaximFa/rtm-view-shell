@@ -227,9 +227,14 @@
                             <RenderWidget Widget="widget" DarkMode="_darkMode" ActiveFilterCountChanged="count => { _widgetFilterCounts[widget.Id] = count; InvokeAsync(StateHasChanged); }" />
                         </div>
                         @* Resize handles *@
-                        <div class="resize-handle resize-e" @onmousedown="e => StartResizeE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
-                        <div class="resize-handle resize-s" @onmousedown="e => StartResizeS(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-e"  @onmousedown="e => StartResizeE(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-s"  @onmousedown="e => StartResizeS(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
                         <div class="resize-handle resize-se" @onmousedown="e => StartResizeSE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-n"  @onmousedown="e => StartResizeN(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-w"  @onmousedown="e => StartResizeW(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-nw" @onmousedown="e => StartResizeNW(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-ne" @onmousedown="e => StartResizeNE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-sw" @onmousedown="e => StartResizeSW(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
                     </div>
                 }
             </div>
@@ -243,14 +248,12 @@
     <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="widget-config-title" data-modal-id="widget-config">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
-                    <div class="modal-drag-handle" title="@L["Common_DragToMove"]">
-                        <i class="bi bi-grip-vertical"></i>
-                    </div>
+                <div class="modal-header modal-drag-header">
+                    <i class="bi bi-grip-vertical me-2 text-muted" style="font-size: 1rem; flex-shrink: 0;"></i>
                     <h5 class="modal-title" id="widget-config-title">
                         @L["Widgets_Configure"]: @ConfiguringWidget.Name
                     </h5>
-                    <button type="button" class="btn-close" @onclick="CloseWidgetConfig"></button>
+                    <button type="button" class="btn-close ms-auto" @onclick="CloseWidgetConfig"></button>
                 </div>
                 <!-- Resize Handle (bottom-right corner) -->
                 <div class="modal-resize-handle"></div>
@@ -3059,9 +3062,14 @@
 
     private record DropPosition(int X, int Y);
 
-    private Task StartResizeE(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "e", e);
-    private Task StartResizeS(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "s", e);
+    private Task StartResizeE(Guid widgetId, MouseEventArgs e)  => StartResize(widgetId, "e",  e);
+    private Task StartResizeS(Guid widgetId, MouseEventArgs e)  => StartResize(widgetId, "s",  e);
     private Task StartResizeSE(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "se", e);
+    private Task StartResizeN(Guid widgetId, MouseEventArgs e)  => StartResize(widgetId, "n",  e);
+    private Task StartResizeW(Guid widgetId, MouseEventArgs e)  => StartResize(widgetId, "w",  e);
+    private Task StartResizeNW(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "nw", e);
+    private Task StartResizeNE(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "ne", e);
+    private Task StartResizeSW(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "sw", e);
 
     private async Task StartResize(Guid widgetId, string handle, MouseEventArgs e)
     {

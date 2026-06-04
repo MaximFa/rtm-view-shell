@@ -1637,6 +1637,46 @@ a:hover {
     opacity: 1;
 }
 
+.resize-handle.resize-n {
+    inset-inline-start: 8px;
+    inset-block-start: 0;
+    width: calc(100% - 16px);
+    height: 8px;
+    cursor: ns-resize;
+}
+
+.resize-handle.resize-w {
+    inset-inline-start: 0;
+    inset-block-start: 0;
+    width: 8px;
+    height: 100%;
+    cursor: ew-resize;
+}
+
+.resize-handle.resize-nw {
+    inset-inline-start: 0;
+    inset-block-start: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+}
+
+.resize-handle.resize-ne {
+    inset-inline-end: 0;
+    inset-block-start: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nesw-resize;
+}
+
+.resize-handle.resize-sw {
+    inset-inline-start: 0;
+    inset-block-end: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nesw-resize;
+}
+
 .dashboard-widget.resizing {
     opacity: 0.9;
     box-shadow: var(--shadow-md);
@@ -2845,30 +2885,14 @@ button.clr-swatch,
     transform: none !important;
 }
 
-/* Drag handle in header */
-.editor-modal .modal-drag-handle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    margin-inline-end: var(--sp-2);
-    background: var(--clr-overlay);
-    color: var(--clr-text-muted);
+/* Drag handle — entire modal header is draggable */
+.editor-modal .modal-header.modal-drag-header {
     cursor: move;
-    border-radius: var(--r-sm);
-    transition: background-color var(--dur-fast), color var(--dur-fast);
-    flex-shrink: 0;
+    user-select: none;
 }
 
-.editor-modal .modal-drag-handle:hover {
-    background: var(--clr-border-md);
-    color: var(--clr-text);
-}
-
-.editor-modal .modal-drag-handle i {
-    font-size: 16px;
+.editor-modal .modal-header.modal-drag-header:active {
+    cursor: grabbing;
 }
 
 /* Resize handle on right edge (width only) */

@@ -29,12 +29,15 @@ window.widgetResize = {
         const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
         if (!widget) return;
 
+        const style = window.getComputedStyle(widget);
         this.activeWidget = { id: widgetId, element: widget, handle: handle };
         this.mode = 'resize';
         this.startX = coords.clientX;
         this.startY = coords.clientY;
         this.startWidth = widget.offsetWidth;
         this.startHeight = widget.offsetHeight;
+        this.startLeft = parseInt(style.left) || 0;
+        this.startTop = parseInt(style.top) || 0;
 
         widget.classList.add('resizing');
         document.body.style.cursor = this.getCursor(handle);
@@ -64,12 +67,14 @@ window.widgetResize = {
 
     // Setup modal drag/resize - called via MutationObserver
     setupModalDragResize: function () {
-        const dragHandle = document.querySelector('.editor-modal .modal-drag-handle');
+        const dragHandle = document.querySelector('.editor-modal .modal-header');
         const resizeHandle = document.querySelector('.editor-modal .modal-resize-handle');
 
         if (dragHandle && !dragHandle._dragSetup) {
             dragHandle._dragSetup = true;
             dragHandle.addEventListener('mousedown', (e) => {
+                // Don't drag if clicking close button or interactive elements
+                if (e.target.closest('.btn-close, button, input, select, textarea')) return;
                 e.preventDefault();
                 this.startModalMove(e);
             });
@@ -171,16 +176,32 @@ window.widgetResize = {
             const handle = this.activeWidget.handle;
             let newWidth = this.startWidth;
             let newHeight = this.startHeight;
+            let newLeft = this.startLeft;
+            let newTop = this.startTop;
 
             if (handle.includes('e')) newWidth = Math.max(150, this.startWidth + deltaX);
             if (handle.includes('s')) newHeight = Math.max(100, this.startHeight + deltaY);
+            if (handle.includes('w')) {
+                newWidth = Math.max(150, this.startWidth - deltaX);
+                newLeft = this.startLeft + (this.startWidth - newWidth);
+            }
+            if (handle.includes('n')) {
+                newHeight = Math.max(100, this.startHeight - deltaY);
+                newTop = this.startTop + (this.startHeight - newHeight);
+            }
 
             // Snap to grid (10px)
             newWidth = Math.round(newWidth / 10) * 10;
             newHeight = Math.round(newHeight / 10) * 10;
+            newLeft = Math.round(newLeft / 10) * 10;
+            newTop = Math.round(newTop / 10) * 10;
+            newLeft = Math.max(0, newLeft);
+            newTop = Math.max(0, newTop);
 
             widget.style.width = newWidth + 'px';
             widget.style.height = newHeight + 'px';
+            widget.style.left = newLeft + 'px';
+            widget.style.top = newTop + 'px';
         } else if (this.mode === 'move') {
             let newLeft = this.startLeft + deltaX;
             let newTop = this.startTop + deltaY;
@@ -220,6 +241,12 @@ window.widgetResize = {
         if (this.dotNetRef) {
             if (this.mode === 'resize') {
                 this.dotNetRef.invokeMethodAsync('OnWidgetResized', widgetId, widget.offsetWidth, widget.offsetHeight);
+                // For n/w handles: also update position
+                const handle = this.activeWidget.handle;
+                if (handle.includes('n') || handle.includes('w')) {
+                    const s = window.getComputedStyle(widget);
+                    this.dotNetRef.invokeMethodAsync('OnWidgetMoved', widgetId, parseInt(s.left) || 0, parseInt(s.top) || 0);
+                }
             } else if (this.mode === 'move') {
                 const style = window.getComputedStyle(widget);
                 const left = parseInt(style.left) || 0;
