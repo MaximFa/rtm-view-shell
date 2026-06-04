@@ -2356,11 +2356,60 @@ the `UnitOfWork.SaveChangesAsync()` must call `SaveChangesAsync()` on ALL of the
 ```csharp
 public async Task<int> SaveChangesAsync(CancellationToken ct = default)
 {
-    var result = await db.SaveChangesAsync(ct);
-    await beDb.SaveChangesAsync(ct);  // Don't forget secondary contexts!
-    return result;
+    // ONLY AppDbContext — BackendEmulationDbContext repos save their own changes.
+    // Including beDb here caused concurrent SaveChangesAsync errors (2026-06-05).
+    return await db.SaveChangesAsync(ct);
 }
 ```
 
-Without this, writes to secondary contexts silently succeed at the application layer
-but never reach the database.
+Without this sync, writes go through `AppDbContext` only.
+`RtsRepository` and `NgcRepositories` call `beDb.SaveChangesAsync()` directly.
+
+---
+
+### §24.5 Concurrent DbContext on widget init — use IDbContextFactory for read-only repos
+
+When 2+ widgets initialize simultaneously (page load), they all call
+`GetTenantSettingsQuery` concurrently → same scoped `AppDbContext` → concurrent
+reads → "A second operation was started on this context instance".
+
+**Fix:** Read-only repositories used from widgets must use `IDbContextFactory<AppDbContext>`
+to create a fresh context per call:
+
+```csharp
+public class TenantSettingsRepository(
+    AppDbContext db,                          // for writes (transactional)
+    IDbContextFactory<AppDbContext> dbFactory) // for reads (concurrent-safe)
+    : ITenantSettingsRepository
+{
+    public async Task<TenantSettings?> GetByTenantAsync(Guid tenantId, CancellationToken ct)
+    {
+        await using var ctx = await dbFactory.CreateDbContextAsync(ct);
+        return await ctx.TenantSettings.FirstOrDefaultAsync(s => s.TenantId == tenantId, ct);
+    }
+}
+```
+
+**Rule:** Any repository method called from Blazor widget `OnInitializedAsync` must
+use `IDbContextFactory`, not the scoped `AppDbContext`.
+
+---
+
+### §24.6 CancellationToken in RtmRelayService — use CancellationToken.None for connection phase
+
+`SubscribeGridAsync` and `SubscribeUnionAsync` must use `CancellationToken.None`
+for the entire connection phase to prevent race conditions on page refresh:
+
+```csharp
+// ALL of these must use CancellationToken.None:
+var hubUrl = await GetHubUrlAsync(tenantId, CancellationToken.None);
+await state.Lock.WaitAsync(CancellationToken.None);
+await conn.StartAsync(CancellationToken.None);
+await GridInitAsync(state, gridId, CancellationToken.None);
+
+// refreshCells is void — use SendAsync not InvokeAsync<string>:
+await state.Connection!.SendAsync("refreshCells", gridId.ToString(), CancellationToken.None);
+```
+
+Component CT is passed to Blazor lifecycle and may be cancelled during
+`StateHasChanged` re-renders, causing spurious "Connection failed" for one widget.
