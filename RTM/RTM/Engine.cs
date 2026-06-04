@@ -1376,7 +1376,9 @@ namespace RTM
                 foreach (var cellValue in _allCellsData.Get(gridId))
                 {
                     int cellId = cellValue.Key;
-                    string value = cellValue.Value.Value;
+                    string value = !string.IsNullOrEmpty(cellValue.Value.Value2)
+                                   ? cellValue.Value.Value2   // original datetime ("+dd/MM/yyyy HH:mm:ss")
+                                   : cellValue.Value.Value;   // fallback to processed value
                     CellData cell = new CellData(cellId, new GridData(gridId));
 
 
