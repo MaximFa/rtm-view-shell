@@ -288,7 +288,7 @@
                 if (TryParseTimeFormat(value, out var timeSeconds))
                 {
                     _currentValue = timeSeconds;
-                    _displayValue = value;
+                    _displayValue = FormatTimeString(value);
                     _isTimeFormat = true;
                     CalculateDelta();
                     ApplyThresholds();
@@ -384,6 +384,30 @@
         }
         return $"{minutes:D2}:{seconds:D2}";
     }
+    /// <summary>
+    /// Formats HH:MM:SS as MM:SS when hours == 0, otherwise keeps HH:MM:SS.
+    /// Returns original string if not a recognisable time format.
+    /// </summary>
+    private static string FormatTimeString(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        var parts = value.Split(':');
+        if (parts.Length == 3
+            && int.TryParse(parts[0], out var h)
+            && int.TryParse(parts[1], out var m)
+            && int.TryParse(parts[2], out var s))
+        {
+            return h > 0 ? $"{h:D2}:{m:D2}:{s:D2}" : $"{m:D2}:{s:D2}";
+        }
+        if (parts.Length == 2
+            && int.TryParse(parts[0], out var m2)
+            && int.TryParse(parts[1], out var s2))
+        {
+            return $"{m2:D2}:{s2:D2}";
+        }
+        return value;
+    }
+
 
     private void CalculateDelta()
     {
