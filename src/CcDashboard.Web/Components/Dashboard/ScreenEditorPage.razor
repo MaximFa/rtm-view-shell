@@ -2537,9 +2537,7 @@
     {
         _queueRowBuDropdownOpenFor = rowIdx;
         _queueRowBuSearchText = "";
-        var openUpward = e.ClientY > 600;
-        var top = openUpward ? e.ClientY - 210 : e.ClientY + 8;
-        _dropdownRects[$"queuerowbu-{rowIdx}"] = new DropdownRect(top, e.ClientX - 10, 280, openUpward);
+        _dropdownRects[$"queuerowbu-{rowIdx}"] = CalcDropdownRect(e);
     }
 
     private void CloseQueueRowBuDropdown()
@@ -2647,9 +2645,7 @@
     {
         _activeQueueMetricDropdown = colId;
         _queueColumnMetricSearch = "";
-        var openUpward = e.ClientY > 600;
-        var top = openUpward ? e.ClientY - 210 : e.ClientY + 8;
-        _dropdownRects[$"queuemetric-{colId}"] = new DropdownRect(top, e.ClientX - 10, 280, openUpward);
+        _dropdownRects[$"queuemetric-{colId}"] = CalcDropdownRect(e);
     }
 
     private void CloseQueueMetricDropdown()
@@ -3783,9 +3779,7 @@
     {
         _activeMetricDropdown = colId;
         _metricSearchText = "";
-        var openUpward = e.ClientY > 600;
-        var top = openUpward ? e.ClientY - 210 : e.ClientY + 8;
-        _dropdownRects[$"metric-{colId}"] = new DropdownRect(top, e.ClientX - 10, 280, openUpward);
+        _dropdownRects[$"metric-{colId}"] = CalcDropdownRect(e);
     }
 
     private void OnMetricSearch(string? text)
@@ -3806,6 +3800,28 @@
         if (r == null)
             return "position: fixed; top: 100px; left: 100px; width: 280px; max-height: 200px; overflow-y: auto; z-index: 1060;";
         return $"position: fixed; top: {r.Top:F0}px; left: {r.Left:F0}px; width: {r.Width:F0}px; max-height: 200px; overflow-y: auto; z-index: 1060;";
+    }
+
+    /// Calculates dropdown position aligned to the clicked input/button.
+    /// OffsetX/OffsetY = position within the target element.
+    /// So (ClientX - OffsetX) = left edge, (ClientY - OffsetY) = top edge.
+    private static DropdownRect CalcDropdownRect(MouseEventArgs e)
+    {
+        const double inputHeight = 34;  // Bootstrap form-control height
+        const double dropdownWidth = 280;
+        const double maxDropdownH = 210;
+        const double viewportH = 700;   // conservative modal viewport height
+
+        var left = e.ClientX - e.OffsetX;
+        var top  = e.ClientY - e.OffsetY;   // top of the input element
+        var bottom = top + inputHeight;
+
+        // Flip upward if not enough space below
+        var spaceBelow = viewportH - bottom;
+        var openUpward = spaceBelow < maxDropdownH && top > maxDropdownH;
+        var dropTop = openUpward ? top - maxDropdownH : bottom + 2;
+
+        return new DropdownRect(dropTop, left, dropdownWidth, openUpward);
     }
 
     private void SelectMetric(string colId, string metricId)
