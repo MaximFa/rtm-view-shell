@@ -273,6 +273,8 @@
   <data name="TenantSettings_BackgroundColors"><value>לוח צבעי רקע</value></data>
   <data name="TenantSettings_FontColors"><value>לוח צבעי גופן</value></data>
   <data name="TenantSettings_FontSizes"><value>גדלי גופן</value></data>
+  <data name="Widgets_TableFontSize"><value>גודל גופן טבלה</value></data>
+  <data name="Widgets_HeaderFontSize"><value>גודל גופן כותרת</value></data>
 
   <!-- ── Tenants (Platform) ── -->
   <data name="Tenants_Title"><value>ניהול ארגונים</value></data>

@@ -543,8 +543,17 @@
                             <h6 class="section-label">Typography</h6>
                             <div class="row align-items-end">
                                 <div class="col-md-6">
-                                    <label class="form-label small text-muted mb-1">Font Size</label>
+                                    <label class="form-label small text-muted mb-1">@L["Widgets_TableFontSize"]</label>
                                     <select class="form-select form-select-sm" @bind="ConfigFontSize">
+                                        @foreach (var size in _tenantFontSizes)
+                                        {
+                                            <option value="@size">@size px</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-1">@L["Widgets_HeaderFontSize"]</label>
+                                    <select class="form-select form-select-sm" @bind="ConfigHeaderFontSize">
                                         @foreach (var size in _tenantFontSizes)
                                         {
                                             <option value="@size">@size px</option>
@@ -2288,6 +2297,7 @@
     private bool ConfigShowTimestamp = true;
     private string? ConfigMetric;
     private string ConfigFontSize = "14";
+    private string ConfigHeaderFontSize = "14";
     private string ConfigBackgroundColor = "#FFFFFF";
     private string ConfigFontColor = "#202124";
     private string ConfigTableBackgroundColor = "transparent";
@@ -3149,6 +3159,7 @@
         ConfigShowTimestamp = widget.Config.ShowTimestamp;
         ConfigMetric = widget.Config.Metric;
         ConfigFontSize = ResolveFontSizeToPixel(widget.Config.FontSize);
+        ConfigHeaderFontSize = ResolveFontSizeToPixel(widget.Config.HeaderFontSize);
         ConfigBackgroundColor = widget.Config.BackgroundColor ?? "#FFFFFF";
         ConfigFontColor = widget.Config.FontColor ?? "#202124";
         ConfigTableBackgroundColor = widget.Config.TableBackgroundColor ?? "transparent";
@@ -4291,6 +4302,7 @@
                 : (int?)null,
             Metric = ConfigMetric,
             FontSize = ConfigFontSize,
+            HeaderFontSize = ConfigHeaderFontSize,
             BackgroundColor = ConfigBackgroundColor,
             FontColor = ConfigFontColor,
             TableBackgroundColor = ConfigTableBackgroundColor,
@@ -5101,6 +5113,7 @@
         public string? BusinessUnit { get; set; }
         public string? Metric { get; set; }
         public string? FontSize { get; set; }
+        public string? HeaderFontSize { get; set; }
         public string? BackgroundColor { get; set; }
         public string? FontColor { get; set; }
         public string? TableBackgroundColor { get; set; }  // Background for the data table

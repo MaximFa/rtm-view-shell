@@ -185,6 +185,8 @@
   <data name="Widgets_ThresholdCritical"><value>Критический</value></data>
   <data name="Widgets_Appearance"><value>Оформление</value></data>
   <data name="Widgets_FontSize"><value>Размер шрифта</value></data>
+  <data name="Widgets_TableFontSize"><value>Размер шрифта таблицы</value></data>
+  <data name="Widgets_HeaderFontSize"><value>Размер шрифта заголовка</value></data>
   <data name="Widgets_FontSize_Small"><value>Маленький</value></data>
   <data name="Widgets_FontSize_Normal"><value>Обычный</value></data>
   <data name="Widgets_FontSize_Large"><value>Большой</value></data>

@@ -92,6 +92,7 @@
     private bool _showTargetLabel = true;
     private bool _showArrow = true;
     private string _fontSize = "normal";
+    private string _headerFontSize = "normal";
 
     // Colors (base from config)
     private string _backgroundColor = "";
@@ -178,6 +179,7 @@
         if (Config?.DataSlotGridId is > 0)
             _rtsGridId = Config.DataSlotGridId.Value;
         _fontSize = Config.FontSize ?? "normal";
+        _headerFontSize = Config.HeaderFontSize ?? "normal";
 
         // Colors
         _backgroundColor = Config.BackgroundColor ?? "";
@@ -485,7 +487,11 @@
     {
         // Title uses base font color (not affected by thresholds)
         var fg = BaseFontColor;
-        return !string.IsNullOrEmpty(fg) ? $"color: {fg};" : "";
+        var fs = ResolveFontSizePx(_headerFontSize);
+        var result = new System.Text.StringBuilder();
+        if (!string.IsNullOrEmpty(fg)) result.Append($"color: {fg}; ");
+        result.Append($"font-size: {fs};");
+        return result.ToString();
     }
 
     private string GetValueStyle()

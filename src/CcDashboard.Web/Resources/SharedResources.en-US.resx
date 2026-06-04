@@ -337,6 +337,8 @@
   <data name="Widgets_ThresholdCritical"><value>Critical</value></data>
   <data name="Widgets_Appearance"><value>Appearance</value></data>
   <data name="Widgets_FontSize"><value>Font Size</value></data>
+  <data name="Widgets_TableFontSize"><value>Table Font Size</value></data>
+  <data name="Widgets_HeaderFontSize"><value>Header Font Size</value></data>
   <data name="Widgets_FontSize_Small"><value>Small</value></data>
   <data name="Widgets_FontSize_Normal"><value>Normal</value></data>
   <data name="Widgets_FontSize_Large"><value>Large</value></data>

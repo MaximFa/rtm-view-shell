@@ -250,6 +250,7 @@
 
     // Appearance
     private string? _fontSize;
+    private string? _headerFontSize;
     private string? _backgroundColor;
     private string? _fontColor;
     private string? _tableBackgroundColor;
@@ -376,6 +377,7 @@
         if (Config is not null)
         {
             _fontSize = Config.FontSize;
+            _headerFontSize = Config.HeaderFontSize;
             _backgroundColor = Config.BackgroundColor;
             _fontColor = Config.FontColor;
             _tableBackgroundColor = Config.TableBackgroundColor;
@@ -1144,6 +1146,10 @@
 
         if (!string.IsNullOrEmpty(fg))
             styles.Add($"color: {fg}");
+
+        var headerFs = !string.IsNullOrEmpty(_headerFontSize) ? _headerFontSize : _fontSize;
+        if (!string.IsNullOrEmpty(headerFs))
+            styles.Add($"font-size: {ResolveFontSizePx(headerFs)}");
 
         return string.Join("; ", styles);
     }
