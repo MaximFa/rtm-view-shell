@@ -299,7 +299,7 @@ When you encounter tasks related to the above, create a stub interface/component
 | REST API (optional) | ASP.NET Core Web API — JWT Bearer |
 | Auth | ASP.NET Core Identity + Cookie (Blazor) + JWT Bearer (API) |
 | ORM | EF Core 8 + Npgsql.EntityFrameworkCore.PostgreSQL (Code-First) |
-| Database | PostgreSQL 15+ (recommended 16+) |
+| Database | PostgreSQL 18 (production) |
 | Cache / state | Redis 7+ (Memurai on Windows or Redis in WSL2) |
 | Hosting | Windows Server 2019+/2022+, IIS in-process (ASP.NET Core Module v2) |
 | DI / patterns | Clean Architecture (Onion), CQRS via MediatR (single DB, no event sourcing) |
@@ -1396,7 +1396,7 @@ minimum required privileges.
 **[DEPLOY-03]** Required software:
 - .NET 8 Hosting Bundle (ASP.NET Core Module + .NET Runtime)
 - IIS with: Static Content, WebSocket Protocol, Application Initialization, Request Filtering
-- PostgreSQL 15+ (EDB installer or official MSI)
+- PostgreSQL 18 (EDB installer or official MSI)
 - Redis 7+: **Memurai** (recommended for Windows) or Redis in WSL2
 
 **[DEPLOY-04]** Two IIS sites + two Application Pools (No Managed Code, in-process AspNetCoreModuleV2):
@@ -1844,6 +1844,31 @@ dotnet ef migrations add <Name> --context AppDbContext --project src/CcDashboard
 **Locale not applying after login:**
 Check that `.AspNetCore.Culture` cookie is being set in `CompleteSignInAsync()`.
 Use browser DevTools → Application → Cookies to verify.
+
+### 29.8 Production testing gotchas
+
+**`launchSettings.json` форсирует Development:**
+`dotnet run` читает `Properties/launchSettings.json` и устанавливает `ASPNETCORE_ENVIRONMENT=Development`,
+перебивая любые внешние переменные окружения. Чтобы запустить в Production-режиме локально:
+
+```powershell
+dotnet run --project src\CcDashboard.Web --no-launch-profile
+```
+
+Флаг `--no-launch-profile` полностью пропускает `launchSettings.json`.
+На реальном сервере (IIS / опубликованный exe) этой проблемы нет — `launchSettings.json` при publish не читается.
+
+**`SeedSampleCcEntitiesAsync` вызывается безусловно:**
+Метод `SeedSampleCcEntitiesAsync` в `DatabaseInitializer.cs` НЕ обёрнут в `IsDevelopment()`.
+Он запускается при каждом старте приложения во всех окружениях (dev, staging, production).
+Условие защиты: метод идемпотентен — пропускает создание если данные уже есть.
+
+**`NGC_Site SiteId='IL'` — RTM default:**
+RTM Service ожидает SiteId = `'IL'` по умолчанию (hardcoded в `DBMng.cs`).
+Этот site **всегда должен быть в baseline** (`db/data/04_catalog.sql`).
+Seeder проверяет `SiteId == "SITE001"` конкретно, а не просто "есть ли хоть один site" —
+иначе найдёт `'IL'` и пропустит создание `SITE001`, что ломает FK для `NGC_BusinessUnit`.
+
 
 ---
 
@@ -2546,15 +2571,15 @@ GIT_INDEX_FILE=/tmp/cc-idx git add CLAUDE.md
 ```
 Or include in the next `web:` / `docs:` commit.
 
-### §39.6 cc_prompt_push.md — three-way commit
+### §39.6 cc_prompt_push.md — four-way commit
 
-`tools/cc_prompt_push.md` creates **three** separate commits:
+`tools/cc_prompt_push.md` creates **four** separate commits:
 1. `rtm:` — all files under `RTM/`
-2. `web:` — all files under `src/`, `tests/`, `wireframes/`
+2. `web:` — all files under `src/`, `tests/`, `wireframes/`, `deploy/`, `CLAUDE.md`
 3. `db:` — all files under `db/`
-4. `docs:` — `CLAUDE.md`, `docs/`, `tools/`, `.claude/`
+4. `docs:` — `tools/cc_prompt_*.md`, `tools/fix_*.py`, `docs/`, `testing/`, `.claude/`
 
-*TZ version: 2.0 | CLAUDE.md last updated: 2026-06-04 (§39 DB module + three-module structure)*
+*TZ version: 2.1 | CLAUDE.md last updated: 2026-06-04 (§29.8 prod gotchas, PG18, §39.6 four-way commit)*
 
 
 
