@@ -53,8 +53,15 @@ public class DatabaseInitializer(
         // Dev-only: seed RTSData test rows for DayTrend widget
         if (env.IsDevelopment())
         {
-            await SeedDevRtsInteractionsAsync(platformTenant.Id, ct);
-            await SeedDevRtsUserStatusLogAsync(platformTenant.Id, ct);
+            try
+            {
+                await SeedDevRtsInteractionsAsync(platformTenant.Id, ct);
+                await SeedDevRtsUserStatusLogAsync(platformTenant.Id, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Dev RTS data seed skipped (non-critical)");
+            }
         }
 
         logger.LogInformation("Database seed complete.");
@@ -301,7 +308,7 @@ public class DatabaseInitializer(
         // NGC Sites (NGC_Site table)
         try
         {
-            if (!await beDb.NgcSites.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id, ct))
+            if (!await beDb.NgcSites.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id && s.SiteId == "SITE001", ct))
             {
                 beDb.NgcSites.AddRange(
                     new NgcSite { SiteId = "SITE001", TenantId = tenant.Id, SiteName = "Main Office", Description = "Primary contact center", TimeZone = "+03:00", ClearTime = "00:00" },
