@@ -1,4 +1,11 @@
-using CcDashboard.Application.Interfaces;
+#!/usr/bin/env python3
+"""Fix TenantSettingsRepository - use IDbContextFactory for concurrent read safety."""
+
+import os
+
+path = r"D:\Claude\Projects\RTM View Shell\src\CcDashboard.Infrastructure\Persistence\Repositories\TenantSettingsRepository.cs"
+
+new_content = '''using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -32,3 +39,11 @@ public class TenantSettingsRepository(
             db.TenantSettings.Add(settings);
     }
 }
+'''
+
+with open(path, "w", encoding="utf-8") as f:
+    f.write(new_content)
+    f.flush()
+    os.fsync(f.fileno())
+
+print("Done: TenantSettingsRepository.cs (%d lines)" % (new_content.count('\n') + 1))
