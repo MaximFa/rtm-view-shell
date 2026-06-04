@@ -1950,8 +1950,24 @@ updated: YYYY-MM-DD
 
 ## 32. Proactive documentation maintenance
 
-At the **start of every Cowork session**, Claude must check project status and proactively
-ask Max about documentation updates if warranted — before starting any other work.
+At the **start of every Cowork session**, Claude must:
+
+### Step 0 — Load mandatory skills (ALWAYS, NO EXCEPTIONS)
+
+Read both skill files before any other action:
+
+```
+Read: .claude/skills/widget-planner/widget-planner.md
+Read: .claude/skills/widget-creator/widget-creator.md
+```
+
+These contain all lessons learned, known bugs, and architecture decisions.
+Do not skip this step even if the session seems unrelated to widgets.
+
+### Step 1 — Check project status and documentation updates
+
+Check project status and proactively ask Max about documentation updates
+if warranted — before starting any other work.
 
 ### Check sequence (run at session start)
 
@@ -2599,10 +2615,18 @@ These skills contain:
 - Known bugs and their fixes (TemplateCell, ClassificationId, preassignedGridId, etc.)
 - DB export workflow, metric reference errors, fix patterns
 
-**Cowork agent:** read both files at the start of every session using the Read tool.
-**CC agent:** read both files before any widget/DB/Shell work.
+**Cowork agent:** reads both files automatically via §32 Step 0 at session start.
+**CC agent:** every CC task prompt must include this block at the top:
 
-**Do NOT start any work without reading both skills first.**
+```
+## Mandatory — read before starting
+Read file: .claude/skills/widget-planner/widget-planner.md
+Read file: .claude/skills/widget-creator/widget-creator.md
+Only after reading both files: proceed with the task below.
+```
+
+Cowork agent adds this block to every CC prompt automatically.
+CC agent must not skip it even if the task seems unrelated to widgets.
 
 *TZ version: 2.2 | CLAUDE.md last updated: 2026-06-05 (§40 mandatory skill loading — all sessions)*
 
