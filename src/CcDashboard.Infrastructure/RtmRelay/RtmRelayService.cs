@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using StackExchange.Redis;
@@ -23,6 +24,7 @@ public sealed class RtmRelayService : IRtmRelayService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RtmRelayService> _logger;
+    private readonly IOptionsMonitor<RtmRelayOptions> _options;
 
     private readonly ConcurrentDictionary<(Guid TenantId, int UnionId), UnionState> _unions = new();
     private readonly ConcurrentDictionary<(Guid TenantId, int GridId), GridState> _grids = new();
@@ -32,11 +34,13 @@ public sealed class RtmRelayService : IRtmRelayService
     public RtmRelayService(
         IServiceScopeFactory scopeFactory,
         IConnectionMultiplexer redis,
-        ILogger<RtmRelayService> logger)
+        ILogger<RtmRelayService> logger,
+        IOptionsMonitor<RtmRelayOptions> options)
     {
         _scopeFactory = scopeFactory;
         _redis = redis;
         _logger = logger;
+        _options = options;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -342,17 +346,20 @@ public sealed class RtmRelayService : IRtmRelayService
         }
         finally { state.Lock.Release(); }
 
-        var agentLog = string.Join(" | ", upserted.Select(a =>
+        if (_options.CurrentValue.DiagPushLogging)
         {
-            var state = a.Fields.TryGetValue("MonAgentState", out var sv) ? sv.Raw
-                      : a.Fields.TryGetValue("AgentState",    out var sv2) ? sv2.Raw
-                      : "(no state field)";
-            var fieldNames = string.Join(",", a.Fields.Keys.Take(8));
-            return $"{a.AgentLoginName}=>state={state} fields=[{fieldNames}]";
-        }));
-        _logger.LogInformation(
-            "RECV updateUserGrid union {UnionId}: {Count} agents [{Agents}]",
-            key.UnionId, upserted.Count, agentLog);
+            var agentLog = string.Join(" | ", upserted.Select(a =>
+            {
+                var st = a.Fields.TryGetValue("MonAgentState", out var sv) ? sv.Raw
+                       : a.Fields.TryGetValue("AgentState",    out var sv2) ? sv2.Raw
+                       : "(no state field)";
+                var fieldNames = string.Join(",", a.Fields.Keys.Take(8));
+                return $"{a.AgentLoginName}=>state={st} fields=[{fieldNames}]";
+            }));
+            _logger.LogInformation(
+                "RECV updateUserGrid union {UnionId}: {Count} agents [{Agents}]",
+                key.UnionId, upserted.Count, agentLog);
+        }
 
         if (upserted.Count > 0)
             await FanOutAsync(handlers, new UnionStateChange.AgentsUpserted(upserted));
@@ -676,10 +683,13 @@ public sealed class RtmRelayService : IRtmRelayService
         }
         finally { state.Lock.Release(); }
 
-        var cellLog = string.Join(", ", updates.Select(u => $"Cell{u.CellId}={u.Value}"));
-        _logger.LogInformation(
-            "RECV updateGridData grid {GridId}: {Count} cells [{Cells}], {HandlerCount} handlers",
-            key.GridId, updates.Count, cellLog, handlers.Count);
+        if (_options.CurrentValue.DiagPushLogging)
+        {
+            var cellLog = string.Join(", ", updates.Select(u => $"Cell{u.CellId}={u.Value}"));
+            _logger.LogInformation(
+                "RECV updateGridData grid {GridId}: {Count} cells [{Cells}], {HandlerCount} handlers",
+                key.GridId, updates.Count, cellLog, handlers.Count);
+        }
 
         if (updates.Count > 0)
             await FanOutGridAsync(handlers, updates);

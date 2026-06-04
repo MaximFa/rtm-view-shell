@@ -128,6 +128,7 @@ try
     services.AddScoped<CircuitHandler, TenantCircuitHandler>();
 
     // RTM Relay — Singleton, server-side SignalR client to RTM Service (CLAUDE.md §34)
+    services.Configure<RtmRelayOptions>(builder.Configuration.GetSection(RtmRelayOptions.Section));
     services.AddSingleton<IRtmRelayService, RtmRelayService>();
 
     var app = builder.Build();
