@@ -1,4 +1,4 @@
-﻿-- 04_catalog.sql: Widget catalog and NGC site definitions
+-- 04_catalog.sql: Widget catalog and NGC site definitions
 SET session_replication_role = replica;
 
 -- widget_catalog

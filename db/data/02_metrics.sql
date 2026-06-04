@@ -1,4 +1,4 @@
-﻿-- 02_metrics.sql: RTSGrid metrics and statistics
+-- 02_metrics.sql: RTSGrid metrics and statistics
 SET session_replication_role = replica;
 
 -- RTSGrid_Metric

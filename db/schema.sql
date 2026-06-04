@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict qrnvoO7BG9OoKR9Q995riang3XglGJ1ehc4r7kdjaHZQk8g5Mn91CNN9mDg5Tbk
+\restrict yKnMAtFxtaz1JJYMaFK1If5geUPvD7BL3tD6HOcUc3geQScitXhK8vVlDOXKUWi
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -48,6 +48,22 @@ COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
+-- Name: NGC_CreateBusinessUnit(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."NGC_CreateBusinessUnit"(p_business_unit_name text, p_description text, p_tenant_id uuid) RETURNS TABLE("BusinessUnitId" integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    INSERT INTO "NGC_BusinessUnit" ("BusinessUnitName", "Description", "CreatedDatetime", "TenantId")
+    VALUES (p_business_unit_name, p_description, NOW(), p_tenant_id)
+    RETURNING "NGC_BusinessUnit"."BusinessUnitId";
+END;
+$$;
+
+
+--
 -- Name: NGC_CreateBusinessUnit(text, text, text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -70,6 +86,21 @@ $$;
 
 
 --
+-- Name: NGC_CreateBusinessUnitQueueClassificationMapping(integer, text, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."NGC_CreateBusinessUnitQueueClassificationMapping"(p_business_unit_id integer, p_queue_id text, p_tenant_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    INSERT INTO "NGC_BusinessUnitQueueClassification" ("BusinessUnitId", "QueueId", "CreatedDatetime", "TenantId")
+    VALUES (p_business_unit_id, p_queue_id, NOW(), p_tenant_id)
+    ON CONFLICT ("BusinessUnitId", "QueueId") DO NOTHING;
+END;
+$$;
+
+
+--
 -- Name: NGC_CreateBusinessUnitQueueClassificationMapping(integer, text, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
 
@@ -81,6 +112,21 @@ BEGIN
         ("BusinessUnitId", "QueueId", "ClassificationId", "CreatedDatetime", "TenantId")
     VALUES (p_business_unit_id, p_queue_id, p_classification_id, NOW(), p_tenant_id)
     ON CONFLICT ("BusinessUnitId", "QueueId") DO NOTHING;
+END;
+$$;
+
+
+--
+-- Name: NGC_CreateBusinessUnitSupergroupMapping(integer, integer, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."NGC_CreateBusinessUnitSupergroupMapping"(p_business_unit_id integer, p_supergroup_id integer, p_tenant_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    INSERT INTO "NGC_BusinessUnitSupergroup" ("BusinessUnitId", "SupergroupId", "CreatedDatetime", "TenantId")
+    VALUES (p_business_unit_id, p_supergroup_id, NOW(), p_tenant_id)
+    ON CONFLICT ("BusinessUnitId", "SupergroupId") DO NOTHING;
 END;
 $$;
 
@@ -149,6 +195,20 @@ $$;
 
 
 --
+-- Name: NGC_CreateSupergroupAgentgroupMapping(integer, text, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."NGC_CreateSupergroupAgentgroupMapping"(p_supergroup_id integer, p_agentgroup_id text, p_tenant_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    INSERT INTO "NGC_SupergroupAgentgroup" ("SupergroupId", "AgentgroupId", "CreatedDatetime", "TenantId")
+    VALUES (p_supergroup_id, p_agentgroup_id, NOW(), p_tenant_id);
+END;
+$$;
+
+
+--
 -- Name: NGC_CreateSupergroupAgentgroupMapping(integer, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
 
@@ -173,6 +233,22 @@ CREATE PROCEDURE public."NGC_DeleteBusinessUnit"(IN p_business_unit_id integer, 
 BEGIN
     DELETE FROM "NGC_BusinessUnit"
     WHERE "BusinessUnitId" = p_business_unit_id
+      AND "TenantId" = p_tenant_id;
+END;
+$$;
+
+
+--
+-- Name: NGC_DeleteBusinessUnitQueueClassificationMapping(integer, text, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."NGC_DeleteBusinessUnitQueueClassificationMapping"(p_business_unit_id integer, p_queue_id text, p_tenant_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    DELETE FROM "NGC_BusinessUnitQueueClassification"
+    WHERE "BusinessUnitId" = p_business_unit_id
+      AND "QueueId" = p_queue_id
       AND "TenantId" = p_tenant_id;
 END;
 $$;
@@ -528,6 +604,50 @@ $$;
 
 
 --
+-- Name: RTSData_GetInteractions(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."RTSData_GetInteractions"(p_tenant_id uuid) RETURNS TABLE("TenantId" uuid, "InteractionId" text, "Segment" integer, "OnDate" text, "ServerId" text, "Workgroup" text, "UserId" text, "ClassificationCode" text, "InteractionType" text, "CallType" text, "Direction" text, "CustomCallData" text, "IsTransferred" boolean, "IsAnswered" boolean, "IsInQueue" boolean, "IsTalk" boolean, "IsAbandoned" boolean, "TimeInQueue" integer, "TalkTime" integer, "InQueueDateTime" timestamp with time zone, "AnsweredDateTime" timestamp with time zone, "UpdateTime" timestamp with time zone, "LastUserId" text, "LastWorkgroup" text, "IsMessaging" boolean, "RemoteAddress" text, "IsCallbackRequest" boolean, "TimeZone" text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        i."TenantId",
+        i."InteractionId"::text,
+        i."Segment",
+        i."OnDate"::text,
+        i."ServerId"::text,
+        i."Workgroup"::text,
+        i."UserId"::text,
+        i."ClassificationCode"::text,
+        i."InteractionType"::text,
+        i."CallType"::text,
+        i."Direction"::text,
+        i."CustomCallData"::text,
+        i."IsTransferred",
+        i."IsAnswered",
+        i."IsInQueue",
+        i."IsTalk",
+        i."IsAbandoned",
+        i."TimeInQueue",
+        i."TalkTime",
+        i."InQueueDateTime",
+        i."AnsweredDateTime",
+        i."UpdateTime",
+        i."LastUserId"::text,
+        i."LastWorkgroup"::text,
+        i."IsMessaging",
+        i."RemoteAddress"::text,
+        i."IsCallbackRequest",
+        i."TimeZone"::text
+    FROM "RTSData_Interaction" i
+    WHERE i."TenantId" = p_tenant_id;
+END;
+$$;
+
+
+--
 -- Name: RTSData_GetInteractions(text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -560,6 +680,35 @@ CREATE FUNCTION public."RTSData_GetInteractions"(p_on_date text, p_tenant_id uui
     WHERE "OnDate" = p_on_date
       AND "TenantId" = p_tenant_id
     ORDER BY "Segment", "UpdateTime" DESC;
+$$;
+
+
+--
+-- Name: RTSData_GetUsersStatuses(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."RTSData_GetUsersStatuses"(p_tenant_id uuid) RETURNS TABLE("TenantId" uuid, "UserId" text, "StatusId" text, "ServerId" text, "OnDate" text, "StatusName" text, "StatusGroup" text, "TotalDuration" integer, "MaxDuraction" integer, "TotalCount" integer, "UpdateTime" timestamp with time zone, "DisplayName" text, "TimeZone" text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        s."TenantId",
+        s."UserId"::text,
+        s."StatusId"::text,
+        s."ServerId"::text,
+        s."OnDate"::text,
+        s."StatusName"::text,
+        s."StatusGroup"::text,
+        s."TotalDuration",
+        s."MaxDuraction",
+        s."TotalCount",
+        s."UpdateTime",
+        s."DisplayName"::text,
+        s."TimeZone"::text
+    FROM "RTSData_UserStatus" s
+    WHERE s."TenantId" = p_tenant_id;
+END;
 $$;
 
 
@@ -848,6 +997,15 @@ $$;
 
 
 --
+-- Name: RTSData_getInteractions(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."RTSData_getInteractions"(p_tenant_id uuid) RETURNS TABLE("TenantId" uuid, "InteractionId" text, "Segment" integer, "OnDate" text, "ServerId" text, "Workgroup" text, "UserId" text, "ClassificationCode" text, "InteractionType" text, "CallType" text, "Direction" text, "CustomCallData" text, "IsTransferred" boolean, "IsAnswered" boolean, "IsInQueue" boolean, "IsTalk" boolean, "IsAbandoned" boolean, "TimeInQueue" integer, "TalkTime" integer, "InQueueDateTime" timestamp with time zone, "AnsweredDateTime" timestamp with time zone, "UpdateTime" timestamp with time zone, "LastUserId" text, "LastWorkgroup" text, "IsMessaging" boolean, "RemoteAddress" text, "IsCallbackRequest" boolean, "TimeZone" text)
+    LANGUAGE sql
+    AS $$ SELECT * FROM "RTSData_GetInteractions"(p_tenant_id); $$;
+
+
+--
 -- Name: RTSData_getInteractions(text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -856,6 +1014,15 @@ CREATE FUNCTION public."RTSData_getInteractions"(p_on_date text, p_tenant_id uui
     AS $$
     SELECT * FROM "RTSData_GetInteractions"(p_on_date, p_tenant_id);
 $$;
+
+
+--
+-- Name: RTSData_getUsersStatuses(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."RTSData_getUsersStatuses"(p_tenant_id uuid) RETURNS TABLE("TenantId" uuid, "UserId" text, "StatusId" text, "ServerId" text, "OnDate" text, "StatusName" text, "StatusGroup" text, "TotalDuration" integer, "MaxDuraction" integer, "TotalCount" integer, "UpdateTime" timestamp with time zone, "DisplayName" text, "TimeZone" text)
+    LANGUAGE sql
+    AS $$ SELECT * FROM "RTSData_GetUsersStatuses"(p_tenant_id); $$;
 
 
 --
@@ -3801,5 +3968,5 @@ ALTER TABLE ONLY public.widget_templates
 -- PostgreSQL database dump complete
 --
 
-\unrestrict qrnvoO7BG9OoKR9Q995riang3XglGJ1ehc4r7kdjaHZQk8g5Mn91CNN9mDg5Tbk
+\unrestrict yKnMAtFxtaz1JJYMaFK1If5geUPvD7BL3tD6HOcUc3geQScitXhK8vVlDOXKUWi
 

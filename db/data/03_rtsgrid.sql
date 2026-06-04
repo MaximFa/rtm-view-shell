@@ -1,4 +1,4 @@
-﻿-- 03_rtsgrid.sql: RTSGrid and RTSUserGrid widget definitions
+-- 03_rtsgrid.sql: RTSGrid and RTSUserGrid widget definitions
 SET session_replication_role = replica;
 
 -- RTSGrid_Grid

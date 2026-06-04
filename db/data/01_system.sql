@@ -1,4 +1,4 @@
-﻿-- 01_system.sql: Platform tenant + Superadmin + EF migration history
+-- 01_system.sql: Platform tenant + Superadmin + EF migration history
 SET session_replication_role = replica;
 
 -- tenants
