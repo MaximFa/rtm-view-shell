@@ -1,4 +1,4 @@
-﻿-- 01_system.sql: Platform tenant + Superadmin
+﻿-- 01_system.sql: Platform tenant + Superadmin + EF migration history
 SET session_replication_role = replica;
 
 -- tenants
@@ -32,6 +32,53 @@ COPY identity."users" FROM stdin;
 TRUNCATE TABLE identity."user_roles" RESTART IDENTITY CASCADE;
 COPY identity."user_roles" FROM stdin;
 019e03e9-614f-7761-936d-2518e4163950	ec0fcb3b-d7c1-464b-9b09-d7368d0ca05f
+\.
+
+-- __EFMigrationsHistory
+TRUNCATE TABLE "__EFMigrationsHistory" RESTART IDENTITY CASCADE;
+COPY "__EFMigrationsHistory" FROM stdin;
+20260507105829_InitialCreate	8.0.11
+20260507135314_InitialCreate	8.0.16
+\.
+
+-- __BackendEmulationMigrationsHistory
+TRUNCATE TABLE "__BackendEmulationMigrationsHistory" RESTART IDENTITY CASCADE;
+COPY "__BackendEmulationMigrationsHistory" FROM stdin;
+20260525190044_InitialBackendSchema	8.0.16
+20260525200130_AddQueueGridTables	8.0.16
+20260526203609_AddRtsDataEntitiesAndStatusGroup	8.0.16
+20260526214442_AddDayTrendFunctions	8.0.16
+20260527170830_FixRtsGridMetricData	8.0.16
+20260528100000_AddTrainingRtsGridMetric	8.0.16
+20260528200000_AddUsersInStatusCountStateMetrics	8.0.16
+20260530185653_AddMissingRtmTables	8.0.16
+\.
+
+-- __ef_migrations_history
+TRUNCATE TABLE "__ef_migrations_history" RESTART IDENTITY CASCADE;
+COPY "__ef_migrations_history" FROM stdin;
+20260507135247_InitialCreate	8.0.16
+20260507191205_NgcConfiguration	8.0.16
+20260508070300_RtsGridMetricCrossTenant	8.0.16
+20260509063517_LicensingAndUserSessions	8.0.16
+20260509092003_NgcQueueAgentGroupTables	8.0.16
+20260510110123_AddDashboardCategory	8.0.16
+20260510182755_AddSignalRConnectionUrlToTenantSettings	8.0.16
+20260511130954_AddDashboardIsDarkMode	8.0.16
+20260513084402_AddGridIdToDashboardWidget	8.0.16
+20260513094211_AddRtsUserGridTables	8.0.16
+20260513105023_ChangeGridIdToIdentityByDefault	8.0.16
+20260513120913_AddTenantSettingsAppearance	8.0.16
+20260513194331_AddValueTypeToRtsGridMetric	8.0.16
+20260513195301_AddMetricValueAndMetricType	8.0.16
+20260514080241_AddWidgetTemplates	8.0.16
+20260515231936_RenameRtsGridMetricToPascalCase	8.0.16
+20260515232925_RenameNgcTablesToPascalCase	8.0.16
+20260525215453_SeparateBackendTablesToBeDb	8.0.16
+20260525223134_SeparateBackendTablesToBeDb	8.0.16
+20260527150112_AddHistoryMetricTable	8.0.16
+20260528043639_AddAgentStateRegistry	8.0.16
+20260529054939_AddInfoSlotTables	8.0.16
 \.
 
 SET session_replication_role = DEFAULT;
