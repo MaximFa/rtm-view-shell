@@ -866,30 +866,92 @@ else if (IsAgentStateDistributionWidget(widget))
 
 ---
 
-## Lesson 11: QueueGrid production checklist (2026-06-03)
+## Lesson 11 — RTM QueueGrid data flow & production bugs (2026-06-03)
 
-Before marking a DataGrid/QueueGrid widget as delivered, verify:
+### Complete component chain
 
-1. **GridId sync**: `dashboard_widgets.GridId` == `RTSGrid_Grid.GridId`
-   (NOT the auto-increment PK of dashboard_widgets)
+```
+RTM Service startup
+  RTSGrid_GetDataCells()              reads RTSGrid_Cell (no TemplateCell — removed)
+  GetAllUnionQueueClassifications()   reads NGC_BusinessUnitQueueClassification
+    ClassificationId == "ALL"  →  union.addWorkgroup(QueueId)
+                                →  Union.Queues.Add(QueueId)
+                                →  WorkgroupManager registered
+  DataCells loop: Cell registered to Grid + Union in memory
 
-2. **CellMap populated**: After saving, `Config.QueueGridRows[i].CellIds[colId]`
-   contains real CellIds from `RTSGrid_GetDataCells(gridId)`.
-   If CellIds are null/empty, no data will ever display.
+RTM Service runtime
+  CC event (call enters queue "Everyone")
+  getOrAddWGManager("Everyone")  →  finds WorkgroupManager
+  metrics recalculated for Union 56
+  Grid 31 GridEvent  →  updateGridData to SignalR group "31"
+  payload: [{CellId, Value}, ...]
 
-3. **Newtonsoft + JToken**: If relay uses Newtonsoft protocol,
-   `On<JsonElement>` silently drops all messages. Use `On<JToken>`.
+Shell RtmRelayService
+  Connected to RTM hub (TenantSettings.SignalRConnectionUrl)
+  On connect: init("31") + refreshCells("31")
+  Receives updateGridData  →  snapshot + fan-out to widget handlers
 
-4. **Blazor lifecycle**: Widget subscribe must be in `OnAfterRenderAsync(firstRender)`
-   only. SSR pre-render in `OnInitializedAsync`/`OnParametersSetAsync` causes
-   subscribe→dispose cycles that make the relay grace timer kill the connection.
+QueueGridWidget (Blazor)
+  SubscribeGridAsync(tenantId, gridId=31, handler)
+  handler: CellId  →  _cellMap  →  RowDefId  →  update row value  →  StateHasChanged()
+```
 
-5. **RTM Service LoadData**: Calling `/LoadData` (e.g., after SaveQueueGridRts)
-   causes RTM Service to close all SignalR connections. The relay reconnects
-   automatically via backoff, but there will be a brief data interruption.
+### Bug 1 — RTSGrid_TemplateCell INNER JOIN (always empty)
+
+**Root cause:** `RTSGrid_GetDataCells` had INNER JOIN with `RTSGrid_TemplateCell`.
+This table is legacy MSSQL data loaded via pgloader. It was **always 0 rows** in
+all deployments. INNER JOIN with empty table = function returns 0 rows = RTM Engine
+registers no cells = `updateGridData` never fires.
+
+**Fix:** Remove TemplateCell from query. Cells already have `CellType = 'Data'`
+explicitly. Return `NULL::text AS "ColumnMetric"` to preserve column index 9.
+
+**Invariant:** `RTSGrid_TemplateCell` is permanently removed from the solution.
+Never reference it in SQL functions or Shell entity model.
+
+### Bug 2 — ClassificationId not set to "ALL"
+
+**Root cause:** Shell saved `NgcBusinessUnitQueueClassification` records with
+`ClassificationId = null/""`. RTM Engine only calls `union.addWorkgroup()` when
+`ClassificationId == "ALL"`. Without it:
+- `Union.Queues` stays empty
+- Incoming call with Workgroup="Everyone" hits `getOrAddWGManager`
+- A **new duplicate BusinessUnit** is created at runtime
+- Cells registered for Union 56 / Grid 31 never receive data
+
+**Fix:** Always set `ClassificationId = "ALL"` in:
+- `ConfigurationCommands.cs` QueueAssignment loop
+- `DatabaseInitializer.cs` seed loop
+- EF migration to fix existing NULL/empty records
+
+**Invariant:** `ClassificationId = "ALL"` = "all calls from this queue, any
+classification". Always use this for standard BU-Queue mappings. The Shell UI
+does not expose ClassificationId — never leave it null.
+
+### Debugging checklist — QueueGrid shows no data
+
+1. `SELECT count(*) FROM "RTSGrid_GetDataCells"()` must be > 0
+2. `SELECT * FROM "RTSGrid_GetAllUnionQueueClassifications"(tenant_id)` must return rows;
+   check `ClassificationId = 'ALL'` and `NGC_Site` has matching SiteId
+3. RTM Service log: `LoadData: DataCells` — count of registered cells
+4. RTM Service log: `Add Workgroup id=...` at runtime = BU not registered at startup
+5. `SELECT count(*) FROM "RTSData_Interaction"` — confirms calls written by RTM
+6. Shell log: `RtmRelayService: init+refreshCells complete for grid N` — SignalR OK
+
+### Key data model facts
+
+- **UnionId = BusinessUnitId**: same integer used in both RTSGrid and NGC tables
+- **SignalR group for QueueGrid**: gridId as string (`"31"`), init param: `"31"`
+- **SignalR group for AgentGrid**: `"u" + unionId` (`"u56"`), init param: `"u56"`
+- **Cell fallback UnionId**: checked as Cell.UnionId → Row.UnionId → Grid.UnionId
 
 ---
 
-*Widget Planner Skill — created 2026-05-27. Updated 2026-05-28 (L-22–L-26), 2026-06-03 (L-11 QueueGrid checklist).*
+Read this section before debugging any QueueGrid widget that shows no data.
+
+---
+
+*Widget Planner Skill — created 2026-05-27. Updated 2026-05-28 (L-22–L-26), 2026-06-03 (L-11 QueueGrid data flow & production bugs).*
 *L-22: Specialized Grid Widget pattern. L-23: dual-mode RTSGrid. L-24: MetricFunction rules. L-25: State vs Group. L-26: 3-place deletion rule.*
-*23 lessons learned.*
+*L-11: Complete RTM→Shell data flow, TemplateCell bug, ClassificationId bug, debugging checklist.*
+*24 lessons learned.*
