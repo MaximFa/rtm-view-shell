@@ -2059,7 +2059,6 @@ button.clr-swatch,
 
 /* Columns Tab */
 .columns-tab {
-    min-height: 350px;
     overflow-x: hidden;
 }
 
@@ -2074,7 +2073,6 @@ button.clr-swatch,
     border: 1px solid var(--clr-border);
     border-radius: var(--r-md);
     overflow-x: hidden;
-    padding-bottom: 200px;
 }
 
 .column-def-row {
