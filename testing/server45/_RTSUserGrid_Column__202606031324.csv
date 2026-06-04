@@ -1,0 +1,7 @@
+"ColumnId","ColumnsSetId","Title","MetricId","StyleId","ColumnsOrder"
+53,8,Agent,AgentLoginName,,0
+54,8,State,MonAgentState,,1
+55,8,Duration,MonAgentStateDuration,,2
+56,8,TALK %,MonAgentTalkDurationPct,,3
+57,8,Incoming,MonAgentNumMakeCallsInCompleted,,4
+58,8,Avg Talk,MonAgentAverageInboundCallDuration,,5

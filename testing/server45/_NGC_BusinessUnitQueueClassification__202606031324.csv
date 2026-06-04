@@ -1,0 +1,21 @@
+"BusinessUnitId","QueueId","TenantId","ClassificationId","CreatedDatetime","CreatedBy"
+1,Q001,"019e03e9-60dd-72da-bd01-648ffdb2b433",,2026-05-27 01:26:00.469 +0300,system
+2,Q002,"019e03e9-60dd-72da-bd01-648ffdb2b433",,2026-05-27 01:26:00.469 +0300,system
+2,Q003,"019e03e9-60dd-72da-bd01-648ffdb2b433",,2026-05-27 01:26:00.469 +0300,system
+2,Q005,"019e03e9-60dd-72da-bd01-648ffdb2b433",,2026-05-27 01:26:00.469 +0300,system
+3,Q004,"019e03e9-60dd-72da-bd01-648ffdb2b433",,2026-05-27 01:26:00.469 +0300,system
+57,Template Example Internal Calls,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.042 +0300,
+58,Template Example Sales,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.049 +0300,
+59,Template Example Support,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.055 +0300,
+60,Template Example Everyone,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.061 +0300,
+61,test-queue,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.067 +0300,
+62,stas,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.074 +0300,
+63,technical_support,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.082 +0300,
+64,general_inquiries,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.089 +0300,
+65,customer_support,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.097 +0300,
+66,billing_support,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.103 +0300,
+67,sales_inquiries,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.110 +0300,
+68,vip_support,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.117 +0300,
+69,Gemini Bot,"019e03e9-60dd-72da-bd01-648ffdb2b433",ALL,2026-06-03 11:01:50.125 +0300,
+70,Coffee,"019e03e9-60dd-72da-bd01-648ffdb2b433",,2026-06-03 11:36:59.876 +0300,admin
+56,Everyone,"019e03e9-60dd-72da-bd01-648ffdb2b433",,2026-06-03 12:44:44.004 +0300,admin

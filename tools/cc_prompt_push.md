@@ -1,4 +1,4 @@
-# Task: Commit and push RTM + Shell changes to origin/v2
+# Task: Commit and push all pending changes to origin/v2
 
 ## Git push rule
 After committing, run `git push origin v2`. This is the dedicated push prompt — push IS allowed here.
@@ -36,58 +36,66 @@ Stage and commit all files under `RTM/`:
 ```bash
 cp .git/index /tmp/cc-idx
 GIT_INDEX_FILE=/tmp/cc-idx git add RTM/
-GIT_INDEX_FILE=/tmp/cc-idx git commit -m "rtm: prod-test fixes — percent format, diag logging, event subscription"
+GIT_INDEX_FILE=/tmp/cc-idx git commit -m "rtm: prod-test fixes — diag logging flag, percent format, event subscription"
 cp /tmp/cc-idx .git/index
 ```
 
-Adjust the commit message to reflect what actually changed in RTM/.
-
 ---
 
-## Step 3 — Commit Shell + Docs changes
+## Step 3 — Commit Shell changes
 
-Stage and commit src/, tests/, CLAUDE.md, PROJECT_STATUS.md, tools/, .claude/, docs/, deploy/:
+Stage and commit src/, tests/, wireframes/, deploy/, CLAUDE.md, PROJECT_STATUS.md:
 
 ```bash
 cp .git/index /tmp/cc-idx
-GIT_INDEX_FILE=/tmp/cc-idx git add src/ tests/ CLAUDE.md PROJECT_STATUS.md tools/ .claude/ docs/ deploy/ wireframes/ 2>/dev/null || true
-GIT_INDEX_FILE=/tmp/cc-idx git commit -m "web: prod-test fixes — table filter, time format, row reset, nbsp, diaglog"
+GIT_INDEX_FILE=/tmp/cc-idx git add src/ tests/ wireframes/ deploy/ CLAUDE.md PROJECT_STATUS.md 2>/dev/null || true
+GIT_INDEX_FILE=/tmp/cc-idx git commit -m "web: prod-test fixes — time format, percent, table filter, seeder SITE001, RtmRelay diag"
 cp /tmp/cc-idx .git/index
 ```
 
-Adjust the commit message to reflect what actually changed in src/.
-
 ---
 
-## Step 3b — Commit DB changes (if any db/ files modified)
+## Step 4 — Commit DB tools + setup
 
 Stage and commit db/:
 
 ```bash
 cp .git/index /tmp/cc-idx
 GIT_INDEX_FILE=/tmp/cc-idx git add db/
-GIT_INDEX_FILE=/tmp/cc-idx git commit -m "db: <describe DB changes>"
+GIT_INDEX_FILE=/tmp/cc-idx git commit -m "db: add Export-All, Restore-All, Create-FreshDb, setup scripts"
 cp /tmp/cc-idx .git/index
 ```
 
-Skip this step if no db/ files were modified.
+---
+
+## Step 5 — Commit tools/, docs/, testing/, misc
+
+Stage everything else (cc_prompt_*.md, fix_*.py, docs/, testing/, etc.):
+
+```bash
+cp .git/index /tmp/cc-idx
+GIT_INDEX_FILE=/tmp/cc-idx git add tools/ docs/ testing/ .claude/ 2>/dev/null || true
+GIT_INDEX_FILE=/tmp/cc-idx git add INSTALL-SIMULATOR.md Installations/ 2>/dev/null || true
+GIT_INDEX_FILE=/tmp/cc-idx git commit -m "docs: cc prompts, fix scripts, documentation, testing artifacts"
+cp /tmp/cc-idx .git/index
+```
 
 ---
 
-## Step 4 — Post-commit verification (§0.6)
+## Step 6 — Post-commit verification (§0.6)
 
 ```bash
 git status --short
-# Expected: empty (no M lines)
+# Expected: empty or only untracked (??) lines, no M lines
 
-git log --oneline -4
+git log --oneline -6
 ```
 
-If any M files remain → re-stage and amend/follow-up commit.
+If any M files remain → re-stage and create follow-up commit.
 
 ---
 
-## Step 5 — Push
+## Step 7 — Push
 
 ```bash
 git push origin v2
@@ -101,21 +109,13 @@ git push origin v2
 
 ---
 
-## Step 6 — Re-sync committed files from HEAD (§0.6 PD-007)
+## Step 8 — Re-sync committed files from HEAD (§0.6 PD-007)
 
 ```bash
-for f in $(git diff HEAD~2 HEAD --name-only 2>/dev/null); do
-    git show HEAD:"$f" > "$f" 2>/dev/null && echo "Re-synced: $f"
+git diff --name-only HEAD~5 HEAD | while read f; do
+    [ -f "$f" ] && git show HEAD:"$f" > "$f" && echo "Re-synced: $f"
 done
 sync
 ```
 
----
-
-## Notes
-- RTM files: everything under `RTM/`
-- Shell files: `src/`, `tests/`, CLAUDE.md, PROJECT_STATUS.md, `tools/`, `.claude/`, `docs/`, `deploy/`, `wireframes/`
-- DB files: `db/` (functions, migrations, tools, baseline.sql)
-- `staging/*.sql` → RTM commit
-- `tools/cc_prompt_*.md` → Shell commit
-- Never mix RTM, Shell, and DB in the same commit
+Report final `git log --oneline -6` and `git status --short`.

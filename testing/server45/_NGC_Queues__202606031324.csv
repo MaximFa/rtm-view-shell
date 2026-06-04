@@ -1,0 +1,21 @@
+"Id","TenantId","ExternalId","Name","IsActive","CreatedDatetime"
+"019e6157-83f6-71a0-8382-5ccecab92a82","019e03e9-60dd-72da-bd01-648ffdb2b433",Q001,Sales Inbound,true,2026-06-02 22:07:53.929 +0300
+"019e6157-83f6-71a1-8a5e-5e209195c5bc","019e03e9-60dd-72da-bd01-648ffdb2b433",Q002,Support Level 1,true,2026-06-02 22:07:53.929 +0300
+"019e6157-83f6-71a2-b319-14a9a25ef0c0","019e03e9-60dd-72da-bd01-648ffdb2b433",Q003,Support Level 2,true,2026-06-02 22:07:53.929 +0300
+"019e6157-83f6-71a3-a5c7-be492eb1570b","019e03e9-60dd-72da-bd01-648ffdb2b433",Q004,Billing,true,2026-06-02 22:07:53.929 +0300
+"019e6157-83f6-71a4-91a6-09cf3c2b2954","019e03e9-60dd-72da-bd01-648ffdb2b433",Q005,VIP Support,true,2026-06-02 22:07:53.929 +0300
+"11b3eb23-5d8e-45e4-b6a0-cabbabc95a54","019e03e9-60dd-72da-bd01-648ffdb2b433",Everyone,Everyone,true,2026-06-03 11:14:03.189 +0300
+"939d222a-58b8-4437-a31c-a8ff0cf9edc8","019e03e9-60dd-72da-bd01-648ffdb2b433",Template Example Internal Calls,Template Example Internal Calls,true,2026-06-03 11:14:03.197 +0300
+e7e777f8-51aa-4d63-bf46-739b1c768ab7,"019e03e9-60dd-72da-bd01-648ffdb2b433",Template Example Sales,Template Example Sales,true,2026-06-03 11:14:03.200 +0300
+b13a220e-75b5-42a7-bad8-29861ec7b6de,"019e03e9-60dd-72da-bd01-648ffdb2b433",Template Example Support,Template Example Support,true,2026-06-03 11:14:03.203 +0300
+"67773ea7-55f5-4d68-956e-262087414685","019e03e9-60dd-72da-bd01-648ffdb2b433",Template Example Everyone,Template Example Everyone,true,2026-06-03 11:14:03.206 +0300
+"6c441816-382c-4f28-9ef9-0fd5dbb86b7f","019e03e9-60dd-72da-bd01-648ffdb2b433",test-queue,test-queue,true,2026-06-03 11:14:03.209 +0300
+"2134b01f-1e15-4ee5-9400-fa5cbef14d7d","019e03e9-60dd-72da-bd01-648ffdb2b433",stas,stas,true,2026-06-03 11:14:03.212 +0300
+"0d2ebe28-eed4-4321-9bed-f542c6337087","019e03e9-60dd-72da-bd01-648ffdb2b433",technical_support,technical_support,true,2026-06-03 11:14:03.215 +0300
+"3e9c43ac-adf2-4118-ba51-41a010a7a63b","019e03e9-60dd-72da-bd01-648ffdb2b433",general_inquiries,general_inquiries,true,2026-06-03 11:14:03.218 +0300
+"962113e5-2620-4cb2-9f51-6e6a2210eb60","019e03e9-60dd-72da-bd01-648ffdb2b433",customer_support,customer_support,true,2026-06-03 11:14:03.221 +0300
+f0839dd3-3649-4959-bd94-2f75eb8ba45d,"019e03e9-60dd-72da-bd01-648ffdb2b433",billing_support,billing_support,true,2026-06-03 11:14:03.224 +0300
+"9e9ca918-5c2a-4432-b345-1f1fed238c79","019e03e9-60dd-72da-bd01-648ffdb2b433",sales_inquiries,sales_inquiries,true,2026-06-03 11:14:03.226 +0300
+"0c9e8d85-e54c-45d4-ab19-3ac2632f1901","019e03e9-60dd-72da-bd01-648ffdb2b433",vip_support,vip_support,true,2026-06-03 11:14:03.229 +0300
+fc510781-b424-4bdb-937b-edddb1f02ce7,"019e03e9-60dd-72da-bd01-648ffdb2b433",Gemini Bot,Gemini Bot,true,2026-06-03 11:14:03.232 +0300
+"82f67f5d-3c75-4d48-8d27-48d15ea12489","019e03e9-60dd-72da-bd01-648ffdb2b433",Coffee,Coffee,true,2026-06-03 11:14:03.234 +0300

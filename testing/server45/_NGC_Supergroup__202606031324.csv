@@ -1,0 +1,13 @@
+"SupergroupId","TenantId","SupergroupName","Description","CreatedDatetime","CreatedBy","SupergroupIdOld"
+1,"019e03e9-60dd-72da-bd01-648ffdb2b433",All Sales Agents,Supergroup for all sales staff,2026-05-26 01:53:06.136 +0300,system,
+2,"019e03e9-60dd-72da-bd01-648ffdb2b433",All Support Agents,Supergroup for all support staff,2026-05-26 01:53:06.136 +0300,system,
+3,"019e03e9-60dd-72da-bd01-648ffdb2b433",VIP Handlers,Supergroup for VIP customer handlers,2026-05-26 01:53:06.136 +0300,system,
+42,"019e03e9-60dd-72da-bd01-648ffdb2b433",template_example_support,template_example_support,2026-06-03 11:14:04.711 +0300,,
+43,"019e03e9-60dd-72da-bd01-648ffdb2b433",template_example_sales,template_example_sales,2026-06-03 11:14:04.722 +0300,,
+44,"019e03e9-60dd-72da-bd01-648ffdb2b433",billing_support,billing_support,2026-06-03 11:14:04.730 +0300,,
+45,"019e03e9-60dd-72da-bd01-648ffdb2b433",customer_support,customer_support,2026-06-03 11:14:04.737 +0300,,
+46,"019e03e9-60dd-72da-bd01-648ffdb2b433",general_inquiries,general_inquiries,2026-06-03 11:14:04.743 +0300,,
+47,"019e03e9-60dd-72da-bd01-648ffdb2b433",sales_inquiries,sales_inquiries,2026-06-03 11:14:04.750 +0300,,
+48,"019e03e9-60dd-72da-bd01-648ffdb2b433",technical_support,technical_support,2026-06-03 11:14:04.756 +0300,,
+49,"019e03e9-60dd-72da-bd01-648ffdb2b433",Coffee,Coffee,2026-06-03 11:14:04.763 +0300,,
+50,"019e03e9-60dd-72da-bd01-648ffdb2b433",vip_support,vip_support,2026-06-03 11:14:04.769 +0300,,

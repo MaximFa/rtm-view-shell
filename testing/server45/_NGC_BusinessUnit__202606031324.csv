@@ -1,0 +1,19 @@
+"BusinessUnitId","TenantId","BusinessUnitName","Description","CreatedDatetime","CreatedBy","SiteId"
+1,"019e03e9-60dd-72da-bd01-648ffdb2b433",Sales Department,Sales and marketing team,2026-05-26 01:53:06.059 +0300,system,IL
+2,"019e03e9-60dd-72da-bd01-648ffdb2b433",Support Department,Customer support team,2026-05-26 01:53:06.059 +0300,system,IL
+3,"019e03e9-60dd-72da-bd01-648ffdb2b433",Billing Department,Billing and accounts,2026-05-26 01:53:06.059 +0300,system,IL
+57,"019e03e9-60dd-72da-bd01-648ffdb2b433",Template Example Internal Calls,Template Example Internal Calls,2026-06-03 11:01:50.039 +0300,admin,IL
+58,"019e03e9-60dd-72da-bd01-648ffdb2b433",Template Example Sales,Template Example Sales,2026-06-03 11:01:50.046 +0300,admin,IL
+59,"019e03e9-60dd-72da-bd01-648ffdb2b433",Template Example Support,Template Example Support,2026-06-03 11:01:50.052 +0300,admin,IL
+60,"019e03e9-60dd-72da-bd01-648ffdb2b433",Template Example Everyone,Template Example Everyone,2026-06-03 11:01:50.059 +0300,admin,IL
+61,"019e03e9-60dd-72da-bd01-648ffdb2b433",test-queue,test-queue,2026-06-03 11:01:50.065 +0300,admin,IL
+62,"019e03e9-60dd-72da-bd01-648ffdb2b433",stas,stas,2026-06-03 11:01:50.071 +0300,admin,IL
+63,"019e03e9-60dd-72da-bd01-648ffdb2b433",technical_support,technical_support,2026-06-03 11:01:50.078 +0300,admin,IL
+64,"019e03e9-60dd-72da-bd01-648ffdb2b433",general_inquiries,general_inquiries,2026-06-03 11:01:50.085 +0300,admin,IL
+65,"019e03e9-60dd-72da-bd01-648ffdb2b433",customer_support,customer_support,2026-06-03 11:01:50.093 +0300,admin,IL
+66,"019e03e9-60dd-72da-bd01-648ffdb2b433",billing_support,billing_support,2026-06-03 11:01:50.100 +0300,admin,IL
+67,"019e03e9-60dd-72da-bd01-648ffdb2b433",sales_inquiries,sales_inquiries,2026-06-03 11:01:50.107 +0300,admin,IL
+68,"019e03e9-60dd-72da-bd01-648ffdb2b433",vip_support,vip_support,2026-06-03 11:01:50.114 +0300,admin,IL
+69,"019e03e9-60dd-72da-bd01-648ffdb2b433",Gemini Bot,Gemini Bot,2026-06-03 11:01:50.122 +0300,admin,IL
+70,"019e03e9-60dd-72da-bd01-648ffdb2b433",Coffee,Coffee,2026-06-03 11:01:50.129 +0300,admin,IL
+56,"019e03e9-60dd-72da-bd01-648ffdb2b433",Everyone,Everyone,2026-06-03 11:01:50.026 +0300,admin,IL

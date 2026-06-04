@@ -1,0 +1,10 @@
+"Id","SupergroupId","AgentgroupId","TenantId","CreatedDatetime","CreatedBy"
+587,42,template_example_support,"019e03e9-60dd-72da-bd01-648ffdb2b433",,
+588,43,template_example_sales,"019e03e9-60dd-72da-bd01-648ffdb2b433",,
+589,44,billing_support,"019e03e9-60dd-72da-bd01-648ffdb2b433",,
+590,45,customer_support,"019e03e9-60dd-72da-bd01-648ffdb2b433",,
+591,46,general_inquiries,"019e03e9-60dd-72da-bd01-648ffdb2b433",,
+592,47,sales_inquiries,"019e03e9-60dd-72da-bd01-648ffdb2b433",,
+593,48,technical_support,"019e03e9-60dd-72da-bd01-648ffdb2b433",,
+594,49,Coffee,"019e03e9-60dd-72da-bd01-648ffdb2b433",,
+595,50,vip_support,"019e03e9-60dd-72da-bd01-648ffdb2b433",,

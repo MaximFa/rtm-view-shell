@@ -1,0 +1,29 @@
+CREATE DATABASE rtmviewdb
+    ENCODING 'UTF8'
+    LOCALE_PROVIDER 'icu'
+    ICU_LOCALE 'en-US'
+    TEMPLATE template0;
+
+-- Создание пользователя
+CREATE USER ccdashboard_user WITH PASSWORD '!@#qweASDzxc';
+
+-- Гранты на схемы
+GRANT USAGE ON SCHEMA identity TO ccdashboard_user;
+GRANT USAGE ON SCHEMA public   TO ccdashboard_user;
+GRANT USAGE ON SCHEMA audit    TO ccdashboard_user;
+
+-- Гранты на таблицы и sequences
+GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA identity TO ccdashboard_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA identity TO ccdashboard_user;
+GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA public   TO ccdashboard_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public   TO ccdashboard_user;
+GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA audit    TO ccdashboard_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA audit    TO ccdashboard_user;
+
+-- Дефолтные привилегии для новых объектов
+ALTER DEFAULT PRIVILEGES IN SCHEMA identity GRANT ALL ON TABLES    TO ccdashboard_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA identity GRANT ALL ON SEQUENCES TO ccdashboard_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public   GRANT ALL ON TABLES    TO ccdashboard_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public   GRANT ALL ON SEQUENCES TO ccdashboard_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA audit    GRANT ALL ON TABLES    TO ccdashboard_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA audit    GRANT ALL ON SEQUENCES TO ccdashboard_user;

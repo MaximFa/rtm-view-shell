@@ -1,0 +1,15 @@
+"Id","TenantId","ExternalId","Name","IsActive","CreatedDatetime"
+"019e6157-844a-75d4-b354-8568dc252fce","019e03e9-60dd-72da-bd01-648ffdb2b433",AG001,English Agents,true,2026-06-02 22:07:53.929 +0300
+"019e6157-844a-75d5-97ff-a8d3ea9e9af3","019e03e9-60dd-72da-bd01-648ffdb2b433",AG002,Spanish Agents,true,2026-06-02 22:07:53.929 +0300
+"019e6157-844a-75d6-93bc-88f65c5bcfa0","019e03e9-60dd-72da-bd01-648ffdb2b433",AG003,Technical Support,true,2026-06-02 22:07:53.929 +0300
+"019e6157-844a-75d7-a5a0-7cf3868e3e12","019e03e9-60dd-72da-bd01-648ffdb2b433",AG004,Sales Team,true,2026-06-02 22:07:53.929 +0300
+"019e6157-844a-75d8-b0b9-79def0b0637b","019e03e9-60dd-72da-bd01-648ffdb2b433",AG005,Billing Experts,true,2026-06-02 22:07:53.929 +0300
+c370c88c-a337-4150-9eb4-3478bbacfff6,"019e03e9-60dd-72da-bd01-648ffdb2b433",template_example_support,template_example_support,true,2026-06-03 11:01:49.886 +0300
+"5e0e7bcc-0817-41c4-8867-670b021b620b","019e03e9-60dd-72da-bd01-648ffdb2b433",template_example_sales,template_example_sales,true,2026-06-03 11:01:49.919 +0300
+fc1ad624-e8bc-4747-af8b-aba20ab5f650,"019e03e9-60dd-72da-bd01-648ffdb2b433",billing_support,billing_support,true,2026-06-03 11:01:49.924 +0300
+dde4c2be-a0e2-4e90-a6ef-0f0b66685cbc,"019e03e9-60dd-72da-bd01-648ffdb2b433",customer_support,customer_support,true,2026-06-03 11:01:49.928 +0300
+"374f8651-c29f-452a-9192-f6dc9d08de5a","019e03e9-60dd-72da-bd01-648ffdb2b433",general_inquiries,general_inquiries,true,2026-06-03 11:01:49.933 +0300
+f73f3f5c-9c0a-4d43-b0e7-9074d0dc64e8,"019e03e9-60dd-72da-bd01-648ffdb2b433",sales_inquiries,sales_inquiries,true,2026-06-03 11:01:49.937 +0300
+db543df5-58b3-4ad4-aa8b-80741286aa8c,"019e03e9-60dd-72da-bd01-648ffdb2b433",technical_support,technical_support,true,2026-06-03 11:01:49.941 +0300
+"7136bd70-50be-4d3b-9d9f-6424a2e44ccc","019e03e9-60dd-72da-bd01-648ffdb2b433",Coffee,Coffee,true,2026-06-03 11:01:49.945 +0300
+"7040a8f0-f66c-43ee-82a4-8a616e7df2df","019e03e9-60dd-72da-bd01-648ffdb2b433",vip_support,vip_support,true,2026-06-03 11:01:49.948 +0300
