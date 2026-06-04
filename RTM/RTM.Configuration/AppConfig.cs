@@ -36,6 +36,7 @@ namespace RTM.Configuration
 
         public static Guid TenantId { get; private set; }
 
+        public static bool DiagPushLogging { get; private set; }
 
 
         public static void Initialize(IConfiguration configuration, string dataFilePath)
@@ -52,6 +53,8 @@ namespace RTM.Configuration
 
                 TenantId = Guid.Parse(configuration["RTM:TenantId"]);
                 AsyncLogger.Info($"AppConfig.TenantId = {TenantId}");
+
+                DiagPushLogging = bool.TryParse(configuration["RTM:DiagPushLogging"], out var diagPush) && diagPush;
 
                 AdapterServiceName = configuration["RTM:AdaptorServiceName"];
 

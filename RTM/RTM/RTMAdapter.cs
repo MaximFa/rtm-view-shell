@@ -492,15 +492,18 @@ namespace RTM
 
         private void Rtm_GridEvent(object sender, GridEventArgs e)
         {
-            try
+            if (AppConfig.DiagPushLogging)
             {
-                var cells = e.CellsValuesData;
-                var cellLog = cells != null
-                    ? string.Join(", ", cells.Select(c => $"Cell{c.CellId}={c.Value}"))
-                    : "null";
-                AsyncLogger.Info($"PUSH updateGridData GridId={e.GridId} cells=[{cellLog}]");
+                try
+                {
+                    var cells = e.CellsValuesData;
+                    var cellLog = cells != null
+                        ? string.Join(", ", cells.Select(c => $"Cell{c.CellId}={c.Value}"))
+                        : "null";
+                    AsyncLogger.Info($"PUSH updateGridData GridId={e.GridId} cells=[{cellLog}]");
+                }
+                catch { }
             }
-            catch { }
             _rtmHub.Clients.Group(e.GridId.ToString()).SendAsync("updateGridData", e.CellsValuesData);
         }
 
@@ -513,21 +516,24 @@ namespace RTM
 
             if (unionRes != null)
             {
-                try
+                if (AppConfig.DiagPushLogging)
                 {
-                    var agentLog = unionRes.Data != null
-                        ? string.Join(" | ", unionRes.Data.Select(d =>
-                        {
-                            var login = d.ContainsKey("AgentLoginName") ? d["AgentLoginName"] : "?";
-                            var state = d.ContainsKey("MonAgentState") ? d["MonAgentState"]
-                                      : d.ContainsKey("AgentState")    ? d["AgentState"]
-                                      : "(no state field)";
-                            return $"{login}=>{state}";
-                        }))
-                        : "null";
-                    AsyncLogger.Info($"PUSH updateUserGrid UnionId={e.UnionId} count={unionRes.Count} agents=[{agentLog}]");
+                    try
+                    {
+                        var agentLog = unionRes.Data != null
+                            ? string.Join(" | ", unionRes.Data.Select(d =>
+                            {
+                                var login = d.ContainsKey("AgentLoginName") ? d["AgentLoginName"] : "?";
+                                var state = d.ContainsKey("MonAgentState") ? d["MonAgentState"]
+                                          : d.ContainsKey("AgentState")    ? d["AgentState"]
+                                          : "(no state field)";
+                                return $"{login}=>{state}";
+                            }))
+                            : "null";
+                        AsyncLogger.Info($"PUSH updateUserGrid UnionId={e.UnionId} count={unionRes.Count} agents=[{agentLog}]");
+                    }
+                    catch { }
                 }
-                catch { }
                 _rtmHub.Clients.Group("u" + e.UnionId).SendAsync("updateUserGrid", DateTime.Now, e.UnionId, unionRes);
             }
         }
