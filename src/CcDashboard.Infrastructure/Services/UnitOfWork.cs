@@ -3,12 +3,14 @@ using CcDashboard.Infrastructure.Persistence;
 
 namespace CcDashboard.Infrastructure.Services;
 
-public class UnitOfWork(AppDbContext db, BackendEmulationDbContext beDb) : IUnitOfWork
+public class UnitOfWork(AppDbContext db) : IUnitOfWork
 {
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
-        var result = await db.SaveChangesAsync(ct);
-        await beDb.SaveChangesAsync(ct);  // Save NGC repositories (Site, BU, Supergroup etc.)
-        return result;
+        // Only save AppDbContext here.
+        // BackendEmulationDbContext (RTSGrid, NGC tables) is saved directly
+        // by each repository (RtsRepository, NgcRepositories) after every operation.
+        // Including it here caused concurrent SaveChangesAsync on the same instance.
+        return await db.SaveChangesAsync(ct);
     }
 }
