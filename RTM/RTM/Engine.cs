@@ -503,6 +503,7 @@ namespace RTM
 
                 //============== Union User Groups ==============
                 AsyncLogger.Info("LoadData: Union User Groups");
+                var subscribedUnionEvents = new HashSet<int>();
                 foreach (var uug in UnionUserGroups)
                 {
                     int unionId = Convert.ToInt32(uug["UnionId"]);
@@ -539,8 +540,11 @@ namespace RTM
                         }
                     }
 
-                    union.UserGridEvent += Union_UserGridEvent;
-                    union.UserUnionDeactivateEvent += _userManagerList_UserUnionDeactivateEvent;
+                    if (subscribedUnionEvents.Add(unionId))
+                    {
+                        union.UserGridEvent += Union_UserGridEvent;
+                        union.UserUnionDeactivateEvent += _userManagerList_UserUnionDeactivateEvent;
+                    }
 
 
                     List<string> supergroup = union.UserGroups.GetOrAdd(supergroupId, new List<string>());
