@@ -56,3 +56,7 @@ src/CcDashboard.Web/Components/Widgets/QueueSummaryWidget.razor
 # Large installers
 Installations/Tools/*.exe
 Installations/*.zip
+
+# Sensitive scripts
+tools/fix_twilio*.py
+tools/update_security_twilio.py
