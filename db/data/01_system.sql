@@ -25,7 +25,7 @@ d07f6e69-7072-47c8-8d9a-a43899e6007e	Editor	EDITOR	\N
 -- identity.users
 TRUNCATE TABLE identity."users" RESTART IDENTITY CASCADE;
 COPY identity."users" FROM stdin;
-019e03e9-614f-7761-936d-2518e4163950	019e03e9-60dd-72da-bd01-648ffdb2b433	System	Administrator	\N	t	f	2026-06-03 11:24:59.560813+03	en-US	\N	admin	ADMIN	admin@platform.local	ADMIN@PLATFORM.LOCAL	t	AQAAAAIAAYagAAAAEIlVs7ok5KeJTPNJE18pzriGq1M7QH7f7Gs2Qjdz8NxAo+auQ4i0ya/zL2xEHcRj4w==	BW6OLLJKUD3IA5BEWZ5MO4KEOYQD7MWZ	ecc649b4-8bc4-4efa-86bc-a23ccc4ad533	\N	f	f	\N	t	0
+019e03e9-614f-7761-936d-2518e4163950	019e03e9-60dd-72da-bd01-648ffdb2b433	System	Administrator	\N	t	f	2026-06-04 20:42:37.311856+03	en-US	\N	admin	ADMIN	admin@platform.local	ADMIN@PLATFORM.LOCAL	t	AQAAAAIAAYagAAAAEIlVs7ok5KeJTPNJE18pzriGq1M7QH7f7Gs2Qjdz8NxAo+auQ4i0ya/zL2xEHcRj4w==	BW6OLLJKUD3IA5BEWZ5MO4KEOYQD7MWZ	aac31789-0454-4aa8-969e-cea50e661c73	\N	f	f	\N	t	0
 \.
 
 -- identity.user_roles
@@ -52,6 +52,8 @@ COPY "__BackendEmulationMigrationsHistory" FROM stdin;
 20260528100000_AddTrainingRtsGridMetric	8.0.16
 20260528200000_AddUsersInStatusCountStateMetrics	8.0.16
 20260530185653_AddMissingRtmTables	8.0.16
+20260603113300_RemoveRtsGridTemplateCell	8.0.0
+20260603143239_FixNgcQueueClassificationId	8.0.16
 \.
 
 -- __ef_migrations_history

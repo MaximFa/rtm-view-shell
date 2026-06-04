@@ -200,6 +200,10 @@ MonAgentExtension	Agent - Extension ID	User	UserExtension		\N	\N	text	Agent
 MonAgentStateDesc	Agent - Current Status Group	User	CurStatusGroup		\N	\N	text	Agent
 MonAgentFirstLoginTimeStamp	Agent - First Login Time Stamp	User	FirstLoginTimestamp		\N	\N	text	Agent
 MonAgentCurrentLoginTimeStamp	Agent - Current Login Time Stamp	User	CurLoginTimeStamp		\N	\N	text	Agent
+MonAgentAvailableDurationPct	Agent - Cumulative Available Duration Percent	User	TotalStatusGroupPercent	AVAILABLE	\N	\N	number	Agent
+MonAgentBreakDurationPct	Agent - Cumulative Break Duration Percent	User	TotalStatusGroupPercent	BREAK	\N	\N	number	Agent
+MonAgentPaperworkDurationPct	Agent - Cumulative Paperwork Duration Percent	User	TotalStatusGroupPercent	PAPERWORK	\N	\N	number	Agent
+MonAgentTrainingDurationPct	Agent - Cumulative Training Duration Percent	User	TotalStatusGroupPercent	TRAINING	\N	\N	number	Agent
 \.
 
 -- RTSGrid_Statistic

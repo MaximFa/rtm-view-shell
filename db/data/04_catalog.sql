@@ -16,6 +16,8 @@ a4d1e3f7-2b8c-4e9a-b1d5-6f3c2a7e0d11	Agents	Agent State Distribution	Real-time p
 TRUNCATE TABLE "NGC_Site" RESTART IDENTITY CASCADE;
 COPY "NGC_Site" FROM stdin;
 IL	019e03e9-60dd-72da-bd01-648ffdb2b433	Israel	Israel	+02:00	00:00
+SITE001	019e03e9-60dd-72da-bd01-648ffdb2b433	Main Office	Primary contact center	+03:00	00:00
+SITE002	019e03e9-60dd-72da-bd01-648ffdb2b433	Remote Office	Secondary location	+02:00	00:00
 \.
 
 SET session_replication_role = DEFAULT;
