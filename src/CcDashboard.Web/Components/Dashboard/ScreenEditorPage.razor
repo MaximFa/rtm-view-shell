@@ -3271,6 +3271,13 @@
         ConfigDataSlotTitle = widget.Config.DataSlotTitle ?? "";
         ConfigDataSlotMetricId = widget.Config.DataSlotMetricId;
         ConfigDataSlotBusinessUnitId = widget.Config.DataSlotBusinessUnitId;
+        // Restore BU dropdown display state
+        ConfigBusinessUnit = widget.Config.DataSlotBusinessUnitId?.ToString();
+        if (widget.Config.DataSlotBusinessUnitId.HasValue)
+        {
+            var savedBu = BusinessUnits.FirstOrDefault(b => b.BusinessUnitId == widget.Config.DataSlotBusinessUnitId.Value);
+            BuSearchText = savedBu?.BusinessUnitName ?? "";
+        }
         ConfigDataSlotTarget = widget.Config.DataSlotTarget;
         _dataSlotTargetText = widget.Config.DataSlotTargetText ?? widget.Config.DataSlotTarget?.ToString() ?? "";
         _dataSlotTargetError = null;
@@ -4005,6 +4012,8 @@
         ConfigBusinessUnit = bu?.BusinessUnitId.ToString();
         BuSearchText = bu?.BusinessUnitName ?? "";
         BuDropdownOpen = false;
+        // Sync to DataSlot-specific field so SaveDataSlotRtsCommand gets correct UnionId
+        ConfigDataSlotBusinessUnitId = bu?.BusinessUnitId;
     }
 
     private void SelectMetric(RtsGridMetricDto m)
