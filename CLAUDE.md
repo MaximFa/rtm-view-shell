@@ -640,6 +640,7 @@ Fields: `Id (uuid)`, `TenantId`, `ExternalId (varchar)`, `Name (varchar)`, `IsAc
 | SoftDeleteRetentionDays | integer | Default 90 |
 | EmailProviderConfig | text | Encrypted via ASP.NET Core Data Protection |
 | SsoConfigurationId | uuid? | FK -> sso_configurations |
+| SignalRConnectionUrl | varchar(500)? | URL of RTM Service SignalR hub for this tenant; used by `RtmRelayService` to establish server-side connection |
 
 #### `sso_configurations`
 | Column | Type | Notes |
@@ -1546,8 +1547,15 @@ dotnet test tests/CcDashboard.Tests.Security
 dotnet list package --vulnerable
 
 # Publish (self-contained, win-x64, Release)
-dotnet publish src/CcDashboard.Web -c Release -r win-x64 --self-contained -o ./publish/web
-dotnet publish src/CcDashboard.Api  -c Release -r win-x64 --self-contained -o ./publish/api
+# OUTPUT DIRS ARE FIXED — always use exactly these paths, no exceptions:
+dotnet publish src/CcDashboard.Web -c Release -r win-x64 --self-contained -o "D:\Claude\Projects\RTM View Shell\publish\web"
+dotnet publish src/CcDashboard.Api  -c Release -r win-x64 --self-contained -o "D:\Claude\Projects\RTM View Shell\publish\api"
+
+# RTM Service publish — fixed output dir:
+dotnet publish RTM/RTM -c Release -r win-x64 --self-contained -o "D:\Claude\Projects\RTM View Shell\publish\rtm"
+
+# RULE: Never publish to any other location. If a build script uses a different
+# output path, override it with -o and the paths above.
 
 # Add NuGet package to a project
 dotnet add src/CcDashboard.Infrastructure package Npgsql.EntityFrameworkCore.PostgreSQL
@@ -2056,4 +2064,306 @@ When deploying RTM Service to a new server:
 | `RTM/staging/fix_set_userstatus.sql` | Add `p_tenant_id uuid` to existing fix |
 
 *TZ version: 1.5 | CLAUDE.md last updated: 2026-05-31 (§33 RTM multi-tenancy added)*
+
+
+
+---
+
+## 34. RTM Relay Architecture
+
+> Decision made: 2026-05-31. Based on analysis of RTMView reference project.
+> Replaces the original two-port model (browser connects to both Shell and RTM Service).
+
+### §34.1 Problem — two-port model
+
+In the original design the browser opens **two** WebSocket connections:
+- Port 443 → Kestrel/Shell (Blazor circuit)
+- Port N   → RTM Service (real-time data pushes)
+
+This requires RTM Service to be network-accessible from every client browser — a
+significant constraint in corporate CC environments with strict VLAN/firewall rules.
+
+### §34.2 Solution — Shell as relay
+
+```
+Browser
+  └── WebSocket (port 443) ──▶ Kestrel/Shell
+                                    │ in-process
+                              RtmRelayService (Singleton)
+                                    │ server-to-server
+                              HubConnection ──▶ RTM Service SignalR Hub
+                                                (internal network only)
+```
+
+**Shell acts as a SignalR client** to RTM Service. Data arrives in `RtmRelayService`,
+is stored as an in-memory snapshot, and delivered to Blazor widget components via
+direct in-process delegate callbacks. Blazor then pushes UI diffs to the browser
+over the already-existing circuit WebSocket.
+
+RTM Service never needs to be reachable from the browser. Only port 443 is exposed.
+
+### §34.3 Key design decisions (inherited from RTMView)
+
+| Decision | Rationale |
+|---|---|
+| `IRtmRelayService` registered as **Singleton** | One connection per union/grid shared across all Blazor circuits on the server |
+| One `HubConnection` per `(TenantId, UnionId)` | Multiple widgets on different screens share one connection |
+| Ref-count + 30 s grace timer | Connection stays alive during navigation; cleaned up only if truly unused |
+| Snapshot delivered on Subscribe | New widget renders immediately without waiting for next push |
+| Fan-out via delegate list | Each subscriber's `handler(change)` calls `InvokeAsync(() => StateHasChanged())` to trigger Blazor re-render |
+
+### §34.4 Multi-tenancy
+
+Unlike RTMView (single tenant), our implementation keys connections on `(TenantId, UnionId)`.
+
+- Hub URL per tenant: `TenantSettings.SignalRConnectionUrl` (§6.2)
+- Each RTM Service instance serves one tenant (§33.1) — the URL implicitly identifies the tenant
+- `DisconnectTenantAsync(Guid tenantId)`: called when tenant is Suspended/Deleted; tears down all active connections for that tenant
+- Redis cache for hub URL: key `{tenantId}:rtm:hub_url`, TTL 5 min — avoids DB hit per Subscribe
+
+### §34.5 RTM Hub protocol notes
+
+The RTM Service SignalR hub exposes the following methods (inherited protocol):
+
+| Method | Direction | Parameters | Notes |
+|---|---|---|---|
+| `init` | Client → Server | `string groupId` | `"u{unionId}"` for AgentGrid; `"{gridId}"` for DataGrid |
+| `refreshCells` | Client → Server | `string gridId` | DataGrid only; triggers full cell push |
+| `updateUserGrid` | Server → Client | `(JsonElement, JsonElement, JsonElement)` | 3 params: DateTime (ignore), unionId (ignore), payload |
+| `removeUser` | Server → Client | `(JsonElement, JsonElement)` | 2 params: unionId (ignore), `[{"name":"loginName"}]` array |
+| `updateGridData` | Server → Client | `JsonElement` | Single array of `{CellId, Value}` objects |
+
+**[RTM-PROTO-01]** Always use `JsonElement` for all parameters — typed params cause silent message drops if server type doesn't match exactly.
+
+**[RTM-PROTO-02]** DataGrid requires both `init` + `refreshCells` on connect. `init` alone does not trigger an initial data push.
+
+### §34.6 Files to create / modify (Sprint CC-003)
+
+| Action | File |
+|---|---|
+| ⚠ Existing | `src/CcDashboard.Domain/Domain/TenantSettings.cs` — `SignalRConnectionUrl` already present; **no migration needed** |
+| New | `src/CcDashboard.Domain/Domain/Rtm/CellValue.cs` |
+| New | `src/CcDashboard.Domain/Domain/Rtm/AgentSnapshot.cs` |
+| New | `src/CcDashboard.Domain/Domain/Rtm/UnionStateChange.cs` |
+| New | `src/CcDashboard.Domain/Domain/Rtm/GridCellUpdate.cs` |
+| New | `src/CcDashboard.Application/Interfaces/IRtmRelayService.cs` |
+| New | `src/CcDashboard.Infrastructure/RtmRelay/RtmRelayService.cs` |
+| New | `src/CcDashboard.Web/Hubs/RtmRelayHub.cs` |
+| Modify | `src/CcDashboard.Web/Program.cs` — `AddSingleton<IRtmRelayService>` + `MapHub<RtmRelayHub>` |
+| NuGet | `src/CcDashboard.Infrastructure/CcDashboard.Infrastructure.csproj` — `Microsoft.AspNetCore.SignalR.Client` |
+
+### §34.7 Widget integration pattern
+
+**Blazor Server components** (inject `IRtmRelayService` directly):
+```csharp
+@inject IRtmRelayService RtmRelay
+// in OnInitializedAsync:
+_handler = async change => await InvokeAsync(() => { /* update state */ StateHasChanged(); });
+await RtmRelay.SubscribeUnionAsync(TenantId, unionId, _handler, ct);
+// in DisposeAsync:
+await RtmRelay.UnsubscribeUnionAsync(TenantId, unionId, _handler);
+```
+
+**JS/external widget clients** (connect to `/hubs/rtm-relay`):
+```javascript
+const conn = new signalR.HubConnectionBuilder().withUrl("/hubs/rtm-relay").build();
+conn.on("unionUpdate", handler);
+await conn.start();
+await conn.invoke("subscribeUnion", unionId);
+```
+
+*TZ version: 1.6 | CLAUDE.md last updated: 2026-05-31 (§34 RTM Relay Architecture added)*
+
+---
+
+## 35. Prod Release — всегда использовать prod-release skill
+
+Когда пользователь просит собрать пакет, релиз или установочный архив — **всегда** вызывать skill `prod-release`.
+
+Триггерные фразы (любая из них → prod-release):
+- "собери релиз", "сделай пакет", "упакуй релиз", "создай релиз"
+- "build release", "create release", "package release", "prod release"
+- "нужна сборка", "сделай установочный пакет", "подготовь деплой"
+
+**Скрипты расположены в:**
+- Сборка:     `tools/Build-ProdRelease.ps1`  (-Mode Full | Shell | RTM)
+- Установка:  `deploy/Install-RTMView.ps1`
+- Обновление: `deploy/Update-RTMView.ps1`
+- Результат:  `Installations/DDMMYYYY.HHMM[_Mode].zip`
+- CC-prompt:  `tools/cc_prompt_build_rtm.md`
+
+**Memurai MSI:** `tools/cache/Memurai-for-Redis-v4.2.2.msi` (уже есть в cache)
+
+**Критичные правила (выявлены при тестировании 2026-06-01):**
+- PS1/TXT файлы в zip ОБЯЗАТЕЛЬНО в UTF-8 BOM + CRLF — иначе Windows PowerShell падает с `Unexpected token`
+- Build-скрипт НЕ требует admin (убрано)
+- Read-Host в build-скрипте ЗАПРЕЩЁН — CC работает в неинтерактивном режиме
+- Пароль передаётся напрямую через `-DBPassword`, не через Read-Host
+- Подробности всех багов: `feedback_prod_release_bugs.md` в памяти
+
+**DB restore через Restore-SqlDump.ps1 (решение 2026-06-02):**
+
+Для установки БД используется `deploy/Restore-SqlDump.ps1`.
+
+Архитектура DB-пакета:
+- Чистый бекап (pg_dump custom-format) хранится в `Installations/` рядом с zip-пакетом
+- Бекап включается в zip при сборке (Mode=RTM или Full)
+- При установке `Restore-SqlDump.ps1` автоопределяет формат (custom vs plain SQL по magic bytes PGDMP),
+  дропает старую БД, создаёт новую, выполняет pg_restore или psql, применяет grants
+
+КРИТИЧНО для написания PS1 скриптов через Python:
+- Использовать raw-строки `r"""..."""` — Python не интерполирует `$`,
+  поэтому `\$var` попадёт в файл как `\$var` (backslash+dollar) → PowerShell ошибка
+- `$ErrorActionPreference = "Continue"` на время pg_restore (пишет progress в stderr)
+- SQL с именами БД: `'$DBName'` (одинарные кавычки внутри double-quoted PS строки)
+- BOM = `b'\xef\xbb\xbf'` (bytes literal); запись: `BOM + content.encode('utf-8')` в binary mode
+
+*TZ version: 1.8 | CLAUDE.md last updated: 2026-06-02 (§35 + Restore-SqlDump.ps1)*
+
+---
+
+## 36. RTM QueueGrid Data Flow — Architecture & Bugs Found (2026-06-03)
+
+> Session: RTM Prod Tests. QueueGrid showed no data despite live calls in CC.
+> Two root-cause bugs found and fixed. Document this so future debugging starts here.
+
+### §36.1 Complete data flow chain
+
+```
+RTM Service startup:
+  1. RTSGrid_GetDataCells()          → reads RTSGrid_Cell JOIN RTSGrid_Row/Column
+                                        (NO TemplateCell — removed, was always empty)
+  2. GetAllUnionQueueClassifications → reads NGC_BusinessUnitQueueClassification
+       ClassificationId == "ALL"     → union.addWorkgroup(QueueId)
+                                        → Union.Queues.Add(QueueId)
+                                        → WorkgroupManager created for that QueueId
+  3. DataCells loop                  → for each cell: if UnionList.ContainsKey(unionId)
+                                          → Grid + Cell registered in memory
+                                          → union.Metrics[metric].Cells[cellId] = cell
+
+RTM Service runtime (call arrives):
+  4. CC platform event (Finesse)     → Workgroup = "Everyone"
+  5. getOrAddWGManager("Everyone")   → finds existing WorkgroupManager
+  6. WorkgroupManager                → updates call counters + interactions
+  7. Union 56 metrics recalculated   → cell values updated (CellId 1036..1041)
+  8. Grid 31 GridEvent fired         → Rtm_GridEvent
+  9. updateGridData                  → sent to SignalR group "31"
+                                        payload: [{CellId, Value}, ...]
+
+Shell RtmRelayService:
+  10. Connected to RTM hub           → URL from TenantSettings.SignalRConnectionUrl
+  11. On connect: init("31")         → adds connection to SignalR group "31"
+                  refreshCells("31") → forces full cell push (updateGridData)
+  12. Receives updateGridData        → builds in-memory snapshot {CellId → Value}
+  13. Fan-out                        → calls all subscribed handler delegates
+
+QueueGridWidget (Blazor):
+  14. SubscribeGridAsync(tenantId, gridId=31, handler)
+  15. Handler receives CellValue[]   → maps CellId → RowDefId via _cellMap
+                                        (built from Config.queueGridRows[].cellIds)
+  16. Updates row display values     → InvokeAsync(StateHasChanged) → UI rerenders
+```
+
+### §36.2 Bug 1 — RTSGrid_TemplateCell INNER JOIN (always empty)
+
+**Symptom:** QueueGrid shows no data on any deployment.
+
+**Cause:** `RTSGrid_GetDataCells` used INNER JOIN with `RTSGrid_TemplateCell`:
+```sql
+FROM ... "RTSGrid_Column" o, "RTSGrid_TemplateCell" t
+WHERE o."CellTemplateId" = t."CellTemplateId"
+```
+`RTSGrid_TemplateCell` was a legacy MSSQL table loaded by pgloader during RTM-M1
+migration. It was **always empty** (0 rows in all three staging verifications).
+INNER JOIN with empty table → `RTSGrid_GetDataCells` returns 0 rows → RTM Engine
+registers no cells → `updateGridData` never fires.
+
+**Fix:** Remove TemplateCell from query entirely. Data cells already have
+`CellType = 'Data'` explicitly. Return `NULL::text AS "ColumnMetric"` to
+preserve column index 9 (C# reads by index).
+
+```sql
+-- NEW: no TemplateCell join
+FROM "RTSGrid_Grid" g
+JOIN "RTSGrid_Row"    r ON r."GridId"    = g."GridId"
+JOIN "RTSGrid_Cell"   c ON c."RowId"     = r."RowId"
+JOIN "RTSGrid_Column" o ON o."ColumnId"  = c."ColumnId"
+WHERE c."CellType" = 'Data'
+```
+
+Also: remove `RtsGridTemplateCell` entity from Shell's `RtsEntities.cs` and
+`BackendEmulationDbContext.cs`. EF migration drops the table.
+
+### §36.3 Bug 2 — ClassificationId not set to "ALL"
+
+**Symptom:** QueueGrid still shows no data after Bug 1 fix.
+
+**Cause:** RTM Engine's `LoadData` calls `union.addWorkgroup(QueueId)` ONLY when
+`ClassificationId == "ALL"`:
+```csharp
+else if (ClassificationId == "ALL")
+{
+    union.Queues.Add(QueueId);
+    union.addWorkgroup(QueueId, _applicList);  // ← only path that registers the queue
+}
+```
+Shell was saving `NgcBusinessUnitQueueClassification` records without setting
+`ClassificationId` → it defaulted to `null`/`""` → neither condition matched →
+`Union.Queues` stayed empty → when a call arrived, `getOrAddWGManager` created a
+**new duplicate BusinessUnit** (e.g. id=71) instead of routing to Union 56 →
+cells registered for Union 56 / Grid 31 never received data.
+
+**Fix:**
+1. `ConfigurationCommands.cs` — add `ClassificationId = "ALL"` in QueueAssignment loop
+2. `DatabaseInitializer.cs` — add `ClassificationId = "ALL"` in seed loop
+3. EF migration: `UPDATE "NGC_BusinessUnitQueueClassification" SET "ClassificationId" = 'ALL' WHERE "ClassificationId" IS NULL OR "ClassificationId" = ''`
+
+**Invariant:** `ClassificationId = "ALL"` means "all calls from this queue regardless
+of classification code". This is always the correct value for standard BU→Queue
+mappings. The Shell UI does not expose ClassificationId — always set "ALL".
+
+### §36.4 Key data model facts
+
+| Concept | Stored in | Notes |
+|---|---|---|
+| UnionId | `RTSGrid_Row.UnionId`, `NGC_BusinessUnit.BusinessUnitId` | Same value — BU ID = Union ID |
+| Queue→Union mapping | `NGC_BusinessUnitQueueClassification` | **Must have ClassificationId="ALL"** |
+| Cell→Grid→Union | `RTSGrid_Cell` → `RTSGrid_Row` → `RTSGrid_Grid` | Cell has CellId, MetricId, UnionId |
+| SignalR group for QueueGrid | gridId as string (`"31"`) | Shell sends `init "31"` |
+| SignalR group for AgentGrid | `"u" + unionId` (`"u56"`) | Shell sends `init "u56"` |
+
+### §36.5 Debugging checklist — QueueGrid shows no data
+
+1. `SELECT count(*) FROM "RTSGrid_GetDataCells"()` → must return > 0
+   - If 0: check RTSGrid_Cell has CellType='Data' rows; check for empty table JOINs
+2. `SELECT * FROM "RTSGrid_GetAllUnionQueueClassifications"(tenant_id)` → must return rows
+   - Check `NGC_Site` has record for SiteId used in NGC_BusinessUnit
+   - Check `ClassificationId` = `'ALL'` for queue rows
+3. Check RTM Service logs for `"LoadData: DataCells"` line — should show cells loaded
+4. Check RTM Service logs for `"Add Workgroup id=..."` — means a new BU is being created
+   at runtime (sign that LoadData didn't register it properly)
+5. `SELECT * FROM "RTSData_Interaction" LIMIT 5` — confirms calls are being written by RTM
+6. Shell logs: `RtmRelayService: init+refreshCells complete for grid 31` — confirms SignalR OK
+
+*TZ version: 1.9 | CLAUDE.md last updated: 2026-06-03 (§36 RTM QueueGrid data flow & bugs)*
+
+---
+
+## 37. CC Prompt rules — git push
+
+**Every CC task prompt must include this rule at the top of the commit section:**
+
+```
+## Git push
+Do NOT run `git push` automatically. Commit only. Push will be requested separately.
+```
+
+**Why:** CC tends to push after commit unprompted. Push must be a conscious decision
+by the operator (Cowork) after verifying the commit is correct.
+
+**Exception:** `tools/cc_prompt_push.md` — this is the dedicated push prompt and
+explicitly instructs CC to push.
+
+*TZ version: 1.9 | CLAUDE.md last updated: 2026-06-04 (§37 CC prompt push rule)*
+
 
