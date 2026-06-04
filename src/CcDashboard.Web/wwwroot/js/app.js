@@ -47,3 +47,19 @@ window.getElementPosition = function (element) {
         height: rect.height
     };
 };
+
+window.getDropdownAnchorPosition = function (dataId) {
+    const el = document.querySelector('[data-dropdown-id="' + dataId + '"]');
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const dropdownHeight = 220; // max-height 200 + buffer
+    const spaceBelow = viewportHeight - rect.bottom;
+    const openUpward = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+    return {
+        top: openUpward ? (rect.top - dropdownHeight + 20) : rect.bottom,
+        left: rect.left,
+        width: rect.width,
+        openUpward: openUpward
+    };
+};

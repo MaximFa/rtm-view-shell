@@ -247,7 +247,7 @@
                 </div>
                 <!-- Resize Handle (bottom-right corner) -->
                 <div class="modal-resize-handle"></div>
-                <div class="modal-body" style="height: 700px; overflow-y: auto; overflow-x: hidden;" @onscroll="CloseMetricDropdown">
+                <div class="modal-body" style="height: 700px; overflow-y: auto; overflow-x: hidden;">
                     <!-- Tabs Navigation -->
                     <ul class="nav nav-tabs mb-3">
                         <li class="nav-item">
@@ -1559,7 +1559,7 @@
                                 </div>
 
                                 <!-- Scrollable list - fixed height for ~20 rows -->
-                                <div class="columns-table-body" @onscroll="CloseMetricDropdown">
+                                <div class="columns-table-body">
                                     @for (int i = 0; i < ConfigAgentColumnDefs.Count; i++)
                                     {
                                         var col = ConfigAgentColumnDefs[i];
@@ -1593,6 +1593,7 @@
                                                 <div class="position-relative">
                                                     <input type="text" class="form-control form-control-sm"
                                                            placeholder="Select metric..."
+                                                           data-dropdown-id="metric-@colId"
                                                            value="@(_activeMetricDropdown == colId ? _metricSearchText : GetMetricDescription(col.MetricId))"
                                                            @onclick="() => OpenMetricDropdown(colId)"
                                                            @onclick:stopPropagation
@@ -1601,7 +1602,7 @@
                                                     {
                                                         <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
                                                              @onclick="CloseMetricDropdown"></div>
-                                                        <div class="dropdown-menu show w-100" style="max-height: 200px; overflow-y: auto; position: absolute; top: 100%; left: 0; z-index: 1050;"
+                                                        <div class="dropdown-menu show" style="@GetDropdownStyle("metric-", colId)"
                                                              @onclick:stopPropagation>
                                                             @foreach (var metric in GetFilteredMetrics())
                                                             {
@@ -1825,6 +1826,7 @@
                                                 <div class="position-relative">
                                                     <input type="text" class="form-control form-control-sm"
                                                            placeholder="Select Business Unit..."
+                                                           data-dropdown-id="queuerowbu-@rowIdx"
                                                            value="@(_queueRowBuDropdownOpenFor == rowIdx ? _queueRowBuSearchText : row.BusinessUnitName ?? "")"
                                                            @onclick="() => OpenQueueRowBuDropdown(rowIdx)"
                                                            @onclick:stopPropagation
@@ -1833,7 +1835,7 @@
                                                     {
                                                         <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
                                                              @onclick="CloseQueueRowBuDropdown"></div>
-                                                        <div class="dropdown-menu show w-100" style="max-height: 200px; overflow-y: auto; position: absolute; top: 100%; left: 0; z-index: 1050;"
+                                                        <div class="dropdown-menu show" style="@GetDropdownStyle("queuerowbu-", rowIdx.ToString())"
                                                              @onclick:stopPropagation>
                                                             @foreach (var bu in GetFilteredQueueRowBus())
                                                             {
@@ -1996,6 +1998,7 @@
                                                 <div class="position-relative">
                                                     <input type="text" class="form-control form-control-sm"
                                                            placeholder="Select metric..."
+                                                           data-dropdown-id="queuemetric-@colId"
                                                            value="@(_activeQueueMetricDropdown == colId ? _queueColumnMetricSearch : GetMetricDescription(col.MetricId))"
                                                            @onclick="() => OpenQueueMetricDropdown(colId)"
                                                            @onclick:stopPropagation
@@ -2004,7 +2007,7 @@
                                                     {
                                                         <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
                                                              @onclick="CloseQueueMetricDropdown"></div>
-                                                        <div class="dropdown-menu show w-100" style="max-height: 200px; overflow-y: auto; position: absolute; top: 100%; left: 0; z-index: 1050;"
+                                                        <div class="dropdown-menu show" style="@GetDropdownStyle("queuemetric-", colId)"
                                                              @onclick:stopPropagation>
                                                             @foreach (var metric in FilteredQueueGridMetrics)
                                                             {
@@ -2241,6 +2244,10 @@
     // Metric dropdown state
     private string? _activeMetricDropdown;
     private string _metricSearchText = "";
+
+    // Dropdown positioning (fixed + flip)
+    private record DropdownRect(double Top, double Left, double Width, bool OpenUpward);
+    private Dictionary<string, DropdownRect?> _dropdownRects = new();
 
     // Fullscreen editor state
     private bool PaletteOpen = false;
@@ -2526,10 +2533,13 @@
         if (row != null) row.QueueName = name;
     }
 
-    private void OpenQueueRowBuDropdown(int rowIdx)
+    private async Task OpenQueueRowBuDropdown(int rowIdx)
     {
         _queueRowBuDropdownOpenFor = rowIdx;
         _queueRowBuSearchText = "";
+        var rect = await JS.InvokeAsync<DropdownRect?>("getDropdownAnchorPosition", $"queuerowbu-{rowIdx}");
+        _dropdownRects[$"queuerowbu-{rowIdx}"] = rect;
+        StateHasChanged();
     }
 
     private void CloseQueueRowBuDropdown()
@@ -2633,10 +2643,13 @@
         if (col != null) col.Name = name ?? "";
     }
 
-    private void OpenQueueMetricDropdown(string colId)
+    private async Task OpenQueueMetricDropdown(string colId)
     {
         _activeQueueMetricDropdown = colId;
         _queueColumnMetricSearch = "";
+        var rect = await JS.InvokeAsync<DropdownRect?>("getDropdownAnchorPosition", $"queuemetric-{colId}");
+        _dropdownRects[$"queuemetric-{colId}"] = rect;
+        StateHasChanged();
     }
 
     private void CloseQueueMetricDropdown()
@@ -3766,10 +3779,13 @@
         return metric?.Description ?? metricId;
     }
 
-    private void OpenMetricDropdown(string colId)
+    private async Task OpenMetricDropdown(string colId)
     {
         _activeMetricDropdown = colId;
         _metricSearchText = "";
+        var rect = await JS.InvokeAsync<DropdownRect?>("getDropdownAnchorPosition", $"metric-{colId}");
+        _dropdownRects[$"metric-{colId}"] = rect;
+        StateHasChanged();
     }
 
     private void OnMetricSearch(string? text)
@@ -3781,6 +3797,15 @@
     {
         _activeMetricDropdown = null;
         _metricSearchText = "";
+    }
+
+    private string GetDropdownStyle(string prefix, string id)
+    {
+        var key = $"{prefix}{id}";
+        var r = _dropdownRects.GetValueOrDefault(key);
+        if (r == null)
+            return "position: fixed; top: 0; left: 0; width: 200px; max-height: 200px; overflow-y: auto; z-index: 1060; display: none;";
+        return $"position: fixed; top: {r.Top:F0}px; left: {r.Left:F0}px; width: {r.Width:F0}px; max-height: 200px; overflow-y: auto; z-index: 1060;";
     }
 
     private void SelectMetric(string colId, string metricId)
