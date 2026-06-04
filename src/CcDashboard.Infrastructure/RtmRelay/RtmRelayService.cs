@@ -112,12 +112,12 @@ public sealed class RtmRelayService : IRtmRelayService
                 var conn = BuildUnionConnection(key, state, hubUrl);
                 try
                 {
-                    await conn.StartAsync(ct);
+                    await conn.StartAsync(CancellationToken.None);
                     state.Connection = conn;
                     _logger.LogInformation(
                         "RtmRelayService: connected to tenant {TenantId} union {UnionId}",
                         tenantId, unionId);
-                    await InitUnionAsync(state, unionId, ct);
+                    await InitUnionAsync(state, unionId, CancellationToken.None);
                 }
                 catch
                 {
@@ -461,12 +461,17 @@ public sealed class RtmRelayService : IRtmRelayService
                 var conn = BuildGridConnection(key, state, hubUrl);
                 try
                 {
-                    await conn.StartAsync(ct);
+                    // Use CancellationToken.None for the connection phase.
+                    // The component CT must not cancel the Hub connection itself —
+                    // Blazor may call StateHasChanged during init causing CT cancellation,
+                    // which would incorrectly fail the connection for other widgets sharing
+                    // the same page refresh cycle.
+                    await conn.StartAsync(CancellationToken.None);
                     state.Connection = conn;
                     _logger.LogInformation(
                         "RtmRelayService: connected to tenant {TenantId} grid {GridId}",
                         tenantId, gridId);
-                    await GridInitAsync(state, gridId, ct);
+                    await GridInitAsync(state, gridId, CancellationToken.None);
                 }
                 catch
                 {
