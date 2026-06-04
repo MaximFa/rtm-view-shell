@@ -1595,7 +1595,7 @@
                                                            placeholder="Select metric..."
                                                            data-dropdown-id="metric-@colId"
                                                            value="@(_activeMetricDropdown == colId ? _metricSearchText : GetMetricDescription(col.MetricId))"
-                                                           @onclick="() => OpenMetricDropdown(colId)"
+                                                           @onclick="e => OpenMetricDropdown(colId, e)"
                                                            @onclick:stopPropagation
                                                            @oninput="e => OnMetricSearch(e.Value?.ToString())" />
                                                     @if (_activeMetricDropdown == colId)
@@ -1828,7 +1828,7 @@
                                                            placeholder="Select Business Unit..."
                                                            data-dropdown-id="queuerowbu-@rowIdx"
                                                            value="@(_queueRowBuDropdownOpenFor == rowIdx ? _queueRowBuSearchText : row.BusinessUnitName ?? "")"
-                                                           @onclick="() => OpenQueueRowBuDropdown(rowIdx)"
+                                                           @onclick="e => OpenQueueRowBuDropdown(rowIdx, e)"
                                                            @onclick:stopPropagation
                                                            @oninput="e => OnQueueRowBuSearch(e.Value?.ToString())" />
                                                     @if (_queueRowBuDropdownOpenFor == rowIdx)
@@ -2000,7 +2000,7 @@
                                                            placeholder="Select metric..."
                                                            data-dropdown-id="queuemetric-@colId"
                                                            value="@(_activeQueueMetricDropdown == colId ? _queueColumnMetricSearch : GetMetricDescription(col.MetricId))"
-                                                           @onclick="() => OpenQueueMetricDropdown(colId)"
+                                                           @onclick="e => OpenQueueMetricDropdown(colId, e)"
                                                            @onclick:stopPropagation
                                                            @oninput="e => OnQueueMetricSearch(e.Value?.ToString())" />
                                                     @if (_activeQueueMetricDropdown == colId)
@@ -2533,13 +2533,13 @@
         if (row != null) row.QueueName = name;
     }
 
-    private async Task OpenQueueRowBuDropdown(int rowIdx)
+    private void OpenQueueRowBuDropdown(int rowIdx, MouseEventArgs e)
     {
         _queueRowBuDropdownOpenFor = rowIdx;
         _queueRowBuSearchText = "";
-        var rect = await JS.InvokeAsync<DropdownRect?>("getDropdownAnchorPosition", $"queuerowbu-{rowIdx}");
-        _dropdownRects[$"queuerowbu-{rowIdx}"] = rect;
-        StateHasChanged();
+        var openUpward = e.ClientY > 600;
+        var top = openUpward ? e.ClientY - 210 : e.ClientY + 8;
+        _dropdownRects[$"queuerowbu-{rowIdx}"] = new DropdownRect(top, e.ClientX - 10, 280, openUpward);
     }
 
     private void CloseQueueRowBuDropdown()
@@ -2643,13 +2643,13 @@
         if (col != null) col.Name = name ?? "";
     }
 
-    private async Task OpenQueueMetricDropdown(string colId)
+    private void OpenQueueMetricDropdown(string colId, MouseEventArgs e)
     {
         _activeQueueMetricDropdown = colId;
         _queueColumnMetricSearch = "";
-        var rect = await JS.InvokeAsync<DropdownRect?>("getDropdownAnchorPosition", $"queuemetric-{colId}");
-        _dropdownRects[$"queuemetric-{colId}"] = rect;
-        StateHasChanged();
+        var openUpward = e.ClientY > 600;
+        var top = openUpward ? e.ClientY - 210 : e.ClientY + 8;
+        _dropdownRects[$"queuemetric-{colId}"] = new DropdownRect(top, e.ClientX - 10, 280, openUpward);
     }
 
     private void CloseQueueMetricDropdown()
@@ -3779,13 +3779,13 @@
         return metric?.Description ?? metricId;
     }
 
-    private async Task OpenMetricDropdown(string colId)
+    private void OpenMetricDropdown(string colId, MouseEventArgs e)
     {
         _activeMetricDropdown = colId;
         _metricSearchText = "";
-        var rect = await JS.InvokeAsync<DropdownRect?>("getDropdownAnchorPosition", $"metric-{colId}");
-        _dropdownRects[$"metric-{colId}"] = rect;
-        StateHasChanged();
+        var openUpward = e.ClientY > 600;
+        var top = openUpward ? e.ClientY - 210 : e.ClientY + 8;
+        _dropdownRects[$"metric-{colId}"] = new DropdownRect(top, e.ClientX - 10, 280, openUpward);
     }
 
     private void OnMetricSearch(string? text)
@@ -3804,7 +3804,7 @@
         var key = $"{prefix}{id}";
         var r = _dropdownRects.GetValueOrDefault(key);
         if (r == null)
-            return "position: fixed; top: 0; left: 0; width: 200px; max-height: 200px; overflow-y: auto; z-index: 1060; display: none;";
+            return "position: fixed; top: 100px; left: 100px; width: 280px; max-height: 200px; overflow-y: auto; z-index: 1060;";
         return $"position: fixed; top: {r.Top:F0}px; left: {r.Left:F0}px; width: {r.Width:F0}px; max-height: 200px; overflow-y: auto; z-index: 1060;";
     }
 
