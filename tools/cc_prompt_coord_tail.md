@@ -1,7 +1,7 @@
-# CC Task — coord-init: commit the multi-session coordination protocol (§42)
+# CC Task — coord-tail: commit protocol tail files (§42, second live run)
 
 Session: RTM Session Sync | slug: `session-sync-0605` | claims: docs (explicit file list below)
-Date: 2026-06-05. This is the FIRST live run of the §42 protocol — follow it exactly.
+Date: 2026-06-05. Second live run of the §42 protocol — follow it exactly.
 
 ## Mandatory — read before starting (§40)
 Read file: .claude/skills/widget-planner/widget-planner.md
@@ -30,22 +30,23 @@ sync
 echo "=== Integrity check complete ==="
 ```
 
+EXCEPTIONS — do NOT restore these from HEAD, they contain legitimate uncommitted changes:
+- `tools/cc_prompt_coord_init.md` (155 lines — patched to 6 files, HEAD has 154)
+- `tools/cc_prompt_push.md` (contains new Step 1b — untracked-files pickup)
+
 NOTE: `db/data/02_metrics.sql` and `db/schema.sql` may show `M` while content == HEAD
 (mount quirk). Verify with `git hash-object <f>` vs `git rev-parse HEAD:<f>`;
-if hashes match — leave them alone and do NOT stage them. EXCEPTION: CLAUDE.md will
-legitimately show `M` — it contains the new §42 written by Cowork; do not restore it.
+if hashes match — leave them alone and do NOT stage them.
 
 ## Multi-session sync — MANDATORY (§42)
 
 Session slug: `session-sync-0605`
 Claims for this task — ONLY these files (plus throwaway scripts in /tmp):
 
-- `CLAUDE.md`
-- `.coord/README.md`
-- `.coord/.gitignore`
-- `tools/cc_prompt_sync_block.md`
-- `tools/cc_prompt_coord_init.md`
-- `docs/Multi-Session_Coordination_TasksAPI_vs_Coord.docx` (binary, ~12 KB — verify by size, not tail)
+- `docs/Multi-Session_Coordination_TasksAPI_vs_Coord.docx` (untracked, binary, 12058 bytes)
+- `tools/cc_prompt_coord_init.md` (modified, 155 lines)
+- `tools/cc_prompt_push.md` (modified — Step 1b added by session RTM Prod Test3)
+- `tools/cc_prompt_coord_tail.md` (untracked — this prompt itself)
 
 ### S1. Push barrier check — before ANY work
 
@@ -58,7 +59,8 @@ fi
 ```
 
 ### S2. Claim discipline
-Modify ONLY the six files above. If anything else needs touching — STOP and report.
+Modify ONLY the four files above. If anything else needs touching — STOP and report.
+(In this task you should not need to modify anything at all — verify and commit only.)
 
 ### S3. Acquire commit lock (before git add/commit)
 
@@ -80,45 +82,42 @@ print("FAILED to acquire commit lock after 5 attempts"); sys.exit(1)
 
 If FAILED — abort, report lock owner. Never delete a lock you do not own.
 
-## Task — verify the six files, then ONE commit
+## Task — verify the four files, then ONE commit
 
-All content is already written by Cowork. Your job: verify integrity + commit.
-
-1. Verify each claimed file ends properly:
+1. Verify:
 
 ```bash
-for f in CLAUDE.md .coord/README.md .coord/.gitignore tools/cc_prompt_sync_block.md tools/cc_prompt_coord_init.md; do
-    echo "== $f"; tail -2 "$f"; wc -l "$f"
-done
+wc -l tools/cc_prompt_coord_init.md tools/cc_prompt_push.md tools/cc_prompt_coord_tail.md
+# coord_init = 155; push prompt must contain Step 1b:
+grep -c "Step 1b" tools/cc_prompt_push.md   # >= 1
+tail -2 tools/cc_prompt_coord_init.md; tail -2 tools/cc_prompt_push.md
+ls -la "docs/Multi-Session_Coordination_TasksAPI_vs_Coord.docx"   # 12058 bytes
 ```
 
-Expected: CLAUDE.md = 2926 lines, last line `*TZ version: 2.4 | CLAUDE.md last updated: 2026-06-05 (§42 multi-session coordination protocol)*`;
-cc_prompt_sync_block.md = 80 lines ending with §42.7 reference; .coord/README.md = 34 lines;
-.coord/.gitignore = 4 lines. The .docx: `ls -la` must show ~12058 bytes. If CLAUDE.md is truncated: DO NOT restore from HEAD
-(HEAD does not have §42) — STOP and report to operator.
+If `tools/cc_prompt_push.md` ends mid-sentence/mid-token (truncation) — STOP and report
+(do NOT restore from HEAD: HEAD does not have Step 1b).
 
 2. Pre-commit check (mandatory, §0.5):
 
 ```bash
-bash tools/pre-commit-check.sh CLAUDE.md
+bash tools/pre-commit-check.sh tools/cc_prompt_coord_init.md tools/cc_prompt_push.md
 # exit 1 → STOP, report
 ```
 
 3. Stage and commit (you hold commit.lock):
 
 ```bash
-git add CLAUDE.md .coord/README.md .coord/.gitignore tools/cc_prompt_sync_block.md tools/cc_prompt_coord_init.md "docs/Multi-Session_Coordination_TasksAPI_vs_Coord.docx"
-git commit -m "docs: §42 multi-session coordination protocol (.coord/, commit lock, push barrier)"
+git add "docs/Multi-Session_Coordination_TasksAPI_vs_Coord.docx" tools/cc_prompt_coord_init.md tools/cc_prompt_push.md tools/cc_prompt_coord_tail.md
+git commit -m "docs: coord-tail — TasksAPI-vs-coord doc, coord-init 6-file patch, push prompt Step 1b (by RTM Prod Test3 session)"
 ```
 
-`.coord/sessions/`, `locks/`, `push/` are runtime state — gitignored, must NOT be staged.
 If `index.lock`/`HEAD.lock` blocks: use §0.4 workarounds — allowed, you hold commit.lock.
 
 4. Post-commit verification (§0.6):
 
 ```bash
-git status --short          # six claimed files must be clean
-git show HEAD:CLAUDE.md | wc -l ; wc -l CLAUDE.md   # both 2926
+git status --short        # four claimed files must be clean
+git show HEAD:tools/cc_prompt_coord_init.md | wc -l ; wc -l tools/cc_prompt_coord_init.md   # both 155
 git log --oneline -1
 ```
 
@@ -140,9 +139,9 @@ Then `sync`.
 5. PD-007 re-sync — FINAL step, no exceptions:
 
 ```bash
-for f in CLAUDE.md .coord/README.md .coord/.gitignore tools/cc_prompt_sync_block.md tools/cc_prompt_coord_init.md; do
+for f in tools/cc_prompt_coord_init.md tools/cc_prompt_push.md tools/cc_prompt_coord_tail.md "docs/Multi-Session_Coordination_TasksAPI_vs_Coord.docx"; do
     git show HEAD:"$f" > "$f"
-    echo "Re-synced: $f ($(wc -l < "$f") lines)"
+    echo "Re-synced: $f"
 done
 sync
 ```
@@ -151,5 +150,5 @@ sync
 Do NOT run `git push` (§37). Push will be requested separately via the §42.7 barrier.
 
 ## Report
-Output: commit hash; `tail -1 .coord/journal.md`; `ls .coord/locks/` (must be empty);
+Output: commit hash; `tail -2 .coord/journal.md`; `ls .coord/locks/` (must be empty);
 `git status --short` summary.

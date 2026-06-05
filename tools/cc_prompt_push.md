@@ -58,6 +58,32 @@ git log --oneline -2
 
 ---
 
+## Step 1b — Add untracked files in docs/tools/db/.claude (often missed)
+
+```bash
+# Force-add skills (blocked by .gitignore .claude/ rule)
+git add -f .claude/skills/ 2>/dev/null || true
+
+# Add untracked docs, tools CC prompts, db migrations
+git add docs/ tools/cc_prompt_*.md tools/fix_*.py tools/integrity-check-block.md         db/migrations/ 2>/dev/null || true
+
+# Check what's still untracked
+git status --short | grep "^??" | grep -v "node_modules\|Installations\|\.sync\|\.docx\|\.skill\|The\|bash\|file\|have\|in\|its\|line\|original\|user\|will\|working\|your\|endings\|directory\|build_"
+```
+
+If any relevant `??` files remain — add them explicitly before committing.
+
+If anything was staged — commit:
+```bash
+cp .git/index /tmp/cc-idx
+GIT_INDEX_FILE=/tmp/cc-idx git diff --cached --name-only
+# Only if non-empty:
+GIT_INDEX_FILE=/tmp/cc-idx git commit -m "docs: untracked skills, prompts, docs caught by push step"
+cp /tmp/cc-idx .git/index
+```
+
+---
+
 ## Step 2 — Export DB to git (Export-All.ps1)
 
 ```powershell
