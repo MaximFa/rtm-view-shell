@@ -1943,6 +1943,7 @@ Relevant sections by widget type:
 | widget-planner | `.claude/skills/widget-planner/widget-planner.md` | Planning: idea → CC task |
 | widget-creator | `.claude/skills/widget-creator/widget-creator.md` | Implementation: patterns, dark mode, RTL, templates |
 | rtm-metrics-expert | `.claude/skills/rtm-metrics-expert/rtm-metrics-expert.md` | Metrics: creation, descriptions, dedup/defect analysis, ISO 18295 mapping, wizard/Viewer-help data contract. Read for ANY RTSGrid_Metric work |
+| session-coord | `.claude/skills/session-coord/session-coord.md` | Multi-session coordination: .coord/ bus, claims, commit lock, push barrier (§42). Read at the start of EVERY session |
 
 ---
 
@@ -2637,12 +2638,13 @@ Or include in the next `web:` / `docs:` commit.
 
 ## 40. Mandatory skill loading — every session (Cowork AND CC)
 
-**Every Cowork session AND every CC session must read these two skills at the very start,
+**Every Cowork session AND every CC session must read these three skills at the very start,
 before any analysis, planning, or implementation:**
 
 ```
 .claude/skills/widget-planner/widget-planner.md
 .claude/skills/widget-creator/widget-creator.md
+.claude/skills/session-coord/session-coord.md
 ```
 
 These skills contain:
@@ -2658,7 +2660,8 @@ These skills contain:
 ## Mandatory — read before starting
 Read file: .claude/skills/widget-planner/widget-planner.md
 Read file: .claude/skills/widget-creator/widget-creator.md
-Only after reading both files: proceed with the task below.
+Read file: .claude/skills/session-coord/session-coord.md
+Only after reading all files: proceed with the task below.
 ```
 
 Cowork agent adds this block to every CC prompt automatically.
@@ -2921,6 +2924,6 @@ Push happens ONLY when every active session has confirmed readiness:
 | Plumbing ref-write race (two direct writes to `refs/heads/<branch>`) | One commit silently lost. Prevention only: commit.lock applies to the §0.4 plumbing path — never bypass |
 | Another session's commit truncated your files (PD-007 cross-session) | New journal line from another slug → hash-check your claimed files vs HEAD before next work; restore via `git show HEAD:<f> > <f>` |
 
-*TZ version: 2.4 | CLAUDE.md last updated: 2026-06-05 (§42 multi-session coordination protocol)*
+*TZ version: 2.5 | CLAUDE.md last updated: 2026-06-06 (session-coord skill registered in §30.3/§40; §42 run-1 verified)*
 
 
