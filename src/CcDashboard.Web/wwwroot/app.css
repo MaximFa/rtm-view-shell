@@ -2226,6 +2226,11 @@ button.clr-swatch,
     position: absolute;
 }
 
+/* Fullscreen: remove editor toolbar padding from header — icon sits at right edge */
+.fullscreen-dashboard .widget-header {
+    padding-inline-end: var(--sp-3);
+}
+
 .empty-state-title {
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
