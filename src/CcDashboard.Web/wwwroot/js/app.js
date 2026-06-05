@@ -47,3 +47,12 @@ window.getElementPosition = function (element) {
         height: rect.height
     };
 };
+
+// localStorage security — clear all cc: prefixed keys on logout (CLAUDE.md §41)
+window.ccApp = window.ccApp || {};
+
+window.ccApp.clearLocalStorage = function () {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('cc:'));
+    keys.forEach(k => localStorage.removeItem(k));
+    console.debug(`ccApp.clearLocalStorage: removed ${keys.length} key(s)`);
+};

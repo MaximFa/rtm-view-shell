@@ -1,6 +1,7 @@
 @page "/logout"
 @inject IIdentityAuthService AuthService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @using CcDashboard.Application.Interfaces
 
 @code {
@@ -8,6 +9,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Clear all application localStorage keys before sign-out (§41.4)
+        try { await JS.InvokeVoidAsync("ccApp.clearLocalStorage"); }
+        catch { /* JS may not be available in SSR context — safe to ignore */ }
+
         if (HttpContext is not null)
             await AuthService.SignOutAsync();
 

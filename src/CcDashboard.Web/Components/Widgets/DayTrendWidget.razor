@@ -15,6 +15,7 @@
 @inject IJSRuntime JS
 @inject ILogger<DayTrendWidget> Logger
 @inject IDbContextFactory<AppDbContext> AppDbFactory
+@inject CcDashboard.Domain.Interfaces.ICurrentUserAccessor CurrentUser
 
 <div class="daytrend-widget h-100" style="@GetWidgetStyle()">
     @if (_loading)
@@ -216,7 +217,8 @@
     private HashSet<string>? _localMetricIds;        // null = use saved config
     private HashSet<string>? _localAgentMetricIds;   // null = use saved config
 
-    private string LocalStorageKey => $"cc:daytrendview:{WidgetInstanceId}";
+    private string LocalStorageKey =>
+        $"cc:daytrendview:{CurrentUser.UserId}:{WidgetInstanceId}";
 
     // Effective values used for data loading and rendering
     private int EffectiveBuId => _localBuId > 0 ? _localBuId : _businessUnitId;

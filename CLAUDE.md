@@ -2629,7 +2629,63 @@ Cowork agent adds this block to every CC prompt automatically.
 CC agent must not skip it even if the task seems unrelated to widgets.
 
 *TZ version: 2.2 | CLAUDE.md last updated: 2026-06-05 (§40 mandatory skill loading — all sessions)*
+---
 
+## 41. localStorage Policy — security requirements
 
+All use of browser `localStorage` in this application must comply with the following rules.
+These apply to any Blazor component that calls `localStorage.setItem` via JS interop.
 
+### §41.1 What MAY be stored
+
+Only **non-sensitive UI preferences** that have no business or security value to an attacker:
+- Widget display configuration (BU selection, metric visibility, chart type)
+- UI layout preferences (column widths, sort order, etc.)
+
+### §41.2 What MUST NOT be stored
+
+- Authentication tokens (JWT access/refresh) — use HttpOnly cookies only [AUTH-API-03]
+- Session identifiers or security stamps
+- PII (user names, emails, phone numbers)
+- Business data (call records, agent states, queue counts)
+- Permission group IDs or role information
+
+### §41.3 Key naming — must include UserId
+
+Every localStorage key MUST include the authenticated user's ID to prevent cross-user
+data leakage on shared workstations (common in contact centre environments):
+
+```
+cc:{feature}:{userId}:{widgetId}
+```
+
+Example: `cc:daytrendview:3a4b5c6d-...:7e8f9g10-...`
+
+**Why:** Without userId in the key, User A's widget preferences persist to User B
+who logs in on the same browser. Security teams flag this as data leakage.
+
+### §41.4 Clear on logout — mandatory
+
+All `cc:` prefixed localStorage keys MUST be cleared when the user logs out.
+Implemented in `LogoutPage.razor` via JS interop before `SignOutAsync()`:
+
+```javascript
+// Clears all application localStorage keys without touching browser passwords etc.
+Object.keys(localStorage)
+  .filter(k => k.startsWith('cc:'))
+  .forEach(k => localStorage.removeItem(k));
+```
+
+This is implemented as `window.ccApp.clearLocalStorage()` in `app.js` and called
+from `LogoutPage.razor`.
+
+### §41.5 Security review checklist for any new localStorage usage
+
+Before adding any new localStorage key, verify:
+- [ ] Only UI preferences stored — no tokens, no PII, no business data
+- [ ] Key includes `{userId}` segment
+- [ ] `LogoutPage.razor` clears the key (covered by `cc:` prefix clear)
+- [ ] CLAUDE.md §41 referenced in the PR description
+
+*TZ version: 2.3 | CLAUDE.md last updated: 2026-06-05 (§41 localStorage security policy)*
 
