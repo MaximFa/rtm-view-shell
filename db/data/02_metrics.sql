@@ -204,6 +204,8 @@ MonAgentBreakDurationPct	Agent - Cumulative Break Duration Percent	User	TotalSta
 MonAgentPaperworkDurationPct	Agent - Cumulative Paperwork Duration Percent	User	TotalStatusGroupPercent	PAPERWORK	\N	\N	number	Agent
 MonAgentTrainingDurationPct	Agent - Cumulative Training Duration Percent	User	TotalStatusGroupPercent	TRAINING	\N	\N	number	Agent
 QueueNumAbandonedCalls	QM - Number of Abandoned Calls	Interactions Summary	InteractionsCount	(InteractionType=="Call") && (CallType=="External")  && Direction == "Incoming" && IsAbandoned && !IsCallbackRequest	\N	\N	number	Data
+QueueNumOutboundCalls	QM - Number of Outbound Calls	Interactions Summary	InteractionsCount	(InteractionType=="Call") && (CallType=="External")  && Direction == "Outgoing"	\N	\N	number	Data
+QueueNumTransferredCalls	QM - Number of Transferred Calls	Interactions Summary	InteractionsCount	(InteractionType=="Call") && (CallType=="External")  && Direction == "Incoming" && IsTransferred	\N	\N	number	Data
 \.
 
 -- RTSGrid_Statistic
