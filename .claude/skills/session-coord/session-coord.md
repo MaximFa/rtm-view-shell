@@ -2,7 +2,7 @@
 name: session-coord
 description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42."
 type: process
-updated: 2026-06-06
+updated: 2026-06-06 (v1.2 — §9 queue + checker + L-SC-09; §10 operator command set + return convention)
 ---
 
 # session-coord — multi-session coordination
@@ -125,6 +125,66 @@ PUSH BARRIER ACTIVE — no new CC tasks (sync block S1).
 Exception: the push prompt itself.
 Commits to push (origin/<branch>..HEAD): <list>
 ```
+
+## 9. File-claim queue (.coord/queue.md) — contention protocol
+
+When you need a path that another ACTIVE session holds (detected by
+`python3 tools/coord_check_claims.py <my-slug> <paths...>` — run it BEFORE writing
+any CC prompt):
+
+1. Append a REQUEST line to `.coord/queue.md` (Python+fsync, append-only):
+   `<UTC> | REQUEST | <path> | wants: <slug> | holder: <slug> | <why, 1 line>`
+   Do NOT claim the path, do NOT write prompts touching it.
+2. The holder (notified by operator or seeing the queue on next bus read):
+   finishes the CURRENT CC task involving the path, commits, removes the path
+   from its `files:` claims, appends: `<UTC> | GRANT | <path> | to: <slug>`.
+3. The grantee: re-reads the path from fresh HEAD (it changed!), adds it to its
+   claims, proceeds. FIFO order if several waiters.
+4. Coordinator arbitrates: priority disputes, stale holders (heartbeat > 3 h →
+   §42.2 takeover with operator confirmation), deadlocks (A waits B, B waits A →
+   coordinator picks who goes first; both cannot hold).
+5. `CLAUDE.md` is exempt — short-lived file-claim per write, append-only §-sections.
+
+Remember WHY this matters: one shared working tree means no merge conflicts —
+the second writer silently destroys the first one's edits (L-SC-09). The queue
+is the only protection for same-file work.
+
+| # | Lesson |
+|---|---|
+| L-SC-09 | Same-file contention = silent lost-update, not a git conflict; serialise via queue, never parallel |
+
+## 10. Operator command set — EXECUTE LITERALLY
+
+The operator (Max) drives the protocol with short commands prefixed `коорд:`.
+Every session MUST recognise them and execute the exact semantics below —
+no improvisation, no clarifying questions unless data is genuinely missing.
+Replies must be SHORT: result + what the operator should do next (if anything).
+
+| Command | Addressed to | Exact action |
+|---|---|---|
+| `коорд: ты координатор` | new session | Register on the bus with `role: coordinator`, empty work claims. Read all bus state. Reply: bus summary + "готов". |
+| `коорд: регистрируйся. задача: <text>` | new work session | Load this skill, §1 runbook, derive slug + initial claims from the task, register. Reply: slug, claims, conflicts found (checker), ready/blocked. |
+| `коорд: статус` | any session | Own state: slug, claims, cc_task, last journal lines relevant to me. Coordinator instead: FULL bus audit (sessions+heartbeats, locks, queue, journal↔git reconciliation, unpushed count). |
+| `коорд: проверь шину` | coordinator | Same as coordinator `статус` + actively FIX: restore lost journal lines, flag stale locks/sessions, claim violations, queue deadlocks. Reply: findings + required operator actions. |
+| `коорд: очередь` | session holding a contested file | Read `.coord/queue.md`. If a REQUEST targets my claims: finish current CC task, ensure path committed, remove from my claims, append GRANT. Reply: what was granted, to whom. |
+| `коорд: файл твой` | session waiting in queue | Verify GRANT exists for me, re-read path from fresh HEAD, add to claims, resume work. Reply: confirmed + next step. |
+| `коорд: готовим пуш` | coordinator | Verify no commit.lock → write `push/request.md` (freeze) → reply with the exact ack-request text for the operator to paste into each work session. |
+| `коорд: дай ack` | work session | Run §6 ack checklist, write own ack (READY or HOLD+reason). Reply: one line — READY / HOLD: reason. |
+| `коорд: пуш` | coordinator | Verify quorum (every active session READY, valid_for == frozen set) → reply with the CC command (`Выполни задачу из файла tools/cc_prompt_push_barrier.md`). If no quorum: who is missing. |
+| `коорд: завершаю сессию` | any session | Set `status: done`, claims released. Reply: final summary (commits made, loose ends). |
+| `коорд: сессия <slug> мертва` | coordinator | Operator-confirmed takeover (§42.2): delete that session file, list orphaned claims/locks now free, schedule orphan-lock removal via next CC task. |
+
+Default duty regardless of commands: at the start of EVERY turn each session re-reads
+the bus (§1 items 2–4) and acts on what it finds (barrier → ack; foreign journal
+lines → hash-check own files; queue REQUEST against own claims → mention it).
+
+**Operator return convention (NORM):** the operator opens every RETURN to a session
+(after working in other sessions) with `коорд: статус`. Treat it as a forced full
+resynchronisation: re-read ALL bus state ignoring anything remembered from earlier
+in the conversation — context may be stale or degraded. This convention exists
+because the "default duty" above is best-effort for an LLM in a long conversation;
+the explicit command is the reliable trigger. Sessions must EXPECT it and never
+answer from memory.
 
 ## 8. Lessons learned — run 1 (2026-06-05/06)
 

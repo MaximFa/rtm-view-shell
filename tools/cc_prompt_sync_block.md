@@ -20,10 +20,16 @@ if [ -f ".coord/push/request.md" ]; then
 fi
 ```
 
-### S2. Claim discipline
+### S2. Claim discipline — ENFORCED
+
+```bash
+python3 tools/coord_check_claims.py <slug> <each claimed path...>
+# exit 1 -> STOP: another active session holds a path. Do not improvise -
+# the conflict goes to the queue (.coord/queue.md, skill section 9).
+```
 
 Modify ONLY files inside the claims listed above (plus throwaway scripts in `/tmp`).
-If the task requires touching a file outside the claims — STOP and report; do not improvise.
+If the task requires touching a file outside the claims — STOP and report.
 
 ### S3. Commit lock — around EVERY git add/commit
 

@@ -17,6 +17,14 @@ Runtime state for the multi-session coordination protocol.
     └── acks/<slug>.md   ← per-session push readiness acks (READY / HOLD)
 ```
 
+## Operator commands (full table: skill session-coord §10)
+
+`коорд: ты координатор` · `коорд: регистрируйся. задача: <…>` · `коорд: статус` ·
+`коорд: проверь шину` · `коорд: очередь` · `коорд: файл твой` · `коорд: готовим пуш` ·
+`коорд: дай ack` · `коорд: пуш` · `коорд: завершаю сессию` · `коорд: сессия <slug> мертва`
+
+Operator norm: every return to a session starts with `коорд: статус` (forced resync).
+
 ## Rules in one breath
 
 1. Register a session file in `sessions/` BEFORE issuing any CC task.
