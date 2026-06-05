@@ -31,8 +31,8 @@ for f in "${FILES[@]}"; do
     head_lines=${head_lines:-0}
 
     # --- Hard fail: file shortened >20% vs HEAD
-    if [ "$head_lines" -gt 20 ]; then
-        threshold=$(( head_lines * 80 / 100 ))
+    if [ "$head_lines" -gt 5 ]; then
+        threshold=$(( head_lines * 90 / 100 ))
         if [ "$wt_lines" -lt "$threshold" ]; then
             pct=$(( (head_lines - wt_lines) * 100 / head_lines ))
             echo -e "${RED}✗ TRUNCATED: $f${NC}"

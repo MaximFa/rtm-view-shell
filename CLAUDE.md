@@ -144,7 +144,7 @@ bash tools/pre-commit-check.sh [file1 file2 ...]
 ```
 
 The script automatically:
-- Detects files shortened >20% vs HEAD (hard FAIL — blocks commit)
+- Detects files shortened >10% vs HEAD (hard FAIL — blocks commit)
 - Verifies last line is a proper closing token (`}`, `)`, `;`, `>`, etc.)
 - Warns on files shortened 10–20% (review required)
 
@@ -222,6 +222,40 @@ overwrite them), but it maximises the window before truncation occurs, and
 §0.2 at the start of the next session will detect and restore any remaining issues.
 
 **Every CC task prompt issued by Cowork must include this re-sync block at the end.**
+
+### §0.6a Mandatory integrity block — first step of EVERY CC prompt (NO EXCEPTIONS)
+
+Every CC prompt **must** begin with this block before any other work:
+
+```bash
+# MANDATORY INTEGRITY CHECK — Step 0 of every CC prompt
+cd "D:\Claude\Projects\RTM View Shell"
+git status --short
+
+# For every M file shown above:
+for f in $(git status --short | grep "^ M" | awk '{print $2}'); do
+    HEAD_LINES=$(git show HEAD:"$f" 2>/dev/null | wc -l)
+    WT_LINES=$(wc -l < "$f" 2>/dev/null)
+    DIFF=$((HEAD_LINES - WT_LINES))
+    if [ "$DIFF" -gt 0 ]; then
+        echo "TRUNCATED: $f (HEAD=$HEAD_LINES, working=$WT_LINES, missing=$DIFF lines)"
+        git show HEAD:"$f" > "$f"
+        echo "RESTORED: $f"
+    else
+        echo "OK: $f ($WT_LINES lines)"
+    fi
+done
+sync
+echo "=== Integrity check complete ==="
+```
+
+**Rule:** If any file was RESTORED — do not proceed until `git status --short` shows no M files
+that differ from HEAD by more than noise (empty lines, locale differences).
+
+**Cowork adds this block to every CC prompt automatically.**
+**CC agent must not skip it even if the task seems unrelated to file integrity.**
+
+---
 
 ### §0.7 All code changes via CC prompts — NO direct Cowork writes
 

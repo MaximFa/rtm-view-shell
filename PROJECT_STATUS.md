@@ -328,4 +328,11 @@ T1 ✅ → T2 ✅ → B1#11 ✅ → T3 ✅ → T4 ✅ → T5 ✅ → T6 ✅ → 
 **ADR decisions recorded:** ADR-001 (widget catalogue scope), ADR-002 (nav menu), ADR-003 (licensing), ADR-004 (SignalR seam), ADR-005 (theming), ADR-006 (PG model redesign), ADR-007 (DB boundary), ADR-008 (dual-write)
 
 **Total documentation added:** 1,378 insertions across 13 files
+---
+
+## Technical Debt Backlog
+
+| ID | Issue | Impact | Priority |
+|---|---|---|---|
+| TD-001 | `Microsoft.EntityFrameworkCore.Relational` version conflict in `CcDashboard.Tests.Architecture` — MSB3277 warning on every build. Fix: align all EF Core package versions to 8.x across all .csproj files. | Warning only, build succeeds | Low |
 

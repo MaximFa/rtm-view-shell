@@ -143,6 +143,23 @@ if (-not $SkipDB) {
 New-Item -ItemType Directory -Path $OutDir   -Force | Out-Null
 New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 
+
+# ── Step 0: Integrity check — restore truncated files from HEAD (§0.6a/PD-007) ──
+Write-Host ""
+Write-Host "[ 0/4 ] Integrity check — restoring any truncated files from HEAD..." -ForegroundColor Cyan
+
+$modified = & git diff --name-only HEAD 2>$null
+foreach ($f in $modified) {
+    if (-not (Test-Path $f)) { continue }
+    $headLines = (& git show "HEAD:$f" 2>$null | Measure-Object -Line).Lines
+    $wtLines   = (Get-Content $f | Measure-Object -Line).Lines
+    if ($headLines -gt 5 -and $wtLines -lt [math]::Floor($headLines * 0.90)) {
+        Write-Host "  TRUNCATED: $f (HEAD=$headLines, wt=$wtLines) — restoring" -ForegroundColor Yellow
+        & git show "HEAD:$f" | Set-Content $f -Encoding UTF8
+    }
+}
+Write-Host "  Integrity check done." -ForegroundColor Green
+
 # ── Step 1: Build Shell ───────────────────────────────────────────────────────
 if ($BuildShell) {
     if (-not $SkipBuild) {

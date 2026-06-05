@@ -1004,3 +1004,134 @@ Pattern:
 ```
 
 *Updated 2026-06-05 (L-31 DB-only push rule, corrected after accidental full push).*
+
+---
+
+## L-34: Обязательная проверка локализации — ключи должны точно совпадать (2026-06-05)
+
+**Правило:** После любого добавления локализационных ключей CC ОБЯЗАН выполнить верификацию
+совпадения ключей в `.razor` файлах и `.resx` файлах.
+
+### Проблема (зафиксирована 2026-06-05)
+
+CC добавил в `.resx` ключи с неправильным префиксом:
+- В `.razor`: `@L["DayTrend_ChartType"]`
+- В `.resx`: `<data name="Widget_DayTrend_ChartType">` ← лишний `Widget_` префикс
+
+Результат: в UI отображаются сырые ключи вместо переводов.
+
+### Обязательная верификация (добавить в каждый промпт с локализацией)
+
+После записи `.resx` файлов выполнить:
+
+```bash
+# 1. Извлечь все @L["Key"] из изменённых .razor файлов
+grep -hPo '(?<=@L\[")[^"]+' src/CcDashboard.Web/Components/Widgets/DayTrendWidget.razor | sort -u > /tmp/razor_keys.txt
+
+# 2. Извлечь все data name из .resx
+grep -Po '(?<=<data name=")[^"]+' src/CcDashboard.Web/Resources/SharedResources.en-US.resx | sort -u > /tmp/resx_keys.txt
+
+# 3. Найти ключи из .razor которых НЕТ в .resx
+comm -23 /tmp/razor_keys.txt /tmp/resx_keys.txt
+# Вывод должен быть ПУСТЫМ. Любая строка = пропущенный или неправильно названный ключ.
+```
+
+**Если вывод не пустой → НЕ КОММИТИТЬ. Добавить/исправить ключи в .resx.**
+
+### Правило именования ключей
+
+Ключ в `.resx` должен совпадать **символ в символ** с ключом в `@L["..."]`.
+Никаких дополнительных префиксов (`Widget_`, `DayTrend_` и т.д.) если их нет в `.razor`.
+
+Пример правильного добавления:
+- `.razor` использует `@L["DayTrend_ChartType"]`
+- `.resx` содержит `<data name="DayTrend_ChartType" xml:space="preserve">`
+
+*Updated 2026-06-05 (L-34 mandatory localization key verification).*
+
+---
+
+## L-35: Информационная безопасность — обязательный аспект при проектировании (2026-06-05)
+
+**Правило:** При проектировании ЛЮБОГО нового функционала — виджет, страница, API, фича —
+обязательно задавать вопросы безопасности ДО написания спецификации.
+
+### Чеклист безопасности при проектировании
+
+Для каждой новой фичи ответить на эти вопросы:
+
+| Вопрос | Если ответ "да" |
+|---|---|
+| Хранит ли данные в браузере (localStorage, sessionStorage, cookies)? | → Применить CLAUDE.md §41: userId в ключе, очистка при logout, только UI-преференции |
+| Передаёт ли данные по сети? | → Проверить TLS, не передавать sensitive данные в URL/headers |
+| Работает ли с данными разных тенантов? | → Проверить GQF [ARCH-01], audit event при cross-tenant доступе |
+| Требует ли авторизацию? | → Два уровня: [Authorize] + AuthorizationBehavior [CODE-03] |
+| Принимает ли пользовательский ввод? | → FluentValidation + HtmlEncoder [CODE-01/02] |
+| Работает ли с секретами/ключами? | → User Secrets (dev) / Key Vault (prod) [CODE-05] |
+| Логирует ли данные? | → Не логировать пароли, токены, OTP, PAN [MAINT-02] |
+
+### Документ безопасности проекта
+
+Актуальный security overview: `docs/security-overview.docx`
+
+При добавлении нового механизма безопасности (новый тип аутентификации, новая схема хранения,
+новый тип пользовательских данных) — обновить документ.
+
+Документ должен отвечать на любой вопрос безопасника без дополнительных пояснений.
+
+### Скилл для security-решений
+
+`.claude/skills/app-cyber-security-expert/SKILL.md` — читать при любом вопросе,
+связанном с auth, tokens, cookies, secrets, XSS, injection, multi-tenancy isolation.
+
+*Updated 2026-06-05 (L-35 mandatory security consideration in design).*
+
+---
+
+## L-36: Все модальные окна виджетов — обязательно draggable за заголовок (2026-06-05)
+
+**Правило:** Каждый модал, открываемый из виджета (конфигуратор, локальные настройки вида, любой popup)
+**обязан поддерживать перетаскивание за заголовок** (drag by header).
+
+**Почему:** Модал может перекрывать данные виджета или другие виджеты на экране.
+Пользователь должен иметь возможность сдвинуть его, не закрывая.
+
+### Реализация (стандартный паттерн для всех виджетов)
+
+В `app.js` уже есть или должна быть функция `window.ccApp.makeModalDraggable(headerEl, dialogEl)`.
+Вызывать её из Blazor через `JS.InvokeVoidAsync("ccApp.makeModalDraggable", headerRef, dialogRef)`
+в `OnAfterRenderAsync` когда модал открыт.
+
+```javascript
+// app.js
+window.ccApp = window.ccApp || {};
+
+window.ccApp.makeModalDraggable = function(header, dialog) {
+    if (!header || !dialog) return;
+    let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
+
+    header.style.cursor = 'move';
+
+    header.onmousedown = function(e) {
+        e.preventDefault();
+        startX = e.clientX - offsetX;
+        startY = e.clientY - offsetY;
+
+        document.onmouseup = () => { document.onmousemove = null; document.onmouseup = null; };
+        document.onmousemove = function(e) {
+            offsetX = e.clientX - startX;
+            offsetY = e.clientY - startY;
+            dialog.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+        };
+    };
+};
+```
+
+### Checklist для каждого нового модала в виджете
+
+- [ ] Заголовок (`modal-header`) имеет `cursor: move`
+- [ ] `ccApp.makeModalDraggable` вызван в `OnAfterRenderAsync` при `_showModal == true`
+- [ ] `transform` сбрасывается при закрытии модала
+
+*Updated 2026-06-05 (L-36 draggable modal rule for all widget modals).*
+

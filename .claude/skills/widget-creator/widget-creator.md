@@ -2413,3 +2413,89 @@ await state.Connection!.SendAsync("refreshCells", gridId.ToString(), Cancellatio
 
 Component CT is passed to Blazor lifecycle and may be cancelled during
 `StateHasChanged` re-renders, causing spurious "Connection failed" for one widget.
+
+---
+
+## §30. Draggable Modals — Mandatory for All Widget Modals
+
+**Every modal opened from a widget MUST be draggable by its header. No exceptions.**
+
+### Implementation pattern
+
+**Step 1 — `app.js`** (add once, reuse everywhere):
+```javascript
+window.ccApp = window.ccApp || {};
+
+window.ccApp.makeModalDraggable = function(header, dialog) {
+    if (!header || !dialog) return;
+    let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
+
+    header.style.cursor = 'move';
+    header.onmousedown = function(e) {
+        e.preventDefault();
+        startX = e.clientX - offsetX;
+        startY = e.clientY - startY; // typo fix: startY
+        startX = e.clientX - offsetX;
+        startY = e.clientY - offsetY;
+
+        document.onmouseup = () => {
+            document.onmousemove = null;
+            document.onmouseup = null;
+        };
+        document.onmousemove = function(e) {
+            offsetX = e.clientX - startX;
+            offsetY = e.clientY - startY;
+            dialog.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+        };
+    };
+};
+
+window.ccApp.resetModalPosition = function(dialog) {
+    if (dialog) dialog.style.transform = '';
+};
+```
+
+**Step 2 — Blazor component** (in the widget razor file):
+
+```csharp
+// Fields
+private ElementReference _modalHeader;
+private ElementReference _modalDialog;
+
+// OnAfterRenderAsync
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (_showViewConfig)
+    {
+        try { await JS.InvokeVoidAsync("ccApp.makeModalDraggable", _modalHeader, _modalDialog); }
+        catch { /* ignore if not rendered yet */ }
+    }
+}
+```
+
+```razor
+@* Modal HTML — add @ref to header and dialog *@
+<div class="daytrendview-modal-overlay" ...>
+    <div class="modal-dialog modal-lg" @ref="_modalDialog" @onclick:stopPropagation="true">
+        <div class="modal-content">
+            <div class="modal-header py-2" @ref="_modalHeader">
+                ...
+            </div>
+```
+
+**Step 3 — Reset on close:**
+```csharp
+private async Task CloseModal()
+{
+    _showViewConfig = false;
+    try { await JS.InvokeVoidAsync("ccApp.resetModalPosition", _modalDialog); }
+    catch { }
+}
+```
+Replace all `() => _showViewConfig = false` close handlers with `CloseModal`.
+
+### Rule summary (widget-planner L-36)
+- cursor: move on header
+- `makeModalDraggable` called in `OnAfterRenderAsync` when modal is open
+- `resetModalPosition` called on close so next open starts centered
+
