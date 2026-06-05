@@ -85,6 +85,13 @@ namespace RTM
                             message => AsyncLogger.Info(message));
                         AsyncLogger.Info($"{AppConfig.AdapterServiceName} restarted successfully.");
                     }
+                    catch (InvalidOperationException ex)
+                        when (ex.InnerException is System.ComponentModel.Win32Exception w32
+                              && w32.NativeErrorCode == 1060)
+                    {
+                        AsyncLogger.Warn(
+                            $"Service '{AppConfig.AdapterServiceName}' not found on this machine — skipped (non-fatal)");
+                    }
                     catch (Exception ex)
                     {
                         AsyncLogger.Error($"Failed to restart {AppConfig.AdapterServiceName}", ex);

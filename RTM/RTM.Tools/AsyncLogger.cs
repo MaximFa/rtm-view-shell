@@ -56,6 +56,12 @@ namespace RTM.Tools
         }
 
 
+        public static void Warn(string message)
+        {
+            EnqueueLog(() => log.Warn(message));
+        }
+
+
         public static void Error(string message)
         {
             EnqueueLog(() => log.Error(message));
