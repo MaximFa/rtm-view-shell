@@ -1002,14 +1002,22 @@ namespace RTM
         {
             DateTime? nextClearTime = GetNextClearTime();
 
-            if (!nextClearTime.HasValue)
+            if (!nextClearTime.HasValue || nextClearTime.Value == DateTime.MaxValue)
             {
-                AsyncLogger.Error("ScheduleNextCheck | nextClearTime is null", null);
+                AsyncLogger.Info("ScheduleNextCheck | no unions loaded yet, timer skipped");
                 return;
             }
 
             var now = DateTime.Now;
             TimeSpan dueTime = nextClearTime.Value - now;
+
+            // Safety cap: Timer max is ~49.7 days (4294967294 ms)
+            var maxDue = TimeSpan.FromMilliseconds(4_294_967_294);
+            if (dueTime > maxDue)
+            {
+                AsyncLogger.Info($"ScheduleNextCheck | dueTime {dueTime.TotalDays:F1}d exceeds Timer max, capping to 49d");
+                dueTime = maxDue;
+            }
 
             if (dueTime < TimeSpan.Zero)
                 dueTime = TimeSpan.Zero;
