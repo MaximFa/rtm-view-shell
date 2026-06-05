@@ -634,6 +634,9 @@
   <data name="DayTrend_ChartStep" xml:space="preserve">
     <value>מדרגות</value>
   </data>
+  <data name="DayTrend_TimeInterval" xml:space="preserve">
+    <value>מרווח זמן</value>
+  </data>
   <data name="DayTrend_InteractionMetrics" xml:space="preserve">
     <value>מדדי שיחות</value>
   </data>

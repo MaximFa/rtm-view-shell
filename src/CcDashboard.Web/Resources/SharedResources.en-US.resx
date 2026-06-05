@@ -795,6 +795,9 @@
   <data name="DayTrend_ChartStep" xml:space="preserve">
     <value>Step</value>
   </data>
+  <data name="DayTrend_TimeInterval" xml:space="preserve">
+    <value>Time Interval</value>
+  </data>
   <data name="DayTrend_InteractionMetrics" xml:space="preserve">
     <value>Call metrics</value>
   </data>

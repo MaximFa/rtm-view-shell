@@ -113,6 +113,20 @@
                                         <option value="step">@L["DayTrend_ChartStep"]</option>
                                     </select>
                                 </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">@L["DayTrend_TimeInterval"]</label>
+                                    <div class="btn-group w-100" role="group">
+                                        <button type="button"
+                                                class="btn btn-sm @(_viewIntervalMinutes == 15 ? "btn-primary" : "btn-outline-secondary")"
+                                                @onclick='() => _viewIntervalMinutes = 15'>15 min</button>
+                                        <button type="button"
+                                                class="btn btn-sm @(_viewIntervalMinutes == 30 ? "btn-primary" : "btn-outline-secondary")"
+                                                @onclick='() => _viewIntervalMinutes = 30'>30 min</button>
+                                        <button type="button"
+                                                class="btn btn-sm @(_viewIntervalMinutes == 60 ? "btn-primary" : "btn-outline-secondary")"
+                                                @onclick='() => _viewIntervalMinutes = 60'>60 min</button>
+                                    </div>
+                                </div>
                             }
 
                             @if (_viewTab == "queue")
@@ -209,6 +223,8 @@
     private string _viewChartType = "line";  // current selection in modal
     private List<BusinessUnitDto> _viewBuList = [];
     private int _localBuId;                          // 0 = use saved config value
+    private int _localIntervalMinutes;                   // 0 = use saved config value
+    private int _viewIntervalMinutes = 30;               // current selection in modal
     private HashSet<string>? _localMetricIds;        // null = use saved config
     private HashSet<string>? _localAgentMetricIds;   // null = use saved config
     private Dictionary<string, string> _localMetricColors = new();
@@ -219,6 +235,7 @@
 
     // Effective values used for data loading and rendering
     private int EffectiveBuId => _localBuId > 0 ? _localBuId : _businessUnitId;
+    private int EffectiveIntervalMinutes => _localIntervalMinutes > 0 ? _localIntervalMinutes : _intervalMinutes;
     private string EffectiveChartType => _localChartType ?? _chartType;
 
     // Colors
@@ -389,7 +406,7 @@
             var includeAgentMetrics = _agentMetrics.Any(m => m.Enabled);
             var result = await Mediator.Send(new DayTrendQuery(
                 EffectiveBuId,
-                _intervalMinutes,
+                EffectiveIntervalMinutes,
                 includeAgentMetrics), _cts.Token);
 
             _isNoQueues = result.IsNoQueues;
@@ -589,6 +606,12 @@
                 _agentMetrics = _agentMetrics.Select(m =>
                     _localAgentMetricColors.TryGetValue(m.MetricId, out var c) ? m with { Color = c } : m).ToList();
             }
+
+            if (root.TryGetProperty("intervalMinutes", out var intEl) && intEl.TryGetInt32(out var intVal) && intVal > 0)
+            {
+                _localIntervalMinutes = intVal;
+                _viewIntervalMinutes  = intVal;
+            }
         }
         catch (Exception ex)
         {
@@ -601,11 +624,12 @@
         _localChartType = _viewChartType;
         var obj = new
         {
-            buId         = _localBuId,
-            metrics      = _metrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
-            agentMetrics = _agentMetrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
-            chartType    = _viewChartType,
-            metricColors = _metrics.ToDictionary(m => m.MetricId, m => m.Color),
+            buId            = _localBuId,
+            metrics         = _metrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
+            agentMetrics    = _agentMetrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
+            chartType       = _viewChartType,
+            intervalMinutes = _viewIntervalMinutes,
+            metricColors    = _metrics.ToDictionary(m => m.MetricId, m => m.Color),
             agentMetricColors = _agentMetrics.ToDictionary(m => m.MetricId, m => m.Color)
         };
         var json = JsonSerializer.Serialize(obj);
@@ -621,6 +645,8 @@
         _localMetricColors = new();
         _localAgentMetricColors = new();
         _localChartType = null;
+        _localIntervalMinutes = 0;
+        _viewIntervalMinutes = _intervalMinutes;
         _viewChartType = _chartType;
         _showViewConfig = false;
         ParseConfig();
@@ -634,6 +660,7 @@
             _viewBuList = (await Mediator.Send(new GetMyBusinessUnitsQuery(), _cts.Token)).ToList();
 
         _viewChartType = _localChartType ?? _chartType;
+        _viewIntervalMinutes = _localIntervalMinutes > 0 ? _localIntervalMinutes : _intervalMinutes;
 
         // Pre-select current effective values in the metric lists
         if (_localMetricIds is not null)
@@ -671,6 +698,7 @@
         _localMetricColors = _metrics.ToDictionary(m => m.MetricId, m => m.Color);
         _localAgentMetricColors = _agentMetrics.ToDictionary(m => m.MetricId, m => m.Color);
         _localChartType = _viewChartType;
+        _localIntervalMinutes = _viewIntervalMinutes;
 
         _showViewConfig = false;
         await LoadDataAsync();

@@ -734,6 +734,9 @@
   <data name="DayTrend_ChartStep" xml:space="preserve">
     <value>Ступенчатый</value>
   </data>
+  <data name="DayTrend_TimeInterval" xml:space="preserve">
+    <value>Интервал</value>
+  </data>
   <data name="DayTrend_InteractionMetrics" xml:space="preserve">
     <value>Метрики звонков</value>
   </data>
