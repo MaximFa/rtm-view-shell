@@ -45,6 +45,9 @@ public class AppDbContext(
     public DbSet<InfoSlotPermission> InfoSlotPermissions => Set<InfoSlotPermission>();
     public DbSet<InfoSlotMessage> InfoSlotMessages => Set<InfoSlotMessage>();
 
+    // User widget view settings (per-user per-widget local config)
+    public DbSet<UserWidgetSettings> UserWidgetSettings => Set<UserWidgetSettings>();
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         base.OnModelCreating(mb);
@@ -320,6 +323,17 @@ public class AppDbContext(
             e.HasIndex(x => new { x.InfoSlotId, x.IsActive, x.ExpiresAt });
             e.HasIndex(x => new { x.TenantId, x.CreatedAt });
             e.HasOne(x => x.InfoSlot).WithMany(x => x.Messages).HasForeignKey(x => x.InfoSlotId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        // UserWidgetSettings — per-user widget view preferences
+        mb.Entity<UserWidgetSettings>(e =>
+        {
+            e.ToTable("user_widget_settings");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.HasIndex(x => new { x.TenantId, x.UserId, x.WidgetId }).IsUnique();
+            e.Property(x => x.SettingsJson).HasColumnType("jsonb");
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 

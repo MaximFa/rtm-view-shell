@@ -1,4 +1,5 @@
 ﻿@using CcDashboard.Application.Queries.Widgets
+@using CcDashboard.Application.Commands.Widgets
 @using CcDashboard.Application.Queries.Configuration
 @using CcDashboard.Contracts.DTOs.Configuration
 @using CcDashboard.Infrastructure.Persistence
@@ -15,7 +16,6 @@
 @inject IJSRuntime JS
 @inject ILogger<DayTrendWidget> Logger
 @inject IDbContextFactory<AppDbContext> AppDbFactory
-@inject CcDashboard.Domain.Interfaces.ICurrentUserAccessor CurrentUser
 
 <div class="daytrend-widget h-100" style="@GetWidgetStyle()">
     @if (_loading)
@@ -229,9 +229,6 @@
     private HashSet<string>? _localAgentMetricIds;   // null = use saved config
     private Dictionary<string, string> _localMetricColors = new();
     private Dictionary<string, string> _localAgentMetricColors = new();
-
-    private string LocalStorageKey =>
-        $"cc:daytrendview:{CurrentUser.UserId}:{WidgetInstanceId}";
 
     // Effective values used for data loading and rendering
     private int EffectiveBuId => _localBuId > 0 ? _localBuId : _businessUnitId;
@@ -556,7 +553,7 @@
     {
         try
         {
-            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LocalStorageKey);
+            var json = await Mediator.Send(new GetUserWidgetSettingsQuery(WidgetInstanceId), _cts.Token);
             if (string.IsNullOrEmpty(json)) return;
 
             var doc = JsonDocument.Parse(json);
@@ -589,6 +586,12 @@
                 _viewChartType = _localChartType ?? "line";
             }
 
+            if (root.TryGetProperty("intervalMinutes", out var intEl) && intEl.TryGetInt32(out var intVal) && intVal > 0)
+            {
+                _localIntervalMinutes = intVal;
+                _viewIntervalMinutes  = intVal;
+            }
+
             if (root.TryGetProperty("metricColors", out var mcEl) && mcEl.ValueKind == JsonValueKind.Object)
             {
                 _localMetricColors = mcEl.EnumerateObject()
@@ -606,16 +609,10 @@
                 _agentMetrics = _agentMetrics.Select(m =>
                     _localAgentMetricColors.TryGetValue(m.MetricId, out var c) ? m with { Color = c } : m).ToList();
             }
-
-            if (root.TryGetProperty("intervalMinutes", out var intEl) && intEl.TryGetInt32(out var intVal) && intVal > 0)
-            {
-                _localIntervalMinutes = intVal;
-                _viewIntervalMinutes  = intVal;
-            }
         }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "DayTrendWidget: failed to load local overrides");
+            Logger.LogDebug(ex, "DayTrendWidget: failed to load user widget settings");
         }
     }
 
@@ -624,21 +621,21 @@
         _localChartType = _viewChartType;
         var obj = new
         {
-            buId            = _localBuId,
-            metrics         = _metrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
-            agentMetrics    = _agentMetrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
-            chartType       = _viewChartType,
-            intervalMinutes = _viewIntervalMinutes,
-            metricColors    = _metrics.ToDictionary(m => m.MetricId, m => m.Color),
+            buId              = _localBuId,
+            metrics           = _metrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
+            agentMetrics      = _agentMetrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
+            chartType         = _viewChartType,
+            intervalMinutes   = _viewIntervalMinutes,
+            metricColors      = _metrics.ToDictionary(m => m.MetricId, m => m.Color),
             agentMetricColors = _agentMetrics.ToDictionary(m => m.MetricId, m => m.Color)
         };
         var json = JsonSerializer.Serialize(obj);
-        await JS.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, json);
+        await Mediator.Send(new SaveUserWidgetSettingsCommand(WidgetInstanceId, json), _cts.Token);
     }
 
     private async Task ClearLocalOverridesAsync()
     {
-        await JS.InvokeVoidAsync("localStorage.removeItem", LocalStorageKey);
+        await Mediator.Send(new DeleteUserWidgetSettingsCommand(WidgetInstanceId), _cts.Token);
         _localBuId = 0;
         _localMetricIds = null;
         _localAgentMetricIds = null;
