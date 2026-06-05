@@ -56,3 +56,26 @@ window.ccApp.clearLocalStorage = function () {
     keys.forEach(k => localStorage.removeItem(k));
     console.debug(`ccApp.clearLocalStorage: removed ${keys.length} key(s)`);
 };
+window.ccApp.makeModalDraggable = function (header, dialog) {
+    if (!header || !dialog) return;
+    var offsetX = 0, offsetY = 0, startX = 0, startY = 0;
+    header.style.cursor = 'move';
+    header.onmousedown = function (e) {
+        e.preventDefault();
+        startX = e.clientX - offsetX;
+        startY = e.clientY - offsetY;
+        document.onmouseup = function () {
+            document.onmousemove = null;
+            document.onmouseup = null;
+        };
+        document.onmousemove = function (e) {
+            offsetX = e.clientX - startX;
+            offsetY = e.clientY - startY;
+            dialog.style.transform = 'translate(' + offsetX + 'px, ' + offsetY + 'px)';
+        };
+    };
+};
+
+window.ccApp.resetModalPosition = function (dialog) {
+    if (dialog) dialog.style.transform = '';
+};

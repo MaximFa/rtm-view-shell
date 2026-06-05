@@ -106,7 +106,7 @@ window.dayTrendChart = {
         const configuredDatasets = datasets.map(ds => {
             const baseConfig = {
                 label: ds.label,
-                data: ds.data,
+                data: ds.data.map(v => (v === null || v === undefined) ? 0 : v),
                 borderColor: ds.color,
                 backgroundColor: ds.color + '40',
                 borderWidth: ds.isAgentMetric ? 2 : 2,

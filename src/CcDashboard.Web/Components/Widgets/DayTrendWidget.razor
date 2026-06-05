@@ -62,12 +62,12 @@
 
     @if (IsViewMode && _showViewConfig)
     {
-        <div class="daytrendview-modal-overlay" @onclick="() => _showViewConfig = false" @onclick:stopPropagation="true">
-            <div class="modal-dialog modal-lg" @onclick:stopPropagation="true">
+        <div class="daytrendview-modal-overlay" @onclick="CloseModal" @onclick:stopPropagation="true">
+            <div class="modal-dialog modal-lg" @ref="_modalDialog" @onclick:stopPropagation="true">
                 <div class="modal-content">
-                    <div class="modal-header py-2">
+                    <div class="modal-header py-2" @ref="_modalHeader">
                         <h6 class="modal-title mb-0">@L["Widget_LocalViewSettings"]</h6>
-                        <button type="button" class="btn-close" @onclick="() => _showViewConfig = false"></button>
+                        <button type="button" class="btn-close" @onclick="CloseModal"></button>
                     </div>
                     <div class="modal-body p-0">
                         <ul class="nav nav-tabs px-3 pt-2 border-bottom">
@@ -157,7 +157,7 @@
                             <i class="bi bi-arrow-counterclockwise me-1"></i>@L["Widget_ResetToDefault"]
                         </button>
                         <div>
-                            <button class="btn btn-sm btn-secondary me-2" @onclick="() => _showViewConfig = false">
+                            <button class="btn btn-sm btn-secondary me-2" @onclick="CloseModal">
                                 @L["Cancel"]
                             </button>
                             <button class="btn btn-sm btn-primary" @onclick="ApplyViewConfigAsync">
@@ -199,6 +199,8 @@
     // View-mode local config
     private bool _showViewConfig;
     private string _viewTab = "general";
+    private ElementReference _modalHeader;
+    private ElementReference _modalDialog;
     private string? _localChartType;   // null = use saved config value
     private string _viewChartType = "line";  // current selection in modal
     private List<BusinessUnitDto> _viewBuList = [];
@@ -295,6 +297,11 @@
         if (!firstRender && !_loading && !_isNoQueues && _error is null && _intervals.Count > 0)
         {
             await RenderChartAsync();
+        }
+        if (_showViewConfig)
+        {
+            try { await JS.InvokeVoidAsync("ccApp.makeModalDraggable", _modalHeader, _modalDialog); }
+            catch { }
         }
     }
 
@@ -629,6 +636,13 @@
 
         _showViewConfig = false;
         await LoadDataAsync();
+    }
+
+    private async Task CloseModal()
+    {
+        _showViewConfig = false;
+        try { await JS.InvokeVoidAsync("ccApp.resetModalPosition", _modalDialog); }
+        catch { }
     }
 
     public async ValueTask DisposeAsync()
