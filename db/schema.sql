@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ZAgebqjkWfknSZV2Csrv3Rw4bplM6PhXuwL1XugcXAk7EnG0XcAjGlLLH3cW0Sj
+\restrict K4OcF1o5Ajyd8PBqBKhDYwF6RonD8PE0y5E8Qcg8ZaCLd21XhcJraO2wDFAd5Bu
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -1383,9 +1383,17 @@ CREATE FUNCTION public.fn_daytrendinteractions(p_tenantid uuid, p_ondate charact
             DATE_TRUNC('hour', "InQueueDateTime") +
                 (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / p_intervalmin)
                  * (p_intervalmin || ' minutes')::interval)  AS interval_start,
-            "InteractionType", "Direction",
-            "IsAnswered", "IsAbandoned", "IsTransferred",
-            "TimeInQueue", "TalkTime"
+            "InteractionType",
+            "Direction",
+            "CallType",
+            "IsAnswered",
+            "IsAbandoned",
+            "IsTransferred",
+            "IsCallbackRequest",
+            "IsInQueue",
+            "IsTalk",
+            "TimeInQueue",
+            "TalkTime"
         FROM "RTSData_Interaction"
         WHERE "TenantId"  = p_tenantid
           AND "OnDate"    = p_ondate
@@ -1395,18 +1403,63 @@ CREATE FUNCTION public.fn_daytrendinteractions(p_tenantid uuid, p_ondate charact
     agg AS (
         SELECT
             interval_start,
-            COUNT(*) FILTER (WHERE "InteractionType" = 'Call' AND "Direction" = 'Incoming')  AS incoming_calls,
-            COUNT(*) FILTER (WHERE "IsAnswered" = true)                                       AS answered_calls,
-            COUNT(*) FILTER (WHERE "IsAbandoned" = true)                                      AS abandoned_calls,
-            COUNT(*) FILTER (WHERE "InteractionType" = 'Callback' AND "Direction" = 'Incoming') AS callback_requests,
+            -- QueueNumIncomingOnlineCalls: Call + External + Incoming
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call'
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Incoming')                            AS incoming_calls,
+            -- QueueNumAnsweredCalls: Call + External + Incoming + IsAnswered
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call'
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Incoming'
+                               AND "IsAnswered"      = true)                                  AS answered_calls,
+            -- QueueNumAbandonedCalls: Call + External + Incoming + IsAbandoned + !IsCallbackRequest
+            COUNT(*) FILTER (WHERE "InteractionType"    = 'Call'
+                               AND "CallType"           = 'External'
+                               AND "Direction"          = 'Incoming'
+                               AND "IsAbandoned"        = true
+                               AND "IsCallbackRequest"  = false)                              AS abandoned_calls,
+            -- QueueNumCallbackRequests: IsCallbackRequest + Incoming + External
+            COUNT(*) FILTER (WHERE "IsCallbackRequest" = true
+                               AND "CallType"          = 'External'
+                               AND "Direction"         = 'Incoming')                          AS callback_requests,
+            -- QueueNumCompletedCallbacks: Callback + External + Outgoing + IsAnswered
             COUNT(*) FILTER (WHERE "InteractionType" = 'Callback'
-                               AND "Direction" = 'Outgoing' AND "IsAnswered" = true)         AS completed_callbacks,
-            COUNT(*) FILTER (WHERE "InteractionType" = 'Call' AND "Direction" = 'Outgoing') AS outbound_calls,
-            COUNT(*) FILTER (WHERE "IsTransferred" = true)                                AS transferred_calls,
-            AVG("TimeInQueue") FILTER (WHERE "IsAnswered" = true)                           AS avg_wait_time,
-            MAX("TimeInQueue") FILTER (WHERE "IsAnswered" = true)                           AS max_wait_time,
-            AVG("TalkTime")    FILTER (WHERE "IsAnswered" = true)                           AS avg_talk_time,
-            AVG("TimeInQueue") FILTER (WHERE "IsAbandoned" = true)                          AS avg_abandon_wait
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Outgoing'
+                               AND "IsAnswered"      = true)                                  AS completed_callbacks,
+            -- QueueNumOutboundCalls: Call + External + Outgoing
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call'
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Outgoing')                            AS outbound_calls,
+            -- QueueNumTransferredCalls: Call + External + Incoming + IsTransferred
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call'
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Incoming'
+                               AND "IsTransferred"   = true)                                  AS transferred_calls,
+            -- QueueAvgWaitTimeCalls: Call + External + Incoming + completed (!IsInQueue)
+            AVG("TimeInQueue") FILTER (WHERE "InteractionType" = 'Call'
+                                         AND "CallType"        = 'External'
+                                         AND "Direction"       = 'Incoming'
+                                         AND "IsInQueue"       = false
+                                         AND "IsAnswered"      = true)                        AS avg_wait_time,
+            -- QueueCurMaxWaitTimeCalls: Call + External + Incoming
+            MAX("TimeInQueue") FILTER (WHERE "InteractionType" = 'Call'
+                                         AND "CallType"        = 'External'
+                                         AND "Direction"       = 'Incoming'
+                                         AND "IsAnswered"      = true)                        AS max_wait_time,
+            -- QueueAvgTalkingDurationCalls: Call + External + Incoming + !IsTalk + !IsInQueue
+            AVG("TalkTime")    FILTER (WHERE "InteractionType" = 'Call'
+                                         AND "CallType"        = 'External'
+                                         AND "Direction"       = 'Incoming'
+                                         AND "IsAnswered"      = true
+                                         AND "IsTalk"          = false
+                                         AND "IsInQueue"       = false)                       AS avg_talk_time,
+            -- QueueAvgTimeToAbandCalls: Call + External + Incoming + !IsInQueue + IsAbandoned
+            AVG("TimeInQueue") FILTER (WHERE "InteractionType" = 'Call'
+                                         AND "CallType"        = 'External'
+                                         AND "Direction"       = 'Incoming'
+                                         AND "IsAbandoned"     = true
+                                         AND "IsInQueue"       = false)                       AS avg_abandon_wait
         FROM base
         GROUP BY interval_start
     )
@@ -3974,5 +4027,5 @@ ALTER TABLE ONLY public.widget_templates
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ZAgebqjkWfknSZV2Csrv3Rw4bplM6PhXuwL1XugcXAk7EnG0XcAjGlLLH3cW0Sj
+\unrestrict K4OcF1o5Ajyd8PBqBKhDYwF6RonD8PE0y5E8Qcg8ZaCLd21XhcJraO2wDFAd5Bu
 
