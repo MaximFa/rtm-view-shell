@@ -616,15 +616,8 @@
   <data name="Widget_ASD_Segment_Training"><value>הדרכה</value></data>
   <data name="Widget_ASD_Segment_Other"><value>אחר</value></data>
   <data name="Widget_ASD_NoAgentsLoggedIn"><value>אין סוכנים מחוברים</value></data>
-  <data name="Widget_LocalViewSettings"><value>הגדרות תצוגה מקומיות</value></data>
-  <data name="Widget_UseDefault"><value>השתמש בברירת מחדל</value></data>
-  <data name="Widget_ResetToDefault"><value>אפס לברירת מחדל</value></data>
-  <data name="Apply"><value>החל</value></data>
-  <data name="DayTrend_InteractionMetrics" xml:space="preserve">
-    <value>מדדי שיחות</value>
-  </data>
-  <data name="DayTrend_AgentMetrics" xml:space="preserve">
-    <value>מדדי סוכנים</value>
+  <data name="Loading" xml:space="preserve">
+    <value>טוען...</value>
   </data>
   <data name="DayTrend_ChartType" xml:space="preserve">
     <value>סוג גרף</value>
@@ -640,6 +633,24 @@
   </data>
   <data name="DayTrend_ChartStep" xml:space="preserve">
     <value>מדרגות</value>
+  </data>
+  <data name="DayTrend_InteractionMetrics" xml:space="preserve">
+    <value>מדדי שיחות</value>
+  </data>
+  <data name="DayTrend_AgentMetrics" xml:space="preserve">
+    <value>מדדי סוכנים</value>
+  </data>
+  <data name="Widget_LocalViewSettings" xml:space="preserve">
+    <value>הגדרות תצוגה מקומיות</value>
+  </data>
+  <data name="Widget_UseDefault" xml:space="preserve">
+    <value>השתמש בברירת מחדל</value>
+  </data>
+  <data name="Widget_ResetToDefault" xml:space="preserve">
+    <value>איפוס להגדרות</value>
+  </data>
+  <data name="Apply" xml:space="preserve">
+    <value>החל</value>
   </data>
 </root>
 

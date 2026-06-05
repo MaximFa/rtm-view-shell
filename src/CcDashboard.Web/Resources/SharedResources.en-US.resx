@@ -272,12 +272,7 @@
   <data name="Widget_DayTrend_Refresh5"><value>Every 5 minutes</value></data>
   <data name="Widget_DayTrend_Refresh10"><value>Every 10 minutes</value></data>
   <data name="Widget_DayTrend_RefreshManual"><value>Manual only</value></data>
-  <data name="Widget_DayTrend_ChartType"><value>Chart Type</value></data>
-  <data name="Widget_DayTrend_ChartLine"><value>Line</value></data>
-  <data name="Widget_DayTrend_ChartBar"><value>Bar</value></data>
-  <data name="Widget_DayTrend_ChartArea"><value>Area</value></data>
-  <data name="Widget_DayTrend_ChartStep"><value>Step</value></data>
-  <data name="Widget_DayTrend_ShowDataLabels"><value>Show data labels</value></data>
+<data name="Widget_DayTrend_ShowDataLabels"><value>Show data labels</value></data>
   <data name="Widget_DayTrend_ShowLegend"><value>Show legend</value></data>
   <data name="Widget_DayTrend_TabGeneral"><value>General</value></data>
   <data name="Widget_DayTrend_TabAppearance"><value>Appearance</value></data>
@@ -782,9 +777,41 @@
   <data name="InfoSlot_PriorityHighText"><value>High Priority Text</value></data>
   <data name="InfoSlot_ShowAuthor"><value>Show Author</value></data>
   <data name="InfoSlot_ShowTimestamp"><value>Show Timestamp</value></data>
-  <data name="Widget_LocalViewSettings"><value>Local view settings</value></data>
-  <data name="Widget_UseDefault"><value>Use default</value></data>
-  <data name="Widget_ResetToDefault"><value>Reset to default</value></data>
-  <data name="Apply"><value>Apply</value></data>
+  <data name="Loading" xml:space="preserve">
+    <value>Loading...</value>
+  </data>
+  <data name="DayTrend_ChartType" xml:space="preserve">
+    <value>Chart type</value>
+  </data>
+  <data name="DayTrend_ChartLine" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="DayTrend_ChartBar" xml:space="preserve">
+    <value>Bar</value>
+  </data>
+  <data name="DayTrend_ChartArea" xml:space="preserve">
+    <value>Area (filled)</value>
+  </data>
+  <data name="DayTrend_ChartStep" xml:space="preserve">
+    <value>Step</value>
+  </data>
+  <data name="DayTrend_InteractionMetrics" xml:space="preserve">
+    <value>Call metrics</value>
+  </data>
+  <data name="DayTrend_AgentMetrics" xml:space="preserve">
+    <value>Agent metrics</value>
+  </data>
+  <data name="Widget_LocalViewSettings" xml:space="preserve">
+    <value>Local view settings</value>
+  </data>
+  <data name="Widget_UseDefault" xml:space="preserve">
+    <value>Use default</value>
+  </data>
+  <data name="Widget_ResetToDefault" xml:space="preserve">
+    <value>Reset to default</value>
+  </data>
+  <data name="Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
 </root>
 
