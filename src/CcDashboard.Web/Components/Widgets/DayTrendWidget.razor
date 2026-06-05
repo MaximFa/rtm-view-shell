@@ -120,11 +120,13 @@
                                 @foreach (var m in _metrics)
                                 {
                                     var metric = m;
-                                    <div class="form-check form-check-sm mb-2">
-                                        <input class="form-check-input" type="checkbox" id="vm_@metric.MetricId"
+                                    <div class="d-flex align-items-center mb-2 gap-2">
+                                        <input class="form-check-input mt-0" type="checkbox" id="vm_@metric.MetricId"
                                                checked="@metric.Enabled"
                                                @onchange="e => { var idx = _metrics.FindIndex(x => x.MetricId == metric.MetricId); if(idx>=0) _metrics[idx] = metric with { Enabled = (bool)e.Value! }; }" />
-                                        <label class="form-check-label" for="vm_@metric.MetricId">@GetDisplayLabel(metric)</label>
+                                        <input type="color" value="@metric.Color" style="width:28px;height:24px;padding:1px;border:1px solid #ccc;border-radius:4px;cursor:pointer;"
+                                               @onchange="e => { var idx = _metrics.FindIndex(x => x.MetricId == metric.MetricId); if(idx>=0) _metrics[idx] = metric with { Color = e.Value?.ToString() ?? metric.Color }; }" />
+                                        <label class="form-check-label mb-0" for="vm_@metric.MetricId">@GetDisplayLabel(metric)</label>
                                     </div>
                                 }
                             }
@@ -136,11 +138,13 @@
                                     @foreach (var m in _agentMetrics)
                                     {
                                         var metric = m;
-                                        <div class="form-check form-check-sm mb-2">
-                                            <input class="form-check-input" type="checkbox" id="vm_@metric.MetricId"
+                                        <div class="d-flex align-items-center mb-2 gap-2">
+                                            <input class="form-check-input mt-0" type="checkbox" id="vm_@metric.MetricId"
                                                    checked="@metric.Enabled"
                                                    @onchange="e => { var idx = _agentMetrics.FindIndex(x => x.MetricId == metric.MetricId); if(idx>=0) _agentMetrics[idx] = metric with { Enabled = (bool)e.Value! }; }" />
-                                            <label class="form-check-label" for="vm_@metric.MetricId">@GetDisplayLabel(metric)</label>
+                                            <input type="color" value="@metric.Color" style="width:28px;height:24px;padding:1px;border:1px solid #ccc;border-radius:4px;cursor:pointer;"
+                                                   @onchange="e => { var idx = _agentMetrics.FindIndex(x => x.MetricId == metric.MetricId); if(idx>=0) _agentMetrics[idx] = metric with { Color = e.Value?.ToString() ?? metric.Color }; }" />
+                                            <label class="form-check-label mb-0" for="vm_@metric.MetricId">@GetDisplayLabel(metric)</label>
                                         </div>
                                     }
                                 }
@@ -207,6 +211,8 @@
     private int _localBuId;                          // 0 = use saved config value
     private HashSet<string>? _localMetricIds;        // null = use saved config
     private HashSet<string>? _localAgentMetricIds;   // null = use saved config
+    private Dictionary<string, string> _localMetricColors = new();
+    private Dictionary<string, string> _localAgentMetricColors = new();
 
     private string LocalStorageKey =>
         $"cc:daytrendview:{CurrentUser.UserId}:{WidgetInstanceId}";
@@ -565,6 +571,24 @@
                 _localChartType = ctEl.GetString();
                 _viewChartType = _localChartType ?? "line";
             }
+
+            if (root.TryGetProperty("metricColors", out var mcEl) && mcEl.ValueKind == JsonValueKind.Object)
+            {
+                _localMetricColors = mcEl.EnumerateObject()
+                    .Where(p => !string.IsNullOrEmpty(p.Value.GetString()))
+                    .ToDictionary(p => p.Name, p => p.Value.GetString()!);
+                _metrics = _metrics.Select(m =>
+                    _localMetricColors.TryGetValue(m.MetricId, out var c) ? m with { Color = c } : m).ToList();
+            }
+
+            if (root.TryGetProperty("agentMetricColors", out var amcEl) && amcEl.ValueKind == JsonValueKind.Object)
+            {
+                _localAgentMetricColors = amcEl.EnumerateObject()
+                    .Where(p => !string.IsNullOrEmpty(p.Value.GetString()))
+                    .ToDictionary(p => p.Name, p => p.Value.GetString()!);
+                _agentMetrics = _agentMetrics.Select(m =>
+                    _localAgentMetricColors.TryGetValue(m.MetricId, out var c) ? m with { Color = c } : m).ToList();
+            }
         }
         catch (Exception ex)
         {
@@ -577,10 +601,12 @@
         _localChartType = _viewChartType;
         var obj = new
         {
-            buId = _localBuId,
-            metrics = _metrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
+            buId         = _localBuId,
+            metrics      = _metrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
             agentMetrics = _agentMetrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
-            chartType = _viewChartType
+            chartType    = _viewChartType,
+            metricColors = _metrics.ToDictionary(m => m.MetricId, m => m.Color),
+            agentMetricColors = _agentMetrics.ToDictionary(m => m.MetricId, m => m.Color)
         };
         var json = JsonSerializer.Serialize(obj);
         await JS.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, json);
@@ -592,6 +618,8 @@
         _localBuId = 0;
         _localMetricIds = null;
         _localAgentMetricIds = null;
+        _localMetricColors = new();
+        _localAgentMetricColors = new();
         _localChartType = null;
         _viewChartType = _chartType;
         _showViewConfig = false;
@@ -614,6 +642,14 @@
         if (_localAgentMetricIds is not null)
             _agentMetrics = _agentMetrics.Select(m => m with { Enabled = _localAgentMetricIds.Contains(m.MetricId) }).ToList();
 
+        if (_localMetricColors.Any())
+            _metrics = _metrics.Select(m =>
+                _localMetricColors.TryGetValue(m.MetricId, out var c) ? m with { Color = c } : m).ToList();
+
+        if (_localAgentMetricColors.Any())
+            _agentMetrics = _agentMetrics.Select(m =>
+                _localAgentMetricColors.TryGetValue(m.MetricId, out var c) ? m with { Color = c } : m).ToList();
+
         _viewTab = "general";
         _showViewConfig = true;
     }
@@ -632,6 +668,8 @@
             .Where(m => m.Enabled)
             .Select(m => m.MetricId)
             .ToHashSet();
+        _localMetricColors = _metrics.ToDictionary(m => m.MetricId, m => m.Color);
+        _localAgentMetricColors = _agentMetrics.ToDictionary(m => m.MetricId, m => m.Color);
         _localChartType = _viewChartType;
 
         _showViewConfig = false;
