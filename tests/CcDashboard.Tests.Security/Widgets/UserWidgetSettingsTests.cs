@@ -68,7 +68,9 @@ public class UserWidgetSettingsTests(PostgresFixture postgres)
         var result = await get.Handle(new GetUserWidgetSettingsQuery(widgetId), CancellationToken.None);
 
         result.Should().NotBeNullOrEmpty();
-        result.Should().Contain("\"chartType\":\"bar\"");
+        using var doc = System.Text.Json.JsonDocument.Parse(result!);
+        doc.RootElement.GetProperty("chartType").GetString().Should().Be("bar");
+        doc.RootElement.GetProperty("intervalMinutes").GetInt32().Should().Be(30);
     }
 
     // ── 3. Second Save updates (upsert — no duplicate row) ──────────────────
@@ -89,7 +91,8 @@ public class UserWidgetSettingsTests(PostgresFixture postgres)
             .Where(x => x.WidgetId == widgetId && x.TenantId == postgres.TenantAId)
             .ToListAsync();
         rows.Should().HaveCount(1);
-        rows[0].SettingsJson.Should().Contain("\"chartType\":\"bar\"");
+        using var doc = System.Text.Json.JsonDocument.Parse(rows[0].SettingsJson);
+        doc.RootElement.GetProperty("chartType").GetString().Should().Be("bar");
     }
 
     // ── 4. Delete removes the row ────────────────────────────────────────────
