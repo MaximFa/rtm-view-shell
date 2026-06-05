@@ -7,6 +7,7 @@ using CcDashboard.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using Testcontainers.PostgreSql;
 using UUIDNext;
 
@@ -386,6 +387,21 @@ public class PostgresFixture : IAsyncLifetime
     /// Alias for CreateBackendEmulationDbContext() per DoD-5.
     /// </summary>
     public BackendEmulationDbContext BeDb => CreateBackendEmulationDbContext();
+
+
+    /// <summary>
+    /// Creates a mock IDbContextFactory that returns DbContext instances for the specified tenant.
+    /// Used by handlers that require IDbContextFactory injection.
+    /// </summary>
+    public IDbContextFactory<AppDbContext> CreateDbContextFactory(Guid tenantId)
+    {
+        var factory = Substitute.For<IDbContextFactory<AppDbContext>>();
+        factory.CreateDbContextAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(CreateDbContext(tenantId)));
+        factory.CreateDbContext()
+            .Returns(_ => CreateDbContext(tenantId));
+        return factory;
+    }
 
     /// <summary>
     /// Creates a ServiceProvider with Identity and DbContext configured for testing.
