@@ -519,12 +519,11 @@
                     {
                         case UnionStateChange.InitialSnapshot snap:
                             _rows.Clear();
-                            var now = DateTime.UtcNow;
                             foreach (var (_, agent) in snap.Agents)
                             {
                                 var row = new AgentRowData { RowId = agent.AgentLoginName };
                                 foreach (var kv in agent.Fields)
-                                    ApplyMetricValue(row, kv.Key, kv.Value.Raw, now);
+                                    ApplyMetricValue(row, kv.Key, kv.Value.Raw, agent.ReceivedAt);
                                 _rows.Add(row);
                             }
                             if (_rows.Count > 0) DetectColumnDataTypes();
