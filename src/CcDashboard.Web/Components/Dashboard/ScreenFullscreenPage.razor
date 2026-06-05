@@ -68,11 +68,11 @@
                             {
                                 <div class="widget-header d-flex align-items-center justify-content-between"
                                      style="@GetHeaderStyle(config)">
-                                    <span>@(config?.DisplayName ?? widget.Name)</span>
+                                    <span class="text-truncate">@(config?.DisplayName ?? widget.Name)</span>
                                     @if (IsDayTrendWidget(widget))
                                     {
                                         var wId = widget.Id;
-                                        <button class="btn btn-sm btn-link p-0 ms-2 opacity-75"
+                                        <button class="btn btn-sm btn-link p-0 flex-shrink-0 ms-2 opacity-60"
                                                 style="color: inherit; line-height: 1;"
                                                 title="@L["Widget_LocalViewSettings"]"
                                                 @onclick="async () => { if (_renderWidgetRefs.TryGetValue(wId, out var rw) && rw is not null) await rw.OpenDayTrendLocalConfigAsync(); }"

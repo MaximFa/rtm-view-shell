@@ -656,6 +656,10 @@
         if (!_viewBuList.Any())
             _viewBuList = (await Mediator.Send(new GetMyBusinessUnitsQuery(), _cts.Token)).ToList();
 
+        // Pre-select effective BU so dropdown shows current value, not "Use default"
+        if (_localBuId == 0 && _businessUnitId > 0)
+            _localBuId = _businessUnitId;
+
         _viewChartType = _localChartType ?? _chartType;
         _viewIntervalMinutes = _localIntervalMinutes > 0 ? _localIntervalMinutes : _intervalMinutes;
 
