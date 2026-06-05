@@ -437,7 +437,7 @@
         {
             // Legacy fallback: hardcoded group metrics
             var available = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumAvailableUsers"));
-            var onPhone = ParseInt(_cellValues.GetValueOrDefault("QueueNumOnCallAgents"));
+            var onPhone = ParseInt(_cellValues.GetValueOrDefault("UsersSumOnCall"));
             var breakCount = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumBreakUsers"));
             var paperwork = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumPaperworkUsers"));
             var training = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumTrainingUsers"));
