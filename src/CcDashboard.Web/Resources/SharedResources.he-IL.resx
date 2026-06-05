@@ -620,5 +620,26 @@
   <data name="Widget_UseDefault"><value>השתמש בברירת מחדל</value></data>
   <data name="Widget_ResetToDefault"><value>אפס לברירת מחדל</value></data>
   <data name="Apply"><value>החל</value></data>
+  <data name="DayTrend_InteractionMetrics" xml:space="preserve">
+    <value>מדדי שיחות</value>
+  </data>
+  <data name="DayTrend_AgentMetrics" xml:space="preserve">
+    <value>מדדי סוכנים</value>
+  </data>
+  <data name="DayTrend_ChartType" xml:space="preserve">
+    <value>סוג גרף</value>
+  </data>
+  <data name="DayTrend_ChartLine" xml:space="preserve">
+    <value>קו</value>
+  </data>
+  <data name="DayTrend_ChartBar" xml:space="preserve">
+    <value>עמודות</value>
+  </data>
+  <data name="DayTrend_ChartArea" xml:space="preserve">
+    <value>שטח (מלא)</value>
+  </data>
+  <data name="DayTrend_ChartStep" xml:space="preserve">
+    <value>מדרגות</value>
+  </data>
 </root>
 

@@ -1,4 +1,4 @@
-@page "/screens/{Id:guid}/fullscreen"
+﻿@page "/screens/{Id:guid}/fullscreen"
 @page "/screens/{Id:guid}/view"
 @page "/screens/{Id:guid}"
 @rendermode InteractiveServer
@@ -54,6 +54,7 @@
                 <div class="dashboard-canvas-grid" style="position: relative; min-height: calc(100vh - 120px);">
                     @foreach (var widget in PlacedWidgets)
                     {
+                        _renderWidgetRefs.TryAdd(widget.Id, null);
                         var config = widget.Config;
                         var effectiveBg = GetEffectiveBackgroundColor(config);
                         var isHeaderHidden = config?.HideHeader == true;
@@ -65,12 +66,25 @@
                         <div class="dashboard-widget @(isHeaderHidden ? "header-hidden" : "")" data-widget-id="@widget.Id" style="@widgetStyle" @key="widget.Id">
                             @if (!isHeaderHidden)
                             {
-                                <div class="widget-header" style="@GetHeaderStyle(config)">
-                                    @(config?.DisplayName ?? widget.Name)
+                                <div class="widget-header d-flex align-items-center justify-content-between"
+                                     style="@GetHeaderStyle(config)">
+                                    <span>@(config?.DisplayName ?? widget.Name)</span>
+                                    @if (IsDayTrendWidget(widget))
+                                    {
+                                        var wId = widget.Id;
+                                        <button class="btn btn-sm btn-link p-0 ms-2 opacity-75"
+                                                style="color: inherit; line-height: 1;"
+                                                title="@L["Widget_LocalViewSettings"]"
+                                                @onclick="async () => { if (_renderWidgetRefs.TryGetValue(wId, out var rw) && rw is not null) await rw.OpenDayTrendLocalConfigAsync(); }"
+                                                @onclick:stopPropagation="true">
+                                            <i class="bi bi-sliders" style="font-size: 0.85rem;"></i>
+                                        </button>
+                                    }
                                 </div>
                             }
                             <div class="widget-content" style="@GetContentStyle(config)">
-                                <RenderWidget Widget="widget" DarkMode="_darkMode" IsViewMode="true" />
+                                <RenderWidget @ref="_renderWidgetRefs[widget.Id]"
+                                              Widget="widget" DarkMode="_darkMode" IsViewMode="true" />
                             </div>
                         </div>
                     }
@@ -89,8 +103,13 @@
     private bool Loading = true;
     private bool _positionsApplied;
     private bool _darkMode = false;
+    private readonly Dictionary<Guid, RenderWidget?> _renderWidgetRefs = new();
 
     private void ToggleDarkMode() => _darkMode = !_darkMode;
+
+    private static bool IsDayTrendWidget(ScreenEditorPage.PlacedWidget w) =>
+        (w.OriginalWidgetName ?? w.Name ?? "").Contains("day", StringComparison.OrdinalIgnoreCase)
+        && (w.OriginalWidgetName ?? w.Name ?? "").Contains("trend", StringComparison.OrdinalIgnoreCase);
 
     // Effective colors - use dark mode colors from config when in dark mode
     private string GetEffectiveBackgroundColor(ScreenEditorPage.WidgetConfig? config)

@@ -17,15 +17,6 @@
 @inject IDbContextFactory<AppDbContext> AppDbFactory
 
 <div class="daytrend-widget h-100" style="@GetWidgetStyle()">
-    @if (IsViewMode)
-    {
-        <button class="btn btn-sm btn-link p-0 daytrendview-settings-btn"
-                title="@L["Widget_LocalViewSettings"]"
-                @onclick="OpenViewConfigAsync">
-            <i class="bi bi-sliders" style="font-size: 0.9rem;"></i>
-        </button>
-    }
-
     @if (_loading)
     {
         <div class="d-flex align-items-center justify-content-center h-100" aria-busy="true">
@@ -68,6 +59,90 @@
     }
 </div>
 
+    @if (IsViewMode && _showViewConfig)
+    {
+        <div class="daytrendview-modal-overlay" @onclick="() => _showViewConfig = false" @onclick:stopPropagation="true">
+            <div class="modal-dialog modal-lg" @onclick:stopPropagation="true">
+                <div class="modal-content">
+                    <div class="modal-header py-2">
+                        <h6 class="modal-title mb-0">@L["Widget_LocalViewSettings"]</h6>
+                        <button type="button" class="btn-close" @onclick="() => _showViewConfig = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- BU selector -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">@L["Widgets_BusinessUnit"]</label>
+                            <select class="form-select form-select-sm" @bind="_localBuId">
+                                <option value="0">— @L["Widget_UseDefault"] —</option>
+                                @foreach (var bu in _viewBuList)
+                                {
+                                    <option value="@bu.BusinessUnitId">@bu.BusinessUnitName</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Chart type -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">@L["DayTrend_ChartType"]</label>
+                            <select class="form-select form-select-sm" @bind="_viewChartType">
+                                <option value="line">@L["DayTrend_ChartLine"]</option>
+                                <option value="bar">@L["DayTrend_ChartBar"]</option>
+                                <option value="area">@L["DayTrend_ChartArea"]</option>
+                                <option value="step">@L["DayTrend_ChartStep"]</option>
+                            </select>
+                        </div>
+
+                        <!-- Interaction metrics -->
+                        <div class="mb-2 fw-semibold small">@L["DayTrend_InteractionMetrics"]</div>
+                        @foreach (var m in _metrics)
+                        {
+                            var metric = m;
+                            <div class="form-check form-check-sm mb-1">
+                                <input class="form-check-input" type="checkbox" id="vm_@metric.MetricId"
+                                       checked="@metric.Enabled"
+                                       @onchange="e => { var idx = _metrics.FindIndex(x => x.MetricId == metric.MetricId); if(idx>=0) _metrics[idx] = metric with { Enabled = (bool)e.Value! }; }" />
+                                <label class="form-check-label small" for="vm_@metric.MetricId">
+                                    @GetDisplayLabel(metric)
+                                </label>
+                            </div>
+                        }
+
+                        <!-- Agent metrics -->
+                        @if (_agentMetrics.Any())
+                        {
+                            <div class="mt-2 mb-2 fw-semibold small">@L["DayTrend_AgentMetrics"]</div>
+                            @foreach (var m in _agentMetrics)
+                            {
+                                var metric = m;
+                                <div class="form-check form-check-sm mb-1">
+                                    <input class="form-check-input" type="checkbox" id="vm_@metric.MetricId"
+                                           checked="@metric.Enabled"
+                                           @onchange="e => { var idx = _agentMetrics.FindIndex(x => x.MetricId == metric.MetricId); if(idx>=0) _agentMetrics[idx] = metric with { Enabled = (bool)e.Value! }; }" />
+                                    <label class="form-check-label small" for="vm_@metric.MetricId">
+                                        @GetDisplayLabel(metric)
+                                    </label>
+                                </div>
+                            }
+                        }
+                    </div>
+                    <div class="modal-footer py-2 d-flex justify-content-between">
+                        <button class="btn btn-sm btn-outline-danger" @onclick="ClearLocalOverridesAsync">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>@L["Widget_ResetToDefault"]
+                        </button>
+                        <div>
+                            <button class="btn btn-sm btn-secondary me-2" @onclick="() => _showViewConfig = false">
+                                @L["Cancel"]
+                            </button>
+                            <button class="btn btn-sm btn-primary" @onclick="ApplyViewConfigAsync">
+                                <i class="bi bi-check2 me-1"></i>@L["Apply"]
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
 @code {
     [Parameter] public WidgetConfig? Config { get; set; }
     [Parameter] public bool DarkMode { get; set; }
@@ -96,6 +171,8 @@
 
     // View-mode local config
     private bool _showViewConfig;
+    private string? _localChartType;   // null = use saved config value
+    private string _viewChartType = "line";  // current selection in modal
     private List<BusinessUnitDto> _viewBuList = [];
     private int _localBuId;                          // 0 = use saved config value
     private HashSet<string>? _localMetricIds;        // null = use saved config
@@ -105,6 +182,7 @@
 
     // Effective values used for data loading and rendering
     private int EffectiveBuId => _localBuId > 0 ? _localBuId : _businessUnitId;
+    private string EffectiveChartType => _localChartType ?? _chartType;
 
     // Colors
     private string _backgroundColor = "";
@@ -341,7 +419,7 @@
 
         var options = new
         {
-            chartType = _chartType,
+            chartType = EffectiveChartType,
             showDataLabels = _showDataLabels,
             showLegend = _showLegend,
             fontColor = EffectiveFontColor
@@ -445,6 +523,12 @@
                     .ToHashSet();
                 _agentMetrics = _agentMetrics.Select(m => m with { Enabled = _localAgentMetricIds.Contains(m.MetricId) }).ToList();
             }
+
+            if (root.TryGetProperty("chartType", out var ctEl) && ctEl.ValueKind == JsonValueKind.String)
+            {
+                _localChartType = ctEl.GetString();
+                _viewChartType = _localChartType ?? "line";
+            }
         }
         catch (Exception ex)
         {
@@ -454,11 +538,13 @@
 
     private async Task SaveLocalOverridesAsync()
     {
+        _localChartType = _viewChartType;
         var obj = new
         {
             buId = _localBuId,
             metrics = _metrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
-            agentMetrics = _agentMetrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray()
+            agentMetrics = _agentMetrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
+            chartType = _viewChartType
         };
         var json = JsonSerializer.Serialize(obj);
         await JS.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, json);
@@ -470,16 +556,20 @@
         _localBuId = 0;
         _localMetricIds = null;
         _localAgentMetricIds = null;
+        _localChartType = null;
+        _viewChartType = _chartType;
         _showViewConfig = false;
         ParseConfig();
         await LoadMetricsFromDbAsync();
         await LoadDataAsync();
     }
 
-    private async Task OpenViewConfigAsync()
+    public async Task OpenLocalConfigAsync()
     {
         if (!_viewBuList.Any())
             _viewBuList = (await Mediator.Send(new GetMyBusinessUnitsQuery(), _cts.Token)).ToList();
+
+        _viewChartType = _localChartType ?? _chartType;
 
         // Pre-select current effective values in the metric lists
         if (_localMetricIds is not null)

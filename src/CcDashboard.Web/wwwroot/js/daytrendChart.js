@@ -123,10 +123,22 @@ window.dayTrendChart = {
 
         // Determine chart type
         let chartType = options?.chartType || 'line';
+        let isBar = chartType === 'bar';
         if (chartType === 'area') chartType = 'line';
         if (chartType === 'step') {
             chartType = 'line';
             configuredDatasets.forEach(ds => ds.stepped = true);
+        }
+        if (isBar) {
+            chartType = 'bar';
+            configuredDatasets.forEach(ds => {
+                ds.backgroundColor = ds.borderColor + '99';
+                ds.borderWidth = 1;
+                delete ds.tension;
+                delete ds.fill;
+                delete ds.pointRadius;
+                delete ds.pointHoverRadius;
+            });
         }
 
         this._charts[elementId] = new Chart(ctx, {
