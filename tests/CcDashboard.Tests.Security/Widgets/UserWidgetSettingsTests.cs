@@ -356,4 +356,32 @@ public class UserWidgetSettingsTests(PostgresFixture postgres)
 
         count.Should().Be(1, "Concurrent saves must not create duplicate rows");
     }
+
+    // ── 17. TenantB cannot delete TenantA settings (cross-tenant delete) ──────
+    [Fact]
+    [Trait("Req", "UWS-17")]
+    public async Task Delete_TenantBCannotDeleteTenantASettings()
+    {
+        var widgetId = Uuid.NewSequential();
+
+        // TenantA saves settings
+        var (getA, saveA, _)    = CreateHandlers(postgres.TenantAId, postgres.UserAId);
+        var (_, _, deleteBtenant) = CreateHandlers(postgres.TenantBId, postgres.UserAId); // same UserId, different tenant
+
+        await saveA.Handle(
+            new SaveUserWidgetSettingsCommand(widgetId, """{"owner":"tenantA"}"""),
+            CancellationToken.None);
+
+        // TenantB (same UserId) tries to delete TenantA's settings
+        await deleteBtenant.Handle(
+            new DeleteUserWidgetSettingsCommand(widgetId),
+            CancellationToken.None);
+
+        // TenantA's settings must still exist
+        var result = await getA.Handle(
+            new GetUserWidgetSettingsQuery(widgetId),
+            CancellationToken.None);
+
+        result.Should().NotBeNull("GQF must prevent TenantB from deleting TenantA settings");
+    }
 }
