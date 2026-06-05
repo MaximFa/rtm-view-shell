@@ -717,5 +717,9 @@
   <data name="InfoSlot_ShowAuthor"><value>Показать автора</value></data>
   <data name="InfoSlot_ShowTimestamp"><value>Показать время</value></data>
 
+  <data name="Widget_LocalViewSettings"><value>Локальные настройки отображения</value></data>
+  <data name="Widget_UseDefault"><value>Использовать по умолчанию</value></data>
+  <data name="Widget_ResetToDefault"><value>Сбросить к настройкам</value></data>
+  <data name="Apply"><value>Применить</value></data>
 </root>
 

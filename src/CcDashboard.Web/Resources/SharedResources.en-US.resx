@@ -782,5 +782,9 @@
   <data name="InfoSlot_PriorityHighText"><value>High Priority Text</value></data>
   <data name="InfoSlot_ShowAuthor"><value>Show Author</value></data>
   <data name="InfoSlot_ShowTimestamp"><value>Show Timestamp</value></data>
+  <data name="Widget_LocalViewSettings"><value>Local view settings</value></data>
+  <data name="Widget_UseDefault"><value>Use default</value></data>
+  <data name="Widget_ResetToDefault"><value>Reset to default</value></data>
+  <data name="Apply"><value>Apply</value></data>
 </root>
 

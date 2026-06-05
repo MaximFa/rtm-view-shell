@@ -16,7 +16,7 @@
             <DataSlotWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
             break;
         case var n when n.Contains("day") && n.Contains("trend"):
-            <DayTrendWidget @key="Widget.Id" Config="Widget.Config" DarkMode="DarkMode" WidgetInstanceId="Widget.Id" />
+            <DayTrendWidget @key="Widget.Id" Config="Widget.Config" DarkMode="DarkMode" WidgetInstanceId="Widget.Id" IsViewMode="IsViewMode" />
             break;
         case var n when n.Contains("agent") && n.Contains("state") && n.Contains("distribution"):
             <AgentStateDistributionWidget @key="Widget.GridId" Config="Widget.Config" GridId="Widget.GridId" DarkMode="DarkMode" />
@@ -36,5 +36,6 @@
 @code {
     [Parameter, EditorRequired] public PlacedWidget Widget { get; set; } = null!;
     [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public bool IsViewMode { get; set; }
     [Parameter] public EventCallback<int> ActiveFilterCountChanged { get; set; }
 }

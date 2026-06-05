@@ -616,5 +616,9 @@
   <data name="Widget_ASD_Segment_Training"><value>הדרכה</value></data>
   <data name="Widget_ASD_Segment_Other"><value>אחר</value></data>
   <data name="Widget_ASD_NoAgentsLoggedIn"><value>אין סוכנים מחוברים</value></data>
+  <data name="Widget_LocalViewSettings"><value>הגדרות תצוגה מקומיות</value></data>
+  <data name="Widget_UseDefault"><value>השתמש בברירת מחדל</value></data>
+  <data name="Widget_ResetToDefault"><value>אפס לברירת מחדל</value></data>
+  <data name="Apply"><value>החל</value></data>
 </root>
 

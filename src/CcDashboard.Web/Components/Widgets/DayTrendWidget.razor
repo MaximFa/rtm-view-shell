@@ -1,4 +1,6 @@
-@using CcDashboard.Application.Queries.Widgets
+﻿@using CcDashboard.Application.Queries.Widgets
+@using CcDashboard.Application.Queries.Configuration
+@using CcDashboard.Contracts.DTOs.Configuration
 @using CcDashboard.Infrastructure.Persistence
 @using MediatR
 @using Microsoft.EntityFrameworkCore
@@ -15,6 +17,15 @@
 @inject IDbContextFactory<AppDbContext> AppDbFactory
 
 <div class="daytrend-widget h-100" style="@GetWidgetStyle()">
+    @if (IsViewMode)
+    {
+        <button class="btn btn-sm btn-link p-0 daytrendview-settings-btn"
+                title="@L["Widget_LocalViewSettings"]"
+                @onclick="OpenViewConfigAsync">
+            <i class="bi bi-sliders" style="font-size: 0.9rem;"></i>
+        </button>
+    }
+
     @if (_loading)
     {
         <div class="d-flex align-items-center justify-content-center h-100" aria-busy="true">
@@ -61,6 +72,7 @@
     [Parameter] public WidgetConfig? Config { get; set; }
     [Parameter] public bool DarkMode { get; set; }
     [Parameter] public Guid WidgetInstanceId { get; set; }
+    [Parameter] public bool IsViewMode { get; set; }
 
     private readonly string _chartId = $"daytrend-{Guid.NewGuid():N}";
     private List<DayTrendIntervalData> _intervals = new();
@@ -81,6 +93,18 @@
     private bool _showLegend = true;
     private List<DayTrendMetricConfig> _metrics = new();
     private List<DayTrendMetricConfig> _agentMetrics = new();
+
+    // View-mode local config
+    private bool _showViewConfig;
+    private List<BusinessUnitDto> _viewBuList = [];
+    private int _localBuId;                          // 0 = use saved config value
+    private HashSet<string>? _localMetricIds;        // null = use saved config
+    private HashSet<string>? _localAgentMetricIds;   // null = use saved config
+
+    private string LocalStorageKey => $"cc:daytrendview:{WidgetInstanceId}";
+
+    // Effective values used for data loading and rendering
+    private int EffectiveBuId => _localBuId > 0 ? _localBuId : _businessUnitId;
 
     // Colors
     private string _backgroundColor = "";
@@ -142,6 +166,8 @@
         ParseConfig();
         _lastBusinessUnitId = _businessUnitId;
         _lastIntervalMinutes = _intervalMinutes;
+        if (IsViewMode)
+            await LoadLocalOverridesAsync();
         await LoadDataAsync();
         StartAutoRefresh();
     }
@@ -227,7 +253,7 @@
 
     private async Task LoadDataAsync()
     {
-        if (_businessUnitId == 0)
+        if (EffectiveBuId == 0)
         {
             _loading = false;
             _error = L["Widget_SelectBusinessUnit"];
@@ -242,7 +268,7 @@
         {
             var includeAgentMetrics = _agentMetrics.Any(m => m.Enabled);
             var result = await Mediator.Send(new DayTrendQuery(
-                _businessUnitId,
+                EffectiveBuId,
                 _intervalMinutes,
                 includeAgentMetrics), _cts.Token);
 
@@ -387,6 +413,89 @@
                 .Select(p => char.ToUpper(p[0]) + p[1..]));
         }
         return metric.MetricId;
+    }
+
+    private async Task LoadLocalOverridesAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LocalStorageKey);
+            if (string.IsNullOrEmpty(json)) return;
+
+            var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("buId", out var buEl) && buEl.TryGetInt32(out var buId) && buId > 0)
+                _localBuId = buId;
+
+            if (root.TryGetProperty("metrics", out var mEl) && mEl.ValueKind == JsonValueKind.Array)
+            {
+                _localMetricIds = mEl.EnumerateArray()
+                    .Select(x => x.GetString() ?? "")
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToHashSet();
+                _metrics = _metrics.Select(m => m with { Enabled = _localMetricIds.Contains(m.MetricId) }).ToList();
+            }
+
+            if (root.TryGetProperty("agentMetrics", out var amEl) && amEl.ValueKind == JsonValueKind.Array)
+            {
+                _localAgentMetricIds = amEl.EnumerateArray()
+                    .Select(x => x.GetString() ?? "")
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToHashSet();
+                _agentMetrics = _agentMetrics.Select(m => m with { Enabled = _localAgentMetricIds.Contains(m.MetricId) }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "DayTrendWidget: failed to load local overrides");
+        }
+    }
+
+    private async Task SaveLocalOverridesAsync()
+    {
+        var obj = new
+        {
+            buId = _localBuId,
+            metrics = _metrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray(),
+            agentMetrics = _agentMetrics.Where(m => m.Enabled).Select(m => m.MetricId).ToArray()
+        };
+        var json = JsonSerializer.Serialize(obj);
+        await JS.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, json);
+    }
+
+    private async Task ClearLocalOverridesAsync()
+    {
+        await JS.InvokeVoidAsync("localStorage.removeItem", LocalStorageKey);
+        _localBuId = 0;
+        _localMetricIds = null;
+        _localAgentMetricIds = null;
+        _showViewConfig = false;
+        ParseConfig();
+        await LoadMetricsFromDbAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task OpenViewConfigAsync()
+    {
+        if (!_viewBuList.Any())
+            _viewBuList = (await Mediator.Send(new GetMyBusinessUnitsQuery(), _cts.Token)).ToList();
+
+        // Pre-select current effective values in the metric lists
+        if (_localMetricIds is not null)
+            _metrics = _metrics.Select(m => m with { Enabled = _localMetricIds.Contains(m.MetricId) }).ToList();
+
+        if (_localAgentMetricIds is not null)
+            _agentMetrics = _agentMetrics.Select(m => m with { Enabled = _localAgentMetricIds.Contains(m.MetricId) }).ToList();
+
+        _showViewConfig = true;
+    }
+
+    private async Task ApplyViewConfigAsync()
+    {
+        await SaveLocalOverridesAsync();
+        _showViewConfig = false;
+        await LoadDataAsync();
     }
 
     public async ValueTask DisposeAsync()
