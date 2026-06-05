@@ -3,6 +3,10 @@
 > Comprehensive guide for creating RTS grid widgets (Agent Grid, Queue Grid, etc.)
 > Based on proven patterns from AgentGridWidget implementation.
 
+> **QA Skill:** For any task that involves writing tests, read `.claude/skills/qa-expert/SKILL.md`.
+> Every CC implementation task must include tests — see qa-expert §2 for the 16-test checklist.
+> Add to every CC task prompt: `Read file: .claude/skills/qa-expert/SKILL.md`
+
 ## 1. Widget Architecture Overview
 
 ### File Structure

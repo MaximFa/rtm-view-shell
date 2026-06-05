@@ -1941,6 +1941,7 @@ Relevant sections by widget type:
 |---|---|---|
 | widget-planner | `.claude/skills/widget-planner/widget-planner.md` | Planning: idea → CC task |
 | widget-creator | `.claude/skills/widget-creator/widget-creator.md` | Implementation: patterns, dark mode, RTL, templates |
+| rtm-metrics-expert | `.claude/skills/rtm-metrics-expert/rtm-metrics-expert.md` | Metrics: creation, descriptions, dedup/defect analysis, ISO 18295 mapping, wizard/Viewer-help data contract. Read for ANY RTSGrid_Metric work |
 
 ---
 

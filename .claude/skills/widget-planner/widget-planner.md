@@ -27,6 +27,7 @@ Before starting, answer with the user:
 | What does it show? | Defines the data source (SignalR vs PostgreSQL function) |
 | Who is the audience? | Determines which roles have access (§3.8 pattern) |
 | What is the user action? | View only, or configure + interact? |
+| **User-configurable in View Mode?** | If yes -> plan UserWidgetSettings configurator (see L-37) |
 | Is this real-time push or historical pull? | **Critical fork:** Grid architecture vs Chart/Analytics architecture |
 | **Grid widgets only:** Queue Grid or Agent Grid pattern? | Determines which RTS commands, repositories, and tables are used |
 
@@ -450,6 +451,7 @@ Before saying "готово, запускай CC":
     - N grids → N delete calls
 - [ ] Acceptance criteria in CC task include: "Deleting widget + Save removes **all** RTSGrid_* records from DB (verify count = 0 for each GridId)"
 - [ ] Git commit: `docs/widget-specification.md` + `docs/backend-tasks.md` together
+- [ ] QA: run `.claude/skills/qa-expert/SKILL.md` §2 checklist for all new handlers
 
 ---
 
@@ -1134,4 +1136,112 @@ window.ccApp.makeModalDraggable = function(header, dialog) {
 - [ ] `transform` сбрасывается при закрытии модала
 
 *Updated 2026-06-05 (L-36 draggable modal rule for all widget modals).*
+
+---
+
+## L-37: User configurator — UserWidgetSettings (2026-06-05)
+
+### Mandatory Phase 0 question
+
+**"Is the widget user-configurable in View Mode? If yes — which parameters?"**
+
+Answer determines whether a user configurator (gear icon in header) is needed and what it contains.
+
+### Architecture: UserWidgetSettings table
+
+One DB table for ALL widgets. No per-widget tables. Settings stored as jsonb.
+
+```
+user_widget_settings
+  Id           uuid (UUIDv7) PK
+  TenantId     uuid          GQF
+  UserId       uuid          FK -> identity.users
+  WidgetId     uuid          DashboardWidget.Id
+  SettingsJson jsonb         widget-specific settings
+  CreatedAt    timestamptz
+  UpdatedAt    timestamptz
+  UNIQUE(TenantId, UserId, WidgetId)
+```
+
+MediatR handlers (already implemented, use as template):
+- `GetUserWidgetSettingsQuery(WidgetId)` -- read jsonb for current user
+- `SaveUserWidgetSettingsCommand(WidgetId, json)` -- upsert
+- `DeleteUserWidgetSettingsCommand(WidgetId)` -- reset to default
+
+### UX pattern (L-36 + L-37)
+
+- Gear icon in widget header (View Mode only)
+- Click -> draggable modal (L-36)
+- Tabs: General + metric-specific tabs
+- Buttons: Apply (save to DB) + Reset to default (delete from DB)
+- On Apply: update in-memory cache + reload widget data
+
+### Typical user-configurable parameters
+
+From the admin-configured parameters, ask user which ones to expose:
+- Business Unit (almost always)
+- Metrics to display (checkboxes + color picker per metric)
+- Chart type (Line/Bar/Area/Step)
+- Time interval (15/30/60 min for historical widgets)
+- Display thresholds, sort order, row count
+
+Admin config in DB = defaults. User settings = local override layer on top.
+
+### SettingsJson example (DayTrend)
+
+```json
+{"buId":5,"metrics":["interaction.incoming_calls"],"chartType":"bar","intervalMinutes":30}
+```
+
+*Updated 2026-06-05 (L-37 UserWidgetSettings configurator rule).*
+
+---
+
+## L-38: Mandatory directive — unit tests + bug fixes before commit (2026-06-05)
+
+**Every CC implementation task MUST include:**
+
+> Read `.claude/skills/qa-expert/SKILL.md` for test patterns, infrastructure, and checklists.
+
+### Step: Write and run unit tests
+
+After implementing any new feature (handler, service, command, query):
+
+1. Write tests covering:
+   - Happy path (create, read, update, delete)
+   - Edge cases (null user, empty input, not found)
+   - Isolation (tenant isolation, user isolation where applicable)
+
+2. Run the tests:
+```bash
+dotnet test tests/CcDashboard.Tests.Security --filter "FullyQualifiedName~<FeatureName>" --logger "console;verbosity=detailed"
+```
+
+3. **All tests must pass. If any fail:**
+   - Fix the implementation (not the test)
+   - Re-run until green
+   - Only then proceed to commit
+
+### Rule: never commit untested code
+
+This applies to:
+- New DB entities + handlers (Get/Save/Delete)
+- New application services
+- New MediatR commands/queries
+- Any business logic in Infrastructure layer
+
+### CC task prompt template addition
+
+Every CC task for new features must include this block after implementation:
+
+```
+## Tests
+Write unit/integration tests for all new handlers in
+tests/CcDashboard.Tests.Security/Widgets/ (or appropriate folder).
+Cover: happy path, edge cases, tenant isolation, user isolation.
+Run: dotnet test tests/CcDashboard.Tests.Security --filter "..."
+All tests must pass before committing. Fix failures before commit.
+```
+
+*Updated 2026-06-05 (L-38 mandatory unit test directive).*
 
