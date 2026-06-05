@@ -614,6 +614,19 @@
     private async Task ApplyViewConfigAsync()
     {
         await SaveLocalOverridesAsync();
+
+        // Update in-memory caches to match what was just saved,
+        // so OpenLocalConfigAsync() re-apply shows correct state on next open.
+        _localMetricIds = _metrics
+            .Where(m => m.Enabled)
+            .Select(m => m.MetricId)
+            .ToHashSet();
+        _localAgentMetricIds = _agentMetrics
+            .Where(m => m.Enabled)
+            .Select(m => m.MetricId)
+            .ToHashSet();
+        _localChartType = _viewChartType;
+
         _showViewConfig = false;
         await LoadDataAsync();
     }
