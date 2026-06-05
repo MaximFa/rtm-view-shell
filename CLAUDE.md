@@ -279,6 +279,7 @@ Cowork agent must NOT directly write or edit source code files (`.cs`, `.sql`, `
 - `staging/*.sql` deployment scripts (not compiled)
 - `tools/cc_prompt_*.md` CC prompt files
 - Any file in `docs/`
+- `.coord/**` — multi-session coordination state files (§42)
 
 **CC prompt delivery format:**
 Cowork saves the task to a file (e.g. `tools/cc_prompt_tenantid.md`), then issues the instruction as a code box:
@@ -2723,4 +2724,203 @@ Before adding any new localStorage key, verify:
 - [ ] CLAUDE.md §41 referenced in the PR description
 
 *TZ version: 2.3 | CLAUDE.md last updated: 2026-06-05 (§41 localStorage security policy)*
+
+---
+
+## 42. Multi-session coordination protocol (.coord/)
+
+> Decision made: 2026-06-05. Multiple Cowork sessions run in parallel, each issuing
+> CC prompts that modify different modules (RTM, Shell, DB, docs) in the SAME working
+> tree on the same branch. Without coordination, concurrent CC commits collide on the
+> shared git index, sessions overwrite each other's files, and pushes race ahead of
+> unfinished work. This protocol serialises commits and gates pushes behind a
+> consensus barrier, using plain files in `.coord/` as cross-session state.
+
+> Naming note: the directory is `.coord/`, not `.sync/` — a stray zero-byte file
+> named `.sync` exists in the repo root and cannot be deleted through the Cowork
+> mount. Ignore/delete it manually; it is not part of this protocol.
+
+### §42.1 State directory
+
+```
+.coord/
+├── README.md            ← quick reference (tracked in git)
+├── .gitignore           ← ignores all runtime state below (tracked)
+├── sessions/<slug>.md   ← one file per active Cowork session
+├── locks/commit.lock    ← exclusive commit token (repo-wide)
+├── journal.md           ← append-only commit log
+└── push/
+    ├── request.md       ← active push barrier request
+    └── acks/<slug>.md   ← per-session push readiness acks
+```
+
+All runtime state is untracked (see `.coord/.gitignore`). Subdirectories are created
+on demand with `mkdir -p`. Every write to `.coord/` uses Python + `os.fsync` (§0.3) —
+both from Cowork (§0.7 exception) and from CC.
+
+### §42.2 Session registration
+
+Session slug: kebab-case, derived from the session name without the `RTM` prefix,
+plus MMDD date. Example: session `RTM Session Sync` (2026-06-05) → `session-sync-0605`.
+
+At session start — after the §0.2 integrity check — Cowork reads ALL files in
+`.coord/sessions/`, then writes its own:
+
+```markdown
+---
+session: RTM Session Sync
+slug: session-sync-0605
+started: 2026-06-05T14:00:00Z
+heartbeat: 2026-06-05T15:30:00Z
+status: active            # active | pushing | done
+modules: [docs]           # claimed modules: rtm | web | db | docs
+files: []                 # optional file-level claims (§42.3)
+cc_task: none             # none | running:<cc_prompt_file>
+---
+```
+
+- `heartbeat` is refreshed every time the session issues or completes a CC task.
+- On session end: set `status: done` (or delete the file). Claims are released.
+- Stale session: `heartbeat` older than **3 hours** → its claims may be taken over,
+  but ONLY after Max confirms the session is dead. Then delete its file.
+
+### §42.3 Claims — hybrid locking
+
+**Default unit: module.** Modules map to commit prefixes and directory sets (§39):
+
+| Module | Paths |
+|---|---|
+| `rtm` | `RTM/` |
+| `web` | `src/`, `tests/`, `wireframes/` |
+| `db` | `db/` |
+| `docs` | `docs/`, `tools/`, `testing/`, `.claude/`, `CLAUDE.md` |
+
+Rules:
+
+1. Before claiming, read all `.coord/sessions/*.md`. A module claimed by another
+   `active` session is unavailable — pick different work or coordinate via Max.
+2. **File-level mode** (the hybrid part): if two sessions need the same module, BOTH
+   switch that module to file mode — each lists explicit paths in `files:`; the lists
+   must not overlap. A module-level claim excludes ALL files in that module, so file
+   mode only works when every claimant of the module uses it.
+3. `CLAUDE.md` is a shared append target: claim it as a file only for the duration of
+   the actual write; concurrent additions are resolved by appending separate §-sections.
+4. Claim race (two sessions claimed the same thing between read and write): the earlier
+   `started` timestamp wins; the later session edits its claims and re-checks.
+5. Cowork includes the claim list in every CC prompt; CC must not create or modify any
+   file outside the claims (enforced via `tools/cc_prompt_sync_block.md`).
+
+### §42.4 Commit serialisation — commit.lock
+
+Concurrent `git add`/`git commit` from two CC sessions corrupts the shared index
+(index.lock trouble is already chronic on this mount, §0.4). Therefore exactly ONE
+commit at a time, repo-wide:
+
+1. **Acquire**: atomic create via Python `open(path, "x")` — fails if the file exists.
+   On busy: retry 5 × 60 s, then abort the commit and report the lock owner.
+2. **Stale lock**: `acquired` older than 15 minutes → report contents, WAIT for
+   operator decision. Never auto-delete — the owning CC may be mid-commit.
+3. **While holding**: `pre-commit-check.sh` → `git add` (claimed files only) →
+   `git commit` (prefix per §39.3) → §0.6 post-commit verification.
+4. **Release**: append journal line (§42.5), delete `commit.lock`, `sync`.
+   Target hold time < 5 minutes. If the commit aborts — still release.
+
+**The lock covers plumbing commits too.** The §0.4 path (`commit-tree` + direct
+Python write to `refs/heads/<branch>`) has no git-level locking at all — two sessions
+writing the ref concurrently silently DESTROY one commit (observed risk, 2026-06-05).
+Never bypass `commit.lock`, especially on the plumbing path.
+
+Exact scripts: `tools/cc_prompt_sync_block.md` (S3/S4).
+
+### §42.5 Journal
+
+Every commit appends one line to `.coord/journal.md`:
+
+```
+2026-06-05T15:42Z | session-sync-0605 | a1b2c3d docs: add §42 multi-session protocol
+```
+
+Purpose: any session sees what others committed without scanning `git log`; the push
+initiator builds the push manifest from it. Push events are also logged:
+`2026-06-05T18:00Z | session-sync-0605 | PUSHED a1b2c3d..f9e8d7c (12 commits)`.
+
+### §42.6 CC prompt — mandatory sync block
+
+Every CC prompt issued by ANY Cowork session must include the sync block from
+`tools/cc_prompt_sync_block.md` (filled with the session's slug and claims),
+placed immediately after the §0.6a integrity block. It enforces:
+
+1. Abort if `.coord/push/request.md` exists (push barrier active).
+2. Touch only claimed files.
+3. commit.lock around every commit (§42.4).
+4. Journal append + lock release after every commit (§42.5).
+5. No `git push` (§37).
+
+Cowork adds this block automatically; CC must not skip it.
+
+### §42.7 Push barrier — all active sessions must confirm
+
+Push happens ONLY when every active session has confirmed readiness:
+
+1. **Initiate**: after Max requests a push, the initiating session verifies no
+   `commit.lock` is held, then writes `.coord/push/request.md`:
+
+   ```markdown
+   ---
+   initiator: session-sync-0605
+   created: 2026-06-05T16:00:00Z
+   ---
+   Commits to push (git log origin/<branch>..HEAD --oneline):
+   <list>
+   ```
+
+2. **Freeze**: from this moment no session may start a new CC task (checked by the
+   sync block S1 and by Cowork before issuing prompts). In-flight CC tasks finish
+   normally — their commits are included in the push.
+3. **Ack**: Max notifies the other sessions ("готовимся к пушу"). Before writing
+   `READY`, each session must pass this checklist (incident 2026-06-05: a push went
+   out while another session's artefacts were untracked — they missed the release):
+   - no CC task in flight (`cc_task: none`);
+   - no `M` lines in claimed paths that differ from HEAD **by content**
+     (`git hash-object` vs `git rev-parse HEAD:<file>` — the mount shows false `M`);
+   - no `??` untracked artefacts in claimed paths — commit them NOW; anything under
+     `.claude/` requires `git add -f` (blocked by `.gitignore`);
+   - key files hash-verified vs HEAD (PD-007 may have truncated them after another
+     session's commit).
+   Only then write `.coord/push/acks/<slug>.md` containing `READY` (or `HOLD: <reason>`).
+4. **Verify quorum**: the initiator proceeds only when EVERY session in
+   `.coord/sessions/` with `status: active` has a `READY` ack. `HOLD` → wait and
+   re-check. Stale sessions (§42.2) are excluded only after Max confirms.
+5. **Push**: executed via the dedicated push prompt `tools/cc_prompt_push.md`
+   (four-way commit rules §39.6 still apply). This remains the ONLY prompt allowed
+   to run `git push` (§37).
+6. **Cleanup**: initiator appends the `PUSHED` line to the journal, deletes
+   `request.md` and all files in `acks/`. Other sessions resume; on their next CC
+   task they run `git fetch` and verify local HEAD is an ancestor of origin or equal.
+
+### §42.8 Session lifecycle summary
+
+| Moment | Action |
+|---|---|
+| Session start | §0.2 integrity check → read `.coord/sessions/` → write own session file with claims |
+| Before each CC prompt | check `push/request.md` → refresh `heartbeat` → verify claims → include sync block |
+| After each CC task | refresh `heartbeat`, set `cc_task: none`, review journal for surprises |
+| Push requested | initiate or ack per §42.7 |
+| Session end | `status: done` or delete session file (releases claims) |
+
+### §42.9 Failure modes
+
+| Failure | Recovery |
+|---|---|
+| CC crashed holding `commit.lock` | Lock stale > 15 min → Max confirms → delete lock → run §0.2 before next commit |
+| Session file stale | `heartbeat` > 3 h → Max confirms dead → delete file, claims released |
+| Claim race | Earlier `started` wins; later session re-claims (§42.3.4) |
+| Push request abandoned | Initiator stale → Max confirms → delete `request.md` + acks |
+| `.coord/` file truncated by mount write-back | All writes use Python+fsync (§0.3); files are small, single-purpose, recreatable from session knowledge |
+| Two commits raced anyway (lock bypassed) | §0.4 index workarounds + §0.2 check; journal shows both — reconcile manually |
+| Plumbing ref-write race (two direct writes to `refs/heads/<branch>`) | One commit silently lost. Prevention only: commit.lock applies to the §0.4 plumbing path — never bypass |
+| Another session's commit truncated your files (PD-007 cross-session) | New journal line from another slug → hash-check your claimed files vs HEAD before next work; restore via `git show HEAD:<f> > <f>` |
+
+*TZ version: 2.4 | CLAUDE.md last updated: 2026-06-05 (§42 multi-session coordination protocol)*
+
 

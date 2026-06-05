@@ -1,0 +1,4 @@
+# Everything in .coord/ is runtime state except the protocol docs
+*
+!README.md
+!.gitignore
