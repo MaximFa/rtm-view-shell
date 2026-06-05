@@ -652,5 +652,17 @@
   <data name="Apply" xml:space="preserve">
     <value>החל</value>
   </data>
+  <data name="DayTrend_TabGeneral" xml:space="preserve">
+    <value>כללי</value>
+  </data>
+  <data name="DayTrend_TabQueueMetrics" xml:space="preserve">
+    <value>מדדי תורים</value>
+  </data>
+  <data name="DayTrend_TabAgentMetrics" xml:space="preserve">
+    <value>מדדי סוכנים</value>
+  </data>
+  <data name="DayTrend_NoAgentMetrics" xml:space="preserve">
+    <value>אין מדדי סוכנים זמינים</value>
+  </data>
 </root>
 
