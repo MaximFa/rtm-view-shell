@@ -159,13 +159,20 @@ def canonical_param(param: str) -> str:
     return "&&".join(cleaned)
 
 
-def get_bag(data_type: str, metric_function: str) -> str:
-    """Determine bag for duplicate detection"""
+def get_bag(data_type: str, metric_function: str, metric_type: str) -> str:
+    """Determine bag for duplicate detection.
+    
+    MetricType=Agent metrics are in a separate scope from MetricType=Data metrics,
+    even when they share the same MetricFunction.
+    """
     if metric_function in STATUS_COUNTER_FUNCS:
         return "IGNORED"
+    # Agent metrics are a separate scope
+    if metric_type == "Agent":
+        return "Agent"
     if data_type == "UsersInteraction":
         return "UsersInteraction"
-    return "OTHER"
+    return "Data"
 
 
 class Linter:
@@ -205,11 +212,11 @@ class Linter:
             self.check_description_prefix(m)
             
             # Duplicate detection
-            if m["metric_id"] and m["default_value"] != "\\N":
+            if m["metric_id"]:
                 key = (
                     m["metric_function"],
                     canonical_param(m["metric_parameter"]),
-                    get_bag(m["data_type"], m["metric_function"]),
+                    get_bag(m["data_type"], m["metric_function"], m["metric_type"]),
                 )
                 seen_keys[key].append(m)
         
