@@ -1,0 +1,431 @@
+@using CcDashboard.Application.Services.Metrics
+@using CcDashboard.Application.Queries.Configuration
+@using CcDashboard.Contracts.DTOs.Configuration
+@using MediatR
+@using Microsoft.Extensions.Localization
+@implements IAsyncDisposable
+
+@inject IMediator Mediator
+@inject IJSRuntime JS
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+
+@if (Visible)
+{
+    <div class="metric-wizard-overlay @(DarkMode ? "dark" : "")" @onclick="HandleBackdropClick">
+        <div class="metric-wizard-dialog" @ref="_modalDialog" @onclick:stopPropagation="true">
+            <div class="metric-wizard-header" @ref="_modalHeader">
+                <h5 class="metric-wizard-title">@L["MetricWizard_Title"]</h5>
+                <button type="button" class="btn-close @(DarkMode ? "btn-close-white" : "")"
+                        aria-label="@L["Common_Close"]" @onclick="HandleCancel"></button>
+            </div>
+
+            <div class="metric-wizard-body">
+                @* Search bar *@
+                <div class="metric-wizard-search mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="ti ti-search"></i></span>
+                        <input type="text" class="form-control"
+                               placeholder="@L["MetricWizard_Search"]"
+                               @bind="_searchText" @bind:event="oninput" @bind:after="ApplyFilters" />
+                    </div>
+                </div>
+
+                @* Category chips *@
+                <div class="metric-wizard-categories mb-3">
+                    <button class="btn btn-sm @(_selectedCategory is null ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => SelectCategory(null)">
+                        @L["Common_All"] <span class="badge bg-secondary ms-1">@_filteredPool.Count</span>
+                    </button>
+                    @foreach (var cat in _availableCategories)
+                    {
+                        var count = _filteredPool.Count(m => m.CatalogCategory == cat);
+                        <button class="btn btn-sm @(_selectedCategory == cat ? "btn-primary" : "btn-outline-secondary")"
+                                @onclick="() => SelectCategory(cat)">
+                            @GetCategoryLabel(cat) <span class="badge bg-secondary ms-1">@count</span>
+                        </button>
+                    }
+                </div>
+
+                @* Facet dropdowns row *@
+                <div class="row g-2 mb-3">
+                    @* Family dropdown *@
+                    <div class="col-md-4">
+                        <label class="form-label small">@L["MetricWizard_Family"]</label>
+                        <select class="form-select form-select-sm" @bind="_selectedFamily" @bind:after="ApplyFilters"
+                                disabled="@(_availableFamilies.Count == 0)">
+                            <option value="">@L["Common_All"]</option>
+                            @foreach (var f in _availableFamilies)
+                            {
+                                <option value="@f">@f</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Channel dropdown *@
+                    <div class="col-md-4">
+                        <label class="form-label small">@L["MetricWizard_Channel"]</label>
+                        <select class="form-select form-select-sm" @bind="_selectedChannel" @bind:after="ApplyFilters"
+                                disabled="@(_availableChannels.Count == 0)">
+                            <option value="">@L["MetricWizard_AnyChannel"]</option>
+                            @foreach (var ch in _availableChannels)
+                            {
+                                <option value="@ch">@ch</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Threshold dropdown *@
+                    <div class="col-md-4">
+                        <label class="form-label small">@L["MetricWizard_Threshold"]</label>
+                        <select class="form-select form-select-sm" @bind="_selectedThreshold" @bind:after="ApplyFilters"
+                                disabled="@(_availableThresholds.Count == 0)">
+                            <option value="">@L["MetricWizard_AnyThreshold"]</option>
+                            @foreach (var t in _availableThresholds)
+                            {
+                                <option value="@t">@(t)s</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                @* Two-column layout: list + detail *@
+                <div class="metric-wizard-content">
+                    @* Left: result list *@
+                    <div class="metric-wizard-list">
+                        @if (_filteredMetrics.Count == 0)
+                        {
+                            <div class="metric-wizard-empty">
+                                <i class="ti ti-search-off"></i>
+                                <p>@L["MetricWizard_NoMatch"]</p>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var metric in _filteredMetrics)
+                            {
+                                <div class="metric-wizard-item @(_selectedMetric?.MetricId == metric.MetricId ? "selected" : "")"
+                                     @onclick="() => SelectMetric(metric)">
+                                    <div class="metric-item-label">@MetricCatalogFilter.Label(metric)</div>
+                                    <div class="metric-item-subline">
+                                        @if (!string.IsNullOrEmpty(metric.CatalogCategory))
+                                        {
+                                            <span>@GetCategoryLabel(metric.CatalogCategory)</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(metric.StandardKpi))
+                                        {
+                                            <span>· @metric.StandardKpi</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    @* Right: detail card *@
+                    <div class="metric-wizard-detail">
+                        @if (_selectedMetric is not null)
+                        {
+                            @* Status dot + label *@
+                            <div class="metric-detail-header">
+                                @if (MetricCatalogFilter.IsDefect(_selectedMetric))
+                                {
+                                    <span class="status-dot defect" title="@L["MetricWizard_Defect"]"></span>
+                                }
+                                else
+                                {
+                                    <span class="status-dot active"></span>
+                                }
+                                <h6 class="metric-detail-label">@MetricCatalogFilter.Label(_selectedMetric)</h6>
+                            </div>
+
+                            @* Short description *@
+                            @if (!string.IsNullOrEmpty(_selectedMetric.ShortDescription))
+                            {
+                                <p class="metric-detail-short">@_selectedMetric.ShortDescription</p>
+                            }
+
+                            @* Taxonomy chips *@
+                            <div class="metric-detail-chips">
+                                @if (!string.IsNullOrEmpty(_selectedMetric.CatalogCategory))
+                                {
+                                    <span class="badge bg-secondary">@GetCategoryLabel(_selectedMetric.CatalogCategory)</span>
+                                }
+                                @if (!string.IsNullOrEmpty(_selectedMetric.Family))
+                                {
+                                    <span class="badge bg-outline-secondary">@_selectedMetric.Family</span>
+                                }
+                                @if (!string.IsNullOrEmpty(_selectedMetric.Channel))
+                                {
+                                    <span class="badge bg-outline-secondary">@_selectedMetric.Channel</span>
+                                }
+                                @if (_selectedMetric.ThresholdSec.HasValue)
+                                {
+                                    <span class="badge bg-outline-secondary">@(_selectedMetric.ThresholdSec)s</span>
+                                }
+                            </div>
+
+                            @* Long description *@
+                            @if (!string.IsNullOrEmpty(_selectedMetric.LongDescription))
+                            {
+                                <div class="metric-detail-long">
+                                    <p>@_selectedMetric.LongDescription</p>
+                                </div>
+                            }
+
+                            @* Comparison / Related *@
+                            @if (!string.IsNullOrEmpty(_selectedMetric.Comparison))
+                            {
+                                <div class="metric-detail-related">
+                                    <div class="metric-detail-related-header">
+                                        <i class="ti ti-git-compare"></i> @L["MetricWizard_Related"]
+                                    </div>
+                                    <p>@_selectedMetric.Comparison</p>
+                                </div>
+                            }
+
+                            @* KPI + StandardRef *@
+                            @if (!string.IsNullOrEmpty(_selectedMetric.StandardKpi) || !string.IsNullOrEmpty(_selectedMetric.StandardRef))
+                            {
+                                <div class="metric-detail-kpi">
+                                    @if (!string.IsNullOrEmpty(_selectedMetric.StandardKpi))
+                                    {
+                                        <span><strong>KPI:</strong> @_selectedMetric.StandardKpi</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(_selectedMetric.StandardRef))
+                                    {
+                                        <span class="ms-2">(@_selectedMetric.StandardRef)</span>
+                                    }
+                                </div>
+                            }
+
+                            @* Defect warning *@
+                            @if (MetricCatalogFilter.IsDefect(_selectedMetric))
+                            {
+                                <div class="alert alert-warning metric-detail-defect-warning">
+                                    <i class="ti ti-alert-triangle"></i> @L["MetricWizard_Defect"]
+                                </div>
+                            }
+
+                            @* MetricId (small mono) *@
+                            <div class="metric-detail-id">
+                                <code>@_selectedMetric.MetricId</code>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="metric-wizard-empty">
+                                <i class="ti ti-click"></i>
+                                <p>@L["MetricWizard_SelectMetric"]</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-wizard-footer">
+                <button class="btn btn-outline-secondary" @onclick="HandleCancel">
+                    @L["MetricWizard_Cancel"]
+                </button>
+                <button class="btn btn-primary" @onclick="HandleSelect" disabled="@(_selectedMetric is null)">
+                    @L["MetricWizard_Use"]
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string? MetricTypeFilter { get; set; }   // "Agent" | "Data" | null
+    [Parameter] public string? CurrentMetricId { get; set; }    // preselect
+    [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<string> OnSelected { get; set; }  // returns chosen MetricId
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private ElementReference _modalHeader;
+    private ElementReference _modalDialog;
+    private bool _initialized;
+    private bool _draggableInitialized;
+
+    // All metrics from the catalogue
+    private IReadOnlyList<RtsGridMetricDto> _allMetrics = [];
+
+    // Pool after applying MetricType pre-filter (before category)
+    private IReadOnlyList<RtsGridMetricDto> _filteredPool = [];
+
+    // Final filtered list after all criteria
+    private IReadOnlyList<RtsGridMetricDto> _filteredMetrics = [];
+
+    // Filter state
+    private string _searchText = "";
+    private string? _selectedCategory;
+    private string? _selectedFamily;
+    private string? _selectedChannel;
+    private int? _selectedThreshold;
+
+    // Available facet options (computed from pool)
+    private IReadOnlyList<string> _availableCategories = [];
+    private IReadOnlyList<string> _availableFamilies = [];
+    private IReadOnlyList<string> _availableChannels = [];
+    private IReadOnlyList<int> _availableThresholds = [];
+
+    // Selected metric for detail view
+    private RtsGridMetricDto? _selectedMetric;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && !_initialized)
+        {
+            _initialized = true;
+            await LoadMetricsAsync();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Visible && !_draggableInitialized)
+        {
+            _draggableInitialized = true;
+            try
+            {
+                await JS.InvokeVoidAsync("ccApp.makeModalDraggable", _modalHeader, _modalDialog);
+            }
+            catch { /* Element not rendered yet */ }
+        }
+    }
+
+    private async Task LoadMetricsAsync()
+    {
+        try
+        {
+            _allMetrics = await Mediator.Send(new GetRtsGridMetricsQuery());
+
+            // Apply MetricType pre-filter to get the pool
+            var preFilterCriteria = new MetricFilterCriteria(MetricTypeFilter, null, null, null, null, null);
+            _filteredPool = MetricCatalogFilter.Apply(_allMetrics, preFilterCriteria);
+
+            // Compute available categories from pool
+            _availableCategories = MetricCatalogFilter.Categories(_filteredPool);
+
+            // Preselect current metric if provided
+            if (!string.IsNullOrEmpty(CurrentMetricId))
+            {
+                _selectedMetric = _filteredPool.FirstOrDefault(m => m.MetricId == CurrentMetricId);
+            }
+
+            ApplyFilters();
+        }
+        catch
+        {
+            _allMetrics = [];
+            _filteredPool = [];
+            _filteredMetrics = [];
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        // Build criteria from current filter state
+        var criteria = new MetricFilterCriteria(
+            MetricTypeFilter,
+            _selectedCategory,
+            _selectedFamily,
+            _selectedChannel,
+            ParseThreshold(_selectedThreshold?.ToString()),
+            string.IsNullOrWhiteSpace(_searchText) ? null : _searchText
+        );
+
+        _filteredMetrics = MetricCatalogFilter.Apply(_allMetrics, criteria);
+
+        // Update facet options based on current category selection
+        var poolForFacets = _selectedCategory is null
+            ? _filteredPool
+            : _filteredPool.Where(m => m.CatalogCategory == _selectedCategory).ToList();
+
+        _availableFamilies = MetricCatalogFilter.Families(poolForFacets);
+        _availableChannels = MetricCatalogFilter.Channels(poolForFacets);
+        _availableThresholds = MetricCatalogFilter.Thresholds(poolForFacets);
+
+        // Clear invalid selections
+        if (!string.IsNullOrEmpty(_selectedFamily) && !_availableFamilies.Contains(_selectedFamily))
+            _selectedFamily = null;
+        if (!string.IsNullOrEmpty(_selectedChannel) && !_availableChannels.Contains(_selectedChannel))
+            _selectedChannel = null;
+        if (_selectedThreshold.HasValue && !_availableThresholds.Contains(_selectedThreshold.Value))
+            _selectedThreshold = null;
+
+        StateHasChanged();
+    }
+
+    private static int? ParseThreshold(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return null;
+        return int.TryParse(value, out var result) ? result : null;
+    }
+
+    private void SelectCategory(string? category)
+    {
+        _selectedCategory = category;
+        // Reset dependent filters
+        _selectedFamily = null;
+        _selectedChannel = null;
+        _selectedThreshold = null;
+        ApplyFilters();
+    }
+
+    private void SelectMetric(RtsGridMetricDto metric)
+    {
+        _selectedMetric = metric;
+    }
+
+    private async Task HandleSelect()
+    {
+        if (_selectedMetric is not null)
+        {
+            await OnSelected.InvokeAsync(_selectedMetric.MetricId);
+            await ResetAndClose();
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        await OnCancel.InvokeAsync();
+        await ResetAndClose();
+    }
+
+    private void HandleBackdropClick()
+    {
+        // Do nothing - require explicit cancel/close
+    }
+
+    private async Task ResetAndClose()
+    {
+        _initialized = false;
+        _draggableInitialized = false;
+        _searchText = "";
+        _selectedCategory = null;
+        _selectedFamily = null;
+        _selectedChannel = null;
+        _selectedThreshold = null;
+        _selectedMetric = null;
+
+        try
+        {
+            await JS.InvokeVoidAsync("ccApp.resetModalPosition", _modalDialog);
+        }
+        catch { }
+    }
+
+    private static string GetCategoryLabel(string? category) => category switch
+    {
+        "Queue" => "Queue",
+        "AgentGroup" => "Agent Group",
+        "Agent" => "Agent",
+        _ => category ?? ""
+    };
+
+    public ValueTask DisposeAsync()
+    {
+        return ValueTask.CompletedTask;
+    }
+}
