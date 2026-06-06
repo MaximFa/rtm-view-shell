@@ -2152,6 +2152,18 @@ When deploying RTM Service to a new server:
 | `RTM/staging/fix_set_interaction.sql` | Add `p_tenant_id uuid` to existing fix |
 | `RTM/staging/fix_set_userstatus.sql` | Add `p_tenant_id uuid` to existing fix |
 
+### §33.8 RTM stored-routine kind — PROCEDURE, not FUNCTION  [RTM-SEC-002 / lesson 2026-06-06]
+
+Any SQL routine invoked by RTM `DBAdapter.ExecuteNonQuery` (CommandType.StoredProcedure → `CALL`)
+**MUST be a PROCEDURE**, never a `FUNCTION ... RETURNS void`. PostgreSQL raises `42809
+(wrong object type)` when `CALL` targets a function. Pitfall: plumbing/unit tests that invoke the
+routine via `SELECT` pass against a FUNCTION, so the defect only surfaces at RTM runtime on every
+event. When adding an NGC_* (or any RTM-called) write routine: declare `CREATE PROCEDURE`, and
+verify `prokind='p'` (not just `pronargs`). Converting an existing function requires
+`DROP FUNCTION IF EXISTS ...` first — `CREATE OR REPLACE PROCEDURE` cannot change routine kind.
+Example incident: NGC_Set/DeleteUserAgentgroup shipped as FUNCTION in _007, hotfixed to PROCEDURE
+in _009.
+
 *TZ version: 1.5 | CLAUDE.md last updated: 2026-05-31 (§33 RTM multi-tenancy added)*
 
 
