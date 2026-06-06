@@ -23,6 +23,7 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
     public DbSet<NgcBusinessUnitQueueClassification> NgcBusinessUnitQueueClassifications => Set<NgcBusinessUnitQueueClassification>();
     public DbSet<NgcBusinessUnitSupergroup> NgcBusinessUnitSupergroups => Set<NgcBusinessUnitSupergroup>();
     public DbSet<NgcSupergroupAgentgroup> NgcSupergroupAgentgroups => Set<NgcSupergroupAgentgroup>();
+    public DbSet<NgcUserAgentgroup> NgcUserAgentgroups => Set<NgcUserAgentgroup>();
 
     // RTS Grid metrics (cross-tenant)
     public DbSet<RtsGridMetric> RtsGridMetrics => Set<RtsGridMetric>();
@@ -144,6 +145,17 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.CreatedBy).HasMaxLength(100);
             e.HasOne(x => x.Supergroup).WithMany(x => x.AgentGroupAssignments)
                 .HasForeignKey(x => x.SupergroupId);
+        });
+
+        mb.Entity<NgcUserAgentgroup>(e =>
+        {
+            e.ToTable("NGC_UserAgentgroup");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityAlwaysColumn();
+            e.Property(x => x.UserId).HasMaxLength(100);
+            e.Property(x => x.AgentgroupId).HasMaxLength(100);
+            e.Property(x => x.CreatedBy).HasMaxLength(100);
+            e.HasIndex(x => new { x.TenantId, x.UserId, x.AgentgroupId }).IsUnique();
         });
 
         // RTS Grid metrics (cross-tenant)

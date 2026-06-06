@@ -80,3 +80,13 @@ public class NgcSupergroupAgentgroup
 
     public NgcSupergroup? Supergroup { get; set; }
 }
+
+public class NgcUserAgentgroup
+{
+    public int Id { get; set; } // Surrogate PK (EF requires key)
+    public string? UserId { get; set; }
+    public string? AgentgroupId { get; set; }
+    public Guid TenantId { get; set; }
+    public DateTime? CreatedDatetime { get; set; }
+    public string? CreatedBy { get; set; }
+}
