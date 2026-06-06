@@ -80,6 +80,12 @@ CHATMESSAGE_PROPS = {
 
 ALL_PROPS = INTERACTION_PROPS | CHATMESSAGE_PROPS
 
+# Known defects pending separate fix (D3 - EF-based migration)
+KNOWN_DEFECTS = {
+    "MonAgentCurrentLoginTimeStamp",  # CurLoginTimeStamp vs CurLoginTimestamp (case mismatch)
+}
+
+
 # Status counter functions that ignore bag for duplicate detection
 STATUS_COUNTER_FUNCS = {
     "UsersInStatusCount", "UsersInStatusGroupCount", "LogedInUsersCount",
@@ -163,9 +169,10 @@ def get_bag(data_type: str, metric_function: str) -> str:
 
 
 class Linter:
-    def __init__(self, sql_path: Path, rtm_path: Path):
+    def __init__(self, sql_path: Path, rtm_path: Path, ignore_known: bool = False):
         self.sql_path = sql_path
         self.rtm_path = rtm_path
+        self.ignore_known = ignore_known
         self.errors = []
         self.warnings = []
         self.metrics = []
@@ -238,8 +245,14 @@ class Linter:
         func = m["metric_function"]
         if not func or func == "\\N":
             return
-            
+        
+        mid = m["metric_id"]
         metric_type = m["metric_type"]
+        
+        # Skip known defects if flag set
+        if self.ignore_known and mid in KNOWN_DEFECTS:
+            self.warn(m["line_no"], mid, f"KNOWN DEFECT (skipped): MetricFunction case mismatch")
+            return
         
         if metric_type == "Agent":
             if func not in AGENT_FUNCS:
@@ -334,6 +347,8 @@ def main():
     parser = argparse.ArgumentParser(description="RTSGrid_Metric catalogue linter")
     parser.add_argument("--sql", default="db/data/02_metrics.sql",
                         help="Path to metrics SQL file")
+    parser.add_argument("--ignore-known", action="store_true",
+                        help="Skip known defects pending separate fix")
     parser.add_argument("--rtm", default="RTM/RTM",
                         help="Path to RTM engine source (unused, functions hardcoded)")
     args = parser.parse_args()
@@ -345,7 +360,7 @@ def main():
         print(f"ERROR: SQL file not found: {sql_path}")
         return 1
     
-    linter = Linter(sql_path, rtm_path)
+    linter = Linter(sql_path, rtm_path, args.ignore_known)
     return linter.run()
 
 
