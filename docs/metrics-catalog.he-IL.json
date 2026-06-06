@@ -1,0 +1,1385 @@
+{
+  "locale": "he-IL",
+  "metricCount": 197,
+  "metrics": [
+    {
+      "metricId": "MonAgentNumChatsActive",
+      "displayName": "צ'אטים פעילים (סוכן)",
+      "shortDescription": "מספר הצ'אטים שהסוכן מטפל בהם כעת.",
+      "longDescription": "ספירה בזמן אמת של אינטראקציות צ'אט פתוחות כרגע אצל הסוכן (מקביליות צ'אט).",
+      "comparison": "מקבילה שהושלמה: MonAgentNumChatsCompleted."
+    },
+    {
+      "metricId": "MonAgentNumChatsCompleted",
+      "displayName": "צ'אטים שנענו (סוכן)",
+      "shortDescription": "מספר הצ'אטים הנכנסים שהסוכן ענה וסיים היום.",
+      "longDescription": "סופר צ'אטים נכנסים שנענו על ידי הסוכן ושכבר הסתיימו.",
+      "comparison": "מקבילה בזמן אמת: MonAgentNumChatsActive."
+    },
+    {
+      "metricId": "MonAgentNumMakeCallsInCompleted",
+      "displayName": "שיחות נכנסות שנענו (סוכן)",
+      "shortDescription": "מספר השיחות/הקולבקים (callbacks) הנכנסים שהסוכן ענה וסיים היום.",
+      "longDescription": "סופר שיחות נכנסות וקולבקים (callbacks) שנענו על ידי הסוכן ושכבר הושלמו (השיחה הסתיימה). הערה: ה-MetricId מזכיר \"MakeCalls\" מסיבות היסטוריות — המדד למעשה סופר אינטראקציות נכנסות שנענו.",
+      "comparison": "אינטראקציות בתהליך אינן נכללות עד לסיומן."
+    },
+    {
+      "metricId": "MonAgentNumberOfConsultCalls",
+      "displayName": "שיחות התייעצות (סוכן)",
+      "shortDescription": "מספר שיחות ההתייעצות שהסוכן ביצע היום.",
+      "longDescription": "ספירה מצטברת של מספר הפעמים שהסוכן נכנס למצב \"Consulting Call\" — התייעצות עם עמית/מומחה במהלך טיפול באינטראקציה.",
+      "comparison": "התייעצויות תכופות עשויות להעיד על פערי ידע או תעבורה מורכבת."
+    },
+    {
+      "metricId": "MonAgentNumberOfInboundCalls10Min",
+      "displayName": "שיחות ארוכות > 10 דק' (סוכן)",
+      "shortDescription": "מספר השיחות הנכנסות שהסוכן טיפל בהן עם זמן שיחה (Talk Time) מעל 10 דקות היום.",
+      "longDescription": "סופר שיחות חיצוניות נכנסות/קולבקים (callbacks) שזמן השיחה (Talk Time) שלהם עלה על 600 שניות. מדגיש שיחות ארוכות במיוחד לצורך אימון או ניתוח מורכבות.",
+      "comparison": "פרופיל הפוך: MonAgentNumberOfInboundCalls15sec."
+    },
+    {
+      "metricId": "MonAgentNumberOfInboundCalls15sec",
+      "displayName": "שיחות קצרות < 15 שנ' (סוכן)",
+      "shortDescription": "מספר השיחות הנכנסות שהסוכן טיפל בהן עם זמן שיחה (Talk Time) מתחת ל-15 שניות היום.",
+      "longDescription": "סופר שיחות חיצוניות נכנסות/קולבקים (callbacks) שזמן השיחה (Talk Time) שלהם היה מתחת ל-15 שניות. עלייה חדה מעידה בדרך כלל על ניתוקים מוקדמים או \"השלכת שיחות\" והיא דגל אדום סטנדרטי לאיכות.",
+      "comparison": "פרופיל הפוך: MonAgentNumberOfInboundCalls10Min (שיחות ארוכות מאוד)."
+    },
+    {
+      "metricId": "MonAgentNumberOfInboundCallsWithIntercom",
+      "displayName": "שיחות נכנסות — חיצוניות + פנימיות (סוכן)",
+      "shortDescription": "מספר השיחות והקולבקים (callbacks) הנכנסים שהסוכן קיבל היום, חיצוניים ופנימיים.",
+      "longDescription": "סופר אינטראקציות קוליות נכנסות (שיחות וקולבקים) שטופלו על ידי הסוכן היום, כולל שיחות חיצוניות ושיחות אינטרקום (פנימיות).",
+      "comparison": "ל-MonAgentNumberOfInboundCallsOnly יש כרגע מסנן זהה (כפילות) למרות ששמו מבטיח חיצוניות בלבד — ראו ניתוח כפילויות."
+    },
+    {
+      "metricId": "MonAgentNumberOfMakeCalls",
+      "displayName": "שיחות יוצאות (סוכן)",
+      "shortDescription": "מספר השיחות החיצוניות היוצאות שהסוכן ביצע היום.",
+      "longDescription": "סופר שיחות קוליות חיצוניות יוצאות שיזם הסוכן היום.",
+      "comparison": "מקבילה קבוצתית: MonSumAgentsMakeCalls. משך ממוצע: MonAgentAverageMakeCallDuration."
+    },
+    {
+      "metricId": "MonAgentOutgoingCallbacksNum",
+      "displayName": "קולבקים יוצאים (סוכן)",
+      "shortDescription": "מספר שיחות החזרה מסוג קולבק (callback) שהסוכן השלים היום.",
+      "longDescription": "סופר אינטראקציות קולבק (callback) יוצאות (חיוג חוזר ללקוחות) שביצע הסוכן ונענו היום.",
+      "comparison": "צד נכנס: MonAgentProxyCallsNum."
+    },
+    {
+      "metricId": "MonAgentProxyCallsNum",
+      "displayName": "קולבקים נכנסים (סוכן)",
+      "shortDescription": "מספר אינטראקציות הקולבק (callback) הנכנסות שהסוכן ענה היום.",
+      "longDescription": "סופר אינטראקציות קולבק (callback) נכנסות שנענו על ידי הסוכן היום (לא כולל בקשות הקולבק המקוריות עצמן).",
+      "comparison": "צד יוצא: MonAgentOutgoingCallbacksNum."
+    },
+    {
+      "metricId": "UserCPH",
+      "displayName": "שיחות לשעה (סוכן)",
+      "shortDescription": "שיחות נכנסות שטופלו על ידי הסוכן לשעה.",
+      "longDescription": "תפוקה ברמת הסוכן: שיחות נכנסות שטופלו, מנורמלות לשעת עבודה, מחושבות על ידי פונקציית ה-CPH של המנוע.",
+      "comparison": "מקבילה ברמת התור: QueueCPH."
+    },
+    {
+      "metricId": "UserNumAllIntercom",
+      "displayName": "שיחות פנימיות (סוכן)",
+      "shortDescription": "מספר השיחות הפנימיות (אינטרקום) שבהן היה הסוכן מעורב היום.",
+      "longDescription": "סופר אינטראקציות אינטרקום של הסוכן היום, בכל כיוון. עומס תקשורת פנימית.",
+      "comparison": ""
+    },
+    {
+      "metricId": "UserNumMissedCalls",
+      "displayName": "שיחות שלא נענו (סוכן)",
+      "shortDescription": "מספר הפעמים שהסוכן החמיץ אינטראקציה שנותבה אליו היום.",
+      "longDescription": "ספירה מצטברת של מספר הפעמים היום שהסוכן נכנס למצב \"Missed Call\" — אינטראקציה נותבה לסוכן ולא נענתה. מדד משמעת/זמינות.",
+      "comparison": "מקבילה קבוצתית בזמן אמת: MonSumAgentsInMissedCall."
+    },
+    {
+      "metricId": "AgentMessagesAvgFirstResponseTime",
+      "displayName": "זמן תגובה ראשון ממוצע — הודעות (סוכן)",
+      "shortDescription": "הזמן הממוצע עד התגובה הראשונה של הסוכן בשיחות הודעות היום.",
+      "longDescription": "זמן תגובה ראשון (First Response Time) ברמת הסוכן: הזמן הממוצע מהגעת השיחה ועד התגובה הראשונה של הסוכן.",
+      "comparison": "מקבילה ברמת התור: MessagesAvgFirstResponseTime."
+    },
+    {
+      "metricId": "AgentMessagesAvgResponseTime",
+      "displayName": "זמן תגובה ממוצע — הודעות (סוכן)",
+      "shortDescription": "זמן התגובה הממוצע של הסוכן להודעות לקוח היום.",
+      "longDescription": "הזמן הממוצע ברמת הסוכן בין הודעת לקוח לבין תגובת הסוכן (כל התגובות).",
+      "comparison": "מקבילה ברמת התור: MessagesAvgResponseTime."
+    },
+    {
+      "metricId": "MonAgentAvailableDuration",
+      "displayName": "משך מצב Available",
+      "shortDescription": "סך הזמן שהסוכן שהה במצבי קבוצת AVAILABLE היום.",
+      "longDescription": "זמן מצטבר היום בסטטוסים של קבוצת AVAILABLE — זמן מוכנות בהמתנה לאינטראקציות.",
+      "comparison": "אחוז מזמן ההתחברות: MonAgentAvailableDurationPct."
+    },
+    {
+      "metricId": "MonAgentAverageAgentDialerDuration",
+      "displayName": "משך שיחת Dialer ממוצע (סוכן)",
+      "shortDescription": "המשך הממוצע של שיחות ה-Dialer (קמפיין) של הסוכן היום.",
+      "longDescription": "הזמן הממוצע לכל שהייה בסטטוס \"Campaign Call\" היום.",
+      "comparison": "נפח Dialer: MonAgentNumberOfInboundCallsDialer."
+    },
+    {
+      "metricId": "MonAgentAverageCallDuration",
+      "displayName": "משך טיפול ממוצע (סוכן)",
+      "shortDescription": "המשך הממוצע של מעורבות ONPHONE אחת של הסוכן היום.",
+      "longDescription": "הזמן הממוצע לכל שהייה בסטטוסים של קבוצת ONPHONE היום — מדד מעשי לזמן טיפול (AHT) פר-אינטראקציה ברמת הסוכן.",
+      "comparison": "רכיבים: שיחה (MonAgentTalkDuration), המתנה (MonAgentHeldDuration), סיכום שיחה (MonAgentWrapUpDuration)."
+    },
+    {
+      "metricId": "MonAgentAverageInboundCallDuration",
+      "displayName": "משך שיחה נכנסת ממוצע (סוכן)",
+      "shortDescription": "זמן השיחה (Talk Time) הממוצע של שיחות/קולבקים (callbacks) נכנסים שהסוכן השלים היום.",
+      "longDescription": "זמן השיחה (Talk Time) הממוצע של שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו על ידי הסוכן (מבוסס-אינטראקציה, לא כולל בתהליך).",
+      "comparison": "ממוצע טיפול מבוסס-סטטוס: MonAgentAverageCallDuration."
+    },
+    {
+      "metricId": "MonAgentAverageMakeCallDuration",
+      "displayName": "משך שיחה יוצאת ממוצע (סוכן)",
+      "shortDescription": "המשך הממוצע של השיחות היוצאות של הסוכן היום.",
+      "longDescription": "הזמן הממוצע לכל שהייה בסטטוס \"Out Ext Call\" היום.",
+      "comparison": "מספר שיחות יוצאות: MonAgentNumberOfMakeCalls."
+    },
+    {
+      "metricId": "MonAgentBreakDuration",
+      "displayName": "משך הפסקות מצטבר",
+      "shortDescription": "סך הזמן שהסוכן שהה במצבי קבוצת BREAK היום.",
+      "longDescription": "זמן מצטבר היום בסטטוסים מסוג הפסקה (ארוחה, הפסקה קצרה וכו').",
+      "comparison": "אחוז מזמן ההתחברות: MonAgentBreakDurationPct. חלופה למצב יחיד: ראו מצבים ספציפיים."
+    },
+    {
+      "metricId": "MonAgentCurrentLoginDuration",
+      "displayName": "משך התחברות נוכחי",
+      "shortDescription": "הזמן שחלף מאז ההתחברות הנוכחית של הסוכן.",
+      "longDescription": "משך סשן ההתחברות הנוכחי של הסוכן, מתעדכן בזמן אמת.",
+      "comparison": "מקבילה מצטברת: MonAgentLoginTime (כל הסשנים היום)."
+    },
+    {
+      "metricId": "MonAgentDurationOfCalls",
+      "displayName": "משך שיחות נכנסות מצטבר",
+      "shortDescription": "סך הזמן שהסוכן בילה בשיחות חיצוניות נכנסות היום.",
+      "longDescription": "זמן מצטבר היום בסטטוס \"Incoming Ext Call\" — תת-קבוצה של זמן השיחה (Talk Time) הכולל עבור שיחות נכנסות.",
+      "comparison": "סך זמן השיחה (כל סוגי האינטראקציות): MonAgentTalkDuration."
+    },
+    {
+      "metricId": "MonAgentDurationOfCurrentCall",
+      "displayName": "משך שיחה נכנסת נוכחית",
+      "shortDescription": "משך השיחה החיצונית הנכנסת שהסוכן מטפל בה כעת.",
+      "longDescription": "משך בזמן אמת של סטטוס \"Incoming Ext Call\" הנוכחי של הסוכן; אפס/ריק כשאינו בשיחה חיצונית נכנסת.",
+      "comparison": "מקסימום קבוצתי: MonSumAgentsLongestCurrentCall."
+    },
+    {
+      "metricId": "MonAgentHeldDuration",
+      "displayName": "משך המתנה מצטבר",
+      "shortDescription": "סך הזמן שהסוכן השאיר לקוחות בהמתנה (Hold) היום.",
+      "longDescription": "זמן מצטבר היום בסטטוס \"Hold\". זמן ההמתנה הוא רכיב של זמן טיפול ממוצע (AHT) וגורם מטריד בחוויית הלקוח.",
+      "comparison": "AHT = שיחה + המתנה + סיכום שיחה; ראו MonAgentTalkDuration ו-MonAgentWrapUpDuration."
+    },
+    {
+      "metricId": "MonAgentLoginTime",
+      "displayName": "משך התחברות מצטבר",
+      "shortDescription": "סך זמן ההתחברות של הסוכן היום (כל הסשנים).",
+      "longDescription": "סכום כל סשני ההתחברות של הסוכן היום. מכנה עבור כל מדדי \"אחוז מזמן ההתחברות\".",
+      "comparison": "הסשן הנוכחי בלבד: MonAgentCurrentLoginDuration."
+    },
+    {
+      "metricId": "MonAgentMaxCallDuration",
+      "displayName": "משך שיחה מקסימלי (סוכן)",
+      "shortDescription": "זמן השיחה (Talk Time) הארוך ביותר של שיחה נכנסת בודדת של הסוכן היום.",
+      "longDescription": "זמן השיחה (Talk Time) המקסימלי מבין השיחות החיצוניות הנכנסות/קולבקים (callbacks) של הסוכן היום.",
+      "comparison": "שיחה נוכחית בזמן אמת: MonAgentDurationOfCurrentCall."
+    },
+    {
+      "metricId": "MonAgentPaperworkDuration",
+      "displayName": "משך Paperwork מצטבר",
+      "shortDescription": "סך הזמן שהסוכן שהה במצבי קבוצת PAPERWORK היום.",
+      "longDescription": "זמן מצטבר היום בסטטוסים של עבודה לאחר שיחה / back-office (קבוצת PAPERWORK).",
+      "comparison": "אחוז מזמן ההתחברות: MonAgentPaperworkDurationPct. מצב Wrap Up יחיד: MonAgentWrapUpDuration."
+    },
+    {
+      "metricId": "MonAgentStateDescDuration",
+      "displayName": "משך קבוצת סטטוס נוכחית",
+      "shortDescription": "כמה זמן הסוכן נמצא בקבוצת הסטטוס הנוכחית.",
+      "longDescription": "משך בזמן אמת של שהיית הסוכן בקבוצת הסטטוס הנוכחית: מעבר בין מצבים בתוך אותה קבוצה (למשל מ-Lunch ל-Coffee Break) אינו מאפס את הטיימר הזה.",
+      "comparison": "טיימר ברמת המצב: MonAgentStateDuration."
+    },
+    {
+      "metricId": "MonAgentStateDuration",
+      "displayName": "משך סטטוס נוכחי",
+      "shortDescription": "כמה זמן הסוכן נמצא בסטטוס הנוכחי.",
+      "longDescription": "משך בזמן אמת של הסטטוס הנוכחי של הסוכן, יהיה אשר יהיה. עמודת טיימר אוניברסלית ללוח מחוונים.",
+      "comparison": "משך ברמת הקבוצה של קבוצת הסטטוס הנוכחית: MonAgentStateDescDuration."
+    },
+    {
+      "metricId": "MonAgentTalkDuration",
+      "displayName": "משך שיחה מצטבר",
+      "shortDescription": "סך הזמן שהסוכן שהה במצבי קבוצת ONPHONE היום.",
+      "longDescription": "סכום כל הזמן היום בסטטוסים של קבוצת ONPHONE — סך זמן השיחה מול לקוחות.",
+      "comparison": "אחוז מזמן ההתחברות: MonAgentTalkDurationPct. ממוצע פר-שיחה: MonAgentAverageCallDuration."
+    },
+    {
+      "metricId": "MonAgentTelStateDuration",
+      "displayName": "משך מצב אינטראקציה פעילה",
+      "shortDescription": "כמה זמן האינטראקציה הפעילה הארוכה ביותר של הסוכן נמצאת במצבה הנוכחי.",
+      "longDescription": "משך בזמן אמת של המצב הנוכחי (למשל שיחה, המתנה) של האינטראקציה הפעילה הארוכה ביותר של הסוכן.",
+      "comparison": "מצב האינטראקציה עצמו: MonAgentTelState."
+    },
+    {
+      "metricId": "MonAgentUnavailableStateDuration",
+      "displayName": "משך Unavailable מצטבר",
+      "shortDescription": "סך הזמן שהסוכן שהה במצב \"Unavailable\" היום.",
+      "longDescription": "זמן מצטבר היום בסטטוס \"Unavailable\" הספציפי.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentWrapUpDuration",
+      "displayName": "משך Wrap Up מצטבר",
+      "shortDescription": "סך הזמן שהסוכן שהה במצב \"Wrap Up\" היום.",
+      "longDescription": "זמן מצטבר היום בסטטוס \"Wrap Up\" הספציפי (מצב אחד מקבוצת PAPERWORK).",
+      "comparison": "סיכום שיחה (Wrap Up / ACW) ברמת הקבוצה כולה: MonAgentPaperworkDuration."
+    },
+    {
+      "metricId": "AgentLoginName",
+      "displayName": "שם התחברות",
+      "shortDescription": "שם התצוגה/ההתחברות של הסוכן.",
+      "longDescription": "תכונה סטטית המשמשת כתווית השורה ברכיבי Agent Grid.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonActiveCampaign",
+      "displayName": "תור אינטראקציה פעילה",
+      "shortDescription": "שם התור (workgroup) של האינטראקציה הפעילה הארוכה ביותר של הסוכן.",
+      "longDescription": "תכונה בזמן אמת: מאיזה תור הגיעה האינטראקציה הפעילה הארוכה ביותר.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentActiveInteractionId",
+      "displayName": "מזהה אינטראקציה פעילה",
+      "shortDescription": "מזהה האינטראקציה הפעילה הארוכה ביותר של הסוכן.",
+      "longDescription": "תכונה בזמן אמת: מזהה האינטראקציה של האינטראקציה הפעילה הארוכה ביותר של הסוכן כעת.",
+      "comparison": "נלווים: סוג, מצב, תור ומספר הלקוח של אותה אינטראקציה."
+    },
+    {
+      "metricId": "MonAgentCurrentLoginTimeStamp",
+      "displayName": "זמן התחברות נוכחי",
+      "shortDescription": "חותמת זמן של ההתחברות הנוכחית של הסוכן.",
+      "longDescription": "תכונה: זמן התחלת סשן ההתחברות הנוכחי.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentExtension",
+      "displayName": "שלוחה",
+      "shortDescription": "שלוחת הטלפוניה של הסוכן.",
+      "longDescription": "תכונה סטטית: מספר השלוחה של הסוכן.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentFirstLoginTimeStamp",
+      "displayName": "זמן התחברות ראשון",
+      "shortDescription": "חותמת זמן של ההתחברות הראשונה של הסוכן היום.",
+      "longDescription": "תכונה סטטית-יומית: מתי הסוכן התחבר לראשונה היום.",
+      "comparison": "תחילת הסשן הנוכחי: MonAgentCurrentLoginTimeStamp."
+    },
+    {
+      "metricId": "MonAgentState",
+      "displayName": "סטטוס נוכחי",
+      "shortDescription": "שם הסטטוס הנוכחי של הסוכן.",
+      "longDescription": "תכונת טקסט בזמן אמת: כותרת ה-Agent State הנוכחי של הסוכן (למשל Available, Lunch, Wrap Up).",
+      "comparison": "שם הקבוצה: MonAgentStateDesc. טיימר: MonAgentStateDuration."
+    },
+    {
+      "metricId": "MonAgentStateDesc",
+      "displayName": "קבוצת סטטוס נוכחית",
+      "shortDescription": "קבוצת הסטטוס של הסטטוס הנוכחי של הסוכן.",
+      "longDescription": "תכונת טקסט בזמן אמת: קבוצת הסטטוס (AVAILABLE / ONPHONE / BREAK / PAPERWORK / TRAINING) של המצב הנוכחי של הסוכן.",
+      "comparison": "שם המצב: MonAgentState."
+    },
+    {
+      "metricId": "MonAgentStation",
+      "displayName": "מזהה עמדה",
+      "shortDescription": "מזהה עמדת העבודה/הטלפון של הסוכן.",
+      "longDescription": "תכונה סטטית: העמדה שאליה הסוכן מחובר.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentTelState",
+      "displayName": "מצב אינטראקציה פעילה",
+      "shortDescription": "המצב של האינטראקציה הפעילה הארוכה ביותר של הסוכן.",
+      "longDescription": "תכונה בזמן אמת: המצב הנוכחי (למשל שיחה, המתנה) של האינטראקציה הפעילה הארוכה ביותר.",
+      "comparison": "משך אותו מצב: MonAgentTelStateDuration."
+    },
+    {
+      "metricId": "MonAgentTodayLogin",
+      "displayName": "התחבר היום (דגל)",
+      "shortDescription": "דגל/מזהה המציין שהסוכן התחבר היום.",
+      "longDescription": "תכונה טכנית המסמנת סוכנים שהתחברו במהלך היום הנוכחי. הערה: התיאור שלה ב-DB (\"Change -ID of a representative...\") חסר את הקידומת הסטנדרטית \"Agent -\" וזקוק לנרמול.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentUserId",
+      "displayName": "מזהה משתמש",
+      "shortDescription": "מזהה המשתמש של הסוכן בפלטפורמה.",
+      "longDescription": "תכונה סטטית: מזהה המשתמש של הסוכן בפלטפורמת ה-CC.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonInteractionType",
+      "displayName": "סוג אינטראקציה פעילה",
+      "shortDescription": "הסוג (שיחה/צ'אט/...) של האינטראקציה הפעילה הארוכה ביותר של הסוכן.",
+      "longDescription": "תכונה בזמן אמת: סוג האינטראקציה של האינטראקציה הפעילה הארוכה ביותר.",
+      "comparison": ""
+    },
+    {
+      "metricId": "RemotePhoneNumber",
+      "displayName": "מספר טלפון של הלקוח",
+      "shortDescription": "מספר הטלפון של הלקוח באינטראקציה הפעילה הארוכה ביותר של הסוכן.",
+      "longDescription": "תכונה בזמן אמת: מספר הצד המרוחק של האינטראקציה הפעילה הארוכה ביותר. מידע אישי (PII) — יש להחיל מדיניות מיסוך במידת הצורך.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentAvailableDurationPct",
+      "displayName": "% זמן Available מההתחברות",
+      "shortDescription": "חלקו של זמן ההתחברות של הסוכן שבילה במצבי AVAILABLE היום.",
+      "longDescription": "זמן מצטבר של קבוצת AVAILABLE חלקי סך זמן ההתחברות — חלק המוכנות בהמתנה.",
+      "comparison": "% Available גבוה + % Talk נמוך = ניצול חסר; ההפך מעיד על עומס יתר."
+    },
+    {
+      "metricId": "MonAgentBreakDurationPct",
+      "displayName": "% זמן Break מההתחברות",
+      "shortDescription": "חלקו של זמן ההתחברות של הסוכן שבילה במצבי BREAK היום.",
+      "longDescription": "זמן מצטבר של קבוצת BREAK חלקי סך זמן ההתחברות — shrinkage הפסקות פר-סוכן.",
+      "comparison": "מקבילה קבוצתית: MonSumAgentsBreakDurationPercent."
+    },
+    {
+      "metricId": "MonAgentPaperworkDurationPct",
+      "displayName": "% זמן Paperwork מההתחברות",
+      "shortDescription": "חלקו של זמן ההתחברות של הסוכן שבילה במצבי PAPERWORK היום.",
+      "longDescription": "זמן מצטבר של קבוצת PAPERWORK חלקי סך זמן ההתחברות — חלק ה-ACW.",
+      "comparison": "מקבילה קבוצתית: MonSumAgentsPaperworkDurationPercent."
+    },
+    {
+      "metricId": "MonAgentTalkDurationPct",
+      "displayName": "% זמן שיחה מההתחברות",
+      "shortDescription": "חלקו של זמן ההתחברות של הסוכן שבילה במצבי ONPHONE היום.",
+      "longDescription": "זמן מצטבר של קבוצת ONPHONE חלקי סך זמן ההתחברות. מדד מעשי לתפוסה (Occupancy) פר-סוכן (מבוסס-שיחה; לא כולל סיכום שיחה).",
+      "comparison": "נלווים: % Available, % Break, % Paperwork, % Training."
+    },
+    {
+      "metricId": "MonAgentTrainingDurationPct",
+      "displayName": "% זמן Training מההתחברות",
+      "shortDescription": "חלקו של זמן ההתחברות של הסוכן שבילה במצבי TRAINING היום.",
+      "longDescription": "זמן מצטבר של קבוצת TRAINING חלקי סך זמן ההתחברות.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonSumAgentsBreakDurationMax",
+      "displayName": "משך Break נוכחי מקסימלי (קבוצה)",
+      "shortDescription": "הזמן הארוך ביותר שסוכן כלשהו בקבוצה נמצא כעת במצב מקבוצת Break.",
+      "longDescription": "מקסימום בזמן אמת: מבין הסוכנים הנמצאים כעת במצב מקבוצת BREAK, משך ההפסקה המתמשכת הארוכה ביותר. מדגיש הפסקות שהתארכו בלוחות מחוונים.",
+      "comparison": "מקבילה באחוזים: MonSumAgentsBreakDurationPercent."
+    },
+    {
+      "metricId": "MonSumAgentsBreakDurationPercent",
+      "displayName": "% זמן בקבוצת Break (קבוצה)",
+      "shortDescription": "חלקו של זמן ההתחברות של הקבוצה שבילתה במצבי קבוצת Break.",
+      "longDescription": "אחוז מצטבר להיום: סך הזמן שסוכני היחידה העסקית (BU) בילו במצבי קבוצת BREAK חלקי סך זמן ההתחברות שלהם. מדד shrinkage מרכזי.",
+      "comparison": "מקבילה פר-סוכן: MonAgentBreakDurationPct."
+    },
+    {
+      "metricId": "MonSumAgentsPaperworkDurationPercent",
+      "displayName": "% זמן בקבוצת Paperwork (קבוצה)",
+      "shortDescription": "חלקו של זמן ההתחברות של הקבוצה שבילתה במצבי קבוצת Paperwork.",
+      "longDescription": "אחוז מצטבר להיום: סך זמן קבוצת PAPERWORK חלקי סך זמן ההתחברות של הקבוצה. מודד עומס ACW/back-office.",
+      "comparison": "מקבילה פר-סוכן: MonAgentPaperworkDurationPct."
+    },
+    {
+      "metricId": "MonAgentNumberOfInboundCallsDialer",
+      "displayName": "שיחות Dialer",
+      "shortDescription": "מספר אינטראקציות ה-Dialer (קמפיין) הנכנסות היום.",
+      "longDescription": "סופר אינטראקציות מסוג Dialer (שיחות קמפיין יוצא המסופקות לסוכנים כנכנסות) שנרשמו היום, חיצוניות או אינטרקום. הערה: קידומת התיאור אומרת \"Agent Group\" בעוד שה-DataType הוא \"User\"; המנוע מפענח את ה-DataType שאינו \"UsersInteraction\" לקבוצת אינטראקציות התור, כך שהמדד מתנהג כמונה ברמת התור.",
+      "comparison": "מקבילת משך ממוצע: MonAgentAverageAgentDialerDuration."
+    },
+    {
+      "metricId": "MonSumAgentsAnsweredCalls",
+      "displayName": "שיחות + קולבקים (callbacks) שנענו (קבוצה)",
+      "shortDescription": "מספר השיחות והקולבקים (callbacks) הנכנסים שנענו והושלמו על ידי סוכני הקבוצה הזו היום.",
+      "longDescription": "סופר שיחות חיצוניות נכנסות וקולבקים (callbacks) שסוכני היחידה העסקית (BU) ענו וכבר סיימו (השיחה הסתיימה, כבר לא בתור). מחושב על קבוצת אינטראקציות הסוכנים (UsersInteraction).",
+      "comparison": "כמעט-מקבילה בצד התור: QueueNumAnsweredCallsAndCallbacks (סופר עם המענה, כולל בתהליך)."
+    },
+    {
+      "metricId": "MonSumAgentsAverageCallDuration",
+      "displayName": "משך שיחה ממוצע — שיחות+קולבקים (callbacks) (קבוצה)",
+      "shortDescription": "זמן השיחה (Talk Time) הממוצע של שיחות נכנסות וקולבקים (callbacks) שהשלימה הקבוצה הזו היום.",
+      "longDescription": "זמן השיחה הממוצע של שיחות חיצוניות נכנסות וקולבקים (callbacks) שהסתיימו היום על ידי סוכני היחידה העסקית (BU), מחושב על קבוצת אינטראקציות הסוכנים.",
+      "comparison": "מקבילה בצד התור: QueueAvgTalkingDurationCallsAndCallbacks."
+    },
+    {
+      "metricId": "MonSumAgentsAverageChatDuration",
+      "displayName": "משך טיפול ממוצע — צ'אטים (קבוצה)",
+      "shortDescription": "משך הטיפול הממוצע בצ'אטים נכנסים שהשלימה הקבוצה הזו היום.",
+      "longDescription": "זמן טיפול הצ'אט הממוצע של צ'אטים נכנסים שהסתיימו היום על ידי סוכני היחידה העסקית (BU) (קבוצת אינטראקציות הסוכנים).",
+      "comparison": "מקבילה בצד התור: QueueAvgTalkingDurationChats."
+    },
+    {
+      "metricId": "MonSumAgentsLongestCurrentCall",
+      "displayName": "השיחה הנוכחית הארוכה ביותר (קבוצה)",
+      "shortDescription": "משך האינטראקציה הארוכה ביותר המטופלת כעת על ידי סוכן בקבוצה הזו.",
+      "longDescription": "מקסימום בזמן אמת של זמן השיחה (Talk Time) מבין האינטראקציות המתבצעות כעת בתוך היחידה העסקית (BU). מסמן שיחות שמתמשכות זמן רב במיוחד.",
+      "comparison": "מקבילה פר-סוכן: MonAgentDurationOfCurrentCall."
+    },
+    {
+      "metricId": "MonSumAgentsMakeCalls",
+      "displayName": "שיחות יוצאות (קבוצה)",
+      "shortDescription": "מספר האינטראקציות החיצוניות היוצאות שביצעו סוכני הקבוצה הזו היום.",
+      "longDescription": "סופר אינטראקציות חיצוניות יוצאות שיזמו סוכני היחידה העסקית (BU) היום (מחושב על קבוצת אינטראקציות הסוכנים).",
+      "comparison": "מקבילה בצד התור: QueueNumOutboundCalls. פר-סוכן: MonAgentNumberOfMakeCalls."
+    },
+    {
+      "metricId": "MonSumAgentsInMissedCall",
+      "displayName": "סוכנים במצב \"Missed Call\"",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת במצב \"Missed Call\".",
+      "longDescription": "ספירה בזמן אמת של סוכנים שמצבם הנוכחי הוא \"Missed Call\" — המצב שאליו נכנס סוכן לאחר שלא ענה לאינטראקציה שנותבה אליו. ערכים שאינם אפס באופן מתמשך מעידים על בעיות ניתוב או משמעת.",
+      "comparison": "מקבילה מצטברת פר-סוכן: UserNumMissedCalls."
+    },
+    {
+      "metricId": "StateCountAvailable",
+      "displayName": "סוכנים במצב \"Available\"",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת ב-Agent State הספציפי \"Available\".",
+      "longDescription": "ספירה בזמן אמת של סוכנים שה-Agent State הנוכחי שלהם הוא בדיוק \"Available\". סופר את מצב הפלטפורמה הגולמי, לא את קבוצת הסטטוס: מצבים מותאמים אישית הממופים לקבוצת AVAILABLE (למשל \"Ready-Chat\") אינם נכללים.",
+      "comparison": "מקבילה ברמת הקבוצה: QueueLoginDataNumAvailableUsers."
+    },
+    {
+      "metricId": "StateCountBreak",
+      "displayName": "סוכנים במצב \"Break\"",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת ב-Agent State הספציפי \"Break\".",
+      "longDescription": "ספירה בזמן אמת של סוכנים שה-Agent State הנוכחי שלהם הוא בדיוק \"Break\". מצבים כמו \"Lunch\" או \"Coffee Break\" אינם נכללים אף שהם שייכים לקבוצת BREAK.",
+      "comparison": "מקבילה ברמת הקבוצה: QueueLoginDataNumBreakUsers."
+    },
+    {
+      "metricId": "StateCountOnPhone",
+      "displayName": "סוכנים במצב \"On Phone\"",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת ב-Agent State הספציפי \"On Phone\".",
+      "longDescription": "ספירה בזמן אמת של סוכנים שה-Agent State הנוכחי שלהם הוא בדיוק \"On Phone\" (מצב גולמי, לא קבוצת ONPHONE).",
+      "comparison": "מקבילה ברמת הקבוצה: UsersSumOnCall."
+    },
+    {
+      "metricId": "StateCountPaperwork",
+      "displayName": "סוכנים במצב \"Paperwork\"",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת ב-Agent State הספציפי \"Paperwork\".",
+      "longDescription": "ספירה בזמן אמת של סוכנים שה-Agent State הנוכחי שלהם הוא בדיוק \"Paperwork\" (מצב גולמי, לא קבוצת PAPERWORK).",
+      "comparison": "מקבילה ברמת הקבוצה: QueueLoginDataNumPaperworkUsers."
+    },
+    {
+      "metricId": "StateCountTraining",
+      "displayName": "סוכנים במצב \"Training\"",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת ב-Agent State הספציפי \"Training\".",
+      "longDescription": "ספירה בזמן אמת של סוכנים שה-Agent State הנוכחי שלהם הוא בדיוק \"Training\" (מצב גולמי, לא קבוצת TRAINING).",
+      "comparison": "מקבילה ברמת הקבוצה: QueueLoginDataNumTrainingUsers."
+    },
+    {
+      "metricId": "QueueLoginDataNumAvailableUsers",
+      "displayName": "סוכנים זמינים (קבוצה)",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת בקבוצת הסטטוס AVAILABLE.",
+      "longDescription": "ספירה בזמן אמת של סוכני היחידה העסקית (BU) שהסטטוס הנוכחי שלהם שייך לקבוצת הסטטוס AVAILABLE (מוכנים לקבל אינטראקציה).",
+      "comparison": "StateCountAvailable סופר רק את ה-Agent State הספציפי \"Available\"; מדד זה סופר את הקבוצה כולה."
+    },
+    {
+      "metricId": "QueueLoginDataNumBreakUsers",
+      "displayName": "סוכנים בקבוצת Break",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת במצב כלשהו מקבוצת Break.",
+      "longDescription": "ספירה בזמן אמת של סוכנים שהסטטוס הנוכחי שלהם שייך לקבוצת הסטטוס BREAK (ארוחה, הפסקה קצרה, הפסקת קפה וכו').",
+      "comparison": "StateCountBreak סופר רק את המצב הספציפי \"Break\"; מדד זה מכסה את כל מצבי ההפסקה."
+    },
+    {
+      "metricId": "QueueLoginDataNumLoggedUsers",
+      "displayName": "סוכנים מחוברים",
+      "shortDescription": "מספר הסוכנים של היחידה העסקית (BU) המחוברים כעת.",
+      "longDescription": "ספירה בזמן אמת של סוכנים המחוברים כעת לפלטפורמה בתוך היחידה העסקית (BU) הזו, בכל סטטוס. בסיס להערכת איוש ותפוסה (Occupancy).",
+      "comparison": "QueueNumberOfLoggedAgents הוא הכפילות (המיושנת) שלו. ספירות Available/Break/Paperwork הן תת-קבוצות."
+    },
+    {
+      "metricId": "QueueLoginDataNumPaperworkUsers",
+      "displayName": "סוכנים בקבוצת Paperwork",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת במצב כלשהו מקבוצת Paperwork (ACW/back-office).",
+      "longDescription": "ספירה בזמן אמת של סוכנים שהסטטוס הנוכחי שלהם שייך לקבוצת הסטטוס PAPERWORK (עבודה לאחר שיחה, משימות אדמיניסטרטיביות).",
+      "comparison": "QueueNumWrapUpAgents סופר רק את המצב היחיד \"Wrap Up\"."
+    },
+    {
+      "metricId": "QueueLoginDataNumTrainingUsers",
+      "displayName": "סוכנים בקבוצת Training",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת במצב כלשהו מקבוצת Training.",
+      "longDescription": "ספירה בזמן אמת של סוכנים שהסטטוס הנוכחי שלהם שייך לקבוצת הסטטוס TRAINING. הערה: לשורה זו יש DataType חריג (\"String\" במקום \"UsersSummary\") ועמודות ברירת מחדל ריקות — בלתי מזיק למנוע (ה-DataType מתעלם עבור מוני סטטוס) אך כדאי לנרמל.",
+      "comparison": "StateCountTraining סופר רק את המצב הספציפי \"Training\"."
+    },
+    {
+      "metricId": "UsersSumOnCall",
+      "displayName": "סוכנים בשיחה",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת בקבוצת הסטטוס ONPHONE (מטפלים באינטראקציה).",
+      "longDescription": "ספירה בזמן אמת של סוכנים שהסטטוס הנוכחי שלהם שייך לקבוצת ONPHONE — מטפלים פעיל באינטראקציות לקוח.",
+      "comparison": "QueueNumOnCallAgents הוא הכפילות (המיושנת) שלו. StateCountOnPhone סופר רק את המצב הספציפי."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandCallbacks",
+      "displayName": "זמן ממוצע עד נטישה — קולבקים (Callbacks)",
+      "shortDescription": "הזמן הממוצע שאינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) המתינו בתור לפני שננטשו (abandoned) היום.",
+      "longDescription": "זמן ההמתנה הממוצע בתור של אינטראקציות קולבק (callback) שננטשו (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור): כמה זמן הלקוחות היו מוכנים להמתין לפני שוויתרו. שימושי לקביעת יעדי רמת שירות (Service Level) ריאליים — אם לקוחות נוטשים ב-40 שניות, יעד של 60 שניות איטי מדי.",
+      "comparison": "תת-קבוצה של 'זמן המתנה ממוצע' המוגבלת לאינטראקציות שננטשו (abandoned)."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandCalls",
+      "displayName": "זמן ממוצע עד נטישה — שיחות",
+      "shortDescription": "הזמן הממוצע ששיחות קוליות חיצוניות נכנסות המתינו בתור לפני שננטשו (abandoned) היום.",
+      "longDescription": "זמן ההמתנה הממוצע בתור של שיחות קוליות חיצוניות נכנסות שננטשו: כמה זמן הלקוחות היו מוכנים להמתין לפני שוויתרו. שימושי לקביעת יעדי רמת שירות (Service Level) ריאליים — אם לקוחות נוטשים ב-40 שניות, יעד של 60 שניות איטי מדי.",
+      "comparison": "תת-קבוצה של 'זמן המתנה ממוצע' המוגבלת לאינטראקציות שננטשו (abandoned)."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandCallsAndCallbacks",
+      "displayName": "זמן ממוצע עד נטישה — שיחות + קולבקים (Callbacks)",
+      "shortDescription": "הזמן הממוצע שעומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) המתינו בתור לפני שננטשו (abandoned) היום.",
+      "longDescription": "זמן ההמתנה הממוצע בתור של עומס קולי משולב שננטש: שיחות חיצוניות נכנסות וקולבקים (callbacks): כמה זמן הלקוחות היו מוכנים להמתין לפני שוויתרו. שימושי לקביעת יעדי רמת שירות (Service Level) ריאליים — אם לקוחות נוטשים ב-40 שניות, יעד של 60 שניות איטי מדי.",
+      "comparison": "תת-קבוצה של 'זמן המתנה ממוצע' המוגבלת לאינטראקציות שננטשו (abandoned)."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandChats",
+      "displayName": "זמן ממוצע עד נטישה — צ'אטים",
+      "shortDescription": "הזמן הממוצע שאינטראקציות צ'אט נכנסות המתינו בתור לפני שננטשו (abandoned) היום.",
+      "longDescription": "זמן ההמתנה הממוצע בתור של אינטראקציות צ'אט נכנסות שננטשו: כמה זמן הלקוחות היו מוכנים להמתין לפני שוויתרו. שימושי לקביעת יעדי רמת שירות (Service Level) ריאליים — אם לקוחות נוטשים ב-40 שניות, יעד של 60 שניות איטי מדי.",
+      "comparison": "תת-קבוצה של 'זמן המתנה ממוצע' המוגבלת לאינטראקציות שננטשו (abandoned)."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandInteractions",
+      "displayName": "זמן ממוצע עד נטישה — אינטראקציות דיגיטליות",
+      "shortDescription": "הזמן הממוצע שאינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) המתינו בתור לפני שננטשו (abandoned) היום.",
+      "longDescription": "זמן ההמתנה הממוצע בתור של אינטראקציות דיגיטליות לא-קוליות שננטשו (צ'אט ודוא\"ל): כמה זמן הלקוחות היו מוכנים להמתין לפני שוויתרו. שימושי לקביעת יעדי רמת שירות (Service Level) ריאליים — אם לקוחות נוטשים ב-40 שניות, יעד של 60 שניות איטי מדי.",
+      "comparison": "תת-קבוצה של 'זמן המתנה ממוצע' המוגבלת לאינטראקציות שננטשו (abandoned)."
+    },
+    {
+      "metricId": "MessagesAvgFirstResponseTime",
+      "displayName": "זמן תגובה ראשון ממוצע (הודעות)",
+      "shortDescription": "הזמן הממוצע עד התגובה הראשונה של הסוכן בערוצי הודעות היום.",
+      "longDescription": "הזמן הממוצע בין הגעת הודעה לבין התגובה הראשונה של הסוכן. מדד התגובתיות המרכזי (First Response Time) עבור ערוצי צ'אט/הודעות.",
+      "comparison": "MessagesAvgResponseTime מכסה את כל התגובות, לא רק את הראשונה."
+    },
+    {
+      "metricId": "MessagesAvgResponseTime",
+      "displayName": "זמן תגובה ממוצע (הודעות)",
+      "shortDescription": "זמן התגובה הממוצע של הסוכן להודעות לקוח היום (כל התגובות).",
+      "longDescription": "הזמן הממוצע בין הודעת לקוח כלשהי לבין תגובת הסוכן שאחריה. מודד תגובתיות מתמשכת בשיחה, לא רק את המגע הראשון.",
+      "comparison": "MessagesAvgFirstResponseTime מבודד את התגובה הראשונה."
+    },
+    {
+      "metricId": "MessagesMaxFirstResponseTime",
+      "displayName": "זמן תגובה ראשון מקסימלי (הודעות)",
+      "shortDescription": "זמן התגובה הראשונה הארוך ביותר להודעה נכנסת היום.",
+      "longDescription": "הזמן המקסימלי שלקוחות המתינו היום לתגובה הראשונה של הסוכן בערוצי הודעות. מדד המקרה הגרוע ביותר של תגובתיות דיגיטלית.",
+      "comparison": "מקבילה ממוצעת: MessagesAvgFirstResponseTime."
+    },
+    {
+      "metricId": "QueuePctAbandonedCallbacksTotal",
+      "displayName": "% קולבקים (Callbacks) שננטשו",
+      "shortDescription": "חלקן של אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שננטשו (abandoned) בתור, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שננטשו (abandoned) חלקי אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו. מדד שיעור הנטישה (Abandonment Rate) הסטנדרטי: מדידה ישירה של לקוחות שאבדו בתור. בקשות קולבק (callback) אינן נספרות כנטישה.",
+      "comparison": "משלים ל-'% שנענו'."
+    },
+    {
+      "metricId": "QueuePctAbandonedCallsTotal",
+      "displayName": "% שיחות שננטשו",
+      "shortDescription": "חלקן של שיחות קוליות חיצוניות נכנסות שננטשו (abandoned) בתור, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "שיחות קוליות חיצוניות נכנסות שננטשו (abandoned) חלקי שיחות קוליות חיצוניות נכנסות שהושלמו. מדד שיעור הנטישה (Abandonment Rate) הסטנדרטי: מדידה ישירה של לקוחות שאבדו בתור. בקשות קולבק (callback) אינן נספרות כנטישה.",
+      "comparison": "משלים ל-'% שנענו'."
+    },
+    {
+      "metricId": "QueuePctAbandonedCallsAndCallbacksTotal",
+      "displayName": "% שיחות + קולבקים (Callbacks) שננטשו",
+      "shortDescription": "חלקן של עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שננטשו (abandoned) בתור, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שננטשו (abandoned) חלקי עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו. מדד שיעור הנטישה (Abandonment Rate) הסטנדרטי: מדידה ישירה של לקוחות שאבדו בתור. בקשות קולבק (callback) אינן נספרות כנטישה.",
+      "comparison": "משלים ל-'% שנענו'."
+    },
+    {
+      "metricId": "QueuePctAbandonedChatsTotal",
+      "displayName": "% צ'אטים שננטשו",
+      "shortDescription": "חלקן של אינטראקציות צ'אט נכנסות שננטשו (abandoned) בתור, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "אינטראקציות צ'אט נכנסות שננטשו (abandoned) חלקי אינטראקציות צ'אט נכנסות שהושלמו. מדד שיעור הנטישה (Abandonment Rate) הסטנדרטי: מדידה ישירה של לקוחות שאבדו בתור. בקשות קולבק (callback) אינן נספרות כנטישה.",
+      "comparison": "משלים ל-'% שנענו'."
+    },
+    {
+      "metricId": "QueuePctAbandonedInteractionsTotal",
+      "displayName": "% אינטראקציות דיגיטליות שננטשו",
+      "shortDescription": "חלקן של אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שננטשו (abandoned) בתור, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שננטשו (abandoned) חלקי אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו. מדד שיעור הנטישה (Abandonment Rate) הסטנדרטי: מדידה ישירה של לקוחות שאבדו בתור. בקשות קולבק (callback) אינן נספרות כנטישה.",
+      "comparison": "משלים ל-'% שנענו'."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks30secAns",
+      "displayName": "% קולבקים (Callbacks) שנענו תוך 30 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו — החלק שנענה תוך 30 שניות.",
+      "longDescription": "אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו תוך 30 שניות חלקי כלל אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks60secAns",
+      "displayName": "% קולבקים (Callbacks) שנענו תוך 60 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו — החלק שנענה תוך 60 שניות.",
+      "longDescription": "אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו תוך 60 שניות חלקי כלל אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks120secAns",
+      "displayName": "% קולבקים (Callbacks) שנענו תוך 120 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו — החלק שנענה תוך 120 שניות.",
+      "longDescription": "אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו תוך 120 שניות חלקי כלל אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls30secAns",
+      "displayName": "% שיחות שנענו תוך 30 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך שיחות קוליות חיצוניות נכנסות שנענו — החלק שנענה תוך 30 שניות.",
+      "longDescription": "שיחות קוליות חיצוניות נכנסות שנענו תוך 30 שניות חלקי כלל שיחות קוליות חיצוניות נכנסות שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls60secAns",
+      "displayName": "% שיחות שנענו תוך 60 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך שיחות קוליות חיצוניות נכנסות שנענו — החלק שנענה תוך 60 שניות.",
+      "longDescription": "שיחות קוליות חיצוניות נכנסות שנענו תוך 60 שניות חלקי כלל שיחות קוליות חיצוניות נכנסות שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls120secAns",
+      "displayName": "% שיחות שנענו תוך 120 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך שיחות קוליות חיצוניות נכנסות שנענו — החלק שנענה תוך 120 שניות.",
+      "longDescription": "שיחות קוליות חיצוניות נכנסות שנענו תוך 120 שניות חלקי כלל שיחות קוליות חיצוניות נכנסות שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks30secAns",
+      "displayName": "% שיחות + קולבקים (Callbacks) שנענו תוך 30 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו — החלק שנענה תוך 30 שניות.",
+      "longDescription": "עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו תוך 30 שניות חלקי כלל עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks60secAns",
+      "displayName": "% שיחות + קולבקים (Callbacks) שנענו תוך 60 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו — החלק שנענה תוך 60 שניות.",
+      "longDescription": "עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו תוך 60 שניות חלקי כלל עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks120secAns",
+      "displayName": "% שיחות + קולבקים (Callbacks) שנענו תוך 120 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו — החלק שנענה תוך 120 שניות.",
+      "longDescription": "עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו תוך 120 שניות חלקי כלל עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats30secAns",
+      "displayName": "% צ'אטים שנענו תוך 30 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך אינטראקציות צ'אט נכנסות שנענו — החלק שנענה תוך 30 שניות.",
+      "longDescription": "אינטראקציות צ'אט נכנסות שנענו תוך 30 שניות חלקי כלל אינטראקציות צ'אט נכנסות שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats60secAns",
+      "displayName": "% צ'אטים שנענו תוך 60 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך אינטראקציות צ'אט נכנסות שנענו — החלק שנענה תוך 60 שניות.",
+      "longDescription": "אינטראקציות צ'אט נכנסות שנענו תוך 60 שניות חלקי כלל אינטראקציות צ'אט נכנסות שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats120secAns",
+      "displayName": "% צ'אטים שנענו תוך 120 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך אינטראקציות צ'אט נכנסות שנענו — החלק שנענה תוך 120 שניות.",
+      "longDescription": "אינטראקציות צ'אט נכנסות שנענו תוך 120 שניות חלקי כלל אינטראקציות צ'אט נכנסות שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions30secAns",
+      "displayName": "% אינטראקציות דיגיטליות שנענו תוך 30 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו — החלק שנענה תוך 30 שניות.",
+      "longDescription": "אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו תוך 30 שניות חלקי כלל אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions60secAns",
+      "displayName": "% אינטראקציות דיגיטליות שנענו תוך 60 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו — החלק שנענה תוך 60 שניות.",
+      "longDescription": "אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו תוך 60 שניות חלקי כלל אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions120secAns",
+      "displayName": "% אינטראקציות דיגיטליות שנענו תוך 120 שנ' (מתוך שנענו)",
+      "shortDescription": "מתוך אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו — החלק שנענה תוך 120 שניות.",
+      "longDescription": "אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו תוך 120 שניות חלקי כלל אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו. מודד את פרופיל המהירות של התעבורה שנענתה בלבד: מתוך הפניות שהסוכנים אכן ענו, כמה נענו במהירות. פניות שננטשו (abandoned) אינן נלקחות בחשבון כלל.",
+      "comparison": "תמיד ≥ הווריאנט 'מתוך נכנסות' (רמת שירות / Service Level). השתמשו בווריאנט 'מתוך נכנסות' לדיווח SLA; השתמשו בזה לניתוח מהירות מענה."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks30secInc",
+      "displayName": "% קולבקים (Callbacks) שנענו תוך 30 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו אשר נענו תוך 30 שניות — רמת השירות (Service Level / TSF) עם יעד של 30 שניות.",
+      "longDescription": "אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו תוך 30 שניות חלקי אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 30 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks60secInc",
+      "displayName": "% קולבקים (Callbacks) שנענו תוך 60 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו אשר נענו תוך 60 שניות — רמת השירות (Service Level / TSF) עם יעד של 60 שניות.",
+      "longDescription": "אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו תוך 60 שניות חלקי אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 60 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks120secInc",
+      "displayName": "% קולבקים (Callbacks) שנענו תוך 120 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו אשר נענו תוך 120 שניות — רמת השירות (Service Level / TSF) עם יעד של 120 שניות.",
+      "longDescription": "אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו תוך 120 שניות חלקי אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 120 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls30secInc",
+      "displayName": "% שיחות שנענו תוך 30 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של שיחות קוליות חיצוניות נכנסות שהושלמו אשר נענו תוך 30 שניות — רמת השירות (Service Level / TSF) עם יעד של 30 שניות.",
+      "longDescription": "שיחות קוליות חיצוניות נכנסות שנענו תוך 30 שניות חלקי שיחות קוליות חיצוניות נכנסות שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 30 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls60secInc",
+      "displayName": "% שיחות שנענו תוך 60 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של שיחות קוליות חיצוניות נכנסות שהושלמו אשר נענו תוך 60 שניות — רמת השירות (Service Level / TSF) עם יעד של 60 שניות.",
+      "longDescription": "שיחות קוליות חיצוניות נכנסות שנענו תוך 60 שניות חלקי שיחות קוליות חיצוניות נכנסות שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 60 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls120secInc",
+      "displayName": "% שיחות שנענו תוך 120 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של שיחות קוליות חיצוניות נכנסות שהושלמו אשר נענו תוך 120 שניות — רמת השירות (Service Level / TSF) עם יעד של 120 שניות.",
+      "longDescription": "שיחות קוליות חיצוניות נכנסות שנענו תוך 120 שניות חלקי שיחות קוליות חיצוניות נכנסות שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 120 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls360secInc",
+      "displayName": "% שיחות שנענו תוך 360 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של שיחות קוליות חיצוניות נכנסות שהושלמו אשר נענו תוך 360 שניות — רמת השירות (Service Level / TSF) עם יעד של 360 שניות.",
+      "longDescription": "שיחות קוליות חיצוניות נכנסות שנענו תוך 360 שניות חלקי שיחות קוליות חיצוניות נכנסות שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 360 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks30secInc",
+      "displayName": "% שיחות + קולבקים (Callbacks) שנענו תוך 30 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו אשר נענו תוך 30 שניות — רמת השירות (Service Level / TSF) עם יעד של 30 שניות.",
+      "longDescription": "עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו תוך 30 שניות חלקי עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 30 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks60secInc",
+      "displayName": "% שיחות + קולבקים (Callbacks) שנענו תוך 60 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו אשר נענו תוך 60 שניות — רמת השירות (Service Level / TSF) עם יעד של 60 שניות.",
+      "longDescription": "עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו תוך 60 שניות חלקי עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 60 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks120secInc",
+      "displayName": "% שיחות + קולבקים (Callbacks) שנענו תוך 120 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו אשר נענו תוך 120 שניות — רמת השירות (Service Level / TSF) עם יעד של 120 שניות.",
+      "longDescription": "עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו תוך 120 שניות חלקי עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 120 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats30secInc",
+      "displayName": "% צ'אטים שנענו תוך 30 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של אינטראקציות צ'אט נכנסות שהושלמו אשר נענו תוך 30 שניות — רמת השירות (Service Level / TSF) עם יעד של 30 שניות.",
+      "longDescription": "אינטראקציות צ'אט נכנסות שנענו תוך 30 שניות חלקי אינטראקציות צ'אט נכנסות שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 30 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats60secInc",
+      "displayName": "% צ'אטים שנענו תוך 60 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של אינטראקציות צ'אט נכנסות שהושלמו אשר נענו תוך 60 שניות — רמת השירות (Service Level / TSF) עם יעד של 60 שניות.",
+      "longDescription": "אינטראקציות צ'אט נכנסות שנענו תוך 60 שניות חלקי אינטראקציות צ'אט נכנסות שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 60 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats120secInc",
+      "displayName": "% צ'אטים שנענו תוך 120 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של אינטראקציות צ'אט נכנסות שהושלמו אשר נענו תוך 120 שניות — רמת השירות (Service Level / TSF) עם יעד של 120 שניות.",
+      "longDescription": "אינטראקציות צ'אט נכנסות שנענו תוך 120 שניות חלקי אינטראקציות צ'אט נכנסות שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 120 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions30secInc",
+      "displayName": "% אינטראקציות דיגיטליות שנענו תוך 30 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו אשר נענו תוך 30 שניות — רמת השירות (Service Level / TSF) עם יעד של 30 שניות.",
+      "longDescription": "אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו תוך 30 שניות חלקי אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 30 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions60secInc",
+      "displayName": "% אינטראקציות דיגיטליות שנענו תוך 60 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו אשר נענו תוך 60 שניות — רמת השירות (Service Level / TSF) עם יעד של 60 שניות.",
+      "longDescription": "אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו תוך 60 שניות חלקי אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 60 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions120secInc",
+      "displayName": "% אינטראקציות דיגיטליות שנענו תוך 120 שנ' (מתוך נכנסות)",
+      "shortDescription": "חלקן של אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו אשר נענו תוך 120 שניות — רמת השירות (Service Level / TSF) עם יעד של 120 שניות.",
+      "longDescription": "אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו תוך 120 שניות חלקי אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו. זוהי רמת השירות התעשייתית / מקדם שירות טלפוני (Telephone Service Factor): 'X% מהפניות נענו תוך 120 שניות'. פניות שננטשו (abandoned) נשארות במכנה ולכן מורידות את התוצאה.",
+      "comparison": "הווריאנט 'מתוך שנענו' משתמש רק בפניות שנענו כמכנה והוא תמיד גבוה או שווה; הוא מודד מהירות מענה, לא נגישות שירות."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacksTotal",
+      "displayName": "% קולבקים (Callbacks) שנענו",
+      "shortDescription": "חלקן של אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו חלקי אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו (שנענו + שננטשו, ממתינות לא נכללות). מוצג כאחוז. זהו שיעור המענה (Answer Rate) הקלאסי של התור.",
+      "comparison": "משלים ל-'% שננטשו'. שונה מ-'Base Answered Percent', המחלק בכל הנכנסות כולל פריטים שעדיין ממתינים."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsTotal",
+      "displayName": "% שיחות שנענו",
+      "shortDescription": "חלקן של שיחות קוליות חיצוניות נכנסות שנענו, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "שיחות קוליות חיצוניות נכנסות שנענו חלקי שיחות קוליות חיצוניות נכנסות שהושלמו (שנענו + שננטשו, ממתינות לא נכללות). מוצג כאחוז. זהו שיעור המענה (Answer Rate) הקלאסי של התור.",
+      "comparison": "משלים ל-'% שננטשו'. שונה מ-'Base Answered Percent', המחלק בכל הנכנסות כולל פריטים שעדיין ממתינים."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacksTotal",
+      "displayName": "% שיחות + קולבקים (Callbacks) שנענו",
+      "shortDescription": "חלקן של עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו חלקי עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו (שנענו + שננטשו, ממתינות לא נכללות). מוצג כאחוז. זהו שיעור המענה (Answer Rate) הקלאסי של התור.",
+      "comparison": "משלים ל-'% שננטשו'. שונה מ-'Base Answered Percent', המחלק בכל הנכנסות כולל פריטים שעדיין ממתינים."
+    },
+    {
+      "metricId": "QueuePctAnsweredChatsTotal",
+      "displayName": "% צ'אטים שנענו",
+      "shortDescription": "חלקן של אינטראקציות צ'אט נכנסות שנענו, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "אינטראקציות צ'אט נכנסות שנענו חלקי אינטראקציות צ'אט נכנסות שהושלמו (שנענו + שננטשו, ממתינות לא נכללות). מוצג כאחוז. זהו שיעור המענה (Answer Rate) הקלאסי של התור.",
+      "comparison": "משלים ל-'% שננטשו'. שונה מ-'Base Answered Percent', המחלק בכל הנכנסות כולל פריטים שעדיין ממתינים."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractionsTotal",
+      "displayName": "% אינטראקציות דיגיטליות שנענו",
+      "shortDescription": "חלקן של אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו, מתוך כל אלו שסיימו את ההמתנה בתור היום.",
+      "longDescription": "אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו חלקי אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו (שנענו + שננטשו, ממתינות לא נכללות). מוצג כאחוז. זהו שיעור המענה (Answer Rate) הקלאסי של התור.",
+      "comparison": "משלים ל-'% שננטשו'. שונה מ-'Base Answered Percent', המחלק בכל הנכנסות כולל פריטים שעדיין ממתינים."
+    },
+    {
+      "metricId": "QueueBaseAnsweredPct",
+      "displayName": "% מענה בסיסי (מכלל הנכנסות)",
+      "shortDescription": "שיחות שנענו חלקי כל השיחות הנכנסות היום, כולל אלו שעדיין ממתינות.",
+      "longDescription": "בניגוד ל-\"% שיחות שנענו\" (מכנה = שהושלמו בלבד), ווריאנט זה מחלק את השיחות שנענו בנפח הנכנס המלא, כולל שיחות שעדיין בתור. בשעות עומס הערך \"פסימי\": שיחות ממתינות כבר נספרות לחובת התור.",
+      "comparison": "השתמשו ב-% שיחות שנענו לדיווח סוף-יום; % מענה בסיסי מגיב מהר יותר במהלך היום."
+    },
+    {
+      "metricId": "QueueExclCallbackReqAnsweredPct",
+      "displayName": "% מענה ללא בקשות קולבק (Callback)",
+      "shortDescription": "שיחות שנענו חלקי שיחות נכנסות פחות בקשות קולבק (callback).",
+      "longDescription": "מסיר בקשות קולבק (callback) מהמכנה: לקוחות שבחרו בקולבק (callback) אינם נספרים לחובת שיעור המענה. מציג את ביצועי התור עבור לקוחות שאכן נשארו בתור. הערה: המכנה הוא נכנסות-מקוונות (כולל ממתינות).",
+      "comparison": "השוו ל-% מענה בסיסי (בקשות קולבק נשארות במכנה) ול-\"% מענה כולל בקשות קולבק\" (בקשות נספרות כהצלחה)."
+    },
+    {
+      "metricId": "QueueInclCallbackReqAnsweredPct",
+      "displayName": "% מענה כולל בקשות קולבק (Callback)",
+      "shortDescription": "שיחות שנענו ועוד בקשות קולבק (callback), חלקי כל השיחות הנכנסות.",
+      "longDescription": "מתייחס לבקשת קולבק (callback) כתוצאה חיובית: מונה = שנענו + בקשות קולבק (callback). הווריאנט ה\"אופטימי\" ביותר של שיעור המענה — שימושי כאשר הקולבק (callback) מקודם כמסלול שירות לגיטימי.",
+      "comparison": "השוו לווריאנט ללא בקשות (בקשות מוסרות משני הצדדים) ול-% מענה בסיסי (בקשות מתעלמות במונה)."
+    },
+    {
+      "metricId": "QueueInclCompCallbacksAnsweredPct",
+      "displayName": "% מענה כולל קולבקים (Callbacks) שהושלמו",
+      "shortDescription": "שיחות שנענו ועוד קולבקים (callbacks) שהושלמו, חלקי כל השיחות הנכנסות.",
+      "longDescription": "סופר קולבק (callback) כהצלחה רק כאשר הוא הושלם בפועל (הלקוח הושג בחיוג החוזר), בניגוד לווריאנט \"כולל בקשות קולבק\" המזכה את הבקשה עצמה.",
+      "comparison": "מחמיר יותר מ-כולל בקשות קולבק; בדרך כלל בין ערך הבסיס לערך כולל-הבקשות."
+    },
+    {
+      "metricId": "QueueSLAIn30secFrom80PctInc",
+      "displayName": "SLA: % שנענו תוך 30 שנ' מול יעד 80%",
+      "shortDescription": "שיחות שנענו תוך 30 שנ' חלקי 80% מהשיחות הנכנסות שהושלמו — התקדמות מול SLA של 80/30.",
+      "longDescription": "ווריאנט של רמת שירות (Service Level) המנורמל מול יעד 80/30: מונה = שיחות שנענו תוך 30 שניות, מכנה = 0.8 × שיחות נכנסות שהושלמו. ערך של 100% משמעו שה-SLA של 80/30 מתקיים בדיוק; ערכים מעל 100% משמעם ביצוע-יתר. אזהרה: הנוסחה מפנה ל-\"[QueueNumAnsweredCalls30sec ]\" עם רווח עוקב בתוך הסוגריים — ודאו שהמנוע סובל זאת.",
+      "comparison": "\"תוך 30 שנ' (מתוך נכנסות)\" הפשוט מדווח את האחוז הגולמי; מדד זה מדווח השגה מול יעד ה-80%."
+    },
+    {
+      "metricId": "QueueCPH",
+      "displayName": "שיחות לשעה (תור)",
+      "shortDescription": "תפוקת השיחות הנכנסות של התור, מנורמלת לשעה.",
+      "longDescription": "מספר השיחות הנכנסות שטופלו לשעה על ידי היחידה העסקית (BU), מחושב על ידי פונקציית ה-CPH של המנוע. מדד פרודוקטיביות/תפוקה להשוואה תוך-יומית ללא תלות באורך המשמרת.",
+      "comparison": "UserCPH הוא המקביל ברמת הסוכן."
+    },
+    {
+      "metricId": "QueueNumWrapUpAgents",
+      "displayName": "סוכנים ב-Wrap Up",
+      "shortDescription": "מספר הסוכנים של היחידה העסקית (BU) הנמצאים כעת בסטטוס Wrap Up.",
+      "longDescription": "ספירה בזמן אמת של סוכנים שהסטטוס הנוכחי שלהם הוא \"Wrap Up\" (מצב כניסה לעבודה לאחר שיחה). סופר Agent State ספציפי, לא קבוצת סטטוס.",
+      "comparison": "לספירות ברמת הקבוצה ראו \"סוכנים בקבוצת סטטוס Paperwork\" (PAPERWORK מכסה את כל מצבי ה-ACW)."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationCallbacks",
+      "displayName": "משך שיחה ממוצע — קולבקים (Callbacks)",
+      "shortDescription": "זמן הטיפול (שיחה / Talk Time) הממוצע של אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו היום.",
+      "longDescription": "משך שלב השיחה הממוצע של אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהושלמו היום (אינטראקציות פעילות כעת אינן נכללות עד לסיומן). זמן השיחה (Talk Time) הוא שלב השיחה בין הסוכן ללקוח, אחד מרכיבי זמן הטיפול הממוצע (AHT) יחד עם המתנה (Hold) וסיכום שיחה (Wrap Up / ACW).",
+      "comparison": "למדדי שיחה ברמת הסוכן ראו את קטגוריית הסוכן (למשל 'Average Call Duration')."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationCalls",
+      "displayName": "משך שיחה ממוצע — שיחות",
+      "shortDescription": "זמן הטיפול (שיחה / Talk Time) הממוצע של שיחות קוליות חיצוניות נכנסות שהושלמו היום.",
+      "longDescription": "משך שלב השיחה הממוצע של שיחות קוליות חיצוניות נכנסות שהושלמו היום (אינטראקציות פעילות כעת אינן נכללות עד לסיומן). זמן השיחה (Talk Time) הוא שלב השיחה בין הסוכן ללקוח, אחד מרכיבי זמן הטיפול הממוצע (AHT) יחד עם המתנה (Hold) וסיכום שיחה (Wrap Up / ACW).",
+      "comparison": "למדדי שיחה ברמת הסוכן ראו את קטגוריית הסוכן (למשל 'Average Call Duration')."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationCallsAndCallbacks",
+      "displayName": "משך שיחה ממוצע — שיחות + קולבקים (Callbacks)",
+      "shortDescription": "זמן הטיפול (שיחה / Talk Time) הממוצע של עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו היום.",
+      "longDescription": "משך שלב השיחה הממוצע של עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהושלמו היום (אינטראקציות פעילות כעת אינן נכללות עד לסיומן). זמן השיחה (Talk Time) הוא שלב השיחה בין הסוכן ללקוח, אחד מרכיבי זמן הטיפול הממוצע (AHT) יחד עם המתנה (Hold) וסיכום שיחה (Wrap Up / ACW).",
+      "comparison": "למדדי שיחה ברמת הסוכן ראו את קטגוריית הסוכן (למשל 'Average Call Duration')."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationChats",
+      "displayName": "משך שיחה ממוצע — צ'אטים",
+      "shortDescription": "זמן הטיפול (שיחה / Talk Time) הממוצע של אינטראקציות צ'אט נכנסות שהושלמו היום.",
+      "longDescription": "משך שלב השיחה הממוצע של אינטראקציות צ'אט נכנסות שהושלמו היום (אינטראקציות פעילות כעת אינן נכללות עד לסיומן). זמן השיחה (Talk Time) הוא שלב השיחה בין הסוכן ללקוח, אחד מרכיבי זמן הטיפול הממוצע (AHT) יחד עם המתנה (Hold) וסיכום שיחה (Wrap Up / ACW).",
+      "comparison": "למדדי שיחה ברמת הסוכן ראו את קטגוריית הסוכן (למשל 'Average Call Duration')."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationInteractions",
+      "displayName": "משך שיחה ממוצע — אינטראקציות דיגיטליות",
+      "shortDescription": "זמן הטיפול (שיחה / Talk Time) הממוצע של אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו היום.",
+      "longDescription": "משך שלב השיחה הממוצע של אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהושלמו היום (אינטראקציות פעילות כעת אינן נכללות עד לסיומן). זמן השיחה (Talk Time) הוא שלב השיחה בין הסוכן ללקוח, אחד מרכיבי זמן הטיפול הממוצע (AHT) יחד עם המתנה (Hold) וסיכום שיחה (Wrap Up / ACW).",
+      "comparison": "למדדי שיחה ברמת הסוכן ראו את קטגוריית הסוכן (למשל 'Average Call Duration')."
+    },
+    {
+      "metricId": "QueueNumAbandonedCallbacks",
+      "displayName": "קולבקים (Callbacks) שננטשו",
+      "shortDescription": "מספר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שננטשו (abandoned) בתור היום (המתקשר עזב לפני שסוכן ענה).",
+      "longDescription": "סופר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שעזבו את התור מבלי שנענו (המתקשר ניתק / סגר את הצ'אט). אינטראקציות שהומרו לבקשת קולבק (callback) אינן נכללות, כך שבקשת קולבק (callback) אינה נחשבת לנטישה.",
+      "comparison": "מקבילה של 'שנענו'. ראו 'זמן ממוצע עד נטישה' לכמה זמן המתינו הלקוחות שנטשו."
+    },
+    {
+      "metricId": "QueueNumAbandonedCalls",
+      "displayName": "שיחות שננטשו",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות שננטשו (abandoned) בתור היום (המתקשר עזב לפני שסוכן ענה).",
+      "longDescription": "סופר שיחות קוליות חיצוניות נכנסות שעזבו את התור מבלי שנענו (המתקשר ניתק / סגר את הצ'אט). אינטראקציות שהומרו לבקשת קולבק (callback) אינן נכללות, כך שבקשת קולבק (callback) אינה נחשבת לנטישה.",
+      "comparison": "מקבילה של 'שנענו'. ראו 'זמן ממוצע עד נטישה' לכמה זמן המתינו הלקוחות שנטשו."
+    },
+    {
+      "metricId": "QueueNumAbandonedCallsAndCallbacks",
+      "displayName": "שיחות + קולבקים (Callbacks) שננטשו",
+      "shortDescription": "מספר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שננטשו (abandoned) בתור היום (המתקשר עזב לפני שסוכן ענה).",
+      "longDescription": "סופר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שעזבו את התור מבלי שנענו (המתקשר ניתק / סגר את הצ'אט). אינטראקציות שהומרו לבקשת קולבק (callback) אינן נכללות, כך שבקשת קולבק (callback) אינה נחשבת לנטישה.",
+      "comparison": "מקבילה של 'שנענו'. ראו 'זמן ממוצע עד נטישה' לכמה זמן המתינו הלקוחות שנטשו."
+    },
+    {
+      "metricId": "QueueNumAbandonedChats",
+      "displayName": "צ'אטים שננטשו",
+      "shortDescription": "מספר אינטראקציות צ'אט נכנסות שננטשו (abandoned) בתור היום (המתקשר עזב לפני שסוכן ענה).",
+      "longDescription": "סופר אינטראקציות צ'אט נכנסות שעזבו את התור מבלי שנענו (המתקשר ניתק / סגר את הצ'אט). אינטראקציות שהומרו לבקשת קולבק (callback) אינן נכללות, כך שבקשת קולבק (callback) אינה נחשבת לנטישה.",
+      "comparison": "מקבילה של 'שנענו'. ראו 'זמן ממוצע עד נטישה' לכמה זמן המתינו הלקוחות שנטשו."
+    },
+    {
+      "metricId": "QueueNumAbandonedInteractions",
+      "displayName": "אינטראקציות דיגיטליות שננטשו",
+      "shortDescription": "מספר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שננטשו (abandoned) בתור היום (המתקשר עזב לפני שסוכן ענה).",
+      "longDescription": "סופר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שעזבו את התור מבלי שנענו (המתקשר ניתק / סגר את הצ'אט). אינטראקציות שהומרו לבקשת קולבק (callback) אינן נכללות, כך שבקשת קולבק (callback) אינה נחשבת לנטישה.",
+      "comparison": "מקבילה של 'שנענו'. ראו 'זמן ממוצע עד נטישה' לכמה זמן המתינו הלקוחות שנטשו."
+    },
+    {
+      "metricId": "QueueNumActiveCallbacks",
+      "displayName": "קולבקים פעילים (Callbacks)",
+      "shortDescription": "מספר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) המטופלות כעת על ידי סוכנים (במצב שיחה).",
+      "longDescription": "תמונת מצב בזמן אמת: כמה אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) מחוברות לסוכנים ברגע זה (מצב שיחה). יחד עם 'ממתינות' היא מציגה את העומס החי הכולל של התור.",
+      "comparison": "'ממתינות' = עדיין בתור; 'פעילות' = כבר עם סוכן."
+    },
+    {
+      "metricId": "QueueNumActiveCalls",
+      "displayName": "שיחות פעילות",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות המטופלות כעת על ידי סוכנים (במצב שיחה).",
+      "longDescription": "תמונת מצב בזמן אמת: כמה שיחות קוליות חיצוניות נכנסות מחוברות לסוכנים ברגע זה (מצב שיחה). יחד עם 'ממתינות' היא מציגה את העומס החי הכולל של התור.",
+      "comparison": "'ממתינות' = עדיין בתור; 'פעילות' = כבר עם סוכן."
+    },
+    {
+      "metricId": "QueueNumActiveCallsAndCallbacks",
+      "displayName": "שיחות + קולבקים פעילים (Callbacks)",
+      "shortDescription": "מספר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) המטופלות כעת על ידי סוכנים (במצב שיחה).",
+      "longDescription": "תמונת מצב בזמן אמת: כמה עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) מחוברות לסוכנים ברגע זה (מצב שיחה). יחד עם 'ממתינות' היא מציגה את העומס החי הכולל של התור.",
+      "comparison": "'ממתינות' = עדיין בתור; 'פעילות' = כבר עם סוכן."
+    },
+    {
+      "metricId": "QueueNumActiveChats",
+      "displayName": "צ'אטים פעילים",
+      "shortDescription": "מספר אינטראקציות צ'אט נכנסות המטופלות כעת על ידי סוכנים (במצב שיחה).",
+      "longDescription": "תמונת מצב בזמן אמת: כמה אינטראקציות צ'אט נכנסות מחוברות לסוכנים ברגע זה (מצב שיחה). יחד עם 'ממתינות' היא מציגה את העומס החי הכולל של התור.",
+      "comparison": "'ממתינות' = עדיין בתור; 'פעילות' = כבר עם סוכן."
+    },
+    {
+      "metricId": "QueueNumActiveInteractions",
+      "displayName": "אינטראקציות דיגיטליות פעילות",
+      "shortDescription": "מספר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) המטופלות כעת על ידי סוכנים (במצב שיחה).",
+      "longDescription": "תמונת מצב בזמן אמת: כמה אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) מחוברות לסוכנים ברגע זה (מצב שיחה). יחד עם 'ממתינות' היא מציגה את העומס החי הכולל של התור.",
+      "comparison": "'ממתינות' = עדיין בתור; 'פעילות' = כבר עם סוכן."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallbacks",
+      "displayName": "קולבקים (Callbacks) שנענו",
+      "shortDescription": "מספר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו על ידי סוכנים היום.",
+      "longDescription": "סופר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שחוברו בהצלחה לסוכן היום. האינטראקציה נספרת ברגע שנענתה, גם אם היא עדיין בתהליך.",
+      "comparison": "מקבילה של 'שננטשו'. ווריאנטי הסף (30/60/120/360 שנ') סופרים רק את אלו שנענו בתוך מגבלת זמן ההמתנה הנתונה."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls",
+      "displayName": "שיחות שנענו",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות שנענו על ידי סוכנים היום.",
+      "longDescription": "סופר שיחות קוליות חיצוניות נכנסות שחוברו בהצלחה לסוכן היום. האינטראקציה נספרת ברגע שנענתה, גם אם היא עדיין בתהליך.",
+      "comparison": "מקבילה של 'שננטשו'. ווריאנטי הסף (30/60/120/360 שנ') סופרים רק את אלו שנענו בתוך מגבלת זמן ההמתנה הנתונה."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallsAndCallbacks",
+      "displayName": "שיחות + קולבקים (Callbacks) שנענו",
+      "shortDescription": "מספר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו על ידי סוכנים היום.",
+      "longDescription": "סופר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שחוברו בהצלחה לסוכן היום. האינטראקציה נספרת ברגע שנענתה, גם אם היא עדיין בתהליך.",
+      "comparison": "מקבילה של 'שננטשו'. ווריאנטי הסף (30/60/120/360 שנ') סופרים רק את אלו שנענו בתוך מגבלת זמן ההמתנה הנתונה."
+    },
+    {
+      "metricId": "QueueNumAnsweredChats",
+      "displayName": "צ'אטים שנענו",
+      "shortDescription": "מספר אינטראקציות צ'אט נכנסות שנענו על ידי סוכנים היום.",
+      "longDescription": "סופר אינטראקציות צ'אט נכנסות שחוברו בהצלחה לסוכן היום. האינטראקציה נספרת ברגע שנענתה, גם אם היא עדיין בתהליך.",
+      "comparison": "מקבילה של 'שננטשו'. ווריאנטי הסף (30/60/120/360 שנ') סופרים רק את אלו שנענו בתוך מגבלת זמן ההמתנה הנתונה."
+    },
+    {
+      "metricId": "QueueNumAnsweredInteractions",
+      "displayName": "אינטראקציות דיגיטליות שנענו",
+      "shortDescription": "מספר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו על ידי סוכנים היום.",
+      "longDescription": "סופר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שחוברו בהצלחה לסוכן היום. האינטראקציה נספרת ברגע שנענתה, גם אם היא עדיין בתהליך.",
+      "comparison": "מקבילה של 'שננטשו'. ווריאנטי הסף (30/60/120/360 שנ') סופרים רק את אלו שנענו בתוך מגבלת זמן ההמתנה הנתונה."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallbacks30sec",
+      "displayName": "קולבקים (Callbacks) שנענו תוך 30 שנ'",
+      "shortDescription": "מספר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו עם המתנה בתור מתחת ל-30 שניות.",
+      "longDescription": "סופר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-30 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 30 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallbacks60sec",
+      "displayName": "קולבקים (Callbacks) שנענו תוך 60 שנ'",
+      "shortDescription": "מספר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו עם המתנה בתור מתחת ל-60 שניות.",
+      "longDescription": "סופר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-60 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 60 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallbacks120sec",
+      "displayName": "קולבקים (Callbacks) שנענו תוך 120 שנ'",
+      "shortDescription": "מספר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו עם המתנה בתור מתחת ל-120 שניות.",
+      "longDescription": "סופר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-120 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 120 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls30sec",
+      "displayName": "שיחות שנענו תוך 30 שנ'",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות שנענו עם המתנה בתור מתחת ל-30 שניות.",
+      "longDescription": "סופר שיחות קוליות חיצוניות נכנסות שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-30 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 30 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls60sec",
+      "displayName": "שיחות שנענו תוך 60 שנ'",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות שנענו עם המתנה בתור מתחת ל-60 שניות.",
+      "longDescription": "סופר שיחות קוליות חיצוניות נכנסות שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-60 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 60 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls120sec",
+      "displayName": "שיחות שנענו תוך 120 שנ'",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות שנענו עם המתנה בתור מתחת ל-120 שניות.",
+      "longDescription": "סופר שיחות קוליות חיצוניות נכנסות שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-120 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 120 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls360sec",
+      "displayName": "שיחות שנענו תוך 360 שנ'",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות שנענו עם המתנה בתור מתחת ל-360 שניות.",
+      "longDescription": "סופר שיחות קוליות חיצוניות נכנסות שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-360 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 360 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallsAndCallbacks30sec",
+      "displayName": "שיחות + קולבקים (Callbacks) שנענו תוך 30 שנ'",
+      "shortDescription": "מספר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו עם המתנה בתור מתחת ל-30 שניות.",
+      "longDescription": "סופר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-30 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 30 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallsAndCallbacks60sec",
+      "displayName": "שיחות + קולבקים (Callbacks) שנענו תוך 60 שנ'",
+      "shortDescription": "מספר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו עם המתנה בתור מתחת ל-60 שניות.",
+      "longDescription": "סופר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-60 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 60 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallsAndCallbacks120sec",
+      "displayName": "שיחות + קולבקים (Callbacks) שנענו תוך 120 שנ'",
+      "shortDescription": "מספר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו עם המתנה בתור מתחת ל-120 שניות.",
+      "longDescription": "סופר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-120 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 120 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredChats30sec",
+      "displayName": "צ'אטים שנענו תוך 30 שנ'",
+      "shortDescription": "מספר אינטראקציות צ'אט נכנסות שנענו עם המתנה בתור מתחת ל-30 שניות.",
+      "longDescription": "סופר אינטראקציות צ'אט נכנסות שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-30 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 30 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredChats60sec",
+      "displayName": "צ'אטים שנענו תוך 60 שנ'",
+      "shortDescription": "מספר אינטראקציות צ'אט נכנסות שנענו עם המתנה בתור מתחת ל-60 שניות.",
+      "longDescription": "סופר אינטראקציות צ'אט נכנסות שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-60 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 60 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredChats120sec",
+      "displayName": "צ'אטים שנענו תוך 120 שנ'",
+      "shortDescription": "מספר אינטראקציות צ'אט נכנסות שנענו עם המתנה בתור מתחת ל-120 שניות.",
+      "longDescription": "סופר אינטראקציות צ'אט נכנסות שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-120 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 120 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredInteractions30sec",
+      "displayName": "אינטראקציות דיגיטליות שנענו תוך 30 שנ'",
+      "shortDescription": "מספר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו עם המתנה בתור מתחת ל-30 שניות.",
+      "longDescription": "סופר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-30 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 30 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredInteractions60sec",
+      "displayName": "אינטראקציות דיגיטליות שנענו תוך 60 שנ'",
+      "shortDescription": "מספר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו עם המתנה בתור מתחת ל-60 שניות.",
+      "longDescription": "סופר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-60 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 60 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredInteractions120sec",
+      "displayName": "אינטראקציות דיגיטליות שנענו תוך 120 שנ'",
+      "shortDescription": "מספר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו עם המתנה בתור מתחת ל-120 שניות.",
+      "longDescription": "סופר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנענו על ידי סוכן כאשר הזמן בתור היה פחות מ-120 שניות. זהו המונה עבור חישובי רמת שירות (Service Level) עם יעד של 120 שניות.",
+      "comparison": "אותה משפחת אירועים קיימת עם יעדים של 30/60/120/360 שניות; בחרו את הסף התואם ל-SLA של היחידה העסקית (BU)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedCallbacks",
+      "displayName": "קולבקים (Callbacks) נכנסים היום (ללא ממתינות)",
+      "shortDescription": "מספר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שסיימו את ההמתנה בתור היום (נענו או ננטשו); לא כולל את אלו שעדיין ממתינות ובקשות קולבק (callback).",
+      "longDescription": "סופר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) ששלב התור שלהן הסתיים: כל אחת נענתה על ידי סוכן או ננטשה. אינטראקציות שעדיין ממתינות בתור ובקשות קולבק (callback) אינן נכללות. מכיוון שהערך משתנה רק כשאינטראקציה עוזבת את התור, זהו המכנה הסטנדרטי למדדי 'אחוז שנענו' ו'אחוז שננטשו'.",
+      "comparison": "שווה ל-'נכנסות … כולל ממתינות' פחות פריטים שממתינים כעת ובקשות קולבק (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedCalls",
+      "displayName": "שיחות נכנסות היום (ללא ממתינות)",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות שסיימו את ההמתנה בתור היום (נענו או ננטשו); לא כולל את אלו שעדיין ממתינות ובקשות קולבק (callback).",
+      "longDescription": "סופר שיחות קוליות חיצוניות נכנסות ששלב התור שלהן הסתיים: כל אחת נענתה על ידי סוכן או ננטשה. אינטראקציות שעדיין ממתינות בתור ובקשות קולבק (callback) אינן נכללות. מכיוון שהערך משתנה רק כשאינטראקציה עוזבת את התור, זהו המכנה הסטנדרטי למדדי 'אחוז שנענו' ו'אחוז שננטשו'.",
+      "comparison": "שווה ל-'נכנסות … כולל ממתינות' פחות פריטים שממתינים כעת ובקשות קולבק (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedCallsAndCallbacks",
+      "displayName": "שיחות + קולבקים (Callbacks) נכנסים היום (ללא ממתינות)",
+      "shortDescription": "מספר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שסיימו את ההמתנה בתור היום (נענו או ננטשו); לא כולל את אלו שעדיין ממתינות ובקשות קולבק (callback).",
+      "longDescription": "סופר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) ששלב התור שלהן הסתיים: כל אחת נענתה על ידי סוכן או ננטשה. אינטראקציות שעדיין ממתינות בתור ובקשות קולבק (callback) אינן נכללות. מכיוון שהערך משתנה רק כשאינטראקציה עוזבת את התור, זהו המכנה הסטנדרטי למדדי 'אחוז שנענו' ו'אחוז שננטשו'.",
+      "comparison": "שווה ל-'נכנסות … כולל ממתינות' פחות פריטים שממתינים כעת ובקשות קולבק (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedChats",
+      "displayName": "צ'אטים נכנסים היום (ללא ממתינות)",
+      "shortDescription": "מספר אינטראקציות צ'אט נכנסות שסיימו את ההמתנה בתור היום (נענו או ננטשו); לא כולל את אלו שעדיין ממתינות ובקשות קולבק (callback).",
+      "longDescription": "סופר אינטראקציות צ'אט נכנסות ששלב התור שלהן הסתיים: כל אחת נענתה על ידי סוכן או ננטשה. אינטראקציות שעדיין ממתינות בתור ובקשות קולבק (callback) אינן נכללות. מכיוון שהערך משתנה רק כשאינטראקציה עוזבת את התור, זהו המכנה הסטנדרטי למדדי 'אחוז שנענו' ו'אחוז שננטשו'.",
+      "comparison": "שווה ל-'נכנסות … כולל ממתינות' פחות פריטים שממתינים כעת ובקשות קולבק (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedInteractions",
+      "displayName": "אינטראקציות דיגיטליות נכנסות היום (ללא ממתינות)",
+      "shortDescription": "מספר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שסיימו את ההמתנה בתור היום (נענו או ננטשו); לא כולל את אלו שעדיין ממתינות ובקשות קולבק (callback).",
+      "longDescription": "סופר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) ששלב התור שלהן הסתיים: כל אחת נענתה על ידי סוכן או ננטשה. אינטראקציות שעדיין ממתינות בתור ובקשות קולבק (callback) אינן נכללות. מכיוון שהערך משתנה רק כשאינטראקציה עוזבת את התור, זהו המכנה הסטנדרטי למדדי 'אחוז שנענו' ו'אחוז שננטשו'.",
+      "comparison": "שווה ל-'נכנסות … כולל ממתינות' פחות פריטים שממתינים כעת ובקשות קולבק (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingOnlineCallbacks",
+      "displayName": "קולבקים (Callbacks) נכנסים היום (כולל ממתינות)",
+      "shortDescription": "מספר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שהתקבלו היום, כולל אלו שעדיין ממתינות בתור.",
+      "longDescription": "סופר כל אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שנרשמו מתחילת יום העבודה, ללא קשר למצב הנוכחי — ממתינה בתור, בתהליך, נענתה או ננטשה. זהו העומס הנכנס הגולמי (פניות שהוצעו) של היחידה העסקית (BU). בשונה מהמקבילה 'ללא ממתינות', אינטראקציות שעדיין יושבות בתור נכללות, כך שהערך יכול לגדול לפני שסוכן כלשהו ענה.",
+      "comparison": "השתמשו ב-'נכנסות … ללא ממתינות' כמכנה היציב לאחוזים; השתמשו ב-'ממתינות' לעומק התור הנוכחי בלבד."
+    },
+    {
+      "metricId": "QueueNumIncomingOnlineCalls",
+      "displayName": "שיחות נכנסות היום (כולל ממתינות)",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות שהתקבלו היום, כולל אלו שעדיין ממתינות בתור.",
+      "longDescription": "סופר כל שיחות קוליות חיצוניות נכנסות שנרשמו מתחילת יום העבודה, ללא קשר למצב הנוכחי — ממתינה בתור, בתהליך, נענתה או ננטשה. זהו העומס הנכנס הגולמי (פניות שהוצעו) של היחידה העסקית (BU). בשונה מהמקבילה 'ללא ממתינות', אינטראקציות שעדיין יושבות בתור נכללות, כך שהערך יכול לגדול לפני שסוכן כלשהו ענה.",
+      "comparison": "השתמשו ב-'נכנסות … ללא ממתינות' כמכנה היציב לאחוזים; השתמשו ב-'ממתינות' לעומק התור הנוכחי בלבד."
+    },
+    {
+      "metricId": "QueueNumIncomingOnlineCallsAndCallbacks",
+      "displayName": "שיחות + קולבקים (Callbacks) נכנסים היום (כולל ממתינות)",
+      "shortDescription": "מספר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שהתקבלו היום, כולל אלו שעדיין ממתינות בתור.",
+      "longDescription": "סופר כל עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שנרשמו מתחילת יום העבודה, ללא קשר למצב הנוכחי — ממתינה בתור, בתהליך, נענתה או ננטשה. זהו העומס הנכנס הגולמי (פניות שהוצעו) של היחידה העסקית (BU). בשונה מהמקבילה 'ללא ממתינות', אינטראקציות שעדיין יושבות בתור נכללות, כך שהערך יכול לגדול לפני שסוכן כלשהו ענה.",
+      "comparison": "השתמשו ב-'נכנסות … ללא ממתינות' כמכנה היציב לאחוזים; השתמשו ב-'ממתינות' לעומק התור הנוכחי בלבד."
+    },
+    {
+      "metricId": "QueueNumIncomingOnlineChats",
+      "displayName": "צ'אטים נכנסים היום (כולל ממתינות)",
+      "shortDescription": "מספר אינטראקציות צ'אט נכנסות שהתקבלו היום, כולל אלו שעדיין ממתינות בתור.",
+      "longDescription": "סופר כל אינטראקציות צ'אט נכנסות שנרשמו מתחילת יום העבודה, ללא קשר למצב הנוכחי — ממתינה בתור, בתהליך, נענתה או ננטשה. זהו העומס הנכנס הגולמי (פניות שהוצעו) של היחידה העסקית (BU). בשונה מהמקבילה 'ללא ממתינות', אינטראקציות שעדיין יושבות בתור נכללות, כך שהערך יכול לגדול לפני שסוכן כלשהו ענה.",
+      "comparison": "השתמשו ב-'נכנסות … ללא ממתינות' כמכנה היציב לאחוזים; השתמשו ב-'ממתינות' לעומק התור הנוכחי בלבד."
+    },
+    {
+      "metricId": "QueueNumIcomingOnlineInteractions",
+      "displayName": "אינטראקציות דיגיטליות נכנסות היום (כולל ממתינות)",
+      "shortDescription": "מספר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שהתקבלו היום, כולל אלו שעדיין ממתינות בתור.",
+      "longDescription": "סופר כל אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שנרשמו מתחילת יום העבודה, ללא קשר למצב הנוכחי — ממתינה בתור, בתהליך, נענתה או ננטשה. זהו העומס הנכנס הגולמי (פניות שהוצעו) של היחידה העסקית (BU). בשונה מהמקבילה 'ללא ממתינות', אינטראקציות שעדיין יושבות בתור נכללות, כך שהערך יכול לגדול לפני שסוכן כלשהו ענה.",
+      "comparison": "השתמשו ב-'נכנסות … ללא ממתינות' כמכנה היציב לאחוזים; השתמשו ב-'ממתינות' לעומק התור הנוכחי בלבד."
+    },
+    {
+      "metricId": "QueueNumCallbackRequests",
+      "displayName": "בקשות קולבק (Callback)",
+      "shortDescription": "מספר האינטראקציות הנכנסות שהומרו לבקשת קולבק (callback) היום.",
+      "longDescription": "סופר לקוחות שבמקום להמתין בתור ביקשו קולבק (callback). אינטראקציות אלו אינן נכללות בספירות נטישה ובמכני נפח שהושלם, ומופיעות מאוחר יותר כאינטראקציות קולבק (callback) בעת החיוג החוזר.",
+      "comparison": "ראו 'קולבקים שהושלמו/התקבלו' עבור צד שיחת החזרה במחזור החיים."
+    },
+    {
+      "metricId": "QueueNumCompletedCallbacks",
+      "displayName": "קולבקים (Callbacks) שהושלמו",
+      "shortDescription": "מספר הקולבקים (callbacks) שהושלמו בהצלחה (חויגו חזרה וחוברו) היום.",
+      "longDescription": "סופר אינטראקציות קולבק (callback) יוצאות שנענו — כלומר המערכת התקשרה חזרה ללקוח והשיחה התקיימה. שלב הסיום של מחזור חיי הקולבק (callback): בקשה → חיוג חוזר → הושלם.",
+      "comparison": "QueueNumAnsweredCallbacks סופר את הרגל הנכנסת; מדד זה סופר את הרגל היוצאת (החזרה)."
+    },
+    {
+      "metricId": "QueueNumIncomingHandledInteractions",
+      "displayName": "אינטראקציות דיגיטליות נכנסות שהושלמו",
+      "shortDescription": "מספר האינטראקציות הדיגיטליות הנכנסות (צ'אט + דוא\"ל) שהסתיימו במלואן היום: לא ממתינות, לא פעילות, לא ננטשו.",
+      "longDescription": "סופר אינטראקציות צ'אט ודוא\"ל נכנסות שסיימו לחלוטין את העיבוד: הן כבר לא בתור, כבר לא מטופלות, ולא ננטשו. למעשה \"טופלו בהצלחה עד הסוף\".",
+      "comparison": "שונה מ-אינטראקציות דיגיטליות שנענו, הסופרת אינטראקציה ברגע שנענתה גם אם עדיין בתהליך."
+    },
+    {
+      "metricId": "QueueNumOnlineChats",
+      "displayName": "צ'אטים היום (הכול)",
+      "shortDescription": "המספר הכולל של אינטראקציות צ'אט שנרשמו היום (כל כיוון, כל מצב).",
+      "longDescription": "סופר את כל אינטראקציות הצ'אט שנראו היום ללא מסנן נוסף: נכנסות ויוצאות, ממתינות, פעילות, שנענו או שננטשו. מונה הצ'אט הרחב ביותר האפשרי.",
+      "comparison": "מוני צ'אט צרים יותר: צ'אטים נכנסים (כולל/ללא ממתינות), צ'אטים שנענו/שננטשו, צ'אטים ממתינים, צ'אטים פעילים."
+    },
+    {
+      "metricId": "QueueNumOutboundCalls",
+      "displayName": "שיחות יוצאות",
+      "shortDescription": "מספר השיחות החיצוניות היוצאות היום.",
+      "longDescription": "סופר שיחות קוליות חיצוניות יוצאות שבוצעו היום בהיקף היחידה העסקית (BU) (כל תוצאה).",
+      "comparison": "מקבילה ברמת הסוכן: \"Agent - Number of Outbound Calls\". לאגרגציה קבוצתית ראו \"Agent Group - Number of Outbound Calls\" (MonSumAgentsMakeCalls)."
+    },
+    {
+      "metricId": "QueueNumTransferredCalls",
+      "displayName": "שיחות שהועברו",
+      "shortDescription": "מספר השיחות הנכנסות שהועברו היום.",
+      "longDescription": "סופר שיחות חיצוניות נכנסות שסומנו כהועברו (IsTransferred). ערכים גבוהים עשויים להעיד על אי-התאמת ניתוב/מיומנות או בעיות בפתרון בפנייה ראשונה (First Contact Resolution).",
+      "comparison": "קשור לניתוח FCR: העברות הן אינדיקציה לפניות שלא נפתרו במגע הראשון."
+    },
+    {
+      "metricId": "QueueNumWaitingCallbacks",
+      "displayName": "קולבקים ממתינים (Callbacks)",
+      "shortDescription": "מספר אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) הממתינות בתור כעת.",
+      "longDescription": "תמונת מצב בזמן אמת: כמה אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) נמצאות כעת בתור, טרם חוברו לסוכן. עולה כאשר קצב ההגעות עולה על יכולת המענה. זהו מדד 'עכשיו' — אין לו צבירה יומית.",
+      "comparison": "ראו 'זמן המתנה מקסימלי נוכחי' לכמה זמן הפריט הממתין הארוך ביותר נמצא בתור; ראו 'פעילות' לפריטים שכבר חוברו לסוכנים."
+    },
+    {
+      "metricId": "QueueNumWaitingCalls",
+      "displayName": "שיחות ממתינות",
+      "shortDescription": "מספר שיחות קוליות חיצוניות נכנסות הממתינות בתור כעת.",
+      "longDescription": "תמונת מצב בזמן אמת: כמה שיחות קוליות חיצוניות נכנסות נמצאות כעת בתור, טרם חוברו לסוכן. עולה כאשר קצב ההגעות עולה על יכולת המענה. זהו מדד 'עכשיו' — אין לו צבירה יומית.",
+      "comparison": "ראו 'זמן המתנה מקסימלי נוכחי' לכמה זמן הפריט הממתין הארוך ביותר נמצא בתור; ראו 'פעילות' לפריטים שכבר חוברו לסוכנים."
+    },
+    {
+      "metricId": "QueueNumWaitingCallsAndCallbacks",
+      "displayName": "שיחות + קולבקים ממתינים (Callbacks)",
+      "shortDescription": "מספר עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) הממתינות בתור כעת.",
+      "longDescription": "תמונת מצב בזמן אמת: כמה עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) נמצאות כעת בתור, טרם חוברו לסוכן. עולה כאשר קצב ההגעות עולה על יכולת המענה. זהו מדד 'עכשיו' — אין לו צבירה יומית.",
+      "comparison": "ראו 'זמן המתנה מקסימלי נוכחי' לכמה זמן הפריט הממתין הארוך ביותר נמצא בתור; ראו 'פעילות' לפריטים שכבר חוברו לסוכנים."
+    },
+    {
+      "metricId": "QueueNumWaitingChats",
+      "displayName": "צ'אטים ממתינים",
+      "shortDescription": "מספר אינטראקציות צ'אט נכנסות הממתינות בתור כעת.",
+      "longDescription": "תמונת מצב בזמן אמת: כמה אינטראקציות צ'אט נכנסות נמצאות כעת בתור, טרם חוברו לסוכן. עולה כאשר קצב ההגעות עולה על יכולת המענה. זהו מדד 'עכשיו' — אין לו צבירה יומית.",
+      "comparison": "ראו 'זמן המתנה מקסימלי נוכחי' לכמה זמן הפריט הממתין הארוך ביותר נמצא בתור; ראו 'פעילות' לפריטים שכבר חוברו לסוכנים."
+    },
+    {
+      "metricId": "QueueNumWaitingInteractions",
+      "displayName": "אינטראקציות דיגיטליות ממתינות",
+      "shortDescription": "מספר אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) הממתינות בתור כעת.",
+      "longDescription": "תמונת מצב בזמן אמת: כמה אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) נמצאות כעת בתור, טרם חוברו לסוכן. עולה כאשר קצב ההגעות עולה על יכולת המענה. זהו מדד 'עכשיו' — אין לו צבירה יומית.",
+      "comparison": "ראו 'זמן המתנה מקסימלי נוכחי' לכמה זמן הפריט הממתין הארוך ביותר נמצא בתור; ראו 'פעילות' לפריטים שכבר חוברו לסוכנים."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeCallbacks",
+      "displayName": "זמן המתנה ממוצע — קולבקים (Callbacks)",
+      "shortDescription": "זמן ההמתנה הממוצע בתור של אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) שסיימו את ההמתנה בתור היום (שנענו ושננטשו).",
+      "longDescription": "הזמן הממוצע ששהו בתור אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) ששלב התור שלהן הסתיים היום. הערה: נכללות גם אינטראקציות שנענו וגם שננטשו, ולכן זה רחב יותר מ-ASA הקלאסי (זמן מענה ממוצע / Average Speed of Answer), המכסה פניות שנענו בלבד.",
+      "comparison": "קרוב ל-ASA כאשר הנטישה נמוכה. ראו 'זמן ממוצע עד נטישה' לתצוגה של אינטראקציות שננטשו בלבד."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeCalls",
+      "displayName": "זמן המתנה ממוצע — שיחות",
+      "shortDescription": "זמן ההמתנה הממוצע בתור של שיחות קוליות חיצוניות נכנסות שסיימו את ההמתנה בתור היום (שנענו ושננטשו).",
+      "longDescription": "הזמן הממוצע ששהו בתור שיחות קוליות חיצוניות נכנסות ששלב התור שלהן הסתיים היום. הערה: נכללות גם אינטראקציות שנענו וגם שננטשו, ולכן זה רחב יותר מ-ASA הקלאסי (זמן מענה ממוצע / Average Speed of Answer), המכסה פניות שנענו בלבד.",
+      "comparison": "קרוב ל-ASA כאשר הנטישה נמוכה. ראו 'זמן ממוצע עד נטישה' לתצוגה של אינטראקציות שננטשו בלבד."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeCallsAndCallbacks",
+      "displayName": "זמן המתנה ממוצע — שיחות + קולבקים (Callbacks)",
+      "shortDescription": "זמן ההמתנה הממוצע בתור של עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) שסיימו את ההמתנה בתור היום (שנענו ושננטשו).",
+      "longDescription": "הזמן הממוצע ששהו בתור עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) ששלב התור שלהן הסתיים היום. הערה: נכללות גם אינטראקציות שנענו וגם שננטשו, ולכן זה רחב יותר מ-ASA הקלאסי (זמן מענה ממוצע / Average Speed of Answer), המכסה פניות שנענו בלבד.",
+      "comparison": "קרוב ל-ASA כאשר הנטישה נמוכה. ראו 'זמן ממוצע עד נטישה' לתצוגה של אינטראקציות שננטשו בלבד."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeChats",
+      "displayName": "זמן המתנה ממוצע — צ'אטים",
+      "shortDescription": "זמן ההמתנה הממוצע בתור של אינטראקציות צ'אט נכנסות שסיימו את ההמתנה בתור היום (שנענו ושננטשו).",
+      "longDescription": "הזמן הממוצע ששהו בתור אינטראקציות צ'אט נכנסות ששלב התור שלהן הסתיים היום. הערה: נכללות גם אינטראקציות שנענו וגם שננטשו, ולכן זה רחב יותר מ-ASA הקלאסי (זמן מענה ממוצע / Average Speed of Answer), המכסה פניות שנענו בלבד.",
+      "comparison": "קרוב ל-ASA כאשר הנטישה נמוכה. ראו 'זמן ממוצע עד נטישה' לתצוגה של אינטראקציות שננטשו בלבד."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeInteractions",
+      "displayName": "זמן המתנה ממוצע — אינטראקציות דיגיטליות",
+      "shortDescription": "זמן ההמתנה הממוצע בתור של אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) שסיימו את ההמתנה בתור היום (שנענו ושננטשו).",
+      "longDescription": "הזמן הממוצע ששהו בתור אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) ששלב התור שלהן הסתיים היום. הערה: נכללות גם אינטראקציות שנענו וגם שננטשו, ולכן זה רחב יותר מ-ASA הקלאסי (זמן מענה ממוצע / Average Speed of Answer), המכסה פניות שנענו בלבד.",
+      "comparison": "קרוב ל-ASA כאשר הנטישה נמוכה. ראו 'זמן ממוצע עד נטישה' לתצוגה של אינטראקציות שננטשו בלבד."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeCallbacks",
+      "displayName": "זמן המתנה מקסימלי נוכחי — קולבקים (Callbacks)",
+      "shortDescription": "משך ההמתנה הארוך ביותר מבין אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) הממתינות כעת בתור (כרגע).",
+      "longDescription": "מדד בזמן אמת: מבין אינטראקציות קולבק (callback) (שיחות חזרה שביקש הלקוח ומטופלות על ידי התור) הממתינות כעת בתור, זמן ההמתנה של הממתינה הארוכה ביותר. יורד לאפס כאשר התור ריק. מדד 'ההמתנה הארוכה ביותר' הקלאסי בלוח מחוונים, להתערבות מיידית.",
+      "comparison": "'זמן המתנה ממוצע' הוא ממוצע יומי על פריטים שהושלמו; מדד זה משקף רק את התור הנוכחי."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeCalls",
+      "displayName": "זמן המתנה מקסימלי נוכחי — שיחות",
+      "shortDescription": "משך ההמתנה הארוך ביותר מבין שיחות קוליות חיצוניות נכנסות הממתינות כעת בתור (כרגע).",
+      "longDescription": "מדד בזמן אמת: מבין שיחות קוליות חיצוניות נכנסות הממתינות כעת בתור, זמן ההמתנה של הממתינה הארוכה ביותר. יורד לאפס כאשר התור ריק. מדד 'ההמתנה הארוכה ביותר' הקלאסי בלוח מחוונים, להתערבות מיידית.",
+      "comparison": "'זמן המתנה ממוצע' הוא ממוצע יומי על פריטים שהושלמו; מדד זה משקף רק את התור הנוכחי."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeCallsAndCallbacks",
+      "displayName": "זמן המתנה מקסימלי נוכחי — שיחות + קולבקים (Callbacks)",
+      "shortDescription": "משך ההמתנה הארוך ביותר מבין עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) הממתינות כעת בתור (כרגע).",
+      "longDescription": "מדד בזמן אמת: מבין עומס קולי משולב: שיחות חיצוניות נכנסות וקולבקים (callbacks) הממתינות כעת בתור, זמן ההמתנה של הממתינה הארוכה ביותר. יורד לאפס כאשר התור ריק. מדד 'ההמתנה הארוכה ביותר' הקלאסי בלוח מחוונים, להתערבות מיידית.",
+      "comparison": "'זמן המתנה ממוצע' הוא ממוצע יומי על פריטים שהושלמו; מדד זה משקף רק את התור הנוכחי."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeChats",
+      "displayName": "זמן המתנה מקסימלי נוכחי — צ'אטים",
+      "shortDescription": "משך ההמתנה הארוך ביותר מבין אינטראקציות צ'אט נכנסות הממתינות כעת בתור (כרגע).",
+      "longDescription": "מדד בזמן אמת: מבין אינטראקציות צ'אט נכנסות הממתינות כעת בתור, זמן ההמתנה של הממתינה הארוכה ביותר. יורד לאפס כאשר התור ריק. מדד 'ההמתנה הארוכה ביותר' הקלאסי בלוח מחוונים, להתערבות מיידית.",
+      "comparison": "'זמן המתנה ממוצע' הוא ממוצע יומי על פריטים שהושלמו; מדד זה משקף רק את התור הנוכחי."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeInteractions",
+      "displayName": "זמן המתנה מקסימלי נוכחי — אינטראקציות דיגיטליות",
+      "shortDescription": "משך ההמתנה הארוך ביותר מבין אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) הממתינות כעת בתור (כרגע).",
+      "longDescription": "מדד בזמן אמת: מבין אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) הממתינות כעת בתור, זמן ההמתנה של הממתינה הארוכה ביותר. יורד לאפס כאשר התור ריק. מדד 'ההמתנה הארוכה ביותר' הקלאסי בלוח מחוונים, להתערבות מיידית.",
+      "comparison": "'זמן המתנה ממוצע' הוא ממוצע יומי על פריטים שהושלמו; מדד זה משקף רק את התור הנוכחי."
+    }
+  ]
+}

@@ -1,0 +1,1385 @@
+{
+  "locale": "ru-RU",
+  "metricCount": 197,
+  "metrics": [
+    {
+      "metricId": "MonAgentNumChatsActive",
+      "displayName": "Активные чаты (агент)",
+      "shortDescription": "Число чатов, которые агент обрабатывает прямо сейчас.",
+      "longDescription": "Подсчёт в реальном времени открытых у агента чатов (одновременность чатов).",
+      "comparison": "Завершённый аналог: MonAgentNumChatsCompleted."
+    },
+    {
+      "metricId": "MonAgentNumChatsCompleted",
+      "displayName": "Отвеченные чаты (агент)",
+      "shortDescription": "Число входящих чатов, на которые агент ответил и завершил сегодня.",
+      "longDescription": "Считает входящие чаты, отвеченные агентом и уже завершённые.",
+      "comparison": "Аналог в реальном времени: MonAgentNumChatsActive."
+    },
+    {
+      "metricId": "MonAgentNumMakeCallsInCompleted",
+      "displayName": "Отвеченные входящие звонки (агент)",
+      "shortDescription": "Число входящих звонков/колбэков (callbacks), на которые агент ответил и завершил сегодня.",
+      "longDescription": "Считает входящие звонки и колбэки (callbacks), отвеченные агентом и уже завершённые (разговор окончен). ПРИМЕЧАНИЕ: в MetricId фигурирует «MakeCalls» по историческим причинам — на деле метрика считает ВХОДЯЩИЕ отвеченные обращения.",
+      "comparison": "Незавершённые обращения исключаются до их окончания."
+    },
+    {
+      "metricId": "MonAgentNumberOfConsultCalls",
+      "displayName": "Консультационные звонки (агент)",
+      "shortDescription": "Число консультационных звонков, совершённых агентом сегодня.",
+      "longDescription": "Накопительный счётчик переходов агента в состояние «Consulting Call» — консультация с коллегой/экспертом во время обработки обращения.",
+      "comparison": "Частые консультации могут указывать на пробелы в знаниях или сложный трафик."
+    },
+    {
+      "metricId": "MonAgentNumberOfInboundCalls10Min",
+      "displayName": "Длинные звонки > 10 мин (агент)",
+      "shortDescription": "Число входящих звонков, обработанных агентом со временем разговора (Talk Time) более 10 минут сегодня.",
+      "longDescription": "Считает входящие внешние звонки/колбэки (callbacks), время разговора (Talk Time) по которым превысило 600 секунд. Выделяет необычно длинные беседы для коучинга или анализа сложности.",
+      "comparison": "Противоположный профиль: MonAgentNumberOfInboundCalls15sec."
+    },
+    {
+      "metricId": "MonAgentNumberOfInboundCalls15sec",
+      "displayName": "Короткие звонки < 15 сек (агент)",
+      "shortDescription": "Число входящих звонков, обработанных агентом со временем разговора (Talk Time) менее 15 секунд сегодня.",
+      "longDescription": "Считает входящие внешние звонки/колбэки (callbacks), время разговора (Talk Time) по которым было менее 15 секунд. Всплеск обычно означает преждевременные разъединения или «сброс звонков» и является стандартным сигналом проблем с качеством.",
+      "comparison": "Противоположный профиль: MonAgentNumberOfInboundCalls10Min (очень длинные звонки)."
+    },
+    {
+      "metricId": "MonAgentNumberOfInboundCallsWithIntercom",
+      "displayName": "Входящие звонки — внешние + внутренние (агент)",
+      "shortDescription": "Число входящих звонков и колбэков (callbacks), полученных агентом сегодня, внешних и внутренних.",
+      "longDescription": "Считает входящие голосовые обращения (звонки и колбэки, callbacks), обработанные агентом сегодня, включая внешние и внутренние (intercom) звонки.",
+      "comparison": "У MonAgentNumberOfInboundCallsOnly сейчас ИДЕНТИЧНЫЙ фильтр (дубликат), хотя по названию обещаются только внешние — см. анализ дубликатов."
+    },
+    {
+      "metricId": "MonAgentNumberOfMakeCalls",
+      "displayName": "Исходящие звонки (агент)",
+      "shortDescription": "Число исходящих внешних звонков, совершённых агентом сегодня.",
+      "longDescription": "Считает исходящие внешние голосовые звонки, инициированные агентом сегодня.",
+      "comparison": "Групповой аналог: MonSumAgentsMakeCalls. Средняя длительность: MonAgentAverageMakeCallDuration."
+    },
+    {
+      "metricId": "MonAgentOutgoingCallbacksNum",
+      "displayName": "Исходящие колбэки (Callbacks) (агент)",
+      "shortDescription": "Число колбэк-вызовов (callback), завершённых агентом сегодня.",
+      "longDescription": "Считает исходящие колбэк-обращения (callback) (обратные звонки клиентам), совершённые агентом и отвеченные сегодня.",
+      "comparison": "Входящая сторона: MonAgentProxyCallsNum."
+    },
+    {
+      "metricId": "MonAgentProxyCallsNum",
+      "displayName": "Входящие колбэки (Callbacks) (агент)",
+      "shortDescription": "Число входящих колбэк-обращений (callback), отвеченных агентом сегодня.",
+      "longDescription": "Считает входящие колбэк-обращения (callback), отвеченные агентом сегодня (без учёта самих запросов колбэка).",
+      "comparison": "Исходящая сторона: MonAgentOutgoingCallbacksNum."
+    },
+    {
+      "metricId": "UserCPH",
+      "displayName": "Звонков в час (агент)",
+      "shortDescription": "Входящие звонки, обработанные агентом, в час.",
+      "longDescription": "Пропускная способность на уровне агента: входящие звонки, нормированные на час работы, рассчитываются функцией CPH движка.",
+      "comparison": "Аналог для очереди: QueueCPH."
+    },
+    {
+      "metricId": "UserNumAllIntercom",
+      "displayName": "Внутренние звонки (агент)",
+      "shortDescription": "Число внутренних (intercom) звонков с участием агента сегодня.",
+      "longDescription": "Считает внутренние (intercom) обращения агента сегодня, в любом направлении. Нагрузка внутренней коммуникации.",
+      "comparison": ""
+    },
+    {
+      "metricId": "UserNumMissedCalls",
+      "displayName": "Пропущенные звонки (агент)",
+      "shortDescription": "Сколько раз агент пропустил направленное ему обращение сегодня.",
+      "longDescription": "Накопительный счётчик переходов агента сегодня в состояние «Missed Call» — обращение было направлено агенту и не отвечено. Индикатор дисциплины/доступности.",
+      "comparison": "Групповой аналог в реальном времени: MonSumAgentsInMissedCall."
+    },
+    {
+      "metricId": "AgentMessagesAvgFirstResponseTime",
+      "displayName": "Среднее время первого ответа — сообщения (агент)",
+      "shortDescription": "Среднее время до первого ответа агента в мессенджер-беседах сегодня.",
+      "longDescription": "FRT на уровне агента: среднее время от поступления беседы до первого ответа агента (время первого ответа, First Response Time).",
+      "comparison": "Аналог для очереди: MessagesAvgFirstResponseTime."
+    },
+    {
+      "metricId": "AgentMessagesAvgResponseTime",
+      "displayName": "Среднее время ответа — сообщения (агент)",
+      "shortDescription": "Среднее время ответа агента на сообщения клиента сегодня.",
+      "longDescription": "Среднее время между сообщением клиента и ответом агента на уровне агента (все ответы).",
+      "comparison": "Аналог для очереди: MessagesAvgResponseTime."
+    },
+    {
+      "metricId": "MonAgentAvailableDuration",
+      "displayName": "Длительность состояния Available",
+      "shortDescription": "Суммарное время, проведённое агентом в состояниях группы AVAILABLE сегодня.",
+      "longDescription": "Накопительное время за сегодня в статусах группы AVAILABLE — время готовности (ожидание обращений).",
+      "comparison": "Процент от времени в системе: MonAgentAvailableDurationPct."
+    },
+    {
+      "metricId": "MonAgentAverageAgentDialerDuration",
+      "displayName": "Средняя длительность звонка диалера (агент)",
+      "shortDescription": "Средняя длительность звонков диалера (кампании, Dialer) агента сегодня.",
+      "longDescription": "Среднее время одного пребывания в статусе «Campaign Call» сегодня.",
+      "comparison": "Объём диалера: MonAgentNumberOfInboundCallsDialer."
+    },
+    {
+      "metricId": "MonAgentAverageCallDuration",
+      "displayName": "Средняя длительность обработки (агент)",
+      "shortDescription": "Средняя длительность одного пребывания агента в группе ONPHONE сегодня.",
+      "longDescription": "Среднее время одного пребывания в статусах группы ONPHONE сегодня — практический показатель времени обработки одного обращения на уровне агента.",
+      "comparison": "Компоненты: разговор (MonAgentTalkDuration), удержание (MonAgentHeldDuration), поствызовная обработка (MonAgentWrapUpDuration)."
+    },
+    {
+      "metricId": "MonAgentAverageInboundCallDuration",
+      "displayName": "Средняя длительность входящего звонка (агент)",
+      "shortDescription": "Среднее время разговора (Talk Time) входящих звонков/колбэков (callbacks), завершённых агентом сегодня.",
+      "longDescription": "Среднее время разговора (Talk Time) завершённых входящих внешних звонков и колбэков (callbacks) агента (по обращениям, без учёта незавершённых).",
+      "comparison": "Средняя обработка по статусам: MonAgentAverageCallDuration."
+    },
+    {
+      "metricId": "MonAgentAverageMakeCallDuration",
+      "displayName": "Средняя длительность исходящего звонка (агент)",
+      "shortDescription": "Средняя длительность исходящих звонков агента сегодня.",
+      "longDescription": "Среднее время одного пребывания в статусе «Out Ext Call» сегодня.",
+      "comparison": "Число исходящих: MonAgentNumberOfMakeCalls."
+    },
+    {
+      "metricId": "MonAgentBreakDuration",
+      "displayName": "Суммарная длительность перерывов (Break)",
+      "shortDescription": "Суммарное время, проведённое агентом в состояниях группы BREAK сегодня.",
+      "longDescription": "Накопительное время за сегодня в статусах типа «перерыв» (обед, короткий перерыв и т. п.).",
+      "comparison": "Процент от времени в системе: MonAgentBreakDurationPct. Альтернатива по одному состоянию: см. конкретные состояния."
+    },
+    {
+      "metricId": "MonAgentCurrentLoginDuration",
+      "displayName": "Длительность текущей сессии",
+      "shortDescription": "Время с момента текущего входа агента в систему.",
+      "longDescription": "Длительность текущей сессии входа агента, отсчитывается в реальном времени.",
+      "comparison": "Накопительный аналог: MonAgentLoginTime (все сессии за сегодня)."
+    },
+    {
+      "metricId": "MonAgentDurationOfCalls",
+      "displayName": "Суммарная длительность входящих звонков",
+      "shortDescription": "Суммарное время, проведённое агентом на входящих внешних звонках сегодня.",
+      "longDescription": "Накопительное время за сегодня в статусе «Incoming Ext Call» — входящая часть общего времени разговора (Talk Time).",
+      "comparison": "Общее время разговора (все типы обращений): MonAgentTalkDuration."
+    },
+    {
+      "metricId": "MonAgentDurationOfCurrentCall",
+      "displayName": "Длительность текущего входящего звонка",
+      "shortDescription": "Длительность входящего внешнего звонка, который агент обрабатывает прямо сейчас.",
+      "longDescription": "Длительность в реальном времени текущего статуса агента «Incoming Ext Call»; ноль/пусто, когда агент не на входящем внешнем звонке.",
+      "comparison": "Максимум по группе: MonSumAgentsLongestCurrentCall."
+    },
+    {
+      "metricId": "MonAgentHeldDuration",
+      "displayName": "Суммарная длительность удержания (Hold)",
+      "shortDescription": "Суммарное время, в течение которого агент держал клиентов на удержании (Hold) сегодня.",
+      "longDescription": "Накопительное время за сегодня в статусе «Hold». Время удержания — компонент AHT и фактор раздражения для клиента.",
+      "comparison": "AHT = разговор + удержание + поствызовная обработка; см. MonAgentTalkDuration и MonAgentWrapUpDuration."
+    },
+    {
+      "metricId": "MonAgentLoginTime",
+      "displayName": "Суммарная длительность в системе",
+      "shortDescription": "Суммарное время нахождения агента в системе за сегодня (все сессии).",
+      "longDescription": "Сумма всех сессий входа агента за сегодня. Знаменатель для всех метрик «процент от времени в системе».",
+      "comparison": "Только текущая сессия: MonAgentCurrentLoginDuration."
+    },
+    {
+      "metricId": "MonAgentMaxCallDuration",
+      "displayName": "Макс. длительность звонка (агент)",
+      "shortDescription": "Наибольшее время разговора (Talk Time) одного входящего звонка агента сегодня.",
+      "longDescription": "Максимальная длительность разговора (Talk Time) среди входящих внешних звонков/колбэков (callbacks) агента сегодня.",
+      "comparison": "Текущий звонок в реальном времени: MonAgentDurationOfCurrentCall."
+    },
+    {
+      "metricId": "MonAgentPaperworkDuration",
+      "displayName": "Суммарная длительность Paperwork",
+      "shortDescription": "Суммарное время, проведённое агентом в состояниях группы PAPERWORK сегодня.",
+      "longDescription": "Накопительное время за сегодня в статусах поствызовной/бэк-офисной работы (группа PAPERWORK).",
+      "comparison": "Процент от времени в системе: MonAgentPaperworkDurationPct. Отдельное состояние Wrap Up: MonAgentWrapUpDuration."
+    },
+    {
+      "metricId": "MonAgentStateDescDuration",
+      "displayName": "Длительность текущей статус-группы",
+      "shortDescription": "Как долго агент находится в текущей статус-группе.",
+      "longDescription": "Длительность в реальном времени пребывания агента в текущей статус-группе: переключение между состояниями внутри одной группы (например, Lunch → Coffee Break) не сбрасывает этот таймер.",
+      "comparison": "Таймер на уровне состояния: MonAgentStateDuration."
+    },
+    {
+      "metricId": "MonAgentStateDuration",
+      "displayName": "Длительность текущего статуса",
+      "shortDescription": "Как долго агент находится в текущем статусе.",
+      "longDescription": "Длительность в реальном времени текущего статуса агента, каким бы он ни был. Универсальная колонка-таймер для вол-борда.",
+      "comparison": "Длительность текущей статус-группы: MonAgentStateDescDuration."
+    },
+    {
+      "metricId": "MonAgentTalkDuration",
+      "displayName": "Суммарная длительность разговора (Talk Time)",
+      "shortDescription": "Суммарное время, проведённое агентом в состояниях группы ONPHONE сегодня.",
+      "longDescription": "Сумма всего времени за сегодня в статусах группы ONPHONE — общее время разговора (Talk Time) с клиентами.",
+      "comparison": "Процент от времени в системе: MonAgentTalkDurationPct. Среднее на звонок: MonAgentAverageCallDuration."
+    },
+    {
+      "metricId": "MonAgentTelStateDuration",
+      "displayName": "Длительность состояния активного обращения",
+      "shortDescription": "Как долго самое длинное активное обращение агента находится в своём текущем состоянии.",
+      "longDescription": "Длительность в реальном времени текущего состояния (например, разговор, удержание/Hold) самого длинного активного обращения агента.",
+      "comparison": "Само состояние обращения: MonAgentTelState."
+    },
+    {
+      "metricId": "MonAgentUnavailableStateDuration",
+      "displayName": "Суммарная длительность Unavailable",
+      "shortDescription": "Суммарное время, проведённое агентом в состоянии «Unavailable» сегодня.",
+      "longDescription": "Накопительное время за сегодня в конкретном статусе «Unavailable».",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentWrapUpDuration",
+      "displayName": "Суммарная длительность Wrap Up",
+      "shortDescription": "Суммарное время, проведённое агентом в состоянии «Wrap Up» сегодня.",
+      "longDescription": "Накопительное время за сегодня в конкретном статусе «Wrap Up» (одно из состояний группы PAPERWORK).",
+      "comparison": "Поствызовная обработка (Wrap Up / ACW) по всей группе: MonAgentPaperworkDuration."
+    },
+    {
+      "metricId": "AgentLoginName",
+      "displayName": "Логин (имя)",
+      "shortDescription": "Отображаемое имя / логин агента.",
+      "longDescription": "Статический атрибут, используемый как подпись строки в виджетах Agent Grid.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonActiveCampaign",
+      "displayName": "Очередь активного обращения",
+      "shortDescription": "Имя очереди (рабочей группы) самого длинного активного обращения агента.",
+      "longDescription": "Атрибут в реальном времени: из какой очереди поступило самое длинное активное обращение.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentActiveInteractionId",
+      "displayName": "ID активного обращения",
+      "shortDescription": "Идентификатор самого длинного активного обращения агента.",
+      "longDescription": "Атрибут в реальном времени: ID самого длинного активного обращения агента в данный момент.",
+      "comparison": "Сопутствующие: тип, состояние, очередь, номер клиента того же обращения."
+    },
+    {
+      "metricId": "MonAgentCurrentLoginTimeStamp",
+      "displayName": "Время текущего входа",
+      "shortDescription": "Отметка времени текущего входа агента в систему.",
+      "longDescription": "Атрибут: время начала текущей сессии входа.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentExtension",
+      "displayName": "Внутренний номер (Extension)",
+      "shortDescription": "Телефонный внутренний номер агента.",
+      "longDescription": "Статический атрибут: внутренний номер (extension) агента.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentFirstLoginTimeStamp",
+      "displayName": "Время первого входа",
+      "shortDescription": "Отметка времени первого входа агента сегодня.",
+      "longDescription": "Атрибут, статичный в пределах дня: когда агент впервые вошёл в систему сегодня.",
+      "comparison": "Начало текущей сессии: MonAgentCurrentLoginTimeStamp."
+    },
+    {
+      "metricId": "MonAgentState",
+      "displayName": "Текущий статус",
+      "shortDescription": "Название текущего статуса агента.",
+      "longDescription": "Текстовый атрибут в реальном времени: заголовок текущего состояния агента (Agent State), например Available, Lunch, Wrap Up.",
+      "comparison": "Имя группы: MonAgentStateDesc. Таймер: MonAgentStateDuration."
+    },
+    {
+      "metricId": "MonAgentStateDesc",
+      "displayName": "Текущая статус-группа",
+      "shortDescription": "Статус-группа текущего статуса агента.",
+      "longDescription": "Текстовый атрибут в реальном времени: статус-группа (AVAILABLE / ONPHONE / BREAK / PAPERWORK / TRAINING) текущего состояния агента.",
+      "comparison": "Имя состояния: MonAgentState."
+    },
+    {
+      "metricId": "MonAgentStation",
+      "displayName": "ID рабочего места (Station)",
+      "shortDescription": "Идентификатор рабочего места / телефонной станции агента.",
+      "longDescription": "Статический атрибут: рабочее место (station), на котором агент вошёл в систему.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentTelState",
+      "displayName": "Состояние активного обращения",
+      "shortDescription": "Состояние самого длинного активного обращения агента.",
+      "longDescription": "Атрибут в реальном времени: текущее состояние (например, разговор, удержание/Hold) самого длинного активного обращения.",
+      "comparison": "Длительность этого состояния: MonAgentTelStateDuration."
+    },
+    {
+      "metricId": "MonAgentTodayLogin",
+      "displayName": "Входил сегодня (флаг)",
+      "shortDescription": "Флаг/ID, указывающий, что агент входил в систему сегодня.",
+      "longDescription": "Технический атрибут, отмечающий агентов, подключавшихся в течение текущего дня. ПРИМЕЧАНИЕ: его описание в БД («Change -ID of a representative...») не имеет стандартного префикса «Agent -» и требует нормализации.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentUserId",
+      "displayName": "ID пользователя (User ID)",
+      "shortDescription": "Идентификатор пользователя агента на платформе.",
+      "longDescription": "Статический атрибут: User ID агента на CC-платформе.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonInteractionType",
+      "displayName": "Тип активного обращения",
+      "shortDescription": "Тип (звонок/чат/...) самого длинного активного обращения агента.",
+      "longDescription": "Атрибут в реальном времени: тип самого длинного активного обращения.",
+      "comparison": ""
+    },
+    {
+      "metricId": "RemotePhoneNumber",
+      "displayName": "Номер телефона клиента",
+      "shortDescription": "Номер телефона клиента в самом длинном активном обращении агента.",
+      "longDescription": "Атрибут в реальном времени: номер удалённой стороны самого длинного активного обращения. Содержит ПДн (PII) — применяйте маскирование, где требуется.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonAgentAvailableDurationPct",
+      "displayName": "% времени Available от входа",
+      "shortDescription": "Доля времени агента в системе, проведённая в состояниях AVAILABLE сегодня.",
+      "longDescription": "Накопительное время группы AVAILABLE, делённое на общее время в системе, — доля готовности.",
+      "comparison": "Высокий % Available + низкий % разговора = недозагрузка; обратное указывает на перегрузку."
+    },
+    {
+      "metricId": "MonAgentBreakDurationPct",
+      "displayName": "% времени Break от входа",
+      "shortDescription": "Доля времени агента в системе, проведённая в состояниях BREAK сегодня.",
+      "longDescription": "Накопительное время группы BREAK, делённое на общее время в системе, — потери на перерывы (shrinkage) на агента.",
+      "comparison": "Групповой аналог: MonSumAgentsBreakDurationPercent."
+    },
+    {
+      "metricId": "MonAgentPaperworkDurationPct",
+      "displayName": "% времени Paperwork от входа",
+      "shortDescription": "Доля времени агента в системе, проведённая в состояниях PAPERWORK сегодня.",
+      "longDescription": "Накопительное время группы PAPERWORK, делённое на общее время в системе, — доля поствызовной обработки (ACW).",
+      "comparison": "Групповой аналог: MonSumAgentsPaperworkDurationPercent."
+    },
+    {
+      "metricId": "MonAgentTalkDurationPct",
+      "displayName": "% времени разговора от входа",
+      "shortDescription": "Доля времени агента в системе, проведённая в состояниях ONPHONE сегодня.",
+      "longDescription": "Накопительное время группы ONPHONE, делённое на общее время в системе. Практический показатель загрузки (Occupancy) на агента (по разговору; без поствызовной обработки).",
+      "comparison": "Сопутствующие: % Available, % Break, % Paperwork, % Training."
+    },
+    {
+      "metricId": "MonAgentTrainingDurationPct",
+      "displayName": "% времени Training от входа",
+      "shortDescription": "Доля времени агента в системе, проведённая в состояниях TRAINING сегодня.",
+      "longDescription": "Накопительное время группы TRAINING, делённое на общее время в системе.",
+      "comparison": ""
+    },
+    {
+      "metricId": "MonSumAgentsBreakDurationMax",
+      "displayName": "Макс. текущая длительность перерыва (группа)",
+      "shortDescription": "Наибольшее время, которое любой агент группы сейчас находится в состоянии группы Break.",
+      "longDescription": "Максимум в реальном времени: среди агентов, находящихся сейчас в состоянии группы BREAK, длительность самого долгого текущего перерыва. Выделяет затянувшиеся перерывы на вол-бордах.",
+      "comparison": "Процентный аналог: MonSumAgentsBreakDurationPercent."
+    },
+    {
+      "metricId": "MonSumAgentsBreakDurationPercent",
+      "displayName": "% времени в группе Break (группа)",
+      "shortDescription": "Доля времени группы в системе, проведённая в состояниях группы Break.",
+      "longDescription": "Накопительный процент за сегодня: суммарное время агентов бизнес-юнита (BU) в состояниях группы BREAK, делённое на их общее время в системе. Ключевой индикатор потерь (shrinkage).",
+      "comparison": "Аналог на уровне агента: MonAgentBreakDurationPct."
+    },
+    {
+      "metricId": "MonSumAgentsPaperworkDurationPercent",
+      "displayName": "% времени в группе Paperwork (группа)",
+      "shortDescription": "Доля времени группы в системе, проведённая в состояниях группы Paperwork.",
+      "longDescription": "Накопительный процент за сегодня: суммарное время группы PAPERWORK, делённое на общее время группы в системе. Измеряет нагрузку поствызовной обработки (Wrap Up / ACW) / бэк-офиса.",
+      "comparison": "Аналог на уровне агента: MonAgentPaperworkDurationPct."
+    },
+    {
+      "metricId": "MonAgentNumberOfInboundCallsDialer",
+      "displayName": "Звонки диалера (Dialer)",
+      "shortDescription": "Число входящих обращений диалера (кампании, Dialer) сегодня.",
+      "longDescription": "Считает обращения типа Dialer (звонки исходящей кампании, доставляемые агентам как входящие), зарегистрированные сегодня, внешние или внутренние (intercom). ПРИМЕЧАНИЕ: префикс описания указывает «Agent Group», тогда как DataType — «User»; движок сопоставляет DataType, отличный от «UsersInteraction», с набором обращений очереди, поэтому метрика ведёт себя как счётчик уровня очереди.",
+      "comparison": "Аналог средней длительности: MonAgentAverageAgentDialerDuration."
+    },
+    {
+      "metricId": "MonSumAgentsAnsweredCalls",
+      "displayName": "Отвеченные звонки + колбэки (группа)",
+      "shortDescription": "Число входящих звонков и колбэков (callbacks), отвеченных и завершённых агентами этой группы сегодня.",
+      "longDescription": "Считает входящие внешние звонки и колбэки (callbacks), которые агенты бизнес-юнита (BU) ответили и уже завершили (разговор окончен, больше не в очереди). Рассчитывается по набору обращений группы агентов (UsersInteraction).",
+      "comparison": "Почти эквивалент со стороны очереди: QueueNumAnsweredCallsAndCallbacks (считается при ответе, включает незавершённые)."
+    },
+    {
+      "metricId": "MonSumAgentsAverageCallDuration",
+      "displayName": "Среднее время разговора — звонки+колбэки (группа)",
+      "shortDescription": "Среднее время разговора (Talk Time) входящих звонков и колбэков (callbacks), завершённых этой группой сегодня.",
+      "longDescription": "Среднее время беседы по входящим внешним звонкам и колбэкам (callbacks), завершённым сегодня агентами бизнес-юнита (BU), рассчитанное по набору обращений группы агентов.",
+      "comparison": "Аналог со стороны очереди: QueueAvgTalkingDurationCallsAndCallbacks."
+    },
+    {
+      "metricId": "MonSumAgentsAverageChatDuration",
+      "displayName": "Среднее время обработки — чаты (группа)",
+      "shortDescription": "Средняя длительность обработки входящих чатов, завершённых этой группой сегодня.",
+      "longDescription": "Среднее время обработки входящих чатов, завершённых сегодня агентами бизнес-юнита (BU) (набор обращений группы агентов).",
+      "comparison": "Аналог со стороны очереди: QueueAvgTalkingDurationChats."
+    },
+    {
+      "metricId": "MonSumAgentsLongestCurrentCall",
+      "displayName": "Самый длинный текущий звонок (группа)",
+      "shortDescription": "Длительность самого длинного обращения, обрабатываемого сейчас агентом этой группы.",
+      "longDescription": "Максимальная длительность разговора (Talk Time) в реальном времени среди обращений, обрабатываемых сейчас в бизнес-юните (BU). Выделяет необычно затянувшиеся беседы.",
+      "comparison": "Аналог на уровне агента: MonAgentDurationOfCurrentCall."
+    },
+    {
+      "metricId": "MonSumAgentsMakeCalls",
+      "displayName": "Исходящие звонки (группа)",
+      "shortDescription": "Число исходящих внешних обращений, совершённых агентами этой группы сегодня.",
+      "longDescription": "Считает исходящие внешние обращения, инициированные агентами бизнес-юнита (BU) сегодня (рассчитывается по набору обращений группы агентов).",
+      "comparison": "Аналог со стороны очереди: QueueNumOutboundCalls. На уровне агента: MonAgentNumberOfMakeCalls."
+    },
+    {
+      "metricId": "MonSumAgentsInMissedCall",
+      "displayName": "Агенты в состоянии «Missed Call»",
+      "shortDescription": "Число агентов, находящихся сейчас в состоянии «Missed Call».",
+      "longDescription": "Счётчик в реальном времени агентов, чьё текущее состояние — «Missed Call» (состояние, в которое агент попадает после неответа на направленное обращение). Стабильно ненулевые значения сигнализируют о проблемах маршрутизации или дисциплины.",
+      "comparison": "Накопительный аналог на уровне агента: UserNumMissedCalls."
+    },
+    {
+      "metricId": "StateCountAvailable",
+      "displayName": "Агенты в состоянии «Available»",
+      "shortDescription": "Число агентов, находящихся сейчас именно в состоянии «Available».",
+      "longDescription": "Счётчик в реальном времени агентов, чьё текущее состояние (Agent State) — ровно «Available». Считает «сырое» состояние платформы, а не статус-группу: пользовательские состояния, отнесённые к группе AVAILABLE (например, «Ready-Chat»), НЕ включаются.",
+      "comparison": "Аналог на уровне группы: QueueLoginDataNumAvailableUsers."
+    },
+    {
+      "metricId": "StateCountBreak",
+      "displayName": "Агенты в состоянии «Break»",
+      "shortDescription": "Число агентов, находящихся сейчас именно в состоянии «Break».",
+      "longDescription": "Счётчик в реальном времени агентов, чьё текущее состояние (Agent State) — ровно «Break». Состояния вроде «Lunch» или «Coffee Break» не включаются, хотя относятся к группе BREAK.",
+      "comparison": "Аналог на уровне группы: QueueLoginDataNumBreakUsers."
+    },
+    {
+      "metricId": "StateCountOnPhone",
+      "displayName": "Агенты в состоянии «On Phone»",
+      "shortDescription": "Число агентов, находящихся сейчас именно в состоянии «On Phone».",
+      "longDescription": "Счётчик в реальном времени агентов, чьё текущее состояние (Agent State) — ровно «On Phone» («сырое» состояние, а не группа ONPHONE).",
+      "comparison": "Аналог на уровне группы: UsersSumOnCall."
+    },
+    {
+      "metricId": "StateCountPaperwork",
+      "displayName": "Агенты в состоянии «Paperwork»",
+      "shortDescription": "Число агентов, находящихся сейчас именно в состоянии «Paperwork».",
+      "longDescription": "Счётчик в реальном времени агентов, чьё текущее состояние (Agent State) — ровно «Paperwork» («сырое» состояние, а не группа PAPERWORK).",
+      "comparison": "Аналог на уровне группы: QueueLoginDataNumPaperworkUsers."
+    },
+    {
+      "metricId": "StateCountTraining",
+      "displayName": "Агенты в состоянии «Training»",
+      "shortDescription": "Число агентов, находящихся сейчас именно в состоянии «Training».",
+      "longDescription": "Счётчик в реальном времени агентов, чьё текущее состояние (Agent State) — ровно «Training» («сырое» состояние, а не группа TRAINING).",
+      "comparison": "Аналог на уровне группы: QueueLoginDataNumTrainingUsers."
+    },
+    {
+      "metricId": "QueueLoginDataNumAvailableUsers",
+      "displayName": "Агенты Available (группа)",
+      "shortDescription": "Число агентов, находящихся сейчас в статус-группе AVAILABLE.",
+      "longDescription": "Счётчик в реальном времени агентов бизнес-юнита (BU), чей текущий статус относится к статус-группе AVAILABLE (готовы принять обращение).",
+      "comparison": "StateCountAvailable считает только конкретное состояние «Available»; эта метрика считает всю группу."
+    },
+    {
+      "metricId": "QueueLoginDataNumBreakUsers",
+      "displayName": "Агенты в группе Break",
+      "shortDescription": "Число агентов, находящихся сейчас в любом состоянии группы Break.",
+      "longDescription": "Счётчик в реальном времени агентов, чей текущий статус относится к статус-группе BREAK (обед, короткий перерыв, кофе-брейк и т. п.).",
+      "comparison": "StateCountBreak считает только конкретное состояние «Break»; эта метрика охватывает все состояния типа «перерыв»."
+    },
+    {
+      "metricId": "QueueLoginDataNumLoggedUsers",
+      "displayName": "Агенты в системе",
+      "shortDescription": "Число агентов бизнес-юнита (BU), находящихся сейчас в системе.",
+      "longDescription": "Счётчик в реальном времени агентов, вошедших сейчас на платформу в рамках этого бизнес-юнита (BU), в любом статусе. Базис для оценки укомплектованности и загрузки (Occupancy).",
+      "comparison": "QueueNumberOfLoggedAgents — его (устаревший) дубликат. Счётчики Available/Break/Paperwork являются подмножествами."
+    },
+    {
+      "metricId": "QueueLoginDataNumPaperworkUsers",
+      "displayName": "Агенты в группе Paperwork",
+      "shortDescription": "Число агентов, находящихся сейчас в любом состоянии группы Paperwork (ACW/бэк-офис).",
+      "longDescription": "Счётчик в реальном времени агентов, чей текущий статус относится к статус-группе PAPERWORK (поствызовная обработка, административные задачи).",
+      "comparison": "QueueNumWrapUpAgents считает только единственное состояние «Wrap Up»."
+    },
+    {
+      "metricId": "QueueLoginDataNumTrainingUsers",
+      "displayName": "Агенты в группе Training",
+      "shortDescription": "Число агентов, находящихся сейчас в любом состоянии группы Training.",
+      "longDescription": "Счётчик в реальном времени агентов, чей текущий статус относится к статус-группе TRAINING. ПРИМЕЧАНИЕ: эта строка несёт аномальный DataType («String» вместо «UsersSummary») и пустые колонки по умолчанию — для движка безвредно (DataType игнорируется для счётчиков статусов), но требует нормализации.",
+      "comparison": "StateCountTraining считает только конкретное состояние «Training»."
+    },
+    {
+      "metricId": "UsersSumOnCall",
+      "displayName": "Агенты на обращении",
+      "shortDescription": "Число агентов, находящихся сейчас в статус-группе ONPHONE (обрабатывают обращение).",
+      "longDescription": "Счётчик в реальном времени агентов, чей текущий статус относится к группе ONPHONE — активно обрабатывают обращения клиентов.",
+      "comparison": "QueueNumOnCallAgents — его (устаревший) дубликат. StateCountOnPhone считает только конкретное состояние."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandCallbacks",
+      "displayName": "Среднее время до отказа — Колбэки (Callbacks)",
+      "shortDescription": "Среднее время, которое входящие колбэк-обращений (callback) ждали в очереди до того, как были потеряны (abandoned), сегодня.",
+      "longDescription": "Среднее время в очереди для потерянных (abandoned) входящих колбэк-обращений (callback): сколько клиенты были готовы ждать, прежде чем отказаться. Полезно для постановки реалистичных целей по уровню сервиса (Service Level) — если клиенты отказываются на 40-й секунде, цель в 60 секунд слишком медленная.",
+      "comparison": "Подмножество «Среднего времени ожидания», ограниченное потерянными обращениями."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandCalls",
+      "displayName": "Среднее время до отказа — Звонки",
+      "shortDescription": "Среднее время, которое входящие внешних голосовых звонков ждали в очереди до того, как были потеряны (abandoned), сегодня.",
+      "longDescription": "Среднее время в очереди для потерянных (abandoned) входящих внешних голосовых звонков: сколько клиенты были готовы ждать, прежде чем отказаться. Полезно для постановки реалистичных целей по уровню сервиса (Service Level) — если клиенты отказываются на 40-й секунде, цель в 60 секунд слишком медленная.",
+      "comparison": "Подмножество «Среднего времени ожидания», ограниченное потерянными обращениями."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandCallsAndCallbacks",
+      "displayName": "Среднее время до отказа — Звонки и колбэки",
+      "shortDescription": "Среднее время, которое входящие звонков и колбэков (внешняя голосовая нагрузка) ждали в очереди до того, как были потеряны (abandoned), сегодня.",
+      "longDescription": "Среднее время в очереди для потерянных (abandoned) входящих звонков и колбэков (внешняя голосовая нагрузка): сколько клиенты были готовы ждать, прежде чем отказаться. Полезно для постановки реалистичных целей по уровню сервиса (Service Level) — если клиенты отказываются на 40-й секунде, цель в 60 секунд слишком медленная.",
+      "comparison": "Подмножество «Среднего времени ожидания», ограниченное потерянными обращениями."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandChats",
+      "displayName": "Среднее время до отказа — Чаты",
+      "shortDescription": "Среднее время, которое входящие чатов ждали в очереди до того, как были потеряны (abandoned), сегодня.",
+      "longDescription": "Среднее время в очереди для потерянных (abandoned) входящих чатов: сколько клиенты были готовы ждать, прежде чем отказаться. Полезно для постановки реалистичных целей по уровню сервиса (Service Level) — если клиенты отказываются на 40-й секунде, цель в 60 секунд слишком медленная.",
+      "comparison": "Подмножество «Среднего времени ожидания», ограниченное потерянными обращениями."
+    },
+    {
+      "metricId": "QueueAvgTimeToAbandInteractions",
+      "displayName": "Среднее время до отказа — Цифровые обращения",
+      "shortDescription": "Среднее время, которое входящие цифровых обращений (chat и e-mail) ждали в очереди до того, как были потеряны (abandoned), сегодня.",
+      "longDescription": "Среднее время в очереди для потерянных (abandoned) входящих цифровых обращений (chat и e-mail): сколько клиенты были готовы ждать, прежде чем отказаться. Полезно для постановки реалистичных целей по уровню сервиса (Service Level) — если клиенты отказываются на 40-й секунде, цель в 60 секунд слишком медленная.",
+      "comparison": "Подмножество «Среднего времени ожидания», ограниченное потерянными обращениями."
+    },
+    {
+      "metricId": "MessagesAvgFirstResponseTime",
+      "displayName": "Среднее время первого ответа (сообщения)",
+      "shortDescription": "Среднее время до первого ответа агента в мессенджер-каналах сегодня.",
+      "longDescription": "Среднее время между поступлением сообщения и первым ответом агента. Ключевой KPI отзывчивости (время первого ответа, First Response Time) для каналов чат/мессенджер.",
+      "comparison": "MessagesAvgResponseTime охватывает ВСЕ ответы, а не только первый."
+    },
+    {
+      "metricId": "MessagesAvgResponseTime",
+      "displayName": "Среднее время ответа (сообщения)",
+      "shortDescription": "Среднее время ответа агента на сообщения клиента сегодня (все ответы).",
+      "longDescription": "Среднее время между любым сообщением клиента и следующим ответом агента. Измеряет устойчивую отзывчивость в беседе, а не только первый контакт.",
+      "comparison": "MessagesAvgFirstResponseTime выделяет только первый ответ."
+    },
+    {
+      "metricId": "MessagesMaxFirstResponseTime",
+      "displayName": "Макс. время первого ответа (сообщения)",
+      "shortDescription": "Наибольшее время первого ответа на входящее сообщение сегодня.",
+      "longDescription": "Максимальное время, которое клиенты ждали сегодня ПЕРВОГО ответа агента в мессенджер-каналах. Индикатор наихудшего случая цифровой отзывчивости.",
+      "comparison": "Средний аналог: MessagesAvgFirstResponseTime."
+    },
+    {
+      "metricId": "QueuePctAbandonedCallbacksTotal",
+      "displayName": "% потерянных колбэков (Callbacks)",
+      "shortDescription": "Доля входящих колбэк-обращений (callback), потерянных (abandoned) в очереди, от всех завершивших ожидание сегодня.",
+      "longDescription": "Потерянные (abandoned) входящие колбэк-обращений (callback), делённые на входящие завершённые колбэк-обращений (callback). Стандартный KPI доли потерянных (Abandonment Rate) — прямая мера клиентов, потерянных в очереди. Запросы колбэка (callback) потерянными не считаются.",
+      "comparison": "Дополняет показатель «% отвеченных»."
+    },
+    {
+      "metricId": "QueuePctAbandonedCallsTotal",
+      "displayName": "% потерянных звонков",
+      "shortDescription": "Доля входящих внешних голосовых звонков, потерянных (abandoned) в очереди, от всех завершивших ожидание сегодня.",
+      "longDescription": "Потерянные (abandoned) входящие внешних голосовых звонков, делённые на входящие завершённые внешних голосовых звонков. Стандартный KPI доли потерянных (Abandonment Rate) — прямая мера клиентов, потерянных в очереди. Запросы колбэка (callback) потерянными не считаются.",
+      "comparison": "Дополняет показатель «% отвеченных»."
+    },
+    {
+      "metricId": "QueuePctAbandonedCallsAndCallbacksTotal",
+      "displayName": "% потерянных звонков и колбэков",
+      "shortDescription": "Доля входящих звонков и колбэков (внешняя голосовая нагрузка), потерянных (abandoned) в очереди, от всех завершивших ожидание сегодня.",
+      "longDescription": "Потерянные (abandoned) входящие звонков и колбэков (внешняя голосовая нагрузка), делённые на входящие завершённые звонков и колбэков (внешняя голосовая нагрузка). Стандартный KPI доли потерянных (Abandonment Rate) — прямая мера клиентов, потерянных в очереди. Запросы колбэка (callback) потерянными не считаются.",
+      "comparison": "Дополняет показатель «% отвеченных»."
+    },
+    {
+      "metricId": "QueuePctAbandonedChatsTotal",
+      "displayName": "% потерянных чатов",
+      "shortDescription": "Доля входящих чатов, потерянных (abandoned) в очереди, от всех завершивших ожидание сегодня.",
+      "longDescription": "Потерянные (abandoned) входящие чатов, делённые на входящие завершённые чатов. Стандартный KPI доли потерянных (Abandonment Rate) — прямая мера клиентов, потерянных в очереди. Запросы колбэка (callback) потерянными не считаются.",
+      "comparison": "Дополняет показатель «% отвеченных»."
+    },
+    {
+      "metricId": "QueuePctAbandonedInteractionsTotal",
+      "displayName": "% потерянных цифровых обращений",
+      "shortDescription": "Доля входящих цифровых обращений (chat и e-mail), потерянных (abandoned) в очереди, от всех завершивших ожидание сегодня.",
+      "longDescription": "Потерянные (abandoned) входящие цифровых обращений (chat и e-mail), делённые на входящие завершённые цифровых обращений (chat и e-mail). Стандартный KPI доли потерянных (Abandonment Rate) — прямая мера клиентов, потерянных в очереди. Запросы колбэка (callback) потерянными не считаются.",
+      "comparison": "Дополняет показатель «% отвеченных»."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks30secAns",
+      "displayName": "% отвеченных колбэков (Callbacks) за 30 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных колбэк-обращений (callback), принятых в течение 30 сек.",
+      "longDescription": "Входящие колбэк-обращений (callback), отвеченные в течение 30 сек, делённые на все отвеченные колбэк-обращений (callback). Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks60secAns",
+      "displayName": "% отвеченных колбэков (Callbacks) за 60 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных колбэк-обращений (callback), принятых в течение 60 сек.",
+      "longDescription": "Входящие колбэк-обращений (callback), отвеченные в течение 60 сек, делённые на все отвеченные колбэк-обращений (callback). Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks120secAns",
+      "displayName": "% отвеченных колбэков (Callbacks) за 120 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных колбэк-обращений (callback), принятых в течение 120 сек.",
+      "longDescription": "Входящие колбэк-обращений (callback), отвеченные в течение 120 сек, делённые на все отвеченные колбэк-обращений (callback). Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls30secAns",
+      "displayName": "% отвеченных звонков за 30 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных внешних голосовых звонков, принятых в течение 30 сек.",
+      "longDescription": "Входящие внешних голосовых звонков, отвеченные в течение 30 сек, делённые на все отвеченные внешних голосовых звонков. Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls60secAns",
+      "displayName": "% отвеченных звонков за 60 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных внешних голосовых звонков, принятых в течение 60 сек.",
+      "longDescription": "Входящие внешних голосовых звонков, отвеченные в течение 60 сек, делённые на все отвеченные внешних голосовых звонков. Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls120secAns",
+      "displayName": "% отвеченных звонков за 120 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных внешних голосовых звонков, принятых в течение 120 сек.",
+      "longDescription": "Входящие внешних голосовых звонков, отвеченные в течение 120 сек, делённые на все отвеченные внешних голосовых звонков. Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks30secAns",
+      "displayName": "% отвеченных звонков и колбэков за 30 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных звонков и колбэков (внешняя голосовая нагрузка), принятых в течение 30 сек.",
+      "longDescription": "Входящие звонков и колбэков (внешняя голосовая нагрузка), отвеченные в течение 30 сек, делённые на все отвеченные звонков и колбэков (внешняя голосовая нагрузка). Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks60secAns",
+      "displayName": "% отвеченных звонков и колбэков за 60 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных звонков и колбэков (внешняя голосовая нагрузка), принятых в течение 60 сек.",
+      "longDescription": "Входящие звонков и колбэков (внешняя голосовая нагрузка), отвеченные в течение 60 сек, делённые на все отвеченные звонков и колбэков (внешняя голосовая нагрузка). Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks120secAns",
+      "displayName": "% отвеченных звонков и колбэков за 120 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных звонков и колбэков (внешняя голосовая нагрузка), принятых в течение 120 сек.",
+      "longDescription": "Входящие звонков и колбэков (внешняя голосовая нагрузка), отвеченные в течение 120 сек, делённые на все отвеченные звонков и колбэков (внешняя голосовая нагрузка). Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats30secAns",
+      "displayName": "% отвеченных чатов за 30 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных чатов, принятых в течение 30 сек.",
+      "longDescription": "Входящие чатов, отвеченные в течение 30 сек, делённые на все отвеченные чатов. Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats60secAns",
+      "displayName": "% отвеченных чатов за 60 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных чатов, принятых в течение 60 сек.",
+      "longDescription": "Входящие чатов, отвеченные в течение 60 сек, делённые на все отвеченные чатов. Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats120secAns",
+      "displayName": "% отвеченных чатов за 120 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных чатов, принятых в течение 120 сек.",
+      "longDescription": "Входящие чатов, отвеченные в течение 120 сек, делённые на все отвеченные чатов. Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions30secAns",
+      "displayName": "% отвеченных цифровых обращений за 30 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных цифровых обращений (chat и e-mail), принятых в течение 30 сек.",
+      "longDescription": "Входящие цифровых обращений (chat и e-mail), отвеченные в течение 30 сек, делённые на все отвеченные цифровых обращений (chat и e-mail). Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions60secAns",
+      "displayName": "% отвеченных цифровых обращений за 60 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных цифровых обращений (chat и e-mail), принятых в течение 60 сек.",
+      "longDescription": "Входящие цифровых обращений (chat и e-mail), отвеченные в течение 60 сек, делённые на все отвеченные цифровых обращений (chat и e-mail). Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions120secAns",
+      "displayName": "% отвеченных цифровых обращений за 120 сек (от отвеченных)",
+      "shortDescription": "Доля отвеченных цифровых обращений (chat и e-mail), принятых в течение 120 сек.",
+      "longDescription": "Входящие цифровых обращений (chat и e-mail), отвеченные в течение 120 сек, делённые на все отвеченные цифровых обращений (chat и e-mail). Отражает только профиль скорости по отвеченным обращениям: какая доля принятых обращений была обработана быстро. Потерянные обращения полностью игнорируются.",
+      "comparison": "Всегда ≥ варианта «…от входящих» (уровень сервиса, Service Level). Для отчётности по SLA используйте вариант «от входящих»; этот — для анализа скорости ответа."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks30secInc",
+      "displayName": "% отвеченных колбэков (Callbacks) за 30 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых колбэк-обращений (callback), отвеченных в течение 30 сек — уровень сервиса (Service Level, TSF) с целевым порогом 30 сек.",
+      "longDescription": "Входящие колбэк-обращений (callback), отвеченные в течение 30 сек, делённые на входящие завершённые колбэк-обращений (callback). Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 30 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks60secInc",
+      "displayName": "% отвеченных колбэков (Callbacks) за 60 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых колбэк-обращений (callback), отвеченных в течение 60 сек — уровень сервиса (Service Level, TSF) с целевым порогом 60 сек.",
+      "longDescription": "Входящие колбэк-обращений (callback), отвеченные в течение 60 сек, делённые на входящие завершённые колбэк-обращений (callback). Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 60 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacks120secInc",
+      "displayName": "% отвеченных колбэков (Callbacks) за 120 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых колбэк-обращений (callback), отвеченных в течение 120 сек — уровень сервиса (Service Level, TSF) с целевым порогом 120 сек.",
+      "longDescription": "Входящие колбэк-обращений (callback), отвеченные в течение 120 сек, делённые на входящие завершённые колбэк-обращений (callback). Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 120 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls30secInc",
+      "displayName": "% отвеченных звонков за 30 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых внешних голосовых звонков, отвеченных в течение 30 сек — уровень сервиса (Service Level, TSF) с целевым порогом 30 сек.",
+      "longDescription": "Входящие внешних голосовых звонков, отвеченные в течение 30 сек, делённые на входящие завершённые внешних голосовых звонков. Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 30 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls60secInc",
+      "displayName": "% отвеченных звонков за 60 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых внешних голосовых звонков, отвеченных в течение 60 сек — уровень сервиса (Service Level, TSF) с целевым порогом 60 сек.",
+      "longDescription": "Входящие внешних голосовых звонков, отвеченные в течение 60 сек, делённые на входящие завершённые внешних голосовых звонков. Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 60 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls120secInc",
+      "displayName": "% отвеченных звонков за 120 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых внешних голосовых звонков, отвеченных в течение 120 сек — уровень сервиса (Service Level, TSF) с целевым порогом 120 сек.",
+      "longDescription": "Входящие внешних голосовых звонков, отвеченные в течение 120 сек, делённые на входящие завершённые внешних голосовых звонков. Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 120 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCalls360secInc",
+      "displayName": "% отвеченных звонков за 360 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых внешних голосовых звонков, отвеченных в течение 360 сек — уровень сервиса (Service Level, TSF) с целевым порогом 360 сек.",
+      "longDescription": "Входящие внешних голосовых звонков, отвеченные в течение 360 сек, делённые на входящие завершённые внешних голосовых звонков. Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 360 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks30secInc",
+      "displayName": "% отвеченных звонков и колбэков за 30 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых звонков и колбэков (внешняя голосовая нагрузка), отвеченных в течение 30 сек — уровень сервиса (Service Level, TSF) с целевым порогом 30 сек.",
+      "longDescription": "Входящие звонков и колбэков (внешняя голосовая нагрузка), отвеченные в течение 30 сек, делённые на входящие завершённые звонков и колбэков (внешняя голосовая нагрузка). Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 30 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks60secInc",
+      "displayName": "% отвеченных звонков и колбэков за 60 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых звонков и колбэков (внешняя голосовая нагрузка), отвеченных в течение 60 сек — уровень сервиса (Service Level, TSF) с целевым порогом 60 сек.",
+      "longDescription": "Входящие звонков и колбэков (внешняя голосовая нагрузка), отвеченные в течение 60 сек, делённые на входящие завершённые звонков и колбэков (внешняя голосовая нагрузка). Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 60 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacks120secInc",
+      "displayName": "% отвеченных звонков и колбэков за 120 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых звонков и колбэков (внешняя голосовая нагрузка), отвеченных в течение 120 сек — уровень сервиса (Service Level, TSF) с целевым порогом 120 сек.",
+      "longDescription": "Входящие звонков и колбэков (внешняя голосовая нагрузка), отвеченные в течение 120 сек, делённые на входящие завершённые звонков и колбэков (внешняя голосовая нагрузка). Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 120 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats30secInc",
+      "displayName": "% отвеченных чатов за 30 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых чатов, отвеченных в течение 30 сек — уровень сервиса (Service Level, TSF) с целевым порогом 30 сек.",
+      "longDescription": "Входящие чатов, отвеченные в течение 30 сек, делённые на входящие завершённые чатов. Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 30 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats60secInc",
+      "displayName": "% отвеченных чатов за 60 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых чатов, отвеченных в течение 60 сек — уровень сервиса (Service Level, TSF) с целевым порогом 60 сек.",
+      "longDescription": "Входящие чатов, отвеченные в течение 60 сек, делённые на входящие завершённые чатов. Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 60 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredChats120secInc",
+      "displayName": "% отвеченных чатов за 120 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых чатов, отвеченных в течение 120 сек — уровень сервиса (Service Level, TSF) с целевым порогом 120 сек.",
+      "longDescription": "Входящие чатов, отвеченные в течение 120 сек, делённые на входящие завершённые чатов. Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 120 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions30secInc",
+      "displayName": "% отвеченных цифровых обращений за 30 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых цифровых обращений (chat и e-mail), отвеченных в течение 30 сек — уровень сервиса (Service Level, TSF) с целевым порогом 30 сек.",
+      "longDescription": "Входящие цифровых обращений (chat и e-mail), отвеченные в течение 30 сек, делённые на входящие завершённые цифровых обращений (chat и e-mail). Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 30 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions60secInc",
+      "displayName": "% отвеченных цифровых обращений за 60 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых цифровых обращений (chat и e-mail), отвеченных в течение 60 сек — уровень сервиса (Service Level, TSF) с целевым порогом 60 сек.",
+      "longDescription": "Входящие цифровых обращений (chat и e-mail), отвеченные в течение 60 сек, делённые на входящие завершённые цифровых обращений (chat и e-mail). Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 60 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractions120secInc",
+      "displayName": "% отвеченных цифровых обращений за 120 сек (от входящих)",
+      "shortDescription": "Доля входящих завершённых цифровых обращений (chat и e-mail), отвеченных в течение 120 сек — уровень сервиса (Service Level, TSF) с целевым порогом 120 сек.",
+      "longDescription": "Входящие цифровых обращений (chat и e-mail), отвеченные в течение 120 сек, делённые на входящие завершённые цифровых обращений (chat и e-mail). Это отраслевой уровень сервиса (Service Level) / телефонный сервис-фактор (TSF): «X% обращений отвечено в течение 120 сек». Потерянные обращения остаются в знаменателе и поэтому снижают результат.",
+      "comparison": "Вариант «…от отвеченных» использует в знаменателе только отвеченные обращения и всегда выше или равен; он измеряет скорость ответа, а не доступность сервиса."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallbacksTotal",
+      "displayName": "% отвеченных колбэков (Callbacks)",
+      "shortDescription": "Доля входящих колбэк-обращений (callback), которые были отвечены, от всех завершивших ожидание сегодня.",
+      "longDescription": "Отвеченные входящие колбэк-обращений (callback), делённые на входящие завершённые колбэк-обращений (callback) (отвеченные + потерянные, ожидающие исключены). Показывается в процентах. Это классическая доля ответа (Answer Rate) очереди.",
+      "comparison": "Дополняет «% потерянных». Отличается от «Базовой доли ответа», где делят на ВСЕ входящие, включая ещё ожидающие."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsTotal",
+      "displayName": "% отвеченных звонков",
+      "shortDescription": "Доля входящих внешних голосовых звонков, которые были отвечены, от всех завершивших ожидание сегодня.",
+      "longDescription": "Отвеченные входящие внешних голосовых звонков, делённые на входящие завершённые внешних голосовых звонков (отвеченные + потерянные, ожидающие исключены). Показывается в процентах. Это классическая доля ответа (Answer Rate) очереди.",
+      "comparison": "Дополняет «% потерянных». Отличается от «Базовой доли ответа», где делят на ВСЕ входящие, включая ещё ожидающие."
+    },
+    {
+      "metricId": "QueuePctAnsweredCallsAndCallbacksTotal",
+      "displayName": "% отвеченных звонков и колбэков",
+      "shortDescription": "Доля входящих звонков и колбэков (внешняя голосовая нагрузка), которые были отвечены, от всех завершивших ожидание сегодня.",
+      "longDescription": "Отвеченные входящие звонков и колбэков (внешняя голосовая нагрузка), делённые на входящие завершённые звонков и колбэков (внешняя голосовая нагрузка) (отвеченные + потерянные, ожидающие исключены). Показывается в процентах. Это классическая доля ответа (Answer Rate) очереди.",
+      "comparison": "Дополняет «% потерянных». Отличается от «Базовой доли ответа», где делят на ВСЕ входящие, включая ещё ожидающие."
+    },
+    {
+      "metricId": "QueuePctAnsweredChatsTotal",
+      "displayName": "% отвеченных чатов",
+      "shortDescription": "Доля входящих чатов, которые были отвечены, от всех завершивших ожидание сегодня.",
+      "longDescription": "Отвеченные входящие чатов, делённые на входящие завершённые чатов (отвеченные + потерянные, ожидающие исключены). Показывается в процентах. Это классическая доля ответа (Answer Rate) очереди.",
+      "comparison": "Дополняет «% потерянных». Отличается от «Базовой доли ответа», где делят на ВСЕ входящие, включая ещё ожидающие."
+    },
+    {
+      "metricId": "QueuePctAnsweredInteractionsTotal",
+      "displayName": "% отвеченных цифровых обращений",
+      "shortDescription": "Доля входящих цифровых обращений (chat и e-mail), которые были отвечены, от всех завершивших ожидание сегодня.",
+      "longDescription": "Отвеченные входящие цифровых обращений (chat и e-mail), делённые на входящие завершённые цифровых обращений (chat и e-mail) (отвеченные + потерянные, ожидающие исключены). Показывается в процентах. Это классическая доля ответа (Answer Rate) очереди.",
+      "comparison": "Дополняет «% потерянных». Отличается от «Базовой доли ответа», где делят на ВСЕ входящие, включая ещё ожидающие."
+    },
+    {
+      "metricId": "QueueBaseAnsweredPct",
+      "displayName": "Базовая доля ответа (% от всех входящих)",
+      "shortDescription": "Отвеченные звонки, делённые на ВСЕ входящие звонки сегодня, включая ещё ожидающие.",
+      "longDescription": "В отличие от «% отвеченных звонков» (знаменатель = только завершённые), этот вариант делит отвеченные звонки на полный входящий объём, включая звонки, ещё ожидающие в очереди. В пиковые периоды значение «пессимистично»: ожидающие звонки уже учитываются против очереди.",
+      "comparison": "Используйте «% отвеченных звонков» для отчётности по итогам дня; базовая доля ответа быстрее реагирует внутри дня."
+    },
+    {
+      "metricId": "QueueExclCallbackReqAnsweredPct",
+      "displayName": "Доля ответа без запросов колбэка (callback)",
+      "shortDescription": "Отвеченные звонки, делённые на входящие звонки за вычетом запросов колбэка (callback).",
+      "longDescription": "Убирает запросы колбэка (callback) из знаменателя: клиенты, выбравшие колбэк, не учитываются против доли ответа. Показывает работу очереди для клиентов, которые реально остались в очереди. Примечание: знаменатель — входящие-online (включает ожидающих).",
+      "comparison": "Сравните с базовой долей ответа (запросы колбэка остаются в знаменателе) и с «Долей ответа вкл. запросы колбэка» (запросы считаются успехом)."
+    },
+    {
+      "metricId": "QueueInclCallbackReqAnsweredPct",
+      "displayName": "Доля ответа вкл. запросы колбэка (callback)",
+      "shortDescription": "Отвеченные звонки плюс запросы колбэка (callback), делённые на все входящие звонки.",
+      "longDescription": "Трактует запрос колбэка (callback) как положительный исход: числитель = отвеченные + запросы колбэка. Самый «оптимистичный» вариант доли ответа — полезен, когда колбэк продвигается как легитимный путь обслуживания.",
+      "comparison": "Сравните с вариантом «без» (запросы убраны с обеих сторон) и с базовой долей ответа (запросы игнорируются в числителе)."
+    },
+    {
+      "metricId": "QueueInclCompCallbacksAnsweredPct",
+      "displayName": "Доля ответа вкл. завершённые колбэки (callbacks)",
+      "shortDescription": "Отвеченные звонки плюс завершённые колбэки (callbacks), делённые на все входящие звонки.",
+      "longDescription": "Считает колбэк (callback) успехом только тогда, когда он был реально завершён (до клиента дозвонились при обратном вызове), в отличие от варианта «вкл. запросы колбэка», который засчитывает сам запрос.",
+      "comparison": "Строже, чем «вкл. запросы колбэка»; обычно между базовым значением и значением «вкл. запросы»."
+    },
+    {
+      "metricId": "QueueSLAIn30secFrom80PctInc",
+      "displayName": "SLA: % отвеченных за 30 сек к цели 80%",
+      "shortDescription": "Звонки, отвеченные за 30 сек, делённые на 80% входящих завершённых звонков — выполнение SLA 80/30.",
+      "longDescription": "Вариант уровня сервиса (Service Level), нормированный к цели 80/30: числитель = звонки, отвеченные в течение 30 секунд, знаменатель = 0,8 × входящие завершённые звонки. Значение 100% означает, что SLA 80/30 выполнен ровно; значения выше 100% — перевыполнение. ВНИМАНИЕ: формула ссылается на «[QueueNumAnsweredCalls30sec ]» с пробелом в конце внутри скобок — проверьте, что движок это допускает.",
+      "comparison": "Обычный «за 30 сек (от входящих)» показывает «сырой» процент; эта метрика показывает достижение цели в 80%."
+    },
+    {
+      "metricId": "QueueCPH",
+      "displayName": "Звонков в час (очередь)",
+      "shortDescription": "Пропускная способность очереди по входящим звонкам, нормированная на час.",
+      "longDescription": "Число входящих звонков, обрабатываемых в час бизнес-юнитом (BU), рассчитывается функцией CPH движка. Индикатор продуктивности/пропускной способности для сравнения внутри дня независимо от длины смены.",
+      "comparison": "UserCPH — аналог на уровне агента."
+    },
+    {
+      "metricId": "QueueNumWrapUpAgents",
+      "displayName": "Агенты в Wrap Up",
+      "shortDescription": "Число агентов этого бизнес-юнита (BU), находящихся сейчас в статусе Wrap Up.",
+      "longDescription": "Счётчик в реальном времени агентов, чей текущий статус — «Wrap Up» (входное состояние поствызовной обработки). Считает конкретное состояние (Agent State), а не статус-группу.",
+      "comparison": "Счётчики на уровне группы см. в «Агенты в статус-группе Paperwork» (PAPERWORK охватывает все состояния типа ACW)."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationCallbacks",
+      "displayName": "Среднее время разговора (Talk Time) — Колбэки (Callbacks)",
+      "shortDescription": "Среднее время обработки (разговора, Talk Time) завершённых входящих колбэк-обращений (callback) сегодня.",
+      "longDescription": "Средняя длительность фазы разговора (Talk Time) для входящих колбэк-обращений (callback), завершённых сегодня (активные в данный момент исключаются до завершения). Время разговора (Talk Time) — это фаза беседы агента с клиентом, один из компонентов среднего времени обработки (AHT) наряду с удержанием (Hold) и поствызовной обработкой (Wrap Up).",
+      "comparison": "Метрики разговора на уровне агента см. в категории «Агент» (например, «Средняя длительность звонка»)."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationCalls",
+      "displayName": "Среднее время разговора (Talk Time) — Звонки",
+      "shortDescription": "Среднее время обработки (разговора, Talk Time) завершённых входящих внешних голосовых звонков сегодня.",
+      "longDescription": "Средняя длительность фазы разговора (Talk Time) для входящих внешних голосовых звонков, завершённых сегодня (активные в данный момент исключаются до завершения). Время разговора (Talk Time) — это фаза беседы агента с клиентом, один из компонентов среднего времени обработки (AHT) наряду с удержанием (Hold) и поствызовной обработкой (Wrap Up).",
+      "comparison": "Метрики разговора на уровне агента см. в категории «Агент» (например, «Средняя длительность звонка»)."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationCallsAndCallbacks",
+      "displayName": "Среднее время разговора (Talk Time) — Звонки и колбэки",
+      "shortDescription": "Среднее время обработки (разговора, Talk Time) завершённых входящих звонков и колбэков (внешняя голосовая нагрузка) сегодня.",
+      "longDescription": "Средняя длительность фазы разговора (Talk Time) для входящих звонков и колбэков (внешняя голосовая нагрузка), завершённых сегодня (активные в данный момент исключаются до завершения). Время разговора (Talk Time) — это фаза беседы агента с клиентом, один из компонентов среднего времени обработки (AHT) наряду с удержанием (Hold) и поствызовной обработкой (Wrap Up).",
+      "comparison": "Метрики разговора на уровне агента см. в категории «Агент» (например, «Средняя длительность звонка»)."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationChats",
+      "displayName": "Среднее время разговора (Talk Time) — Чаты",
+      "shortDescription": "Среднее время обработки (разговора, Talk Time) завершённых входящих чатов сегодня.",
+      "longDescription": "Средняя длительность фазы разговора (Talk Time) для входящих чатов, завершённых сегодня (активные в данный момент исключаются до завершения). Время разговора (Talk Time) — это фаза беседы агента с клиентом, один из компонентов среднего времени обработки (AHT) наряду с удержанием (Hold) и поствызовной обработкой (Wrap Up).",
+      "comparison": "Метрики разговора на уровне агента см. в категории «Агент» (например, «Средняя длительность звонка»)."
+    },
+    {
+      "metricId": "QueueAvgTalkingDurationInteractions",
+      "displayName": "Среднее время разговора (Talk Time) — Цифровые обращения",
+      "shortDescription": "Среднее время обработки (разговора, Talk Time) завершённых входящих цифровых обращений (chat и e-mail) сегодня.",
+      "longDescription": "Средняя длительность фазы разговора (Talk Time) для входящих цифровых обращений (chat и e-mail), завершённых сегодня (активные в данный момент исключаются до завершения). Время разговора (Talk Time) — это фаза беседы агента с клиентом, один из компонентов среднего времени обработки (AHT) наряду с удержанием (Hold) и поствызовной обработкой (Wrap Up).",
+      "comparison": "Метрики разговора на уровне агента см. в категории «Агент» (например, «Средняя длительность звонка»)."
+    },
+    {
+      "metricId": "QueueNumAbandonedCallbacks",
+      "displayName": "Потерянные колбэки (Callbacks)",
+      "shortDescription": "Число входящих колбэк-обращений (callback), потерянных (abandoned) в очереди сегодня (клиент ушёл до ответа агента).",
+      "longDescription": "Считает входящие колбэк-обращений (callback), которые покинули очередь без ответа (клиент положил трубку / закрыл чат). Обращения, преобразованные в запрос колбэка (callback), исключаются, поэтому запрос колбэка не считается потерей.",
+      "comparison": "Противоположность «Отвеченных». См. «Среднее время до отказа» — сколько ждали отказавшиеся клиенты."
+    },
+    {
+      "metricId": "QueueNumAbandonedCalls",
+      "displayName": "Потерянные звонки",
+      "shortDescription": "Число входящих внешних голосовых звонков, потерянных (abandoned) в очереди сегодня (клиент ушёл до ответа агента).",
+      "longDescription": "Считает входящие внешних голосовых звонков, которые покинули очередь без ответа (клиент положил трубку / закрыл чат). Обращения, преобразованные в запрос колбэка (callback), исключаются, поэтому запрос колбэка не считается потерей.",
+      "comparison": "Противоположность «Отвеченных». См. «Среднее время до отказа» — сколько ждали отказавшиеся клиенты."
+    },
+    {
+      "metricId": "QueueNumAbandonedCallsAndCallbacks",
+      "displayName": "Потерянные звонки и колбэки",
+      "shortDescription": "Число входящих звонков и колбэков (внешняя голосовая нагрузка), потерянных (abandoned) в очереди сегодня (клиент ушёл до ответа агента).",
+      "longDescription": "Считает входящие звонков и колбэков (внешняя голосовая нагрузка), которые покинули очередь без ответа (клиент положил трубку / закрыл чат). Обращения, преобразованные в запрос колбэка (callback), исключаются, поэтому запрос колбэка не считается потерей.",
+      "comparison": "Противоположность «Отвеченных». См. «Среднее время до отказа» — сколько ждали отказавшиеся клиенты."
+    },
+    {
+      "metricId": "QueueNumAbandonedChats",
+      "displayName": "Потерянные чаты",
+      "shortDescription": "Число входящих чатов, потерянных (abandoned) в очереди сегодня (клиент ушёл до ответа агента).",
+      "longDescription": "Считает входящие чатов, которые покинули очередь без ответа (клиент положил трубку / закрыл чат). Обращения, преобразованные в запрос колбэка (callback), исключаются, поэтому запрос колбэка не считается потерей.",
+      "comparison": "Противоположность «Отвеченных». См. «Среднее время до отказа» — сколько ждали отказавшиеся клиенты."
+    },
+    {
+      "metricId": "QueueNumAbandonedInteractions",
+      "displayName": "Потерянные цифровые обращения",
+      "shortDescription": "Число входящих цифровых обращений (chat и e-mail), потерянных (abandoned) в очереди сегодня (клиент ушёл до ответа агента).",
+      "longDescription": "Считает входящие цифровых обращений (chat и e-mail), которые покинули очередь без ответа (клиент положил трубку / закрыл чат). Обращения, преобразованные в запрос колбэка (callback), исключаются, поэтому запрос колбэка не считается потерей.",
+      "comparison": "Противоположность «Отвеченных». См. «Среднее время до отказа» — сколько ждали отказавшиеся клиенты."
+    },
+    {
+      "metricId": "QueueNumActiveCallbacks",
+      "displayName": "Активные колбэки (Callbacks)",
+      "shortDescription": "Число колбэк-обращений (callback), которые сейчас обрабатываются агентами (в состоянии разговора).",
+      "longDescription": "Снимок в реальном времени: сколько колбэк-обращений (callback) в данный момент соединены с агентами (состояние разговора). Вместе с «Ожидающими» показывает полную текущую нагрузку очереди.",
+      "comparison": "«Ожидающие» = ещё в очереди; «Активные» = уже у агента."
+    },
+    {
+      "metricId": "QueueNumActiveCalls",
+      "displayName": "Активные звонки",
+      "shortDescription": "Число внешних голосовых звонков, которые сейчас обрабатываются агентами (в состоянии разговора).",
+      "longDescription": "Снимок в реальном времени: сколько внешних голосовых звонков в данный момент соединены с агентами (состояние разговора). Вместе с «Ожидающими» показывает полную текущую нагрузку очереди.",
+      "comparison": "«Ожидающие» = ещё в очереди; «Активные» = уже у агента."
+    },
+    {
+      "metricId": "QueueNumActiveCallsAndCallbacks",
+      "displayName": "Активные звонки и колбэки",
+      "shortDescription": "Число звонков и колбэков (внешняя голосовая нагрузка), которые сейчас обрабатываются агентами (в состоянии разговора).",
+      "longDescription": "Снимок в реальном времени: сколько звонков и колбэков (внешняя голосовая нагрузка) в данный момент соединены с агентами (состояние разговора). Вместе с «Ожидающими» показывает полную текущую нагрузку очереди.",
+      "comparison": "«Ожидающие» = ещё в очереди; «Активные» = уже у агента."
+    },
+    {
+      "metricId": "QueueNumActiveChats",
+      "displayName": "Активные чаты",
+      "shortDescription": "Число чатов, которые сейчас обрабатываются агентами (в состоянии разговора).",
+      "longDescription": "Снимок в реальном времени: сколько чатов в данный момент соединены с агентами (состояние разговора). Вместе с «Ожидающими» показывает полную текущую нагрузку очереди.",
+      "comparison": "«Ожидающие» = ещё в очереди; «Активные» = уже у агента."
+    },
+    {
+      "metricId": "QueueNumActiveInteractions",
+      "displayName": "Активные цифровые обращения",
+      "shortDescription": "Число цифровых обращений (chat и e-mail), которые сейчас обрабатываются агентами (в состоянии разговора).",
+      "longDescription": "Снимок в реальном времени: сколько цифровых обращений (chat и e-mail) в данный момент соединены с агентами (состояние разговора). Вместе с «Ожидающими» показывает полную текущую нагрузку очереди.",
+      "comparison": "«Ожидающие» = ещё в очереди; «Активные» = уже у агента."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallbacks",
+      "displayName": "Отвеченные колбэки (Callbacks)",
+      "shortDescription": "Число входящих колбэк-обращений (callback), отвеченных агентами сегодня.",
+      "longDescription": "Считает входящие колбэк-обращений (callback), успешно соединённые с агентом сегодня. Обращение засчитывается сразу при ответе, даже если оно ещё продолжается.",
+      "comparison": "Противоположность «Потерянных». Пороговые варианты (30/60/120/360 сек) считают только отвеченные в пределах заданного лимита ожидания."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls",
+      "displayName": "Отвеченные звонки",
+      "shortDescription": "Число входящих внешних голосовых звонков, отвеченных агентами сегодня.",
+      "longDescription": "Считает входящие внешних голосовых звонков, успешно соединённые с агентом сегодня. Обращение засчитывается сразу при ответе, даже если оно ещё продолжается.",
+      "comparison": "Противоположность «Потерянных». Пороговые варианты (30/60/120/360 сек) считают только отвеченные в пределах заданного лимита ожидания."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallsAndCallbacks",
+      "displayName": "Отвеченные звонки и колбэки",
+      "shortDescription": "Число входящих звонков и колбэков (внешняя голосовая нагрузка), отвеченных агентами сегодня.",
+      "longDescription": "Считает входящие звонков и колбэков (внешняя голосовая нагрузка), успешно соединённые с агентом сегодня. Обращение засчитывается сразу при ответе, даже если оно ещё продолжается.",
+      "comparison": "Противоположность «Потерянных». Пороговые варианты (30/60/120/360 сек) считают только отвеченные в пределах заданного лимита ожидания."
+    },
+    {
+      "metricId": "QueueNumAnsweredChats",
+      "displayName": "Отвеченные чаты",
+      "shortDescription": "Число входящих чатов, отвеченных агентами сегодня.",
+      "longDescription": "Считает входящие чатов, успешно соединённые с агентом сегодня. Обращение засчитывается сразу при ответе, даже если оно ещё продолжается.",
+      "comparison": "Противоположность «Потерянных». Пороговые варианты (30/60/120/360 сек) считают только отвеченные в пределах заданного лимита ожидания."
+    },
+    {
+      "metricId": "QueueNumAnsweredInteractions",
+      "displayName": "Отвеченные цифровые обращения",
+      "shortDescription": "Число входящих цифровых обращений (chat и e-mail), отвеченных агентами сегодня.",
+      "longDescription": "Считает входящие цифровых обращений (chat и e-mail), успешно соединённые с агентом сегодня. Обращение засчитывается сразу при ответе, даже если оно ещё продолжается.",
+      "comparison": "Противоположность «Потерянных». Пороговые варианты (30/60/120/360 сек) считают только отвеченные в пределах заданного лимита ожидания."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallbacks30sec",
+      "displayName": "Отвеченные колбэки (Callbacks) за 30 сек",
+      "shortDescription": "Число входящих колбэк-обращений (callback), отвеченных при ожидании в очереди менее 30 сек.",
+      "longDescription": "Считает входящие колбэк-обращений (callback), отвеченные агентом, у которых время в очереди было менее 30 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 30 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallbacks60sec",
+      "displayName": "Отвеченные колбэки (Callbacks) за 60 сек",
+      "shortDescription": "Число входящих колбэк-обращений (callback), отвеченных при ожидании в очереди менее 60 сек.",
+      "longDescription": "Считает входящие колбэк-обращений (callback), отвеченные агентом, у которых время в очереди было менее 60 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 60 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallbacks120sec",
+      "displayName": "Отвеченные колбэки (Callbacks) за 120 сек",
+      "shortDescription": "Число входящих колбэк-обращений (callback), отвеченных при ожидании в очереди менее 120 сек.",
+      "longDescription": "Считает входящие колбэк-обращений (callback), отвеченные агентом, у которых время в очереди было менее 120 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 120 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls30sec",
+      "displayName": "Отвеченные звонки за 30 сек",
+      "shortDescription": "Число входящих внешних голосовых звонков, отвеченных при ожидании в очереди менее 30 сек.",
+      "longDescription": "Считает входящие внешних голосовых звонков, отвеченные агентом, у которых время в очереди было менее 30 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 30 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls60sec",
+      "displayName": "Отвеченные звонки за 60 сек",
+      "shortDescription": "Число входящих внешних голосовых звонков, отвеченных при ожидании в очереди менее 60 сек.",
+      "longDescription": "Считает входящие внешних голосовых звонков, отвеченные агентом, у которых время в очереди было менее 60 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 60 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls120sec",
+      "displayName": "Отвеченные звонки за 120 сек",
+      "shortDescription": "Число входящих внешних голосовых звонков, отвеченных при ожидании в очереди менее 120 сек.",
+      "longDescription": "Считает входящие внешних голосовых звонков, отвеченные агентом, у которых время в очереди было менее 120 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 120 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCalls360sec",
+      "displayName": "Отвеченные звонки за 360 сек",
+      "shortDescription": "Число входящих внешних голосовых звонков, отвеченных при ожидании в очереди менее 360 сек.",
+      "longDescription": "Считает входящие внешних голосовых звонков, отвеченные агентом, у которых время в очереди было менее 360 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 360 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallsAndCallbacks30sec",
+      "displayName": "Отвеченные звонки и колбэки за 30 сек",
+      "shortDescription": "Число входящих звонков и колбэков (внешняя голосовая нагрузка), отвеченных при ожидании в очереди менее 30 сек.",
+      "longDescription": "Считает входящие звонков и колбэков (внешняя голосовая нагрузка), отвеченные агентом, у которых время в очереди было менее 30 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 30 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallsAndCallbacks60sec",
+      "displayName": "Отвеченные звонки и колбэки за 60 сек",
+      "shortDescription": "Число входящих звонков и колбэков (внешняя голосовая нагрузка), отвеченных при ожидании в очереди менее 60 сек.",
+      "longDescription": "Считает входящие звонков и колбэков (внешняя голосовая нагрузка), отвеченные агентом, у которых время в очереди было менее 60 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 60 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredCallsAndCallbacks120sec",
+      "displayName": "Отвеченные звонки и колбэки за 120 сек",
+      "shortDescription": "Число входящих звонков и колбэков (внешняя голосовая нагрузка), отвеченных при ожидании в очереди менее 120 сек.",
+      "longDescription": "Считает входящие звонков и колбэков (внешняя голосовая нагрузка), отвеченные агентом, у которых время в очереди было менее 120 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 120 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredChats30sec",
+      "displayName": "Отвеченные чаты за 30 сек",
+      "shortDescription": "Число входящих чатов, отвеченных при ожидании в очереди менее 30 сек.",
+      "longDescription": "Считает входящие чатов, отвеченные агентом, у которых время в очереди было менее 30 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 30 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredChats60sec",
+      "displayName": "Отвеченные чаты за 60 сек",
+      "shortDescription": "Число входящих чатов, отвеченных при ожидании в очереди менее 60 сек.",
+      "longDescription": "Считает входящие чатов, отвеченные агентом, у которых время в очереди было менее 60 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 60 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredChats120sec",
+      "displayName": "Отвеченные чаты за 120 сек",
+      "shortDescription": "Число входящих чатов, отвеченных при ожидании в очереди менее 120 сек.",
+      "longDescription": "Считает входящие чатов, отвеченные агентом, у которых время в очереди было менее 120 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 120 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredInteractions30sec",
+      "displayName": "Отвеченные цифровые обращения за 30 сек",
+      "shortDescription": "Число входящих цифровых обращений (chat и e-mail), отвеченных при ожидании в очереди менее 30 сек.",
+      "longDescription": "Считает входящие цифровых обращений (chat и e-mail), отвеченные агентом, у которых время в очереди было менее 30 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 30 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredInteractions60sec",
+      "displayName": "Отвеченные цифровые обращения за 60 сек",
+      "shortDescription": "Число входящих цифровых обращений (chat и e-mail), отвеченных при ожидании в очереди менее 60 сек.",
+      "longDescription": "Считает входящие цифровых обращений (chat и e-mail), отвеченные агентом, у которых время в очереди было менее 60 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 60 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumAnsweredInteractions120sec",
+      "displayName": "Отвеченные цифровые обращения за 120 сек",
+      "shortDescription": "Число входящих цифровых обращений (chat и e-mail), отвеченных при ожидании в очереди менее 120 сек.",
+      "longDescription": "Считает входящие цифровых обращений (chat и e-mail), отвеченные агентом, у которых время в очереди было менее 120 сек. Это числитель для расчёта уровня сервиса (Service Level) с целевым порогом 120 сек.",
+      "comparison": "То же семейство событий существует с порогами 30/60/120/360 сек; выберите порог, соответствующий SLA бизнес-юнита (BU)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedCallbacks",
+      "displayName": "Входящие колбэки (Callbacks) за сегодня (без ожидающих)",
+      "shortDescription": "Число входящих колбэк-обращений (callback), завершивших ожидание в очереди сегодня (отвечены или потеряны); без ещё ожидающих и без запросов колбэка (callback).",
+      "longDescription": "Считает входящие колбэк-обращений (callback), у которых фаза очереди завершена: каждое было либо отвечено агентом, либо потеряно. Обращения, ещё ожидающие в очереди, и запросы колбэка (callback) исключены. Поскольку значение меняется только когда обращение покидает очередь, это стандартный знаменатель для метрик «% отвеченных» и «% потерянных».",
+      "comparison": "Равно «Входящие … вкл. ожидающие» за вычетом текущих ожидающих и запросов колбэка (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedCalls",
+      "displayName": "Входящие звонки за сегодня (без ожидающих)",
+      "shortDescription": "Число входящих внешних голосовых звонков, завершивших ожидание в очереди сегодня (отвечены или потеряны); без ещё ожидающих и без запросов колбэка (callback).",
+      "longDescription": "Считает входящие внешних голосовых звонков, у которых фаза очереди завершена: каждое было либо отвечено агентом, либо потеряно. Обращения, ещё ожидающие в очереди, и запросы колбэка (callback) исключены. Поскольку значение меняется только когда обращение покидает очередь, это стандартный знаменатель для метрик «% отвеченных» и «% потерянных».",
+      "comparison": "Равно «Входящие … вкл. ожидающие» за вычетом текущих ожидающих и запросов колбэка (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedCallsAndCallbacks",
+      "displayName": "Входящие звонки и колбэки за сегодня (без ожидающих)",
+      "shortDescription": "Число входящих звонков и колбэков (внешняя голосовая нагрузка), завершивших ожидание в очереди сегодня (отвечены или потеряны); без ещё ожидающих и без запросов колбэка (callback).",
+      "longDescription": "Считает входящие звонков и колбэков (внешняя голосовая нагрузка), у которых фаза очереди завершена: каждое было либо отвечено агентом, либо потеряно. Обращения, ещё ожидающие в очереди, и запросы колбэка (callback) исключены. Поскольку значение меняется только когда обращение покидает очередь, это стандартный знаменатель для метрик «% отвеченных» и «% потерянных».",
+      "comparison": "Равно «Входящие … вкл. ожидающие» за вычетом текущих ожидающих и запросов колбэка (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedChats",
+      "displayName": "Входящие чаты за сегодня (без ожидающих)",
+      "shortDescription": "Число входящих чатов, завершивших ожидание в очереди сегодня (отвечены или потеряны); без ещё ожидающих и без запросов колбэка (callback).",
+      "longDescription": "Считает входящие чатов, у которых фаза очереди завершена: каждое было либо отвечено агентом, либо потеряно. Обращения, ещё ожидающие в очереди, и запросы колбэка (callback) исключены. Поскольку значение меняется только когда обращение покидает очередь, это стандартный знаменатель для метрик «% отвеченных» и «% потерянных».",
+      "comparison": "Равно «Входящие … вкл. ожидающие» за вычетом текущих ожидающих и запросов колбэка (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingCompletedInteractions",
+      "displayName": "Входящие цифровые обращения за сегодня (без ожидающих)",
+      "shortDescription": "Число входящих цифровых обращений (chat и e-mail), завершивших ожидание в очереди сегодня (отвечены или потеряны); без ещё ожидающих и без запросов колбэка (callback).",
+      "longDescription": "Считает входящие цифровых обращений (chat и e-mail), у которых фаза очереди завершена: каждое было либо отвечено агентом, либо потеряно. Обращения, ещё ожидающие в очереди, и запросы колбэка (callback) исключены. Поскольку значение меняется только когда обращение покидает очередь, это стандартный знаменатель для метрик «% отвеченных» и «% потерянных».",
+      "comparison": "Равно «Входящие … вкл. ожидающие» за вычетом текущих ожидающих и запросов колбэка (callback)."
+    },
+    {
+      "metricId": "QueueNumIncomingOnlineCallbacks",
+      "displayName": "Входящие колбэки (Callbacks) за сегодня (вкл. ожидающие)",
+      "shortDescription": "Число входящих колбэк-обращений (callback), поступивших сегодня, включая ещё ожидающие в очереди.",
+      "longDescription": "Считает каждое входящее обращение (колбэк-обращений (callback)), зарегистрированное с начала рабочего дня, независимо от текущего состояния — ожидает в очереди, в обработке, отвечено или потеряно. Это валовая входящая нагрузка (поступившие обращения, offered) бизнес-юнита (BU). В отличие от варианта «без ожидающих», обращения, всё ещё находящиеся в очереди, включены, поэтому значение может расти до того, как агент ответил.",
+      "comparison": "Используйте «Входящие … без ожидающих» как стабильный знаменатель для процентов; «Ожидающие» — только для текущей глубины очереди."
+    },
+    {
+      "metricId": "QueueNumIncomingOnlineCalls",
+      "displayName": "Входящие звонки за сегодня (вкл. ожидающие)",
+      "shortDescription": "Число входящих внешних голосовых звонков, поступивших сегодня, включая ещё ожидающие в очереди.",
+      "longDescription": "Считает каждое входящее обращение (внешних голосовых звонков), зарегистрированное с начала рабочего дня, независимо от текущего состояния — ожидает в очереди, в обработке, отвечено или потеряно. Это валовая входящая нагрузка (поступившие обращения, offered) бизнес-юнита (BU). В отличие от варианта «без ожидающих», обращения, всё ещё находящиеся в очереди, включены, поэтому значение может расти до того, как агент ответил.",
+      "comparison": "Используйте «Входящие … без ожидающих» как стабильный знаменатель для процентов; «Ожидающие» — только для текущей глубины очереди."
+    },
+    {
+      "metricId": "QueueNumIncomingOnlineCallsAndCallbacks",
+      "displayName": "Входящие звонки и колбэки за сегодня (вкл. ожидающие)",
+      "shortDescription": "Число входящих звонков и колбэков (внешняя голосовая нагрузка), поступивших сегодня, включая ещё ожидающие в очереди.",
+      "longDescription": "Считает каждое входящее обращение (звонков и колбэков (внешняя голосовая нагрузка)), зарегистрированное с начала рабочего дня, независимо от текущего состояния — ожидает в очереди, в обработке, отвечено или потеряно. Это валовая входящая нагрузка (поступившие обращения, offered) бизнес-юнита (BU). В отличие от варианта «без ожидающих», обращения, всё ещё находящиеся в очереди, включены, поэтому значение может расти до того, как агент ответил.",
+      "comparison": "Используйте «Входящие … без ожидающих» как стабильный знаменатель для процентов; «Ожидающие» — только для текущей глубины очереди."
+    },
+    {
+      "metricId": "QueueNumIncomingOnlineChats",
+      "displayName": "Входящие чаты за сегодня (вкл. ожидающие)",
+      "shortDescription": "Число входящих чатов, поступивших сегодня, включая ещё ожидающие в очереди.",
+      "longDescription": "Считает каждое входящее обращение (чатов), зарегистрированное с начала рабочего дня, независимо от текущего состояния — ожидает в очереди, в обработке, отвечено или потеряно. Это валовая входящая нагрузка (поступившие обращения, offered) бизнес-юнита (BU). В отличие от варианта «без ожидающих», обращения, всё ещё находящиеся в очереди, включены, поэтому значение может расти до того, как агент ответил.",
+      "comparison": "Используйте «Входящие … без ожидающих» как стабильный знаменатель для процентов; «Ожидающие» — только для текущей глубины очереди."
+    },
+    {
+      "metricId": "QueueNumIcomingOnlineInteractions",
+      "displayName": "Входящие цифровые обращения за сегодня (вкл. ожидающие)",
+      "shortDescription": "Число входящих цифровых обращений (chat и e-mail), поступивших сегодня, включая ещё ожидающие в очереди.",
+      "longDescription": "Считает каждое входящее обращение (цифровых обращений (chat и e-mail)), зарегистрированное с начала рабочего дня, независимо от текущего состояния — ожидает в очереди, в обработке, отвечено или потеряно. Это валовая входящая нагрузка (поступившие обращения, offered) бизнес-юнита (BU). В отличие от варианта «без ожидающих», обращения, всё ещё находящиеся в очереди, включены, поэтому значение может расти до того, как агент ответил.",
+      "comparison": "Используйте «Входящие … без ожидающих» как стабильный знаменатель для процентов; «Ожидающие» — только для текущей глубины очереди."
+    },
+    {
+      "metricId": "QueueNumCallbackRequests",
+      "displayName": "Запросы колбэка (Callback Requests)",
+      "shortDescription": "Число входящих обращений, преобразованных в запрос колбэка (callback) сегодня.",
+      "longDescription": "Считает клиентов, которые вместо ожидания в очереди запросили колбэк (callback). Эти обращения исключаются из счётчиков потерянных и из знаменателей завершённого объёма и позже появляются как колбэк-обращения при обратном вызове.",
+      "comparison": "Сторону обратного вызова жизненного цикла см. в «Завершённых/принятых колбэках»."
+    },
+    {
+      "metricId": "QueueNumCompletedCallbacks",
+      "displayName": "Завершённые колбэки (Callbacks)",
+      "shortDescription": "Число колбэков (callbacks), успешно завершённых (обратный дозвон состоялся) сегодня.",
+      "longDescription": "Считает исходящие колбэк-обращения (callback), которые были отвечены, — то есть система перезвонила клиенту и беседа состоялась. Завершающий этап жизненного цикла колбэка: запрос → обратный вызов → завершён.",
+      "comparison": "QueueNumAnsweredCallbacks считает входящую ветвь; эта метрика считает исходящую (обратную) ветвь."
+    },
+    {
+      "metricId": "QueueNumIncomingHandledInteractions",
+      "displayName": "Завершённые входящие цифровые обращения",
+      "shortDescription": "Число входящих цифровых обращений (чат + e-mail), полностью завершённых сегодня: не ожидают, не активны, не потеряны.",
+      "longDescription": "Считает входящие обращения в чате и e-mail, обработка которых полностью завершена: они больше не в очереди, не обрабатываются и не были потеряны. По сути «успешно доведены до конца».",
+      "comparison": "Отличается от «Отвеченных цифровых обращений», где обращение засчитывается сразу при ответе, даже если оно ещё в обработке."
+    },
+    {
+      "metricId": "QueueNumOnlineChats",
+      "displayName": "Чаты за сегодня (все)",
+      "shortDescription": "Общее число чат-обращений, зарегистрированных сегодня (любое направление, любое состояние).",
+      "longDescription": "Считает все чаты, замеченные сегодня, без дополнительного фильтра: входящие и исходящие, ожидающие, активные, отвеченные или потерянные. Самый широкий счётчик чатов.",
+      "comparison": "Более узкие счётчики чатов: Входящие чаты (вкл./без ожидающих), Отвеченные/Потерянные чаты, Ожидающие чаты, Активные чаты."
+    },
+    {
+      "metricId": "QueueNumOutboundCalls",
+      "displayName": "Исходящие звонки",
+      "shortDescription": "Число исходящих внешних звонков сегодня.",
+      "longDescription": "Считает исходящие внешние голосовые звонки, совершённые сегодня в рамках бизнес-юнита (BU) (любой исход).",
+      "comparison": "Аналог на уровне агента: «Agent - Number of Outbound Calls». Для агрегации по группе см. «Agent Group - Number of Outbound Calls» (MonSumAgentsMakeCalls)."
+    },
+    {
+      "metricId": "QueueNumTransferredCalls",
+      "displayName": "Переведённые звонки",
+      "shortDescription": "Число входящих звонков, переведённых сегодня.",
+      "longDescription": "Считает входящие внешние звонки, отмеченные как переведённые (IsTransferred). Высокие значения могут указывать на несоответствие маршрутизации/навыков или проблемы с решением при первом контакте (FCR).",
+      "comparison": "Связано с анализом FCR: переводы — косвенный показатель обращений, не решённых с первого контакта."
+    },
+    {
+      "metricId": "QueueNumWaitingCallbacks",
+      "displayName": "Ожидающие колбэки (Callbacks)",
+      "shortDescription": "Число колбэк-обращений (callback), ожидающих в очереди прямо сейчас.",
+      "longDescription": "Снимок в реальном времени: сколько колбэк-обращений (callback) сейчас находятся в очереди и ещё не соединены с агентом. Растёт, когда поступление превышает способность отвечать. Это метрика «сейчас» — она не накапливается за день.",
+      "comparison": "См. «Текущее макс. время ожидания» — сколько ждёт самое долгое обращение; «Активные» — обращения, уже соединённые с агентами."
+    },
+    {
+      "metricId": "QueueNumWaitingCalls",
+      "displayName": "Ожидающие звонки",
+      "shortDescription": "Число внешних голосовых звонков, ожидающих в очереди прямо сейчас.",
+      "longDescription": "Снимок в реальном времени: сколько внешних голосовых звонков сейчас находятся в очереди и ещё не соединены с агентом. Растёт, когда поступление превышает способность отвечать. Это метрика «сейчас» — она не накапливается за день.",
+      "comparison": "См. «Текущее макс. время ожидания» — сколько ждёт самое долгое обращение; «Активные» — обращения, уже соединённые с агентами."
+    },
+    {
+      "metricId": "QueueNumWaitingCallsAndCallbacks",
+      "displayName": "Ожидающие звонки и колбэки",
+      "shortDescription": "Число звонков и колбэков (внешняя голосовая нагрузка), ожидающих в очереди прямо сейчас.",
+      "longDescription": "Снимок в реальном времени: сколько звонков и колбэков (внешняя голосовая нагрузка) сейчас находятся в очереди и ещё не соединены с агентом. Растёт, когда поступление превышает способность отвечать. Это метрика «сейчас» — она не накапливается за день.",
+      "comparison": "См. «Текущее макс. время ожидания» — сколько ждёт самое долгое обращение; «Активные» — обращения, уже соединённые с агентами."
+    },
+    {
+      "metricId": "QueueNumWaitingChats",
+      "displayName": "Ожидающие чаты",
+      "shortDescription": "Число чатов, ожидающих в очереди прямо сейчас.",
+      "longDescription": "Снимок в реальном времени: сколько чатов сейчас находятся в очереди и ещё не соединены с агентом. Растёт, когда поступление превышает способность отвечать. Это метрика «сейчас» — она не накапливается за день.",
+      "comparison": "См. «Текущее макс. время ожидания» — сколько ждёт самое долгое обращение; «Активные» — обращения, уже соединённые с агентами."
+    },
+    {
+      "metricId": "QueueNumWaitingInteractions",
+      "displayName": "Ожидающие цифровые обращения",
+      "shortDescription": "Число цифровых обращений (chat и e-mail), ожидающих в очереди прямо сейчас.",
+      "longDescription": "Снимок в реальном времени: сколько цифровых обращений (chat и e-mail) сейчас находятся в очереди и ещё не соединены с агентом. Растёт, когда поступление превышает способность отвечать. Это метрика «сейчас» — она не накапливается за день.",
+      "comparison": "См. «Текущее макс. время ожидания» — сколько ждёт самое долгое обращение; «Активные» — обращения, уже соединённые с агентами."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeCallbacks",
+      "displayName": "Среднее время ожидания — Колбэки (Callbacks)",
+      "shortDescription": "Среднее время ожидания в очереди для колбэк-обращений (callback), завершивших ожидание сегодня (отвеченные и потерянные).",
+      "longDescription": "Среднее время в очереди для колбэк-обращений (callback), у которых фаза очереди завершена сегодня. Примечание: учитываются и отвеченные, и потерянные обращения, поэтому это шире классического ASA (среднее время ответа, ASA / Average Speed of Answer), которое охватывает только отвеченные обращения.",
+      "comparison": "Близко к ASA при низкой доле потерь. Срез только по потерянным см. в «Среднем времени до отказа»."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeCalls",
+      "displayName": "Среднее время ожидания — Звонки",
+      "shortDescription": "Среднее время ожидания в очереди для внешних голосовых звонков, завершивших ожидание сегодня (отвеченные и потерянные).",
+      "longDescription": "Среднее время в очереди для внешних голосовых звонков, у которых фаза очереди завершена сегодня. Примечание: учитываются и отвеченные, и потерянные обращения, поэтому это шире классического ASA (среднее время ответа, ASA / Average Speed of Answer), которое охватывает только отвеченные обращения.",
+      "comparison": "Близко к ASA при низкой доле потерь. Срез только по потерянным см. в «Среднем времени до отказа»."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeCallsAndCallbacks",
+      "displayName": "Среднее время ожидания — Звонки и колбэки",
+      "shortDescription": "Среднее время ожидания в очереди для звонков и колбэков (внешняя голосовая нагрузка), завершивших ожидание сегодня (отвеченные и потерянные).",
+      "longDescription": "Среднее время в очереди для звонков и колбэков (внешняя голосовая нагрузка), у которых фаза очереди завершена сегодня. Примечание: учитываются и отвеченные, и потерянные обращения, поэтому это шире классического ASA (среднее время ответа, ASA / Average Speed of Answer), которое охватывает только отвеченные обращения.",
+      "comparison": "Близко к ASA при низкой доле потерь. Срез только по потерянным см. в «Среднем времени до отказа»."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeChats",
+      "displayName": "Среднее время ожидания — Чаты",
+      "shortDescription": "Среднее время ожидания в очереди для чатов, завершивших ожидание сегодня (отвеченные и потерянные).",
+      "longDescription": "Среднее время в очереди для чатов, у которых фаза очереди завершена сегодня. Примечание: учитываются и отвеченные, и потерянные обращения, поэтому это шире классического ASA (среднее время ответа, ASA / Average Speed of Answer), которое охватывает только отвеченные обращения.",
+      "comparison": "Близко к ASA при низкой доле потерь. Срез только по потерянным см. в «Среднем времени до отказа»."
+    },
+    {
+      "metricId": "QueueAvgWaitTimeInteractions",
+      "displayName": "Среднее время ожидания — Цифровые обращения",
+      "shortDescription": "Среднее время ожидания в очереди для цифровых обращений (chat и e-mail), завершивших ожидание сегодня (отвеченные и потерянные).",
+      "longDescription": "Среднее время в очереди для цифровых обращений (chat и e-mail), у которых фаза очереди завершена сегодня. Примечание: учитываются и отвеченные, и потерянные обращения, поэтому это шире классического ASA (среднее время ответа, ASA / Average Speed of Answer), которое охватывает только отвеченные обращения.",
+      "comparison": "Близко к ASA при низкой доле потерь. Срез только по потерянным см. в «Среднем времени до отказа»."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeCallbacks",
+      "displayName": "Текущее макс. время ожидания — Колбэки (Callbacks)",
+      "shortDescription": "Наибольшее время ожидания среди колбэк-обращений (callback), находящихся сейчас в очереди (прямо сейчас).",
+      "longDescription": "Метрика реального времени: среди колбэк-обращений (callback), ожидающих сейчас в очереди, время ожидания самого долгого. Падает до нуля, когда очередь пуста. Классический индикатор «Самое долгое ожидание» на вол-борде для немедленного вмешательства.",
+      "comparison": "«Среднее время ожидания» — это среднесуточное по завершённым обращениям; эта метрика отражает только текущую очередь."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeCalls",
+      "displayName": "Текущее макс. время ожидания — Звонки",
+      "shortDescription": "Наибольшее время ожидания среди внешних голосовых звонков, находящихся сейчас в очереди (прямо сейчас).",
+      "longDescription": "Метрика реального времени: среди внешних голосовых звонков, ожидающих сейчас в очереди, время ожидания самого долгого. Падает до нуля, когда очередь пуста. Классический индикатор «Самое долгое ожидание» на вол-борде для немедленного вмешательства.",
+      "comparison": "«Среднее время ожидания» — это среднесуточное по завершённым обращениям; эта метрика отражает только текущую очередь."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeCallsAndCallbacks",
+      "displayName": "Текущее макс. время ожидания — Звонки и колбэки",
+      "shortDescription": "Наибольшее время ожидания среди звонков и колбэков (внешняя голосовая нагрузка), находящихся сейчас в очереди (прямо сейчас).",
+      "longDescription": "Метрика реального времени: среди звонков и колбэков (внешняя голосовая нагрузка), ожидающих сейчас в очереди, время ожидания самого долгого. Падает до нуля, когда очередь пуста. Классический индикатор «Самое долгое ожидание» на вол-борде для немедленного вмешательства.",
+      "comparison": "«Среднее время ожидания» — это среднесуточное по завершённым обращениям; эта метрика отражает только текущую очередь."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeChats",
+      "displayName": "Текущее макс. время ожидания — Чаты",
+      "shortDescription": "Наибольшее время ожидания среди чатов, находящихся сейчас в очереди (прямо сейчас).",
+      "longDescription": "Метрика реального времени: среди чатов, ожидающих сейчас в очереди, время ожидания самого долгого. Падает до нуля, когда очередь пуста. Классический индикатор «Самое долгое ожидание» на вол-борде для немедленного вмешательства.",
+      "comparison": "«Среднее время ожидания» — это среднесуточное по завершённым обращениям; эта метрика отражает только текущую очередь."
+    },
+    {
+      "metricId": "QueueCurMaxWaitTimeInteractions",
+      "displayName": "Текущее макс. время ожидания — Цифровые обращения",
+      "shortDescription": "Наибольшее время ожидания среди цифровых обращений (chat и e-mail), находящихся сейчас в очереди (прямо сейчас).",
+      "longDescription": "Метрика реального времени: среди цифровых обращений (chat и e-mail), ожидающих сейчас в очереди, время ожидания самого долгого. Падает до нуля, когда очередь пуста. Классический индикатор «Самое долгое ожидание» на вол-борде для немедленного вмешательства.",
+      "comparison": "«Среднее время ожидания» — это среднесуточное по завершённым обращениям; эта метрика отражает только текущую очередь."
+    }
+  ]
+}
