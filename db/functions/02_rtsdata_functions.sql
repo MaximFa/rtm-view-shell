@@ -102,55 +102,79 @@ END;
 $$;
 
 -- ============================================================================
--- 2. RTSData_SetUserStatus
---    UPSERT using ON CONFLICT on 4-col PK (UserId, StatusId, ServerId, OnDate)
---    No mismatch between EF PK and UPSERT key
+-- 2. RTSData_SetUserStatus  (PROCEDURE, 15 params — matches RTM DBMng C# call)
+--    (a) APPEND history row to RTSData_UserStatusLog  [restored MSSQL behaviour;
+--        fn_daytrendagentstatus reads agent history ONLY from this table]
+--    (b) UPSERT current state into RTSData_UserStatus (ON CONFLICT 4-col PK)
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_SetUserStatus"(
     text, text, text, text, integer, integer,
-    integer, text, text, timestamptz, text, text
+    integer, text, text, timestamptz, text, text, uuid
+);
+DROP PROCEDURE IF EXISTS "RTSData_SetUserStatus"(
+    text, text, text, text, text, text,
+    double precision, double precision, integer, text,
+    timestamptz, timestamptz, text, timestamptz, uuid
 );
 
-CREATE OR REPLACE FUNCTION "RTSData_SetUserStatus"(
-    p_user_id text,
-    p_status_id text,
-    p_status_name text,
-    p_status_group text,
-    p_total_duration integer,
-    p_max_duration integer,
-    p_total_count integer,
-    p_source_server text,
-    p_on_date text,
-    p_update_time timestamptz,
-    p_display_name text,
-    p_time_zone text,
-    p_tenant_id uuid
+CREATE PROCEDURE "RTSData_SetUserStatus"(
+    p_user_id        text,
+    p_status_id      text,
+    p_server_id      text,
+    p_on_date        text,
+    p_status_name    text,
+    p_status_group   text,
+    p_total_duration double precision,
+    p_max_duration   double precision,
+    p_total_count    integer,
+    p_display_name   text,
+    p_start_time     timestamptz,
+    p_end_time       timestamptz,
+    p_time_zone      text,
+    p_update_time    timestamptz,
+    p_tenant_id      uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    -- (a) Append-only history (powers DayTrend agent metrics). StatusGroup + TenantId
+    --     are required by fn_daytrendagentstatus and exist on the PG table.
+    IF p_start_time IS NOT NULL AND p_end_time IS NOT NULL
+       AND p_end_time > p_start_time THEN
+        INSERT INTO "RTSData_UserStatusLog" (
+            "TenantId","UserId","StatusId","ServerId","OnDate",
+            "StartTime","EndTime","Duration","UpdateTime","TimeZone","StatusGroup"
+        )
+        VALUES (
+            p_tenant_id, p_user_id, p_status_id, p_server_id, p_on_date,
+            p_start_time, p_end_time,
+            (EXTRACT(EPOCH FROM (p_end_time - p_start_time)) * 1000)::integer,
+            p_update_time, p_time_zone, p_status_group
+        );
+    END IF;
+
+    -- (b) Current-state upsert (unchanged behaviour).
     INSERT INTO "RTSData_UserStatus" (
-        "UserId", "StatusId", "ServerId", "OnDate",
-        "StatusName", "StatusGroup", "TotalDuration", "MaxDuraction",
-        "TotalCount", "UpdateTime", "DisplayName", "TimeZone", "TenantId"
+        "UserId","StatusId","ServerId","OnDate",
+        "StatusName","StatusGroup","TotalDuration","MaxDuraction",
+        "TotalCount","UpdateTime","DisplayName","TimeZone","TenantId"
     )
     VALUES (
-        p_user_id, p_status_id, p_source_server, p_on_date,
-        p_status_name, p_status_group, p_total_duration, p_max_duration,
+        p_user_id, p_status_id, p_server_id, p_on_date,
+        p_status_name, p_status_group, p_total_duration::integer, p_max_duration::integer,
         p_total_count, p_update_time, p_display_name, p_time_zone, p_tenant_id
     )
-    ON CONFLICT ("UserId", "StatusId", "ServerId", "OnDate")
+    ON CONFLICT ("UserId","StatusId","ServerId","OnDate")
     DO UPDATE SET
-        "StatusName" = EXCLUDED."StatusName",
-        "StatusGroup" = EXCLUDED."StatusGroup",
+        "StatusName"    = EXCLUDED."StatusName",
+        "StatusGroup"   = EXCLUDED."StatusGroup",
         "TotalDuration" = EXCLUDED."TotalDuration",
-        "MaxDuraction" = EXCLUDED."MaxDuraction",
-        "TotalCount" = EXCLUDED."TotalCount",
-        "UpdateTime" = EXCLUDED."UpdateTime",
-        "DisplayName" = EXCLUDED."DisplayName",
-        "TimeZone" = EXCLUDED."TimeZone",
-        "TenantId" = EXCLUDED."TenantId";
+        "MaxDuraction"  = EXCLUDED."MaxDuraction",
+        "TotalCount"    = EXCLUDED."TotalCount",
+        "UpdateTime"    = EXCLUDED."UpdateTime",
+        "DisplayName"   = EXCLUDED."DisplayName",
+        "TimeZone"      = EXCLUDED."TimeZone",
+        "TenantId"      = EXCLUDED."TenantId";
 END;
 $$;
 
