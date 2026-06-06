@@ -429,6 +429,65 @@ public class PostgresFixture : IAsyncLifetime
 
         return services.BuildServiceProvider();
     }
+
+    /// <summary>
+    /// Loads RTSGrid read functions from db/functions/03_rtsgrid_read.sql.
+    /// Idempotent - safe to call multiple times. Uses CREATE OR REPLACE.
+    /// </summary>
+    public async Task EnsureRtsGridFunctionsAsync()
+    {
+        // Resolve repo root by walking up from AppContext.BaseDirectory
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        string? sqlPath = null;
+        while (dir != null)
+        {
+            var candidate = Path.Combine(dir.FullName, "db", "functions", "03_rtsgrid_read.sql");
+            if (File.Exists(candidate))
+            {
+                sqlPath = candidate;
+                break;
+            }
+            dir = dir.Parent;
+        }
+
+        if (sqlPath is null)
+        {
+            // Try common development paths
+            var devPaths = new[]
+            {
+                @"D:\Claude\Projects\RTM View Shell\db\functions\03_rtsgrid_read.sql",
+                Path.Combine(Environment.CurrentDirectory, "db", "functions", "03_rtsgrid_read.sql")
+            };
+            foreach (var p in devPaths)
+            {
+                if (File.Exists(p))
+                {
+                    sqlPath = p;
+                    break;
+                }
+            }
+        }
+
+        if (sqlPath is null)
+            throw new InvalidOperationException(
+                "Cannot find db/functions/03_rtsgrid_read.sql. " +
+                "Ensure the test is run from the repository root or the file exists.");
+
+        var sql = await File.ReadAllTextAsync(sqlPath);
+
+        await using var beDb = CreateBackendEmulationDbContext();
+        await beDb.Database.ExecuteSqlRawAsync(sql);
+    }
+
+    /// <summary>
+    /// Ensures RTSGrid_* tables exist in the test database.
+    /// Public wrapper for tests that need the tables explicitly created.
+    /// </summary>
+    public async Task EnsureQueueGridTablesAsync()
+    {
+        await using var beDb = CreateBackendEmulationDbContext();
+        await CreateQueueGridTablesAsync(beDb);
+    }
 }
 
 /// <summary>
