@@ -247,6 +247,10 @@ MonAgentExtension	Agent - Extension ID	User	UserExtension		\N	\N	text	Agent
 MonAgentStateDesc	Agent - Current Status Group	User	CurStatusGroup		\N	\N	text	Agent
 MonAgentFirstLoginTimeStamp	Agent - First Login Time Stamp	User	FirstLoginTimestamp		\N	\N	text	Agent
 MonAgentCurrentLoginTimeStamp	Agent - Current Login Time Stamp	User	CurLoginTimeStamp		\N	\N	text	Agent
+QueueLoginDataNumUnavailableUsers	Agent Group - Number of Agents in Unavailable State Group	UsersSummary	UsersInStatusGroupCount	UNAVAILABLE	\N	0	number	Data
+MonAgentUnavailableDuration	Agent - Cumulative Unavailable Group Duration	User	TotalStatusGroupDuration	UNAVAILABLE	\N	\N	time	Agent
+MonAgentUnavailableDurationPct	Agent - Cumulative Unavailable Duration Percent	User	TotalStatusGroupPercent	UNAVAILABLE	\N	\N	number	Agent
+MonSumAgentsUnavailableDurationPercent	Agent Group - Percent of Agents in Unavailable State Group	UsersInteraction	UsersInStatusGroupDurationPercent	UNAVAILABLE	##0.00%	\N	number	Data
 \.
 
 -- NGC_Site
