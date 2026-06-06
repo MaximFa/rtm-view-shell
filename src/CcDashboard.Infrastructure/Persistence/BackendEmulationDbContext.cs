@@ -158,6 +158,24 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.DefaultValue).HasMaxLength(100);
             e.Property(x => x.ValueType).HasMaxLength(20).HasDefaultValue("String");
             e.Property(x => x.MetricType).HasMaxLength(20).HasDefaultValue("Agent");
+
+            // Catalogue — editorial
+            e.Property(x => x.DisplayName).HasMaxLength(200);
+            e.Property(x => x.ShortDescription).HasMaxLength(500);
+            e.Property(x => x.LongDescription).HasColumnType("text");
+            e.Property(x => x.Comparison).HasColumnType("text");
+            e.Property(x => x.StandardKpi).HasMaxLength(100);
+            e.Property(x => x.StandardRef).HasMaxLength(200);
+
+            // Catalogue — taxonomy
+            e.Property(x => x.CatalogCategory).HasMaxLength(20);
+            e.Property(x => x.Family).HasMaxLength(100);
+            e.Property(x => x.Channel).HasMaxLength(20);
+            // ThresholdSec int? — default mapping is fine
+
+            // Catalogue — lifecycle
+            e.Property(x => x.CatalogStatus).HasMaxLength(20);
+            e.Property(x => x.CatalogNotes).HasColumnType("text");
         });
 
         // RTS UserGrid tables
