@@ -488,6 +488,76 @@ public class PostgresFixture : IAsyncLifetime
         await using var beDb = CreateBackendEmulationDbContext();
         await CreateQueueGridTablesAsync(beDb);
     }
+
+    /// <summary>
+    /// Loads RTSData_* functions from db/functions/02_rtsdata_functions.sql into the test database.
+    /// </summary>
+    public async Task EnsureRtsDataFunctionsAsync()
+    {
+        // Resolve repo root by walking up from AppContext.BaseDirectory
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        string? sqlPath = null;
+        while (dir != null)
+        {
+            var candidate = Path.Combine(dir.FullName, "db", "functions", "02_rtsdata_functions.sql");
+            if (File.Exists(candidate))
+            {
+                sqlPath = candidate;
+                break;
+            }
+            dir = dir.Parent;
+        }
+
+        if (sqlPath is null)
+        {
+            // Try common development paths
+            var devPaths = new[]
+            {
+                @"D:\Claude\Projects\RTM View Shell\db\functions\02_rtsdata_functions.sql",
+                Path.Combine(Environment.CurrentDirectory, "db", "functions", "02_rtsdata_functions.sql")
+            };
+            foreach (var p in devPaths)
+            {
+                if (File.Exists(p))
+                {
+                    sqlPath = p;
+                    break;
+                }
+            }
+        }
+
+        if (sqlPath is null)
+            throw new InvalidOperationException(
+                "Cannot find db/functions/02_rtsdata_functions.sql. " +
+                "Ensure the test is run from the repository root or the file exists.");
+
+        var sql = await File.ReadAllTextAsync(sqlPath);
+
+        await using var beDb = CreateBackendEmulationDbContext();
+        await beDb.Database.ExecuteSqlRawAsync(sql);
+    }
+
+    /// <summary>
+    /// Ensures RTSData_UserStatus table has the legacy typo column "MaxDuraction"
+    /// (instead of or in addition to "MaxDuration") as expected by the production
+    /// SQL procedure RTSData_SetUserStatus which preserves MSSQL legacy naming.
+    /// ADDITIVE: call before loading RTSData functions.
+    /// </summary>
+    public async Task EnsureRtsDataSchemaCompatibilityAsync()
+    {
+        await using var beDb = CreateBackendEmulationDbContext();
+        // Rename MaxDuration to MaxDuraction (legacy typo) if needed
+        // Use try/catch since column might already be renamed
+        try
+        {
+            await beDb.Database.ExecuteSqlRawAsync(
+                @"ALTER TABLE ""RTSData_UserStatus"" RENAME COLUMN ""MaxDuration"" TO ""MaxDuraction""");
+        }
+        catch
+        {
+            // Column already renamed or doesn't exist - that's OK
+        }
+    }
 }
 
 /// <summary>
