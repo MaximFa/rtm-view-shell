@@ -32,6 +32,7 @@ public interface INgcSupergroupRepository
 public interface IRtsGridMetricRepository
 {
     Task<IReadOnlyList<RtsGridMetric>> GetAllAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<(RtsGridMetric Metric, RtsGridMetricTranslation? Translation)>> GetAllWithTranslationAsync(string locale, CancellationToken ct = default);
     Task<RtsGridMetric?> GetByIdAsync(string metricId, CancellationToken ct = default);
     Task AddAsync(RtsGridMetric metric, CancellationToken ct = default);
     void Update(RtsGridMetric metric);

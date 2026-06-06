@@ -26,6 +26,7 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
 
     // RTS Grid metrics (cross-tenant)
     public DbSet<RtsGridMetric> RtsGridMetrics => Set<RtsGridMetric>();
+    public DbSet<RtsGridMetricTranslation> RtsGridMetricTranslations => Set<RtsGridMetricTranslation>();
 
     // RTS UserGrid tables (compatibility with external SignalR server - Agent Grid)
     public DbSet<RtsUserGridGrid> RtsUserGridGrids => Set<RtsUserGridGrid>();
@@ -176,6 +177,19 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             // Catalogue — lifecycle
             e.Property(x => x.CatalogStatus).HasMaxLength(20);
             e.Property(x => x.CatalogNotes).HasColumnType("text");
+        });
+
+        // RTS Grid metric translations (cross-tenant, per-locale)
+        mb.Entity<RtsGridMetricTranslation>(e =>
+        {
+            e.ToTable("RTSGrid_MetricTranslation");
+            e.HasKey(x => new { x.MetricId, x.Locale });
+            e.Property(x => x.MetricId).HasMaxLength(100);
+            e.Property(x => x.Locale).HasMaxLength(10);
+            e.Property(x => x.DisplayName).HasMaxLength(200);
+            e.Property(x => x.ShortDescription).HasMaxLength(500);
+            e.Property(x => x.LongDescription).HasColumnType("text");
+            e.Property(x => x.Comparison).HasColumnType("text");
         });
 
         // RTS UserGrid tables

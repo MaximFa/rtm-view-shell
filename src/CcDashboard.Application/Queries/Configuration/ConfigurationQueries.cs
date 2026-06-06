@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text.Json;
 using CcDashboard.Application.Interfaces;
+using CcDashboard.Application.Services.Metrics;
 using CcDashboard.Contracts.DTOs.Configuration;
 using CcDashboard.Domain.Interfaces;
 using MediatR;
@@ -129,13 +131,19 @@ public class GetRtsGridMetricsQueryHandler(IRtsGridMetricRepository repo)
 {
     public async Task<IReadOnlyList<RtsGridMetricDto>> Handle(GetRtsGridMetricsQuery _, CancellationToken ct)
     {
-        var items = await repo.GetAllAsync(ct);
-        return items.Select(m => new RtsGridMetricDto(
-            m.MetricId, m.Description, m.DataType, m.MetricFunction, m.MetricParameter,
-            m.MetricFormat, m.DefaultValue, m.ValueType, m.MetricType,
-            m.DisplayName, m.ShortDescription, m.LongDescription, m.Comparison,
-            m.StandardKpi, m.StandardRef, m.CatalogCategory, m.Family, m.Channel,
-            m.ThresholdSec, m.CatalogStatus, m.CatalogNotes)).ToList();
+        var locale = CultureInfo.CurrentUICulture.Name;
+        var items = await repo.GetAllWithTranslationAsync(locale, ct);
+        return items.Select(pair =>
+        {
+            var (m, tr) = pair;
+            var dto = new RtsGridMetricDto(
+                m.MetricId, m.Description, m.DataType, m.MetricFunction, m.MetricParameter,
+                m.MetricFormat, m.DefaultValue, m.ValueType, m.MetricType,
+                m.DisplayName, m.ShortDescription, m.LongDescription, m.Comparison,
+                m.StandardKpi, m.StandardRef, m.CatalogCategory, m.Family, m.Channel,
+                m.ThresholdSec, m.CatalogStatus, m.CatalogNotes);
+            return MetricLocalization.Apply(dto, tr);
+        }).ToList();
     }
 }
 

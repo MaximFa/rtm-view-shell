@@ -75,6 +75,20 @@ public class RtsGridMetricRepository(BackendEmulationDbContext db) : IRtsGridMet
             .OrderBy(m => m.MetricId)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<(RtsGridMetric Metric, RtsGridMetricTranslation? Translation)>> GetAllWithTranslationAsync(
+        string locale, CancellationToken ct = default)
+    {
+        var metrics = await db.RtsGridMetrics.AsNoTracking()
+            .OrderBy(m => m.MetricId)
+            .ToListAsync(ct);
+
+        var translations = await db.RtsGridMetricTranslations.AsNoTracking()
+            .Where(t => t.Locale == locale)
+            .ToDictionaryAsync(t => t.MetricId, ct);
+
+        return metrics.Select(m => (m, translations.GetValueOrDefault(m.MetricId))).ToList();
+    }
+
     public async Task<RtsGridMetric?> GetByIdAsync(string metricId, CancellationToken ct = default)
         => await db.RtsGridMetrics.FirstOrDefaultAsync(m => m.MetricId == metricId, ct);
 
