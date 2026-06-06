@@ -1,6 +1,6 @@
 {
   "locale": "he-IL",
-  "metricCount": 197,
+  "metricCount": 201,
   "metrics": [
     {
       "metricId": "MonAgentNumChatsActive",
@@ -1380,6 +1380,34 @@
       "shortDescription": "משך ההמתנה הארוך ביותר מבין אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) הממתינות כעת בתור (כרגע).",
       "longDescription": "מדד בזמן אמת: מבין אינטראקציות דיגיטליות לא-קוליות (צ'אט ודוא\"ל) הממתינות כעת בתור, זמן ההמתנה של הממתינה הארוכה ביותר. יורד לאפס כאשר התור ריק. מדד 'ההמתנה הארוכה ביותר' הקלאסי בלוח מחוונים, להתערבות מיידית.",
       "comparison": "'זמן המתנה ממוצע' הוא ממוצע יומי על פריטים שהושלמו; מדד זה משקף רק את התור הנוכחי."
+    },
+    {
+      "metricId": "QueueLoginDataNumUnavailableUsers",
+      "displayName": "סוכנים בקבוצת Unavailable",
+      "shortDescription": "מספר הסוכנים הנמצאים כעת בקבוצת הסטטוס UNAVAILABLE.",
+      "longDescription": "ספירה בזמן אמת של סוכנים שהסטטוס הנוכחי שלהם שייך לקבוצת UNAVAILABLE (מחוברים אך אינם זמינים לאינטראקציות).",
+      "comparison": "מקבילה למדד ההיסטורי statuslog.unavailable_agents."
+    },
+    {
+      "metricId": "MonAgentUnavailableDuration",
+      "displayName": "משך Unavailable מצטבר",
+      "shortDescription": "סך הזמן שהסוכן שהה במצבי קבוצת UNAVAILABLE היום.",
+      "longDescription": "זמן מצטבר היום במצבי קבוצת UNAVAILABLE. מקביל ל-statuslog.unavailable_time_ms.",
+      "comparison": "מקבילה באחוזים: % זמן Unavailable מתוך זמן ההתחברות."
+    },
+    {
+      "metricId": "MonAgentUnavailableDurationPct",
+      "displayName": "% זמן Unavailable מתוך התחברות",
+      "shortDescription": "חלק מזמן ההתחברות של הסוכן ששהה במצבי קבוצת UNAVAILABLE היום.",
+      "longDescription": "זמן קבוצת UNAVAILABLE המצטבר חלקי סך זמן ההתחברות.",
+      "comparison": "מקבילות: % Available, % Break, % Paperwork, % Training."
+    },
+    {
+      "metricId": "MonSumAgentsUnavailableDurationPercent",
+      "displayName": "% זמן בקבוצת Unavailable (קבוצה)",
+      "shortDescription": "חלק מזמן ההתחברות של הקבוצה ששהה במצבי קבוצת UNAVAILABLE.",
+      "longDescription": "אחוז מצטבר להיום: סך זמן קבוצת UNAVAILABLE חלקי סך זמן ההתחברות של הקבוצה.",
+      "comparison": "מקבילה ברמת הסוכן: MonAgentUnavailableDurationPct."
     }
   ]
 }

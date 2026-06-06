@@ -1,6 +1,6 @@
 {
   "locale": "ru-RU",
-  "metricCount": 197,
+  "metricCount": 201,
   "metrics": [
     {
       "metricId": "MonAgentNumChatsActive",
@@ -1380,6 +1380,34 @@
       "shortDescription": "Наибольшее время ожидания среди цифровых обращений (chat и e-mail), находящихся сейчас в очереди (прямо сейчас).",
       "longDescription": "Метрика реального времени: среди цифровых обращений (chat и e-mail), ожидающих сейчас в очереди, время ожидания самого долгого. Падает до нуля, когда очередь пуста. Классический индикатор «Самое долгое ожидание» на вол-борде для немедленного вмешательства.",
       "comparison": "«Среднее время ожидания» — это среднесуточное по завершённым обращениям; эта метрика отражает только текущую очередь."
+    },
+    {
+      "metricId": "QueueLoginDataNumUnavailableUsers",
+      "displayName": "Агенты в группе Unavailable",
+      "shortDescription": "Число агентов, находящихся сейчас в статус-группе UNAVAILABLE.",
+      "longDescription": "Подсчёт в реальном времени агентов, чей текущий статус принадлежит группе UNAVAILABLE (в системе, но недоступны для обращений).",
+      "comparison": "Парная к history-метрике statuslog.unavailable_agents."
+    },
+    {
+      "metricId": "MonAgentUnavailableDuration",
+      "displayName": "Суммарная длительность Unavailable",
+      "shortDescription": "Суммарное время в статусах группы UNAVAILABLE за день.",
+      "longDescription": "Накопленное за день время в статусах группы UNAVAILABLE. Парная к statuslog.unavailable_time_ms.",
+      "comparison": "Процентный аналог: «% времени Unavailable от логина»."
+    },
+    {
+      "metricId": "MonAgentUnavailableDurationPct",
+      "displayName": "% времени Unavailable от логина",
+      "shortDescription": "Доля времени логина агента в статусах группы UNAVAILABLE за день.",
+      "longDescription": "Накопленное время группы UNAVAILABLE, делённое на общее время логина.",
+      "comparison": "Аналоги: % Available, % Break, % Paperwork, % Training."
+    },
+    {
+      "metricId": "MonSumAgentsUnavailableDurationPercent",
+      "displayName": "% времени в группе Unavailable (группа)",
+      "shortDescription": "Доля залогиненного времени группы в статусах группы UNAVAILABLE.",
+      "longDescription": "Накопленный процент за день: суммарное время группы UNAVAILABLE / общее залогиненное время группы.",
+      "comparison": "Пер-агентский аналог: MonAgentUnavailableDurationPct."
     }
   ]
 }

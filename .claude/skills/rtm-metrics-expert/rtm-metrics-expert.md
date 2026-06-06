@@ -66,7 +66,7 @@ These facts override any assumption and any older doc:
   Gaps in the channel×threshold matrix are intentional — fill only on widget demand.
 * **Status Group vs Agent State:** `UsersInStatusGroupCount('BREAK')` counts ALL states mapped to BREAK;
   `UsersInStatusCount('Break')` counts the single raw state. Canonical groups:
-  `AVAILABLE, ONPHONE, BREAK, PAPERWORK, TRAINING`. Group param = CC code (UPPERCASE), state param = exact
+  `AVAILABLE, ONPHONE, BREAK, PAPERWORK, TRAINING, UNAVAILABLE`. Group param = CC code (UPPERCASE), state param = exact
   state title (case-sensitive).
 * **Real-time vs cumulative:** `Cur*`, `*CurMax`, `Waiting`, `Active`, state counts = now; the rest = since midnight.
 * **Filter atoms** (`MetricParameter` C# expressions): `InteractionType`, `CallType (External/Intercom)`,
@@ -267,7 +267,7 @@ Dispatch types: **[tpl]** = Roslyn-compiled template (METRIC_PARAMETER = filter 
 | `MessagesMaxFirstResponseTime` | tpl | Max first-response time (ChatStats) | 1 |
 | `MessagesAvgFirstResponseTime` / `MessagesAvgResponseTime` | tpl | Avg first / avg any response time | 2/2 |
 | `LogedInUsersCount` | inline | `Users.Count(isLoggedId)` — **DataType ignored** | 1 |
-| `UsersInStatusCount` / `UsersInStatusGroupCount` | inline | Agents now in exact state / in group — **DataType ignored** | 7/5 |
+| `UsersInStatusCount` / `UsersInStatusGroupCount` | inline | Agents now in exact state / in group — **DataType ignored** | 7/6 |
 | `UsersInStatusPercent` / `UsersInStatusGroupPercent` | inline | Share of agents now in state/group | reserve/reserve |
 | `UsersInStatusDurationAvg` / `…GroupDurationAvg` | inline | Avg duration of current stay in state/group | reserve/reserve |
 | `UsersInStatusDurationPercent` / `…GroupDurationPercent` | inline | Cumulative state/group time share across BU agents | reserve/2 |
@@ -440,5 +440,5 @@ bag (§2.1). Agent-status data lives in `Union.Users` (list of UserManager) — 
 
 ---
 
-*rtm-metrics-expert skill v1.1 — created 2026-06-05, extended same day with full engine inventory (§10.2) and infrastructure pipeline (§12). Catalogue state: 198 metrics
-(post-migration 20260605_004). Next stage: wizard UX spec + Viewer field help built on metrics-catalog.json.*
+*rtm-metrics-expert skill v1.2 — created 2026-06-05, extended 2026-06-06 with UNAVAILABLE 6th group. Catalogue state: 202 metrics
+(post-migration 20260606_006). Next stage: wizard UX spec + Viewer field help built on metrics-catalog.json.*
