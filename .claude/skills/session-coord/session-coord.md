@@ -2,7 +2,7 @@
 name: session-coord
 description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42."
 type: process
-updated: 2026-06-06 (v1.5 — §12 coordinator handoff + commands; L-SC-11..17)
+updated: 2026-06-06 (v1.6 — Track 2 cc_post_commit.sh wrapper — §12 coordinator handoff + commands; L-SC-11..17)
 ---
 
 # session-coord — multi-session coordination
@@ -47,6 +47,9 @@ classes lost in the pre-protocol push).
 - L-SC-04: journal lines appended by CC may be invisible or lost through the mount.
   The initiator cross-checks `.coord/journal.md` against `git log` and restores
   missing lines (Python + fsync). Journal is a convenience view; git log is truth.
+- **[Track 2]** After every commit the LAST step is `bash tools/cc_post_commit.sh <slug> <hash>` — it performs
+  journal(S4)+flush(S4b)+lock-release atomically and is exit-gated; inline journal/flush is removed.
+  Skipping it is a protocol violation (L-SC-17).
 
 ## 4. CC prompt requirements + peer-review checklist
 

@@ -78,46 +78,17 @@ destroy another session's commit.
 New files: check `git status --short | grep "^??"` within the claims and add them
 explicitly; anything under `.claude/` needs `git add -f` (blocked by `.gitignore`).
 
-### S4. Journal + release — after EVERY commit
+### S4 + S4b. Post-commit — run the MANDATORY wrapper (NON-SKIPPABLE)
 
-```python
-# /tmp/journal_release.py
-import os, datetime, subprocess
-h = subprocess.check_output(["git", "log", "-1", "--format=%h %s"]).decode().strip()
-line = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ") + " | <slug> | " + h + "\n"
-with open(".coord/journal.md", "a", encoding="utf-8") as f:
-    f.write(line); f.flush(); os.fsync(f.fileno())
-os.remove(".coord/locks/commit.lock")
-print("journal appended, lock released")
-```
+After `git commit` + §0.6 verification, run as the LAST step:
 
-Then `sync`. If the commit is aborted for any reason, still release the lock.
+    bash tools/cc_post_commit.sh <slug> $(git log -1 --format=%h)
 
-### S4b. Post-commit flush — short structured report to the coordinator (REQUIRED)
-
-After the journal line, append ONE block to `.coord/inbox/coordinator.md` (Python+fsync).
-The journal records WHAT committed; this records what the coordinator must ACT on:
-
-```python
-# /tmp/<slug>_flush.py   (name per-session — L-SC-16)
-import os, datetime, subprocess
-h = subprocess.check_output(["git","log","-1","--format=%h %s"]).decode().strip()
-block = (
-    "## " + datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")
-    + " | from: <slug> | to: coordinator\n"
-    "COMMIT " + h + "\n"
-    "claims-releasable: <list paths now free, or 'none'>\n"
-    "blocker/question: <one line, or 'none'>\n"
-    "next: <intended next step, or 'awaiting operator'>\n---\n"
-)
-with open(".coord/inbox/coordinator.md","a",encoding="utf-8") as f:
-    f.write(block); f.flush(); os.fsync(f.fileno())
-print("post-commit flush written")
-```
-
-Then `sync`. Keep it to these 4 fields — richer detail goes in the commit message, not here.
-If claims are releasable, ALSO remove them from your `files:` in the session file (frees them
-for waiters per §9).
+It appends the journal line, writes the coordinator flush block (both Python+fsync, verified),
+releases commit.lock, and prints the claims to release. If it exits non-zero, the journal/flush
+was not verified (L-SC-04 mount drop) — reconcile .coord/journal.md vs `git log` and re-run
+before continuing. Do NOT hand-write journal/flush inline anymore; the wrapper is the only path.
+Then `sync`.
 
 ### S5. Git push
 
