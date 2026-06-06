@@ -93,6 +93,32 @@ print("journal appended, lock released")
 
 Then `sync`. If the commit is aborted for any reason, still release the lock.
 
+### S4b. Post-commit flush — short structured report to the coordinator (REQUIRED)
+
+After the journal line, append ONE block to `.coord/inbox/coordinator.md` (Python+fsync).
+The journal records WHAT committed; this records what the coordinator must ACT on:
+
+```python
+# /tmp/<slug>_flush.py   (name per-session — L-SC-16)
+import os, datetime, subprocess
+h = subprocess.check_output(["git","log","-1","--format=%h %s"]).decode().strip()
+block = (
+    "## " + datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")
+    + " | from: <slug> | to: coordinator\n"
+    "COMMIT " + h + "\n"
+    "claims-releasable: <list paths now free, or 'none'>\n"
+    "blocker/question: <one line, or 'none'>\n"
+    "next: <intended next step, or 'awaiting operator'>\n---\n"
+)
+with open(".coord/inbox/coordinator.md","a",encoding="utf-8") as f:
+    f.write(block); f.flush(); os.fsync(f.fileno())
+print("post-commit flush written")
+```
+
+Then `sync`. Keep it to these 4 fields — richer detail goes in the commit message, not here.
+If claims are releasable, ALSO remove them from your `files:` in the session file (frees them
+for waiters per §9).
+
 ### S5. Git push
 
 Do NOT run `git push` (§37). Push happens only via `tools/cc_prompt_push.md`
