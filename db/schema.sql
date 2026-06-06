@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ceGXINaDe4x7TFpm5FpCfUTGvQJFhbZ3nNb6ZUVGlfalwkSllJHxgGdkc5xVMe7
+\restrict JFYpKHmvskBUreEHLTZOQF7y3a2U1wanveUImHdePgYj28EoarPNYUyq8lBulQ3
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -319,6 +319,22 @@ $$;
 
 
 --
+-- Name: NGC_DeleteUserAgentgroup(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."NGC_DeleteUserAgentgroup"(p_user_id text, p_agentgroup_id text, p_tenant_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    DELETE FROM "NGC_UserAgentgroup"
+    WHERE "TenantId" = p_tenant_id
+      AND "UserId" = p_user_id
+      AND "AgentgroupId" = p_agentgroup_id;
+END;
+$$;
+
+
+--
 -- Name: NGC_GetBusinessUnitIdByName(text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -605,6 +621,21 @@ BEGIN
         "Description"    = p_description
     WHERE "SupergroupId" = p_supergroup_id
       AND "TenantId"     = p_tenant_id;
+END;
+$$;
+
+
+--
+-- Name: NGC_SetUserAgentgroup(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."NGC_SetUserAgentgroup"(p_user_id text, p_agentgroup_id text, p_tenant_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    INSERT INTO "NGC_UserAgentgroup" ("UserId", "AgentgroupId", "CreatedDatetime", "TenantId")
+    VALUES (p_user_id, p_agentgroup_id, NOW(), p_tenant_id)
+    ON CONFLICT ("TenantId", "UserId", "AgentgroupId") DO NOTHING;
 END;
 $$;
 
@@ -935,39 +966,6 @@ $$;
 
 
 --
--- Name: RTSData_SetUserStatus(text, text, text, text, integer, integer, integer, text, text, timestamp with time zone, text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_SetUserStatus"(p_user_id text, p_status_id text, p_status_name text, p_status_group text, p_total_duration integer, p_max_duration integer, p_total_count integer, p_source_server text, p_on_date text, p_update_time timestamp with time zone, p_display_name text, p_time_zone text, p_tenant_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    INSERT INTO "RTSData_UserStatus" (
-        "UserId", "StatusId", "ServerId", "OnDate",
-        "StatusName", "StatusGroup", "TotalDuration", "MaxDuraction",
-        "TotalCount", "UpdateTime", "DisplayName", "TimeZone", "TenantId"
-    )
-    VALUES (
-        p_user_id, p_status_id, p_source_server, p_on_date,
-        p_status_name, p_status_group, p_total_duration, p_max_duration,
-        p_total_count, p_update_time, p_display_name, p_time_zone, p_tenant_id
-    )
-    ON CONFLICT ("UserId", "StatusId", "ServerId", "OnDate")
-    DO UPDATE SET
-        "StatusName" = EXCLUDED."StatusName",
-        "StatusGroup" = EXCLUDED."StatusGroup",
-        "TotalDuration" = EXCLUDED."TotalDuration",
-        "MaxDuraction" = EXCLUDED."MaxDuraction",
-        "TotalCount" = EXCLUDED."TotalCount",
-        "UpdateTime" = EXCLUDED."UpdateTime",
-        "DisplayName" = EXCLUDED."DisplayName",
-        "TimeZone" = EXCLUDED."TimeZone",
-        "TenantId" = EXCLUDED."TenantId";
-END;
-$$;
-
-
---
 -- Name: RTSData_SetUserStatus(text, text, text, text, text, text, double precision, double precision, integer, text, timestamp with time zone, timestamp with time zone, text, timestamp with time zone, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
 
@@ -975,19 +973,34 @@ CREATE PROCEDURE public."RTSData_SetUserStatus"(IN p_user_id text, IN p_status_i
     LANGUAGE plpgsql
     AS $$
 BEGIN
+    -- (a) Append-only history (powers DayTrend agent metrics). StatusGroup + TenantId
+    --     are required by fn_daytrendagentstatus and exist on the PG table.
+    IF p_start_time IS NOT NULL AND p_end_time IS NOT NULL
+       AND p_end_time > p_start_time THEN
+        INSERT INTO "RTSData_UserStatusLog" (
+            "TenantId","UserId","StatusId","ServerId","OnDate",
+            "StartTime","EndTime","Duration","UpdateTime","TimeZone","StatusGroup"
+        )
+        VALUES (
+            p_tenant_id, p_user_id, p_status_id, p_server_id, p_on_date,
+            p_start_time, p_end_time,
+            (EXTRACT(EPOCH FROM (p_end_time - p_start_time)) * 1000)::integer,
+            p_update_time, p_time_zone, p_status_group
+        );
+    END IF;
+
+    -- (b) Current-state upsert (unchanged behaviour).
     INSERT INTO "RTSData_UserStatus" (
-        "UserId", "StatusId", "ServerId", "OnDate",
-        "StatusName", "StatusGroup",
-        "TotalDuration", "MaxDuraction", "TotalCount",
-        "UpdateTime", "DisplayName", "TimeZone", "TenantId"
+        "UserId","StatusId","ServerId","OnDate",
+        "StatusName","StatusGroup","TotalDuration","MaxDuraction",
+        "TotalCount","UpdateTime","DisplayName","TimeZone","TenantId"
     )
     VALUES (
         p_user_id, p_status_id, p_server_id, p_on_date,
-        p_status_name, p_status_group,
-        p_total_duration::integer, p_max_duration::integer, p_total_count,
-        p_update_time, p_display_name, p_time_zone, p_tenant_id
+        p_status_name, p_status_group, p_total_duration::integer, p_max_duration::integer,
+        p_total_count, p_update_time, p_display_name, p_time_zone, p_tenant_id
     )
-    ON CONFLICT ("UserId", "StatusId", "ServerId", "OnDate")
+    ON CONFLICT ("UserId","StatusId","ServerId","OnDate")
     DO UPDATE SET
         "StatusName"    = EXCLUDED."StatusName",
         "StatusGroup"   = EXCLUDED."StatusGroup",
@@ -1875,6 +1888,34 @@ ALTER TABLE public."NGC_Supergroup" ALTER COLUMN "SupergroupId" ADD GENERATED AL
 
 
 --
+-- Name: NGC_UserAgentgroup; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."NGC_UserAgentgroup" (
+    "Id" integer NOT NULL,
+    "UserId" character varying(100),
+    "AgentgroupId" character varying(100),
+    "TenantId" uuid NOT NULL,
+    "CreatedDatetime" timestamp with time zone,
+    "CreatedBy" character varying(100)
+);
+
+
+--
+-- Name: NGC_UserAgentgroup_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public."NGC_UserAgentgroup" ALTER COLUMN "Id" ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public."NGC_UserAgentgroup_Id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: PermissionGroups; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2139,6 +2180,20 @@ CREATE TABLE public."RTSGrid_Metric" (
     "StandardKpi" character varying(100),
     "StandardRef" character varying(200),
     "ThresholdSec" integer
+);
+
+
+--
+-- Name: RTSGrid_MetricTranslation; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."RTSGrid_MetricTranslation" (
+    "MetricId" character varying(100) NOT NULL,
+    "Locale" character varying(10) NOT NULL,
+    "DisplayName" character varying(200),
+    "ShortDescription" character varying(500),
+    "LongDescription" text,
+    "Comparison" text
 );
 
 
@@ -2782,6 +2837,21 @@ CREATE TABLE public.tenants (
 
 
 --
+-- Name: user_widget_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_widget_settings (
+    "Id" uuid NOT NULL,
+    "TenantId" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "WidgetId" uuid NOT NULL,
+    "SettingsJson" jsonb NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "UpdatedAt" timestamp with time zone NOT NULL
+);
+
+
+--
 -- Name: widget_catalog; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2986,6 +3056,14 @@ ALTER TABLE ONLY public."NGC_SupergroupAgentgroup"
 
 
 --
+-- Name: NGC_UserAgentgroup PK_NGC_UserAgentgroup; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."NGC_UserAgentgroup"
+    ADD CONSTRAINT "PK_NGC_UserAgentgroup" PRIMARY KEY ("Id");
+
+
+--
 -- Name: PermissionGroups PK_PermissionGroups; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3047,6 +3125,14 @@ ALTER TABLE ONLY public."RTSGrid_Grid"
 
 ALTER TABLE ONLY public."RTSGrid_Metric"
     ADD CONSTRAINT "PK_RTSGrid_Metric" PRIMARY KEY ("MetricId");
+
+
+--
+-- Name: RTSGrid_MetricTranslation PK_RTSGrid_MetricTranslation; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."RTSGrid_MetricTranslation"
+    ADD CONSTRAINT "PK_RTSGrid_MetricTranslation" PRIMARY KEY ("MetricId", "Locale");
 
 
 --
@@ -3338,6 +3424,14 @@ ALTER TABLE ONLY public.tenants
 
 
 --
+-- Name: user_widget_settings PK_user_widget_settings; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_widget_settings
+    ADD CONSTRAINT "PK_user_widget_settings" PRIMARY KEY ("Id");
+
+
+--
 -- Name: widget_catalog PK_widget_catalog; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3495,6 +3589,13 @@ CREATE INDEX "IX_NGC_BusinessUnit_SiteId" ON public."NGC_BusinessUnit" USING btr
 --
 
 CREATE INDEX "IX_NGC_SupergroupAgentgroup_SupergroupId" ON public."NGC_SupergroupAgentgroup" USING btree ("SupergroupId");
+
+
+--
+-- Name: IX_NGC_UserAgentgroup_TenantId_UserId_AgentgroupId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "IX_NGC_UserAgentgroup_TenantId_UserId_AgentgroupId" ON public."NGC_UserAgentgroup" USING btree ("TenantId", "UserId", "AgentgroupId");
 
 
 --
@@ -3691,6 +3792,13 @@ CREATE UNIQUE INDEX "IX_tenant_agent_states_TenantId_AgentState" ON public.tenan
 --
 
 CREATE UNIQUE INDEX "IX_tenants_Slug" ON public.tenants USING btree ("Slug");
+
+
+--
+-- Name: IX_user_widget_settings_TenantId_UserId_WidgetId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "IX_user_widget_settings_TenantId_UserId_WidgetId" ON public.user_widget_settings USING btree ("TenantId", "UserId", "WidgetId");
 
 
 --
@@ -4039,5 +4147,5 @@ ALTER TABLE ONLY public.widget_templates
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ceGXINaDe4x7TFpm5FpCfUTGvQJFhbZ3nNb6ZUVGlfalwkSllJHxgGdkc5xVMe7
+\unrestrict JFYpKHmvskBUreEHLTZOQF7y3a2U1wanveUImHdePgYj28EoarPNYUyq8lBulQ3
 

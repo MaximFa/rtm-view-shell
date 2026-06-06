@@ -561,5 +561,44 @@ END;
 $$;
 
 -- ============================================================================
--- End of NGC_* functions (18 total)
+-- 19. NGC_SetUserAgentgroup  (idempotent upsert; agent->agentgroup membership)
+-- ============================================================================
+DROP FUNCTION IF EXISTS "NGC_SetUserAgentgroup"(text, text, uuid);
+CREATE OR REPLACE FUNCTION "NGC_SetUserAgentgroup"(
+    p_user_id text,
+    p_agentgroup_id text,
+    p_tenant_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO "NGC_UserAgentgroup" ("UserId", "AgentgroupId", "CreatedDatetime", "TenantId")
+    VALUES (p_user_id, p_agentgroup_id, NOW(), p_tenant_id)
+    ON CONFLICT ("TenantId", "UserId", "AgentgroupId") DO NOTHING;
+END;
+$$;
+
+-- ============================================================================
+-- 20. NGC_DeleteUserAgentgroup
+-- ============================================================================
+DROP FUNCTION IF EXISTS "NGC_DeleteUserAgentgroup"(text, text, uuid);
+CREATE OR REPLACE FUNCTION "NGC_DeleteUserAgentgroup"(
+    p_user_id text,
+    p_agentgroup_id text,
+    p_tenant_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    DELETE FROM "NGC_UserAgentgroup"
+    WHERE "TenantId" = p_tenant_id
+      AND "UserId" = p_user_id
+      AND "AgentgroupId" = p_agentgroup_id;
+END;
+$$;
+
+-- ============================================================================
+-- End of NGC_* functions (20 total)
 -- ============================================================================
