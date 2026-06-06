@@ -12,6 +12,11 @@ namespace RTM
         private bool _isActive = false;
         private bool _isLoggedIn = false;
         private bool _isHoldChanged = true;
+        
+        // Calc quarantine: track consecutive failures per metric to prevent log spam
+        private static readonly ConcurrentDictionary<string, int> _calcFailures = new();
+        private static readonly ConcurrentDictionary<string, int> _calcCycles = new();
+        private const int CalcQuarantineThreshold = 5;
 
         private DateTime _loggedInStart;
         private DateTime _firstLoggedInStart = DateTime.MinValue;
@@ -1398,23 +1403,64 @@ namespace RTM
                     // Calc
                     case "Calc":
                         string calc1 = metric.Parameter;
-                        var pattern = @"\[(.*?)\]";
-                        var matches = Regex.Matches(calc1, pattern).OfType<Match>().Select(m => m.Groups[1].Value).Distinct();
-
-                        foreach (string key in matches)
+                        string metricId = metric.ID;
+                        
+                        // Quarantine check: skip if quarantined, but probe every 100 cycles
+                        int failures = _calcFailures.GetValueOrDefault(metricId, 0);
+                        int cycles = _calcCycles.AddOrUpdate(metricId, 1, (k, v) => v + 1);
+                        
+                        if (failures >= CalcQuarantineThreshold && cycles % 100 != 0)
                         {
-                            string val1 = "0";
-
-                            val1 = metricFunction(metrics[key], metrics);
-                            calc1 = calc1.Replace("[" + key + "]", val1);
+                            // Quarantined: return existing value without eval
+                            break;
                         }
+                        
+                        try
+                        {
+                            var pattern = @"\[(.*?)\]";
+                            var matches = Regex.Matches(calc1, pattern).OfType<Match>().Select(m => m.Groups[1].Value).Distinct();
 
-                        logStr = calc1;
+                            foreach (string key in matches)
+                            {
+                                string val1 = "0";
+                                val1 = metricFunction(metrics[key], metrics);
+                                calc1 = calc1.Replace("[" + key + "]", val1);
+                            }
 
-                        var expression = new CompiledExpression(calc1);
-                        var result = expression.Eval();
+                            logStr = calc1;
 
-                        val = result.ToString();
+                            var expression = new CompiledExpression(calc1);
+                            var result = expression.Eval();
+
+                            val = result.ToString();
+                            
+                            // Success: reset failure counter (un-quarantine if was quarantined)
+                            if (failures > 0)
+                            {
+                                _calcFailures[metricId] = 0;
+                                if (failures >= CalcQuarantineThreshold)
+                                {
+                                    AsyncLogger.Info($"UserManager.metricFunction: metric {metricId} recovered from quarantine");
+                                }
+                            }
+                        }
+                        catch (Exception calcEx)
+                        {
+                            // Increment failure counter
+                            int newFailures = _calcFailures.AddOrUpdate(metricId, 1, (k, v) => v + 1);
+                            
+                            // Log only on 1st failure and every 100th thereafter
+                            if (newFailures == 1 || newFailures % 100 == 0)
+                            {
+                                AsyncLogger.Error($"UserManager.metricFunction.Calc: {calc1} (failure #{newFailures})", calcEx);
+                            }
+                            
+                            // Log quarantine event once
+                            if (newFailures == CalcQuarantineThreshold)
+                            {
+                                AsyncLogger.Warn($"UserManager.metricFunction: metric {metricId} quarantined after {newFailures} consecutive failures");
+                            }
+                        }
                         break;
                 }
             }

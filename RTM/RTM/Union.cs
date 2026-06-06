@@ -18,6 +18,10 @@ namespace RTM
     {
         public int UnionId { get; set; }
 
+        // Calc quarantine: track consecutive failures per metric to prevent log spam
+        private static readonly ConcurrentDictionary<string, int> _calcFailures = new();
+        private static readonly ConcurrentDictionary<string, int> _calcCycles = new();
+        private const int CalcQuarantineThreshold = 5;
 
         public ConcurrentDictionary<QueueClassification, Applic> Applics { get; set; } = new ConcurrentDictionary<QueueClassification, Applic>();
 
@@ -1282,6 +1286,18 @@ namespace RTM
                 // ====
                 case "Calc":
                     string calc1 = metric.Parameter;
+                    string metricId = metric.ID;
+                    
+                    // Quarantine check: skip if quarantined, but probe every 100 cycles
+                    int failures = _calcFailures.GetValueOrDefault(metricId, 0);
+                    int cycles = _calcCycles.AddOrUpdate(metricId, 1, (k, v) => v + 1);
+                    
+                    if (failures >= CalcQuarantineThreshold && cycles % 100 != 0)
+                    {
+                        // Quarantined: return existing value without eval
+                        break;
+                    }
+                    
                     try
                     {
                         var pattern = @"\[(.*?)\]";
@@ -1310,10 +1326,33 @@ namespace RTM
                         {
                             retValue = d.ToString(metric.Format);
                         }
+                        
+                        // Success: reset failure counter (un-quarantine if was quarantined)
+                        if (failures > 0)
+                        {
+                            _calcFailures[metricId] = 0;
+                            if (failures >= CalcQuarantineThreshold)
+                            {
+                                AsyncLogger.Info($"Union.getData.Calc: metric {metricId} recovered from quarantine");
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
-                        AsyncLogger.Error("Union.getData.Calc: " + calc1, ex);
+                        // Increment failure counter
+                        int newFailures = _calcFailures.AddOrUpdate(metricId, 1, (k, v) => v + 1);
+                        
+                        // Log only on 1st failure and every 100th thereafter
+                        if (newFailures == 1 || newFailures % 100 == 0)
+                        {
+                            AsyncLogger.Error($"Union.getData.Calc: {calc1} (failure #{newFailures})", ex);
+                        }
+                        
+                        // Log quarantine event once
+                        if (newFailures == CalcQuarantineThreshold)
+                        {
+                            AsyncLogger.Warn($"Union.getData.Calc: metric {metricId} quarantined after {newFailures} consecutive failures");
+                        }
                     }
                     break;
             }
