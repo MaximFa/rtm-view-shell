@@ -383,29 +383,18 @@
                             <!-- Data Slot: Metric -->
                             <div class="mb-3">
                                 <label class="form-label">@L["Widget_DataSlotMetric"]</label>
-                                <div class="searchable-select">
-                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
-                                           value="@DataSlotMetricSearchText"
-                                           @oninput="e => DataSlotMetricSearchText = e.Value?.ToString() ?? string.Empty"
-                                           @onfocus="() => DataSlotMetricDropdownOpen = true"
-                                           @onblur="() => { Task.Delay(150).ContinueWith(_ => InvokeAsync(() => { DataSlotMetricDropdownOpen = false; StateHasChanged(); })); }" />
-                                    @if (DataSlotMetricDropdownOpen)
+                                <button type="button"
+                                        class="form-control text-start"
+                                        @onclick="OpenDataSlotMetricWizard">
+                                    @if (!string.IsNullOrEmpty(ConfigDataSlotMetricId))
                                     {
-                                        <div class="searchable-dropdown">
-                                            @foreach (var metric in Metrics.Where(m =>
-                                                string.IsNullOrEmpty(DataSlotMetricSearchText) ||
-                                                (m.Description?.Contains(DataSlotMetricSearchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                                                m.MetricId.Contains(DataSlotMetricSearchText, StringComparison.OrdinalIgnoreCase)))
-                                            {
-                                                <div class="dropdown-item @(ConfigDataSlotMetricId == metric.MetricId ? "active" : "")"
-                                                     @onmousedown="() => { ConfigDataSlotMetricId = metric.MetricId; DataSlotMetricSearchText = metric.Description ?? metric.MetricId; DataSlotMetricDropdownOpen = false; }"
-                                                     @onmousedown:preventDefault="true">
-                                                    @(metric.Description ?? metric.MetricId)
-                                                </div>
-                                            }
-                                        </div>
+                                        @GetMetricDescription(ConfigDataSlotMetricId)
                                     }
-                                </div>
+                                    else
+                                    {
+                                        <span class="text-muted">@L["Common_SelectMetric"]</span>
+                                    }
+                                </button>
                             </div>
 
                             <!-- Data Slot: Target -->
@@ -1609,34 +1598,18 @@
                                                        @onchange="e => UpdateColumnDefName(colId, e.Value?.ToString())" />
                                             </div>
                                             <div class="col">
-                                                <div class="position-relative">
-                                                    <input type="text" class="form-control form-control-sm"
-                                                           placeholder="Select metric..."
-                                                           data-dropdown-id="metric-@colId"
-                                                           value="@(_activeMetricDropdown == colId ? _metricSearchText : GetMetricDescription(col.MetricId))"
-                                                           @onclick="e => OpenMetricDropdown(colId, e)"
-                                                           @onclick:stopPropagation
-                                                           @oninput="e => OnMetricSearch(e.Value?.ToString())" />
-                                                    @if (_activeMetricDropdown == colId)
+                                                <button type="button"
+                                                        class="form-control form-control-sm text-start"
+                                                        @onclick="() => OpenAgentMetricWizard(colId)">
+                                                    @if (!string.IsNullOrEmpty(col.MetricId))
                                                     {
-                                                        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
-                                                             @onclick="CloseMetricDropdown"></div>
-                                                        <div class="dropdown-menu show" style="@GetDropdownStyle("metric-", colId)"
-                                                             @onclick:stopPropagation>
-                                                            @foreach (var metric in GetFilteredMetrics())
-                                                            {
-                                                                <button type="button" class="dropdown-item small"
-                                                                        @onclick="() => SelectMetric(colId, metric.MetricId)">
-                                                                    @metric.Description
-                                                                </button>
-                                                            }
-                                                            @if (!GetFilteredMetrics().Any())
-                                                            {
-                                                                <span class="dropdown-item-text text-muted small">No matches</span>
-                                                            }
-                                                        </div>
+                                                        @GetMetricDescription(col.MetricId)
                                                     }
-                                                </div>
+                                                    else
+                                                    {
+                                                        <span class="text-muted">@L["Common_SelectMetric"]</span>
+                                                    }
+                                                </button>
                                             </div>
                                             <div class="col-auto" style="width: 40px;">
                                                 <button type="button" class="btn btn-link btn-sm p-0 text-danger"
@@ -2143,6 +2116,22 @@
               OnSelected="OnQueueMetricWizardSelected"
               OnCancel="() => _queueMetricWizardVisible = false" />
 
+<!-- Metric Wizard (DataSlot) -->
+<MetricWizard Visible="_dataSlotMetricWizardVisible"
+              MetricTypeFilter="Data"
+              CurrentMetricId="ConfigDataSlotMetricId"
+              DarkMode="_darkMode"
+              OnSelected="OnDataSlotMetricWizardSelected"
+              OnCancel="() => _dataSlotMetricWizardVisible = false" />
+
+<!-- Metric Wizard (Agent Grid) -->
+<MetricWizard Visible="_agentMetricWizardVisible"
+              MetricTypeFilter="Agent"
+              CurrentMetricId="_agentMetricWizardCurrentId"
+              DarkMode="_darkMode"
+              OnSelected="OnAgentMetricWizardSelected"
+              OnCancel="() => _agentMetricWizardVisible = false" />
+
 <!-- Widget Delete Confirmation Modal -->
 @if (WidgetToDelete is not null)
 {
@@ -2524,6 +2513,14 @@
     private string? _queueMetricWizardColId;
     private string? _queueMetricWizardCurrentId;
 
+    // MetricWizard state (DataSlot)
+    private bool _dataSlotMetricWizardVisible;
+
+    // MetricWizard state (Agent Grid)
+    private bool _agentMetricWizardVisible;
+    private string? _agentMetricWizardColId;
+    private string? _agentMetricWizardCurrentId;
+
     private int? _queueRowBgPaletteOpenFor;
     private int? _queueRowFontPaletteOpenFor;
 
@@ -2719,6 +2716,43 @@
             }
         }
         _queueMetricWizardVisible = false;
+        StateHasChanged();
+    }
+
+    // MetricWizard handlers (DataSlot)
+    private void OpenDataSlotMetricWizard()
+    {
+        _dataSlotMetricWizardVisible = true;
+    }
+
+    private void OnDataSlotMetricWizardSelected(string metricId)
+    {
+        ConfigDataSlotMetricId = metricId;
+        _dataSlotMetricWizardVisible = false;
+        StateHasChanged();
+    }
+
+    // MetricWizard handlers (Agent Grid)
+    private void OpenAgentMetricWizard(string colId)
+    {
+        var col = ConfigAgentColumnDefs.FirstOrDefault(c => c.Id == colId);
+        _agentMetricWizardColId = colId;
+        _agentMetricWizardCurrentId = col?.MetricId;
+        _agentMetricWizardVisible = true;
+    }
+
+    private void OnAgentMetricWizardSelected(string metricId)
+    {
+        var col = ConfigAgentColumnDefs.FirstOrDefault(c => c.Id == _agentMetricWizardColId);
+        if (col != null)
+        {
+            col.MetricId = metricId;
+            if (string.IsNullOrWhiteSpace(col.Name))
+            {
+                col.Name = GetMetricDescription(metricId);
+            }
+        }
+        _agentMetricWizardVisible = false;
         StateHasChanged();
     }
 
