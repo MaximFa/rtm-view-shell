@@ -2,7 +2,7 @@
 name: session-coord
 description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42."
 type: process
-updated: 2026-06-06 (v1.6 — Track 2 cc_post_commit.sh wrapper — §12 coordinator handoff + commands; L-SC-11..17)
+updated: 2026-06-07 (v1.7 — L-SC-18 cross-view inherent + L-SC-19 append-ACKS; Track 2 wrapper)
 ---
 
 # session-coord — multi-session coordination
@@ -74,10 +74,12 @@ changed twice and one session had to re-ack three times.
 
 1. Verify no `commit.lock` held → write `.coord/push/request.md` (template §7.3).
    Barrier is now ON: sync block S1 stops all new CC tasks.
-2. Operator notifies sessions; each passes the ack checklist (§6) and writes its
-   OWN ack. L-SC-03: an ack is written ONLY by the owning slug — impersonation
+   1b. Coordinator ALSO creates `.coord/push/ACKS.md` (pre-created single file with a header) at freeze.
+   Sessions append their READY block here — do NOT create per-session files in `.coord/push/acks/` (L-SC-19).
+2. Operator notifies sessions; each passes the ack checklist (§6) and APPENDS its
+   READY block to `.coord/push/ACKS.md`. L-SC-03: an ack is written ONLY by the owning slug — impersonation
    occurred in run 1 and the ack had to be re-issued by the owner.
-3. Quorum: READY from EVERY active session, each `valid_for` == the frozen set.
+3. Quorum: a READY block per expected slug in ACKS.md (no HOLD); each `valid_for` == the frozen set. Operator-relayed READY recorded by coordinator counts (L-SC-19).
 4. Push via `tools/cc_prompt_push_barrier.md`: verifies quorum → removes orphaned
    lock (owner check) → runs `tools/cc_prompt_push.md` (incl. Step 1b untracked
    pickup) → cleans barrier files → journals `PUSHED`.
@@ -91,8 +93,16 @@ changed twice and one session had to re-ack three times.
 - no `??` untracked artefacts of YOUR session — commit them NOW (`.claude/` → `git add -f`)
 - key files hash-verified vs HEAD (PD-007 after other sessions' commits)
 
-Format: `READY` / `valid_for: <exact frozen commit list>` / `checked: <UTC>` / notes.
-`valid_for` MUST match `request.md`. Otherwise `HOLD: <reason>`.
+Format: APPEND to `.coord/push/ACKS.md` a block:
+```
+## <slug> | READY | <UTC>
+valid_for: origin/<branch>..HEAD = <exact frozen hashes>
+notes: <§6 checklist summary>
+---
+```
+If the append does not show up for the coordinator, report READY to the operator in chat (relay backstop).
+HOLD: append `## <slug> | HOLD: <reason> | <UTC>`.
+`valid_for` MUST match `request.md`.
 
 ## 7. Templates
 
@@ -110,13 +120,9 @@ cc_task: none             # none | running:<prompt-file>
 ---
 ```
 
-### 7.2 Ack — `.coord/push/acks/<slug>.md`
-```
-READY
-valid_for: origin/<branch>..HEAD = <hashes, newest first>
-checked: <UTC>
-notes: <checklist summary>
-```
+### 7.2 Ack — append a block to the single `.coord/push/ACKS.md` (L-SC-19)
+(per-session `acks/<slug>.md` files are DEPRECATED — phantom-prone). Coordinator pre-creates ACKS.md at
+freeze; each session appends one `## <slug> | READY | <UTC>` block (format in §6). Gate parses by slug.
 
 ### 7.3 Push request — `.coord/push/request.md`
 ```markdown
@@ -163,6 +169,8 @@ is the only protection for same-file work.
 | L-SC-15 | A running session caches the skill it read at start; later skill edits (new commands/sections) do NOT reach it. Bump = the coordinator drops a "re-read skill vX" note into each active inbox; operator triggers `коорд: входящие`. New sessions read the current file fresh at registration. |
 | L-SC-16 | A leftover /tmp script with a generic name (write_prompt.py) re-ran from another session and wrote OUTSIDE its claims (touched another session's untracked file). Claim discipline (S2) guards INTENDED writes, not accidental ones from stale scripts. Name /tmp scripts per-session (/tmp/<slug>_*.py) and never reuse generic names. |
 | L-SC-17 | A phantom dirent (L-SC-10) blocks even `open(path,"w")` and `rm`/`os.remove` ("Operation not permitted") — you cannot overwrite or delete it directly. Workaround that WORKS: write to a temp file then `os.replace(tmp, path)` (atomic rename overwrites the phantom). Used to write .coord/push/request.md over its ghost. |
+| L-SC-18 | The cross-view mount drop (L-SC-04) is INHERENT to the share and unsolvable from inside CC's WSL2 process: a write succeeds + verifies in the WRITER's view but is async-dropped from other views. cc_post_commit.sh verify-retry catches SAME-view write failures (good) but NOT the async cross-view drop. => coordinator journal<->git reconciliation stays PERMANENT. Durable full-close (future) = stop relying on the mount for the journal (journal as git-tracked artefact / commit trailer). |
+| L-SC-19 | Per-session ack FILES in `.coord/push/acks/<slug>.md` keep failing under barrier load (L-SC-10 phantom blocks creates in the acks/ subdir AND some flat names; L-SC-04 async-drops them). FIX: collect acks in ONE append-only file `.coord/push/ACKS.md` that the coordinator PRE-CREATES at freeze (append to an existing file is far more reliable than creating new files in a phantom dir). Sessions APPEND their READY block; the push gate parses that one file by slug. Backstop when even the append drops: the session reports READY to the OPERATOR in chat -> operator relays -> coordinator records it in ACKS.md (git + operator are the reliable channels; the file-bus is best-effort). Bus-health probe (2026-06-06): single-process round-trip is fine; losses are cross-view + contention only. |
 
 ## 10. Operator command set — EXECUTE LITERALLY
 
