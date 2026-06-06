@@ -2,7 +2,7 @@
 name: session-coord
 description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42."
 type: process
-updated: 2026-06-06 (v1.2 — §9 queue + checker + L-SC-09; §10 operator command set + return convention)
+updated: 2026-06-06 (v1.3 — §11 mailbox; §10 +3 mailbox cmds; phantom-aware S3; L-SC-11..15)
 ---
 
 # session-coord — multi-session coordination
@@ -153,6 +153,11 @@ is the only protection for same-file work.
 |---|---|
 | L-SC-09 | Same-file contention = silent lost-update, not a git conflict; serialise via queue, never parallel |
 | L-SC-10 | Mount keeps phantom dirents: `test -f request.md` true while `cat`/`ls` show it gone. Barrier checks (S1) and any `.coord/` presence test MUST be content-based (`-s` + successful `cat`), never `-f` alone. Phantom clears only from the Windows side or by re-sync — like the stray `.sync`. |
+| L-SC-11 | An ACTIVE session with EMPTY claims is a hole: its real working territory is unprotected, so another session enters it legally (test wandered into metrics' RtsGridMetric.cs because metrics declared nothing). The role obliges declaring territory BEFORE starting work; a stale "stage complete" session file with no claims is the trap. |
+| L-SC-12 | A file-claim inside a module forces EVERY other claimant of that module into file-mode (§42.3.2). Verify with the checker BEFORE a new session registers: metrics held RTM/RTM/Union.cs, so DayTrend could no longer take the whole `rtm` module — it had to switch to rtm file-mode. Catch cross-session module collisions at registration, not at commit. |
+| L-SC-13 | Mailbox (§11) decouples content from the operator but not turns — sessions don't poll. The operator shifts from courier (carries payloads) to scheduler (sends `коорд: входящие`/`сбрось` pokes). Design any "session will notice X" step around explicit triggers, never around autonomous polling. |
+| L-SC-14 | Phantom dirents (L-SC-10) hit commit.lock too: `open(lock,"x")`/`os.path.exists` see the ghost and block ALL commits forever. Lock-acquire (S3) must be content-based — treat an empty/unreadable lock as phantom, clear and retry. A live session committing fine while a "held lock" lingers = phantom, not a real holder. Never declare a session dead on lock age alone; check its recent commits + cc_task first. |
+| L-SC-15 | A running session caches the skill it read at start; later skill edits (new commands/sections) do NOT reach it. Bump = the coordinator drops a "re-read skill vX" note into each active inbox; operator triggers `коорд: входящие`. New sessions read the current file fresh at registration. |
 
 ## 10. Operator command set — EXECUTE LITERALLY
 
@@ -174,6 +179,9 @@ Replies must be SHORT: result + what the operator should do next (if anything).
 | `коорд: пуш` | coordinator | Verify quorum (every active session READY, valid_for == frozen set) → reply with the CC command (`Выполни задачу из файла tools/cc_prompt_push_barrier.md`). If no quorum: who is missing. |
 | `коорд: завершаю сессию` | any session | Set `status: done`, claims released. Reply: final summary (commits made, loose ends). |
 | `коорд: сессия <slug> мертва` | coordinator | Operator-confirmed takeover (§42.2): delete that session file, list orphaned claims/locks now free, schedule orphan-lock removal via next CC task. |
+| `коорд: сбрось` | any session | Flush current status / question / handoff to the bus: update own session file, and append a message block to `.coord/inbox/<recipient>.md` (recipient = `coordinator` for decisions, or a peer slug). Reply: what was written, to whom. |
+| `коорд: входящие` (alias: `коорд: прочитай`) | any session | Read own `.coord/inbox/<slug>.md`, act on each unhandled block, append `> handled` line per block. Reply: messages found + actions taken. |
+| `коорд: разбери` | coordinator | Read ALL `.coord/inbox/*.md` + session files, reconcile, then write directives into each recipient's inbox. Reply: per-session directives placed + what the operator must trigger (`коорд: входящие` to whom). |
 
 Default duty regardless of commands: at the start of EVERY turn each session re-reads
 the bus (§1 items 2–4) and acts on what it finds (barrier → ack; foreign journal
@@ -186,6 +194,39 @@ in the conversation — context may be stale or degraded. This convention exists
 because the "default duty" above is best-effort for an LLM in a long conversation;
 the explicit command is the reliable trigger. Sessions must EXPECT it and never
 answer from memory.
+
+## 11. Mailbox (.coord/inbox/) — directed messages without operator copy-paste
+
+Problem it solves: the operator was carrying full message BODIES between sessions
+(lossy, slow, distortion-prone). The mailbox moves content to files; the operator
+carries only short turn-triggers.
+
+Structure:
+- `.coord/inbox/<slug>.md` — append-only messages TO that session.
+- `.coord/inbox/coordinator.md` — questions/escalations TO the coordinator.
+Message block format (Python+fsync, append-only):
+```
+## <UTC> | from: <slug> | to: <slug>
+<body>
+---
+```
+Mark handled by appending `> handled <UTC> by <slug>` under the block. Never delete.
+
+Flow (operator triggers in brackets):
+1. Work session has a status/question → [`коорд: сбрось`] → writes to recipient's inbox.
+2. Coordinator → [`коорд: разбери`] → reads all inboxes, writes directives back.
+3. Recipient → [`коорд: входящие`] → reads its inbox, acts.
+
+**Hard limit — sessions do NOT poll.** A session sees its inbox only when the operator
+gives it a turn. The mailbox removes content-carrying, NOT turn-triggering. The
+operator remains the scheduler (short pokes), no longer the courier (full payloads).
+The "default duty" turn-start bus read (incl. inbox) is best-effort (LLM memory);
+`коорд: входящие` / `коорд: статус` are the reliable triggers.
+
+**Reliability:** inbox files live on the same mount → subject to L-SC-04 (lost lines)
+and L-SC-10 (phantom dirents). Always write with fsync; coordinator reconciles inbox
+content against session files during `коорд: разбери`; presence checks are content-based
+(`-s` + `cat`), never `-f`.
 
 ## 8. Lessons learned — run 1 (2026-06-05/06)
 

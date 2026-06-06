@@ -23,7 +23,10 @@ Runtime state for the multi-session coordination protocol.
 `коорд: проверь шину` · `коорд: очередь` · `коорд: файл твой` · `коорд: готовим пуш` ·
 `коорд: дай ack` · `коорд: пуш` · `коорд: завершаю сессию` · `коорд: сессия <slug> мертва`
 
+`коорд: сбрось` · `коорд: входящие`/`прочитай` · `коорд: разбери`  (mailbox, §11)
+
 Operator norm: every return to a session starts with `коорд: статус` (forced resync).
+Mailbox: .coord/inbox/<slug>.md — content travels via files, operator sends only turn-pokes.
 
 ## Rules in one breath
 

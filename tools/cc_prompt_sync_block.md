@@ -38,9 +38,15 @@ If the task requires touching a file outside the claims — STOP and report.
 Acquire (atomic create; retry 5 times x 60 s if busy):
 
 ```python
-# /tmp/acquire_lock.py
+# /tmp/acquire_lock.py  — phantom-aware (L-SC-10: a stale dirent blocks open("x") though it has no content)
 import os, sys, time, datetime
 lock = ".coord/locks/commit.lock"
+def real_lock():
+    try:
+        with open(lock) as f:
+            return f.read().strip() != ""   # real lock = non-empty readable content
+    except OSError:
+        return False
 for attempt in range(5):
     try:
         with open(lock, "x", encoding="utf-8") as f:
@@ -49,7 +55,12 @@ for attempt in range(5):
             f.flush(); os.fsync(f.fileno())
         print("LOCK ACQUIRED"); sys.exit(0)
     except FileExistsError:
-        print("BUSY: " + open(lock).read().strip()); time.sleep(60)
+        if not real_lock():
+            print("PHANTOM lock (empty/unreadable dirent) — clearing")
+            try: os.remove(lock)
+            except OSError: print("  cannot unlink from this side — needs CC/Windows rm")
+            time.sleep(2); continue
+        print("BUSY (real): " + open(lock).read().strip()); time.sleep(60)
 print("FAILED to acquire commit lock after 5 attempts"); sys.exit(1)
 ```
 
