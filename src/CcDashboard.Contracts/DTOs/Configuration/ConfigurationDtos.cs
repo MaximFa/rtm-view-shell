@@ -37,7 +37,19 @@ public record RtsGridMetricDto(
     string? MetricFormat,
     string? DefaultValue,
     string ValueType,   // String, Time, Number
-    string MetricType); // Agent, Data
+    string MetricType,  // Agent, Data
+    string? DisplayName,
+    string? ShortDescription,
+    string? LongDescription,
+    string? Comparison,
+    string? StandardKpi,
+    string? StandardRef,
+    string? CatalogCategory,
+    string? Family,
+    string? Channel,
+    int? ThresholdSec,
+    string? CatalogStatus,
+    string? CatalogNotes);
 
 // ── Request records ──────────────────────────────────────────────────────────
 
@@ -73,4 +85,16 @@ public record SaveRtsGridMetricRequest(
     string? DefaultValue,
     string ValueType,   // String, Time, Number
     string MetricType,  // Agent, Data
+    string? DisplayName,
+    string? ShortDescription,
+    string? LongDescription,
+    string? Comparison,
+    string? StandardKpi,
+    string? StandardRef,
+    string? CatalogCategory,
+    string? Family,
+    string? Channel,
+    int? ThresholdSec,
+    string? CatalogStatus,
+    string? CatalogNotes,
     bool IsNew);

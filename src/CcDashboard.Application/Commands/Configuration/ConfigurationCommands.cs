@@ -5,6 +5,7 @@ using CcDashboard.Contracts.DTOs.Configuration;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Interfaces;
 using MediatR;
+using UUIDNext;
 
 namespace CcDashboard.Application.Commands.Configuration;
 
@@ -271,12 +272,13 @@ public class SaveRtsGridMetricCommandHandler(
 
         if (req.IsNew)
         {
-            var existing = await repo.GetByIdAsync(req.MetricId, ct);
-            if (existing is not null) return Result.Failure($"Metric '{req.MetricId}' already exists.");
+            // Generate UUIDv7-dashless ID (32 hex chars, NO dashes)
+            // Engine Calc does Replace("-"," - ") which corrupts dashed ids
+            var newId = Uuid.NewSequential().ToString("N");
 
             await repo.AddAsync(new RtsGridMetric
             {
-                MetricId = req.MetricId.Trim(),
+                MetricId = newId,
                 Description = req.Description?.Trim(),
                 DataType = req.DataType.Trim(),
                 MetricFunction = req.MetricFunction.Trim(),
@@ -284,7 +286,20 @@ public class SaveRtsGridMetricCommandHandler(
                 MetricFormat = req.MetricFormat?.Trim(),
                 DefaultValue = req.DefaultValue?.Trim(),
                 ValueType = req.ValueType?.Trim() ?? "String",
-                MetricType = req.MetricType?.Trim() ?? "Agent"
+                MetricType = req.MetricType?.Trim() ?? "Agent",
+                // Catalogue fields
+                DisplayName = req.DisplayName?.Trim(),
+                ShortDescription = req.ShortDescription?.Trim(),
+                LongDescription = req.LongDescription?.Trim(),
+                Comparison = req.Comparison?.Trim(),
+                StandardKpi = req.StandardKpi?.Trim(),
+                StandardRef = req.StandardRef?.Trim(),
+                CatalogCategory = req.CatalogCategory?.Trim(),
+                Family = req.Family?.Trim(),
+                Channel = req.Channel?.Trim(),
+                ThresholdSec = req.ThresholdSec,
+                CatalogStatus = req.CatalogStatus?.Trim() ?? "active",
+                CatalogNotes = req.CatalogNotes?.Trim()
             }, ct);
         }
         else
@@ -299,6 +314,19 @@ public class SaveRtsGridMetricCommandHandler(
             metric.DefaultValue = req.DefaultValue?.Trim();
             metric.ValueType = req.ValueType?.Trim() ?? "String";
             metric.MetricType = req.MetricType?.Trim() ?? "Agent";
+            // Catalogue fields (MetricId stays the PK, never changed)
+            metric.DisplayName = req.DisplayName?.Trim();
+            metric.ShortDescription = req.ShortDescription?.Trim();
+            metric.LongDescription = req.LongDescription?.Trim();
+            metric.Comparison = req.Comparison?.Trim();
+            metric.StandardKpi = req.StandardKpi?.Trim();
+            metric.StandardRef = req.StandardRef?.Trim();
+            metric.CatalogCategory = req.CatalogCategory?.Trim();
+            metric.Family = req.Family?.Trim();
+            metric.Channel = req.Channel?.Trim();
+            metric.ThresholdSec = req.ThresholdSec;
+            metric.CatalogStatus = req.CatalogStatus?.Trim();
+            metric.CatalogNotes = req.CatalogNotes?.Trim();
             repo.Update(metric);
         }
 

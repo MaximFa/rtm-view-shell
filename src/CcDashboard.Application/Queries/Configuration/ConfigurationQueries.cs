@@ -130,8 +130,12 @@ public class GetRtsGridMetricsQueryHandler(IRtsGridMetricRepository repo)
     public async Task<IReadOnlyList<RtsGridMetricDto>> Handle(GetRtsGridMetricsQuery _, CancellationToken ct)
     {
         var items = await repo.GetAllAsync(ct);
-        return items.Select(m => new RtsGridMetricDto(m.MetricId, m.Description, m.DataType,
-            m.MetricFunction, m.MetricParameter, m.MetricFormat, m.DefaultValue, m.ValueType, m.MetricType)).ToList();
+        return items.Select(m => new RtsGridMetricDto(
+            m.MetricId, m.Description, m.DataType, m.MetricFunction, m.MetricParameter,
+            m.MetricFormat, m.DefaultValue, m.ValueType, m.MetricType,
+            m.DisplayName, m.ShortDescription, m.LongDescription, m.Comparison,
+            m.StandardKpi, m.StandardRef, m.CatalogCategory, m.Family, m.Channel,
+            m.ThresholdSec, m.CatalogStatus, m.CatalogNotes)).ToList();
     }
 }
 
