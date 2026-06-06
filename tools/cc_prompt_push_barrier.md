@@ -1,54 +1,60 @@
-# CC Task — barrier push: verify quorum, clean orphan lock, push, cleanup (§42.7)
+# CC Task — barrier push: push EXACTLY the frozen 14 (no untracked sweep)
 
-This is the ONLY task type allowed while .coord/push/request.md exists.
+This is the ONLY task allowed while .coord/push/request.md exists. Quorum is verified
+(metrics-0605, daytrend-0606, test4-0606, session-sync-0605 all READY for the 14-commit set).
 
-## Step A — Verify barrier and quorum
+DECISION (ASK-3): push EXACTLY the frozen set. Do NOT run cc_prompt_push.md's untracked
+docs-sweep — it would add commits nobody ack'd. The 14 are already committed in HEAD;
+this push creates NO new commits. Stray untracked prompts are handled post-push.
 
+## Step A — Verify quorum + frozen set
 ```bash
 cd "D:\Claude\Projects\RTM View Shell"
-cat .coord/push/request.md            # must exist; frozen set = 6 commits
-grep -H . .coord/push/acks/*.md | grep READY
-# Required: READY in all three: metrics-0605, prod-test3-0605, session-sync-0605
-git log origin/v2..HEAD --oneline     # must equal the 6 commits from request.md
+cat .coord/push/request.md            # 14 commits, frozen
+grep -l READY .coord/push/acks/*.md   # expect 4 files
+git log origin/v2..HEAD --oneline | wc -l   # MUST be exactly 14
 ```
+If count != 14 — STOP (set drifted), report.
 
-If any ack is missing/HOLD, or the commit set differs from request.md — STOP, report.
-
-## Step B — Remove orphaned commit.lock (owner check)
-
+## Step B — Phantom commit.lock guard (no real lock expected)
 ```bash
-cat .coord/locks/commit.lock
-# Expected owner: prod-test3-0605 (work complete, release failed on mount side)
-rm .coord/locks/commit.lock && echo "orphan lock removed"
-# If owner differs — STOP, report.
+if [ -s .coord/locks/commit.lock ] && cat .coord/locks/commit.lock 2>/dev/null | grep -q owner; then
+    echo "REAL LOCK — STOP"; cat .coord/locks/commit.lock; exit 1
+fi
+# phantom dirent (test -f YES, no content) is harmless for push — ignore it
 ```
 
-## Step C — Execute the push
+## Step C — Push exactly HEAD (the 14)
+```bash
+git push origin v2
+git log origin/v2..HEAD --oneline | wc -l   # MUST now be 0
+```
+No git add, no git commit — HEAD already IS the frozen set.
 
-Run the full task from `tools/cc_prompt_push.md` (including its Step 1b untracked
-pickup — expect NOTHING new: barrier checklist already committed all artefacts;
-if Step 1b finds relevant untracked files, list them in the report).
-Push branch v2 to origin.
-
-## Step D — Barrier cleanup (after successful push only)
-
+## Step D — Barrier cleanup (after push succeeds, exit 0 and 0 unpushed)
 ```python
-# /tmp/cleanup.py
+# /tmp/session-sync-0605_cleanup.py  (per-slug name, L-SC-16)
 import os, glob, datetime, subprocess
 rng = subprocess.check_output(["git","log","origin/v2..HEAD","--oneline"]).decode().strip()
-ok = (rng == "")  # after push, nothing should remain unpushed
-line = (datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")
-        + " | session-sync-0605 | PUSHED 6 commits (0c03fd1..b6d0caa) barrier complete\n")
-with open(".coord/journal.md", "a", encoding="utf-8") as f:
+assert rng == "", "still unpushed — do NOT clean barrier"
+line = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ") + " | session-sync-0605 | PUSHED 14 commits (7cf83cb..adeebca) barrier complete\n"
+with open(".coord/journal.md","a",encoding="utf-8") as f:
     f.write(line); f.flush(); os.fsync(f.fileno())
-os.remove(".coord/push/request.md")
-for a in glob.glob(".coord/push/acks/*.md"):
-    os.remove(a)
-print("barrier cleaned, unpushed-empty:", ok)
+# remove request.md + acks via temp-replace-safe unlink; if unlink blocked (phantom), truncate to empty marker
+for p in [".coord/push/request.md"] + glob.glob(".coord/push/acks/*.md"):
+    try: os.remove(p)
+    except OSError:
+        try:
+            with open(p,"w") as f: f.write("")  # neutralise: content-based checks treat empty as absent
+            print("neutralised (could not unlink):", p)
+        except OSError: print("could not clear:", p)
+print("barrier cleaned")
 ```
-
 Then `sync`.
 
+## Git push
+The push IS the task. Do not push anything beyond `origin v2`.
+
 ## Report
-push result (old..new hashes), Step 1b findings, lock removal confirmation,
-cleanup confirmation, `git status --short` summary.
+push result (old..new), `git log origin/v2..HEAD` count (must be 0), journal PUSHED line,
+barrier files state, `git status --short` summary.

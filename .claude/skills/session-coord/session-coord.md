@@ -2,7 +2,7 @@
 name: session-coord
 description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42."
 type: process
-updated: 2026-06-06 (v1.3 — §11 mailbox; §10 +3 mailbox cmds; phantom-aware S3; L-SC-11..16)
+updated: 2026-06-06 (v1.5 — §12 coordinator handoff + commands; L-SC-11..17)
 ---
 
 # session-coord — multi-session coordination
@@ -159,6 +159,7 @@ is the only protection for same-file work.
 | L-SC-14 | Phantom dirents (L-SC-10) hit commit.lock too: `open(lock,"x")`/`os.path.exists` see the ghost and block ALL commits forever. Lock-acquire (S3) must be content-based — treat an empty/unreadable lock as phantom, clear and retry. A live session committing fine while a "held lock" lingers = phantom, not a real holder. Never declare a session dead on lock age alone; check its recent commits + cc_task first. |
 | L-SC-15 | A running session caches the skill it read at start; later skill edits (new commands/sections) do NOT reach it. Bump = the coordinator drops a "re-read skill vX" note into each active inbox; operator triggers `коорд: входящие`. New sessions read the current file fresh at registration. |
 | L-SC-16 | A leftover /tmp script with a generic name (write_prompt.py) re-ran from another session and wrote OUTSIDE its claims (touched another session's untracked file). Claim discipline (S2) guards INTENDED writes, not accidental ones from stale scripts. Name /tmp scripts per-session (/tmp/<slug>_*.py) and never reuse generic names. |
+| L-SC-17 | A phantom dirent (L-SC-10) blocks even `open(path,"w")` and `rm`/`os.remove` ("Operation not permitted") — you cannot overwrite or delete it directly. Workaround that WORKS: write to a temp file then `os.replace(tmp, path)` (atomic rename overwrites the phantom). Used to write .coord/push/request.md over its ghost. |
 
 ## 10. Operator command set — EXECUTE LITERALLY
 
@@ -183,6 +184,8 @@ Replies must be SHORT: result + what the operator should do next (if anything).
 | `коорд: сбрось` | any session | Flush current status / question / handoff to the bus: update own session file, and append a message block to `.coord/inbox/<recipient>.md` (recipient = `coordinator` for decisions, or a peer slug). Reply: what was written, to whom. |
 | `коорд: входящие` (alias: `коорд: прочитай`) | any session | Read own `.coord/inbox/<slug>.md`; act on each unhandled block; append `> handled <UTC> by <slug>` per block. THEN auto-flush (implicit `коорд: сбрось`): write ONE response block to `.coord/inbox/coordinator.md` — what was done, answers to any questions, new questions/blockers, current status. One operator poke = read + respond. Chat reply: short summary. |
 | `коорд: разбери` | coordinator | Read ALL `.coord/inbox/*.md` + session files, reconcile, then write directives into each recipient's inbox. Reply: per-session directives placed + what the operator must trigger (`коорд: входящие` to whom). |
+| `коорд: передай координацию` | outgoing coordinator | Write a HANDOFF block to `.coord/inbox/coordinator.md` capturing what is NOT derivable from the bus (see §12), set own session `status: done`. Reply: handoff written, safe to open a fresh coordinator. |
+| `коорд: ты координатор` (on a FRESH session) | new session | Register as coordinator; read skill + FULL bus audit + the HANDOFF block in coordinator.md; reconstruct state. Reply: reconstructed picture + any gaps. |
 
 Default duty regardless of commands: at the start of EVERY turn each session re-reads
 the bus (§1 items 2–4) and acts on what it finds (barrier → ack; foreign journal
@@ -232,6 +235,41 @@ The "default duty" turn-start bus read (incl. inbox) is best-effort (LLM memory)
 and L-SC-10 (phantom dirents). Always write with fsync; coordinator reconciles inbox
 content against session files during `коорд: разбери`; presence checks are content-based
 (`-s` + `cat`), never `-f`.
+
+## 12. Coordinator handoff (fresh coordinator session)
+
+The coordinator is almost stateless — nearly everything lives on the bus and is
+re-derivable by a new coordinator. But some context lives ONLY in the outgoing
+coordinator's chat and is LOST if not written down before it dies.
+
+### Derivable from the bus (new coordinator just reads):
+- Active sessions, claims, heartbeats — `.coord/sessions/*.md`
+- Commit history — `.coord/journal.md` + `git log`
+- Queue / handoffs — `.coord/queue.md`
+- Barrier state — `.coord/push/`
+- Pending messages — `.coord/inbox/*.md`
+- The protocol — this skill
+
+### NOT derivable — must be in the HANDOFF block:
+- Pending peer-reviews not yet posted; open ASKs awaiting decision
+- Decisions agreed with the operator verbally but not yet written to the bus
+- **Uncommitted coordinator artefacts in the working tree** (skill edits, operator-guide,
+  new lessons, rewritten prompts) — list them so they are NOT lost to PD-007 / a new session
+- The "why" behind recent arbitrations; operator preferences expressed in chat
+- Next expected actions per session
+
+### Handoff procedure
+1. Outgoing: `коорд: передай координацию` → append a HANDOFF block to
+   `.coord/inbox/coordinator.md` (the next coordinator reads its own inbox), then set
+   own session `status: done` (releases its coord claims — but FIRST ensure uncommitted
+   coordinator artefacts are either committed or explicitly listed in the handoff).
+2. Operator opens a fresh session: `коорд: ты координатор`.
+3. New coordinator: read skill → full bus audit (`коорд: проверь шину`) → read the HANDOFF
+   block → reconcile (esp. hash-check any files the handoff says are uncommitted) → report
+   reconstructed state and ask the operator to confirm anything ambiguous.
+4. If the old coordinator died WITHOUT a handoff: the new one rebuilds from the bus alone
+   (it will miss in-flight reviews and uncommitted edits — recoverable via §0.2 integrity +
+   git status, but slower). This is why writing the handoff before planned retirement matters.
 
 ## 8. Lessons learned — run 1 (2026-06-05/06)
 
