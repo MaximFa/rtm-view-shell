@@ -1554,11 +1554,13 @@ namespace RTM
                 {
                     userManager = getUserManager(userId);
                     userManager.workgroupActivation(workgroup, true);
+                    _dbMng.setUserAgentgroup(userId, workgroup);      // + persist membership (P2)
                 }
                 foreach (string userId in deactiveUsersList)
                 {
                     userManager = getUserManager(userId);
                     userManager.workgroupActivation(workgroup, false);
+                    _dbMng.deleteUserAgentgroup(userId, workgroup);   // + remove membership (P2)
                 }
             }
             catch (Exception ex)

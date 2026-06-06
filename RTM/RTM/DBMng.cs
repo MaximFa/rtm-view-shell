@@ -494,6 +494,34 @@ namespace RTM
             return DBAdapter.GetDataTable("RTSData_getInteractions", parameters);
         }
 
+
+        // Persist agent↔agentgroup membership (NGC_UserAgentgroup). SPs are P1 (metrics).
+        public void setUserAgentgroup(string userId, string agentgroupId)
+        {
+            try
+            {
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@UserId", userId));
+                parameters.Add(new NpgsqlParameter("@AgentgroupId", agentgroupId));
+                parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
+                DBAdapter.ExecuteNonQuery("NGC_SetUserAgentgroup", parameters);
+            }
+            catch (Exception ex) { AsyncLogger.Error("DBMng.setUserAgentgroup", ex); }
+        }
+
+        public void deleteUserAgentgroup(string userId, string agentgroupId)
+        {
+            try
+            {
+                var parameters = new List<NpgsqlParameter>();
+                parameters.Add(new NpgsqlParameter("@UserId", userId));
+                parameters.Add(new NpgsqlParameter("@AgentgroupId", agentgroupId));
+                parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
+                DBAdapter.ExecuteNonQuery("NGC_DeleteUserAgentgroup", parameters);
+            }
+            catch (Exception ex) { AsyncLogger.Error("DBMng.deleteUserAgentgroup", ex); }
+        }
+
     }
 }
 
