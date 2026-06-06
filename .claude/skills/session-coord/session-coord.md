@@ -152,6 +152,7 @@ is the only protection for same-file work.
 | # | Lesson |
 |---|---|
 | L-SC-09 | Same-file contention = silent lost-update, not a git conflict; serialise via queue, never parallel |
+| L-SC-10 | Mount keeps phantom dirents: `test -f request.md` true while `cat`/`ls` show it gone. Barrier checks (S1) and any `.coord/` presence test MUST be content-based (`-s` + successful `cat`), never `-f` alone. Phantom clears only from the Windows side or by re-sync — like the stray `.sync`. |
 
 ## 10. Operator command set — EXECUTE LITERALLY
 

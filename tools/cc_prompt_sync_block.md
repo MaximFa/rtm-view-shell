@@ -13,7 +13,9 @@ Claims for this task: `<claims>`   (modules and/or explicit file list)
 ### S1. Push barrier check — before ANY work
 
 ```bash
-if [ -f ".coord/push/request.md" ]; then
+# Content-based check (NOT -f): the mount can keep a phantom dirent that fails
+# `-f` true but has no content — `-f` alone would falsely block all tasks (L-SC-10).
+if [ -s ".coord/push/request.md" ] && cat ".coord/push/request.md" >/dev/null 2>&1; then
     echo "PUSH BARRIER ACTIVE:"; cat .coord/push/request.md
     echo "STOP — do not start this task. Report to operator."
     exit 1
