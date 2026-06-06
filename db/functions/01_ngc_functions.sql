@@ -562,14 +562,14 @@ $$;
 
 -- ============================================================================
 -- 19. NGC_SetUserAgentgroup  (idempotent upsert; agent->agentgroup membership)
+--     PROCEDURE (not FUNCTION) — RTM DBAdapter uses CALL [RTM-SEC-002]
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_SetUserAgentgroup"(text, text, uuid);
-CREATE OR REPLACE FUNCTION "NGC_SetUserAgentgroup"(
+DROP ROUTINE IF EXISTS "NGC_SetUserAgentgroup"(text, text, uuid);
+CREATE PROCEDURE "NGC_SetUserAgentgroup"(
     p_user_id text,
     p_agentgroup_id text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -581,14 +581,14 @@ $$;
 
 -- ============================================================================
 -- 20. NGC_DeleteUserAgentgroup
+--     PROCEDURE (not FUNCTION) — RTM DBAdapter uses CALL [RTM-SEC-002]
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_DeleteUserAgentgroup"(text, text, uuid);
-CREATE OR REPLACE FUNCTION "NGC_DeleteUserAgentgroup"(
+DROP ROUTINE IF EXISTS "NGC_DeleteUserAgentgroup"(text, text, uuid);
+CREATE PROCEDURE "NGC_DeleteUserAgentgroup"(
     p_user_id text,
     p_agentgroup_id text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN

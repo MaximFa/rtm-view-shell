@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict JFYpKHmvskBUreEHLTZOQF7y3a2U1wanveUImHdePgYj28EoarPNYUyq8lBulQ3
+\restrict 0TaeT7GVpzfy2Dm5KaFH780wUXcR6NXoTjxmBqRQvruaAL0tgR2DcSHOzJci00o
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -319,19 +319,16 @@ $$;
 
 
 --
--- Name: NGC_DeleteUserAgentgroup(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
+-- Name: NGC_DeleteUserAgentgroup(text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public."NGC_DeleteUserAgentgroup"(p_user_id text, p_agentgroup_id text, p_tenant_id uuid) RETURNS void
+CREATE PROCEDURE public."NGC_DeleteUserAgentgroup"(IN p_user_id text, IN p_agentgroup_id text, IN p_tenant_id uuid)
     LANGUAGE plpgsql
     AS $$
 BEGIN
     DELETE FROM "NGC_UserAgentgroup"
-    WHERE "TenantId" = p_tenant_id
-      AND "UserId" = p_user_id
-      AND "AgentgroupId" = p_agentgroup_id;
-END;
-$$;
+    WHERE "TenantId"=p_tenant_id AND "UserId"=p_user_id AND "AgentgroupId"=p_agentgroup_id;
+END; $$;
 
 
 --
@@ -626,18 +623,17 @@ $$;
 
 
 --
--- Name: NGC_SetUserAgentgroup(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
+-- Name: NGC_SetUserAgentgroup(text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public."NGC_SetUserAgentgroup"(p_user_id text, p_agentgroup_id text, p_tenant_id uuid) RETURNS void
+CREATE PROCEDURE public."NGC_SetUserAgentgroup"(IN p_user_id text, IN p_agentgroup_id text, IN p_tenant_id uuid)
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO "NGC_UserAgentgroup" ("UserId", "AgentgroupId", "CreatedDatetime", "TenantId")
+    INSERT INTO "NGC_UserAgentgroup" ("UserId","AgentgroupId","CreatedDatetime","TenantId")
     VALUES (p_user_id, p_agentgroup_id, NOW(), p_tenant_id)
-    ON CONFLICT ("TenantId", "UserId", "AgentgroupId") DO NOTHING;
-END;
-$$;
+    ON CONFLICT ("TenantId","UserId","AgentgroupId") DO NOTHING;
+END; $$;
 
 
 --
@@ -4147,5 +4143,5 @@ ALTER TABLE ONLY public.widget_templates
 -- PostgreSQL database dump complete
 --
 
-\unrestrict JFYpKHmvskBUreEHLTZOQF7y3a2U1wanveUImHdePgYj28EoarPNYUyq8lBulQ3
+\unrestrict 0TaeT7GVpzfy2Dm5KaFH780wUXcR6NXoTjxmBqRQvruaAL0tgR2DcSHOzJci00o
 
