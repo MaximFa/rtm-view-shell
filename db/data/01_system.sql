@@ -54,6 +54,7 @@ COPY "__BackendEmulationMigrationsHistory" FROM stdin;
 20260530185653_AddMissingRtmTables	8.0.16
 20260603113300_RemoveRtsGridTemplateCell	8.0.0
 20260603143239_FixNgcQueueClassificationId	8.0.16
+20260606100233_AddCatalogueFieldsToRtsGridMetric	8.0.10
 \.
 
 -- __ef_migrations_history

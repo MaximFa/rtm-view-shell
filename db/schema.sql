@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 9zbM5fHdZyf2RKcqWVWMrfaXhEav9uXfM8MXstuNz4QmM4vnJPSs2kWPAcpE9fa
+\restrict ceGXINaDe4x7TFpm5FpCfUTGvQJFhbZ3nNb6ZUVGlfalwkSllJHxgGdkc5xVMe7
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -2126,7 +2126,19 @@ CREATE TABLE public."RTSGrid_Metric" (
     "MetricFormat" character varying(100),
     "DefaultValue" character varying(100),
     "ValueType" character varying(20) DEFAULT 'String'::character varying NOT NULL,
-    "MetricType" character varying(20) DEFAULT 'Agent'::character varying NOT NULL
+    "MetricType" character varying(20) DEFAULT 'Agent'::character varying NOT NULL,
+    "CatalogCategory" character varying(20),
+    "CatalogNotes" text,
+    "CatalogStatus" character varying(20),
+    "Channel" character varying(20),
+    "Comparison" text,
+    "DisplayName" character varying(200),
+    "Family" character varying(100),
+    "LongDescription" text,
+    "ShortDescription" character varying(500),
+    "StandardKpi" character varying(100),
+    "StandardRef" character varying(200),
+    "ThresholdSec" integer
 );
 
 
@@ -4027,5 +4039,5 @@ ALTER TABLE ONLY public.widget_templates
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 9zbM5fHdZyf2RKcqWVWMrfaXhEav9uXfM8MXstuNz4QmM4vnJPSs2kWPAcpE9fa
+\unrestrict ceGXINaDe4x7TFpm5FpCfUTGvQJFhbZ3nNb6ZUVGlfalwkSllJHxgGdkc5xVMe7
 
