@@ -4,13 +4,13 @@ SET session_replication_role = replica;
 -- tenants
 TRUNCATE TABLE "tenants" RESTART IDENTITY CASCADE;
 COPY "tenants" FROM stdin;
-019e03e9-60dd-72da-bd01-648ffdb2b433	platform	Platform	Active	2026-05-07 22:28:06.878546+03	2026-05-27 13:34:23.732665+03
+019e03e9-60dd-72da-bd01-648ffdb2b433	platform	Platform	Active	2026-05-07 22:28:06.878546+03	2026-06-07 00:53:26.852804+03
 \.
 
 -- tenant_settings
 TRUNCATE TABLE "tenant_settings" RESTART IDENTITY CASCADE;
 COPY "tenant_settings" FROM stdin;
-019e03e9-60dd-72da-bd01-648ffdb2b433	12	90	f	365	en-US	t	90	\N	\N	0	0	http://localhost:8088	["#FFFFFF","#F5F5F5","#E8F5E9","#FFF3E0","#FF0000","#11A90F","#333333","#8DE10E","#FFF700","#0998F1","#E202F2","#12EDDF","#F1EAEA"]	["#000000","#333333","#666666","#1976D2","#388E3C","#D32F2F","#7B1FA2","#5D4037","#FFFFFF"]	["10","11","12","13","14","16","18","20","24","28","32","64"]
+019e03e9-60dd-72da-bd01-648ffdb2b433	12	90	f	365	ru-RU	t	90	\N	\N	0	0	http://localhost:8088	["#FFFFFF","#F5F5F5","#E8F5E9","#FFF3E0","#FF0000","#11A90F","#333333","#8DE10E","#FFF700","#0998F1","#E202F2","#12EDDF","#F1EAEA"]	["#000000","#333333","#666666","#1976D2","#388E3C","#D32F2F","#7B1FA2","#5D4037","#FFFFFF"]	["10","11","12","13","14","16","18","20","24","28","32","64"]
 \.
 
 -- identity.roles
@@ -25,7 +25,7 @@ d07f6e69-7072-47c8-8d9a-a43899e6007e	Editor	EDITOR	\N
 -- identity.users
 TRUNCATE TABLE identity."users" RESTART IDENTITY CASCADE;
 COPY identity."users" FROM stdin;
-019e03e9-614f-7761-936d-2518e4163950	019e03e9-60dd-72da-bd01-648ffdb2b433	System	Administrator	\N	t	f	2026-06-04 20:42:37.311856+03	en-US	\N	admin	ADMIN	admin@platform.local	ADMIN@PLATFORM.LOCAL	t	AQAAAAIAAYagAAAAEIlVs7ok5KeJTPNJE18pzriGq1M7QH7f7Gs2Qjdz8NxAo+auQ4i0ya/zL2xEHcRj4w==	BW6OLLJKUD3IA5BEWZ5MO4KEOYQD7MWZ	aac31789-0454-4aa8-969e-cea50e661c73	\N	f	f	\N	t	0
+019e03e9-614f-7761-936d-2518e4163950	019e03e9-60dd-72da-bd01-648ffdb2b433	System	Administrator	\N	t	f	2026-06-07 00:53:32.308462+03	en-US	\N	admin	ADMIN	admin@platform.local	ADMIN@PLATFORM.LOCAL	t	AQAAAAIAAYagAAAAEIlVs7ok5KeJTPNJE18pzriGq1M7QH7f7Gs2Qjdz8NxAo+auQ4i0ya/zL2xEHcRj4w==	BW6OLLJKUD3IA5BEWZ5MO4KEOYQD7MWZ	8a0c3e20-79fe-4272-8625-323e7d2ad2fb	\N	f	f	\N	t	0
 \.
 
 -- identity.user_roles
@@ -55,6 +55,8 @@ COPY "__BackendEmulationMigrationsHistory" FROM stdin;
 20260603113300_RemoveRtsGridTemplateCell	8.0.0
 20260603143239_FixNgcQueueClassificationId	8.0.16
 20260606100233_AddCatalogueFieldsToRtsGridMetric	8.0.10
+20260606202749_AddRtsGridMetricTranslation	8.0.16
+20260606205958_AddNgcUserAgentgroup	8.0.16
 \.
 
 -- __ef_migrations_history
@@ -82,6 +84,7 @@ COPY "__ef_migrations_history" FROM stdin;
 20260527150112_AddHistoryMetricTable	8.0.16
 20260528043639_AddAgentStateRegistry	8.0.16
 20260529054939_AddInfoSlotTables	8.0.16
+20260605145919_AddUserWidgetSettings	8.0.16
 \.
 
 SET session_replication_role = DEFAULT;
