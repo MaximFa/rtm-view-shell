@@ -27,12 +27,12 @@ public class SaveRtsGridMetricCommandHandlerTests
         await _repo.AddAsync(Arg.Do<RtsGridMetric>(m => saved = m), Arg.Any<CancellationToken>());
 
         var req = new SaveRtsGridMetricRequest(
-            "METRIC-001", "Call count", "INT", "SUM", "calls", "0", "0", "Number", "Agent", true);
+            "METRIC-001", "Call count", "INT", "SUM", "calls", "0", "0", "Number", "Agent", null, null, null, null, null, null, null, null, null, null, null, null, true);
         var result = await _handler.Handle(new SaveRtsGridMetricCommand(req), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         saved.Should().NotBeNull();
-        saved!.MetricId.Should().Be("METRIC-001");
+        saved!.MetricId.Should().MatchRegex("^[0-9a-f]{32}$", "server generates UUIDv7-dashless");
         saved.Description.Should().Be("Call count");
         saved.DataType.Should().Be("INT");
         saved.MetricFunction.Should().Be("SUM");
@@ -48,7 +48,7 @@ public class SaveRtsGridMetricCommandHandlerTests
         _repo.GetByIdAsync("METRIC-DUP", Arg.Any<CancellationToken>()).Returns(existing);
 
         var req = new SaveRtsGridMetricRequest(
-            "METRIC-DUP", null, "INT", "COUNT", "x", null, null, "Number", "Agent", true);
+            "METRIC-DUP", null, "INT", "COUNT", "x", null, null, "Number", "Agent", null, null, null, null, null, null, null, null, null, null, null, null, true);
         var result = await _handler.Handle(new SaveRtsGridMetricCommand(req), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
@@ -70,7 +70,7 @@ public class SaveRtsGridMetricCommandHandlerTests
         _repo.GetByIdAsync("METRIC-UPD", Arg.Any<CancellationToken>()).Returns(existing);
 
         var req = new SaveRtsGridMetricRequest(
-            "METRIC-UPD", "New desc", "DECIMAL", "AVG", "new_param", "0.00", "0.0", "Number", "Data", false);
+            "METRIC-UPD", "New desc", "DECIMAL", "AVG", "new_param", "0.00", "0.0", "Number", "Data", null, null, null, null, null, null, null, null, null, null, null, null, false);
         var result = await _handler.Handle(new SaveRtsGridMetricCommand(req), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -89,7 +89,7 @@ public class SaveRtsGridMetricCommandHandlerTests
         _repo.GetByIdAsync("MISSING", Arg.Any<CancellationToken>()).Returns((RtsGridMetric?)null);
 
         var req = new SaveRtsGridMetricRequest(
-            "MISSING", null, "INT", "SUM", "x", null, null, "Number", "Agent", false);
+            "MISSING", null, "INT", "SUM", "x", null, null, "Number", "Agent", null, null, null, null, null, null, null, null, null, null, null, null, false);
         var result = await _handler.Handle(new SaveRtsGridMetricCommand(req), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
@@ -104,10 +104,10 @@ public class SaveRtsGridMetricCommandHandlerTests
         await _repo.AddAsync(Arg.Do<RtsGridMetric>(m => saved = m), Arg.Any<CancellationToken>());
 
         var req = new SaveRtsGridMetricRequest(
-            "  TRIM  ", "  Desc  ", "  INT  ", "  SUM  ", "  param  ", "  fmt  ", "  def  ", "Number", "Agent", true);
+            "  TRIM  ", "  Desc  ", "  INT  ", "  SUM  ", "  param  ", "  fmt  ", "  def  ", "Number", "Agent", null, null, null, null, null, null, null, null, null, null, null, null, true);
         await _handler.Handle(new SaveRtsGridMetricCommand(req), CancellationToken.None);
 
-        saved!.MetricId.Should().Be("TRIM");
+        saved!.MetricId.Should().MatchRegex("^[0-9a-f]{32}$", "server generates UUIDv7-dashless, ignores input");
         saved.Description.Should().Be("Desc");
         saved.DataType.Should().Be("INT");
         saved.MetricFunction.Should().Be("SUM");
@@ -121,7 +121,7 @@ public class SaveRtsGridMetricCommandHandlerTests
     {
         _repo.GetByIdAsync("M1", Arg.Any<CancellationToken>()).Returns((RtsGridMetric?)null);
 
-        var req = new SaveRtsGridMetricRequest("M1", null, "INT", "SUM", "x", null, null, "Number", "Agent", true);
+        var req = new SaveRtsGridMetricRequest("M1", null, "INT", "SUM", "x", null, null, "Number", "Agent", null, null, null, null, null, null, null, null, null, null, null, null, true);
         await _handler.Handle(new SaveRtsGridMetricCommand(req), CancellationToken.None);
 
         await _apiHook.Received(1).NotifyAsync("RtsGridMetric", Arg.Any<object>(), Arg.Any<CancellationToken>());
