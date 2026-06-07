@@ -73,12 +73,11 @@ $$;
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetOrCreateQueue"(text, text, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_GetOrCreateQueue"(
+CREATE OR REPLACE PROCEDURE "NGC_GetOrCreateQueue"(
     p_external_id text,
     p_name text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -93,12 +92,11 @@ $$;
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetOrCreateAgentGroup"(text, text, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_GetOrCreateAgentGroup"(
+CREATE OR REPLACE PROCEDURE "NGC_GetOrCreateAgentGroup"(
     p_external_id text,
     p_name text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -317,13 +315,12 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_ModifyBusinessUnit"(integer, text, text);
 DROP FUNCTION IF EXISTS "NGC_ModifyBusinessUnit"(integer, text, text, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_ModifyBusinessUnit"(
+CREATE OR REPLACE PROCEDURE "NGC_ModifyBusinessUnit"(
     p_business_unit_id integer,
     p_business_unit_name text,
     p_description text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -341,11 +338,10 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnit"(integer);
 DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnit"(integer, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_DeleteBusinessUnit"(
+CREATE OR REPLACE PROCEDURE "NGC_DeleteBusinessUnit"(
     p_business_unit_id integer,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -384,13 +380,12 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_ModifySupergroup"(integer, text, text);
 DROP FUNCTION IF EXISTS "NGC_ModifySupergroup"(integer, text, text, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_ModifySupergroup"(
+CREATE OR REPLACE PROCEDURE "NGC_ModifySupergroup"(
     p_supergroup_id integer,
     p_supergroup_name text,
     p_description text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -408,11 +403,10 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_DeleteSupergroup"(integer);
 DROP FUNCTION IF EXISTS "NGC_DeleteSupergroup"(integer, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_DeleteSupergroup"(
+CREATE OR REPLACE PROCEDURE "NGC_DeleteSupergroup"(
     p_supergroup_id integer,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -429,12 +423,11 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitQueueClassificationMapping"(integer, text);
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitQueueClassificationMapping"(integer, text, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnitQueueClassificationMapping"(
+CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitQueueClassificationMapping"(
     p_business_unit_id integer,
     p_queue_id text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -450,12 +443,11 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitQueueClassificationMapping"(integer, text);
 DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitQueueClassificationMapping"(integer, text, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_DeleteBusinessUnitQueueClassificationMapping"(
+CREATE OR REPLACE PROCEDURE "NGC_DeleteBusinessUnitQueueClassificationMapping"(
     p_business_unit_id integer,
     p_queue_id text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -473,12 +465,11 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitSupergroupMapping"(integer, integer);
 DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitSupergroupMapping"(integer, integer, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnitSupergroupMapping"(
+CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitSupergroupMapping"(
     p_business_unit_id integer,
     p_supergroup_id integer,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -494,12 +485,11 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitSupergroupMapping"(integer, integer);
 DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitSupergroupMapping"(integer, integer, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_DeleteBusinessUnitSupergroupMapping"(
+CREATE OR REPLACE PROCEDURE "NGC_DeleteBusinessUnitSupergroupMapping"(
     p_business_unit_id integer,
     p_supergroup_id integer,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -524,12 +514,11 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_CreateSupergroupAgentgroupMapping"(integer, text);
 DROP FUNCTION IF EXISTS "NGC_CreateSupergroupAgentgroupMapping"(integer, text, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_CreateSupergroupAgentgroupMapping"(
+CREATE OR REPLACE PROCEDURE "NGC_CreateSupergroupAgentgroupMapping"(
     p_supergroup_id integer,
     p_agentgroup_id text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -544,12 +533,11 @@ $$;
 DROP FUNCTION IF EXISTS "NGC_DeleteSupergroupAgentgroupMapping"(integer, text);
 DROP FUNCTION IF EXISTS "NGC_DeleteSupergroupAgentgroupMapping"(integer, text, uuid);
 
-CREATE OR REPLACE FUNCTION "NGC_DeleteSupergroupAgentgroupMapping"(
+CREATE OR REPLACE PROCEDURE "NGC_DeleteSupergroupAgentgroupMapping"(
     p_supergroup_id integer,
     p_agentgroup_id text,
     p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
