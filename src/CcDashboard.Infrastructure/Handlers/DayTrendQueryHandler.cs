@@ -61,18 +61,19 @@ public sealed class DayTrendQueryHandler(
         logger.LogInformation("DayTrend: Got {Count} interaction rows", interactionRows.Count);
 
         // Run agent status metrics query (only if needed)
+        // Agent scope is via BU membership (NGC_UserAgentgroup, P1/P2), not via queues
         List<DayTrendMetricRow> agentRows;
         if (query.IncludeAgentMetrics)
         {
             var pTenant2 = new NpgsqlParameter("p_tenant", NpgsqlDbType.Uuid) { Value = tenantId };
             var pDate2 = new NpgsqlParameter("p_date", NpgsqlDbType.Varchar) { Value = onDate };
-            var pQueues2 = new NpgsqlParameter("p_queues", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = queueArray };
+            var pBusinessUnitId = new NpgsqlParameter("p_businessunitid", NpgsqlDbType.Integer) { Value = query.BusinessUnitId };
             var pInterval2 = new NpgsqlParameter("p_interval", NpgsqlDbType.Integer) { Value = interval };
 
             agentRows = await beDb.Database
                 .SqlQueryRaw<DayTrendMetricRow>(
-                    "SELECT * FROM fn_daytrendagentstatus(@p_tenant, @p_date, @p_queues, @p_interval)",
-                    pTenant2, pDate2, pQueues2, pInterval2)
+                    "SELECT * FROM fn_daytrendagentstatus(@p_tenant, @p_date, @p_businessunitid, @p_interval)",
+                    pTenant2, pDate2, pBusinessUnitId, pInterval2)
                 .ToListAsync(ct);
         }
         else
