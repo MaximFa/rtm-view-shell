@@ -29,28 +29,60 @@
 .PARAMETER Password
     Database password
 .PARAMETER OutDir
-    Output directory (default: <repo>/Installations)
+    Output directory (default: current directory if BaselineDir used, else <repo>/Installations)
+.PARAMETER BaselineDir
+    Path to the repo 'db' folder containing schema.sql, functions/, data/, migrations/.
+    Use when running the script standalone (not from the repo structure).
 
+.EXAMPLE
+    .\Compare-ToBaseline.ps1 -Password "pw" -BaselineDir "C:\Temp\db" -OutDir "C:\Temp\Out"
 .EXAMPLE
     .\Compare-ToBaseline.ps1 -Password "pw"
     .\Compare-ToBaseline.ps1 -DBHost "192.168.1.10" -Password "pw" -OutDir "C:\Temp"
 #>
 [CmdletBinding()]
 param(
-    [string]$DBHost   = "localhost",
-    [string]$DBPort   = "5432",
-    [string]$Database = "rtmviewdb",
-    [string]$User     = "ccdashboard_user",
-    [string]$Password = "",
-    [string]$OutDir   = ""
+    [string]$DBHost      = "localhost",
+    [string]$DBPort      = "5432",
+    [string]$Database    = "rtmviewdb",
+    [string]$User        = "ccdashboard_user",
+    [string]$Password    = "",
+    [string]$OutDir      = "",
+    [string]$BaselineDir = ""
 )
 $ErrorActionPreference = "Stop"
 
-# -- Derive paths --
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$RepoRoot  = Split-Path -Parent (Split-Path -Parent $ScriptDir)
-$DbDir     = Join-Path $RepoRoot "db"
-if (-not $OutDir) { $OutDir = Join-Path $RepoRoot "Installations" }
+# -- Derive paths (robust: handles standalone script or -BaselineDir override) --
+if ($BaselineDir) {
+    $DbDir = (Resolve-Path $BaselineDir -ErrorAction Stop).Path
+} else {
+    $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    if ($ScriptDir) {
+        $RepoRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
+        if ($RepoRoot) {
+            $DbDir = Join-Path $RepoRoot "db"
+        } else {
+            throw "Cannot derive repo root from script path. Use -BaselineDir <path to repo db/ folder>."
+        }
+    } else {
+        throw "Cannot determine script directory. Use -BaselineDir <path to repo db/ folder>."
+    }
+}
+# Validate baseline folder
+$schemaFile = Join-Path $DbDir "schema.sql"
+if (-not (Test-Path $schemaFile)) {
+    throw "Baseline db/ folder not found or invalid. Pass -BaselineDir <path to the repo 'db' folder> (must contain schema.sql, functions/, data/, migrations/)."
+}
+# Output directory
+if (-not $OutDir) {
+    if ($BaselineDir) {
+        $OutDir = $PWD.Path
+    } elseif ($RepoRoot) {
+        $OutDir = Join-Path $RepoRoot "Installations"
+    } else {
+        $OutDir = $PWD.Path
+    }
+}
 if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
 
 # -- Find PostgreSQL tools --
@@ -263,7 +295,7 @@ Write-Host "`n[C] DATA COMPARISON (metrics)" -ForegroundColor Yellow
 [void]$DeltaLines.Add("DIMENSION C: DATA (RTSGrid_Metric)")
 [void]$DeltaLines.Add("-" * 40)
 
-$MetricsFile = Join-Path $DbDir "data" "02_metrics.sql"
+$MetricsFile = Join-Path (Join-Path $DbDir "data") "02_metrics.sql"
 $ExpectedMetrics = @{}
 
 if (Test-Path $MetricsFile) {
@@ -394,7 +426,7 @@ if ($UnappliedMigrationCount -eq 0 -and $UnknownMigrations.Count -eq 0) {
         $UnappliedMigrations | ForEach-Object { [void]$DeltaLines.Add("  [MISSING] $_") }
         [void]$AlignLines.Add("-- ===== DIMENSION D: UNAPPLIED MIGRATIONS =====")
         foreach ($migName in $UnappliedMigrations) {
-            $migFile = Join-Path $DbDir "migrations" "$migName.sql"
+            $migFile = Join-Path (Join-Path $DbDir "migrations") "$migName.sql"
             if (Test-Path $migFile) {
                 [void]$AlignLines.Add("")
                 [void]$AlignLines.Add("-- ===== migration $migName =====")
