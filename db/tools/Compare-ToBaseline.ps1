@@ -12,9 +12,11 @@
 
     This script NEVER writes to the target DB. It only runs SELECT / pg_dump queries.
 
-    TODO: Dimension D (migration ledger) is heuristic (per-migration object-presence probes) 
-    because this project has no `public.db_patch_history` table yet. If/when such a ledger 
-    is introduced, D should read applied migration names directly from it for an exact result.
+    Dimension D uses a HYBRID approach:
+    - If `public.db_patch_history` ledger exists: exact (reads applied migration names directly)
+    - For migrations not in the ledger: heuristic (per-migration object-presence probes)
+    This provides exact tracking for new migrations while maintaining backwards compatibility
+    with pre-ledger migrations. See CLAUDE.md §38a.
 
 .PARAMETER DBHost
     PostgreSQL host (default: localhost)
@@ -323,25 +325,42 @@ if ($MetricDrift -eq 0 -and $MetricsExtra.Count -eq 0) {
 }
 [void]$DeltaLines.Add("")
 
-# ====== DIMENSION D: MIGRATION LEDGER ======
-Write-Host "`n[D] MIGRATION LEDGER (heuristic)" -ForegroundColor Yellow
+# ====== DIMENSION D: MIGRATION LEDGER (HYBRID) ======
+Write-Host "`n[D] MIGRATION LEDGER" -ForegroundColor Yellow
 [void]$DeltaLines.Add("-" * 40)
 [void]$DeltaLines.Add("DIMENSION D: MIGRATION LEDGER")
-[void]$DeltaLines.Add("(Heuristic -- no db_patch_history table)")
-[void]$DeltaLines.Add("-" * 40)
 
-$AppliedMigrations = @()
+# Check if ledger table exists
+$ledgerExists = $false
+$ledgerApplied = @{}
+$ledgerCheckResult = Run-SQL "SELECT to_regclass('public.db_patch_history');"
+if ($ledgerCheckResult -and $ledgerCheckResult -notmatch "^\s*$" -and $ledgerCheckResult -notmatch "^$") {
+    $ledgerExists = $true
+    $ledgerRows = Run-SQL "SELECT migration_name FROM public.db_patch_history;"
+    foreach ($row in $ledgerRows) {
+        $name = ($row -split '\|')[0].Trim()
+        if ($name) { $ledgerApplied[$name] = $true }
+    }
+    Write-Host "  Ledger table found ($($ledgerApplied.Count) entries)" -ForegroundColor Green
+} else {
+    Write-Host "  No ledger table (all heuristic)" -ForegroundColor Yellow
+}
+
+$AppliedLedger = @()      # exact from ledger
+$AppliedProbe = @()       # heuristic from probe
 $UnappliedMigrations = @()
 $UnknownMigrations = @()
 
 $migrationFiles = Get-ChildItem (Join-Path $DbDir "migrations") -Filter "*.sql" -ErrorAction SilentlyContinue | Sort-Object Name
 foreach ($mig in $migrationFiles) {
     $migName = $mig.BaseName
-    if ($MigrationProbes.ContainsKey($migName)) {
+    if ($ledgerApplied.ContainsKey($migName)) {
+        $AppliedLedger += $migName
+    } elseif ($MigrationProbes.ContainsKey($migName)) {
         $probe = $MigrationProbes[$migName]
         if ($probe) {
             $result = Run-SQL $probe
-            if ($result -match "1") { $AppliedMigrations += $migName }
+            if ($result -match "1") { $AppliedProbe += $migName }
             else { $UnappliedMigrations += $migName }
         } else { $UnknownMigrations += $migName }
     } else { $UnknownMigrations += $migName }
@@ -349,13 +368,25 @@ foreach ($mig in $migrationFiles) {
 
 $UnappliedMigrationCount = $UnappliedMigrations.Count
 
+# Summary line for report
+if ($ledgerExists) {
+    [void]$DeltaLines.Add("(ledger present: $($AppliedLedger.Count) exact, $($AppliedProbe.Count) probed, $($UnknownMigrations.Count) unknown)")
+} else {
+    [void]$DeltaLines.Add("(no ledger -- all heuristic)")
+}
+[void]$DeltaLines.Add("-" * 40)
+
 if ($UnappliedMigrationCount -eq 0 -and $UnknownMigrations.Count -eq 0) {
     Write-Host "  All migrations appear applied." -ForegroundColor Green
     [void]$DeltaLines.Add("All migrations appear applied.")
 } else {
-    if ($AppliedMigrations.Count -gt 0) {
-        [void]$DeltaLines.Add("Applied migrations:")
-        $AppliedMigrations | ForEach-Object { [void]$DeltaLines.Add("  [OK] $_") }
+    if ($AppliedLedger.Count -gt 0) {
+        [void]$DeltaLines.Add("Applied migrations (source: ledger):")
+        $AppliedLedger | ForEach-Object { [void]$DeltaLines.Add("  [OK] $_") }
+    }
+    if ($AppliedProbe.Count -gt 0) {
+        [void]$DeltaLines.Add("Applied migrations (source: probe):")
+        $AppliedProbe | ForEach-Object { [void]$DeltaLines.Add("  [OK] $_") }
     }
     if ($UnappliedMigrationCount -gt 0) {
         Write-Host "  Unapplied migrations: $UnappliedMigrationCount" -ForegroundColor Red
@@ -372,11 +403,11 @@ if ($UnappliedMigrationCount -eq 0 -and $UnknownMigrations.Count -eq 0) {
         }
     }
     if ($UnknownMigrations.Count -gt 0) {
-        Write-Host "  Unknown migrations (no probe): $($UnknownMigrations.Count)" -ForegroundColor Yellow
-        [void]$DeltaLines.Add("Unknown migrations (cannot determine status):")
+        Write-Host "  Unknown migrations (no ledger, no probe): $($UnknownMigrations.Count)" -ForegroundColor Yellow
+        [void]$DeltaLines.Add("Unknown migrations (no ledger entry, no probe):")
         $UnknownMigrations | ForEach-Object {
             [void]$DeltaLines.Add("  [???] $_")
-            [void]$AlignLines.Add("-- UNKNOWN (probe absent) -- operator verify: $_")
+            [void]$AlignLines.Add("-- UNKNOWN (no ledger entry, probe absent) -- operator verify: $_")
         }
     }
 }

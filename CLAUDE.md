@@ -2519,6 +2519,21 @@ psql -U ccdashboard_user -d rtmviewdb -f RTM\sql\db_baseline.sql
 ```
 
 *TZ version: 1.9 | CLAUDE.md last updated: 2026-06-04 (§38 DB versioning)*
+### §38a Migration self-record convention
+
+Every NEW migration file (created after `20260607_002_db_patch_history`) MUST end with:
+
+```sql
+INSERT INTO public.db_patch_history (migration_name)
+VALUES ('<this-file-name-without-.sql>') ON CONFLICT (migration_name) DO NOTHING;
+```
+
+This self-records the migration in the ledger upon apply. The ledger table is created by
+`20260607_002_db_patch_history.sql`. Migrations applied before the ledger existed are tracked
+heuristically by `Compare-ToBaseline.ps1` (object-presence probes) until they are (optionally)
+backfilled. `Create-FreshDb.ps1` / `Restore-All.ps1` apply migrations name-ordered, so `_002`
+creates the table before any later migration self-records.
+
 
 ---
 
@@ -2936,6 +2951,19 @@ Push happens ONLY when every active session has confirmed readiness:
 | Plumbing ref-write race (two direct writes to `refs/heads/<branch>`) | One commit silently lost. Prevention only: commit.lock applies to the §0.4 plumbing path — never bypass |
 | Another session's commit truncated your files (PD-007 cross-session) | New journal line from another slug → hash-check your claimed files vs HEAD before next work; restore via `git show HEAD:<f> > <f>` |
 
-*TZ version: 2.5 | CLAUDE.md last updated: 2026-06-06 (session-coord skill registered in §30.3/§40; §42 run-1 verified)*
+---
+
+## 43. External-server ops layout
+
+Every deployed (external) server has a user-writable ops root `C:\RTMView-Ops\` (separate from
+the app install `C:\Program Files\CcDashboard`). Subdirectories: `incoming\` (scripts staged to
+apply), `applied\` (archive + `_ledger.txt` trace), `output\` (Compare delta reports, logs),
+`backup\` (pre-change pg_dump). PostgreSQL version varies per server: **Server 45 → PG17**, all
+others → PG18. CC produces scripts into the repo (`db/migrations/`, `staging/`); the operator
+places them on the server. CC has no direct external-server access.
+
+See `docs/External-Server-Ops-Layout.md` for the full layout, apply flow, and deploy protocol.
+
+*TZ version: 2.6 | CLAUDE.md last updated: 2026-06-07 (§38a migration self-record; §43 ops-layout pointer)*
 
 
