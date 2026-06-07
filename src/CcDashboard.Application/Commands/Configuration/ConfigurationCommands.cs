@@ -354,3 +354,70 @@ public class DeleteRtsGridMetricCommandHandler(IRtsGridMetricRepository repo)
         return Result.Success();
     }
 }
+
+// ── Metric Translations ──────────────────────────────────────────────────────
+
+public record SaveMetricTranslationCommand(SaveMetricTranslationRequest Request) : IRequest<Result>, ITransactional, IAuditable
+{
+    public string AuditEventType => "MetricTranslation.Saved";
+    public object? AuditDetails => new { Request.MetricId, Request.Locale };
+}
+
+public class SaveMetricTranslationCommandHandler(IRtsGridMetricRepository repo)
+    : IRequestHandler<SaveMetricTranslationCommand, Result>
+{
+    private static readonly HashSet<string> SupportedLocales = new(StringComparer.OrdinalIgnoreCase) { "ru-RU", "he-IL" };
+
+    public async Task<Result> Handle(SaveMetricTranslationCommand cmd, CancellationToken ct)
+    {
+        var req = cmd.Request;
+
+        // Validate locale
+        if (!SupportedLocales.Contains(req.Locale))
+            return Result.Failure($"Unsupported locale: {req.Locale}. Supported: ru-RU, he-IL");
+
+        // Validate metric exists
+        var metric = await repo.GetByIdAsync(req.MetricId, ct);
+        if (metric is null)
+            return Result.Failure("Metric not found.");
+
+        // Normalize empty strings to null (so EN-fallback works)
+        static string? Normalize(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+        var translation = new RtsGridMetricTranslation
+        {
+            MetricId = req.MetricId,
+            Locale = req.Locale,
+            DisplayName = Normalize(req.DisplayName),
+            ShortDescription = Normalize(req.ShortDescription),
+            LongDescription = Normalize(req.LongDescription),
+            Comparison = Normalize(req.Comparison)
+        };
+
+        await repo.UpsertTranslationAsync(translation, ct);
+        return Result.Success();
+    }
+}
+
+public record DeleteMetricTranslationCommand(string MetricId, string Locale) : IRequest<Result>, ITransactional, IAuditable
+{
+    public string AuditEventType => "MetricTranslation.Deleted";
+    public object? AuditDetails => new { MetricId, Locale };
+}
+
+public class DeleteMetricTranslationCommandHandler(IRtsGridMetricRepository repo)
+    : IRequestHandler<DeleteMetricTranslationCommand, Result>
+{
+    public async Task<Result> Handle(DeleteMetricTranslationCommand cmd, CancellationToken ct)
+    {
+        var translation = await repo.GetTranslationAsync(cmd.MetricId, cmd.Locale, ct);
+        if (translation is null)
+            return Result.Success(); // Idempotent: already deleted
+
+        // Need tracked entity for deletion
+        var tracked = new RtsGridMetricTranslation { MetricId = cmd.MetricId, Locale = cmd.Locale };
+        repo.DeleteTranslation(tracked);
+        return Result.Success();
+    }
+}
+

@@ -37,6 +37,12 @@ public interface IRtsGridMetricRepository
     Task AddAsync(RtsGridMetric metric, CancellationToken ct = default);
     void Update(RtsGridMetric metric);
     void Delete(RtsGridMetric metric);
+
+    // Translation methods
+    Task<RtsGridMetricTranslation?> GetTranslationAsync(string metricId, string locale, CancellationToken ct = default);
+    Task<IReadOnlyList<RtsGridMetricTranslation>> GetTranslationsForMetricAsync(string metricId, CancellationToken ct = default);
+    Task UpsertTranslationAsync(RtsGridMetricTranslation translation, CancellationToken ct = default);
+    void DeleteTranslation(RtsGridMetricTranslation translation);
 }
 
 public interface INgcQueueRepository

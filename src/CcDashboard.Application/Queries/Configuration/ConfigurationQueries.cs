@@ -257,3 +257,28 @@ public class GetBusinessUnitsUsingSupergroupQueryHandler(INgcBusinessUnitReposit
             .ToList();
     }
 }
+
+// ── Metric Translations for a single metric (editor) ────────────────────────
+
+public record GetMetricTranslationsQuery(string MetricId) : IRequest<IReadOnlyList<MetricTranslationDto>>;
+
+public class GetMetricTranslationsQueryHandler(IRtsGridMetricRepository repo)
+    : IRequestHandler<GetMetricTranslationsQuery, IReadOnlyList<MetricTranslationDto>>
+{
+    private static readonly string[] SupportedLocales = ["ru-RU", "he-IL"];
+
+    public async Task<IReadOnlyList<MetricTranslationDto>> Handle(GetMetricTranslationsQuery q, CancellationToken ct)
+    {
+        var existing = await repo.GetTranslationsForMetricAsync(q.MetricId, ct);
+        var byLocale = existing.ToDictionary(t => t.Locale, StringComparer.OrdinalIgnoreCase);
+
+        // Return one row per supported locale (existing data or empty placeholder)
+        return SupportedLocales.Select(locale =>
+        {
+            if (byLocale.TryGetValue(locale, out var t))
+                return new MetricTranslationDto(t.MetricId, t.Locale, t.DisplayName, t.ShortDescription, t.LongDescription, t.Comparison);
+            return new MetricTranslationDto(q.MetricId, locale, null, null, null, null);
+        }).ToList();
+    }
+}
+

@@ -42,18 +42,21 @@ public class SaveRtsGridMetricCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_CreateDuplicate_ReturnsFailure()
+    public async Task Handle_CreateNew_GeneratesUniqueId_IgnoresClientId()
     {
-        var existing = new RtsGridMetric { MetricId = "METRIC-DUP" };
-        _repo.GetByIdAsync("METRIC-DUP", Arg.Any<CancellationToken>()).Returns(existing);
+        // Server generates UUIDv7-dashless ID, ignoring whatever the client provides
+        _repo.GetByIdAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((RtsGridMetric?)null);
+        RtsGridMetric? saved = null;
+        await _repo.AddAsync(Arg.Do<RtsGridMetric>(m => saved = m), Arg.Any<CancellationToken>());
 
         var req = new SaveRtsGridMetricRequest(
-            "METRIC-DUP", null, "INT", "COUNT", "x", null, null, "Number", "Agent", null, null, null, null, null, null, null, null, null, null, null, null, true);
+            "CLIENT-PROVIDED-ID", "Test", "INT", "COUNT", "x", null, null, "Number", "Agent", null, null, null, null, null, null, null, null, null, null, null, null, true);
         var result = await _handler.Handle(new SaveRtsGridMetricCommand(req), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain("already exists");
-        await _repo.DidNotReceive().AddAsync(Arg.Any<RtsGridMetric>(), Arg.Any<CancellationToken>());
+        result.IsSuccess.Should().BeTrue();
+        saved.Should().NotBeNull();
+        saved!.MetricId.Should().MatchRegex("^[0-9a-f]{32}$", "server generates UUIDv7-dashless, ignores client input");
+        saved.MetricId.Should().NotBe("CLIENT-PROVIDED-ID");
     }
 
     [Fact]

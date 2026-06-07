@@ -98,3 +98,21 @@ public record SaveRtsGridMetricRequest(
     string? CatalogStatus,
     string? CatalogNotes,
     bool IsNew);
+
+// ── Metric Translation DTOs ──────────────────────────────────────────────────
+
+public record MetricTranslationDto(
+    string MetricId,
+    string Locale,
+    string? DisplayName,
+    string? ShortDescription,
+    string? LongDescription,
+    string? Comparison);
+
+public record SaveMetricTranslationRequest(
+    string MetricId,
+    string Locale,
+    string? DisplayName,
+    string? ShortDescription,
+    string? LongDescription,
+    string? Comparison);

@@ -97,6 +97,36 @@ public class RtsGridMetricRepository(BackendEmulationDbContext db) : IRtsGridMet
 
     public void Update(RtsGridMetric metric) => db.RtsGridMetrics.Update(metric);
     public void Delete(RtsGridMetric metric) => db.RtsGridMetrics.Remove(metric);
+
+    // Translation methods
+    public async Task<RtsGridMetricTranslation?> GetTranslationAsync(string metricId, string locale, CancellationToken ct = default)
+        => await db.RtsGridMetricTranslations.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.MetricId == metricId && t.Locale == locale, ct);
+
+    public async Task<IReadOnlyList<RtsGridMetricTranslation>> GetTranslationsForMetricAsync(string metricId, CancellationToken ct = default)
+        => await db.RtsGridMetricTranslations.AsNoTracking()
+            .Where(t => t.MetricId == metricId)
+            .ToListAsync(ct);
+
+    public async Task UpsertTranslationAsync(RtsGridMetricTranslation translation, CancellationToken ct = default)
+    {
+        var existing = await db.RtsGridMetricTranslations
+            .FirstOrDefaultAsync(t => t.MetricId == translation.MetricId && t.Locale == translation.Locale, ct);
+        if (existing is null)
+        {
+            await db.RtsGridMetricTranslations.AddAsync(translation, ct);
+        }
+        else
+        {
+            existing.DisplayName = translation.DisplayName;
+            existing.ShortDescription = translation.ShortDescription;
+            existing.LongDescription = translation.LongDescription;
+            existing.Comparison = translation.Comparison;
+        }
+    }
+
+    public void DeleteTranslation(RtsGridMetricTranslation translation)
+        => db.RtsGridMetricTranslations.Remove(translation);
 }
 
 public class NgcQueueRepository(BackendEmulationDbContext db) : INgcQueueRepository

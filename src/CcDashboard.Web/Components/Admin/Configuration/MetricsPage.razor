@@ -78,6 +78,9 @@ else
                         <td class="small text-truncate">@m.MetricType</td>
                         <td class="small text-truncate" title="@m.MetricFunction">@m.MetricFunction</td>
                         <td class="text-end text-nowrap">
+                            <button class="btn btn-outline-secondary btn-sm me-1" title="Translations" @onclick="() => OpenTranslationModal(m)">
+                                <i class="bi bi-translate"></i>
+                            </button>
                             <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => OpenModal(m)">@L["Edit"]</button>
                             <button class="btn btn-outline-danger btn-sm" @onclick="() => ConfirmDelete(m)">@L["Delete"]</button>
                         </td>
@@ -282,6 +285,103 @@ else
     </div>
 }
 
+
+@if (ShowTranslationModal)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-translation-title">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <!-- TODO L1-C-i18n: localise after test-5 releases resx -->
+                    <h5 class="modal-title" id="modal-translation-title">Translations: @TranslationMetricId</h5>
+                    <button class="btn-close" @onclick="CloseTranslationModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (TranslationError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@TranslationError</div>
+                    }
+                    @if (TranslationSuccess is not null)
+                    {
+                        <div class="alert alert-success py-2">@TranslationSuccess</div>
+                    }
+
+                    <!-- EN reference (read-only) -->
+                    <div class="card mb-3 bg-light">
+                        <div class="card-header py-2">
+                            <strong>en-US</strong> (Reference - read only)
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-0">DisplayName</label>
+                                    <div class="form-control-plaintext small">@(TranslationEnDisplayName ?? "—")</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-0">ShortDescription</label>
+                                    <div class="form-control-plaintext small">@(TranslationEnShortDesc ?? "—")</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @foreach (var locale in TranslationLocales)
+                    {
+                        var isRtl = locale == "he-IL";
+                        var dir = isRtl ? "rtl" : "ltr";
+                        var loc = locale; // capture for lambdas
+                        <div class="card mb-3">
+                            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                                <strong>@locale</strong>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="@(() => ClearTranslation(loc))" title="Clear">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div class="card-body py-2">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label small">DisplayName</label>
+                                        <input class="form-control form-control-sm" dir="@dir"
+                                               value="@GetTranslationField(loc, nameof(MetricTranslationDto.DisplayName))"
+                                               @onchange="@(e => SetTranslationField(loc, nameof(MetricTranslationDto.DisplayName), e.Value?.ToString()))" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">ShortDescription</label>
+                                        <input class="form-control form-control-sm" dir="@dir"
+                                               value="@GetTranslationField(loc, nameof(MetricTranslationDto.ShortDescription))"
+                                               @onchange="@(e => SetTranslationField(loc, nameof(MetricTranslationDto.ShortDescription), e.Value?.ToString()))" />
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label small">LongDescription</label>
+                                        <textarea class="form-control form-control-sm" rows="2" dir="@dir"
+                                                  value="@GetTranslationField(loc, nameof(MetricTranslationDto.LongDescription))"
+                                                  @onchange="@(e => SetTranslationField(loc, nameof(MetricTranslationDto.LongDescription), e.Value?.ToString()))"></textarea>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label small">Comparison</label>
+                                        <textarea class="form-control form-control-sm" rows="2" dir="@dir"
+                                                  value="@GetTranslationField(loc, nameof(MetricTranslationDto.Comparison))"
+                                                  @onchange="@(e => SetTranslationField(loc, nameof(MetricTranslationDto.Comparison), e.Value?.ToString()))"></textarea>
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-end">
+                                    <button class="btn btn-sm btn-primary" @onclick="@(() => SaveTranslation(loc))" disabled="@TranslationSaving">
+                                        @if (TranslationSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                        @L["Save"]
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="CloseTranslationModal">@L["Common_Close"]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private IReadOnlyList<RtsGridMetricDto> Metrics = [];
     private string SearchId = "";
@@ -427,4 +527,132 @@ else
 
     private readonly CancellationTokenSource _cts = new();
     public void Dispose() => _cts.Cancel();
+
+    // ── Translation Editor ───────────────────────────────────────────────────
+    private bool ShowTranslationModal;
+    private string TranslationMetricId = "";
+    private string? TranslationEnDisplayName;
+    private string? TranslationEnShortDesc;
+    private string? TranslationError;
+    private string? TranslationSuccess;
+    private bool TranslationSaving;
+    private readonly string[] TranslationLocales = ["ru-RU", "he-IL"];
+    private Dictionary<string, MetricTranslationDto> TranslationData = new();
+
+    private async Task OpenTranslationModal(RtsGridMetricDto m)
+    {
+        TranslationMetricId = m.MetricId;
+        TranslationEnDisplayName = m.DisplayName;
+        TranslationEnShortDesc = m.ShortDescription;
+        TranslationError = null;
+        TranslationSuccess = null;
+        TranslationData.Clear();
+
+        try
+        {
+            var translations = await Mediator.Send(new GetMetricTranslationsQuery(m.MetricId));
+            foreach (var t in translations)
+                TranslationData[t.Locale] = t;
+        }
+        catch (Exception ex)
+        {
+            TranslationError = SafeError(ex);
+        }
+
+        ShowTranslationModal = true;
+    }
+
+    private void CloseTranslationModal()
+    {
+        ShowTranslationModal = false;
+        TranslationError = null;
+        TranslationSuccess = null;
+    }
+
+    private string? GetTranslationField(string locale, string field)
+    {
+        if (!TranslationData.TryGetValue(locale, out var t)) return null;
+        return field switch
+        {
+            "DisplayName" => t.DisplayName,
+            "ShortDescription" => t.ShortDescription,
+            "LongDescription" => t.LongDescription,
+            "Comparison" => t.Comparison,
+            _ => null
+        };
+    }
+
+    private void SetTranslationField(string locale, string field, string? value)
+    {
+        if (!TranslationData.TryGetValue(locale, out var t))
+        {
+            t = new MetricTranslationDto(TranslationMetricId, locale, null, null, null, null);
+            TranslationData[locale] = t;
+        }
+        TranslationData[locale] = field switch
+        {
+            "DisplayName" => t with { DisplayName = value },
+            "ShortDescription" => t with { ShortDescription = value },
+            "LongDescription" => t with { LongDescription = value },
+            "Comparison" => t with { Comparison = value },
+            _ => t
+        };
+    }
+
+    private async Task SaveTranslation(string locale)
+    {
+        TranslationSaving = true;
+        TranslationError = null;
+        TranslationSuccess = null;
+        try
+        {
+            var t = TranslationData.GetValueOrDefault(locale) ?? new MetricTranslationDto(TranslationMetricId, locale, null, null, null, null);
+            var req = new SaveMetricTranslationRequest(t.MetricId, t.Locale, t.DisplayName, t.ShortDescription, t.LongDescription, t.Comparison);
+            var result = await Mediator.Send(new SaveMetricTranslationCommand(req));
+            if (!result.IsSuccess)
+            {
+                TranslationError = result.Error;
+            }
+            else
+            {
+                TranslationSuccess = $"{locale} saved.";
+            }
+        }
+        catch (Exception ex)
+        {
+            TranslationError = SafeError(ex);
+        }
+        finally
+        {
+            TranslationSaving = false;
+        }
+    }
+
+    private async Task ClearTranslation(string locale)
+    {
+        TranslationSaving = true;
+        TranslationError = null;
+        TranslationSuccess = null;
+        try
+        {
+            var result = await Mediator.Send(new DeleteMetricTranslationCommand(TranslationMetricId, locale));
+            if (!result.IsSuccess)
+            {
+                TranslationError = result.Error;
+            }
+            else
+            {
+                TranslationData[locale] = new MetricTranslationDto(TranslationMetricId, locale, null, null, null, null);
+                TranslationSuccess = $"{locale} cleared.";
+            }
+        }
+        catch (Exception ex)
+        {
+            TranslationError = SafeError(ex);
+        }
+        finally
+        {
+            TranslationSaving = false;
+        }
+    }
 }
