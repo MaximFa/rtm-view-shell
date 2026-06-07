@@ -109,7 +109,13 @@ $TmpSql = [System.IO.Path]::GetTempFileName() + ".sql"
 
 function Run-SQL([string]$sql) {
     [System.IO.File]::WriteAllText($TmpSql, $sql, [System.Text.UTF8Encoding]::new($false))
-    $result = (& $psql -h $DBHost -p $DBPort -U $User -d $Database -t -A -F '|' -f $TmpSql 2>&1)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'   # psql ERROR on stderr must NOT abort the script
+    try {
+        $result = (& $psql -h $DBHost -p $DBPort -U $User -d $Database -t -A -F '|' -f $TmpSql 2>&1)
+    } finally {
+        $ErrorActionPreference = $prev
+    }
     return $result | Where-Object { $_ -and $_ -notmatch "^(ERROR|psql:)" }
 }
 
@@ -126,7 +132,7 @@ $MigrationProbes = @{
     "20260605_003_add_user_widget_settings" = "SELECT 1 FROM information_schema.tables WHERE table_name='user_widget_settings' LIMIT 1"
     "20260605_004_metrics_dedup" = $null
     "20260606_002_fix_userstatuslog_write" = "SELECT 1 FROM pg_proc WHERE proname='RTSData_SetUserStatus' AND prokind='p' LIMIT 1"
-    "20260606_003_catalog_backfill" = 'SELECT 1 FROM "RTSGrid_Metric" WHERE "WidgetCategory" IS NOT NULL LIMIT 1'
+    "20260606_003_catalog_backfill" = 'SELECT 1 FROM "RTSGrid_Metric" WHERE "CatalogCategory" IS NOT NULL LIMIT 1'
     "20260606_004_userstatuslog_statusgroup" = "SELECT 1 FROM information_schema.columns WHERE table_name='RTSData_UserStatusLog' AND column_name='StatusGroup' LIMIT 1"
     "20260606_005_history_unavailable_metrics" = 'SELECT 1 FROM "RTSGrid_Metric" WHERE "MetricFunction"=''HistoryUnavailableCount'' LIMIT 1'
     "20260606_006_unavailable_rtsgrid_metrics" = 'SELECT 1 FROM "RTSGrid_Metric" WHERE "MetricParameter"=''UNAVAILABLE'' LIMIT 1'
