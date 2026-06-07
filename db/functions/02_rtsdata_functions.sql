@@ -13,15 +13,21 @@
 --    UPSERT using ON CONFLICT on 3-col UNIQUE index (InteractionId, Segment, ServerId)
 --    NOT the 5-col EF PK (InteractionId, Segment, OnDate, ServerId, Workgroup)
 -- ============================================================================
-DROP FUNCTION IF EXISTS "RTSData_SetInteraction"(
-    text, integer, text, text, text, text,
-    text, text, text, text, text,
-    boolean, boolean, boolean, boolean, boolean,
-    integer, integer, timestamptz, timestamptz, timestamptz,
-    text, text, boolean, text, boolean, text, uuid
-);
+-- Signature-agnostic: drop ANY existing FUNCTION of this name (sig may differ across servers).
+DO $drop_setinteraction$
+DECLARE r record;
+BEGIN
+    FOR r IN
+        SELECT oid::regprocedure AS sig
+        FROM pg_proc
+        WHERE proname = 'RTSData_SetInteraction' AND prokind = 'f'
+    LOOP
+        EXECUTE 'DROP FUNCTION ' || r.sig::text;
+    END LOOP;
+END
+$drop_setinteraction$;
 
-CREATE PROCEDURE "RTSData_SetInteraction"(
+CREATE OR REPLACE PROCEDURE "RTSData_SetInteraction"(
     IN p_interaction_id text,
     IN p_segment integer,
     IN p_workgroup text,
@@ -158,17 +164,21 @@ $$;
 --        fn_daytrendagentstatus reads agent history ONLY from this table]
 --    (b) UPSERT current state into RTSData_UserStatus (ON CONFLICT 4-col PK)
 -- ============================================================================
-DROP FUNCTION IF EXISTS "RTSData_SetUserStatus"(
-    text, text, text, text, integer, integer,
-    integer, text, text, timestamptz, text, text, uuid
-);
-DROP PROCEDURE IF EXISTS "RTSData_SetUserStatus"(
-    text, text, text, text, text, text,
-    double precision, double precision, integer, text,
-    timestamptz, timestamptz, text, timestamptz, uuid
-);
+-- Signature-agnostic: drop ANY existing FUNCTION of this name (sig may differ across servers).
+DO $drop_setuserstatus$
+DECLARE r record;
+BEGIN
+    FOR r IN
+        SELECT oid::regprocedure AS sig
+        FROM pg_proc
+        WHERE proname = 'RTSData_SetUserStatus' AND prokind = 'f'
+    LOOP
+        EXECUTE 'DROP FUNCTION ' || r.sig::text;
+    END LOOP;
+END
+$drop_setuserstatus$;
 
-CREATE PROCEDURE "RTSData_SetUserStatus"(
+CREATE OR REPLACE PROCEDURE "RTSData_SetUserStatus"(
     p_user_id        text,
     p_status_id      text,
     p_server_id      text,
@@ -235,12 +245,21 @@ $$;
 --    NOT the 3-col EF PK (MessageId, ServerId, OnDate)
 --    Note: C# entity uses MsgTimeStamp but DB column is "TimeStamp"
 -- ============================================================================
-DROP FUNCTION IF EXISTS "RTSData_SetChatMessage"(
-    text, text, integer, text, text, text,
-    text, text, text, text, timestamptz, text, timestamptz, uuid
-);
+-- Signature-agnostic: drop ANY existing FUNCTION of this name (sig may differ across servers).
+DO $drop_setchatmessage$
+DECLARE r record;
+BEGIN
+    FOR r IN
+        SELECT oid::regprocedure AS sig
+        FROM pg_proc
+        WHERE proname = 'RTSData_SetChatMessage' AND prokind = 'f'
+    LOOP
+        EXECUTE 'DROP FUNCTION ' || r.sig::text;
+    END LOOP;
+END
+$drop_setchatmessage$;
 
-CREATE PROCEDURE "RTSData_SetChatMessage"(
+CREATE OR REPLACE PROCEDURE "RTSData_SetChatMessage"(
     IN p_message_id text,
     IN p_interaction_id text,
     IN p_segment_id integer,
