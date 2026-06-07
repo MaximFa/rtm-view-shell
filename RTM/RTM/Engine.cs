@@ -1330,7 +1330,11 @@ namespace RTM
 
             try
             {
-                Union union = UnionList[unionId];
+                if (!UnionList.TryGetValue(unionId, out Union union))
+                {
+                    AsyncLogger.Warn("getUsers: union " + unionId + " not found; returning null");
+                    return null;
+                }
 
                
                 //if (union.RemoveUser)
@@ -2032,7 +2036,11 @@ namespace RTM
                 if (gridId[0] == 'u')
                 {
                     int unionId = Convert.ToInt32(gridId.Substring(1));
-                    Union union = UnionList[unionId];
+                    if (!UnionList.TryGetValue(unionId, out Union union))
+                    {
+                        AsyncLogger.Warn("AddGridConnection: union " + unionId + " not found; connection " + connectionId + " not registered (agent grid not nuked)");
+                        return;
+                    }
                     union.Connections.TryAdd(connectionId, 0);
                     union.InUse = true;
                     AsyncLogger.Info("Union " + unionId + " In use");
@@ -2051,7 +2059,12 @@ namespace RTM
                 }
                 else
                 {
-                    var grid = _gridList[Convert.ToInt32(gridId)];
+                    int dataGridId = Convert.ToInt32(gridId);
+                    if (!_gridList.TryGetValue(dataGridId, out var grid))
+                    {
+                        AsyncLogger.Warn("AddGridConnection: data grid " + dataGridId + " not found; connection " + connectionId + " not registered");
+                        return;
+                    }
                     grid.Connections.TryAdd(connectionId, 0);
                     grid.InUse = true;
                     AsyncLogger.Info("Data Grid " + grid.GridId + " In use");
