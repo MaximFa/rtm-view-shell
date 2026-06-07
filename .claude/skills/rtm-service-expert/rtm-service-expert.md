@@ -99,3 +99,11 @@ messages). DataGrid needs BOTH `init` + `refreshCells` to get an initial push.
 - StatusGroup column missing on RTSData_UserStatusLog (pgloader gap) -> empty DayTrend agent metrics (migration _004).
 - P1 shipped NGC_Set/DeleteUserAgentgroup as FUNCTIONs (plumbing test used SELECT, passed) -> 42809 on prod -> hotfix _009.
 - The fn (read side, fn_daytrendagentstatus) is rewritten ONCE with BU-scope + UNAVAILABLE outputs (P3); don't double-edit it.
+- **Baseline can be the WRONG side (2026-06-07, Compare-ToBaseline):** Compare-ToBaseline flags repo-vs-server
+  differences, but it TRUSTS the repo baseline as correct. The baseline itself can be the defect: db/functions/*.sql
+  shipped 13 RTM-write routines as FUNCTION while prod (correct, per §33.8) had them as PROCEDURE. Compare reported
+  "expected FUNCTION, server has PROCEDURE" and its align.sql would have reverted prod -> 42809 storm. RULE: never
+  run align.sql blindly; for routine-kind diffs verify which side is right (RTM-called writes MUST be PROCEDURE,
+  §33.8); when the baseline is wrong, fix db/functions, do NOT touch the server. Also: a routine that is FUNCTION
+  in BOTH repo and prod (e.g. RTSData_SetChatMessage) is NOT flagged by the prokind diff at all -> audit ALL
+  RTM-called writes by kind, not just diffs.

@@ -2519,6 +2519,13 @@ psql -U ccdashboard_user -d rtmviewdb -f RTM\sql\db_baseline.sql
 ```
 
 *TZ version: 1.9 | CLAUDE.md last updated: 2026-06-04 (§38 DB versioning)*
+### §38.5 align.sql is advisory — verify direction
+
+The Compare-ToBaseline align.sql is a STARTING POINT, not an auto-apply script. It assumes the
+repo baseline is correct; if the baseline is stale the routine-kind section can break a correct
+server (PostgreSQL 42809, RTM-SEC-002). Always review the direction of each change per object;
+prefer fixing the baseline over reverting the server. Reference: rtm-service-expert §10.
+
 ### §38a Migration self-record convention
 
 Every NEW migration file (created after `20260607_002_db_patch_history`) MUST end with:
