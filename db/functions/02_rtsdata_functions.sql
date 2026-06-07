@@ -9,7 +9,7 @@
 -- ============================================================================
 
 -- ============================================================================
--- 1. RTSData_SetInteraction
+-- 1. RTSData_SetInteraction (PROCEDURE, 48 params — matches RTM DBMng C# call)
 --    UPSERT using ON CONFLICT on 3-col UNIQUE index (InteractionId, Segment, ServerId)
 --    NOT the 5-col EF PK (InteractionId, Segment, OnDate, ServerId, Workgroup)
 -- ============================================================================
@@ -18,40 +18,59 @@ DROP FUNCTION IF EXISTS "RTSData_SetInteraction"(
     text, text, text, text, text,
     boolean, boolean, boolean, boolean, boolean,
     integer, integer, timestamptz, timestamptz, timestamptz,
-    text, text, boolean, text, boolean, text
+    text, text, boolean, text, boolean, text, uuid
 );
 
-CREATE OR REPLACE FUNCTION "RTSData_SetInteraction"(
-    p_interaction_id text,
-    p_segment integer,
-    p_on_date text,
-    p_server_id text,
-    p_workgroup text,
-    p_user_id text,
-    p_classification_code text,
-    p_interaction_type text,
-    p_call_type text,
-    p_direction text,
-    p_custom_call_data text,
-    p_is_transferred boolean,
-    p_is_answered boolean,
-    p_is_in_queue boolean,
-    p_is_talk boolean,
-    p_is_abandoned boolean,
-    p_time_in_queue integer,
-    p_talk_time integer,
-    p_in_queue_date_time timestamptz,
-    p_answered_date_time timestamptz,
-    p_update_time timestamptz,
-    p_last_user_id text,
-    p_last_workgroup text,
-    p_is_messaging boolean,
-    p_remote_address text,
-    p_is_callback_request boolean,
-    p_time_zone text,
-    p_tenant_id uuid
+CREATE PROCEDURE "RTSData_SetInteraction"(
+    IN p_interaction_id text,
+    IN p_segment integer,
+    IN p_workgroup text,
+    IN p_classification_code text,
+    IN p_interaction_type text,
+    IN p_call_type text,
+    IN p_direction text,
+    IN p_custom_call_data text,
+    IN p_remote_address text,
+    IN p_user_id text,
+    IN p_is_transferred boolean,
+    IN p_is_answered boolean,
+    IN p_is_in_queue boolean,
+    IN p_is_talk boolean,
+    IN p_is_abandoned boolean,
+    IN p_is_messaging boolean,
+    IN p_time_in_queue double precision,
+    IN p_talk_time double precision,
+    IN p_in_queue_date_time timestamp with time zone,
+    IN p_answered_date_time timestamp with time zone,
+    IN p_last_user_id text,
+    IN p_last_workgroup text,
+    IN p_custom_call_data1 text,
+    IN p_custom_call_data2 text,
+    IN p_custom_call_data3 text,
+    IN p_custom_call_data4 text,
+    IN p_custom_call_data5 text,
+    IN p_custom_call_data6 text,
+    IN p_custom_call_data7 text,
+    IN p_custom_call_data8 text,
+    IN p_custom_call_data9 text,
+    IN p_custom_call_data10 text,
+    IN p_custom_call_data11 text,
+    IN p_custom_call_data12 text,
+    IN p_custom_call_data13 text,
+    IN p_custom_call_data14 text,
+    IN p_custom_call_data15 text,
+    IN p_custom_call_data16 text,
+    IN p_custom_call_data17 text,
+    IN p_custom_call_data18 text,
+    IN p_custom_call_data19 text,
+    IN p_custom_call_data20 text,
+    IN p_is_callback_request boolean,
+    IN p_time_zone text,
+    IN p_server_id text,
+    IN p_update_time timestamp with time zone,
+    IN p_on_date text,
+    IN p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -59,45 +78,77 @@ BEGIN
         "InteractionId", "Segment", "OnDate", "ServerId", "Workgroup", "UserId",
         "ClassificationCode", "InteractionType", "CallType", "Direction", "CustomCallData",
         "IsTransferred", "IsAnswered", "IsInQueue", "IsTalk", "IsAbandoned",
-        "TimeInQueue", "TalkTime", "InQueueDateTime", "AnsweredDateTime", "UpdateTime",
-        "LastUserId", "LastWorkgroup", "IsMessaging", "RemoteAddress", "IsCallbackRequest", "TimeZone",
-        "TenantId"
+        "TimeInQueue", "TalkTime",
+        "InQueueDateTime", "AnsweredDateTime", "UpdateTime",
+        "LastUserId", "LastWorkgroup", "IsMessaging", "RemoteAddress",
+        "CustomCallData1",  "CustomCallData2",  "CustomCallData3",  "CustomCallData4",
+        "CustomCallData5",  "CustomCallData6",  "CustomCallData7",  "CustomCallData8",
+        "CustomCallData9",  "CustomCallData10", "CustomCallData11", "CustomCallData12",
+        "CustomCallData13", "CustomCallData14", "CustomCallData15", "CustomCallData16",
+        "CustomCallData17", "CustomCallData18", "CustomCallData19", "CustomCallData20",
+        "IsCallbackRequest", "TimeZone", "TenantId"
     )
     VALUES (
         p_interaction_id, p_segment, p_on_date, p_server_id, p_workgroup, p_user_id,
         p_classification_code, p_interaction_type, p_call_type, p_direction, p_custom_call_data,
         p_is_transferred, p_is_answered, p_is_in_queue, p_is_talk, p_is_abandoned,
-        p_time_in_queue, p_talk_time, p_in_queue_date_time, p_answered_date_time, p_update_time,
-        p_last_user_id, p_last_workgroup, p_is_messaging, p_remote_address, p_is_callback_request, p_time_zone,
-        p_tenant_id
+        p_time_in_queue::integer, p_talk_time::integer,
+        p_in_queue_date_time, p_answered_date_time, p_update_time,
+        p_last_user_id, p_last_workgroup, p_is_messaging, p_remote_address,
+        p_custom_call_data1,  p_custom_call_data2,  p_custom_call_data3,  p_custom_call_data4,
+        p_custom_call_data5,  p_custom_call_data6,  p_custom_call_data7,  p_custom_call_data8,
+        p_custom_call_data9,  p_custom_call_data10, p_custom_call_data11, p_custom_call_data12,
+        p_custom_call_data13, p_custom_call_data14, p_custom_call_data15, p_custom_call_data16,
+        p_custom_call_data17, p_custom_call_data18, p_custom_call_data19, p_custom_call_data20,
+        p_is_callback_request, p_time_zone, p_tenant_id
     )
     ON CONFLICT ("InteractionId", "Segment", "ServerId")
     DO UPDATE SET
-        "OnDate" = EXCLUDED."OnDate",
-        "Workgroup" = EXCLUDED."Workgroup",
-        "UserId" = EXCLUDED."UserId",
-        "ClassificationCode" = EXCLUDED."ClassificationCode",
-        "InteractionType" = EXCLUDED."InteractionType",
-        "CallType" = EXCLUDED."CallType",
-        "Direction" = EXCLUDED."Direction",
-        "CustomCallData" = EXCLUDED."CustomCallData",
-        "IsTransferred" = EXCLUDED."IsTransferred",
-        "IsAnswered" = EXCLUDED."IsAnswered",
-        "IsInQueue" = EXCLUDED."IsInQueue",
-        "IsTalk" = EXCLUDED."IsTalk",
-        "IsAbandoned" = EXCLUDED."IsAbandoned",
-        "TimeInQueue" = EXCLUDED."TimeInQueue",
-        "TalkTime" = EXCLUDED."TalkTime",
-        "InQueueDateTime" = EXCLUDED."InQueueDateTime",
-        "AnsweredDateTime" = EXCLUDED."AnsweredDateTime",
-        "UpdateTime" = EXCLUDED."UpdateTime",
-        "LastUserId" = EXCLUDED."LastUserId",
-        "LastWorkgroup" = EXCLUDED."LastWorkgroup",
-        "IsMessaging" = EXCLUDED."IsMessaging",
-        "RemoteAddress" = EXCLUDED."RemoteAddress",
-        "IsCallbackRequest" = EXCLUDED."IsCallbackRequest",
-        "TimeZone" = EXCLUDED."TimeZone",
-        "TenantId" = EXCLUDED."TenantId";
+        "OnDate"              = EXCLUDED."OnDate",
+        "Workgroup"           = EXCLUDED."Workgroup",
+        "UserId"              = EXCLUDED."UserId",
+        "ClassificationCode"  = EXCLUDED."ClassificationCode",
+        "InteractionType"     = EXCLUDED."InteractionType",
+        "CallType"            = EXCLUDED."CallType",
+        "Direction"           = EXCLUDED."Direction",
+        "CustomCallData"      = EXCLUDED."CustomCallData",
+        "IsTransferred"       = EXCLUDED."IsTransferred",
+        "IsAnswered"          = EXCLUDED."IsAnswered",
+        "IsInQueue"           = EXCLUDED."IsInQueue",
+        "IsTalk"              = EXCLUDED."IsTalk",
+        "IsAbandoned"         = EXCLUDED."IsAbandoned",
+        "TimeInQueue"         = EXCLUDED."TimeInQueue",
+        "TalkTime"            = EXCLUDED."TalkTime",
+        "InQueueDateTime"     = EXCLUDED."InQueueDateTime",
+        "AnsweredDateTime"    = EXCLUDED."AnsweredDateTime",
+        "UpdateTime"          = EXCLUDED."UpdateTime",
+        "LastUserId"          = EXCLUDED."LastUserId",
+        "LastWorkgroup"       = EXCLUDED."LastWorkgroup",
+        "IsMessaging"         = EXCLUDED."IsMessaging",
+        "RemoteAddress"       = EXCLUDED."RemoteAddress",
+        "CustomCallData1"     = EXCLUDED."CustomCallData1",
+        "CustomCallData2"     = EXCLUDED."CustomCallData2",
+        "CustomCallData3"     = EXCLUDED."CustomCallData3",
+        "CustomCallData4"     = EXCLUDED."CustomCallData4",
+        "CustomCallData5"     = EXCLUDED."CustomCallData5",
+        "CustomCallData6"     = EXCLUDED."CustomCallData6",
+        "CustomCallData7"     = EXCLUDED."CustomCallData7",
+        "CustomCallData8"     = EXCLUDED."CustomCallData8",
+        "CustomCallData9"     = EXCLUDED."CustomCallData9",
+        "CustomCallData10"    = EXCLUDED."CustomCallData10",
+        "CustomCallData11"    = EXCLUDED."CustomCallData11",
+        "CustomCallData12"    = EXCLUDED."CustomCallData12",
+        "CustomCallData13"    = EXCLUDED."CustomCallData13",
+        "CustomCallData14"    = EXCLUDED."CustomCallData14",
+        "CustomCallData15"    = EXCLUDED."CustomCallData15",
+        "CustomCallData16"    = EXCLUDED."CustomCallData16",
+        "CustomCallData17"    = EXCLUDED."CustomCallData17",
+        "CustomCallData18"    = EXCLUDED."CustomCallData18",
+        "CustomCallData19"    = EXCLUDED."CustomCallData19",
+        "CustomCallData20"    = EXCLUDED."CustomCallData20",
+        "IsCallbackRequest"   = EXCLUDED."IsCallbackRequest",
+        "TimeZone"            = EXCLUDED."TimeZone",
+        "TenantId"            = EXCLUDED."TenantId";
 END;
 $$;
 
@@ -179,33 +230,32 @@ END;
 $$;
 
 -- ============================================================================
--- 3. RTSData_SetChatMessage
+-- 3. RTSData_SetChatMessage (PROCEDURE — converted from FUNCTION for RTM-SEC-002)
 --    UPSERT using ON CONFLICT on 2-col UNIQUE index (MessageId, ServerId)
 --    NOT the 3-col EF PK (MessageId, ServerId, OnDate)
 --    Note: C# entity uses MsgTimeStamp but DB column is "TimeStamp"
 -- ============================================================================
 DROP FUNCTION IF EXISTS "RTSData_SetChatMessage"(
     text, text, integer, text, text, text,
-    text, text, text, text, timestamptz, text, timestamptz
+    text, text, text, text, timestamptz, text, timestamptz, uuid
 );
 
-CREATE OR REPLACE FUNCTION "RTSData_SetChatMessage"(
-    p_message_id text,
-    p_interaction_id text,
-    p_segment_id integer,
-    p_user_id text,
-    p_msg_direction text,
-    p_sender text,
-    p_recipient text,
-    p_body text,
-    p_delivery_status text,
-    p_server_id text,
-    p_update_time timestamptz,
-    p_on_date text,
-    p_time_stamp timestamptz,
-    p_tenant_id uuid
+CREATE PROCEDURE "RTSData_SetChatMessage"(
+    IN p_message_id text,
+    IN p_interaction_id text,
+    IN p_segment_id integer,
+    IN p_user_id text,
+    IN p_msg_direction text,
+    IN p_sender text,
+    IN p_recipient text,
+    IN p_body text,
+    IN p_delivery_status text,
+    IN p_server_id text,
+    IN p_update_time timestamptz,
+    IN p_on_date text,
+    IN p_time_stamp timestamptz,
+    IN p_tenant_id uuid
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
