@@ -876,5 +876,8 @@
   <data name="WidgetCfg_Templates" xml:space="preserve">
     <value>Шаблоны</value>
   </data>
+  <data name="Widget_DayTrend_ChartType" xml:space="preserve">
+    <value>Тип графика (Chart type)</value>
+  </data>
 </root>
 

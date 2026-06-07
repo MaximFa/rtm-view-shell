@@ -776,5 +776,8 @@
   <data name="WidgetCfg_Templates" xml:space="preserve">
     <value>תבניות</value>
   </data>
+  <data name="Widget_DayTrend_ChartType" xml:space="preserve">
+    <value>סוג תרשים (Chart type)</value>
+  </data>
 </root>
 

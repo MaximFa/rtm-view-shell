@@ -283,6 +283,7 @@
   <data name="Widget_DayTrend_MetricLabel"><value>Custom Label</value></data>
   <data name="Widget_DayTrend_AgentNote"><value>Agent metrics shown as dashed lines</value></data>
   <data name="Widget_DayTrend_Manual"><value>Manual only</value></data>
+  <data name="Widget_DayTrend_ChartType" xml:space="preserve"><value>Chart type</value></data>
   <data name="Widget_DayTrend_Line"><value>Line</value></data>
   <data name="Widget_DayTrend_Bar"><value>Bar</value></data>
   <data name="Widget_DayTrend_Area"><value>Area</value></data>
