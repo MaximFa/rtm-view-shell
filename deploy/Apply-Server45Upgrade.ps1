@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Server45 (PG17) UPGRADE orchestrator: probe -> stop -> backup -> migs -> functions -> start -> verify.
@@ -173,7 +173,7 @@ if ($rtmSvc -and $rtmSvc.Status -ne "Stopped") {
     Stop-Service -Name $RTMSvcName -Force
     Start-Sleep -Seconds 3
 }
-Log "$RTMSvcName: $(if ($rtmSvc) { (Get-Service $RTMSvcName).Status } else { 'not installed' })"
+Log "${RTMSvcName}: $(if ($rtmSvc) { (Get-Service $RTMSvcName).Status } else { 'not installed' })"
 
 # Stop Shell Service
 $shellSvc = Get-Service -Name $ShellSvcName -ErrorAction SilentlyContinue
@@ -182,7 +182,7 @@ if ($shellSvc -and $shellSvc.Status -ne "Stopped") {
     Stop-Service -Name $ShellSvcName -Force
     Start-Sleep -Seconds 3
 }
-Log "$ShellSvcName: $(if ($shellSvc) { (Get-Service $ShellSvcName).Status } else { 'not installed' })"
+Log "${ShellSvcName}: $(if ($shellSvc) { (Get-Service $ShellSvcName).Status } else { 'not installed' })"
 
 # Stop IIS App Pools
 Import-Module WebAdministration -ErrorAction SilentlyContinue
@@ -401,14 +401,14 @@ foreach ($pool in $AppPools) {
 if ($shellSvc) {
     Start-Service -Name $ShellSvcName -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 5
-    Log "$ShellSvcName: $((Get-Service $ShellSvcName).Status)"
+    Log "${ShellSvcName}: $((Get-Service $ShellSvcName).Status)"
 }
 
 # Start RTM Service
 if ($rtmSvc) {
     Start-Service -Name $RTMSvcName -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 5
-    Log "$RTMSvcName: $((Get-Service $RTMSvcName).Status)"
+    Log "${RTMSvcName}: $((Get-Service $RTMSvcName).Status)"
 }
 
 Log "RTM-DEPLOY-001 window CLOSED — services started."

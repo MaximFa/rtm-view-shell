@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Compare-ToBaseline.ps1 -- READ-ONLY DB drift comparator: installed server vs repo baseline.
