@@ -259,6 +259,25 @@
     background: var(--clr-overlay);
 }
 
+
+/* Dark mode — input/select/textarea coverage */
+.metric-wizard-overlay.dark input:not([type=checkbox]):not([type=radio]),
+.metric-wizard-overlay.dark select,
+.metric-wizard-overlay.dark textarea {
+    background-color: #2D2D2D;
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #E4E4E7;
+}
+.metric-wizard-overlay.dark input:not([type=checkbox]):not([type=radio]):focus,
+.metric-wizard-overlay.dark select:focus,
+.metric-wizard-overlay.dark textarea:focus {
+    background-color: #3D3D3D;
+    border-color: var(--clr-primary);
+}
+.metric-wizard-overlay.dark input::placeholder {
+    color: rgba(228, 228, 231, 0.5);
+}
+
 /* Empty states */
 .metric-wizard-empty {
     display: flex;

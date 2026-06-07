@@ -2879,6 +2879,39 @@ button.clr-swatch,
     border-color: var(--clr-primary);
 }
 
+/* Dark mode — generic config-modal field coverage (fixes white inputs missed by the .form-control-only rule) */
+.editor-fullscreen.dark-mode .editor-modal input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]),
+.editor-fullscreen.dark-mode .editor-modal select,
+.editor-fullscreen.dark-mode .editor-modal textarea,
+.editor-modal.dark-mode input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]),
+.editor-modal.dark-mode select,
+.editor-modal.dark-mode textarea {
+    background-color: #2D2D2D;
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #E4E4E7;
+}
+.editor-fullscreen.dark-mode .editor-modal input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]):focus,
+.editor-fullscreen.dark-mode .editor-modal select:focus,
+.editor-fullscreen.dark-mode .editor-modal textarea:focus,
+.editor-modal.dark-mode input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]):focus,
+.editor-modal.dark-mode select:focus,
+.editor-modal.dark-mode textarea:focus {
+    background-color: #3D3D3D;
+    border-color: var(--clr-primary);
+}
+/* readonly fields (e.g. Grid ID) — keep dark, slightly muted */
+.editor-fullscreen.dark-mode .editor-modal input[readonly],
+.editor-modal.dark-mode input[readonly] {
+    color: #B4B4B8;
+}
+/* placeholder text legibility in dark mode */
+.editor-fullscreen.dark-mode .editor-modal input::placeholder,
+.editor-fullscreen.dark-mode .editor-modal textarea::placeholder,
+.editor-modal.dark-mode input::placeholder,
+.editor-modal.dark-mode textarea::placeholder {
+    color: rgba(228, 228, 231, 0.5);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    MODAL DRAG & RESIZE — Draggable and Resizable Modals
    ═══════════════════════════════════════════════════════════════════════════ */
