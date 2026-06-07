@@ -698,5 +698,83 @@
   <data name="MetricWizard_Related"><value>שדות קשורים / במה שונה</value></data>
   <data name="MetricWizard_Defect"><value>מדד זה מועמד לתיקון - יש להשתמש בזהירות</value></data>
   <data name="MetricWizard_SelectMetric"><value>בחר מדד לצפייה בפרטים</value></data>
+  <data name="WidgetCfg_General" xml:space="preserve">
+    <value>כללי</value>
+  </data>
+  <data name="WidgetCfg_Appearance" xml:space="preserve">
+    <value>מראה</value>
+  </data>
+  <data name="WidgetCfg_Thresholds" xml:space="preserve">
+    <value>ספים</value>
+  </data>
+  <data name="WidgetCfg_Filters" xml:space="preserve">
+    <value>מסננים</value>
+  </data>
+  <data name="WidgetCfg_Columns" xml:space="preserve">
+    <value>עמודות</value>
+  </data>
+  <data name="WidgetCfg_Score" xml:space="preserve">
+    <value>ציון</value>
+  </data>
+  <data name="WidgetCfg_Rows" xml:space="preserve">
+    <value>שורות</value>
+  </data>
+  <data name="WidgetCfg_CallMetrics" xml:space="preserve">
+    <value>מדדי שיחות</value>
+  </data>
+  <data name="WidgetCfg_AgentMetrics" xml:space="preserve">
+    <value>מדדי סוכנים</value>
+  </data>
+  <data name="WidgetCfg_WidgetId" xml:space="preserve">
+    <value>מזהה יישומון</value>
+  </data>
+  <data name="WidgetCfg_GridId" xml:space="preserve">
+    <value>מזהה רשת</value>
+  </data>
+  <data name="WidgetCfg_LightMode" xml:space="preserve">
+    <value>מצב בהיר</value>
+  </data>
+  <data name="WidgetCfg_DarkMode" xml:space="preserve">
+    <value>מצב כהה</value>
+  </data>
+  <data name="WidgetCfg_WidgetBackground" xml:space="preserve">
+    <value>רקע יישומון</value>
+  </data>
+  <data name="WidgetCfg_TextColor" xml:space="preserve">
+    <value>צבע טקסט</value>
+  </data>
+  <data name="WidgetCfg_HeaderText" xml:space="preserve">
+    <value>טקסט כותרת</value>
+  </data>
+  <data name="WidgetCfg_TableBackground" xml:space="preserve">
+    <value>רקע טבלה</value>
+  </data>
+  <data name="WidgetCfg_Light" xml:space="preserve">
+    <value>בהיר</value>
+  </data>
+  <data name="WidgetCfg_Dark" xml:space="preserve">
+    <value>כהה</value>
+  </data>
+  <data name="WidgetCfg_Column" xml:space="preserve">
+    <value>עמודה</value>
+  </data>
+  <data name="WidgetCfg_Name" xml:space="preserve">
+    <value>שם</value>
+  </data>
+  <data name="WidgetCfg_Metric" xml:space="preserve">
+    <value>מדד</value>
+  </data>
+  <data name="WidgetCfg_Typography" xml:space="preserve">
+    <value>טיפוגרפיה</value>
+  </data>
+  <data name="WidgetCfg_Colors" xml:space="preserve">
+    <value>צבעים</value>
+  </data>
+  <data name="WidgetCfg_DisplayOptions" xml:space="preserve">
+    <value>אפשרויות תצוגה</value>
+  </data>
+  <data name="WidgetCfg_Templates" xml:space="preserve">
+    <value>תבניות</value>
+  </data>
 </root>
 

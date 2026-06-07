@@ -859,5 +859,83 @@
   <data name="MetricWizard_Related"><value>Related fields / How it differs</value></data>
   <data name="MetricWizard_Defect"><value>This metric is a defect candidate - use with caution</value></data>
   <data name="MetricWizard_SelectMetric"><value>Select a metric to see details</value></data>
+  <data name="WidgetCfg_General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="WidgetCfg_Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="WidgetCfg_Thresholds" xml:space="preserve">
+    <value>Thresholds</value>
+  </data>
+  <data name="WidgetCfg_Filters" xml:space="preserve">
+    <value>Filters</value>
+  </data>
+  <data name="WidgetCfg_Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="WidgetCfg_Score" xml:space="preserve">
+    <value>Score</value>
+  </data>
+  <data name="WidgetCfg_Rows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="WidgetCfg_CallMetrics" xml:space="preserve">
+    <value>Call Metrics</value>
+  </data>
+  <data name="WidgetCfg_AgentMetrics" xml:space="preserve">
+    <value>Agent Metrics</value>
+  </data>
+  <data name="WidgetCfg_WidgetId" xml:space="preserve">
+    <value>Widget ID</value>
+  </data>
+  <data name="WidgetCfg_GridId" xml:space="preserve">
+    <value>Grid ID</value>
+  </data>
+  <data name="WidgetCfg_LightMode" xml:space="preserve">
+    <value>Light Mode</value>
+  </data>
+  <data name="WidgetCfg_DarkMode" xml:space="preserve">
+    <value>Dark Mode</value>
+  </data>
+  <data name="WidgetCfg_WidgetBackground" xml:space="preserve">
+    <value>Widget Background</value>
+  </data>
+  <data name="WidgetCfg_TextColor" xml:space="preserve">
+    <value>Text Color</value>
+  </data>
+  <data name="WidgetCfg_HeaderText" xml:space="preserve">
+    <value>Header Text</value>
+  </data>
+  <data name="WidgetCfg_TableBackground" xml:space="preserve">
+    <value>Table Background</value>
+  </data>
+  <data name="WidgetCfg_Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="WidgetCfg_Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="WidgetCfg_Column" xml:space="preserve">
+    <value>Column</value>
+  </data>
+  <data name="WidgetCfg_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="WidgetCfg_Metric" xml:space="preserve">
+    <value>Metric</value>
+  </data>
+  <data name="WidgetCfg_Typography" xml:space="preserve">
+    <value>Typography</value>
+  </data>
+  <data name="WidgetCfg_Colors" xml:space="preserve">
+    <value>Colors</value>
+  </data>
+  <data name="WidgetCfg_DisplayOptions" xml:space="preserve">
+    <value>Display Options</value>
+  </data>
+  <data name="WidgetCfg_Templates" xml:space="preserve">
+    <value>Templates</value>
+  </data>
 </root>
 

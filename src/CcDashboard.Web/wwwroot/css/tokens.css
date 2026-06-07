@@ -248,6 +248,63 @@
   }
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Explicit Dark Toggle — Class-scoped (dashboard/editor .dark-mode toggle)
+   Mirrors the @media dark block above. When these classes are present,
+   tokens resolve to charcoal regardless of OS color-scheme.
+   ══════════════════════════════════════════════════════════════════════════ */
+.dark-mode,
+.editor-fullscreen.dark-mode,
+.fullscreen-dashboard.dark-mode,
+.metric-wizard-overlay.dark,
+.editor-modal.dark-mode {
+    --clr-bg:             #121212;
+    --clr-surface:        #1E1E1E;
+    --clr-overlay:        #2D2D2D;
+    --clr-text:           #E4E4E7;
+    --clr-text-secondary: #A1A1AA;
+    --clr-text-muted:     #71717A;
+    --clr-text-faint:     #52525B;
+    --clr-text-disabled:  #3F3F46;
+    --clr-border:         rgba(255, 255, 255, 0.08);
+    --clr-border-md:      rgba(255, 255, 255, 0.12);
+    --clr-border-solid:   #3F3F46;
+    --clr-border-strong:  #52525B;
+
+    --clr-primary-subtle: #1A3A5C;
+    --clr-danger-subtle:  #3D1F1F;
+    --clr-success-subtle: #1A3D2A;
+    --clr-warning-subtle: #3D3010;
+    --clr-info-subtle:    #1A3D5C;
+
+    /* Role badges dark mode */
+    --clr-role-superadmin-bg:    #2E1065;
+    --clr-role-superadmin:       #C4B5FD;
+    --clr-role-administrator-bg: #1E3A5F;
+    --clr-role-administrator:    #93C5FD;
+    --clr-role-editor-bg:        #064E3B;
+    --clr-role-editor:           #6EE7B7;
+    --clr-role-viewer-bg:        #374151;
+    --clr-role-viewer:           #9CA3AF;
+
+    /* Status badges dark mode */
+    --clr-status-active-bg:    #064E3B;
+    --clr-status-active:       #6EE7B7;
+    --clr-status-inactive-bg:  #374151;
+    --clr-status-inactive:     #9CA3AF;
+    --clr-status-blocked-bg:   #450A0A;
+    --clr-status-blocked:      #FCA5A5;
+
+    /* Focus ring dark mode */
+    --focus-ring: 0 0 0 2px var(--clr-surface), 0 0 0 4px rgba(77, 148, 219, 0.5);
+
+    /* Shadows dark mode */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3), 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    Reduced Motion — Accessibility
    ══════════════════════════════════════════════════════════════════════════ */

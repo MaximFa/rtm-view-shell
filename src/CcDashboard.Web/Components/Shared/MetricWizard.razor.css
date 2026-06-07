@@ -27,8 +27,8 @@
 }
 
 .metric-wizard-overlay.dark .metric-wizard-dialog {
-    background: var(--clr-surface-dark, #1e293b);
-    color: var(--clr-text-dark, #f1f5f9);
+    background: var(--clr-surface);
+    color: var(--clr-text);
 }
 
 .metric-wizard-header {
@@ -41,7 +41,7 @@
 }
 
 .metric-wizard-overlay.dark .metric-wizard-header {
-    border-color: var(--clr-border-dark, #334155);
+    border-color: var(--clr-border);
 }
 
 .metric-wizard-title {
@@ -82,7 +82,7 @@
 }
 
 .metric-wizard-overlay.dark .metric-wizard-list {
-    border-color: var(--clr-border-dark, #334155);
+    border-color: var(--clr-border);
 }
 
 .metric-wizard-item {
@@ -93,7 +93,7 @@
 }
 
 .metric-wizard-overlay.dark .metric-wizard-item {
-    border-color: var(--clr-border-dark, #334155);
+    border-color: var(--clr-border);
 }
 
 .metric-wizard-item:last-child {
@@ -105,16 +105,16 @@
 }
 
 .metric-wizard-overlay.dark .metric-wizard-item:hover {
-    background: var(--clr-primary-subtle-dark, #334155);
+    background: var(--clr-primary-subtle);
 }
 
 .metric-wizard-item.selected {
     background: var(--clr-primary-subtle, #dbeafe);
-    border-inline-start: 3px solid var(--clr-primary, #3b82f6);
+    border-inline-start: 3px solid var(--clr-primary);
 }
 
 .metric-wizard-overlay.dark .metric-wizard-item.selected {
-    background: var(--clr-primary-subtle-dark, #1e3a8a);
+    background: var(--clr-primary-subtle);
 }
 
 .metric-item-label {
@@ -138,7 +138,7 @@
 }
 
 .metric-wizard-overlay.dark .metric-wizard-detail {
-    border-color: var(--clr-border-dark, #334155);
+    border-color: var(--clr-border);
 }
 
 .metric-detail-header {
@@ -190,12 +190,12 @@
 .badge.bg-outline-secondary {
     background: transparent;
     border: 1px solid var(--clr-border, #cbd5e1);
-    color: var(--clr-text, #334155);
+    color: var(--clr-text);
 }
 
 .metric-wizard-overlay.dark .badge.bg-outline-secondary {
-    border-color: var(--clr-border-dark, #475569);
-    color: var(--clr-text-dark, #e2e8f0);
+    border-color: var(--clr-border);
+    color: var(--clr-text);
 }
 
 .metric-detail-long {
@@ -213,7 +213,7 @@
 }
 
 .metric-wizard-overlay.dark .metric-detail-related {
-    background: var(--clr-surface-alt-dark, #0f172a);
+    background: var(--clr-overlay);
 }
 
 .metric-detail-related-header {
@@ -256,7 +256,7 @@
 }
 
 .metric-wizard-overlay.dark .metric-detail-id code {
-    background: var(--clr-surface-alt-dark, #0f172a);
+    background: var(--clr-overlay);
 }
 
 /* Empty states */
@@ -291,7 +291,7 @@
 }
 
 .metric-wizard-overlay.dark .metric-wizard-footer {
-    border-color: var(--clr-border-dark, #334155);
+    border-color: var(--clr-border);
 }
 
 /* Responsive */

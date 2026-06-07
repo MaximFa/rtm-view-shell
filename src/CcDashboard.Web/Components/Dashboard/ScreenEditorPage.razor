@@ -141,7 +141,7 @@
                 {
                     <div class="mt-4 pt-3 border-top">
                         <div class="small text-muted text-uppercase mb-2">
-                            <i class="bi bi-bookmark me-1"></i>Templates
+                            <i class="bi bi-bookmark me-1"></i>@L["WidgetCfg_Templates"]
                         </div>
                         @foreach (var template in WidgetTemplates)
                         {
@@ -245,7 +245,7 @@
 <!-- Widget Configuration Modal -->
 @if (ConfiguringWidget is not null)
 {
-    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="widget-config-title" data-modal-id="widget-config">
+    <div class="editor-modal @(_darkMode ? "dark-mode" : "")" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="widget-config-title" data-modal-id="widget-config">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header modal-drag-header">
@@ -261,45 +261,45 @@
                     <!-- Tabs Navigation -->
                     <ul class="nav nav-tabs mb-3">
                         <li class="nav-item">
-                            <button class="nav-link @(ConfigActiveTab == "general" ? "active" : "")" @onclick='() => ConfigActiveTab = "general"'>General</button>
+                            <button class="nav-link @(ConfigActiveTab == "general" ? "active" : "")" @onclick='() => ConfigActiveTab = "general"'>@L["WidgetCfg_General"]</button>
                         </li>
                         <li class="nav-item">
-                            <button class="nav-link @(ConfigActiveTab == "appearance" ? "active" : "")" @onclick='() => ConfigActiveTab = "appearance"'>Appearance</button>
+                            <button class="nav-link @(ConfigActiveTab == "appearance" ? "active" : "")" @onclick='() => ConfigActiveTab = "appearance"'>@L["WidgetCfg_Appearance"]</button>
                         </li>
                         @if (IsQueueGridWidget(ConfiguringWidget) || IsAgentGridWidget(ConfiguringWidget))
                         {
                             <li class="nav-item">
-                                <button class="nav-link @(ConfigActiveTab == "thresholds" ? "active" : "")" @onclick='() => ConfigActiveTab = "thresholds"'>Thresholds</button>
+                                <button class="nav-link @(ConfigActiveTab == "thresholds" ? "active" : "")" @onclick='() => ConfigActiveTab = "thresholds"'>@L["WidgetCfg_Thresholds"]</button>
                             </li>
                         }
                         @if (IsAgentGridWidget(ConfiguringWidget))
                         {
                             <li class="nav-item">
-                                <button class="nav-link @(ConfigActiveTab == "filters" ? "active" : "")" @onclick='() => ConfigActiveTab = "filters"'>Filters</button>
+                                <button class="nav-link @(ConfigActiveTab == "filters" ? "active" : "")" @onclick='() => ConfigActiveTab = "filters"'>@L["WidgetCfg_Filters"]</button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link @(ConfigActiveTab == "columns" ? "active" : "")" @onclick='() => ConfigActiveTab = "columns"'>Columns</button>
+                                <button class="nav-link @(ConfigActiveTab == "columns" ? "active" : "")" @onclick='() => ConfigActiveTab = "columns"'>@L["WidgetCfg_Columns"]</button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link @(ConfigActiveTab == "score" ? "active" : "")" @onclick='() => ConfigActiveTab = "score"'>Score</button>
+                                <button class="nav-link @(ConfigActiveTab == "score" ? "active" : "")" @onclick='() => ConfigActiveTab = "score"'>@L["WidgetCfg_Score"]</button>
                             </li>
                         }
                         @if (IsQueueGridWidget(ConfiguringWidget))
                         {
                             <li class="nav-item">
-                                <button class="nav-link @(ConfigActiveTab == "rows" ? "active" : "")" @onclick='() => ConfigActiveTab = "rows"'>Rows</button>
+                                <button class="nav-link @(ConfigActiveTab == "rows" ? "active" : "")" @onclick='() => ConfigActiveTab = "rows"'>@L["WidgetCfg_Rows"]</button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link @(ConfigActiveTab == "queuecolumns" ? "active" : "")" @onclick='() => ConfigActiveTab = "queuecolumns"'>Columns</button>
+                                <button class="nav-link @(ConfigActiveTab == "queuecolumns" ? "active" : "")" @onclick='() => ConfigActiveTab = "queuecolumns"'>@L["WidgetCfg_Columns"]</button>
                             </li>
                         }
                         @if (IsDayTrendWidget(ConfiguringWidget))
                         {
                             <li class="nav-item">
-                                <button class="nav-link @(ConfigActiveTab == "callmetrics" ? "active" : "")" @onclick='() => ConfigActiveTab = "callmetrics"'>Call Metrics</button>
+                                <button class="nav-link @(ConfigActiveTab == "callmetrics" ? "active" : "")" @onclick='() => ConfigActiveTab = "callmetrics"'>@L["WidgetCfg_CallMetrics"]</button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link @(ConfigActiveTab == "agentmetrics" ? "active" : "")" @onclick='() => ConfigActiveTab = "agentmetrics"'>Agent Metrics</button>
+                                <button class="nav-link @(ConfigActiveTab == "agentmetrics" ? "active" : "")" @onclick='() => ConfigActiveTab = "agentmetrics"'>@L["WidgetCfg_AgentMetrics"]</button>
                             </li>
                         }
                     </ul>
@@ -309,11 +309,11 @@
                     {
                         <div class="row mb-3">
                             <div class="col-6">
-                                <label class="form-label small text-muted">Widget ID</label>
+                                <label class="form-label small text-muted">@L["WidgetCfg_WidgetId"]</label>
                                 <input type="text" class="form-control form-control-sm font-monospace" value="@ConfiguringWidget?.Id" readonly />
                             </div>
                             <div class="col-6">
-                                <label class="form-label small text-muted">Grid ID</label>
+                                <label class="form-label small text-muted">@L["WidgetCfg_GridId"]</label>
                                 <input type="text" class="form-control form-control-sm font-monospace" value="@ConfiguringWidget?.GridId" readonly />
                             </div>
                         </div>
@@ -388,7 +388,7 @@
                                         @onclick="OpenDataSlotMetricWizard">
                                     @if (!string.IsNullOrEmpty(ConfigDataSlotMetricId))
                                     {
-                                        @GetMetricDescription(ConfigDataSlotMetricId)
+                                        @GetMetricDisplayName(ConfigDataSlotMetricId)
                                     }
                                     else
                                     {
@@ -532,7 +532,7 @@
 
                         <!-- Typography Section -->
                         <div class="appearance-section mb-4">
-                            <h6 class="section-label">Typography</h6>
+                            <h6 class="section-label">@L["WidgetCfg_Typography"]</h6>
                             <div class="row align-items-end">
                                 <div class="col-md-6">
                                     <label class="form-label small text-muted mb-1">@L["Widgets_TableFontSize"]</label>
@@ -733,18 +733,18 @@
 
                         <!-- Colors Section -->
                         <div class="appearance-section">
-                            <h6 class="section-label">Colors</h6>
+                            <h6 class="section-label">@L["WidgetCfg_Colors"]</h6>
                             <div class="color-settings-dual">
                                 <!-- Header row -->
                                 <div class="color-dual-header">
                                     <span class="color-setting-label"></span>
-                                    <span class="color-mode-label">Light Mode</span>
-                                    <span class="color-mode-label">Dark Mode</span>
+                                    <span class="color-mode-label">@L["WidgetCfg_LightMode"]</span>
+                                    <span class="color-mode-label">@L["WidgetCfg_DarkMode"]</span>
                                 </div>
 
                                 <!-- Widget Background -->
                                 <div class="color-setting-row-dual">
-                                    <span class="color-setting-label">Widget Background</span>
+                                    <span class="color-setting-label">@L["WidgetCfg_WidgetBackground"]</span>
                                     <div class="position-relative">
                                         <span class="clr-swatch clr-swatch-lg"
                                               title="@GetColorName(ConfigBackgroundColor, BackgroundColors)"
@@ -793,7 +793,7 @@
 
                                 <!-- Text Color -->
                                 <div class="color-setting-row-dual">
-                                    <span class="color-setting-label">Text Color</span>
+                                    <span class="color-setting-label">@L["WidgetCfg_TextColor"]</span>
                                     <div class="position-relative">
                                         <span class="clr-swatch clr-swatch-lg"
                                               title="@GetColorName(ConfigFontColor, FontColors)"
@@ -965,7 +965,7 @@
                                 {
                                 <!-- Header Text Color -->
                                 <div class="color-setting-row-dual">
-                                    <span class="color-setting-label">Header Text</span>
+                                    <span class="color-setting-label">@L["WidgetCfg_HeaderText"]</span>
                                     <div class="position-relative">
                                         <span class="clr-swatch clr-swatch-lg"
                                               title="@GetColorName(ConfigHeaderFontColor, HeaderFontColors)"
@@ -1017,7 +1017,7 @@
                                 {
                                     <!-- Table Background -->
                                     <div class="color-setting-row-dual">
-                                        <span class="color-setting-label">Table Background</span>
+                                        <span class="color-setting-label">@L["WidgetCfg_TableBackground"]</span>
                                         <div class="position-relative">
                                             <span class="clr-swatch clr-swatch-lg"
                                                   title="@GetColorName(ConfigTableBackgroundColor, TableBackgroundColors)"
@@ -1091,8 +1091,8 @@
                                 <h6 class="section-label">@L["Widget_ASD_SegmentColors"]</h6>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-4"></div>
-                                    <div class="col-4 text-center small text-muted fw-semibold">Light</div>
-                                    <div class="col-4 text-center small text-muted fw-semibold">Dark</div>
+                                    <div class="col-4 text-center small text-muted fw-semibold">@L["WidgetCfg_Light"]</div>
+                                    <div class="col-4 text-center small text-muted fw-semibold">@L["WidgetCfg_Dark"]</div>
                                 </div>
                                 @if (ConfigAsdDistributionMode == "group")
                                 {
@@ -1139,7 +1139,7 @@
                         {
                             <!-- Display Options Section -->
                             <div class="appearance-section mt-4">
-                                <h6 class="section-label">Display Options</h6>
+                                <h6 class="section-label">@L["WidgetCfg_DisplayOptions"]</h6>
 
                                 @if (IsAgentGridWidget(ConfiguringWidget))
                                 {
@@ -1223,7 +1223,7 @@
                     {
                         <!-- Per-column thresholds for Agent Grid / Queue Grid -->
                         <div class="mb-3">
-                            <label class="form-label">Column</label>
+                            <label class="form-label">@L["WidgetCfg_Column"]</label>
                             <select class="form-select form-select-sm" @bind="SelectedThresholdColumn">
                                 <option value="">-- Select column --</option>
                                 @if (IsAgentGridWidget(ConfiguringWidget))
@@ -1561,8 +1561,8 @@
                                 <!-- Table header -->
                                 <div class="columns-table-header row g-2 mb-1 px-2 py-1 bg-light rounded-top small text-muted fw-medium">
                                     <div class="col-auto" style="width: 40px;"></div>
-                                    <div class="col">Name</div>
-                                    <div class="col">Metric</div>
+                                    <div class="col">@L["WidgetCfg_Name"]</div>
+                                    <div class="col">@L["WidgetCfg_Metric"]</div>
                                     <div class="col-auto" style="width: 40px;"></div>
                                 </div>
 
@@ -1603,7 +1603,7 @@
                                                         @onclick="() => OpenAgentMetricWizard(colId)">
                                                     @if (!string.IsNullOrEmpty(col.MetricId))
                                                     {
-                                                        @GetMetricDescription(col.MetricId)
+                                                        @GetMetricDisplayName(col.MetricId)
                                                     }
                                                     else
                                                     {
@@ -1951,8 +1951,8 @@
                             {
                                 <div class="row row-header mb-1 small text-muted fw-medium">
                                     <div class="col-auto" style="width: 50px;"></div>
-                                    <div class="col">Name</div>
-                                    <div class="col">Metric</div>
+                                    <div class="col">@L["WidgetCfg_Name"]</div>
+                                    <div class="col">@L["WidgetCfg_Metric"]</div>
                                     <div class="col-auto" style="width: 40px;"></div>
                                 </div>
 
@@ -1992,7 +1992,7 @@
                                                         @onclick="() => OpenQueueMetricWizard(colId)">
                                                     @if (!string.IsNullOrEmpty(col.MetricId))
                                                     {
-                                                        @GetMetricDescription(col.MetricId)
+                                                        @GetMetricDisplayName(col.MetricId)
                                                     }
                                                     else
                                                     {
@@ -2135,7 +2135,7 @@
 <!-- Widget Delete Confirmation Modal -->
 @if (WidgetToDelete is not null)
 {
-    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="delete-widget-title">
+    <div class="editor-modal @(_darkMode ? "dark-mode" : "")" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="delete-widget-title">
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
@@ -2166,7 +2166,7 @@
 <!-- Save As Template Modal -->
 @if (WidgetToSaveAsTemplate is not null)
 {
-    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="save-template-title">
+    <div class="editor-modal @(_darkMode ? "dark-mode" : "")" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="save-template-title">
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
@@ -2202,7 +2202,7 @@
 <!-- Delete Template Confirmation Modal -->
 @if (TemplateToDelete is not null)
 {
-    <div class="editor-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
+    <div class="editor-modal @(_darkMode ? "dark-mode" : "")" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">

@@ -798,5 +798,83 @@
   <data name="MetricWizard_Related"><value>Связанные поля / Чем отличается</value></data>
   <data name="MetricWizard_Defect"><value>Метрика требует проверки - используйте с осторожностью</value></data>
   <data name="MetricWizard_SelectMetric"><value>Выберите метрику для просмотра деталей</value></data>
+  <data name="WidgetCfg_General" xml:space="preserve">
+    <value>Общие</value>
+  </data>
+  <data name="WidgetCfg_Appearance" xml:space="preserve">
+    <value>Внешний вид</value>
+  </data>
+  <data name="WidgetCfg_Thresholds" xml:space="preserve">
+    <value>Пороговые значения</value>
+  </data>
+  <data name="WidgetCfg_Filters" xml:space="preserve">
+    <value>Фильтры</value>
+  </data>
+  <data name="WidgetCfg_Columns" xml:space="preserve">
+    <value>Столбцы</value>
+  </data>
+  <data name="WidgetCfg_Score" xml:space="preserve">
+    <value>Оценка</value>
+  </data>
+  <data name="WidgetCfg_Rows" xml:space="preserve">
+    <value>Строки</value>
+  </data>
+  <data name="WidgetCfg_CallMetrics" xml:space="preserve">
+    <value>Метрики вызовов</value>
+  </data>
+  <data name="WidgetCfg_AgentMetrics" xml:space="preserve">
+    <value>Метрики агентов</value>
+  </data>
+  <data name="WidgetCfg_WidgetId" xml:space="preserve">
+    <value>ID виджета</value>
+  </data>
+  <data name="WidgetCfg_GridId" xml:space="preserve">
+    <value>ID сетки</value>
+  </data>
+  <data name="WidgetCfg_LightMode" xml:space="preserve">
+    <value>Светлый режим</value>
+  </data>
+  <data name="WidgetCfg_DarkMode" xml:space="preserve">
+    <value>Темный режим</value>
+  </data>
+  <data name="WidgetCfg_WidgetBackground" xml:space="preserve">
+    <value>Фон виджета</value>
+  </data>
+  <data name="WidgetCfg_TextColor" xml:space="preserve">
+    <value>Цвет текста</value>
+  </data>
+  <data name="WidgetCfg_HeaderText" xml:space="preserve">
+    <value>Текст заголовка</value>
+  </data>
+  <data name="WidgetCfg_TableBackground" xml:space="preserve">
+    <value>Фон таблицы</value>
+  </data>
+  <data name="WidgetCfg_Light" xml:space="preserve">
+    <value>Светлый</value>
+  </data>
+  <data name="WidgetCfg_Dark" xml:space="preserve">
+    <value>Темный</value>
+  </data>
+  <data name="WidgetCfg_Column" xml:space="preserve">
+    <value>Столбец</value>
+  </data>
+  <data name="WidgetCfg_Name" xml:space="preserve">
+    <value>Имя</value>
+  </data>
+  <data name="WidgetCfg_Metric" xml:space="preserve">
+    <value>Метрика</value>
+  </data>
+  <data name="WidgetCfg_Typography" xml:space="preserve">
+    <value>Типография</value>
+  </data>
+  <data name="WidgetCfg_Colors" xml:space="preserve">
+    <value>Цвета</value>
+  </data>
+  <data name="WidgetCfg_DisplayOptions" xml:space="preserve">
+    <value>Параметры отображения</value>
+  </data>
+  <data name="WidgetCfg_Templates" xml:space="preserve">
+    <value>Шаблоны</value>
+  </data>
 </root>
 
