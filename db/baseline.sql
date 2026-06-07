@@ -246,7 +246,7 @@ MonAgentState	Agent - Current Satatus	User	CurStatusTitle		\N	\N	text	Agent
 MonAgentExtension	Agent - Extension ID	User	UserExtension		\N	\N	text	Agent
 MonAgentStateDesc	Agent - Current Status Group	User	CurStatusGroup		\N	\N	text	Agent
 MonAgentFirstLoginTimeStamp	Agent - First Login Time Stamp	User	FirstLoginTimestamp		\N	\N	text	Agent
-MonAgentCurrentLoginTimeStamp	Agent - Current Login Time Stamp	User	CurLoginTimeStamp		\N	\N	text	Agent
+MonAgentCurrentLoginTimeStamp	Agent - Current Login Time Stamp	User	CurLoginTimestamp		\N	\N	text	Agent
 QueueLoginDataNumUnavailableUsers	Agent Group - Number of Agents in Unavailable State Group	UsersSummary	UsersInStatusGroupCount	UNAVAILABLE	\N	0	number	Data
 MonAgentUnavailableDuration	Agent - Cumulative Unavailable Group Duration	User	TotalStatusGroupDuration	UNAVAILABLE	\N	\N	time	Agent
 MonAgentUnavailableDurationPct	Agent - Cumulative Unavailable Duration Percent	User	TotalStatusGroupPercent	UNAVAILABLE	\N	\N	number	Agent
