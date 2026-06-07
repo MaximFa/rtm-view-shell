@@ -250,7 +250,7 @@ if ($SkipBinaries) {
 
     # Phase 3b — deploy new binaries (preserving configs)
     $shellPreserve = @("appsettings.Production.json", "web.config", "nlog.config")
-    $rtmPreserve   = @("data.sys", "appsettings.json")
+    $rtmPreserve   = @("data.sys", "appsettings.json", "log4net.config", "app.dat")
 
     if ($ShellPublish -and (Test-Path $ShellPublish)) {
         Log "Deploying Shell from: $ShellPublish"
