@@ -1315,7 +1315,7 @@
     {
       "metricId": "MonAgentCurrentLoginTimeStamp",
       "originalDescription": "Agent - Current Login Time Stamp",
-      "metricFunction": "CurLoginTimeStamp",
+      "metricFunction": "CurLoginTimestamp",
       "metricParameter": null,
       "metricFormat": null,
       "valueType": "text",
@@ -1331,8 +1331,8 @@
       "comparison": null,
       "standardKpi": null,
       "standardRef": null,
-      "status": "defect-candidate",
-      "notes": "CONFIRMED dead (engine inventory 2026-06-05): MetricFunction 'CurLoginTimeStamp' has no case in UserManager.cs (engine label 'CurLoginTimestamp', case-sensitive switch). Fix: UPDATE MetricFunction to 'CurLoginTimestamp'.",
+      "status": "active",
+      "notes": "RESOLVED 2026-06-07: MetricFunction corrected to CurLoginTimestamp (matches engine UserManager.cs).",
       "similarMetrics": [
         "AgentLoginName",
         "MonActiveCampaign",
