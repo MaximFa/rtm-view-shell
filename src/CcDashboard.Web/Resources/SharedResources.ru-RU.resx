@@ -879,5 +879,8 @@
   <data name="Widget_DayTrend_ChartType" xml:space="preserve">
     <value>Тип графика (Chart type)</value>
   </data>
+  <data name="Metrics_Translations"><value>Переводы</value></data>
+  <data name="Metrics_TranslationRef"><value>(Оригинал — только для чтения)</value></data>
+  <data name="Common_Clear"><value>Очистить</value></data>
 </root>
 

@@ -938,5 +938,8 @@
   <data name="WidgetCfg_Templates" xml:space="preserve">
     <value>Templates</value>
   </data>
+  <data name="Metrics_Translations"><value>Translations</value></data>
+  <data name="Metrics_TranslationRef"><value>(Reference - read only)</value></data>
+  <data name="Common_Clear"><value>Clear</value></data>
 </root>
 

@@ -779,5 +779,8 @@
   <data name="Widget_DayTrend_ChartType" xml:space="preserve">
     <value>סוג תרשים (Chart type)</value>
   </data>
+  <data name="Metrics_Translations"><value>תרגומים</value></data>
+  <data name="Metrics_TranslationRef"><value>(מקור - לקריאה בלבד)</value></data>
+  <data name="Common_Clear"><value>נקה</value></data>
 </root>
 
