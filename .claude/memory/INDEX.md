@@ -9,3 +9,4 @@
 - [infra-local-env](infra_local_env.md) — PostgreSQL 18, pg_dump path, pgpass, Redis, dev URL (2026-05-27)
 - [rtm-relay-implementation](rtm-relay-implementation.md) — CC-003: IRtmRelayService Singleton, RTM Hub protocol gotchas, widget integration pattern (2026-05-31)
 - [session-prod-checks-2026-06-03](session_prod_checks_2026_06_03.md) — Прод-тестирование 2026-06-03: статус виджетов, баги, открытые задачи
+- [terminology](terminology.md) — Pablo's shorthand: СС = Claude Code, Shell = CcDashboard.Web (2026-06-08)
