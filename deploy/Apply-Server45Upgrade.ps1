@@ -1,14 +1,21 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Server45 (PG17) UPGRADE orchestrator: probe -> stop -> backup -> migs -> functions -> start -> verify.
+    SERVER UPGRADE ORCHESTRATOR — PG18-ready. Auto-detects PostgreSQL version.
     RTM-DEPLOY-001: fn_daytrendagentstatus signature change requires coordinated DB+binaries upgrade.
 
 .DESCRIPTION
-    Run from the extracted upgrade bundle (server45_upgrade_bundle.zip).
+    Run from the extracted upgrade bundle (server45_upgrade_bundle.zip or similar).
     Phase 0 (pre-flight probe) is the go/no-go gate — READ-ONLY, runs BEFORE anything stops.
     If ANY required object is missing (except db_patch_history), script exits immediately.
     Binaries come from the tested Windows Build-ProdRelease path (§35), not inline cross-publish.
+
+    PG18-ready: auto-detects server version; for Server 234 pass the to-apply set from
+    Compare-ToBaseline as -MigrationList. The built-in default-6 (which includes _008) is safe
+    — _008 is idempotent when already applied.
+
+    For SERVER 234 specifically, pass the explicit 5-set (omits _008, already applied):
+    -MigrationList "20260604_001_add_agent_state_pct_metrics.sql,20260605_004_metrics_dedup.sql,20260606_005_history_unavailable_metrics.sql,20260607_002_db_patch_history.sql,20260607_003_fix_curlogintimestamp.sql"
 
 .PARAMETER AppPassword
     Password for ccdashboard_user (migrations run as superuser, but probe runs as app user).
@@ -22,6 +29,14 @@
     If set, skip Phase 3 binary deployment (operator deploys separately via Update-RTMView.ps1).
 .PARAMETER InlinePublish
     [OPT-IN ONLY] Fallback: dotnet publish locally. NOT the release path; use only if instructed.
+.PARAMETER PgVersion
+    PostgreSQL version to prefer (e.g., "18"). Empty = auto-detect (tries 18,17,16,15 in order).
+.PARAMETER MigrationList
+    Comma-separated list of migration file names to apply, in order. Empty = built-in default set.
+.PARAMETER AutoRollback
+    On Phase 4/5 failure: automatically run rollback (DB + binaries) before throwing.
+.PARAMETER NoResume
+    Force re-backup of binaries even if a prior run marker exists (disables clean-resume).
 
 .EXAMPLE
     .\Apply-Server45Upgrade.ps1 -AppPassword "pw" -SuperPassword "spw" -ShellPublish "C:\Build\Shell" -RtmPublish "C:\Build\RTM"
@@ -45,7 +60,11 @@ param(
     [string]$ShellPublish   = "",
     [string]$RtmPublish     = "",
     [switch]$SkipBinaries,
-    [switch]$InlinePublish
+    [switch]$InlinePublish,
+    [string]$PgVersion      = "",        # "" = auto-detect (18,17,16,15). Set "18" to force.
+    [string]$MigrationList  = "",        # "" = built-in default set. Else comma-separated file names.
+    [switch]$AutoRollback,               # on phase 4/5 failure: auto-run rollback before throwing
+    [switch]$NoResume                    # force re-backup of binaries even if prior run marker exists
 )
 
 $ErrorActionPreference = "Stop"
@@ -61,7 +80,8 @@ $BinaryBackupDir = $null  # set in Phase 3a
 function Find-PGTool([string]$Name) {
     $cmd = Get-Command $Name -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
-    foreach ($ver in @("18","17","16","15")) {
+    $vers = if ($PgVersion) { @($PgVersion) + @("18","17","16","15") | Select-Object -Unique } else { @("18","17","16","15") }
+    foreach ($ver in $vers) {
         foreach ($base in @("C:\Program Files\PostgreSQL","C:\Program Files (x86)\PostgreSQL")) {
             $p = Join-Path $base "$ver\bin\$Name.exe"
             if (Test-Path $p) { return $p }
@@ -89,6 +109,32 @@ function Ledger([string]$script, [string]$result) {
     Add-Content -Path $LedgerFile -Value $line -Encoding UTF8
 }
 
+function Invoke-Rollback([string]$reason) {
+    Log ""; Log "!!! AUTO-ROLLBACK TRIGGERED: $reason"
+    try {
+        Stop-Service $RTMSvcName   -Force -ErrorAction SilentlyContinue
+        Stop-Service $ShellSvcName -Force -ErrorAction SilentlyContinue
+        foreach ($pool in $AppPools) { Stop-WebAppPool -Name $pool -ErrorAction SilentlyContinue }
+        if (Test-Path $backupFile) {
+            Log "Restoring DB from $backupFile ..."
+            $env:PGPASSWORD = $SuperPassword
+            & $psql -h $DBHost -p $DBPort -U $SuperUser -d "postgres" -c "DROP DATABASE IF EXISTS `"$Database`" WITH (FORCE);" 2>&1 | ForEach-Object { Log "  $_" }
+            & $psql -h $DBHost -p $DBPort -U $SuperUser -d "postgres" -c "CREATE DATABASE `"$Database`";" 2>&1 | ForEach-Object { Log "  $_" }
+            & (Find-PGTool "pg_restore") -h $DBHost -p $DBPort -U $SuperUser -d $Database $backupFile 2>&1 | ForEach-Object { Log "  $_" }
+            $env:PGPASSWORD = $null
+        }
+        if ($BinaryBackupDir -and (Test-Path $BinaryBackupDir)) {
+            if (Test-Path (Join-Path $BinaryBackupDir "Shell")) { Copy-Item (Join-Path $BinaryBackupDir "Shell\*") $shellDir -Recurse -Force }
+            if (Test-Path (Join-Path $BinaryBackupDir "RTM"))   { Copy-Item (Join-Path $BinaryBackupDir "RTM\*")   $rtmDir   -Recurse -Force }
+            Log "Restored binaries from $BinaryBackupDir"
+        }
+        foreach ($pool in $AppPools) { Start-WebAppPool -Name $pool -ErrorAction SilentlyContinue }
+        if ($shellSvc) { Start-Service $ShellSvcName -ErrorAction SilentlyContinue }
+        if ($rtmSvc)   { Start-Service $RTMSvcName   -ErrorAction SilentlyContinue }
+        Log "AUTO-ROLLBACK complete — services restarted on previous release."
+    } catch { Log "[ROLLBACK ERROR] $($_.Exception.Message) — MANUAL recovery required (see Phase 8)." }
+}
+
 # ── Setup ─────────────────────────────────────────────────────────────────────
 if (-not $AppPassword) { throw "AppPassword is required (for pre-flight probe as $AppUser)." }
 if (-not $SuperPassword) { throw "SuperPassword is required (for DDL migrations as $SuperUser)." }
@@ -102,11 +148,22 @@ $pgdump = Find-PGTool "pg_dump"
 if (-not $psql)   { throw "psql not found. Install PostgreSQL client tools." }
 if (-not $pgdump) { throw "pg_dump not found. Install PostgreSQL client tools." }
 
+# Detect actual PostgreSQL server version
+$env:PGPASSWORD = $AppPassword
+$pgVerActual = (& $psql -h $DBHost -p $DBPort -U $AppUser -d $Database -t -A -c "SHOW server_version;" 2>$null)
+$env:PGPASSWORD = $null
+if (-not $pgVerActual) { $pgVerActual = "unknown" }
+
+# Script-scope paths for Invoke-Rollback (Change 5b — hoist to script scope)
+$shellDir = Join-Path $InstallRoot "Shell"
+$rtmDir   = Join-Path $InstallRoot "RTM"
+
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║      SERVER45 (PG17) UPGRADE ORCHESTRATOR — RTM-DEPLOY-001           ║" -ForegroundColor Cyan
+Write-Host "║      SERVER UPGRADE ORCHESTRATOR (PG $pgVerActual) — RTM-DEPLOY-001            ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
+Log "PostgreSQL server version: $pgVerActual"
 Log "Upgrade started: $Timestamp"
 Log "Target: $AppUser@${DBHost}:${DBPort}/$Database"
 Log "Ops root: $OpsRoot"
@@ -231,25 +288,29 @@ if ($SkipBinaries) {
     # Inline publish would go here but is intentionally not implemented as default
     throw "InlinePublish not implemented. Use Build-ProdRelease.ps1 and -ShellPublish/-RtmPublish."
 } else {
-    # Phase 3a — backup current binaries
+    # Phase 3a — backup current binaries (resume-safe)
     $BinaryBackupDir = Join-Path $OpsRoot "backup\binaries_$Timestamp"
-    New-Item -ItemType Directory -Path $BinaryBackupDir -Force | Out-Null
-
-    $shellDir = Join-Path $InstallRoot "Shell"
-    $rtmDir   = Join-Path $InstallRoot "RTM"
-
-    if (Test-Path $shellDir) {
-        Log "Backing up Shell binaries..."
-        Copy-Item -Path $shellDir -Destination (Join-Path $BinaryBackupDir "Shell") -Recurse -Force
+    $resumeMarker = Join-Path $OpsRoot "applied\.binaries_deployed_marker"
+    if ((Test-Path $resumeMarker) -and (-not $NoResume)) {
+        $prior = Get-Content $resumeMarker -Raw
+        Log "[RESUME] Binary-deploy marker found ($prior). Skipping re-backup to preserve original rollback point."
+        Log "[RESUME] (use -NoResume to force a fresh backup)"
+    } else {
+        New-Item -ItemType Directory -Path $BinaryBackupDir -Force | Out-Null
+        if (Test-Path $shellDir) {
+            Log "Backing up Shell binaries..."
+            Copy-Item -Path $shellDir -Destination (Join-Path $BinaryBackupDir "Shell") -Recurse -Force
+        }
+        if (Test-Path $rtmDir) {
+            Log "Backing up RTM binaries..."
+            Copy-Item -Path $rtmDir -Destination (Join-Path $BinaryBackupDir "RTM") -Recurse -Force
+        }
+        Log "Binary backup: $BinaryBackupDir"
     }
-    if (Test-Path $rtmDir) {
-        Log "Backing up RTM binaries..."
-        Copy-Item -Path $rtmDir -Destination (Join-Path $BinaryBackupDir "RTM") -Recurse -Force
-    }
-    Log "Binary backup: $BinaryBackupDir"
 
     # Phase 3b — deploy new binaries (preserving configs)
-    $shellPreserve = @("appsettings.Production.json", "web.config", "nlog.config")
+    # hole#1 fix: appsettings.json MUST be preserved (clobbering it breaks Shell startup)
+    $shellPreserve = @("appsettings.json", "appsettings.Production.json", "web.config", "nlog.config")
     $rtmPreserve   = @("data.sys", "appsettings.json", "log4net.config", "app.dat")
 
     if ($ShellPublish -and (Test-Path $ShellPublish)) {
@@ -266,6 +327,12 @@ if ($SkipBinaries) {
             Log "  Preserved: $($kv.Key)"
         }
         Log "  Shell deployed."
+        # hole#1 assertion: verify appsettings.json was preserved
+        $shellAppCfg = Join-Path $shellDir "appsettings.json"
+        if (-not (Test-Path $shellAppCfg) -or (Get-Item $shellAppCfg).Length -lt 10) {
+            throw "Shell appsettings.json missing/empty after deploy (hole#1). Restore from $BinaryBackupDir before starting Shell."
+        }
+        Log "  Verified Shell appsettings.json present ($((Get-Item $shellAppCfg).Length) bytes)."
     } elseif ($ShellPublish) {
         Log "[WARN] ShellPublish path not found: $ShellPublish"
     } else {
@@ -291,6 +358,8 @@ if ($SkipBinaries) {
     } else {
         Log "[WARN] RtmPublish not specified — RTM binaries not deployed."
     }
+    # Write resume marker after successful binary deploy
+    Set-Content $resumeMarker "$Timestamp | Shell+RTM deployed" -Encoding UTF8
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -298,14 +367,20 @@ if ($SkipBinaries) {
 # ══════════════════════════════════════════════════════════════════════════════
 Banner "4" "APPLY MIGRATIONS"
 
-$migrations = @(
-    "20260604_001_add_agent_state_pct_metrics.sql",
-    "20260605_004_metrics_dedup.sql",
-    "20260606_005_history_unavailable_metrics.sql",
-    "20260606_008_daytrend_fn_bu_scope.sql",
-    "20260607_002_db_patch_history.sql",
-    "20260607_003_fix_curlogintimestamp.sql"
-)
+if ($MigrationList) {
+    $migrations = $MigrationList.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+    Log "Using operator-supplied migration list ($($migrations.Count) entries)."
+} else {
+    $migrations = @(
+        "20260604_001_add_agent_state_pct_metrics.sql",
+        "20260605_004_metrics_dedup.sql",
+        "20260606_005_history_unavailable_metrics.sql",
+        "20260606_008_daytrend_fn_bu_scope.sql",
+        "20260607_002_db_patch_history.sql",
+        "20260607_003_fix_curlogintimestamp.sql"
+    )
+    Log "Using built-in default migration list ($($migrations.Count) entries)."
+}
 
 $migrationsDir = Join-Path $ScriptDir "migrations"
 $env:PGPASSWORD = $SuperPassword
@@ -325,9 +400,10 @@ foreach ($mig in $migrations) {
     $output | ForEach-Object { Log "  $_" }
 
     if ($exitCode -ne 0) {
-        Log "[ERROR] Migration failed: $mig (exit code $exitCode)"
         Ledger $mig "FAIL"
-        throw "Migration $mig failed. ROLLBACK REQUIRED — see Phase 8."
+        Log "[ERROR] Migration failed: $mig (exit code $exitCode)"
+        if ($AutoRollback) { Invoke-Rollback "migration $mig failed" }
+        throw "Migration $mig failed. $(if(-not $AutoRollback){'ROLLBACK REQUIRED — see Phase 8.'})"
     }
 
     Ledger $mig "OK"
@@ -335,7 +411,7 @@ foreach ($mig in $migrations) {
 }
 
 $env:PGPASSWORD = $null
-Log "All 6 migrations applied successfully."
+Log "All $($migrations.Count) migrations applied successfully."
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE 5 — RE-APPLY FUNCTIONS (as superuser)
@@ -367,9 +443,10 @@ foreach ($fn in $functions) {
     $output | ForEach-Object { Log "  $_" }
 
     if ($exitCode -ne 0) {
-        Log "[ERROR] Function apply failed: $fn (exit code $exitCode)"
         Ledger $fn "FAIL"
-        throw "Function $fn failed. ROLLBACK REQUIRED — see Phase 8."
+        Log "[ERROR] Function apply failed: $fn (exit code $exitCode)"
+        if ($AutoRollback) { Invoke-Rollback "function $fn failed" }
+        throw "Function $fn failed. $(if(-not $AutoRollback){'ROLLBACK REQUIRED — see Phase 8.'})"
     }
 
     Ledger $fn "OK"
