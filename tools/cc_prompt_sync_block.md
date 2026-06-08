@@ -13,9 +13,11 @@ Claims for this task: `<claims>`   (modules and/or explicit file list)
 ### S1. Push barrier check — before ANY work
 
 ```bash
-# Content-based check (NOT -f): the mount can keep a phantom dirent that fails
-# `-f` true but has no content — `-f` alone would falsely block all tasks (L-SC-10).
-if [ -s ".coord/push/request.md" ] && cat ".coord/push/request.md" >/dev/null 2>&1; then
+# Marker-based check (L-SC-10 + tombstone-safe): block ONLY if request.md content
+# contains "FREEZE ACTIVE". A phantom dirent (cat fails -> empty) and a CLEARED
+# tombstone (content has "FREEZE LIFTED", not "FREEZE ACTIVE") both correctly DO NOT block.
+# Never use `[ -f ]`/`[ -s ]` alone — the mount keeps stale dirents after Windows unlink (L-SC-10).
+if cat ".coord/push/request.md" 2>/dev/null | grep -q "FREEZE ACTIVE"; then
     echo "PUSH BARRIER ACTIVE:"; cat .coord/push/request.md
     echo "STOP — do not start this task. Report to operator."
     exit 1
