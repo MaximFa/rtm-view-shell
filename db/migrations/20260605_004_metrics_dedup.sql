@@ -8,17 +8,14 @@
 -- 1) Re-point grid references to canonical / working metrics
 -- ============================================================
 UPDATE "RTSGrid_Cell"   SET "Value"    = 'QueueNumAnsweredCallbacks'    WHERE "Value"    = 'QueueNumAcceptedCallbacks';
-UPDATE "RTSGrid_Column" SET "MetricId" = 'QueueNumAnsweredCallbacks'    WHERE "MetricId" = 'QueueNumAcceptedCallbacks';
+-- (removed 4 invalid UPDATE RTSGrid_Column SET MetricId — RTSGrid_Column has no MetricId; ref is RTSGrid_Cell.Value)
 
 UPDATE "RTSGrid_Cell"   SET "Value"    = 'UsersSumOnCall'               WHERE "Value"    = 'QueueNumOnCallAgents';
-UPDATE "RTSGrid_Column" SET "MetricId" = 'UsersSumOnCall'               WHERE "MetricId" = 'QueueNumOnCallAgents';
 
 UPDATE "RTSGrid_Cell"   SET "Value"    = 'QueueLoginDataNumLoggedUsers' WHERE "Value"    = 'QueueNumberOfLoggedAgents';
-UPDATE "RTSGrid_Column" SET "MetricId" = 'QueueLoginDataNumLoggedUsers' WHERE "MetricId" = 'QueueNumberOfLoggedAgents';
 
 -- broken rolling-window Calc -> nearest working equivalent (whole-day 60-sec Service Level)
 UPDATE "RTSGrid_Cell"   SET "Value"    = 'QueuePctAnsweredCalls60secInc' WHERE "Value"    = 'QueuePctAnsweredCalls60secIncLast30min';
-UPDATE "RTSGrid_Column" SET "MetricId" = 'QueuePctAnsweredCalls60secInc' WHERE "MetricId" = 'QueuePctAnsweredCalls60secIncLast30min';
 
 -- ============================================================
 -- 2) Delete duplicates + structurally broken Calc metric
