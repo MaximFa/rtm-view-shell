@@ -294,3 +294,30 @@ coordinator's chat and is LOST if not written down before it dies.
 | L-SC-06 | Peer-review every CC prompt against §4 — first foreign prompt missed S1, retry, fsync-journal and §0.6 |
 | L-SC-07 | Stray undeletable files exist on the mount (`.sync`, root junk) — name around them, ask operator to clean manually |
 | L-SC-08 | Claude Code Tasks API is a different layer (work items, `~/.claude/tasks/` invisible to Cowork VMs); `.coord/` covers the git-resource layer. See `docs/Multi-Session_Coordination_TasksAPI_vs_Coord.docx` |
+
+## 13. Two-Cowork layer — cross-coordinator coordination (summary)
+
+Full spec: docs/Two-Cowork-Coordination.md (RU: .ru.md) + CLAUDE.md §44.
+Applies when TWO Cowork instances run, each its own clone/branch + coordinator. Intra-Cowork §42 unchanged.
+
+- Topology: Cowork-A "Backend" (v2-backend: RTM/Metrics/DBA/Devops), Cowork-B "Frontend"
+  (v2-frontend: Shell/UX-UI/Widget/QA). Trunk v2. Release captain = A.
+- Cross-channel = git orphan branch `coord`, files under `.coord/cross/`
+  (ownership.md, inbox-coord-A.md, inbox-coord-B.md, ledger.md, barrier.md).
+
+**L-SC-20 (read=VM / write=native):** a Cowork coordinator's VM can READ coord via
+`git fetch origin coord` + `git show origin/coord:<file>`, but CANNOT push from the mount
+(git-write corrupts the index, L-SC-02 class — observed 2026-06-08). Cross-channel WRITES go via
+native git (operator) or a CC task, NEVER from the Cowork VM. Each coordinator host keeps a coord
+worktree (`git worktree add <path> coord`) for native writes.
+
+Cross commands (prefix `коорд:`):
+| Command | Addressee | Action |
+|---|---|---|
+| `коорд: кросс-статус` | a coordinator | `git fetch origin coord` -> report cross state (branches, barrier, integration debt, own inbox-coord-X) |
+| `коорд: кросс-ack` | a coordinator | confirm own branch clean + L1-pushed at <sha>; coordinator drafts the ack, OPERATOR pushes it to coord |
+| `коорд: интеграция` | captain | propose/run L2 integration (merge v2-backend + v2-frontend -> v2) |
+| `коорд: релиз` | captain | run L2 release barrier incl. mandatory Security ack + prod push |
+
+Two-level barrier: L1 = §42.7 inside each Cowork (pushes its own branch); L2 = captain merges both
+branches to v2 + Security ack + prod push (Two-Cowork doc §5).

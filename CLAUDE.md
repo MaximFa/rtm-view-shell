@@ -2972,5 +2972,24 @@ places them on the server. CC has no direct external-server access.
 See `docs/External-Server-Ops-Layout.md` for the full layout, apply flow, and deploy protocol.
 
 *TZ version: 2.6 | CLAUDE.md last updated: 2026-06-07 (§38a migration self-record; §43 ops-layout pointer)*
+---
 
+## 44. Two-Cowork coordination (cross-coordinator layer)
 
+When the project is split across TWO Cowork instances (decided 2026-06-08), each runs its own
+clone/branch + coordinator; §42 is unchanged INTRA-Cowork. The cross layer is specified in
+**docs/Two-Cowork-Coordination.md** (RU: docs/Two-Cowork-Coordination.ru.md) and summarized in the
+session-coord skill §13.
+
+- Cowork-A "Backend" (branch `v2-backend`): RTM Server, Metrics, DBA, Devops.
+- Cowork-B "Frontend" (branch `v2-frontend`): Shell, UX-UI, Widget, QA.
+- Security: shared release gate, mandatory ack before any prod release.
+- Integration trunk: `v2`. Release captain: Cowork-A.
+- Cross-channel: git orphan branch `coord`, files under `.coord/cross/`.
+- **[L-SC-20]** Cowork VM reads `coord` via `git fetch`; CANNOT push from the mount -> cross writes
+  are native-git/CC only. Each coordinator host keeps a `coord` worktree for native writes.
+- Two-level barrier: L1 = §42.7 per Cowork (own branch); L2 = captain merges both branches to `v2`
+  + Security ack + prod push.
+- A whole release stays in ONE Cowork (e.g. the Server-234 upgrade = wholly A).
+
+*TZ version: 2.7 | CLAUDE.md last updated: 2026-06-08 (§44 Two-Cowork coordination layer)*
