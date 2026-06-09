@@ -306,6 +306,7 @@ Applies when TWO Cowork instances run, each its own clone/branch + coordinator. 
   (ownership.md, inbox-coord-A.md, inbox-coord-B.md, ledger.md, barrier.md).
 
 **L-SC-20 (read=VM / write=native):** a Cowork coordinator's VM can READ coord via
+- **[L-SC-21] Inbox migration on takeover/handoff (MANDATORY).** A successor reads ONLY its own-slug inbox. On takeover/handoff the successor inbox MUST be created and routing migrated (copy-forward unhandled directives + pointer in the old inbox) BEFORE the next directive; the coordinator re-delivers any directive written to the adopted inbox post-takeover. Writing to the adopted inbox after takeover = lost message (metrics-2->metrics-3, 2026-06-09). Sibling of the backlog CRITICAL delivery-reliability item.
 `git fetch origin coord` + `git show origin/coord:<file>`, but CANNOT push from the mount
 (git-write corrupts the index, L-SC-02 class — observed 2026-06-08). Cross-channel WRITES go via
 native git (operator) or a CC task, NEVER from the Cowork VM. Each coordinator host keeps a coord
@@ -321,3 +322,24 @@ Cross commands (prefix `коорд:`):
 
 Two-level barrier: L1 = §42.7 inside each Cowork (pushes its own branch); L2 = captain merges both
 branches to v2 + Security ack + prod push (Two-Cowork doc §5).
+
+---
+
+## 14. Lifecycle commands - registries (canonical) + summary
+
+Canonical command specs live in two bus registries (read at session start):
+- `.coord/coordinator-commands.md` - operator->coordinator verbs: `коорд: входящие | разбери | проверь шину | дай ack | handoff`.
+- `.coord/session-commands.md` - specialist-session verbs: `сессия: входящие | статус | handoff | takeover`.
+
+### `коорд: handoff` (extends §12)
+Coordinator writes a verified resume checkpoint to `.coord/coordinator_handoff.md` (truth = bus + git object store,
+NOT chat): git tip/origin/unpushed, push/freeze, roster (stale>3h flagged), in-flight + §4 queue, operator to-dos,
+untracked->git-home (E-023), lessons. + journal line + MEMORY pointer. Read+snapshot only - never raises a barrier
+or issues a CC prompt.
+
+### `сессия: handoff` / `сессия: takeover` (works WITH §11 mailbox)
+Outgoing: hash-verify own claimed files vs HEAD (object store, not line-count), write a HANDOFF block (delivered +
+pushed/unpushed, claims release-vs-inherit, cc_task, in-flight prompts + §4 status, loose ends), and - MANDATORY -
+migrate the inbox (L-SC-21). Incoming: confirm/create own slug inbox, adopt claims in own session file, RE-READ the
+coordinator's recent directives (do not trust the predecessor's `> handled` markers), flush TAKEOVER-COMPLETE.
+Coordinator reciprocal duty: on observing a takeover, ensure the successor inbox exists + route there.
