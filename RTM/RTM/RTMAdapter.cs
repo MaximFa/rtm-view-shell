@@ -724,6 +724,11 @@ namespace RTM
 
 
 
+        public void CompileMetrics(string[] metricIds)
+        {
+            _engine?.HotReloadMetrics(metricIds);
+        }
+
         public bool LoadData()
         {
             bool retVal = false;

@@ -50,7 +50,7 @@ namespace RTM
 
       
 
-        private static Dictionary<string, MetricDef> _metrics = null;
+        private static ConcurrentDictionary<string, MetricDef> _metrics = null;
 
         private static Dictionary<int, Statistic> _statistics = null;
 
@@ -377,7 +377,7 @@ namespace RTM
                 UnionUserGroups = RealtimeData.GetAllUnionUserGroups();
                 var dataCells = RealtimeData.getDataCells();
                 var statisticCells = RealtimeData.getStatisticCells();
-                _metrics = RealtimeData.GetAllMetrics();
+                _metrics = new ConcurrentDictionary<string, MetricDef>(RealtimeData.GetAllMetrics());
                 _statistics = RealtimeData.GetAllStatistics();
                 var unionUsersMetrics = RealtimeData.getUnionUsersMetrics();
                 AgentGrids = RealtimeData.getAllUserGrid();
@@ -2883,6 +2883,66 @@ namespace RTM
 
 
 
+
+
+        /// <summary>
+        /// Incrementally compiles ONLY the supplied RT MetricIds and adds them to the live engine.
+        /// Called by RTMHub.compileMetrics (fire-and-forget, Option A) after Shell deploy.
+        /// Idempotent: repeated call on the same MetricId is a safe no-op (skip-if-ContainsKey).
+        /// Defense-in-depth: dotted ids (history metrics) skipped — contract guarantees RT-only on wire.
+        /// </summary>
+        public void HotReloadMetrics(string[] metricIds)
+        {
+            if (metricIds == null || metricIds.Length == 0) return;
+            AsyncLogger.Info($"Engine.HotReloadMetrics: requested compile for {metricIds.Length} metric(s)");
+
+            Dictionary<string, MetricDef> allDbMetrics;
+            try { allDbMetrics = RealtimeData.GetAllMetrics(); }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("Engine.HotReloadMetrics: DB fetch failed", ex);
+                return;
+            }
+
+            foreach (var metricId in metricIds)
+            {
+                // Defense-in-depth: skip history metrics (dotted id)
+                if (metricId.Contains('.'))
+                {
+                    AsyncLogger.Warn($"Engine.HotReloadMetrics: skipping history metric id={metricId}");
+                    continue;
+                }
+
+                // Idempotent: skip if already compiled
+                if (_metrics != null && _metrics.ContainsKey(metricId))
+                {
+                    AsyncLogger.Info($"Engine.HotReloadMetrics: {metricId} already compiled, skip");
+                    continue;
+                }
+
+                if (!allDbMetrics.TryGetValue(metricId, out MetricDef metric))
+                {
+                    AsyncLogger.Warn($"Engine.HotReloadMetrics: MetricId={metricId} not found in RTSGrid_Metric");
+                    continue;
+                }
+
+                try
+                {
+                    setMetricFunctions(metric);
+                    if (_metrics != null) _metrics.TryAdd(metricId, metric);
+
+                    // Propagate to all active Unions so live grids see the new metric immediately
+                    foreach (var union in UnionList.Values)
+                        union.addDataMetric(metric);
+
+                    AsyncLogger.Info($"Engine.HotReloadMetrics: compiled and registered {metricId}");
+                }
+                catch (Exception ex)
+                {
+                    AsyncLogger.Error($"Engine.HotReloadMetrics: compile failed for {metricId}", ex);
+                }
+            }
+        }
 
         private void setMetricFunctions()
         {

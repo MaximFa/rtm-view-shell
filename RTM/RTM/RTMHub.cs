@@ -258,6 +258,24 @@ namespace RTM
         {
             return _hubAdapter.setStatistic(statisticKey, value, messageId);
         }
+        /// <summary>
+        /// Triggered by Shell after successful metric deploy (Option A, metrics-hot-reload-contract.md §6).
+        /// Fire-and-forget: failure is non-fatal; Shell Recompile affordance handles recovery (R2).
+        /// Idempotent: same MetricId set can be re-fired without re-apply (skip-if-ContainsKey in Engine).
+        /// Tenant-scope: this RTM instance is 1:1 with tenant (CLAUDE.md §33.1) — no TenantId param.
+        /// </summary>
+        public void compileMetrics(string[] metricIds)
+        {
+            if (metricIds == null || metricIds.Length == 0) return;
+            AsyncLogger.Info($"RTMHub.compileMetrics: received {metricIds.Length} MetricId(s): {string.Join(", ", metricIds)}");
+            // Fire-and-forget — failure logged; Shell offers Recompile for recovery (R2)
+            Task.Run(() => _hubAdapter.CompileMetrics(metricIds))
+                .ContinueWith(
+                    t => AsyncLogger.Error("RTMHub.compileMetrics: unhandled exception", t.Exception!.InnerException),
+                    TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+
     }
 }
 

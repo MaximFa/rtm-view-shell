@@ -53,7 +53,7 @@ namespace RTM
         private ConcurrentDictionary<string, MetricDef> DataMetrics { get; set; } = new ConcurrentDictionary<string, MetricDef>();
 
 
-        private Dictionary<string, MetricDef> AllDataMetrics { get; set; } = new Dictionary<string, MetricDef>();
+        private ConcurrentDictionary<string, MetricDef> AllDataMetrics { get; set; } = new ConcurrentDictionary<string, MetricDef>();
 
 
         public ConcurrentDictionary<int, List<string>> UserGroups { get; set; } = new ConcurrentDictionary<int, List<string>>();
@@ -105,7 +105,7 @@ namespace RTM
 
 
         // Union
-        public Union(int unionId, Dictionary<string, MetricDef> allDataMetrics)
+        public Union(int unionId, ConcurrentDictionary<string, MetricDef> allDataMetrics)
         {
             try
             {           
