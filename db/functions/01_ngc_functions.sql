@@ -88,8 +88,8 @@ CREATE OR REPLACE PROCEDURE "NGC_GetOrCreateQueue"(
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO "NGC_Queues" ("ExternalId", "Name", "CreatedDatetime", "TenantId")
-    VALUES (p_external_id, p_name, NOW(), p_tenant_id)
+    INSERT INTO "NGC_Queues" ("Id", "ExternalId", "Name", "IsActive", "CreatedDatetime", "TenantId")
+    VALUES (gen_random_uuid(), p_external_id, p_name, true, NOW(), p_tenant_id)
     ON CONFLICT ("ExternalId", "TenantId") DO NOTHING;
 END;
 $$;
@@ -114,8 +114,8 @@ CREATE OR REPLACE PROCEDURE "NGC_GetOrCreateAgentGroup"(
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO "NGC_AgentGroups" ("ExternalId", "Name", "CreatedDatetime", "TenantId")
-    VALUES (p_external_id, p_name, NOW(), p_tenant_id)
+    INSERT INTO "NGC_AgentGroups" ("Id", "ExternalId", "Name", "IsActive", "CreatedDatetime", "TenantId")
+    VALUES (gen_random_uuid(), p_external_id, p_name, true, NOW(), p_tenant_id)
     ON CONFLICT ("ExternalId", "TenantId") DO NOTHING;
 END;
 $$;
