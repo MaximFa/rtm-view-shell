@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Extensions;
 using CcDashboard.Infrastructure.RtmRelay;
+using CcDashboard.Infrastructure.Metrics;
 using CcDashboard.Infrastructure.Seeding;
 using CcDashboard.Web.Components;
 using CcDashboard.Web.Middleware;
@@ -130,6 +131,11 @@ try
     // RTM Relay — Singleton, server-side SignalR client to RTM Service (CLAUDE.md §34)
     services.Configure<RtmRelayOptions>(builder.Configuration.GetSection(RtmRelayOptions.Section));
     services.AddSingleton<IRtmRelayService, RtmRelayService>();
+
+    // Metrics hot-reload services (CLAUDE.md §34 / contract §6)
+    services.Configure<MetricsApplyOptions>(builder.Configuration.GetSection(MetricsApplyOptions.Section));
+    services.AddScoped<IMetricDeployLedgerReader, MetricDeployLedgerReader>();
+    services.AddHttpClient<IMetricApplyClient, MetricApplyHttpClient>();
 
     var app = builder.Build();
 

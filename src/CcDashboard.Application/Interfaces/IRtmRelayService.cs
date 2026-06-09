@@ -30,4 +30,13 @@ public interface IRtmRelayService
     /// Disconnect all active connections for a tenant (called on Suspend/Delete).
     /// </summary>
     Task DisconnectTenantAsync(Guid tenantId);
+    // ── Metrics hot-reload (CLAUDE.md §hot-reload-contract) ─────────────────
+    /// <summary>
+    /// Fires compileMetrics on the tenant's RTM hub (fire-and-forget).
+    /// Sends ONLY the RT MetricIds (appliedRtMetricIds from apply response).
+    /// Empty list -> no-op (log + return). History metrics (dotted) are skipped
+    /// by RTM as defense-in-depth, but Shell never sends them per contract R1.
+    /// </summary>
+    Task InvokeCompileMetricsAsync(Guid tenantId, IReadOnlyList<string> metricIds, CancellationToken ct = default);
+
 }

@@ -729,6 +729,54 @@ public sealed class RtmRelayService : IRtmRelayService
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // Compile metrics invoke (hot-reload §34 / contract §6)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    public async Task InvokeCompileMetricsAsync(Guid tenantId, IReadOnlyList<string> metricIds, CancellationToken ct = default)
+    {
+        if (metricIds == null || metricIds.Count == 0)
+        {
+            _logger.LogInformation(
+                "RtmRelayService: InvokeCompileMetricsAsync called with empty metricIds for tenant {TenantId}, no-op",
+                tenantId);
+            return;
+        }
+
+        var hubUrl = await GetHubUrlAsync(tenantId, ct);
+        _logger.LogInformation(
+            "RtmRelayService: invoking compileMetrics for tenant {TenantId} with {Count} RT metric(s): [{MetricIds}]",
+            tenantId, metricIds.Count, string.Join(", ", metricIds));
+
+        // Short-lived connection for the compile invoke (rare admin operation)
+        var conn = new HubConnectionBuilder()
+            .WithUrl(hubUrl)
+            .AddNewtonsoftJsonProtocol(opts =>
+                opts.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver())
+            .Build();
+
+        try
+        {
+            await conn.StartAsync(ct);
+            // Fire-and-forget: SendAsync, not InvokeAsync (RTM-PROTO, contract §6)
+            await conn.SendAsync("compileMetrics", metricIds.ToArray(), ct);
+            _logger.LogInformation(
+                "RtmRelayService: compileMetrics sent successfully for tenant {TenantId}",
+                tenantId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "RtmRelayService: compileMetrics failed for tenant {TenantId}: {Message}",
+                tenantId, ex.Message);
+            throw;
+        }
+        finally
+        {
+            await conn.DisposeAsync();
+        }
+    }
+
+        // ═══════════════════════════════════════════════════════════════════════════
     // Tenant lifecycle
     // ═══════════════════════════════════════════════════════════════════════════
 

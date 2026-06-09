@@ -941,5 +941,18 @@
   <data name="Metrics_Translations"><value>Translations</value></data>
   <data name="Metrics_TranslationRef"><value>(Reference - read only)</value></data>
   <data name="Common_Clear"><value>Clear</value></data>
+  <data name="Metrics_TabList"><value>Metrics List</value></data>
+  <data name="Metrics_TabDeploy"><value>Deploy New Metrics</value></data>
+  <data name="Metrics_UndeployedSection"><value>Undeployed Metrics</value></data>
+  <data name="Metrics_DeployedSection"><value>Deployed Metrics</value></data>
+  <data name="Metrics_AllDeployed"><value>All metrics are deployed.</value></data>
+  <data name="Metrics_Type"><value>Type</value></data>
+  <data name="Metrics_Deploy"><value>Deploy</value></data>
+  <data name="Metrics_Recompile"><value>Recompile</value></data>
+  <data name="Metrics_RecompileHint"><value>Re-send compileMetrics to RTM (idempotent)</value></data>
+  <data name="Metrics_DeployConfirm"><value>Confirm Deploy</value></data>
+  <data name="Metrics_DeployWarning"><value>This will apply the metric migration and trigger RTM recompilation.</value></data>
+  <data name="Metrics_MirrorPair"><value>Mirror pair</value></data>
+  <data name="Metrics_MoreDeployed"><value>and {0} more deployed metrics...</value></data>
 </root>
 

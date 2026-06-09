@@ -882,5 +882,18 @@
   <data name="Metrics_Translations"><value>Переводы</value></data>
   <data name="Metrics_TranslationRef"><value>(Оригинал — только для чтения)</value></data>
   <data name="Common_Clear"><value>Очистить</value></data>
+  <data name="Metrics_TabList"><value>Список метрик</value></data>
+  <data name="Metrics_TabDeploy"><value>Развёртывание метрик</value></data>
+  <data name="Metrics_UndeployedSection"><value>Неразвёрнутые метрики</value></data>
+  <data name="Metrics_DeployedSection"><value>Развёрнутые метрики</value></data>
+  <data name="Metrics_AllDeployed"><value>Все метрики развёрнуты.</value></data>
+  <data name="Metrics_Type"><value>Тип</value></data>
+  <data name="Metrics_Deploy"><value>Развернуть</value></data>
+  <data name="Metrics_Recompile"><value>Перекомпилировать</value></data>
+  <data name="Metrics_RecompileHint"><value>Повторная отправка compileMetrics в RTM (идемпотентно)</value></data>
+  <data name="Metrics_DeployConfirm"><value>Подтвердите развёртывание</value></data>
+  <data name="Metrics_DeployWarning"><value>Это применит миграцию метрики и запустит перекомпиляцию RTM.</value></data>
+  <data name="Metrics_MirrorPair"><value>Зеркальная пара</value></data>
+  <data name="Metrics_MoreDeployed"><value>и ещё {0} развёрнутых метрик...</value></data>
 </root>
 

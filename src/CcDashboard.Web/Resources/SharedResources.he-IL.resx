@@ -782,5 +782,18 @@
   <data name="Metrics_Translations"><value>תרגומים</value></data>
   <data name="Metrics_TranslationRef"><value>(מקור - לקריאה בלבד)</value></data>
   <data name="Common_Clear"><value>נקה</value></data>
+  <data name="Metrics_TabList"><value>רשימת מדדים</value></data>
+  <data name="Metrics_TabDeploy"><value>פריסת מדדים חדשים</value></data>
+  <data name="Metrics_UndeployedSection"><value>מדדים שטרם נפרסו</value></data>
+  <data name="Metrics_DeployedSection"><value>מדדים פרוסים</value></data>
+  <data name="Metrics_AllDeployed"><value>כל המדדים פרוסים.</value></data>
+  <data name="Metrics_Type"><value>סוג</value></data>
+  <data name="Metrics_Deploy"><value>פרוס</value></data>
+  <data name="Metrics_Recompile"><value>הידור מחדש</value></data>
+  <data name="Metrics_RecompileHint"><value>שלח מחדש compileMetrics ל-RTM (אידמפוטנטי)</value></data>
+  <data name="Metrics_DeployConfirm"><value>אישור פריסה</value></data>
+  <data name="Metrics_DeployWarning"><value>פעולה זו תחיל את הגירת המדד ותפעיל הידור מחדש של RTM.</value></data>
+  <data name="Metrics_MirrorPair"><value>זוג מראה</value></data>
+  <data name="Metrics_MoreDeployed"><value>ועוד {0} מדדים פרוסים...</value></data>
 </root>
 
