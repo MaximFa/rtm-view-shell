@@ -137,7 +137,7 @@ public class ApplyServiceFixture : IAsyncLifetime
         """;
 
         var filePath = Path.Combine(MigrationsDir, FixtureMigrationFileName);
-        File.WriteAllText(filePath, sql, Encoding.UTF8);
+        File.WriteAllText(filePath, sql, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
         // Compute SHA-256
         var bytes = File.ReadAllBytes(filePath);
@@ -160,7 +160,7 @@ public class ApplyServiceFixture : IAsyncLifetime
         };
 
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(ManifestPath, json, Encoding.UTF8);
+        File.WriteAllText(ManifestPath, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
     /// <summary>
@@ -170,7 +170,7 @@ public class ApplyServiceFixture : IAsyncLifetime
     {
         var tamperedFile = "tampered_migration.sql";
         var sql = "-- TAMPERED CONTENT\nSELECT 1;";
-        File.WriteAllText(Path.Combine(MigrationsDir, tamperedFile), sql, Encoding.UTF8);
+        File.WriteAllText(Path.Combine(MigrationsDir, tamperedFile), sql, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
         // Add to manifest with WRONG hash (the original fixture hash)
         UpdateManifestWithTamperedFile(tamperedFile, FixtureMigrationSha256);
@@ -184,7 +184,7 @@ public class ApplyServiceFixture : IAsyncLifetime
     {
         var noHashFile = "no_hash_migration.sql";
         var sql = "SELECT 1;";
-        File.WriteAllText(Path.Combine(MigrationsDir, noHashFile), sql, Encoding.UTF8);
+        File.WriteAllText(Path.Combine(MigrationsDir, noHashFile), sql, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
         // Update manifest - add migration entry WITHOUT hash
         UpdateManifestWithNoHashFile(noHashFile);
@@ -198,7 +198,7 @@ public class ApplyServiceFixture : IAsyncLifetime
     {
         var badFile = "bad_migration.sql";
         var sql = "THIS IS NOT VALID SQL SYNTAX;;;";
-        File.WriteAllText(Path.Combine(MigrationsDir, badFile), sql, Encoding.UTF8);
+        File.WriteAllText(Path.Combine(MigrationsDir, badFile), sql, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
         var bytes = Encoding.UTF8.GetBytes(sql);
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
@@ -221,7 +221,7 @@ public class ApplyServiceFixture : IAsyncLifetime
                 new { MetricId = HistoryMetricId, MetricType = "History" }
             }
         };
-        File.WriteAllText(ManifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
+        File.WriteAllText(ManifestPath, JsonSerializer.Serialize(manifest), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
     private void UpdateManifestWithNoHashFile(string fileName)
@@ -239,7 +239,7 @@ public class ApplyServiceFixture : IAsyncLifetime
             ]
         }
         """;
-        File.WriteAllText(ManifestPath, json, Encoding.UTF8);
+        File.WriteAllText(ManifestPath, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
     private void UpdateManifestWithFile(string fileName, string hash, string metricId)
@@ -257,7 +257,7 @@ public class ApplyServiceFixture : IAsyncLifetime
                 new { MetricId = HistoryMetricId, MetricType = "History" }
             }
         };
-        File.WriteAllText(ManifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
+        File.WriteAllText(ManifestPath, JsonSerializer.Serialize(manifest), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
     /// <summary>
@@ -275,14 +275,20 @@ public class ApplyServiceFixture : IAsyncLifetime
         string? overrideToken = null,
         bool useFailingAuditDb = false)
     {
+        var tokenToUse = overrideToken ?? TestToken;
+
         return new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                // Set token via UseSetting BEFORE ConfigureAppConfiguration runs.
+                // This ensures the token is available when Program.cs startup guard executes.
+                // AddInMemoryCollection in ConfigureAppConfiguration runs too late.
+                builder.UseSetting("ApplyService:Token", tokenToUse);
+
                 builder.ConfigureAppConfiguration((context, config) =>
                 {
                     config.AddInMemoryCollection(new Dictionary<string, string?>
                     {
-                        ["ApplyService:Token"] = overrideToken ?? TestToken,
                         ["ApplyService:Port"] = "0", // random port
                         ["PackageMigrationsDir"] = MigrationsDir,
                         ["ManifestPath"] = ManifestPath,
