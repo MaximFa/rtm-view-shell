@@ -1,6 +1,6 @@
 # CC Task — RTM Engine: guard UnionList/_gridList indexers in the agent-grid serve path (fixes "whole agent list killed")
 
-Session: daytrend-2-0607
+Session: backend-0609
 Bug: an unguarded dictionary indexer `UnionList[unionId]` (and `_gridList[gridId]`) in the RTM-engine
 runtime path throws KeyNotFoundException on a missing key; the surrounding try/catch swallows it, so the
 ENTIRE agent grid / user list comes back empty ("kills the whole agent list") instead of degrading gracefully.
@@ -32,19 +32,20 @@ done
 sync
 ```
 
-## Multi-session sync (§42) — slug: daytrend-2-0607
+## Multi-session sync (§42) — slug: backend-0609
 Claims: RTM/RTM/Engine.cs
 ```bash
-# S1 barrier (content-based, L-SC-10)
-if [ -s ".coord/push/request.md" ] && cat ".coord/push/request.md" >/dev/null 2>&1; then
+# S1 barrier (MARKER-based, tombstone-safe): block ONLY on "FREEZE ACTIVE"; a non-empty tombstone
+# ("BARRIER CLEARED"/"FREEZE LIFTED" — current state) does NOT block.
+if grep -q "FREEZE ACTIVE" ".coord/push/request.md" 2>/dev/null; then
   echo "PUSH BARRIER ACTIVE"; cat .coord/push/request.md; echo "STOP"; exit 1; fi
 # S2 claims
-python3 tools/coord_check_claims.py daytrend-2-0607 RTM/RTM/Engine.cs
-# exit 1 -> STOP (queue). Touch ONLY RTM/RTM/Engine.cs (+ /tmp named /tmp/daytrend-2-0607_*). Edit tool BANNED (§0.3): Python+fsync.
+python3 tools/coord_check_claims.py backend-0609 RTM/RTM/Engine.cs
+# exit 1 -> STOP (queue). Touch ONLY RTM/RTM/Engine.cs (+ /tmp named /tmp/backend-0609_*). Edit tool BANNED (§0.3): Python+fsync.
 ```
 - S3 commit.lock: phantom-aware acquire (the /tmp acquire_lock.py from tools/cc_prompt_sync_block.md; retry 5x60s).
 - S4+S4b: after the commit + §0.6 verify, the LAST step is the Track 2 wrapper:
-  `bash tools/cc_post_commit.sh daytrend-2-0607 $(git log -1 --format=%h)`
+  `bash tools/cc_post_commit.sh backend-0609 $(git log -1 --format=%h)`
   (journal + coordinator flush + lock release, exit-gated). Do NOT hand-write journal/flush inline.
 - S5: NO git push (§37).
 
@@ -144,7 +145,7 @@ Build MUST succeed before commit.
 One commit, prefix §39.3:
 - `rtm: guard UnionList/_gridList indexers in agent-grid serve path (TryGetValue, fixes whole-list-killed)`
 After commit: §0.6 post-commit verify + PD-007 re-sync of RTM/RTM/Engine.cs, then LAST step the Track 2 wrapper:
-  `bash tools/cc_post_commit.sh daytrend-2-0607 $(git log -1 --format=%h)`
+  `bash tools/cc_post_commit.sh backend-0609 $(git log -1 --format=%h)`
 
 ## Deploy (operator, after commit — RTM Service rebuild)
 This is RTM-engine code: publish RTM Service and restart the Windows Service on prod:

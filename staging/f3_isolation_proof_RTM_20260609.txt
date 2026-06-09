@@ -1,0 +1,130 @@
+=== F-3 RTM-hub isolation proof — 2026-06-09T22:36:43.2803300+03:00 — RTM ===
+
+--- RTMService listening sockets ---
+RTMService PID = 8892
+
+LocalAddress LocalPort OwningProcess
+------------ --------- -------------
+::                8088          8892
+
+
+
+
+--- RTM appsettings bind/hub hint ---
+FILE: C:\RTMView\RTM\appsettings.Development.json
+FILE: C:\RTMView\RTM\appsettings.json
+
+C:\RTMView\RTM\appsettings.json:2:  "Kestrel": {
+FILE: C:\RTMView\Shell\appsettings.Development.json
+FILE: C:\RTMView\Shell\appsettings.json
+FILE: C:\Program Files\CcDashboard\SignalRSimulator\appsettings.Development.json
+FILE: C:\Program Files\CcDashboard\SignalRSimulator\appsettings.json
+C:\Program Files\CcDashboard\SignalRSimulator\appsettings.json:6:  "Kestrel": {
+
+
+
+
+--- Firewall: enabled inbound ALLOW rules + ports ---
+
+Rule                                                                                          Proto  LocalPort        
+----                                                                                          -----  ---------        
+Cast to Device streaming server (HTTP-Streaming-In)                                           TCP    10246            
+Cast to Device streaming server (HTTP-Streaming-In)                                           TCP    10246            
+Cast to Device streaming server (HTTP-Streaming-In)                                           TCP    10246            
+DIAL protocol server (HTTP-In)                                                                TCP    10247            
+DIAL protocol server (HTTP-In)                                                                TCP    10247            
+Network Discovery (NB-Name-In)                                                                UDP    137              
+Network Discovery (NB-Datagram-In)                                                            UDP    138              
+Network Discovery (SSDP-In)                                                                   UDP    1900             
+Cast to Device functionality (qWave-UDP-In)                                                   UDP    2177             
+Cast to Device functionality (qWave-TCP-In)                                                   TCP    2177             
+Cast to Device streaming server (RTSP-Streaming-In)                                           TCP    23554,23555,23556
+Cast to Device streaming server (RTSP-Streaming-In)                                           TCP    23554,23555,23556
+Cast to Device streaming server (RTSP-Streaming-In)                                           TCP    23554,23555,23556
+Network Discovery (UPnP-In)                                                                   TCP    2869             
+Cast to Device UPnP Events (TCP-In)                                                           TCP    2869             
+Remote Desktop - User Mode (UDP-In)                                                           UDP    3389             
+Remote Desktop - User Mode (TCP-In)                                                           TCP    3389             
+Network Discovery (Pub-WSD-In)                                                                UDP    3702             
+Network Discovery (WSD-In)                                                                    UDP    3702             
+World Wide Web Services (QUIC Traffic-In)                                                     UDP    443              
+World Wide Web Services (HTTPS Traffic-In)                                                    TCP    443              
+5000                                                                                          TCP    5000             
+Microsoft Media Foundation Network Source IN [UDP 5004-5009]                                  UDP    5000-5020        
+mDNS (UDP-In)                                                                                 UDP    5353             
+Google Chrome (mDNS-In)                                                                       UDP    5353             
+Microsoft Edge (mDNS-In)                                                                      UDP    5353             
+mDNS (UDP-In)                                                                                 UDP    5353             
+mDNS (UDP-In)                                                                                 UDP    5353             
+Network Discovery (LLMNR-UDP-In)                                                              UDP    5355             
+Network Discovery (WSD Events-In)                                                             TCP    5357             
+Network Discovery (WSD EventsSecure-In)                                                       TCP    5358             
+Core Networking - Dynamic Host Configuration Protocol for IPv6(DHCPV6-In)                     UDP    546              
+Microsoft Media Foundation Network Source IN [TCP 554]                                        TCP    554,8554-8558    
+Windows Remote Management (HTTP-In)                                                           TCP    5985             
+Windows Remote Management (HTTP-In)                                                           TCP    5985             
+Core Networking - Dynamic Host Configuration Protocol (DHCP-In)                               UDP    68               
+Delivery Optimization (UDP-In)                                                                UDP    7680             
+Delivery Optimization (TCP-In)                                                                TCP    7680             
+World Wide Web Services (HTTP Traffic-In)                                                     TCP    80               
+InBound Rule for the Microsoft Media Foundation's Capture SVC to open TCP port to enable RTSP TCP    808              
+AllJoyn Router (TCP-In)                                                                       TCP    9955             
+Message Queuing TCP Inbound                                                                   TCP    Any              
+Start                                                                                         Any    Any              
+Work or school account                                                                        Any    Any              
+Desktop App Web Viewer                                                                        Any    Any              
+Message Queuing UDP Inbound                                                                   UDP    Any              
+Core Networking - IPv6 (IPv6-In)                                                              41     Any              
+Windows Security                                                                              Any    Any              
+Your account                                                                                  Any    Any              
+Windows Search                                                                                Any    Any              
+Memurai                                                                                       Any    Any              
+StarTrinity SIP Tester Desktop GUI                                                            Any    Any              
+Windows Search                                                                                Any    Any              
+SoftEther VPN Command-Line Admin Tool                                                         Any    Any              
+SoftEther VPN Client Connection Manager                                                       Any    Any              
+SoftEther VPN Command-Line Admin Tool                                                         Any    Any              
+Work or school account                                                                        Any    Any              
+Start                                                                                         Any    Any              
+Desktop App Web Viewer                                                                        Any    Any              
+SoftEther VPN Client Connection Manager                                                       Any    Any              
+SoftEther VPN Client                                                                          Any    Any              
+StarTrinity SIP Tester Windows Service                                                        Any    Any              
+StarTrinity SIP Tester CLI                                                                    Any    Any              
+Your account                                                                                  Any    Any              
+Windows Security                                                                              Any    Any              
+SoftEther VPN Client                                                                          Any    Any              
+Windows Security                                                                              Any    Any              
+Cast to Device streaming server (RTCP-Streaming-In)                                           UDP    Any              
+Core Networking - Internet Group Management Protocol (IGMP-In)                                2      Any              
+Your account                                                                                  Any    Any              
+Cast to Device streaming server (RTCP-Streaming-In)                                           UDP    Any              
+Cast to Device streaming server (RTCP-Streaming-In)                                           UDP    Any              
+Remote Desktop - Shadow (TCP-In)                                                              TCP    Any              
+AllJoyn Router (UDP-In)                                                                       UDP    Any              
+Your account                                                                                  Any    Any              
+Desktop App Web Viewer                                                                        Any    Any              
+Work or school account                                                                        Any    Any              
+Windows Search                                                                                Any    Any              
+Start                                                                                         Any    Any              
+Work or school account                                                                        Any    Any              
+Desktop App Web Viewer                                                                        Any    Any              
+Core Networking - IPHTTPS (TCP-In)                                                            TCP    IPHTTPSIn        
+Cast to Device SSDP Discovery (UDP-In)                                                        UDP    PlayToDiscovery  
+Core Networking - Neighbor Discovery Advertisement (ICMPv6-In)                                ICMPv6 RPC              
+Core Networking - Router Solicitation (ICMPv6-In)                                             ICMPv6 RPC              
+Core Networking - Router Advertisement (ICMPv6-In)                                            ICMPv6 RPC              
+Core Networking - Destination Unreachable Fragmentation Needed (ICMPv4-In)                    ICMPv4 RPC              
+Core Networking - Destination Unreachable (ICMPv6-In)                                         ICMPv6 RPC              
+Core Networking - Neighbor Discovery Solicitation (ICMPv6-In)                                 ICMPv6 RPC              
+Core Networking - Parameter Problem (ICMPv6-In)                                               ICMPv6 RPC              
+Core Networking - Time Exceeded (ICMPv6-In)                                                   ICMPv6 RPC              
+Core Networking - Multicast Listener Query (ICMPv6-In)                                        ICMPv6 RPC              
+Core Networking - Multicast Listener Report (ICMPv6-In)                                       ICMPv6 RPC              
+Core Networking - Multicast Listener Report v2 (ICMPv6-In)                                    ICMPv6 RPC              
+Core Networking - Packet Too Big (ICMPv6-In)                                                  ICMPv6 RPC              
+Core Networking - Multicast Listener Done (ICMPv6-In)                                         ICMPv6 RPC              
+Core Networking - Teredo (UDP-In)                                                             UDP    Teredo           
+
+
+
