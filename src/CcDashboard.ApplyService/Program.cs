@@ -384,3 +384,6 @@ public class UtcDateTimeProvider : IDateTimeProvider
 {
     public DateTime UtcNow => DateTime.UtcNow;
 }
+
+// Enable WebApplicationFactory for integration tests
+public partial class Program { }
