@@ -2911,6 +2911,108 @@ button.clr-swatch,
 .editor-modal.dark-mode textarea::placeholder {
     color: rgba(228, 228, 231, 0.5);
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE — Configurator Modal Parity (9 gaps, 2026-06-09)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Gap 1: Nav tabs active state (Agent Grid, Queue Grid, etc.) */
+.editor-fullscreen.dark-mode .editor-modal .nav-tabs .nav-link,
+.editor-modal.dark-mode .nav-tabs .nav-link {
+    color: #A1A1AA;
+    background-color: transparent;
+    border-color: transparent;
+}
+.editor-fullscreen.dark-mode .editor-modal .nav-tabs .nav-link:hover,
+.editor-modal.dark-mode .nav-tabs .nav-link:hover {
+    color: #E4E4E7;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+.editor-fullscreen.dark-mode .editor-modal .nav-tabs .nav-link.active,
+.editor-modal.dark-mode .nav-tabs .nav-link.active {
+    background-color: #2D2D2D;
+    color: #E4E4E7;
+    border-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: #2D2D2D;
+}
+
+/* Gap 2: Table header bg-light (Agent Grid Columns tab) */
+.editor-fullscreen.dark-mode .editor-modal .columns-table-header,
+.editor-fullscreen.dark-mode .editor-modal .bg-light,
+.editor-modal.dark-mode .columns-table-header,
+.editor-modal.dark-mode .bg-light {
+    background-color: #2D2D2D !important;
+    color: #A1A1AA !important;
+}
+
+/* Gap 3: Score rule-row card borders + preview card (Agent Grid Score tab) */
+.editor-fullscreen.dark-mode .editor-modal .score-rule-row,
+.editor-modal.dark-mode .score-rule-row {
+    background-color: #2D2D2D !important;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.editor-fullscreen.dark-mode .editor-modal .score-preview,
+.editor-modal.dark-mode .score-preview {
+    background-color: #2D2D2D !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Gap 4+5: Queue Grid row/column-item alternate bg-light rows */
+.editor-fullscreen.dark-mode .editor-modal .row-item,
+.editor-fullscreen.dark-mode .editor-modal .column-item,
+.editor-modal.dark-mode .row-item,
+.editor-modal.dark-mode .column-item {
+    background-color: transparent;
+}
+.editor-fullscreen.dark-mode .editor-modal .row-item.bg-light,
+.editor-fullscreen.dark-mode .editor-modal .column-item.bg-light,
+.editor-modal.dark-mode .row-item.bg-light,
+.editor-modal.dark-mode .column-item.bg-light {
+    background-color: #2D2D2D !important;
+}
+
+/* Gap 6: ASD segment color labels (Status Group / Agent State names) */
+.editor-fullscreen.dark-mode .editor-modal .appearance-section .row .col-4.small,
+.editor-modal.dark-mode .appearance-section .row .col-4.small {
+    color: #E4E4E7 !important;
+}
+
+/* Gap 7: Form switches (Data Slot, DayTrend, InfoSlot, etc.) — dark track/knob */
+.editor-fullscreen.dark-mode .editor-modal .form-check-input[type="checkbox"]:not(:checked),
+.editor-modal.dark-mode .form-check-input[type="checkbox"]:not(:checked) {
+    background-color: #3D3D3D;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+.editor-fullscreen.dark-mode .editor-modal .form-check-input[type="checkbox"]:checked,
+.editor-modal.dark-mode .form-check-input[type="checkbox"]:checked {
+    background-color: var(--clr-primary);
+    border-color: var(--clr-primary);
+}
+.editor-fullscreen.dark-mode .editor-modal .form-switch .form-check-input,
+.editor-modal.dark-mode .form-switch .form-check-input {
+    background-color: #3D3D3D;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+.editor-fullscreen.dark-mode .editor-modal .form-switch .form-check-input:checked,
+.editor-modal.dark-mode .form-switch .form-check-input:checked {
+    background-color: var(--clr-primary);
+    border-color: var(--clr-primary);
+}
+/* Focus ring for switches in dark mode */
+.editor-fullscreen.dark-mode .editor-modal .form-check-input:focus,
+.editor-modal.dark-mode .form-check-input:focus {
+    border-color: var(--clr-primary);
+    box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.25);
+}
+
+/* Gap 8+9: DayTrend metric-item rows (Call Metrics + Agent Metrics tabs) */
+.editor-fullscreen.dark-mode .editor-modal .metric-item,
+.editor-modal.dark-mode .metric-item {
+    background-color: transparent;
+}
+.editor-fullscreen.dark-mode .editor-modal .metric-item.bg-light,
+.editor-modal.dark-mode .metric-item.bg-light {
+    background-color: #2D2D2D !important;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MODAL DRAG & RESIZE — Draggable and Resizable Modals
