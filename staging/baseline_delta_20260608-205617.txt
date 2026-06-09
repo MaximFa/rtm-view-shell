@@ -1,0 +1,17 @@
+================================================================================
+BASELINE DELTA REPORT
+Target: ccdashboard_user@localhost:5432/rtmviewdb
+Generated: 2026-06-08 20:56:17
+================================================================================
+DIMENSION A: SCHEMA  -> missing 134 / extra 103 (237 lines)
+DIMENSION B: ROUTINE KIND [RTM-SEC-002] -> 1 mismatch:
+  - RTSData_SetChatMessage: expected PROCEDURE, server has FUNCTION
+DIMENSION C: DATA (RTSGrid_Metric) -> 6 extra (typo'd dup metrics, cleaned by _004):
+  QueueNumAbandonefCalls, QueueNumAbandonefCallbacks, QueueNumAcceptedCallbacks,
+  QueueNumOnCallAgents, QueueNumberOfLoggedAgents, QueuePctAnsweredCalls60secIncLast30min
+DIMENSION D: MIGRATION LEDGER (NO ledger -- all heuristic; db_patch_history absent)
+  MISSING (probe): 20260604_001_add_agent_state_pct_metrics, 20260606_005_history_unavailable_metrics
+  UNKNOWN (no probe): 20260605_004_metrics_dedup, 20260606_008_daytrend_fn_bu_scope,
+                      20260607_002_db_patch_history, 20260607_003_fix_curlogintimestamp
+SUMMARY: A=237  B=1  C=0  D=2(+4 unknown)
+--- devops-2-0607 interpretation: matches server45 PRE-upgrade profile; to-apply = same 6 ---
