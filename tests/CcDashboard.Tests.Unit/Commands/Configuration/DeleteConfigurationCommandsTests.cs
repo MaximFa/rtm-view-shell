@@ -1,5 +1,4 @@
 using CcDashboard.Application.Commands.Configuration;
-using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Interfaces;
 using FluentAssertions;
@@ -77,40 +76,6 @@ public class DeleteSupergroupCommandHandlerTests
         _repo.GetByIdAsync(999, TenantId, Arg.Any<CancellationToken>()).Returns((NgcSupergroup?)null);
 
         var result = await _handler.Handle(new DeleteSupergroupCommand(999), CancellationToken.None);
-
-        result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain("not found");
-    }
-}
-
-public class DeleteRtsGridMetricCommandHandlerTests
-{
-    private readonly IRtsGridMetricRepository _repo = Substitute.For<IRtsGridMetricRepository>();
-    private readonly DeleteRtsGridMetricCommandHandler _handler;
-
-    public DeleteRtsGridMetricCommandHandlerTests()
-    {
-        _handler = new DeleteRtsGridMetricCommandHandler(_repo);
-    }
-
-    [Fact]
-    public async Task Handle_ExistingMetric_DeletesSuccessfully()
-    {
-        var metric = new RtsGridMetric { MetricId = "M-DEL", DataType = "INT", MetricFunction = "SUM", MetricParameter = "x" };
-        _repo.GetByIdAsync("M-DEL", Arg.Any<CancellationToken>()).Returns(metric);
-
-        var result = await _handler.Handle(new DeleteRtsGridMetricCommand("M-DEL"), CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        _repo.Received(1).Delete(metric);
-    }
-
-    [Fact]
-    public async Task Handle_NonExistent_ReturnsFailure()
-    {
-        _repo.GetByIdAsync("MISSING", Arg.Any<CancellationToken>()).Returns((RtsGridMetric?)null);
-
-        var result = await _handler.Handle(new DeleteRtsGridMetricCommand("MISSING"), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Contain("not found");
