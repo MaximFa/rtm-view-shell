@@ -75,29 +75,6 @@ public record SaveSupergroupRequest(
     string? Description,
     IReadOnlyList<string> AgentGroupIds);
 
-public record SaveRtsGridMetricRequest(
-    string MetricId,
-    string? Description,
-    string DataType,
-    string MetricFunction,
-    string MetricParameter,
-    string? MetricFormat,
-    string? DefaultValue,
-    string ValueType,   // String, Time, Number
-    string MetricType,  // Agent, Data
-    string? DisplayName,
-    string? ShortDescription,
-    string? LongDescription,
-    string? Comparison,
-    string? StandardKpi,
-    string? StandardRef,
-    string? CatalogCategory,
-    string? Family,
-    string? Channel,
-    int? ThresholdSec,
-    string? CatalogStatus,
-    string? CatalogNotes,
-    bool IsNew);
 
 // ── Metric Translation DTOs ──────────────────────────────────────────────────
 
@@ -109,10 +86,3 @@ public record MetricTranslationDto(
     string? LongDescription,
     string? Comparison);
 
-public record SaveMetricTranslationRequest(
-    string MetricId,
-    string Locale,
-    string? DisplayName,
-    string? ShortDescription,
-    string? LongDescription,
-    string? Comparison);
