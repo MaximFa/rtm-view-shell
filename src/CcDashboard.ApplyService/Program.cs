@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using CcDashboard.Contracts.DTOs.Metrics;
 using CcDashboard.Domain.Domain.Metrics;
@@ -12,6 +13,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Serilog
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// F-2 (HIGH): STARTUP GUARD — fail-closed if token is unset/placeholder
+// ═══════════════════════════════════════════════════════════════════════════════
+var startupToken = builder.Configuration["ApplyService:Token"];
+var knownPlaceholders = new[] { "REPLACE_AT_DEPLOY", "", null };
+if (string.IsNullOrWhiteSpace(startupToken) || knownPlaceholders.Contains(startupToken))
+{
+    Log.Fatal("ApplyService token unset/placeholder — refusing to start (F-2 fail-closed)");
+    throw new InvalidOperationException("ApplyService:Token is missing or set to a known placeholder. " +
+        "Configure a real token before starting the service.");
+}
+Log.Information("ApplyService token configured ({Length} chars)", startupToken.Length);
 
 // Kestrel: 127.0.0.1 ONLY (never 0.0.0.0)
 var port = builder.Configuration.GetValue<int>("ApplyService:Port", 5099);
@@ -40,9 +54,15 @@ app.MapPost("/apply-metrics", async (
     ILogger<Program> logger) =>
 {
     // 1. AuthN: Bearer token constant-time compare
-    var expectedToken = config["ApplyService:Token"] ?? "";
+    // F-2: NO fallback — token MUST be configured (startup guard ensures this, but defense-in-depth)
+    var expectedToken = config["ApplyService:Token"];
+    if (string.IsNullOrWhiteSpace(expectedToken))
+    {
+        logger.LogError("ApplyMetrics: Token not configured at request time — mis-provisioned (F-2)");
+        return Results.StatusCode(503); // Service unavailable (mis-provisioned)
+    }
+
     var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    
     if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
     {
         logger.LogWarning("ApplyMetrics: Missing or invalid Authorization header");
@@ -84,58 +104,116 @@ app.MapPost("/apply-metrics", async (
         });
     }
 
-    // 3. Load manifest -> map MetricId to metricType (RT|History)
+    // 3. Load manifest -> map MetricId to (metricType, sha256)
     var manifestPath = config["ManifestPath"] ?? "";
-    var metricTypes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    var warnings = new List<string>();
+    var manifestEntries = new Dictionary<string, ManifestEntry>(StringComparer.OrdinalIgnoreCase);
+    var migrationHashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     
-    if (File.Exists(manifestPath))
+    if (!File.Exists(manifestPath))
     {
-        try
+        // F-4: No manifest = fail-closed (cannot verify integrity)
+        logger.LogError("ApplyMetrics: Manifest not found at {ManifestPath} — integrity check cannot proceed (F-4 fail-closed)", manifestPath);
+        return Results.Json(new ApplyMetricsResponse 
+        { 
+            Success = false, 
+            Error = "Manifest not found — cannot verify migration integrity" 
+        }, statusCode: 409);
+    }
+
+    try
+    {
+        var manifestJson = await File.ReadAllTextAsync(manifestPath);
+        var manifest = JsonSerializer.Deserialize<ManifestData>(manifestJson, 
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        
+        if (manifest?.Metrics != null)
         {
-            var manifestJson = await File.ReadAllTextAsync(manifestPath);
-            var manifest = JsonSerializer.Deserialize<ManifestEntry[]>(manifestJson, 
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
-            
-            foreach (var entry in manifest)
+            foreach (var entry in manifest.Metrics)
             {
-                if (!string.IsNullOrEmpty(entry.MetricId) && !string.IsNullOrEmpty(entry.MetricType))
+                if (!string.IsNullOrEmpty(entry.MetricId))
                 {
-                    metricTypes[entry.MetricId] = entry.MetricType;
+                    manifestEntries[entry.MetricId] = entry;
                 }
             }
         }
-        catch (Exception ex)
+        
+        if (manifest?.Migrations != null)
         {
-            logger.LogWarning(ex, "ApplyMetrics: Failed to parse manifest at {ManifestPath}", manifestPath);
-            warnings.Add($"Failed to parse manifest: {ex.Message}");
+            foreach (var mig in manifest.Migrations)
+            {
+                if (!string.IsNullOrEmpty(mig.FileName) && !string.IsNullOrEmpty(mig.Sha256))
+                {
+                    migrationHashes[mig.FileName] = mig.Sha256;
+                }
+            }
         }
     }
-    else
+    catch (Exception ex)
     {
-        logger.LogWarning("ApplyMetrics: Manifest not found at {ManifestPath}", manifestPath);
-        warnings.Add("Manifest not found; cannot classify RT vs History metrics");
+        logger.LogError(ex, "ApplyMetrics: Failed to parse manifest at {ManifestPath}", manifestPath);
+        return Results.Json(new ApplyMetricsResponse 
+        { 
+            Success = false, 
+            Error = $"Failed to parse manifest: {ex.Message}" 
+        }, statusCode: 409);
     }
 
-    // Check requested MetricIds against manifest
-    foreach (var metricId in request.MetricIds)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // F-6 (MED): Validate request.MetricIds ⊆ manifest MetricIds (reject if not)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    var unknownMetricIds = request.MetricIds.Where(id => !manifestEntries.ContainsKey(id)).ToList();
+    if (unknownMetricIds.Count > 0)
     {
-        if (!metricTypes.ContainsKey(metricId))
+        logger.LogWarning("ApplyMetrics: Request contains MetricIds not in manifest (F-6 validation): {UnknownIds}", 
+            string.Join(", ", unknownMetricIds));
+        return Results.BadRequest(new ApplyMetricsResponse
         {
-            warnings.Add($"MetricId '{metricId}' not found in manifest");
-        }
+            Success = false,
+            Error = $"MetricIds not found in manifest: {string.Join(", ", unknownMetricIds)}"
+        });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // F-4 (HIGH): Verify migration file integrity (SHA-256) before execution
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (!migrationHashes.TryGetValue(migrationRef, out var expectedHash) || string.IsNullOrWhiteSpace(expectedHash))
+    {
+        // No hash for this migration in manifest = fail-closed
+        logger.LogError("ApplyMetrics: No SHA-256 hash in manifest for {MigrationRef} — integrity check failed (F-4 fail-closed)", migrationRef);
+        return Results.Json(new ApplyMetricsResponse
+        {
+            Success = false,
+            Error = $"Migration '{migrationRef}' has no integrity hash in manifest — cannot execute"
+        }, statusCode: 409);
+    }
+
+    var migrationBytes = await File.ReadAllBytesAsync(migrationPath);
+    var actualHash = Convert.ToHexString(SHA256.HashData(migrationBytes)).ToLowerInvariant();
+    expectedHash = expectedHash.ToLowerInvariant();
+
+    if (actualHash != expectedHash)
+    {
+        logger.LogError("ApplyMetrics: SHA-256 mismatch for {MigrationRef} — expected {Expected}, actual {Actual} (F-4 integrity failure)", 
+            migrationRef, expectedHash, actualHash);
+        return Results.Json(new ApplyMetricsResponse
+        {
+            Success = false,
+            Error = $"Migration integrity check failed: SHA-256 mismatch"
+        }, statusCode: 409);
+    }
+    logger.LogInformation("ApplyMetrics: Migration {MigrationRef} integrity verified (SHA-256 OK)", migrationRef);
 
     // 4. Execute in ONE transaction
     var ledgerRows = new List<LedgerRow>();
     var appliedRtMetricIds = new List<string>();
     var now = clock.UtcNow;
+    var warnings = new List<string>();
 
     await using var tx = await db.Database.BeginTransactionAsync();
     try
     {
-        // 4a. Execute migration file
-        var migrationSql = await File.ReadAllTextAsync(migrationPath);
+        // 4a. Execute migration file (integrity already verified)
+        var migrationSql = System.Text.Encoding.UTF8.GetString(migrationBytes);
         await db.Database.ExecuteSqlRawAsync(migrationSql);
 
         // 4b. Insert ledger rows (parameterised - CODE-01)
@@ -184,44 +262,56 @@ app.MapPost("/apply-metrics", async (
         }, statusCode: 500);
     }
 
-    // 5. Write audit (SEPARATE context - AUD-01)
-    string? auditId = null;
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // F-5 (MED): BLOCKING audit write — 500 on failure (AUD-01: separate context)
+    // Actor = server principal ("ApplyService"), NOT client-asserted TriggeredBy
+    // IpAddress = server-side RemoteIpAddress; UserId/TenantId = null (service principal)
+    // Committed-but-audit-failed surfaces as 500 + is idempotent-retryable (acceptable)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    string auditId;
     try
     {
+        var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString();
         var auditLog = new AuditLog
         {
             Id = Uuid.NewSequential(),
-            TenantId = null,
-            UserId = null,
-            UserName = request.TriggeredBy ?? "system",
+            TenantId = null, // Platform-level event (RTSGrid_Metric is cross-tenant, WGT-01)
+            UserId = null,   // Service principal, no user context (NOT client-asserted value)
+            UserName = "ApplyService", // Server principal identity, NOT TriggeredBy
             EventType = "System.MetricsDeployed",
             EventResult = AuditEventResult.Success,
-            IpAddress = null,
+            IpAddress = remoteIp, // Server-observed, NOT client-asserted
             UserAgent = "ApplyService",
             Details = JsonSerializer.Serialize(new
             {
                 migrationRef,
                 sourceCommit = request.PackageRef,
                 appliedMetricIds = ledgerRows.Select(r => r.MetricId).ToArray(),
-                triggeredBy = request.TriggeredBy
+                clientAssertedTriggeredBy = request.TriggeredBy // Labelled as client-asserted
             }),
             CreatedAt = now
         };
         auditDb.AuditLogs.Add(auditLog);
         await auditDb.SaveChangesAsync();
         auditId = auditLog.Id.ToString();
+        logger.LogInformation("ApplyMetrics: Audit log written {AuditId}", auditId);
     }
     catch (Exception ex)
     {
-        logger.LogWarning(ex, "ApplyMetrics: Failed to write audit log (non-blocking)");
-        warnings.Add($"Audit log failed: {ex.Message}");
+        // F-5: Audit failure = 500 (fail-closed). Retry is safe (idempotent ON CONFLICT).
+        logger.LogError(ex, "ApplyMetrics: Audit write failed — returning 500 (F-5 fail-closed)");
+        return Results.Json(new ApplyMetricsResponse
+        {
+            Success = false,
+            Error = $"Audit log failed: {ex.Message}. Catalogue/ledger committed (idempotent). Retry safe."
+        }, statusCode: 500);
     }
 
     // 6. Compute appliedRtMetricIds = RT-only (history excluded per R1)
     foreach (var metricId in request.MetricIds)
     {
-        if (metricTypes.TryGetValue(metricId, out var type) 
-            && type.Equals("RT", StringComparison.OrdinalIgnoreCase))
+        if (manifestEntries.TryGetValue(metricId, out var entry) 
+            && entry.MetricType.Equals("RT", StringComparison.OrdinalIgnoreCase))
         {
             appliedRtMetricIds.Add(metricId);
         }
@@ -270,11 +360,23 @@ public class ApplyDbContext(DbContextOptions<ApplyDbContext> options) : DbContex
     }
 }
 
-// Manifest entry structure
+// Manifest structures
+public record ManifestData
+{
+    public ManifestEntry[]? Metrics { get; init; }
+    public MigrationEntry[]? Migrations { get; init; }
+}
+
 public record ManifestEntry
 {
     public string MetricId { get; init; } = "";
-    public string MetricType { get; init; } = "";
+    public string MetricType { get; init; } = ""; // "RT" or "history"
+}
+
+public record MigrationEntry
+{
+    public string FileName { get; init; } = "";
+    public string Sha256 { get; init; } = "";
 }
 
 // Simple IDateTimeProvider implementation
