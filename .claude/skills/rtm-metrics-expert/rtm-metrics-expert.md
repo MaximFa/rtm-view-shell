@@ -442,3 +442,40 @@ bag (§2.1). Agent-status data lives in `Union.Users` (list of UserManager) — 
 
 *rtm-metrics-expert skill v1.2 — created 2026-06-05, extended 2026-06-06 with UNAVAILABLE 6th group. Catalogue state: 202 metrics
 (post-migration 20260606_006). Next stage: wizard UX spec + Viewer field help built on metrics-catalog.json.*
+
+---
+
+## Metric Lifecycle — vendor product-constants, deploy-only (2026-06-09)
+
+Metrics are **PRODUCT CONSTANTS owned by the vendor**. The canonical metric list lives in the vendor source
+(repo: `db/data/02_metrics.sql`, catalogue JSON). Client installations NEVER mutate metrics in-app.
+
+### Client = fully read-only
+`MetricsPage` (Shell) is **fully read-only**: no create / edit / delete, no Parameter/Format/Function editing,
+no DisplayName/Description/localization editing. The ONLY mutation channel is the **vendor deploy**. A client
+needing ANY metric change (even a description) raises a request to the vendor.
+
+**Security rationale:** metric `Parameter`/`Format` are string-interpolated into C# and Roslyn-compiled in the
+RTM process (RCE-capable). Allowing client free-text = code-injection / privilege escalation (app-admin -> server
+RCE). Read-only client + vendor-curated source removes the input surface entirely (closes finding F-1).
+
+### Vendor process (Metrics session, via the опросник)
+ADD / CHANGE / DELETE a metric = vendor-initiated, authored on the vendor source FIRST, shipped in product
+versions; installed clients receive a TARGETED deploy.
+
+- **ADD:** опросник -> migration (+ history mirror if applicable) -> install package (migration + manifest carrying
+  per-migration SHA-256 + RT/history flag) -> deploy. Dev-first validation (Calc/[MetricId] compiles, mirror complete).
+- **CHANGE:** any field (Parameter/Format/Function/DisplayName/Description/localization) — same path, NO in-app edit.
+  The package carries localization too, not only Parameter.
+- **DELETE: NEVER naked.** The Metrics session MUST author a REPLACEMENT — create a new replacing metric OR
+  designate an existing one. The deletion package carries the mapping `{deletedMetricId -> replacementMetricId}`.
+  Deploy applies: remove the metric + RE-POINT client usage (dashboards / dashboard_widgets / widget configs that
+  reference deletedMetricId) to the replacement, so client screens never break. Usage-validation = locate every
+  reference to the metric; the mandatory replacement closes the gap.
+
+### Deploy mechanism (hot-reload)
+The change ships in the install package (migration + manifest). At the client, the read-only MetricsPage **Deploy**
+tab shows the delta (package vs the per-metric deploy-ledger, §38a) -> Superadmin clicks Deploy -> privileged
+apply-service applies the migration (catalogue-owner DB role, fail-closed token, SHA-256 hash-integrity) + writes
+the ledger + audit -> SignalR `compileMetrics(RT MetricIds)` -> RTM incrementally compiles the new/changed metric
+**live, no restart**. History half (dotted-id) = no compile (query-time). See `docs/metrics-hot-reload-contract.md`.
