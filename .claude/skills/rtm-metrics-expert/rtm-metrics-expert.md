@@ -30,8 +30,8 @@
 These facts override any assumption and any older doc:
 
 1. **`DataType` only selects the interaction bag.** `getInteractionBag(metric.DataType)`:
-   `"UsersInteraction"` → the BU's *agent* interactions; **anything else** ("Interactions Summary",
-   "UsersSummary", "User", "String", …) → the BU's *queue* interactions.
+   `"UsersInteraction"` → the BU''s *agent* interactions; **anything else** ("Interactions Summary",
+   "UsersSummary", "User", "String", …) → the BU''s *queue* interactions.
 2. **Agent-status counters ignore `DataType` completely.** `getUsersInStatusGroupCount`,
    `getUsersInStatusCount`, `getLogedInUsersCount` iterate `Union.Users` only. Therefore two metrics
    with the same status function+parameter are **functional duplicates regardless of DataType**.
@@ -44,8 +44,8 @@ These facts override any assumption and any older doc:
    metric stays empty. **Rolling time windows are NOT expressible in Calc.**
 5. Calc pads minus signs (`calc1.Replace("-", " - ")`) before substitution — cosmetic, but keep MetricIds dash-free.
 6. **Metric→cell binding lives ONLY in `RTSGrid_Cell."Value"`.** `RTSGrid_Column` has NO `MetricId`
-   column (columns are `ColumnId, GridId, ColumnNumber, CellTemplateId`). Don't write reference-fix SQL
-   against a column that doesn't exist.
+   column (columns are `ColumnId, GridId, ColumnNumber, CellTemplateId`). Don''t write reference-fix SQL
+   against a column that doesn''t exist.
 7. Engine state resets at midnight (`RTSData_MidnightClear`) — all "today" counters are broadcast-day scoped.
 8. `MetricFormat` (e.g. `##0.0%`) is applied server-side: the SignalR push delivers a **formatted string**.
 
@@ -64,8 +64,8 @@ These facts override any assumption and any older doc:
 * **Percent suffixes:** `…Inc` = denominator IncomingCompleted (true **Service Level**, abandoned lower it);
   `…Ans` = denominator Answered only (speed profile; always ≥ Inc). Threshold set: 30/60/120 s (+360 s Calls only).
   Gaps in the channel×threshold matrix are intentional — fill only on widget demand.
-* **Status Group vs Agent State:** `UsersInStatusGroupCount('BREAK')` counts ALL states mapped to BREAK;
-  `UsersInStatusCount('Break')` counts the single raw state. Canonical groups:
+* **Status Group vs Agent State:** `UsersInStatusGroupCount(''BREAK'')` counts ALL states mapped to BREAK;
+  `UsersInStatusCount(''Break'')` counts the single raw state. Canonical groups:
   `AVAILABLE, ONPHONE, BREAK, PAPERWORK, TRAINING, UNAVAILABLE`. Group param = CC code (UPPERCASE), state param = exact
   state title (case-sensitive).
 * **Real-time vs cumulative:** `Cur*`, `*CurMax`, `Waiting`, `Active`, state counts = now; the rest = since midnight.
@@ -121,7 +121,7 @@ from `metrics-catalog.json`). Hand-write only unique metrics (~90).
   for status/login counters (§2.2).
 
 **Defect checklist per metric:**
-- Description ↔ filter mismatch (name promises something the predicate doesn't do)
+- Description ↔ filter mismatch (name promises something the predicate doesn''t do)
 - Calc refs: every `[Key]` exists verbatim in catalogue (exact match, watch spaces)
 - Calc expression is valid C# over numbers only (no row fields, no time windows)
 - ValueType/MetricType/DataType consistent with the family
@@ -129,8 +129,8 @@ from `metrics-catalog.json`). Hand-write only unique metrics (~90).
 
 **Before deleting/renaming any MetricId — reference check (ALL of):**
 1. `RTSGrid_Cell."Value"` (the only grid binding — §2.6)
-2. Calc formulas: `MetricParameter LIKE '%[<Id>]%'`
-3. Widget configs: `dashboard_widgets."ConfigJson"::text ILIKE '%<Id>%'` (jsonb → text cast, widget-creator §26)
+2. Calc formulas: `MetricParameter LIKE ''%[<Id>]%''`
+3. Widget configs: `dashboard_widgets."ConfigJson"::text ILIKE ''%<Id>%''` (jsonb → text cast, widget-creator §26)
 4. Shell/simulator code: `grep -rn "<Id>" src/ tools/SignalRSimulator/` (seeds in `DatabaseInitializer.cs`,
    hardcoded ids in widgets — ASD widget had `QueueNumOnCallAgents`)
 Re-point references to the canonical metric FIRST, then delete, then `Export-All.ps1`.
@@ -141,7 +141,7 @@ Re-point references to the canonical metric FIRST, then delete, then `Export-All
 fixed `MonAgentNumberOfInboundCallsOnly` (dropped Intercom → matches its name), `QueueSLAIn30secFrom80PctInc`
 (trimmed space), 11 descriptions, 1 DataType. Catalogue: 202 → **198**.
 
-**Open observations (candidates for the next pass — document, discuss, don't fix silently):**
+**Open observations (candidates for the next pass — document, discuss, don''t fix silently):**
 - `MonAgentNumMakeCallsInCompleted`: no `CallType` filter → counts intercom too; counts only completed
   (`!IsTalk`); MetricId says "MakeCalls" but counts incoming. Option A: add External filter (changes values!),
   option B: clarify Description only.
@@ -149,7 +149,7 @@ fixed `MonAgentNumberOfInboundCallsOnly` (dropped Intercom → matches its name)
   computes over the queue bag; normalise category or DataType.
 - `QueueNumIcomingOnlineInteractions`: ID typo "Icoming" kept (referenced); Description already fixed.
 - `QueueAvgWaitTime*` ≈ ASA but includes abandoned waits (predicate `!IsInQueue`, not `IsAnswered`).
-- **`MonAgentCurrentLoginTimeStamp` is DEAD**: catalogue function `CurLoginTimeStamp` vs engine case `CurLoginTimestamp` (case-sensitive switch) — found 2026-06-05 during engine inventory. Fix: `UPDATE "RTSGrid_Metric" SET "MetricFunction"='CurLoginTimestamp' WHERE "MetricId"='MonAgentCurrentLoginTimeStamp';` (next dedup/fix migration).
+- **`MonAgentCurrentLoginTimeStamp` is DEAD**: catalogue function `CurLoginTimeStamp` vs engine case `CurLoginTimestamp` (case-sensitive switch) — found 2026-06-05 during engine inventory. Fix: `UPDATE "RTSGrid_Metric" SET "MetricFunction"=''CurLoginTimestamp'' WHERE "MetricId"=''MonAgentCurrentLoginTimeStamp'';` (next dedup/fix migration).
 
 ---
 
@@ -206,7 +206,7 @@ Viewer help: tooltip = `shortDescription`; expanded panel = `longDescription` + 
 ## 9. Session lessons (process)
 
 - **L-M1:** Verify metric semantics in engine source (`RTM/RTM/Union.cs`, `UserManager.cs`), not from
-  field names — DataType looked meaningful for status counters and wasn't.
+  field names — DataType looked meaningful for status counters and wasn''t.
 - **L-M2:** A "duplicate" may really be a **filter bug** (InboundCallsOnly): prefer fixing the filter to
   match the name over deleting, when the name describes a useful distinct metric.
 - **L-M3:** Broken Calc metrics fail **silently for users** (always 0/empty) but spam the RTM log every
@@ -227,7 +227,7 @@ Viewer help: tooltip = `shortDescription`; expanded panel = `longDescription` + 
 |---|---|---|---|
 | `MetricId` | varchar, **PK** | PascalCase; **no dots** (dotted ids belong to `History_Metric`), **no dashes** (Calc pads `-` with spaces); family prefixes: `QueueNum…`, `QueuePct…`, `QueueAvg…`, `QueueCurMax…`, `MonAgent…`, `MonSumAgents…`, `StateCount…`, `User…` | Referenced **verbatim** by `RTSGrid_Cell."Value"` and by `[MetricId]` refs inside Calc formulas (exact match, spaces break it). Renaming = full reference migration (§6). Never shown to end users |
 | `Description` | varchar | `"QM - …"` / `"Agent Group - …"` / `"Agent - …"` — prefix IS the category | The only text users see (dropdowns, wizard). Must describe the filter EXACTLY — the audit found 3 metrics whose names lied. Fix wording freely (no references break), keep the prefix |
-| `DataType` | varchar | `Interactions Summary` (queue bag) · `UsersInteraction` (agent-group bag) · `UsersSummary` (status summaries) · `User` (per-agent) | Engine effect: **only** selects the interaction bag — `"UsersInteraction"` → BU agents' interactions, anything else → queue interactions (`getInteractionBag`). **Ignored entirely by status/login counters** (§2.2). Keep it consistent with the family anyway (audit normalised a stray `"String"`) |
+| `DataType` | varchar | `Interactions Summary` (queue bag) · `UsersInteraction` (agent-group bag) · `UsersSummary` (status summaries) · `User` (per-agent) | Engine effect: **only** selects the interaction bag — `"UsersInteraction"` → BU agents'' interactions, anything else → queue interactions (`getInteractionBag`). **Ignored entirely by status/login counters** (§2.2). Keep it consistent with the family anyway (audit normalised a stray `"String"`) |
 | `MetricFunction` | varchar | One of the closed catalogue below (§10.2) | What the engine computes. `Union.cs` switch serves `MetricType=Data`; `UserManager.cs` has the parallel switch for `MetricType=Agent`. **Never invent a new value** — the switch silently returns nothing for unknown names |
 | `MetricParameter` | varchar | Depends on function: **filter expr** (C# predicate over §3 atoms) · **StatusGroup code** (`AVAILABLE` `ONPHONE` `BREAK` `PAPERWORK` `TRAINING`) · **State title** (exact, case-sensitive: `Break`, `Wrap Up`, `Missed Call`, `Incoming Ext Call`, `Out Ext Call`, `Campaign Call`, `Hold`, `Unavailable`, `Consulting Call`…) · **empty** (login/identity functions) · **Calc formula** (C# expr with `[MetricId]` refs, zero-guard ternary) | The "how". For Calc: no spaces inside `[...]`, refs must exist, only numeric metrics referencable, no row fields / time windows (§2.3–2.4) |
 | `MetricFormat` | varchar, mostly empty | .NET numeric format string: `##0.0%`, `##0.00%`, `F2` | Applied **server-side**: the SignalR push delivers an already-formatted **string** (`"85.3%"`). Empty → plain numeric string. Widgets must parse accordingly; percent Calc metrics should always set it |
@@ -296,13 +296,13 @@ Dispatch types: **[tpl]** = Roslyn-compiled template (METRIC_PARAMETER = filter 
 | `TotalStatusCount` / `TotalStatusGroupCount` | inline | Number of entries into state / group today | 2/reserve |
 | `TotalStatusDurationAvg` / `TotalStatusGroupDurationAvg` | inline | Avg duration per stay | 2/1 |
 | `TotalStatusDurationMax` / `TotalStatusGroupDurationMax` | inline | Longest stay today | reserve/reserve |
-| `LongestInteraction{Id,Workgroup,Type,RemoteAddress,State,CustomCallData}` | inline | Attributes of agent's longest active interaction | 6 used / CustomCallData reserve |
+| `LongestInteraction{Id,Workgroup,Type,RemoteAddress,State,CustomCallData}` | inline | Attributes of agent''s longest active interaction | 6 used / CustomCallData reserve |
 | `LongestInteractionDuration` / `LongestInteractionStateDuration` | inline, **T** | Timers of that interaction / its state | reserve/1 |
-| `InteractionsCount` / `CPH` | tpl | Count of agent's interactions matching filter (`i.UserId == userId &&` auto-prepended). Same ⚠ CPH caveat | 63/2 |
+| `InteractionsCount` / `CPH` | tpl | Count of agent''s interactions matching filter (`i.UserId == userId &&` auto-prepended). Same ⚠ CPH caveat | 63/2 |
 | `TalkDurationAvg` / `TalkDurationMax` | tpl | Agent talk-time aggregates | 8/1 |
 | `MessagesAvgFirstResponseTime` / `MessagesAvgResponseTime` | tpl | Agent digital response times | 2/2 |
 | `Productivity` / `Efficiency` | inline | Derived productivity scores (semantics in UserManager.cs — read before use) | reserve/reserve |
-| `Calc` | calc | Formula over the agent's other metrics | 46 |
+| `Calc` | calc | Formula over the agent''s other metrics | 46 |
 
 **"reserve" = implemented in the engine but unused by the catalogue** — 30+ functions available for new
 metrics with ZERO engine changes (e.g. `AnsweredCount`, `WaitDurationMax`, `TalkDurationTotal`,
@@ -363,7 +363,7 @@ End-to-end path of every metric value, verified in source 2026-06-05. File map:
    Shell-only fields (filter UI / widget routing). Changing them never affects engine behaviour.
 2. `RTSGrid_GetDataCells()` → cells registered into Grid + Union in memory (`Cell.Value` = MetricId);
    `RTSGrid_GetAllUnionQueueClassifications(tenant)` → `union.addWorkgroup(QueueId)` for rows with
-   `ClassificationId='ALL'` (see widget-planner L-11 for the two historical bugs here).
+   `ClassificationId=''ALL''` (see widget-planner L-11 for the two historical bugs here).
 3. For every metric whose Function has a **template** (`MetricFunctionList` for Data,
    `MetricUserFunctionList` for Agent), the engine generates a C# class
    `Metric{MetricId}Container.MetricFunction(Bag, …)` — template body with `METRIC_PARAMETER` replaced by
@@ -395,7 +395,7 @@ LINQ lambda body. Consequences:
 ### 12.3 Runtime data — the bags
 
 CC-platform events (Finesse adapter) maintain two `ConcurrentBag<IDInteraction>` sets per Union:
-`QueueInteractions` (attributed via queue/workgroup) and `UsersInteractions` (attributed via the BU's
+`QueueInteractions` (attributed via queue/workgroup) and `UsersInteractions` (attributed via the BU''s
 agents), plus per-agent `UserManager` state (statuses, logins, longest interaction). `DataType` picks the
 bag (§2.1). Agent-status data lives in `Union.Users` (list of UserManager) — no bag involved.
 
@@ -469,9 +469,12 @@ versions; installed clients receive a TARGETED deploy.
   The package carries localization too, not only Parameter.
 - **DELETE: NEVER naked.** The Metrics session MUST author a REPLACEMENT — create a new replacing metric OR
   designate an existing one. The deletion package carries the mapping `{deletedMetricId -> replacementMetricId}`.
-  Deploy applies: remove the metric + RE-POINT client usage (dashboards / dashboard_widgets / widget configs that
-  reference deletedMetricId) to the replacement, so client screens never break. Usage-validation = locate every
-  reference to the metric; the mandatory replacement closes the gap.
+  Deploy applies: remove the metric + RE-POINT every usage to the replacement so screens never break. Usage spans
+  TWO layers: (1) the **grid binding** `RTSGrid_Cell.Value` — the PRIMARY metric reference in vendor-shipped
+  widget grids, re-pointed in the same migration (exactly as the `20260605_004` dedup did). NB: `RTSGrid_Column`
+  has NO MetricId — the binding is `RTSGrid_Cell.Value` (common error). (2) **client widget configs** —
+  `dashboard_widgets` ConfigJson / dashboard layout that reference the metricId, re-pointed at the client on deploy.
+  Usage-validation = locate every reference across BOTH layers; the mandatory replacement closes the gap.
 
 ### Deploy mechanism (hot-reload)
 The change ships in the install package (migration + manifest). At the client, the read-only MetricsPage **Deploy**
