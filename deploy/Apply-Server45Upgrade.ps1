@@ -37,6 +37,14 @@
     On Phase 4/5 failure: automatically run rollback (DB + binaries) before throwing.
 .PARAMETER NoResume
     Force re-backup of binaries even if a prior run marker exists (disables clean-resume).
+.PARAMETER ApplyServicePublish
+    Path to published CcDashboard.ApplyService binaries. If empty, ApplyService is not deployed.
+.PARAMETER ApplyServicePort
+    Loopback port for ApplyService Kestrel (default: 5099). Binds 127.0.0.1 ONLY (DEPLOY-08).
+.PARAMETER ApplySvcName
+    Windows service name for ApplyService (default: RTMApplyService).
+.PARAMETER ShellAppSettingsPath
+    Path to deployed Shell appsettings.json to patch BaseUrl. Default: $InstallRoot\Shell\appsettings.json.
 
 .EXAMPLE
     .\Apply-Server45Upgrade.ps1 -AppPassword "pw" -SuperPassword "spw" -ShellPublish "C:\Build\Shell" -RtmPublish "C:\Build\RTM"
@@ -64,7 +72,11 @@ param(
     [string]$PgVersion      = "",        # "" = auto-detect (18,17,16,15). Set "18" to force.
     [string]$MigrationList  = "",        # "" = built-in default set. Else comma-separated file names.
     [switch]$AutoRollback,               # on phase 4/5 failure: auto-run rollback before throwing
-    [switch]$NoResume                    # force re-backup of binaries even if prior run marker exists
+    [switch]$NoResume,                   # force re-backup of binaries even if prior run marker exists
+    [string]$ApplyServicePublish = "",     # path to published ApplyService binaries
+    [int]$ApplyServicePort       = 5099,   # loopback port for ApplyService (Kestrel)
+    [string]$ApplySvcName        = "RTMApplyService",  # Windows service name
+    [string]$ShellAppSettingsPath = ""     # path to Shell appsettings.json (default: $InstallRoot\Shell\appsettings.json)
 )
 
 $ErrorActionPreference = "Stop"
@@ -247,6 +259,10 @@ if ($rtmSvc) { Stop-ServiceAndExe $RTMSvcName } else { Log "${RTMSvcName}: not i
 $shellSvc = Get-Service -Name $ShellSvcName -ErrorAction SilentlyContinue
 if ($shellSvc) { Stop-ServiceAndExe $ShellSvcName } else { Log "${ShellSvcName}: not installed" }
 
+# Stop ApplyService (silently skip if absent)
+$applySvc = Get-Service -Name $ApplySvcName -ErrorAction SilentlyContinue
+if ($applySvc) { Stop-ServiceAndExe $ApplySvcName } else { Log "${ApplySvcName}: not installed (skipping)" }
+
 # Stop IIS App Pools
 Import-Module WebAdministration -ErrorAction SilentlyContinue
 foreach ($pool in $AppPools) {
@@ -364,6 +380,27 @@ if ($SkipBinaries) {
     } else {
         Log "[WARN] RtmPublish not specified — RTM binaries not deployed."
     }
+
+    # Deploy ApplyService
+    $applyDir = Join-Path $InstallRoot "ApplyService"
+    $applyPreserve = @("appsettings.json")
+    if ($ApplyServicePublish -and (Test-Path $ApplyServicePublish)) {
+        Log "Deploying ApplyService from: $ApplyServicePublish"
+        $preservedApply = @{}
+        foreach ($pf in $applyPreserve) {
+            $existing = Join-Path $applyDir $pf
+            if (Test-Path $existing) { $preservedApply[$pf] = Get-Content $existing -Raw }
+        }
+        if (-not (Test-Path $applyDir)) { New-Item -ItemType Directory -Path $applyDir -Force | Out-Null }
+        Copy-Item -Path "$ApplyServicePublish\*" -Destination $applyDir -Recurse -Force
+        foreach ($kv in $preservedApply.GetEnumerator()) {
+            Set-Content (Join-Path $applyDir $kv.Key) $kv.Value -Encoding UTF8
+            Log "  Preserved: $($kv.Key)"
+        }
+        Log "  ApplyService deployed."
+    } elseif ($ApplyServicePublish) {
+        Log "[WARN] ApplyServicePublish path not found: $ApplyServicePublish"
+    }
     # Write resume marker after successful binary deploy
     Set-Content $resumeMarker "$Timestamp | Shell+RTM deployed" -Encoding UTF8
 }
@@ -476,6 +513,133 @@ Log "All function files re-applied successfully."
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PHASE 5a — PROVISION APPLYSERVICE (role + secrets + config wiring)
+# ══════════════════════════════════════════════════════════════════════════════
+Banner "5a" "PROVISION APPLYSERVICE"
+
+if ($ApplyServicePublish) {
+    Log "ApplyService deployment requested — provisioning ccdashboard_catowner role + secrets..."
+
+    # Generate secrets using CSRNG (RandomNumberGenerator, NOT Get-Random)
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $bytes = New-Object byte[] 32
+    $rng.GetBytes($bytes)
+    $catownerPw = [Convert]::ToBase64String($bytes) -replace '[+/=]',''  # URL-safe
+    $rng.GetBytes($bytes)
+    $applyToken = [Convert]::ToBase64String($bytes) -replace '[+/=]',''  # URL-safe
+    $rng.Dispose()
+    Log "Generated catownerPw ($($catownerPw.Length) chars) and applyToken ($($applyToken.Length) chars) via CSRNG"
+
+    # Provision role (run as postgres)
+    $roleScript = Join-Path $ScriptDir "db\setup\02_catowner_role.sql"
+    if (-not (Test-Path $roleScript)) {
+        $roleScript = Join-Path (Split-Path $ScriptDir) "db\setup\02_catowner_role.sql"
+    }
+    if (-not (Test-Path $roleScript)) {
+        throw "Role setup script not found: db/setup/02_catowner_role.sql"
+    }
+    Log "Provisioning ccdashboard_catowner role..."
+    $env:PGPASSWORD = $SuperPassword
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    $roleOutput = & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -v catowner_pw="$catownerPw" -f $roleScript 2>&1
+    $roleExitCode = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
+    $env:PGPASSWORD = $null
+    $roleOutput | ForEach-Object { Log "  $_" }
+    if ($roleExitCode -ne 0) {
+        Ledger "02_catowner_role.sql" "FAIL"
+        if ($AutoRollback) { Invoke-Rollback "catowner role provision failed" }
+        throw "Role provision failed (exit $roleExitCode). ROLLBACK REQUIRED."
+    }
+    Ledger "02_catowner_role.sql" "OK"
+    Log "  ccdashboard_catowner role provisioned."
+
+    # Build catowner connection string
+    $catownerConn = "Host=$DBHost;Port=$DBPort;Database=$Database;Username=ccdashboard_catowner;Password=$catownerPw"
+
+    # ApplyService config: non-secret in appsettings, secrets in service ENV
+    $applyDir = Join-Path $InstallRoot "ApplyService"
+    $applyAppSettings = Join-Path $applyDir "appsettings.json"
+    if (Test-Path $applyAppSettings) {
+        Log "Patching ApplyService appsettings.json (non-secrets only)..."
+        $applyJson = Get-Content $applyAppSettings -Raw | ConvertFrom-Json
+        # Ensure Kestrel section exists
+        if (-not $applyJson.Kestrel) { $applyJson | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue ([PSCustomObject]@{}) }
+        if (-not $applyJson.Kestrel.Endpoints) { $applyJson.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue ([PSCustomObject]@{}) }
+        if (-not $applyJson.Kestrel.Endpoints.Http) { $applyJson.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue ([PSCustomObject]@{}) }
+        $applyJson.Kestrel.Endpoints.Http.Url = "http://127.0.0.1:$ApplyServicePort"
+        # Write back (read-modify-write preserves other keys)
+        $applyJson | ConvertTo-Json -Depth 10 | Set-Content $applyAppSettings -Encoding UTF8
+        Log "  Set Kestrel.Endpoints.Http.Url = http://127.0.0.1:$ApplyServicePort"
+    }
+
+    # Register ApplyService Windows Service (B5)
+    $existingApplySvc = Get-Service -Name $ApplySvcName -ErrorAction SilentlyContinue
+    $applyExePath = Join-Path $applyDir "CcDashboard.ApplyService.exe"
+    if (-not $existingApplySvc) {
+        Log "Registering new Windows service: $ApplySvcName"
+        New-Service -Name $ApplySvcName -BinaryPathName "`"$applyExePath`"" -StartupType Automatic -DisplayName "RTM Apply Service" | Out-Null
+        Log "  Service registered."
+    } else {
+        # Update binary path if changed
+        $cim = Get-CimInstance Win32_Service -Filter "Name='$ApplySvcName'" -ErrorAction SilentlyContinue
+        if ($cim -and $cim.PathName -ne "`"$applyExePath`"") {
+            Log "Updating service binary path..."
+            sc.exe config $ApplySvcName binPath= "`"$applyExePath`"" | Out-Null
+        }
+        Log "  Service $ApplySvcName already exists."
+    }
+
+    # Set service environment variables (secrets: token + catowner connection)
+    # Registry: HKLM\SYSTEM\CurrentControlSet\Services\$ApplySvcName\Environment (REG_MULTI_SZ)
+    $svcRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$ApplySvcName"
+    $envVars = @(
+        "ConnectionStrings__CatalogueOwner=$catownerConn",
+        "ApplyService__Token=$applyToken"
+    )
+    Set-ItemProperty -Path $svcRegPath -Name "Environment" -Value $envVars -Type MultiString
+    Log "  Set ApplyService ENV: ConnectionStrings__CatalogueOwner, ApplyService__Token (secrets in registry, NOT appsettings)"
+
+    # Set Shell service environment variable (MetricsApply__Token)
+    # Registry: HKLM\SYSTEM\CurrentControlSet\Services\$ShellSvcName\Environment
+    $shellSvcRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$ShellSvcName"
+    if (Test-Path $shellSvcRegPath) {
+        # Read existing env vars and append/update
+        $existingEnv = @()
+        try { $existingEnv = @(Get-ItemPropertyValue -Path $shellSvcRegPath -Name "Environment" -ErrorAction SilentlyContinue) } catch {}
+        # Remove old MetricsApply__Token if present
+        $existingEnv = $existingEnv | Where-Object { $_ -notmatch "^MetricsApply__Token=" }
+        $existingEnv += "MetricsApply__Token=$applyToken"
+        Set-ItemProperty -Path $shellSvcRegPath -Name "Environment" -Value $existingEnv -Type MultiString
+        Log "  Set Shell ENV: MetricsApply__Token (same token value, secret in registry, NOT appsettings)"
+    } else {
+        Log "  [WARN] Shell service registry path not found: $shellSvcRegPath — Shell env not set."
+    }
+
+    # Patch Shell appsettings: ONLY non-secret BaseUrl (B3.5)
+    $shellDir = Join-Path $InstallRoot "Shell"
+    if (-not $ShellAppSettingsPath) { $ShellAppSettingsPath = Join-Path $shellDir "appsettings.json" }
+    if (Test-Path $ShellAppSettingsPath) {
+        Log "Patching Shell appsettings.json (non-secret BaseUrl only)..."
+        $shellJson = Get-Content $ShellAppSettingsPath -Raw | ConvertFrom-Json
+        if (-not $shellJson.MetricsApply) { $shellJson | Add-Member -NotePropertyName "MetricsApply" -NotePropertyValue ([PSCustomObject]@{}) }
+        $shellJson.MetricsApply.BaseUrl = "http://127.0.0.1:$ApplyServicePort"
+        # NOTE: Token is NOT written here — it's the Shell service env var MetricsApply__Token
+        $shellJson | ConvertTo-Json -Depth 10 | Set-Content $ShellAppSettingsPath -Encoding UTF8
+        Log "  Set MetricsApply:BaseUrl = http://127.0.0.1:$ApplyServicePort (Token is ENV VAR, not here)"
+    } else {
+        Log "  [WARN] Shell appsettings not found: $ShellAppSettingsPath"
+    }
+
+    Log ""
+    Log "NOTE: DPAPI/Credential Manager = future hardening; env-var is the CODE-05-sanctioned v1 path; caller unchanged."
+    Log "ApplyService provisioning complete."
+} else {
+    Log "ApplyServicePublish not specified — skipping ApplyService provisioning."
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PHASE 6 — START SERVICES
 # ══════════════════════════════════════════════════════════════════════════════
 Banner "6" "START SERVICES + APP POOLS"
@@ -507,6 +671,25 @@ if ($rtmSvc) {
     Log "${RTMSvcName}: $((Get-Service $RTMSvcName).Status)"
 }
 
+# Start ApplyService
+if ($ApplyServicePublish) {
+    $applySvc = Get-Service -Name $ApplySvcName -ErrorAction SilentlyContinue
+    if ($applySvc) {
+        Start-Service -Name $ApplySvcName -ErrorAction SilentlyContinue
+        # Wait loop for Running
+        for ($i=0; $i -lt 30 -and (Get-Service -Name $ApplySvcName -ErrorAction SilentlyContinue).Status -ne "Running"; $i++) { Start-Sleep 1 }
+        Log "${ApplySvcName}: $((Get-Service $ApplySvcName).Status)"
+        # Health check (optional)
+        try {
+            $healthUrl = "http://127.0.0.1:$ApplyServicePort/health"
+            $resp = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+            if ($resp.StatusCode -eq 200) { Log "  Health check OK: $healthUrl" }
+        } catch {
+            Log "  [INFO] Health endpoint not available or not responding (non-fatal)."
+        }
+    }
+}
+
 Log "RTM-DEPLOY-001 window CLOSED — services started."
 
 # E-010a: Write success manifest
@@ -519,6 +702,8 @@ Database:      $Database
 Migrations:    $($migrations -join ', ')
 ShellDeployed: $([bool]$ShellPublish)
 RtmDeployed:   $([bool]$RtmPublish)
+ApplyServiceDeployed: $([bool]$ApplyServicePublish)
+ApplyServicePort: $ApplyServicePort
 "@
 Set-Content (Join-Path $OpsRoot "SERVER.md") $manifest -Encoding UTF8
 Add-Content $LedgerFile "$(Get-Date -Format o) | MANIFEST | commit=$ReleaseCommit PG=$pgVerActual migs=$($migrations.Count)"
