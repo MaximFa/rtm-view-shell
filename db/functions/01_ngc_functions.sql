@@ -71,7 +71,14 @@ $$;
 -- ============================================================================
 -- 1c. NGC_GetOrCreateQueue - idempotent upsert into NGC_Queues
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_GetOrCreateQueue"(text, text, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_getorcreatequeue$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_GetOrCreateQueue' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_getorcreatequeue$;
 
 CREATE OR REPLACE PROCEDURE "NGC_GetOrCreateQueue"(
     p_external_id text,
@@ -90,7 +97,14 @@ $$;
 -- ============================================================================
 -- 1d. NGC_GetOrCreateAgentGroup - idempotent upsert into NGC_AgentGroups
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_GetOrCreateAgentGroup"(text, text, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_getorcreateagentgroup$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_GetOrCreateAgentGroup' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_getorcreateagentgroup$;
 
 CREATE OR REPLACE PROCEDURE "NGC_GetOrCreateAgentGroup"(
     p_external_id text,
@@ -312,8 +326,14 @@ $$;
 -- ============================================================================
 -- 8. NGC_ModifyBusinessUnit
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_ModifyBusinessUnit"(integer, text, text);
-DROP FUNCTION IF EXISTS "NGC_ModifyBusinessUnit"(integer, text, text, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_modifybusinessunit$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_ModifyBusinessUnit' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_modifybusinessunit$;
 
 CREATE OR REPLACE PROCEDURE "NGC_ModifyBusinessUnit"(
     p_business_unit_id integer,
@@ -335,8 +355,14 @@ $$;
 -- ============================================================================
 -- 9. NGC_DeleteBusinessUnit
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnit"(integer);
-DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnit"(integer, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_deletebusinessunit$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteBusinessUnit' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_deletebusinessunit$;
 
 CREATE OR REPLACE PROCEDURE "NGC_DeleteBusinessUnit"(
     p_business_unit_id integer,
@@ -377,8 +403,14 @@ $$;
 -- ============================================================================
 -- 11. NGC_ModifySupergroup
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_ModifySupergroup"(integer, text, text);
-DROP FUNCTION IF EXISTS "NGC_ModifySupergroup"(integer, text, text, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_modifysupergroup$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_ModifySupergroup' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_modifysupergroup$;
 
 CREATE OR REPLACE PROCEDURE "NGC_ModifySupergroup"(
     p_supergroup_id integer,
@@ -400,8 +432,14 @@ $$;
 -- ============================================================================
 -- 12. NGC_DeleteSupergroup
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_DeleteSupergroup"(integer);
-DROP FUNCTION IF EXISTS "NGC_DeleteSupergroup"(integer, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_deletesupergroup$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteSupergroup' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_deletesupergroup$;
 
 CREATE OR REPLACE PROCEDURE "NGC_DeleteSupergroup"(
     p_supergroup_id integer,
@@ -420,8 +458,14 @@ $$;
 -- 13. NGC_CreateBusinessUnitQueueClassificationMapping
 --     UPSERT: ON CONFLICT DO NOTHING (idempotent create)
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitQueueClassificationMapping"(integer, text);
-DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitQueueClassificationMapping"(integer, text, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_createbusinessunitqueueclassificationmapping$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_CreateBusinessUnitQueueClassificationMapping' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_createbusinessunitqueueclassificationmapping$;
 
 CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitQueueClassificationMapping"(
     p_business_unit_id integer,
@@ -440,8 +484,14 @@ $$;
 -- ============================================================================
 -- 14. NGC_DeleteBusinessUnitQueueClassificationMapping
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitQueueClassificationMapping"(integer, text);
-DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitQueueClassificationMapping"(integer, text, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_deletebusinessunitqueueclassificationmapping$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteBusinessUnitQueueClassificationMapping' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_deletebusinessunitqueueclassificationmapping$;
 
 CREATE OR REPLACE PROCEDURE "NGC_DeleteBusinessUnitQueueClassificationMapping"(
     p_business_unit_id integer,
@@ -462,8 +512,14 @@ $$;
 -- 15. NGC_CreateBusinessUnitSupergroupMapping
 --     UPSERT: ON CONFLICT DO NOTHING (idempotent create)
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitSupergroupMapping"(integer, integer);
-DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnitSupergroupMapping"(integer, integer, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_createbusinessunitSupergroupmapping$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_CreateBusinessUnitSupergroupMapping' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_createbusinessunitSupergroupmapping$;
 
 CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitSupergroupMapping"(
     p_business_unit_id integer,
@@ -482,8 +538,14 @@ $$;
 -- ============================================================================
 -- 16. NGC_DeleteBusinessUnitSupergroupMapping
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitSupergroupMapping"(integer, integer);
-DROP FUNCTION IF EXISTS "NGC_DeleteBusinessUnitSupergroupMapping"(integer, integer, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_deletebusinessunitsupergroupmapping$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteBusinessUnitSupergroupMapping' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_deletebusinessunitsupergroupmapping$;
 
 CREATE OR REPLACE PROCEDURE "NGC_DeleteBusinessUnitSupergroupMapping"(
     p_business_unit_id integer,
@@ -511,8 +573,14 @@ $$;
 --       ON "NGC_SupergroupAgentgroup" ("SupergroupId", "AgentgroupId");
 --     For now, simple INSERT matching original T-SQL behavior.
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_CreateSupergroupAgentgroupMapping"(integer, text);
-DROP FUNCTION IF EXISTS "NGC_CreateSupergroupAgentgroupMapping"(integer, text, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_createsupergroupagentgroupmapping$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_CreateSupergroupAgentgroupMapping' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_createsupergroupagentgroupmapping$;
 
 CREATE OR REPLACE PROCEDURE "NGC_CreateSupergroupAgentgroupMapping"(
     p_supergroup_id integer,
@@ -530,8 +598,14 @@ $$;
 -- ============================================================================
 -- 18. NGC_DeleteSupergroupAgentgroupMapping
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_DeleteSupergroupAgentgroupMapping"(integer, text);
-DROP FUNCTION IF EXISTS "NGC_DeleteSupergroupAgentgroupMapping"(integer, text, uuid);
+-- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+DO $drop_deletesupergroupagentgroupmapping$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteSupergroupAgentgroupMapping' AND prokind='f' LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  END LOOP;
+END $drop_deletesupergroupagentgroupmapping$;
 
 CREATE OR REPLACE PROCEDURE "NGC_DeleteSupergroupAgentgroupMapping"(
     p_supergroup_id integer,

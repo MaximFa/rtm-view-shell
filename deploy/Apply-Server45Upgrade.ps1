@@ -135,6 +135,22 @@ function Invoke-Rollback([string]$reason) {
     } catch { Log "[ROLLBACK ERROR] $($_.Exception.Message) — MANUAL recovery required (see Phase 8)." }
 }
 
+function Stop-ServiceAndExe([string]$svcName) {
+    $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+    if ($svc -and $svc.Status -ne "Stopped") { Log "Stopping $svcName..."; Stop-Service -Name $svcName -Force -ErrorAction SilentlyContinue }
+    # wait up to 20s for Stopped
+    for ($i=0; $i -lt 20 -and (Get-Service -Name $svcName -ErrorAction SilentlyContinue).Status -ne "Stopped"; $i++) { Start-Sleep 1 }
+    # derive exe from the service binary path and force-kill any survivor
+    $cim = Get-CimInstance Win32_Service -Filter "Name='$svcName'" -ErrorAction SilentlyContinue
+    if ($cim -and $cim.PathName) {
+        $exe = [System.IO.Path]::GetFileNameWithoutExtension(($cim.PathName -replace '^"([^"]+)".*','$1'))
+        $procs = Get-Process -Name $exe -ErrorAction SilentlyContinue
+        if ($procs) { Log "Killing orphan exe '$exe' (pid $($procs.Id -join ','))"; $procs | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2 }
+    }
+    Log "${svcName}: stopped (exe clear)."
+}
+
+
 # ── Setup ─────────────────────────────────────────────────────────────────────
 if (-not $AppPassword) { throw "AppPassword is required (for pre-flight probe as $AppUser)." }
 if (-not $SuperPassword) { throw "SuperPassword is required (for DDL migrations as $SuperUser)." }
@@ -223,23 +239,13 @@ Log "PRE-FLIGHT PROBE PASSED — all required dependencies present."
 # ══════════════════════════════════════════════════════════════════════════════
 Banner "1" "STOP SERVICES + APP POOLS"
 
-# Stop RTM Service
+# Stop RTM Service (E-018: kill orphan exe if service stop leaves process)
 $rtmSvc = Get-Service -Name $RTMSvcName -ErrorAction SilentlyContinue
-if ($rtmSvc -and $rtmSvc.Status -ne "Stopped") {
-    Log "Stopping $RTMSvcName..."
-    Stop-Service -Name $RTMSvcName -Force
-    Start-Sleep -Seconds 3
-}
-Log "${RTMSvcName}: $(if ($rtmSvc) { (Get-Service $RTMSvcName).Status } else { 'not installed' })"
+if ($rtmSvc) { Stop-ServiceAndExe $RTMSvcName } else { Log "${RTMSvcName}: not installed" }
 
-# Stop Shell Service
+# Stop Shell Service (E-018: kill orphan exe if service stop leaves process)
 $shellSvc = Get-Service -Name $ShellSvcName -ErrorAction SilentlyContinue
-if ($shellSvc -and $shellSvc.Status -ne "Stopped") {
-    Log "Stopping $ShellSvcName..."
-    Stop-Service -Name $ShellSvcName -Force
-    Start-Sleep -Seconds 3
-}
-Log "${ShellSvcName}: $(if ($shellSvc) { (Get-Service $ShellSvcName).Status } else { 'not installed' })"
+if ($shellSvc) { Stop-ServiceAndExe $ShellSvcName } else { Log "${ShellSvcName}: not installed" }
 
 # Stop IIS App Pools
 Import-Module WebAdministration -ErrorAction SilentlyContinue
@@ -385,6 +391,9 @@ if ($MigrationList) {
 $migrationsDir = Join-Path $ScriptDir "migrations"
 $env:PGPASSWORD = $SuperPassword
 
+# E-015: try/catch ensures -AutoRollback fires on terminating abort
+try {
+
 foreach ($mig in $migrations) {
     $migFile = Join-Path $migrationsDir $mig
     if (-not (Test-Path $migFile)) {
@@ -394,9 +403,11 @@ foreach ($mig in $migrations) {
     }
 
     Log "Applying: $mig"
+    # E-015: neutralize psql stderr — decide on exit code only
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
     $output = & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -v ON_ERROR_STOP=1 -f $migFile 2>&1
     $exitCode = $LASTEXITCODE
-
+    $ErrorActionPreference = $prevEAP
     $output | ForEach-Object { Log "  $_" }
 
     if ($exitCode -ne 0) {
@@ -437,9 +448,11 @@ foreach ($fn in $functions) {
     }
 
     Log "Applying: $fn"
+    # E-015: neutralize psql stderr — decide on exit code only
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
     $output = & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -v ON_ERROR_STOP=1 -f $fnFile 2>&1
     $exitCode = $LASTEXITCODE
-
+    $ErrorActionPreference = $prevEAP
     $output | ForEach-Object { Log "  $_" }
 
     if ($exitCode -ne 0) {
@@ -455,6 +468,12 @@ foreach ($fn in $functions) {
 
 $env:PGPASSWORD = $null
 Log "All function files re-applied successfully."
+
+} catch {
+    Log "[ABORT] $($_.Exception.Message)"
+    if ($AutoRollback) { Invoke-Rollback "terminating abort: $($_.Exception.Message)" }
+    throw
+}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE 6 — START SERVICES
@@ -489,6 +508,21 @@ if ($rtmSvc) {
 }
 
 Log "RTM-DEPLOY-001 window CLOSED — services started."
+
+# E-010a: Write success manifest
+$manifest = @"
+# RTMView Server Manifest — auto-written by Apply-Server45Upgrade.ps1
+ReleaseCommit: $ReleaseCommit
+PostgreSQL:    $pgVerActual
+UpgradedAt:    $(Get-Date -Format o)
+Database:      $Database
+Migrations:    $($migrations -join ', ')
+ShellDeployed: $([bool]$ShellPublish)
+RtmDeployed:   $([bool]$RtmPublish)
+"@
+Set-Content (Join-Path $OpsRoot "SERVER.md") $manifest -Encoding UTF8
+Add-Content $LedgerFile "$(Get-Date -Format o) | MANIFEST | commit=$ReleaseCommit PG=$pgVerActual migs=$($migrations.Count)"
+Log "Manifest written: $OpsRoot\SERVER.md"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE 7 — VERIFY (operator checklist)
