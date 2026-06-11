@@ -174,6 +174,14 @@ is the only protection for same-file work.
 
 ## 10. Operator command set — EXECUTE LITERALLY
 
+> **§10 is the SINGLE OPERATIVE SOURCE of protocol commands for THIS project.** Every short registry
+> (`.coord/coordinator-commands.md`, `.coord/session-commands.md`) and every doc (runbook, UNIFIED mirror)
+> is a POINTER or MIRROR of this section — NEVER a partial copy (partial copies caused the `сбрось` drift,
+> 2026-06-10/11). Cross-project parity: the OTHER project's session-coord §10 must carry the identical
+> verb set; keep both in sync, do not share one file. A running session caches the skill at start (L-SC-15):
+> after any §10 change, the coordinator drops a "re-read skill" note into each active inbox and the operator
+> triggers `коорд: входящие`.
+
 The operator (Max) drives the protocol with short commands prefixed `коорд:`.
 Every session MUST recognise them and execute the exact semantics below —
 no improvisation, no clarifying questions unless data is genuinely missing.
@@ -184,19 +192,21 @@ Replies must be SHORT: result + what the operator should do next (if anything).
 | `коорд: ты координатор` | new session | Register on the bus with `role: coordinator`, empty work claims. Read all bus state. Reply: bus summary + "готов". |
 | `коорд: регистрируйся. задача: <text>` | new work session | Load this skill, §1 runbook, derive slug + initial claims from the task, register. Reply: slug, claims, conflicts found (checker), ready/blocked. |
 | `коорд: статус` | any session | Own state: slug, claims, cc_task, last journal lines relevant to me. Coordinator instead: FULL bus audit (sessions+heartbeats, locks, queue, journal↔git reconciliation, unpushed count). |
-| `коорд: проверь шину` | coordinator | Same as coordinator `статус` + actively FIX: restore lost journal lines, flag stale locks/sessions, claim violations, queue deadlocks. Reply: findings + required operator actions. |
+| `коорд: проверь шину` (superset of: `журнал`) | coordinator | Same as coordinator `статус` + actively FIX: restore lost journal lines, flag stale locks/sessions, claim violations, queue deadlocks. Reply: findings + required operator actions. |
 | `коорд: очередь` | session holding a contested file | Read `.coord/queue.md`. If a REQUEST targets my claims: finish current CC task, ensure path committed, remove from my claims, append GRANT. Reply: what was granted, to whom. |
 | `коорд: файл твой` | session waiting in queue | Verify GRANT exists for me, re-read path from fresh HEAD, add to claims, resume work. Reply: confirmed + next step. |
-| `коорд: готовим пуш` | coordinator | Verify no commit.lock → write `push/request.md` (freeze) → reply with the exact ack-request text for the operator to paste into each work session. |
+| `коорд: готовим пуш` (alias: `барьер`) | coordinator | Verify no commit.lock → write `push/request.md` (freeze) → reply with the exact ack-request text for the operator to paste into each work session. |
 | `коорд: дай ack` | work session | Run §6 ack checklist, write own ack (READY or HOLD+reason). Reply: one line — READY / HOLD: reason. |
 | `коорд: пуш` | coordinator | Verify quorum (every active session READY, valid_for == frozen set) → reply with the CC command (`Выполни задачу из файла tools/cc_prompt_push_barrier.md`). If no quorum: who is missing. |
 | `коорд: завершаю сессию` | any session | Set `status: done`, claims released. Reply: final summary (commits made, loose ends). |
-| `коорд: сессия <slug> мертва` | coordinator | Operator-confirmed takeover (§42.2): delete that session file, list orphaned claims/locks now free, schedule orphan-lock removal via next CC task. |
+| `коорд: сессия <slug> мертва` (alias: `разлок`) | coordinator | Operator-confirmed takeover (§42.2): delete that session file, list orphaned claims/locks now free, schedule orphan-lock removal via next CC task. |
 | `коорд: сбрось` | any session | Flush current status / question / handoff to the bus: update own session file, and append a message block to `.coord/inbox/<recipient>.md` (recipient = `coordinator` for decisions, or a peer slug). Reply: what was written, to whom. |
 | `коорд: входящие` (alias: `коорд: прочитай`) | any session | Read own `.coord/inbox/<slug>.md`; act on each unhandled block; append `> handled <UTC> by <slug>` per block. THEN auto-flush (implicit `коорд: сбрось`): write ONE response block to `.coord/inbox/coordinator.md` — what was done, answers to any questions, new questions/blockers, current status. One operator poke = read + respond. Chat reply: short summary. |
 | `коорд: разбери` | coordinator | Read ALL `.coord/inbox/*.md` + session files, reconcile, then write directives into each recipient's inbox. Reply: per-session directives placed + what the operator must trigger (`коорд: входящие` to whom). |
 | `коорд: передай координацию` | outgoing coordinator | Write a HANDOFF block to `.coord/inbox/coordinator.md` capturing what is NOT derivable from the bus (see §12), set own session `status: done`. Reply: handoff written, safe to open a fresh coordinator. |
 | `коорд: ты координатор` (on a FRESH session) | new session | Register as coordinator; read skill + FULL bus audit + the HANDOFF block in coordinator.md; reconstruct state. Reply: reconstructed picture + any gaps. |
+| `коорд: ревью` | any session (asks); coordinator (acts) | Coordinator §4 review of a CC prompt OR a returned result: checks mandatory blocks (§0.6a integrity, §40 skill-loads, sync block), claim correctness, acceptance criteria, fact-consistency vs code/object-store. Verdict PASS / REVISE-with-notes -> writes verdict to requester's inbox. |
+| `коорд: промпт <role> <task>` | coordinator | Draft a FULL self-contained directive (mandatory reads + integrity block + specialist's claim + task + acceptance criteria + commit.lock/journal/no-push), write it into `.coord/inbox/<role-slug>.md`, hand the operator the trigger-list. The coordinator does NOT execute or trigger. |
 
 Default duty regardless of commands: at the start of EVERY turn each session re-reads
 the bus (§1 items 2–4) and acts on what it finds (barrier → ack; foreign journal
