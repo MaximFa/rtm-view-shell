@@ -10,6 +10,7 @@ using Serilog;
 using UUIDNext;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService();
 
 // Serilog
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration));
