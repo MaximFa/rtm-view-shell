@@ -76,7 +76,8 @@ param(
     [string]$ApplyServicePublish = "",     # path to published ApplyService binaries
     [int]$ApplyServicePort       = 5099,   # loopback port for ApplyService (Kestrel)
     [string]$ApplySvcName        = "RTMApplyService",  # Windows service name
-    [string]$ShellAppSettingsPath = ""     # path to Shell appsettings.json (default: $InstallRoot\Shell\appsettings.json)
+    [string]$ShellAppSettingsPath = "",    # path to Shell appsettings.json (default: $InstallRoot\Shell\appsettings.json)
+    [string]$ReleaseCommit = ""              # git commit hash for SERVER.md manifest
 )
 
 $ErrorActionPreference = "Stop"
@@ -147,17 +148,35 @@ function Invoke-Rollback([string]$reason) {
     } catch { Log "[ROLLBACK ERROR] $($_.Exception.Message) — MANUAL recovery required (see Phase 8)." }
 }
 
-function Stop-ServiceAndExe([string]$svcName) {
+function Stop-ServiceAndExe([string]$svcName, [string]$componentDir = "") {
     $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
     if ($svc -and $svc.Status -ne "Stopped") { Log "Stopping $svcName..."; Stop-Service -Name $svcName -Force -ErrorAction SilentlyContinue }
     # wait up to 20s for Stopped
     for ($i=0; $i -lt 20 -and (Get-Service -Name $svcName -ErrorAction SilentlyContinue).Status -ne "Stopped"; $i++) { Start-Sleep 1 }
-    # derive exe from the service binary path and force-kill any survivor
-    $cim = Get-CimInstance Win32_Service -Filter "Name='$svcName'" -ErrorAction SilentlyContinue
-    if ($cim -and $cim.PathName) {
-        $exe = [System.IO.Path]::GetFileNameWithoutExtension(($cim.PathName -replace '^"([^"]+)".*','$1'))
-        $procs = Get-Process -Name $exe -ErrorAction SilentlyContinue
-        if ($procs) { Log "Killing orphan exe '$exe' (pid $($procs.Id -join ','))"; $procs | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2 }
+    
+    # A5: Kill orphan processes by PATH (not just exe name) — catches Kestrel children
+    if ($componentDir -and (Test-Path $componentDir)) {
+        $dirPrefix = $componentDir.TrimEnd('\') + '\'
+        $orphans = Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$dirPrefix*" }
+        foreach ($p in $orphans) {
+            Log "  Killing orphan by path: $($p.Name) (pid $($p.ProcessId)) - $($p.ExecutablePath)"
+            try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
+        }
+        Start-Sleep 2
+        # Verify none remain
+        $survivors = Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$dirPrefix*" }
+        if ($survivors) {
+            foreach ($s in $survivors) { Log "  [WARN] Survivor: $($s.Name) (pid $($s.ProcessId))" }
+            throw "${svcName}: Failed to kill all processes under $componentDir — $($survivors.Count) survivors remain"
+        }
+    } else {
+        # Fallback: derive exe from the service binary path (legacy behavior)
+        $cim = Get-CimInstance Win32_Service -Filter "Name='$svcName'" -ErrorAction SilentlyContinue
+        if ($cim -and $cim.PathName) {
+            $exe = [System.IO.Path]::GetFileNameWithoutExtension(($cim.PathName -replace '^"([^"]+)".*','$1'))
+            $procs = Get-Process -Name $exe -ErrorAction SilentlyContinue
+            if ($procs) { Log "Killing orphan exe '$exe' (pid $($procs.Id -join ','))"; $procs | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2 }
+        }
     }
     Log "${svcName}: stopped (exe clear)."
 }
@@ -251,17 +270,31 @@ Log "PRE-FLIGHT PROBE PASSED — all required dependencies present."
 # ══════════════════════════════════════════════════════════════════════════════
 Banner "1" "STOP SERVICES + APP POOLS"
 
-# Stop RTM Service (E-018: kill orphan exe if service stop leaves process)
+# A5: Neutralize service recovery BEFORE stopping (prevents restart during kill)
 $rtmSvc = Get-Service -Name $RTMSvcName -ErrorAction SilentlyContinue
-if ($rtmSvc) { Stop-ServiceAndExe $RTMSvcName } else { Log "${RTMSvcName}: not installed" }
+if ($rtmSvc) {
+    Log "Neutralizing $RTMSvcName recovery (prevent respawn during upgrade)..."
+    Set-Service -Name $RTMSvcName -StartupType Manual -ErrorAction SilentlyContinue
+    & sc.exe failure $RTMSvcName reset= 0 actions= "" 2>&1 | Out-Null
+    Stop-ServiceAndExe $RTMSvcName $rtmDir
+} else { Log "${RTMSvcName}: not installed" }
 
-# Stop Shell Service (E-018: kill orphan exe if service stop leaves process)
 $shellSvc = Get-Service -Name $ShellSvcName -ErrorAction SilentlyContinue
-if ($shellSvc) { Stop-ServiceAndExe $ShellSvcName } else { Log "${ShellSvcName}: not installed" }
+if ($shellSvc) {
+    Log "Neutralizing $ShellSvcName recovery (prevent respawn during upgrade)..."
+    Set-Service -Name $ShellSvcName -StartupType Manual -ErrorAction SilentlyContinue
+    & sc.exe failure $ShellSvcName reset= 0 actions= "" 2>&1 | Out-Null
+    Stop-ServiceAndExe $ShellSvcName $shellDir
+} else { Log "${ShellSvcName}: not installed" }
 
 # Stop ApplyService (silently skip if absent)
+$applyDir = Join-Path $InstallRoot "ApplyService"
 $applySvc = Get-Service -Name $ApplySvcName -ErrorAction SilentlyContinue
-if ($applySvc) { Stop-ServiceAndExe $ApplySvcName } else { Log "${ApplySvcName}: not installed (skipping)" }
+if ($applySvc) {
+    Set-Service -Name $ApplySvcName -StartupType Manual -ErrorAction SilentlyContinue
+    & sc.exe failure $ApplySvcName reset= 0 actions= "" 2>&1 | Out-Null
+    Stop-ServiceAndExe $ApplySvcName $applyDir
+} else { Log "NT SERVICE\${ApplySvcName}: not installed (skipping)" }
 
 # Stop IIS App Pools
 Import-Module WebAdministration -ErrorAction SilentlyContinue
@@ -366,7 +399,12 @@ if ($SkipBinaries) {
         $preservedRTM = @{}
         foreach ($pf in $rtmPreserve) {
             $existing = Join-Path $rtmDir $pf
-            if (Test-Path $existing) { $preservedRTM[$pf] = [System.IO.File]::ReadAllBytes($existing) }
+            if (Test-Path $existing) {
+                $preservedRTM[$pf] = [System.IO.File]::ReadAllBytes($existing)
+                Log "  Pre-deploy preserve: $pf ($([System.IO.File]::ReadAllBytes($existing).Length) bytes)"
+            } else {
+                Log "  [INFO] $pf not found at $existing (first-time install or already absent)"
+            }
         }
         if (-not (Test-Path $rtmDir)) { New-Item -ItemType Directory -Path $rtmDir -Force | Out-Null }
         Copy-Item -Path "$RtmPublish\*" -Destination $rtmDir -Recurse -Force
@@ -375,6 +413,27 @@ if ($SkipBinaries) {
             Log "  Preserved: $($kv.Key)"
         }
         Log "  RTM deployed."
+        
+        # A6: Assert RTM:TenantId was preserved (not Guid.Empty from package)
+        $rtmAppCfg = Join-Path $rtmDir "appsettings.json"
+        if (Test-Path $rtmAppCfg) {
+            try {
+                $rtmCfgJson = Get-Content $rtmAppCfg -Raw | ConvertFrom-Json
+                $rtmTenantId = $null
+                if ($rtmCfgJson.RTM -and $rtmCfgJson.RTM.TenantId) { $rtmTenantId = $rtmCfgJson.RTM.TenantId }
+                if (-not $rtmTenantId -or $rtmTenantId -eq "00000000-0000-0000-0000-000000000000") {
+                    Log "[FATAL] RTM appsettings TenantId is empty/placeholder after deploy — appsettings.json was clobbered!"
+                    Log "  Restore from $BinaryBackupDir\RTM\appsettings.json and retry."
+                    throw "RTM:TenantId clobbered (A6 assertion). Deploy failed."
+                }
+                Log "  Verified RTM:TenantId = $rtmTenantId (not clobbered)"
+            } catch {
+                if ($_.Exception.Message -match "clobbered") { throw }
+                Log "  [WARN] Could not verify RTM:TenantId: $($_.Exception.Message)"
+            }
+        } else {
+            Log "[WARN] RTM appsettings.json not found after deploy — first-time install? Set TenantId manually."
+        }
     } elseif ($RtmPublish) {
         Log "[WARN] RtmPublish path not found: $RtmPublish"
     } else {
@@ -411,7 +470,7 @@ if ($SkipBinaries) {
 Banner "4" "APPLY MIGRATIONS"
 
 if ($MigrationList) {
-    $migrations = $MigrationList.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+    $migrations = @($MigrationList.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     Log "Using operator-supplied migration list ($($migrations.Count) entries)."
 } else {
     $migrations = @(
@@ -567,7 +626,7 @@ if ($ApplyServicePublish) {
         if (-not $applyJson.Kestrel) { $applyJson | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue ([PSCustomObject]@{}) }
         if (-not $applyJson.Kestrel.Endpoints) { $applyJson.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue ([PSCustomObject]@{}) }
         if (-not $applyJson.Kestrel.Endpoints.Http) { $applyJson.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue ([PSCustomObject]@{}) }
-        $applyJson.Kestrel.Endpoints.Http.Url = "http://127.0.0.1:$ApplyServicePort"
+        $applyJson.Kestrel.Endpoints.Http | Add-Member -NotePropertyName "Url" -NotePropertyValue "http://127.0.0.1:$ApplyServicePort" -Force
         # Write back (read-modify-write preserves other keys)
         $applyJson | ConvertTo-Json -Depth 10 | Set-Content $applyAppSettings -Encoding UTF8
         Log "  Set Kestrel.Endpoints.Http.Url = http://127.0.0.1:$ApplyServicePort"
@@ -623,7 +682,7 @@ if ($ApplyServicePublish) {
         Log "Patching Shell appsettings.json (non-secret BaseUrl only)..."
         $shellJson = Get-Content $ShellAppSettingsPath -Raw | ConvertFrom-Json
         if (-not $shellJson.MetricsApply) { $shellJson | Add-Member -NotePropertyName "MetricsApply" -NotePropertyValue ([PSCustomObject]@{}) }
-        $shellJson.MetricsApply.BaseUrl = "http://127.0.0.1:$ApplyServicePort"
+        $shellJson.MetricsApply | Add-Member -NotePropertyName "BaseUrl" -NotePropertyValue "http://127.0.0.1:$ApplyServicePort" -Force
         # NOTE: Token is NOT written here — it's the Shell service env var MetricsApply__Token
         $shellJson | ConvertTo-Json -Depth 10 | Set-Content $ShellAppSettingsPath -Encoding UTF8
         Log "  Set MetricsApply:BaseUrl = http://127.0.0.1:$ApplyServicePort (Token is ENV VAR, not here)"
@@ -693,7 +752,7 @@ if ($ApplyServicePublish) {
 
     # Apply ACL to PackageMigrationsDir
     Log "  Applying ACL to PackageMigrationsDir..."
-    $aclOutput = & icacls $pkgMigDir /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" /grant:r "Administrators:(OI)(CI)F" /grant:r "${ApplySvcName}:(OI)(CI)RX" 2>&1
+    $aclOutput = & icacls $pkgMigDir /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" /grant:r "Administrators:(OI)(CI)F" /grant:r "NT SERVICE\${ApplySvcName}:(OI)(CI)RX" 2>&1
     $aclOutput | ForEach-Object { Log "    $_" }
     & icacls $pkgMigDir /remove:g "Users" 2>&1 | Out-Null
     & icacls $pkgMigDir /remove:g "Authenticated Users" 2>&1 | Out-Null
@@ -702,7 +761,7 @@ if ($ApplyServicePublish) {
     # Apply ACL to ManifestPath (file or parent dir if file doesn't exist yet)
     if (Test-Path $manifestPath) {
         Log "  Applying ACL to ManifestPath (file)..."
-        $aclOutput = & icacls $manifestPath /inheritance:r /grant:r "SYSTEM:F" /grant:r "Administrators:F" /grant:r "${ApplySvcName}:RX" 2>&1
+        $aclOutput = & icacls $manifestPath /inheritance:r /grant:r "SYSTEM:F" /grant:r "Administrators:F" /grant:r "NT SERVICE\${ApplySvcName}:RX" 2>&1
         $aclOutput | ForEach-Object { Log "    $_" }
         & icacls $manifestPath /remove:g "Users" 2>&1 | Out-Null
         & icacls $manifestPath /remove:g "Authenticated Users" 2>&1 | Out-Null
@@ -710,7 +769,7 @@ if ($ApplyServicePublish) {
     } else {
         Log "  ManifestPath file does not exist yet - applying ACL to parent directory..."
         if ($manifestDir -and (Test-Path $manifestDir)) {
-            $aclOutput = & icacls $manifestDir /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" /grant:r "Administrators:(OI)(CI)F" /grant:r "${ApplySvcName}:(OI)(CI)RX" 2>&1
+            $aclOutput = & icacls $manifestDir /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" /grant:r "Administrators:(OI)(CI)F" /grant:r "NT SERVICE\${ApplySvcName}:(OI)(CI)RX" 2>&1
             $aclOutput | ForEach-Object { Log "    $_" }
             & icacls $manifestDir /remove:g "Users" 2>&1 | Out-Null
             & icacls $manifestDir /remove:g "Authenticated Users" 2>&1 | Out-Null
@@ -766,7 +825,7 @@ if (Test-Path $rtmAppSettingsPath) {
             if (-not $rtmJson.Kestrel) { $rtmJson | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue ([PSCustomObject]@{}) }
             if (-not $rtmJson.Kestrel.Endpoints) { $rtmJson.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue ([PSCustomObject]@{}) }
             if (-not $rtmJson.Kestrel.Endpoints.Http) { $rtmJson.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue ([PSCustomObject]@{}) }
-            $rtmJson.Kestrel.Endpoints.Http.Url = $loopbackUrl
+            $rtmJson.Kestrel.Endpoints.Http | Add-Member -NotePropertyName "Url" -NotePropertyValue $loopbackUrl -Force
             $rtmJson | ConvertTo-Json -Depth 10 | Set-Content $rtmAppSettingsPath -Encoding UTF8
             Log "  RTM appsettings patched: Kestrel bind = $loopbackUrl"
         } else {
@@ -839,15 +898,17 @@ foreach ($pool in $AppPools) {
     }
 }
 
-# Start Shell Service
+# Start Shell Service (A5: restore StartupType after Phase 1 neutralization)
 if ($shellSvc) {
+    Set-Service -Name $ShellSvcName -StartupType Automatic -ErrorAction SilentlyContinue
     Start-Service -Name $ShellSvcName -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 5
     Log "${ShellSvcName}: $((Get-Service $ShellSvcName).Status)"
 }
 
-# Start RTM Service
+# Start RTM Service (A5: restore StartupType after Phase 1 neutralization)
 if ($rtmSvc) {
+    Set-Service -Name $RTMSvcName -StartupType Automatic -ErrorAction SilentlyContinue
     Start-Service -Name $RTMSvcName -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 5
     Log "${RTMSvcName}: $((Get-Service $RTMSvcName).Status)"
@@ -860,7 +921,7 @@ if ($ApplyServicePublish) {
         Start-Service -Name $ApplySvcName -ErrorAction SilentlyContinue
         # Wait loop for Running
         for ($i=0; $i -lt 30 -and (Get-Service -Name $ApplySvcName -ErrorAction SilentlyContinue).Status -ne "Running"; $i++) { Start-Sleep 1 }
-        Log "${ApplySvcName}: $((Get-Service $ApplySvcName).Status)"
+        Log "NT SERVICE\${ApplySvcName}: $((Get-Service $ApplySvcName).Status)"
         # Health check (optional)
         try {
             $healthUrl = "http://127.0.0.1:$ApplyServicePort/health"
@@ -909,6 +970,28 @@ Log "   Get-Content `"$InstallRoot\RTM\logs\*.log`" -Tail 50 | Select-String '42
 Log ""
 Log "3. Confirm DayTrend widget loads in Shell (proves _008 + new Shell pairing):"
 Log "   Open browser -> navigate to a dashboard with DayTrend -> verify chart renders."
+Log ""
+Log "======== E2E SMOKE TEST CHECKLIST (D) — run on throwaway box ========"
+Log ""
+Log "4. StrictMode @() fix: single-migration -MigrationList runs without .Count error:"
+Log "   .\Apply-Server45Upgrade.ps1 ... -MigrationList `"20260607_002_db_patch_history.sql`""
+Log "   Expected: 'Using operator-supplied migration list (1 entries)' + no 'Property Count not found'"
+Log ""
+Log "5. UseWindowsService: all three Windows services START and stay Running:"
+Log "   Get-Service $ShellSvcName,$RTMSvcName,$ApplySvcName | Select-Object Name,Status"
+Log "   Expected: all Running (not Stopped, not StartPending)"
+Log ""
+Log "6. Metrics catalog ships with Shell (no fallback):"
+Log "   Test-Path `"$InstallRoot\Shell\docs\metrics-catalog.json`""
+Log "   Expected: True. Shell logs should NOT show 'Using database metrics as fallback'"
+Log ""
+Log "7. RTM:TenantId preserved (!= Guid.Empty) — checked automatically during deploy (A6 assertion)"
+Log ""
+Log "8. icacls NT SERVICE\ grants succeed (not 'No mapping between account names'):"
+Log "   icacls `"$InstallRoot\Packages`" | Select-String 'NT SERVICE'"
+Log "   Expected: grant lines with NT SERVICE\$ApplySvcName"
+Log ""
+Log "If ANY check FAILS or is NOT-RUN: DO NOT mark release as verified."
 Log ""
 Log "If ALL checks pass: upgrade complete."
 Log "If ANY check fails: proceed to Phase 8 ROLLBACK."

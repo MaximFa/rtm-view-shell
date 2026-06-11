@@ -235,6 +235,17 @@ if ($BuildShell -and (Test-Path $PublishShell)) {
     $stgShell = Join-Path $StagingDir "Shell"
     Copy-Item -Recurse -Force $PublishShell $stgShell
     Write-Host "  + Shell/" -ForegroundColor Gray
+    
+    # C: Ship docs/metrics-catalog.json (MetricsPage reads it from content root)
+    $metricsCatalog = Join-Path $Root "docs\metrics-catalog.json"
+    if (Test-Path $metricsCatalog) {
+        $stgShellDocs = Join-Path $stgShell "docs"
+        if (-not (Test-Path $stgShellDocs)) { New-Item -ItemType Directory -Path $stgShellDocs -Force | Out-Null }
+        Copy-Item $metricsCatalog -Destination $stgShellDocs -Force
+        Write-Host "  + Shell/docs/metrics-catalog.json" -ForegroundColor Gray
+    } else {
+        Write-Host "  [WARN] docs/metrics-catalog.json not found — MetricsPage will use DB fallback" -ForegroundColor Yellow
+    }
 }
 
 # RTM binaries
