@@ -23,7 +23,7 @@
 - [ ] MidnightClear is tenant-scoped (no cross-tenant wipe, §33.5).
 
 ## 3. Widget / data-flow acceptance
-- [ ] **B=0** — [CONFIRM exact definition with coordinator: blocker-class defects = 0 / uncatalogued metrics = 0 / BU baseline].
+- [ ] **B=0** — Compare-ToBaseline dimension B (routine-kind)=0 mismatches: EVERY RTM-CALLed write routine (NGC_* writes + RTSData_Set*) is PROCEDURE (prokind='p'), ZERO FUNCTION where a CALL occurs (RTM-SEC-002, prevents runtime 42809). Pre-deploy 234 had B=1 (RTSData_SetChatMessage=FUNCTION); functions/02 re-apply in the pkg makes B=0. GATE: post-deploy Compare shows B=0.
 - [ ] QueueGrid renders data (RTSGrid_GetDataCells > 0; ClassificationId='ALL'; updateGridData flowing, §36).
 - [ ] AgentGrid renders (union u<id> subscribe; agents appear).
 - [ ] **DayTrend RENDERS** — BU-scoped via NGC_UserAgentgroup (74db217); UNAVAILABLE colours correct; chart-type selector works.

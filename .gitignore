@@ -60,3 +60,9 @@ Installations/*.zip
 # Sensitive scripts
 tools/fix_twilio*.py
 tools/update_security_twilio.py
+docs/**/node_modules/
+**/node_modules/
+*.tmp0612
+.sync_marker
+tools/__pycache__/
+**/__pycache__/

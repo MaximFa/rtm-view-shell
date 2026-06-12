@@ -1,10 +1,12 @@
 # RTM View Shell — Documentation Registry
 
-> Maintained by `user-doc-expert` skill. Legend: 🟢 Current | 🟡 Draft / Needs review | 🔴 Not started | ⚪ Deferred
+> User-facing A/B/C document families. Master index + governance: `docs/DOCS_INVENTORY.md`.
+> Maintained by the RTM Tech Writer (techwriter-0610). Legend: 🟢 Current | 🟡 Draft / Needs review | 🔴 Not started | ⚪ Deferred
+> **Standing rule:** approved docs use the “RTM View Shell Data Connector” template (branded docx-js); see DOCS_INVENTORY.
 
-**Last updated:** 2026-05-30  
+**Last updated:** 2026-06-11  
 **B-02 status:** 🟢 Published v1.3 — 41 real screenshots embedded (all sections §4–§11, all 6 widget config tabs)  
-**Spec baseline:** TZ v1.4 (CLAUDE.md 2026-05-28)  
+**Spec baseline:** TZ v2.7 (CLAUDE.md 2026-06-08)  
 **Widget spec:** `docs/widget-specification.md` v1.8  
 
 ---
@@ -71,4 +73,19 @@
 
 ---
 
-*Registry v1.0 — initialised 2026-05-29*
+---
+
+## Family E — Client & Methodology Deliverables (template-compliant)
+
+| ID | Document | File | Status | Notes |
+|---|---|---|---|---|
+| E-01 | Unified Reporting Guide (BI, PostgreSQL) | `docs/bi/approved/doc/RTM_Unified_Reporting_Guide_EN_v1.0.docx` (+pdf) | 🟢 | v1.0, RTM-REL-2026.06. Data dictionary, 4 worked examples, Real Time Metrics Table. Branded template. |
+| E-02 | Unified Reporting Guide (BI, SQL Server) | `docs/bi/approved/doc/RTM_Unified_Reporting_Guide_EN_SQLServer_v1.0.docx` (+pdf) | 🟢 | v1.0, RTM-REL-2026.06. Single-tenant, T-SQL. Branded template. |
+| E-03 | Project Launch Runbook (methodology) | `docs/methodology/project-launch/approved/doc/Project-Launch-Runbook_EN_v1.0.docx` (+pdf+md) | 🟢 | v1.0, RTM-REL-2026.06. Cowork multi-session bootstrap P0–P5 + templates. Branded template. |
+
+*Family E follows the approved/editing governance with in-doc revision tables; md sources retained in editing/.*
+
+---
+
+*Registry — refreshed 2026-06-11 by techwriter-0610 (baseline TZ v2.7). Legacy `DOCUMENT_CATALOG.*` retired (superseded by this registry + DOCS_INVENTORY).*
+

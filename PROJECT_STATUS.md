@@ -336,3 +336,26 @@ T1 ✅ → T2 ✅ → B1#11 ✅ → T3 ✅ → T4 ✅ → T5 ✅ → T6 ✅ → 
 |---|---|---|---|
 | TD-001 | `Microsoft.EntityFrameworkCore.Relational` version conflict in `CcDashboard.Tests.Architecture` — MSB3277 warning on every build. Fix: align all EF Core package versions to 8.x across all .csproj files. | Warning only, build succeeds | Low |
 
+
+
+---
+
+## Checkpoint 2026-06-09 — Shell specialist + dark-mode (coordinator-0608)
+
+**New:** standing specialist session **Shell + UI/UX** (`.coord/sessions/shell-0609.md`) — first of the
+9-specialist roster. Owns Shell chrome, configurator modal, theming/dark-mode, RTL/i18n UI.
+Skills: ux-ui-expert, frontend-design, blazor-frontend-design, blazor-server-expert, app-cyber-security-expert.
+
+**First task issued (awaiting CC run):** configurator dark-mode parity — 9 operator-harvested gaps in the
+widget Configure modal. Prompt: `tools/cc_prompt_shell_darkmode.md`. Spec: `tools/darkmode_config_gaps_0609.md`.
+All gaps in `src/CcDashboard.Web/Components/Dashboard/ScreenEditorPage.razor` + dark CSS `wwwroot/app.css`
+(~2850-2913). Run: `Выполни задачу из файла tools/cc_prompt_shell_darkmode.md`.
+
+**Claim handover:** `metrics-2-0607` (L2 i18n) + `test-5-0607` (dark-mode/MetricWizard) were doing UX/UI out
+of lane -> set **on-hold**, ScreenEditorPage.razor EXCLUSIVE transferred to shell-0609 (operator decision).
+
+**Queue (Cowork-A):** (1) devops-2 orchestrator consolidated patch — holes E-010 (self-describing per-server
+deploy-state), E-015 (psql stderr + rollback-on-abort), E-016 (sig-agnostic NGC DROP), E-018 (kill orphan
+CcDashboard.Web.exe). (2) Method charter v0.2 (Lab branch). (3) Cowork-B sync.
+
+**Verified state:** 234 deploy GREEN (done). Push barrier cleared. No commit.lock. Full session map: `.coord/sessions/`.

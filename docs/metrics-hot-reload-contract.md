@@ -1,9 +1,16 @@
-# Hot-reload metrics — metrics-side contract (v1)
+# Hot-reload metrics — metrics-side contract (v1.2 — FINAL)
 
 > Owner: metrics specialist (metrics-2-0607). Audience: Shell (builds the "Deploy new metrics" tab + SignalR invoke)
 > and Backend/RTM (builds incremental single-metric compile). This doc is the metrics-DOMAIN contract only — NOT UI,
 > NOT the SignalR transport, NOT the RTM compiler internals. Confirmed with operator (Max) 2026-06-09.
 > Normative metric reference: .claude/skills/rtm-metrics-expert/rtm-metrics-expert.md.
+>
+> **Status: FINAL v1.0 (2026-06-09).** Design locked; R1/R2 folded per SYNC-AUDIT (meeting brief
+> 2026-06-09T13:30Z). Implementation (Backend Engine.HotReloadMetrics + Shell Deploy tab) starts from this doc.
+> **v1.1 addendum (2026-06-09):** package manifest carries an explicit per-metric `metricType` flag (§3.1) —
+> devops apply-endpoint classifies RT-vs-history from the flag, not from id-shape (devops-2 ASK, relayed by coordinator).
+> **v1.2 addendum (2026-06-09):** manifest also carries a TRUSTED per-migration SHA-256 (§3.2) — apply-service
+> verifies the migration file hash fail-closed before execution (Security review F-4, deploy-blocking for 234).
 
 ## 0. Principle (operator)
 A new metric is created DEV-FIRST → committed to git (migration + 02_metrics/baseline/seed + catalogue) → ships in the
@@ -38,6 +45,47 @@ two consumers: this metric-deploy delta + devops E-010b). Shell reads the ledger
 (package MetricId ∉ ledger-applied). NOT a raw manifest-vs-live-table diff — the ledger is the source of truth.
 Mirror entry is "new" if EITHER half is unrecorded; the tab shows it as one entry with both halves.
 
+### 3.1 Package manifest schema — explicit per-metric `metricType` flag (v1.1 addendum, devops-2 ASK)
+The install-package manifest enumerates every shipped MetricId. **v1.1 requirement:** each manifest entry MUST
+carry an explicit `metricType: "RT" | "history"` flag.
+Why: the devops apply-endpoint classifies which ids go into its `appliedRtMetricIds` response (RT-only, §6/R1)
+from THIS explicit flag — it does NOT infer the type from id-shape. The id-shape rule (§1: dotted ⇒ history,
+PascalCase ⇒ RT) stays as a human/validation convention and defense-in-depth, but the apply-endpoint's
+classification authority is the manifest flag, removing any ambiguity at apply time.
+Mirror entry (§2): the manifest lists BOTH halves, each with its own `metricType` (RT half = `RT`, history half
+= `history`); apply puts ONLY the RT half into `appliedRtMetricIds`. Metrics owns emitting the manifest with
+correct flags as part of the опросник→package step — the type is already known at creation (a `RTSGrid_Metric`
+INSERT ⇒ `RT`, a `history_metrics` seed ⇒ `history`).
+
+### 3.2 Package manifest schema — F-4 integrity (trusted per-migration SHA-256) (v1.2 addendum, Security F-4)
+Security review F-4 (`docs/security-review-hotreload-0609.md`, HIGH): the apply-service executes the migration
+file as raw SQL with catalogue-owner privileges; whoever can write `PackageMigrationsDir` controls that SQL
+(chains to the F-1 Roslyn RCE). **Fail-closed fix:** the manifest MUST declare a trusted SHA-256 for every
+migration it ships, and the apply-service verifies the on-disk file's hash against it BEFORE execution —
+mismatch OR missing hash ⇒ reject (HTTP 409), nothing applied.
+
+Manifest entry, per migration shipped in the package:
+```jsonc
+{
+  "migrationRef": "20260609_0NN_add_<metric>.sql",   // file in the package (path-traversal already blocked by apply-svc)
+  "sha256":       "<hex>",                            // TRUSTED expected hash of the migration file bytes (REQUIRED)
+  "metricIds": [
+    { "metricId": "<RtMetricId>",        "metricType": "RT" },
+    { "metricId": "<dotted.history.id>", "metricType": "history" }
+  ]
+}
+```
+Rules:
+- `sha256` is REQUIRED per migration. The apply-service computes SHA-256 over the exact file bytes and compares
+  byte-for-byte; absent or mismatched ⇒ 409, fail-closed (F-4). Verification is the apply-service's job (devops);
+  the manifest is the TRUSTED source it verifies against — metrics produces the manifest, does not run the check.
+- `metricType` per MetricId stays as §3.1 (drives the RT-only `appliedRtMetricIds`, §6/R1).
+- The manifest must itself be tamper-evident end-to-end: ship it inside the signed/locked package and pin
+  `PackageMigrationsDir` to admin-write-only NTFS ACLs (deploy hardening, devops). A manifest an attacker can
+  rewrite defeats the hash, so the manifest's own integrity (package signature / ACL) is part of the F-4 control.
+- **Generator:** the package BUILD step emits this manifest, computing each `sha256` at pack time from the
+  committed migration file. Metrics owns the SCHEMA (this section); the build/packaging owner implements the emit.
+
 ## 4. What the Deploy tab displays (catalogue data — Shell reads, metrics owns the source)
 Source of truth = `docs/metrics-catalog.json` (schema in rtm-metrics-expert §8). Per metric the tab can show:
 `metricId`, `displayName` (concise, channel+lifecycle explicit), `shortDescription` (one plain sentence),
@@ -60,8 +108,26 @@ reaching prod. An RTM dry-compile/validate endpoint is a nice-to-have, not a v1 
 ## 6. SignalR push contract (metrics-side view; Backend owns the handler)
 On Deploy, after the client migration is applied, Shell sends RTM the set of NEW **RT** MetricId(s) to compile.
 RTM compiles ONLY those (incremental), adds them to the in-memory metric set, and they appear on grids without
-restart. Payload (metrics-side requirement): the RT MetricId(s) just inserted. History-half ids are NOT sent
-(no compile). Backend defines the message shape, the compile, and concurrency-safety on the live engine.
+restart. Backend defines the message shape, the compile, and concurrency-safety on the live engine.
+
+**Exactly which ids Shell sends (R1, ratified SYNC-AUDIT 2026-06-09):** Shell sends EXACTLY the
+`appliedRtMetricIds` returned by the devops apply-endpoint response — NOT the whole package manifest. The
+history half is excluded by devops at apply time — classified via the manifest `metricType` flag (§3.1), not
+by id-shape (history metrics are query-time, never compiled), so the wire
+already carries RT-only ids. RTM's internal history-skip (dotted-id ⇒ skip) remains as **defense-in-depth**,
+not the primary filter: the contract guarantees Shell never sends a history id, and Backend does not rely on
+Shell to do the filtering. Transport: `compileMetrics(string[] metricIds)`, fire-and-forget.
+
+### 6.1 "deployed (ledger) != compiled (RTM)" — v1 reconciliation (R2, ratified 2026-06-09)
+The ledger records a metric as DEPLOYED the moment devops apply succeeds; the SignalR compile that follows is
+**fire-and-forget (best-effort)**. A window therefore exists where a metric is deployed-but-not-yet-compiled
+(e.g. the push dropped, or RTM was momentarily down). v1 accepts this window:
+- `compileMetrics` is **idempotent** — RTM skips a MetricId already in its in-memory set (skip-if-ContainsKey /
+  TryAdd), so re-firing the same id set is always safe.
+- On compile failure RTM logs `AsyncLogger.Error`; nothing is half-applied (additive only).
+- Shell exposes a **"Recompile" affordance** in the Deploy tab that re-fires `compileMetrics` for the deployed
+  ids — the operator-driven recovery for the rare gap (Superadmin operation).
+- A compile-status badge (deployed-and-compiled vs deployed-only) is a **v2 enhancement**, out of scope for v1.
 
 ## 7. Out of scope v1
 - Editing an EXISTING metric (MetricParameter/Format/Function change) → requires RTM restart; NOT hot-deployable.
@@ -72,5 +138,5 @@ restart. Payload (metrics-side requirement): the RT MetricId(s) just inserted. H
 ## 8. Session responsibilities
 - **Metrics (me):** опросник→migration (RTSGrid_Metric + history_metrics mirror) + 02_metrics/baseline/seed +
   catalogue json + translations; this contract; validation rules; dedup/defect/ISO analysis. NO UI, NO SignalR code.
-- **Shell:** the "Deploy new metrics" tab (manifest-diff delta per §3, granularity per §2/§4) + the SignalR invoke.
+- **Shell:** the "Deploy new metrics" tab (ledger-based delta per §3, granularity per §2/§4) + the SignalR invoke.
 - **Backend/RTM:** incremental single-metric compile handler (§6); the history half is query-time (no action).
