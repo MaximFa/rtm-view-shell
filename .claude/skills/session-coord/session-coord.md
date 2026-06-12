@@ -171,6 +171,10 @@ is the only protection for same-file work.
 | L-SC-17 | A phantom dirent (L-SC-10) blocks even `open(path,"w")` and `rm`/`os.remove` ("Operation not permitted") — you cannot overwrite or delete it directly. Workaround that WORKS: write to a temp file then `os.replace(tmp, path)` (atomic rename overwrites the phantom). Used to write .coord/push/request.md over its ghost. |
 | L-SC-18 | The cross-view mount drop (L-SC-04) is INHERENT to the share and unsolvable from inside CC's WSL2 process: a write succeeds + verifies in the WRITER's view but is async-dropped from other views. cc_post_commit.sh verify-retry catches SAME-view write failures (good) but NOT the async cross-view drop. => coordinator journal<->git reconciliation stays PERMANENT. Durable full-close (future) = stop relying on the mount for the journal (journal as git-tracked artefact / commit trailer). |
 | L-SC-19 | Per-session ack FILES in `.coord/push/acks/<slug>.md` keep failing under barrier load (L-SC-10 phantom blocks creates in the acks/ subdir AND some flat names; L-SC-04 async-drops them). FIX: collect acks in ONE append-only file `.coord/push/ACKS.md` that the coordinator PRE-CREATES at freeze (append to an existing file is far more reliable than creating new files in a phantom dir). Sessions APPEND their READY block; the push gate parses that one file by slug. Backstop when even the append drops: the session reports READY to the OPERATOR in chat -> operator relays -> coordinator records it in ACKS.md (git + operator are the reliable channels; the file-bus is best-effort). Bus-health probe (2026-06-06): single-process round-trip is fine; losses are cross-view + contention only. |
+| L-SC-21 | **[SUPERSEDED by permanent role mailboxes]** Inbox migration on takeover/handoff was MANDATORY when inboxes were per-session-slug. With PERMANENT role mailboxes (`inbox/<role>.md`), a successor reads the same stable file — no migration, no copy-forward. Historical: the metrics-2→metrics-3 (2026-06-09) incident that led to this norm. |
+| L-SC-22 | **Permanent role mailbox norm.** Each role (coordinator, devops, metrics, techwriter, etc.) has a PERMANENT inbox at `inbox/<role>.md` — NOT per-session-slug. Sessions inherit and append to it. On takeover, the successor continues reading the same role inbox. Supersedes per-slug inboxes and the L-SC-21 migration. |
+| L-SC-23 | **Tech Writer = mandatory doc-sync gate.** The push-barrier quorum (§42.7) is NOT complete without Tech Writer's READY or HOLD. Impact triage: no-impact = instant READY; minor = READY + doc-debt; doc-blocking (user-facing/schema/API/install-upgrade/security) = HOLD until doc in `approved/`. |
+| L-SC-24 | **Skills edited via CC prompts.** The session-coord skill (and all skills) is a normal versioned file in the repo, NOT a "read-only cache". Edit via CC prompt; running sessions refresh via L-SC-15 cache-bump (re-read note + operator `коорд: входящие`). |
 
 ## 10. Operator command set — EXECUTE LITERALLY
 
@@ -219,6 +223,15 @@ in the conversation — context may be stale or degraded. This convention exists
 because the "default duty" above is best-effort for an LLM in a long conversation;
 the explicit command is the reliable trigger. Sessions must EXPECT it and never
 answer from memory.
+**Inbox-check lifecycle hook (SAFE default, per CLAUDE.md §42.8):**
+Sessions read the PERMANENT role mailbox `inbox/<role>.md`. On each turn:
+- Turn-start: peek for new content after last `> handled` marker ("N new" check).
+- Idle between tasks: auto-process (`коорд: входящие` semantics).
+- Mid-task: hold "N pending" — do NOT interrupt.
+- Completion hook: end reply with "разобрать входящие? (N новых)" if pending.
+STRICT variant (auto-process mid-task) = operator opt-in.
+
+
 
 ## 11. Mailbox (.coord/inbox/) — directed messages without operator copy-paste
 
@@ -316,7 +329,7 @@ Applies when TWO Cowork instances run, each its own clone/branch + coordinator. 
   (ownership.md, inbox-coord-A.md, inbox-coord-B.md, ledger.md, barrier.md).
 
 **L-SC-20 (read=VM / write=native):** a Cowork coordinator's VM can READ coord via
-- **[L-SC-21] Inbox migration on takeover/handoff (MANDATORY).** A successor reads ONLY its own-slug inbox. On takeover/handoff the successor inbox MUST be created and routing migrated (copy-forward unhandled directives + pointer in the old inbox) BEFORE the next directive; the coordinator re-delivers any directive written to the adopted inbox post-takeover. Writing to the adopted inbox after takeover = lost message (metrics-2->metrics-3, 2026-06-09). Sibling of the backlog CRITICAL delivery-reliability item.
+- **[L-SC-21] Inbox migration RETIRED** — with permanent role mailboxes (`inbox/<role>.md`), successors read the same file. A successor reads ONLY its own-slug inbox. On takeover/handoff the successor inbox MUST be created and routing migrated (copy-forward unhandled directives + pointer in the old inbox) BEFORE the next directive; the coordinator re-delivers any directive written to the adopted inbox post-takeover. Writing to the adopted inbox after takeover = lost message (metrics-2->metrics-3, 2026-06-09). Sibling of the backlog CRITICAL delivery-reliability item.
 `git fetch origin coord` + `git show origin/coord:<file>`, but CANNOT push from the mount
 (git-write corrupts the index, L-SC-02 class — observed 2026-06-08). Cross-channel WRITES go via
 native git (operator) or a CC task, NEVER from the Cowork VM. Each coordinator host keeps a coord
@@ -350,6 +363,6 @@ or issues a CC prompt.
 ### `сессия: handoff` / `сессия: takeover` (works WITH §11 mailbox)
 Outgoing: hash-verify own claimed files vs HEAD (object store, not line-count), write a HANDOFF block (delivered +
 pushed/unpushed, claims release-vs-inherit, cc_task, in-flight prompts + §4 status, loose ends), and - MANDATORY -
-migrate the inbox (L-SC-21). Incoming: confirm/create own slug inbox, adopt claims in own session file, RE-READ the
+**Inbox migration RETIRED** — role mailbox is permanent (L-SC-22). Incoming: confirm/create own slug inbox, adopt claims in own session file, RE-READ the
 coordinator's recent directives (do not trust the predecessor's `> handled` markers), flush TAKEOVER-COMPLETE.
 Coordinator reciprocal duty: on observing a takeover, ensure the successor inbox exists + route there.

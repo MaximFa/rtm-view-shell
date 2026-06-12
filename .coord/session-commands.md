@@ -19,12 +19,8 @@
 2. **HANDOFF block** in own session file (set `status: done` or `→<successor>`) + a TAKEOVER-HANDOFF in own inbox:
    delivered this session (commits + **pushed/unpushed**), claims held → **release-now vs successor-inherits**, cc_task,
    in-flight CC prompts + their §4 status, parked/pending items, loose ends, open seams.
-3. **⚠ INBOX MIGRATION (MANDATORY — L-SC-21, the metrics-2→metrics-3 lesson 2026-06-09):**
-   a successor reads its OWN slug inbox. If a successor slug exists, the OUTGOING session (or coordinator) MUST:
-   - CREATE `inbox/<successor-slug>.md` immediately (header: "successor of <old-slug>");
-   - COPY-FORWARD every UN-handled coordinator directive from the old inbox into it;
-   - leave a pointer line at the end of the old inbox ("SUCCESSOR INBOX = inbox/<successor-slug>.md").
-   An un-migrated inbox = the successor silently misses directives (it happened: metrics-3 missed a NO-IDLE GO).
+3. **Inbox migration RETIRED** — with permanent role mailboxes (`inbox/<role>.md`), successors read the
+   same stable file. No migration, no copy-forward needed. (Historical: L-SC-21, metrics-2→metrics-3 2026-06-09.)
 4. **Flush** a short status to inbox/coordinator.md so the coordinator updates the roster.
 
 ## `сессия: takeover` — incoming successor
@@ -39,7 +35,6 @@
 ALL future messages there; re-deliver any directive sent to the adopted inbox after the takeover.
 
 ---
-### Lesson L-SC-21 (candidate — fold into session-coord skill §11)
-On takeover/handoff the successor inbox MUST be created and routing migrated, BEFORE the next directive. Successors
-read own-slug inbox only; writing to the adopted inbox after takeover = lost message (metrics-2→metrics-3, 2026-06-09).
-Sibling of the backlog CRITICAL "session↔coordinator delivery reliability" item.
+### Lesson L-SC-21 — SUPERSEDED by permanent role mailboxes (L-SC-22)
+Historical: per-slug inboxes required migration on takeover (metrics-2→metrics-3 incident, 2026-06-09).
+With permanent role mailboxes (`inbox/<role>.md`), successors read the same file — no migration needed.

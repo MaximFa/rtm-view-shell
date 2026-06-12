@@ -281,14 +281,17 @@ Cowork agent must NOT directly write or edit source code files (`.cs`, `.sql`, `
 - Any file in `docs/`
 - `.coord/**` — multi-session coordination state files (§42)
 
-**CC prompt delivery format:**
-Cowork saves the task to a file (e.g. `tools/cc_prompt_tenantid.md`), then issues the instruction as a code box:
+**CC prompt delivery format (NORM-CUR-02 — no exceptions):**
+Every CC task prompt is a `.md` file under `tools/`, issued to operator/CC ONLY as:
 
 ```
-Выполни задачу из файла tools/cc_prompt_tenantid.md
+Выполни задачу из файла tools/<name>.md
 ```
 
-This keeps prompts versioned in git, reviewable before execution, and avoids truncation in chat.
+This is the ONLY accepted form. NO inline prompts in chat; one canonical location (`tools/`);
+prompts versioned in git, reviewable before execution, avoids truncation in chat.
+Skills are also edited via CC prompts (NORM-CUR-03) — the skill file is a normal versioned repo file,
+refreshed in running sessions via L-SC-15 cache-bump.
 
 ### §0.8 Session and chat naming convention
 
