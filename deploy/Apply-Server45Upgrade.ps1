@@ -600,7 +600,7 @@ if ($ApplyServicePublish) {
     Log "Provisioning ccdashboard_catowner role..."
     $env:PGPASSWORD = $SuperPassword
     $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-    $roleOutput = & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -v catowner_pw="$catownerPw" -f $roleScript 2>&1
+    $roleOutput = & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -v ON_ERROR_STOP=1 -v catowner_pw="$catownerPw" -f $roleScript 2>&1
     $roleExitCode = $LASTEXITCODE
     $ErrorActionPreference = $prevEAP
     $env:PGPASSWORD = $null
@@ -623,9 +623,9 @@ if ($ApplyServicePublish) {
         Log "Patching ApplyService appsettings.json (non-secrets only)..."
         $applyJson = Get-Content $applyAppSettings -Raw | ConvertFrom-Json
         # Ensure Kestrel section exists
-        if (-not $applyJson.Kestrel) { $applyJson | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue ([PSCustomObject]@{}) }
-        if (-not $applyJson.Kestrel.Endpoints) { $applyJson.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue ([PSCustomObject]@{}) }
-        if (-not $applyJson.Kestrel.Endpoints.Http) { $applyJson.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue ([PSCustomObject]@{}) }
+        if ($applyJson.PSObject.Properties.Name -notcontains "Kestrel") { $applyJson | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue ([PSCustomObject]@{}) }
+        if ($applyJson.Kestrel.PSObject.Properties.Name -notcontains "Endpoints") { $applyJson.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue ([PSCustomObject]@{}) }
+        if ($applyJson.Kestrel.Endpoints.PSObject.Properties.Name -notcontains "Http") { $applyJson.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue ([PSCustomObject]@{}) }
         $applyJson.Kestrel.Endpoints.Http | Add-Member -NotePropertyName "Url" -NotePropertyValue "http://127.0.0.1:$ApplyServicePort" -Force
         # Write back (read-modify-write preserves other keys)
         $applyJson | ConvertTo-Json -Depth 10 | Set-Content $applyAppSettings -Encoding UTF8
@@ -681,7 +681,7 @@ if ($ApplyServicePublish) {
     if (Test-Path $ShellAppSettingsPath) {
         Log "Patching Shell appsettings.json (non-secret BaseUrl only)..."
         $shellJson = Get-Content $ShellAppSettingsPath -Raw | ConvertFrom-Json
-        if (-not $shellJson.MetricsApply) { $shellJson | Add-Member -NotePropertyName "MetricsApply" -NotePropertyValue ([PSCustomObject]@{}) }
+        if ($shellJson.PSObject.Properties.Name -notcontains "MetricsApply") { $shellJson | Add-Member -NotePropertyName "MetricsApply" -NotePropertyValue ([PSCustomObject]@{}) }
         $shellJson.MetricsApply | Add-Member -NotePropertyName "BaseUrl" -NotePropertyValue "http://127.0.0.1:$ApplyServicePort" -Force
         # NOTE: Token is NOT written here — it's the Shell service env var MetricsApply__Token
         $shellJson | ConvertTo-Json -Depth 10 | Set-Content $ShellAppSettingsPath -Encoding UTF8
@@ -822,9 +822,9 @@ if (Test-Path $rtmAppSettingsPath) {
         if ($currentUrl -ne $loopbackUrl) {
             Log "  Changing Kestrel bind: $currentUrl -> $loopbackUrl"
             # Ensure structure exists
-            if (-not $rtmJson.Kestrel) { $rtmJson | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue ([PSCustomObject]@{}) }
-            if (-not $rtmJson.Kestrel.Endpoints) { $rtmJson.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue ([PSCustomObject]@{}) }
-            if (-not $rtmJson.Kestrel.Endpoints.Http) { $rtmJson.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue ([PSCustomObject]@{}) }
+            if ($rtmJson.PSObject.Properties.Name -notcontains "Kestrel") { $rtmJson | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue ([PSCustomObject]@{}) }
+            if ($rtmJson.Kestrel.PSObject.Properties.Name -notcontains "Endpoints") { $rtmJson.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue ([PSCustomObject]@{}) }
+            if ($rtmJson.Kestrel.Endpoints.PSObject.Properties.Name -notcontains "Http") { $rtmJson.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue ([PSCustomObject]@{}) }
             $rtmJson.Kestrel.Endpoints.Http | Add-Member -NotePropertyName "Url" -NotePropertyValue $loopbackUrl -Force
             $rtmJson | ConvertTo-Json -Depth 10 | Set-Content $rtmAppSettingsPath -Encoding UTF8
             Log "  RTM appsettings patched: Kestrel bind = $loopbackUrl"
