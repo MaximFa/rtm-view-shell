@@ -3011,7 +3011,7 @@ opt-in via session config; default is SAFE.
 Every deployed (external) server has a user-writable ops root `C:\RTMView-Ops\` (separate from
 the app install `C:\Program Files\CcDashboard`). Subdirectories: `incoming\` (scripts staged to
 apply), `applied\` (archive + `_ledger.txt` trace), `output\` (Compare delta reports, logs),
-`backup\` (pre-change pg_dump). PostgreSQL version varies per server: **Server 45 → PG17**, all
+`backup\` (pre-change pg_dump). PostgreSQL version varies per server: **Server 45 → PG15**, all
 others → PG18. CC produces scripts into the repo (`db/migrations/`, `staging/`); the operator
 places them on the server. CC has no direct external-server access.
 

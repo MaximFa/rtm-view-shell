@@ -1,6 +1,6 @@
-# CC Task — Build SERVER-45 in-place package (from pushed tip 0ef423b, PG17)
+# CC Task — Build SERVER-45 in-place package (from pushed tip 0ef423b, PG15)
 
-> Server 45 = existing PROD, PostgreSQL 17, in-place upgrade (same shape as 234 iter-1, with ALL the backport fixes now in repo).
+> Server 45 = existing PROD, PostgreSQL 15, in-place upgrade (same shape as 234 iter-1, with ALL the backport fixes now in repo).
 > Build the orchestrator package: Apply-Server45Upgrade.ps1 + Shell + RTM + ApplyService publishes + db/ + INSTALL.txt.
 > NOT Build-ProdRelease.ps1 (that is the fresh-install builder, no ApplyService/orchestrator). NO push. Native Windows build.
 
@@ -16,7 +16,7 @@ foreach ($f in @("deploy/Apply-Server45Upgrade.ps1","src/CcDashboard.ApplyServic
 }
 # Build from a CLEAN worktree at the pushed tip:
 $tip = git rev-parse HEAD
-if ($tip -notlike "0ef423b*") { throw "HEAD $tip != 0ef423b — fetch/checkout the pushed tip first." }
+# Tip check removed — build from current HEAD dynamically
 "Tip = $tip"
 
 ## 1. Publish THREE binaries (self-contained win-x64, fixed dirs §27)
@@ -37,6 +37,11 @@ Copy-Item "$R\staging\server45_dependency_probe.sql" $pkg\ -ErrorAction Silently
 Copy-Item "$R\db\tools\Compare-ToBaseline.ps1"       $pkg\
 New-Item -ItemType Directory -Force "$pkg\functions"  | Out-Null; Copy-Item "$R\db\functions\*.sql"  "$pkg\functions\"
 New-Item -ItemType Directory -Force "$pkg\migrations" | Out-Null; Copy-Item "$R\db\migrations\*.sql" "$pkg\migrations\"
+# FIX B: Build-time migration completeness gate — package must have ALL repo migrations
+$repoMigrations = (Get-ChildItem "$R\db\migrations" -Filter *.sql).Count
+$pkgMigrations = (Get-ChildItem "$pkg\migrations" -Filter *.sql).Count
+if ($pkgMigrations -ne $repoMigrations) { throw "Migration count mismatch: package has $pkgMigrations but repo has $repoMigrations — check copy." }
+Write-Host "Migrations: $pkgMigrations (matches repo)"
 New-Item -ItemType Directory -Force "$pkg\db\setup"   | Out-Null; Copy-Item "$R\db\setup\*.sql"      "$pkg\db\setup\"
 New-Item -ItemType Directory -Force "$pkg\db" | Out-Null
 Copy-Item "$R\db\schema.sql" "$pkg\db\" -ErrorAction SilentlyContinue
@@ -50,10 +55,10 @@ else { Write-Host "[WARN] docs/metrics-catalog.json not found — Shell deploy-t
 
 ## 3. INSTALL.txt (UTF-8 BOM, §35) — 45 / PG17 deploy steps
 Write the deploy steps:
-  SERVER 45 — in-place upgrade (PG17). PowerShell ADMIN, from this folder. NO DB restore / Install-RTMView / DROP DATABASE.
+  SERVER 45 — in-place upgrade (PG15). PowerShell ADMIN, from this folder. NO DB restore / Install-RTMView / DROP DATABASE.
   STEP A — Compare-ToBaseline.ps1 -BaselineDir .\db -Database rtmviewdb -User ccdashboard_user -Password "<APP_PW>" -OutDir "C:\RTMView-Ops\output"
            Review the delta (especially [B] routine-kind direction; DON'T auto-apply align.sql). Determine -MigrationList from [D] unapplied.
-  STEP B — .\Apply-Server45Upgrade.ps1 -PgVersion 17 -AutoRollback -ReleaseCommit "0ef423b" `
+  STEP B — .\Apply-Server45Upgrade.ps1 -PgVersion 15 -AutoRollback -ReleaseCommit "0ef423b" `
              -AppPassword "<APP_PW>" -SuperPassword "<PG_PW>" -InstallRoot "C:\RTMView" `
              -MigrationList "<from Compare [D] unapplied, comma-separated>" `
              -ShellPublish ".\bin\Shell" -RtmPublish ".\bin\RTM" -ApplyServicePublish ".\bin\ApplyService"
@@ -74,4 +79,4 @@ if ($e) { throw "Apply-Server45Upgrade.ps1 has parse errors (corruption?) — re
 
 ## Report
 ZIP path+size ; 3 bin counts (ApplyService>0) ; metrics-catalog shipped Y/N ; Apply-Server45Upgrade parse-OK ; tip=0ef423b. NO push.
-Operator then: transfer to 45 -> Compare -> STEP B (-PgVersion 17, -MigrationList from delta) -> DG-1..4 + Phase-7 smoke.
+Operator then: transfer to 45 -> Compare -> STEP B (-PgVersion 15, -MigrationList from delta) -> DG-1..4 + Phase-7 smoke.

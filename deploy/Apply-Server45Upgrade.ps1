@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     SERVER UPGRADE ORCHESTRATOR — PG18-ready. Auto-detects PostgreSQL version.
@@ -129,9 +129,18 @@ function Invoke-Rollback([string]$reason) {
         if (Test-Path $backupFile) {
             Log "Restoring DB from $backupFile ..."
             $env:PGPASSWORD = $SuperPassword
+            # E-015: pg_restore writes progress/warnings to stderr; EAP=Continue prevents NativeCommandError abort
+            $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
             & $psql -h $DBHost -p $DBPort -U $SuperUser -d "postgres" -c "DROP DATABASE IF EXISTS `"$Database`" WITH (FORCE);" 2>&1 | ForEach-Object { Log "  $_" }
+            $rc1 = $LASTEXITCODE
             & $psql -h $DBHost -p $DBPort -U $SuperUser -d "postgres" -c "CREATE DATABASE `"$Database`";" 2>&1 | ForEach-Object { Log "  $_" }
+            $rc2 = $LASTEXITCODE
             & (Find-PGTool "pg_restore") -h $DBHost -p $DBPort -U $SuperUser -d $Database $backupFile 2>&1 | ForEach-Object { Log "  $_" }
+            $rc3 = $LASTEXITCODE
+            $ErrorActionPreference = $prevEAP
+            if ($rc1 -ne 0) { Log "[ROLLBACK] DROP DATABASE exit=$rc1" }
+            if ($rc2 -ne 0) { Log "[ROLLBACK] CREATE DATABASE exit=$rc2" }
+            if ($rc3 -ne 0) { Log "[ROLLBACK] pg_restore exit=$rc3 (non-zero may be non-fatal GUC warnings - verify data)" }
             $env:PGPASSWORD = $null
         }
         if ($BinaryBackupDir -and (Test-Path $BinaryBackupDir)) {

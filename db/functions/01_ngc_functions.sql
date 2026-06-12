@@ -381,8 +381,15 @@ $$;
 -- 10. NGC_CreateSupergroup
 --     Returns generated SupergroupId (SERIAL)
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_CreateSupergroup"(text, text);
-DROP FUNCTION IF EXISTS "NGC_CreateSupergroup"(text, text, uuid);
+-- Kind-agnostic DROP (drops whether FUNCTION or PROCEDURE - server drift tolerance)
+DO $drop_createsupergroup$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_CreateSupergroup' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
+  END LOOP;
+END $drop_createsupergroup$;
 
 CREATE OR REPLACE FUNCTION "NGC_CreateSupergroup"(
     p_supergroup_name text,
