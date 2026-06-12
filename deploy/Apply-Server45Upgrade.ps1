@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     SERVER UPGRADE ORCHESTRATOR — PG18-ready. Auto-detects PostgreSQL version.
@@ -116,6 +116,9 @@ function Banner([string]$phase, [string]$title) {
     Log "  PHASE $phase — $title"
     Log $sep
 }
+function Test-IISAvailable {
+    return [bool](Get-Command Get-WebAppPoolState -ErrorAction SilentlyContinue) -and (Test-Path 'IIS:\AppPools' -ErrorAction SilentlyContinue)
+}
 
 function Ledger([string]$script, [string]$result) {
     $line = "$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ') | $script | $result"
@@ -127,7 +130,7 @@ function Invoke-Rollback([string]$reason) {
     try {
         Stop-Service $RTMSvcName   -Force -ErrorAction SilentlyContinue
         Stop-Service $ShellSvcName -Force -ErrorAction SilentlyContinue
-        foreach ($pool in $AppPools) { Stop-WebAppPool -Name $pool -ErrorAction SilentlyContinue }
+        if (Test-IISAvailable) { foreach ($pool in $AppPools) { Stop-WebAppPool -Name $pool -ErrorAction SilentlyContinue } }
         if (Test-Path $backupFile) {
             Log "Restoring DB from $backupFile ..."
             $env:PGPASSWORD = $SuperPassword
@@ -141,7 +144,7 @@ function Invoke-Rollback([string]$reason) {
             if (Test-Path (Join-Path $BinaryBackupDir "RTM"))   { Copy-Item (Join-Path $BinaryBackupDir "RTM\*")   $rtmDir   -Recurse -Force }
             Log "Restored binaries from $BinaryBackupDir"
         }
-        foreach ($pool in $AppPools) { Start-WebAppPool -Name $pool -ErrorAction SilentlyContinue }
+        if (Test-IISAvailable) { foreach ($pool in $AppPools) { Start-WebAppPool -Name $pool -ErrorAction SilentlyContinue } }
         if ($shellSvc) { Start-Service $ShellSvcName -ErrorAction SilentlyContinue }
         if ($rtmSvc)   { Start-Service $RTMSvcName   -ErrorAction SilentlyContinue }
         Log "AUTO-ROLLBACK complete — services restarted on previous release."
@@ -296,20 +299,23 @@ if ($applySvc) {
     Stop-ServiceAndExe $ApplySvcName $applyDir
 } else { Log "NT SERVICE\${ApplySvcName}: not installed (skipping)" }
 
-# Stop IIS App Pools
-Import-Module WebAdministration -ErrorAction SilentlyContinue
-foreach ($pool in $AppPools) {
-    try {
-        $p = Get-WebAppPoolState -Name $pool -ErrorAction SilentlyContinue
-        if ($p -and $p.Value -eq "Started") {
-            Log "Stopping app pool: $pool"
-            Stop-WebAppPool -Name $pool
+# Stop IIS App Pools (skip if IIS not available — Kestrel-only servers)
+if (Test-IISAvailable) {
+    Import-Module WebAdministration -ErrorAction SilentlyContinue
+    foreach ($pool in $AppPools) {
+        try {
+            $p = Get-WebAppPoolState -Name $pool -ErrorAction SilentlyContinue
+            if ($p -and $p.Value -eq "Started") {
+                Log "Stopping app pool: $pool"
+                Stop-WebAppPool -Name $pool
+            }
+        } catch {
+            Log "  [WARN] App pool '$pool' not found or error: $($_.Exception.Message)"
         }
-    } catch {
-        Log "  [WARN] App pool '$pool' not found or error: $($_.Exception.Message)"
     }
+} else {
+    Log "IIS not available — skipping app pool stop (Kestrel-only server)"
 }
-
 Log "All services/pools stopped — RTM-DEPLOY-001 window OPEN."
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -885,17 +891,21 @@ Log "F-3 RTM loopback rebind complete — hub now unreachable from network."
 # ══════════════════════════════════════════════════════════════════════════════
 Banner "6" "START SERVICES + APP POOLS"
 
-# Start IIS App Pools
-foreach ($pool in $AppPools) {
-    try {
-        $p = Get-WebAppPoolState -Name $pool -ErrorAction SilentlyContinue
-        if ($p) {
-            Start-WebAppPool -Name $pool
-            Log "Started app pool: $pool"
+# Start IIS App Pools (skip if IIS not available — Kestrel-only servers)
+if (Test-IISAvailable) {
+    foreach ($pool in $AppPools) {
+        try {
+            $p = Get-WebAppPoolState -Name $pool -ErrorAction SilentlyContinue
+            if ($p) {
+                Start-WebAppPool -Name $pool
+                Log "Started app pool: $pool"
+            }
+        } catch {
+            Log "  [WARN] Could not start app pool '$pool': $($_.Exception.Message)"
         }
-    } catch {
-        Log "  [WARN] Could not start app pool '$pool': $($_.Exception.Message)"
     }
+} else {
+    Log "IIS not available — skipping app pool start (Kestrel-only server)"
 }
 
 # Start Shell Service (A5: restore StartupType after Phase 1 neutralization)
