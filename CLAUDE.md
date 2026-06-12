@@ -2049,7 +2049,7 @@ Should I run the documentation sync?
 - Max already said "no" earlier in the same session
 - The only changes since last sync are to test files or internal tooling with no user impact
 
-*TZ version: 1.4 | CLAUDE.md last updated: 2026-05-29 (§32 proactive doc maintenance added)*
+*TZ version: 2.7 | CLAUDE.md last updated: 2026-06-12 (§42.7 doc-gate, §42.8 inbox-hook)*
 ---
 
 ## 33. RTM Service — Multi-tenancy Architecture
@@ -2935,7 +2935,50 @@ Push happens ONLY when every active session has confirmed readiness:
    `request.md` and all files in `acks/`. Other sessions resume; on their next CC
    task they run `git fetch` and verify local HEAD is an ancestor of origin or equal.
 
-### §42.8 Session lifecycle summary
+
+**Doc-sync gate (mandatory in every push-barrier quorum):**
+
+Tech Writer is a MANDATORY ack in every push-barrier quorum (peer of Security/DBA). The barrier
+is NOT complete without the Tech Writer's `READY` or `HOLD`. Impact triage per commit:
+
+| Impact class | Action |
+|---|---|
+| No doc impact | Instant `READY` |
+| Minor / internal | `READY` + doc-debt ticket (cite blocks) |
+| Doc-blocking (user-facing / schema / API / install-upgrade / security) | `HOLD` until doc is in `approved/` |
+
+The Writer cites specific changed/added/deleted code blocks mapped to doc-sections; coordinator
+review = change→doc fit + cross-fact consistency, NOT editing.
+
+**Product Release ID:** `RTM-REL-YYYY.MM[.patch]` (release train, NOT a git hash). Coordinator
+assigns; Tech Writer requests. Every approved doc carries an in-doc revision-history table:
+
+| Version | Date | Summary | Product Release ID | Shipped-with (barrier) |
+|---|---|---|---|---|
+
+The "Shipped-with" cell is filled post-hoc after the push.
+
+**Doc folder layout:** per doc area: `approved/{doc,pdf}` + `editing/`. Each approved doc is
+saved as BOTH `.docx` and `.pdf` at the same version; the in-doc revision-history table is mandatory.
+
+
+### §42.8 Inbox-check lifecycle hook (auto)
+
+Sessions act only on their turn (no daemon). The PERMANENT role mailbox is `inbox/<role>.md`.
+Default behaviour is the **SAFE variant** (does not interrupt mid-task work):
+
+1. **Turn-start peek (cheap):** each turn, the session checks whether new content exists in its
+   permanent role inbox after its last `> handled` marker — a light "N new" check, NOT full processing.
+2. **Idle → auto-process:** if new exists AND the session is idle between tasks, process immediately
+   (`коорд: входящие` semantics).
+3. **Mid-task → hold:** do NOT interrupt; hold "N pending" until task completion.
+4. **Completion hook:** on finishing a task, end the reply with "разобрать входящие? (N новых)"
+   if pending messages exist.
+
+**Operator toggle:** The STRICT variant (auto-process even mid-task) is the operator's explicit
+opt-in via session config; default is SAFE.
+
+### §42.9 Session lifecycle summary
 
 | Moment | Action |
 |---|---|
@@ -2945,7 +2988,7 @@ Push happens ONLY when every active session has confirmed readiness:
 | Push requested | initiate or ack per §42.7 |
 | Session end | `status: done` or delete session file (releases claims) |
 
-### §42.9 Failure modes
+### §42.10 Failure modes
 
 | Failure | Recovery |
 |---|---|
