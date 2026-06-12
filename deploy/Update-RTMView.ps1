@@ -101,7 +101,7 @@ if (-not $SkipShell) {
     $srcShell = Join-Path $ScriptDir "Shell"
     if (Test-Path $srcShell) {
         # Preserve config files the user may have customised
-        $preserveFiles = @("appsettings.Production.json", "web.config", "nlog.config")
+        $preserveFiles = @("appsettings.Production.json", "nlog.config")
         $preserved = @{}
         foreach ($pf in $preserveFiles) {
             $existing = Join-Path $ShellDest $pf

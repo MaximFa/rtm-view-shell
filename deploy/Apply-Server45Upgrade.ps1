@@ -64,7 +64,6 @@ param(
     [string]$InstallRoot    = "C:\RTMView",
     [string]$ShellSvcName   = "RTMViewShell",
     [string]$RTMSvcName     = "RTMService",
-    [string[]]$AppPools     = @("CcDashboard.Web", "CcDashboard.Api"),
     [string]$ShellPublish   = "",
     [string]$RtmPublish     = "",
     [switch]$SkipBinaries,
@@ -116,9 +115,6 @@ function Banner([string]$phase, [string]$title) {
     Log "  PHASE $phase — $title"
     Log $sep
 }
-function Test-IISAvailable {
-    return [bool](Get-Command Get-WebAppPoolState -ErrorAction SilentlyContinue) -and (Test-Path 'IIS:\AppPools' -ErrorAction SilentlyContinue)
-}
 
 function Ledger([string]$script, [string]$result) {
     $line = "$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ') | $script | $result"
@@ -130,7 +126,6 @@ function Invoke-Rollback([string]$reason) {
     try {
         Stop-Service $RTMSvcName   -Force -ErrorAction SilentlyContinue
         Stop-Service $ShellSvcName -Force -ErrorAction SilentlyContinue
-        if (Test-IISAvailable) { foreach ($pool in $AppPools) { Stop-WebAppPool -Name $pool -ErrorAction SilentlyContinue } }
         if (Test-Path $backupFile) {
             Log "Restoring DB from $backupFile ..."
             $env:PGPASSWORD = $SuperPassword
@@ -144,7 +139,6 @@ function Invoke-Rollback([string]$reason) {
             if (Test-Path (Join-Path $BinaryBackupDir "RTM"))   { Copy-Item (Join-Path $BinaryBackupDir "RTM\*")   $rtmDir   -Recurse -Force }
             Log "Restored binaries from $BinaryBackupDir"
         }
-        if (Test-IISAvailable) { foreach ($pool in $AppPools) { Start-WebAppPool -Name $pool -ErrorAction SilentlyContinue } }
         if ($shellSvc) { Start-Service $ShellSvcName -ErrorAction SilentlyContinue }
         if ($rtmSvc)   { Start-Service $RTMSvcName   -ErrorAction SilentlyContinue }
         Log "AUTO-ROLLBACK complete — services restarted on previous release."
@@ -299,23 +293,6 @@ if ($applySvc) {
     Stop-ServiceAndExe $ApplySvcName $applyDir
 } else { Log "NT SERVICE\${ApplySvcName}: not installed (skipping)" }
 
-# Stop IIS App Pools (skip if IIS not available — Kestrel-only servers)
-if (Test-IISAvailable) {
-    Import-Module WebAdministration -ErrorAction SilentlyContinue
-    foreach ($pool in $AppPools) {
-        try {
-            $p = Get-WebAppPoolState -Name $pool -ErrorAction SilentlyContinue
-            if ($p -and $p.Value -eq "Started") {
-                Log "Stopping app pool: $pool"
-                Stop-WebAppPool -Name $pool
-            }
-        } catch {
-            Log "  [WARN] App pool '$pool' not found or error: $($_.Exception.Message)"
-        }
-    }
-} else {
-    Log "IIS not available — skipping app pool stop (Kestrel-only server)"
-}
 Log "All services/pools stopped — RTM-DEPLOY-001 window OPEN."
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -371,7 +348,7 @@ if ($SkipBinaries) {
 
     # Phase 3b — deploy new binaries (preserving configs)
     # hole#1 fix: appsettings.json MUST be preserved (clobbering it breaks Shell startup)
-    $shellPreserve = @("appsettings.json", "appsettings.Production.json", "web.config", "nlog.config")
+    $shellPreserve = @("appsettings.json", "appsettings.Production.json", "nlog.config")
     $rtmPreserve   = @("data.sys", "appsettings.json", "log4net.config", "app.dat")
 
     if ($ShellPublish -and (Test-Path $ShellPublish)) {
@@ -891,22 +868,6 @@ Log "F-3 RTM loopback rebind complete — hub now unreachable from network."
 # ══════════════════════════════════════════════════════════════════════════════
 Banner "6" "START SERVICES + APP POOLS"
 
-# Start IIS App Pools (skip if IIS not available — Kestrel-only servers)
-if (Test-IISAvailable) {
-    foreach ($pool in $AppPools) {
-        try {
-            $p = Get-WebAppPoolState -Name $pool -ErrorAction SilentlyContinue
-            if ($p) {
-                Start-WebAppPool -Name $pool
-                Log "Started app pool: $pool"
-            }
-        } catch {
-            Log "  [WARN] Could not start app pool '$pool': $($_.Exception.Message)"
-        }
-    }
-} else {
-    Log "IIS not available — skipping app pool start (Kestrel-only server)"
-}
 
 # Start Shell Service (A5: restore StartupType after Phase 1 neutralization)
 if ($shellSvc) {
@@ -1016,7 +977,6 @@ Log "If verification failed, execute these commands to roll back:"
 Log ""
 Log "# 1. Stop services again"
 Log "Stop-Service $RTMSvcName -Force; Stop-Service $ShellSvcName -Force"
-Log "Stop-WebAppPool CcDashboard.Web; Stop-WebAppPool CcDashboard.Api"
 Log ""
 Log "# 2. Restore database from backup"
 Log "powershell -File deploy\Restore-SqlDump.ps1 -DumpFile `"$backupFile`" -Database $Database -SuperPassword `"<pw>`""
@@ -1028,7 +988,6 @@ if ($BinaryBackupDir) {
     Log ""
 }
 Log "# 4. Start services"
-Log "Start-WebAppPool CcDashboard.Web; Start-WebAppPool CcDashboard.Api"
 Log "Start-Service $ShellSvcName; Start-Service $RTMSvcName"
 Log ""
 
