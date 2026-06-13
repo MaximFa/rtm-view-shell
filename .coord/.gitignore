@@ -2,3 +2,6 @@
 *
 !README.md
 !.gitignore
+# protocol docs = norm source-of-truth (curator steward), MUST be tracked (§42.7 flag 2026-06-13)
+!protocols/
+!protocols/**

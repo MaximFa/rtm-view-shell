@@ -1,0 +1,176 @@
+# CC / Operator runbook — DBA: 45 completeness cross-check (PD-008 P3 ON 45) = RE-APPLY GATE
+
+> Authored by dba-0610. Coordinator §4-FINAL PASS on _011 (4c9c762); GO (12:26). _011 fixed RTSData_Interaction CustomCallData1..20,
+> but the STEP-1 scan artifact was dropped -> we have NOT confirmed 45 is drift-free on the OTHER tables the 01+02 bodies touch.
+> This is the RE-APPLY GATE: do NOT re-apply until this cross-check is clean. Read-only on 45 (operator runs; CC/Cowork have no 45 access, §43).
+> The EXPECTED column sets below are the CANONICAL schema.sql DDL columns for every table the 01+02 function bodies reference.
+
+## STEP 1 — OPERATOR runs this READ-ONLY query ON 45 (psql, rtmviewdb)
+Returns the COMPLETE set of canonical columns MISSING from 45's tables (zero rows = 45 schema-complete for these tables):
+
+```sql
+WITH expected("table_name","column_name") AS (VALUES
+  ('NGC_AgentGroups','Id'),
+  ('NGC_AgentGroups','TenantId'),
+  ('NGC_AgentGroups','ExternalId'),
+  ('NGC_AgentGroups','Name'),
+  ('NGC_AgentGroups','IsActive'),
+  ('NGC_AgentGroups','CreatedDatetime'),
+  ('NGC_BusinessUnit','BusinessUnitId'),
+  ('NGC_BusinessUnit','TenantId'),
+  ('NGC_BusinessUnit','BusinessUnitName'),
+  ('NGC_BusinessUnit','Description'),
+  ('NGC_BusinessUnit','CreatedDatetime'),
+  ('NGC_BusinessUnit','CreatedBy'),
+  ('NGC_BusinessUnit','SiteId'),
+  ('NGC_BusinessUnitQueueClassification','BusinessUnitId'),
+  ('NGC_BusinessUnitQueueClassification','QueueId'),
+  ('NGC_BusinessUnitQueueClassification','TenantId'),
+  ('NGC_BusinessUnitQueueClassification','ClassificationId'),
+  ('NGC_BusinessUnitQueueClassification','CreatedDatetime'),
+  ('NGC_BusinessUnitQueueClassification','CreatedBy'),
+  ('NGC_BusinessUnitSupergroup','BusinessUnitId'),
+  ('NGC_BusinessUnitSupergroup','SupergroupId'),
+  ('NGC_BusinessUnitSupergroup','TenantId'),
+  ('NGC_BusinessUnitSupergroup','CreatedDatetime'),
+  ('NGC_BusinessUnitSupergroup','CreatedBy'),
+  ('NGC_Queues','Id'),
+  ('NGC_Queues','TenantId'),
+  ('NGC_Queues','ExternalId'),
+  ('NGC_Queues','Name'),
+  ('NGC_Queues','IsActive'),
+  ('NGC_Queues','CreatedDatetime'),
+  ('NGC_Site','SiteId'),
+  ('NGC_Site','TenantId'),
+  ('NGC_Site','SiteName'),
+  ('NGC_Site','Description'),
+  ('NGC_Site','TimeZone'),
+  ('NGC_Site','ClearTime'),
+  ('NGC_Supergroup','SupergroupId'),
+  ('NGC_Supergroup','TenantId'),
+  ('NGC_Supergroup','SupergroupName'),
+  ('NGC_Supergroup','Description'),
+  ('NGC_Supergroup','CreatedDatetime'),
+  ('NGC_Supergroup','CreatedBy'),
+  ('NGC_Supergroup','SupergroupIdOld'),
+  ('NGC_SupergroupAgentgroup','Id'),
+  ('NGC_SupergroupAgentgroup','SupergroupId'),
+  ('NGC_SupergroupAgentgroup','AgentgroupId'),
+  ('NGC_SupergroupAgentgroup','TenantId'),
+  ('NGC_SupergroupAgentgroup','CreatedDatetime'),
+  ('NGC_SupergroupAgentgroup','CreatedBy'),
+  ('NGC_UserAgentgroup','Id'),
+  ('NGC_UserAgentgroup','UserId'),
+  ('NGC_UserAgentgroup','AgentgroupId'),
+  ('NGC_UserAgentgroup','TenantId'),
+  ('NGC_UserAgentgroup','CreatedDatetime'),
+  ('NGC_UserAgentgroup','CreatedBy'),
+  ('RTSData_ChatMessage','MessageId'),
+  ('RTSData_ChatMessage','ServerId'),
+  ('RTSData_ChatMessage','OnDate'),
+  ('RTSData_ChatMessage','InteractionId'),
+  ('RTSData_ChatMessage','SegmentId'),
+  ('RTSData_ChatMessage','UserId'),
+  ('RTSData_ChatMessage','MsgDirection'),
+  ('RTSData_ChatMessage','Sender'),
+  ('RTSData_ChatMessage','Recipient'),
+  ('RTSData_ChatMessage','Body'),
+  ('RTSData_ChatMessage','DeliveryStatus'),
+  ('RTSData_ChatMessage','UpdateTime'),
+  ('RTSData_ChatMessage','TimeStamp'),
+  ('RTSData_Interaction','TenantId'),
+  ('RTSData_Interaction','InteractionId'),
+  ('RTSData_Interaction','Segment'),
+  ('RTSData_Interaction','OnDate'),
+  ('RTSData_Interaction','ServerId'),
+  ('RTSData_Interaction','Workgroup'),
+  ('RTSData_Interaction','UserId'),
+  ('RTSData_Interaction','ClassificationCode'),
+  ('RTSData_Interaction','InteractionType'),
+  ('RTSData_Interaction','CallType'),
+  ('RTSData_Interaction','Direction'),
+  ('RTSData_Interaction','CustomCallData'),
+  ('RTSData_Interaction','IsTransferred'),
+  ('RTSData_Interaction','IsAnswered'),
+  ('RTSData_Interaction','IsInQueue'),
+  ('RTSData_Interaction','IsTalk'),
+  ('RTSData_Interaction','IsAbandoned'),
+  ('RTSData_Interaction','TimeInQueue'),
+  ('RTSData_Interaction','TalkTime'),
+  ('RTSData_Interaction','InQueueDateTime'),
+  ('RTSData_Interaction','AnsweredDateTime'),
+  ('RTSData_Interaction','UpdateTime'),
+  ('RTSData_Interaction','LastUserId'),
+  ('RTSData_Interaction','LastWorkgroup'),
+  ('RTSData_Interaction','IsMessaging'),
+  ('RTSData_Interaction','RemoteAddress'),
+  ('RTSData_Interaction','CustomCallData1'),
+  ('RTSData_Interaction','CustomCallData2'),
+  ('RTSData_Interaction','CustomCallData3'),
+  ('RTSData_Interaction','CustomCallData4'),
+  ('RTSData_Interaction','CustomCallData5'),
+  ('RTSData_Interaction','CustomCallData6'),
+  ('RTSData_Interaction','CustomCallData7'),
+  ('RTSData_Interaction','CustomCallData8'),
+  ('RTSData_Interaction','CustomCallData9'),
+  ('RTSData_Interaction','CustomCallData10'),
+  ('RTSData_Interaction','CustomCallData11'),
+  ('RTSData_Interaction','CustomCallData12'),
+  ('RTSData_Interaction','CustomCallData13'),
+  ('RTSData_Interaction','CustomCallData14'),
+  ('RTSData_Interaction','CustomCallData15'),
+  ('RTSData_Interaction','CustomCallData16'),
+  ('RTSData_Interaction','CustomCallData17'),
+  ('RTSData_Interaction','CustomCallData18'),
+  ('RTSData_Interaction','CustomCallData19'),
+  ('RTSData_Interaction','CustomCallData20'),
+  ('RTSData_Interaction','IsCallbackRequest'),
+  ('RTSData_Interaction','TimeZone'),
+  ('RTSData_UserStatus','TenantId'),
+  ('RTSData_UserStatus','UserId'),
+  ('RTSData_UserStatus','StatusId'),
+  ('RTSData_UserStatus','ServerId'),
+  ('RTSData_UserStatus','OnDate'),
+  ('RTSData_UserStatus','StatusName'),
+  ('RTSData_UserStatus','StatusGroup'),
+  ('RTSData_UserStatus','TotalDuration'),
+  ('RTSData_UserStatus','MaxDuraction'),
+  ('RTSData_UserStatus','TotalCount'),
+  ('RTSData_UserStatus','UpdateTime'),
+  ('RTSData_UserStatus','DisplayName'),
+  ('RTSData_UserStatus','TimeZone'),
+  ('RTSData_UserStatusLog','Id'),
+  ('RTSData_UserStatusLog','TenantId'),
+  ('RTSData_UserStatusLog','UserId'),
+  ('RTSData_UserStatusLog','StatusId'),
+  ('RTSData_UserStatusLog','ServerId'),
+  ('RTSData_UserStatusLog','OnDate'),
+  ('RTSData_UserStatusLog','StartTime'),
+  ('RTSData_UserStatusLog','EndTime'),
+  ('RTSData_UserStatusLog','Duration'),
+  ('RTSData_UserStatusLog','UpdateTime'),
+  ('RTSData_UserStatusLog','TimeZone'),
+  ('RTSData_UserStatusLog','StatusGroup')
+)
+SELECT e."table_name", e."column_name"
+FROM expected e
+LEFT JOIN information_schema.columns c
+  ON c.table_schema='public' AND c.table_name=e."table_name" AND c.column_name=e."column_name"
+WHERE c.column_name IS NULL
+ORDER BY 1,2;
+```
+Paste the output back to dba (this session).
+
+## STEP 2 — DECISION (dba diffs / decides)
+- **Zero rows** -> 45 has all canonical columns for the touched tables -> _011 is COMPLETE -> GATE PASS -> GO re-apply.
+- **Rows returned** -> 45 is missing more than CustomCallData1..20 -> EXTEND _011 in ONE pass (do NOT create a second migration):
+  add `ALTER TABLE "<T>" ADD COLUMN IF NOT EXISTS "<col>" <CANONICAL TYPE from schema.sql DDL>;` for each missing (table,col),
+  AT TABLE END, keep §38a self-record. Re-verify (idempotent double-apply, BOM-less, pre-commit-check) -> light §4 -> devops repackage.
+  (Authoring the extend = a CC task: claim db/migrations/20260613_011_45_table_drift_addcolumns.sql, NORM-CUR-07 binding, no push.)
+
+## NOTES
+- TYPES: when extending, use the EXACT canonical type from schema.sql DDL (e.g. RTSData_*: text/integer/boolean/timestamptz; do NOT default everything to text). RTSData_UserStatusLog."Duration"=integer(ms); timestamps=timestamptz.
+- Tables in scope (every table the 01+02 bodies INSERT/SELECT/UPDATE): NGC_AgentGroups, NGC_BusinessUnit, NGC_BusinessUnitQueueClassification, NGC_BusinessUnitSupergroup, NGC_Queues, NGC_Site, NGC_Supergroup, NGC_SupergroupAgentgroup, NGC_UserAgentgroup, RTSData_ChatMessage, RTSData_Interaction, RTSData_UserStatus, RTSData_UserStatusLog.
+- This is read-only on 45 (STEP 1) + a possible one-file migration extend (STEP 2). NORM-CUR-07 binding applies only to the EXTEND CC commit, not the read-only query.
+- StatusGroup was added by _004 (RTSData_UserStatus/UserStatusLog) — expected present on 45 if _004 applied; the query confirms.
+- After GATE PASS: devops repackage-from-HEAD (incl final _011 + -MigrationList 001,004,005,008,011) -> operator re-apply ONCE.
