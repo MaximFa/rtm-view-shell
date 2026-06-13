@@ -2,7 +2,7 @@
 name: session-coord
 description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42."
 type: process
-updated: 2026-06-13 (v1.9 — L-SC-26 CC<->spec binding protocol NORM-CUR-07)
+updated: 2026-06-13 (v2.0 — L-SC-28 mandatory binding in CLAUDE.md §0.6b, NORM-CUR-07c)
 ---
 
 # session-coord — multi-session coordination
@@ -192,6 +192,8 @@ is the only protection for same-file work.
 | L-SC-24 | **Skills edited via CC prompts.** The session-coord skill (and all skills) is a normal versioned file in the repo, NOT a "read-only cache". Edit via CC prompt; running sessions refresh via L-SC-15 cache-bump (re-read note + operator `коорд: входящие`). |
 | L-SC-25 | **Inbox auto-archival (NORM-CUR-06).** Role inboxes grow unbounded; handled blocks are durable but clutter. `tools/inbox_archive.py` moves old blocks to `inbox/archive/<role>.md` (append-only, never deletes). Keep last 25 blocks + last 24h in the live inbox. Coordinator runs `коорд: чистка` bus-wide; any session runs `сессия: чистка` on its own inbox. |
 | L-SC-26 | **CC<->spec binding protocol (NORM-CUR-07).** Each CC-session-open creates a BINDING linking spec-role <-> CC run <-> directive. Channel: `.coord/cc/<role>.md`. CC writes RESULT (commits/files/status/blockers + object-store verify); spec consumes and relays digest to coordinator. The binding is an INDEX to git, not a new source of truth — the RESULT carries commit hashes the spec verifies against the object store (L-SC-04/L-SC-18 fallback). |
+| L-SC-27 | **Binding block format v1.** PREAMBLE: `## <UTC> \| binding: <role> <-> CC \| directive: tools/<file>.md \| status: open`. POSTAMBLE/RESULT: same header with `status: done\|failed` + RESULT body (commit, files, build/test, blockers, object-store verify). |
+| L-SC-28 | **Mandatory binding (NORM-CUR-07c).** The CC<->spec binding is NO LONGER opt-in per prompt. CLAUDE.md §0.6b now specifies the PREAMBLE/POSTAMBLE as mandatory blocks in EVERY CC prompt, placed after the integrity check. `коорд: промпт` enforces this. |
 
 ## 10. Operator command set — EXECUTE LITERALLY
 

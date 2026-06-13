@@ -255,6 +255,32 @@ that differ from HEAD by more than noise (empty lines, locale differences).
 **Cowork adds this block to every CC prompt automatically.**
 **CC agent must not skip it even if the task seems unrelated to file integrity.**
 
+### §0.6b Mandatory CC<->spec binding — EVERY CC prompt (NO EXCEPTIONS, NORM-CUR-07c)
+
+**PREAMBLE (immediately after integrity check):** Append a BINDING block to `.coord/cc/<role>.md`:
+```
+## <UTC> | binding: <role> <-> CC | directive: tools/<prompt-file>.md | status: open
+### DIRECTIVE: <one-line summary>. Claims: <file1>, <file2>. <commit-prefix>: prefix.
+```
+
+**POSTAMBLE (after task execution, before re-sync):** Append RESULT to the same binding block:
+```
+## <UTC> | binding: <role> <-> CC | directive: tools/<prompt-file>.md | status: done|failed
+### RESULT:
+- commit: <hash> (or: no commit)
+- files: <list with line counts>
+- build/test: <pass|fail|skipped>
+- blockers: <none | list>
+- object-store verify: <yes: commit exists in git log | no: reconcile needed>
+```
+
+**Note:** The binding is an INDEX to git, not a source of truth. If the RESULT write is dropped
+(mount write-back, session crash), the spec reconciles from the object store via `git log` and
+the build artifact (L-SC-04/L-SC-18 fallback). For no-repo/server contexts where `.coord/` is
+inaccessible (e.g. bash-blind to mount): emit a result artifact + use operator-relay backstop.
+
+**Cowork adds binding preamble/postamble to every CC prompt automatically.**
+
 ---
 
 ### §0.7 All code changes via CC prompts — NO direct Cowork writes
@@ -3047,4 +3073,4 @@ session-coord skill §13.
   + Security ack + prod push.
 - A whole release stays in ONE Cowork (e.g. the Server-234 upgrade = wholly A).
 
-*TZ version: 2.7 | CLAUDE.md last updated: 2026-06-08 (§44 Two-Cowork coordination layer)*
+*TZ version: 2.7 | CLAUDE.md last updated: 2026-06-13 (§0.6b mandatory CC<->spec binding NORM-CUR-07c)*
