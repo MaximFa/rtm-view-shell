@@ -70,13 +70,16 @@ $$;
 
 -- ============================================================================
 -- 1c. NGC_GetOrCreateQueue - idempotent upsert into NGC_Queues
+--     [FIX 42703] No CreatedDatetime — column does not exist on all servers
+--     [FIX E-004] Id = gen_random_uuid(), IsActive = true
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- E-016: kind-agnostic DROP (handles function->procedure conversion on re-apply)
 DO $drop_getorcreatequeue$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_GetOrCreateQueue' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_GetOrCreateQueue' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_getorcreatequeue$;
 
@@ -88,21 +91,24 @@ CREATE OR REPLACE PROCEDURE "NGC_GetOrCreateQueue"(
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO "NGC_Queues" ("Id", "ExternalId", "Name", "IsActive", "CreatedDatetime", "TenantId")
-    VALUES (gen_random_uuid(), p_external_id, p_name, true, NOW(), p_tenant_id)
+    INSERT INTO "NGC_Queues" ("Id", "ExternalId", "Name", "IsActive", "TenantId")
+    VALUES (gen_random_uuid(), p_external_id, p_name, true, p_tenant_id)
     ON CONFLICT ("ExternalId", "TenantId") DO NOTHING;
 END;
 $$;
 
 -- ============================================================================
 -- 1d. NGC_GetOrCreateAgentGroup - idempotent upsert into NGC_AgentGroups
+--     [FIX 42703] No CreatedDatetime — column does not exist on all servers
+--     [FIX E-004] Id = gen_random_uuid(), IsActive = true
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- E-016: kind-agnostic DROP (handles function->procedure conversion on re-apply)
 DO $drop_getorcreateagentgroup$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_GetOrCreateAgentGroup' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_GetOrCreateAgentGroup' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_getorcreateagentgroup$;
 
@@ -114,8 +120,8 @@ CREATE OR REPLACE PROCEDURE "NGC_GetOrCreateAgentGroup"(
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO "NGC_AgentGroups" ("Id", "ExternalId", "Name", "IsActive", "CreatedDatetime", "TenantId")
-    VALUES (gen_random_uuid(), p_external_id, p_name, true, NOW(), p_tenant_id)
+    INSERT INTO "NGC_AgentGroups" ("Id", "ExternalId", "Name", "IsActive", "TenantId")
+    VALUES (gen_random_uuid(), p_external_id, p_name, true, p_tenant_id)
     ON CONFLICT ("ExternalId", "TenantId") DO NOTHING;
 END;
 $$;
@@ -301,12 +307,21 @@ END;
 $$;
 
 -- ============================================================================
--- 7. NGC_CreateBusinessUnit
---    Returns generated BusinessUnitId (SERIAL)
+-- 7. NGC_CreateBusinessUnit — AUTHORITATIVE overload set from schema.sql
+--    Arity-3: (text, text, uuid) FUNCTION RETURNS TABLE
+--    Arity-5: (text, text, text, text, uuid) FUNCTION RETURNS TABLE
 -- ============================================================================
-DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnit"(text, text);
-DROP FUNCTION IF EXISTS "NGC_CreateBusinessUnit"(text, text, uuid);
+-- Kind-agnostic DROP (drops whether FUNCTION or PROCEDURE - server drift tolerance)
+DO $drop_createbusinessunit$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_CreateBusinessUnit' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
+  END LOOP;
+END $drop_createbusinessunit$;
 
+-- Arity-3: (name, description, tenant_id) — shell/basic caller
 CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnit"(
     p_business_unit_name text,
     p_description text,
@@ -323,15 +338,41 @@ BEGIN
 END;
 $$;
 
+-- Arity-5: (name, description, site_id, created_by, tenant_id) — full caller
+CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnit"(
+    p_business_unit_name text,
+    p_description text,
+    p_site_id text,
+    p_created_by text,
+    p_tenant_id uuid
+)
+RETURNS TABLE("BusinessUnitId" integer)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    INSERT INTO "NGC_BusinessUnit" (
+        "BusinessUnitName", "Description", "CreatedDatetime",
+        "SiteId", "CreatedBy", "TenantId"
+    )
+    VALUES (
+        p_business_unit_name, p_description, NOW(),
+        p_site_id, p_created_by, p_tenant_id
+    )
+    RETURNING "NGC_BusinessUnit"."BusinessUnitId";
+END;
+$$;
+
 -- ============================================================================
 -- 8. NGC_ModifyBusinessUnit
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- E-016: kind-agnostic DROP (handles function->procedure conversion on re-apply)
 DO $drop_modifybusinessunit$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_ModifyBusinessUnit' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_ModifyBusinessUnit' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_modifybusinessunit$;
 
@@ -355,12 +396,13 @@ $$;
 -- ============================================================================
 -- 9. NGC_DeleteBusinessUnit
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- E-016: kind-agnostic DROP (handles function->procedure conversion on re-apply)
 DO $drop_deletebusinessunit$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteBusinessUnit' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_DeleteBusinessUnit' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_deletebusinessunit$;
 
@@ -378,8 +420,10 @@ END;
 $$;
 
 -- ============================================================================
--- 10. NGC_CreateSupergroup
---     Returns generated SupergroupId (SERIAL)
+-- 10. NGC_CreateSupergroup — AUTHORITATIVE overload set from schema.sql
+--     Arity-3: (text, text, uuid) FUNCTION RETURNS TABLE
+--     Arity-4: (text, text, text, uuid) FUNCTION RETURNS TABLE
+--     Arity-5: (integer, text, text, text, uuid) PROCEDURE (upsert by id)
 -- ============================================================================
 -- Kind-agnostic DROP (drops whether FUNCTION or PROCEDURE - server drift tolerance)
 DO $drop_createsupergroup$
@@ -391,6 +435,7 @@ BEGIN
   END LOOP;
 END $drop_createsupergroup$;
 
+-- Arity-3: (name, description, tenant_id) — shell/basic caller (GetScalar)
 CREATE OR REPLACE FUNCTION "NGC_CreateSupergroup"(
     p_supergroup_name text,
     p_description text,
@@ -407,15 +452,53 @@ BEGIN
 END;
 $$;
 
+-- Arity-4: (name, description, created_by, tenant_id) — with audit
+CREATE OR REPLACE FUNCTION "NGC_CreateSupergroup"(
+    p_supergroup_name text,
+    p_description text,
+    p_created_by text,
+    p_tenant_id uuid
+)
+RETURNS TABLE("SupergroupId" integer)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    INSERT INTO "NGC_Supergroup" ("SupergroupName", "Description", "CreatedDatetime", "TenantId")
+    VALUES (p_supergroup_name, p_description, NOW(), p_tenant_id)
+    RETURNING "NGC_Supergroup"."SupergroupId";
+END;
+$$;
+
+-- Arity-5: (supergroup_id, name, description, created_by, tenant_id) — upsert by id (ExecuteNonQuery)
+CREATE OR REPLACE PROCEDURE "NGC_CreateSupergroup"(
+    p_supergroup_id integer,
+    p_supergroup_name text,
+    p_description text,
+    p_created_by text,
+    p_tenant_id uuid
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO "NGC_Supergroup" ("SupergroupId", "SupergroupName", "Description", "CreatedDatetime", "TenantId")
+    VALUES (p_supergroup_id, p_supergroup_name, p_description, NOW(), p_tenant_id)
+    ON CONFLICT ("SupergroupId") DO UPDATE
+    SET "SupergroupName" = EXCLUDED."SupergroupName",
+        "Description"    = EXCLUDED."Description";
+END;
+$$;
+
 -- ============================================================================
 -- 11. NGC_ModifySupergroup
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- E-016: kind-agnostic DROP (handles function->procedure conversion on re-apply)
 DO $drop_modifysupergroup$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_ModifySupergroup' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_ModifySupergroup' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_modifysupergroup$;
 
@@ -439,12 +522,13 @@ $$;
 -- ============================================================================
 -- 12. NGC_DeleteSupergroup
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- E-016: kind-agnostic DROP (handles function->procedure conversion on re-apply)
 DO $drop_deletesupergroup$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteSupergroup' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_DeleteSupergroup' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_deletesupergroup$;
 
@@ -462,23 +546,27 @@ END;
 $$;
 
 -- ============================================================================
--- 13. NGC_CreateBusinessUnitQueueClassificationMapping
---     UPSERT: ON CONFLICT DO NOTHING (idempotent create)
+-- 13. NGC_CreateBusinessUnitQueueClassificationMapping — AUTHORITATIVE overload set
+--     Arity-3: (integer, text, uuid) FUNCTION RETURNS void (Shell)
+--     Arity-5: (integer, text, text, text, uuid) PROCEDURE (RTM full)
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- Kind-agnostic DROP
 DO $drop_createbusinessunitqueueclassificationmapping$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_CreateBusinessUnitQueueClassificationMapping' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_CreateBusinessUnitQueueClassificationMapping' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_createbusinessunitqueueclassificationmapping$;
 
-CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitQueueClassificationMapping"(
+-- Arity-3: (bu_id, queue_id, tenant_id) FUNCTION RETURNS void — Shell caller (SELECT fn())
+CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnitQueueClassificationMapping"(
     p_business_unit_id integer,
     p_queue_id text,
     p_tenant_id uuid
 )
+RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -488,23 +576,46 @@ BEGIN
 END;
 $$;
 
+-- Arity-5: (bu_id, queue_id, classification_id, created_by, tenant_id) PROCEDURE — RTM (CALL)
+CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitQueueClassificationMapping"(
+    p_business_unit_id integer,
+    p_queue_id text,
+    p_classification_id text,
+    p_created_by text,
+    p_tenant_id uuid
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO "NGC_BusinessUnitQueueClassification"
+        ("BusinessUnitId", "QueueId", "ClassificationId", "CreatedDatetime", "TenantId")
+    VALUES (p_business_unit_id, p_queue_id, p_classification_id, NOW(), p_tenant_id)
+    ON CONFLICT ("BusinessUnitId", "QueueId") DO NOTHING;
+END;
+$$;
+
 -- ============================================================================
--- 14. NGC_DeleteBusinessUnitQueueClassificationMapping
+-- 14. NGC_DeleteBusinessUnitQueueClassificationMapping — AUTHORITATIVE overload set
+--     Arity-3: (integer, text, uuid) FUNCTION RETURNS void
+--     Arity-4: (integer, text, text, uuid) PROCEDURE
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- Kind-agnostic DROP
 DO $drop_deletebusinessunitqueueclassificationmapping$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteBusinessUnitQueueClassificationMapping' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_DeleteBusinessUnitQueueClassificationMapping' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_deletebusinessunitqueueclassificationmapping$;
 
-CREATE OR REPLACE PROCEDURE "NGC_DeleteBusinessUnitQueueClassificationMapping"(
+-- Arity-3: (bu_id, queue_id, tenant_id) FUNCTION RETURNS void — Shell
+CREATE OR REPLACE FUNCTION "NGC_DeleteBusinessUnitQueueClassificationMapping"(
     p_business_unit_id integer,
     p_queue_id text,
     p_tenant_id uuid
 )
+RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -515,24 +626,45 @@ BEGIN
 END;
 $$;
 
+-- Arity-4: (bu_id, queue_id, classification_id, tenant_id) PROCEDURE — RTM
+CREATE OR REPLACE PROCEDURE "NGC_DeleteBusinessUnitQueueClassificationMapping"(
+    p_business_unit_id integer,
+    p_queue_id text,
+    p_classification_id text,
+    p_tenant_id uuid
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    DELETE FROM "NGC_BusinessUnitQueueClassification"
+    WHERE "BusinessUnitId"   = p_business_unit_id
+      AND "QueueId"          = p_queue_id
+      AND "TenantId"         = p_tenant_id;
+END;
+$$;
+
 -- ============================================================================
--- 15. NGC_CreateBusinessUnitSupergroupMapping
---     UPSERT: ON CONFLICT DO NOTHING (idempotent create)
+-- 15. NGC_CreateBusinessUnitSupergroupMapping — AUTHORITATIVE overload set
+--     Arity-3: (integer, integer, uuid) FUNCTION RETURNS void
+--     Arity-4: (integer, integer, text, uuid) PROCEDURE
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
-DO $drop_createbusinessunitSupergroupmapping$
+-- Kind-agnostic DROP
+DO $drop_createbusinessunitsupergroupmapping$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_CreateBusinessUnitSupergroupMapping' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_CreateBusinessUnitSupergroupMapping' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
-END $drop_createbusinessunitSupergroupmapping$;
+END $drop_createbusinessunitsupergroupmapping$;
 
-CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitSupergroupMapping"(
+-- Arity-3: (bu_id, supergroup_id, tenant_id) FUNCTION RETURNS void — Shell
+CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnitSupergroupMapping"(
     p_business_unit_id integer,
     p_supergroup_id integer,
     p_tenant_id uuid
 )
+RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -542,15 +674,32 @@ BEGIN
 END;
 $$;
 
+-- Arity-4: (bu_id, supergroup_id, created_by, tenant_id) PROCEDURE — RTM
+CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitSupergroupMapping"(
+    p_business_unit_id integer,
+    p_supergroup_id integer,
+    p_created_by text,
+    p_tenant_id uuid
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO "NGC_BusinessUnitSupergroup" ("BusinessUnitId", "SupergroupId", "TenantId")
+    VALUES (p_business_unit_id, p_supergroup_id, p_tenant_id)
+    ON CONFLICT ("BusinessUnitId", "SupergroupId") DO NOTHING;
+END;
+$$;
+
 -- ============================================================================
 -- 16. NGC_DeleteBusinessUnitSupergroupMapping
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- E-016: kind-agnostic DROP
 DO $drop_deletebusinessunitsupergroupmapping$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteBusinessUnitSupergroupMapping' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_DeleteBusinessUnitSupergroupMapping' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_deletebusinessunitsupergroupmapping$;
 
@@ -570,30 +719,27 @@ END;
 $$;
 
 -- ============================================================================
--- 17. NGC_CreateSupergroupAgentgroupMapping
---     Note: NGC_SupergroupAgentgroup has surrogate PK "Id" (SERIAL).
---     The logical uniqueness is (SupergroupId, AgentgroupId) but EF model
---     doesn't define a unique constraint on it. We use ON CONFLICT DO NOTHING
---     on the surrogate PK which means duplicates are possible.
---     If business logic requires uniqueness, add:
---       CREATE UNIQUE INDEX IF NOT EXISTS "IX_NGC_SupergroupAgentgroup_Logical"
---       ON "NGC_SupergroupAgentgroup" ("SupergroupId", "AgentgroupId");
---     For now, simple INSERT matching original T-SQL behavior.
+-- 17. NGC_CreateSupergroupAgentgroupMapping — AUTHORITATIVE overload set
+--     Arity-3: (integer, text, uuid) FUNCTION RETURNS void
+--     Arity-4: (integer, text, text, uuid) PROCEDURE
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- Kind-agnostic DROP
 DO $drop_createsupergroupagentgroupmapping$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_CreateSupergroupAgentgroupMapping' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_CreateSupergroupAgentgroupMapping' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_createsupergroupagentgroupmapping$;
 
-CREATE OR REPLACE PROCEDURE "NGC_CreateSupergroupAgentgroupMapping"(
+-- Arity-3: (supergroup_id, agentgroup_id, tenant_id) FUNCTION RETURNS void — Shell
+CREATE OR REPLACE FUNCTION "NGC_CreateSupergroupAgentgroupMapping"(
     p_supergroup_id integer,
     p_agentgroup_id text,
     p_tenant_id uuid
 )
+RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -602,15 +748,32 @@ BEGIN
 END;
 $$;
 
+-- Arity-4: (supergroup_id, agentgroup_id, created_by, tenant_id) PROCEDURE — RTM
+CREATE OR REPLACE PROCEDURE "NGC_CreateSupergroupAgentgroupMapping"(
+    p_supergroup_id integer,
+    p_agentgroup_id text,
+    p_created_by text,
+    p_tenant_id uuid
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO "NGC_SupergroupAgentgroup" ("SupergroupId", "AgentgroupId", "TenantId")
+    VALUES (p_supergroup_id, p_agentgroup_id, p_tenant_id)
+    ON CONFLICT ("SupergroupId", "AgentgroupId") DO NOTHING;
+END;
+$$;
+
 -- ============================================================================
 -- 18. NGC_DeleteSupergroupAgentgroupMapping
 -- ============================================================================
--- E-016: sig-agnostic DROP (handles function->procedure conversion on re-apply)
+-- E-016: kind-agnostic DROP
 DO $drop_deletesupergroupagentgroupmapping$
 DECLARE r record;
 BEGIN
-  FOR r IN SELECT oid::regprocedure AS sig FROM pg_proc WHERE proname='NGC_DeleteSupergroupAgentgroupMapping' AND prokind='f' LOOP
-    EXECUTE 'DROP FUNCTION ' || r.sig::text;
+  FOR r IN SELECT oid::regprocedure AS sig, prokind FROM pg_proc WHERE proname='NGC_DeleteSupergroupAgentgroupMapping' LOOP
+    IF r.prokind='p' THEN EXECUTE 'DROP PROCEDURE ' || r.sig::text;
+    ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_deletesupergroupagentgroupmapping$;
 
@@ -669,5 +832,5 @@ END;
 $$;
 
 -- ============================================================================
--- End of NGC_* functions (20 total)
+-- End of NGC_* functions (20 total + additional overloads)
 -- ============================================================================
