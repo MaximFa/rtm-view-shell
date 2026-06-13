@@ -611,18 +611,9 @@ if ($ApplyServicePublish) {
     # ApplyService config: non-secret in appsettings, secrets in service ENV
     $applyDir = Join-Path $InstallRoot "ApplyService"
     $applyAppSettings = Join-Path $applyDir "appsettings.json"
-    if (Test-Path $applyAppSettings) {
-        Log "Patching ApplyService appsettings.json (non-secrets only)..."
-        $applyJson = Get-Content $applyAppSettings -Raw | ConvertFrom-Json
-        # Ensure Kestrel section exists
-        if ($applyJson.PSObject.Properties.Name -notcontains "Kestrel") { $applyJson | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue ([PSCustomObject]@{}) }
-        if ($applyJson.Kestrel.PSObject.Properties.Name -notcontains "Endpoints") { $applyJson.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue ([PSCustomObject]@{}) }
-        if ($applyJson.Kestrel.Endpoints.PSObject.Properties.Name -notcontains "Http") { $applyJson.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue ([PSCustomObject]@{}) }
-        $applyJson.Kestrel.Endpoints.Http | Add-Member -NotePropertyName "Url" -NotePropertyValue "http://127.0.0.1:$ApplyServicePort" -Force
-        # Write back (read-modify-write preserves other keys)
-        $applyJson | ConvertTo-Json -Depth 10 | Set-Content $applyAppSettings -Encoding UTF8
-        Log "  Set Kestrel.Endpoints.Http.Url = http://127.0.0.1:$ApplyServicePort"
-    }
+    # ApplyService binds 127.0.0.1:{ApplyService:Port} via UseUrls (Program.cs L32-33)
+    # ApplyService:Port=5099 is already in shipped appsettings.json — no Kestrel patch needed.
+    Log "ApplyService binds 127.0.0.1:$ApplyServicePort from ApplyService:Port (app-side UseUrls) - no Kestrel patch needed."
 
     # Register ApplyService Windows Service (B5)
     $existingApplySvc = Get-Service -Name $ApplySvcName -ErrorAction SilentlyContinue
@@ -646,10 +637,11 @@ if ($ApplyServicePublish) {
     $svcRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$ApplySvcName"
     $envVars = @(
         "ConnectionStrings__CatalogueOwner=$catownerConn",
+        "ConnectionStrings__Audit=$catownerConn",
         "ApplyService__Token=$applyToken"
     )
     Set-ItemProperty -Path $svcRegPath -Name "Environment" -Value $envVars -Type MultiString
-    Log "  Set ApplyService ENV: ConnectionStrings__CatalogueOwner, ApplyService__Token (secrets in registry, NOT appsettings)"
+    Log "  Set ApplyService ENV: ConnectionStrings__CatalogueOwner, ConnectionStrings__Audit, ApplyService__Token (secrets in registry, NOT appsettings)"
 
     # Set Shell service environment variable (MetricsApply__Token)
     # Registry: HKLM\SYSTEM\CurrentControlSet\Services\$ShellSvcName\Environment
