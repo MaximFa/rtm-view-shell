@@ -2,7 +2,7 @@
 name: session-coord
 description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42."
 type: process
-updated: 2026-06-13 (v1.8 — L-SC-25 inbox auto-archival + koord: chistka verb)
+updated: 2026-06-13 (v1.9 — L-SC-26 CC<->spec binding protocol NORM-CUR-07)
 ---
 
 # session-coord — multi-session coordination
@@ -18,6 +18,7 @@ classes lost in the pre-protocol push).
    `db/data/02_metrics.sql`, `db/schema.sql` — always verify with
    `git hash-object <f>` vs `git rev-parse HEAD:<f>` before "restoring" anything.
 2. Read ALL `.coord/sessions/*.md` — who is active, what is claimed.
+2b. Read `.coord/cc/<role>.md` — unconsumed CC results for your role.
 3. Read `.coord/journal.md` tail. If another slug committed since your last work —
    hash-check YOUR claimed files vs HEAD (PD-007 cross-session truncation).
 4. Check `.coord/push/request.md`. Present → barrier active: no new CC tasks,
@@ -54,8 +55,22 @@ classes lost in the pre-protocol push).
 ## 4. CC prompt requirements + peer-review checklist
 
 Every CC prompt: §0.6a integrity block first, then the sync block from
-`tools/cc_prompt_sync_block.md` (slug + claims filled). When reviewing another
-session's prompt, check:
+`tools/cc_prompt_sync_block.md` (slug + claims filled).
+
+**CC<->spec binding (NORM-CUR-07):**
+- PREAMBLE (after integrity/sync): append BINDING block to `.coord/cc/<role>.md` (status: open, directive ref).
+- POSTAMBLE (after execution): write RESULT into the binding (commits/build-test/files/status/blockers/object-store verify), status: done|failed.
+  Do NOT write results to `inbox/coordinator.md` — that is the spec's digest job.
+
+BINDING block format:
+```
+## BINDING <cc-open-UTC> | spec: <role> | directive: tools/<name>.md | status: open
+### DIRECTIVE (spec->CC): ref tools/<name>.md . acceptance . claim . gate
+### RESULT (CC->spec): commits <hashes> . build/test <counts> . files <changed> . status done|failed . blockers . verified: object-store
+> consumed <UTC> by <role>
+```
+
+When reviewing another session's prompt, check:
 
 - [ ] S1 barrier check present (`.coord/push/request.md` → STOP)
 - [ ] claims explicit; no file outside them
@@ -176,6 +191,7 @@ is the only protection for same-file work.
 | L-SC-23 | **Tech Writer = mandatory doc-sync gate.** The push-barrier quorum (§42.7) is NOT complete without Tech Writer's READY or HOLD. Impact triage: no-impact = instant READY; minor = READY + doc-debt; doc-blocking (user-facing/schema/API/install-upgrade/security) = HOLD until doc in `approved/`. |
 | L-SC-24 | **Skills edited via CC prompts.** The session-coord skill (and all skills) is a normal versioned file in the repo, NOT a "read-only cache". Edit via CC prompt; running sessions refresh via L-SC-15 cache-bump (re-read note + operator `коорд: входящие`). |
 | L-SC-25 | **Inbox auto-archival (NORM-CUR-06).** Role inboxes grow unbounded; handled blocks are durable but clutter. `tools/inbox_archive.py` moves old blocks to `inbox/archive/<role>.md` (append-only, never deletes). Keep last 25 blocks + last 24h in the live inbox. Coordinator runs `коорд: чистка` bus-wide; any session runs `сессия: чистка` on its own inbox. |
+| L-SC-26 | **CC<->spec binding protocol (NORM-CUR-07).** Each CC-session-open creates a BINDING linking spec-role <-> CC run <-> directive. Channel: `.coord/cc/<role>.md`. CC writes RESULT (commits/files/status/blockers + object-store verify); spec consumes and relays digest to coordinator. The binding is an INDEX to git, not a new source of truth — the RESULT carries commit hashes the spec verifies against the object store (L-SC-04/L-SC-18 fallback). |
 
 ## 10. Operator command set — EXECUTE LITERALLY
 
@@ -212,7 +228,7 @@ Replies must be SHORT: result + what the operator should do next (if anything).
 | `коорд: ты координатор` (on a FRESH session) | new session | Register as coordinator; read skill + FULL bus audit + the HANDOFF block in coordinator.md; reconstruct state. Reply: reconstructed picture + any gaps. |
 | `коорд: ревью` | any session (asks); coordinator (acts) | Coordinator §4 review of a CC prompt OR a returned result: checks mandatory blocks (§0.6a integrity, §40 skill-loads, sync block), claim correctness, acceptance criteria, fact-consistency vs code/object-store. Verdict PASS / REVISE-with-notes -> writes verdict to requester's inbox. |
 | `коорд: чистка [<role>]` (alias: `сессия: чистка`) | any session / coordinator | Run inbox auto-archival: `python3 tools/inbox_archive.py .coord/inbox/<role>.md`. Prunes handled/old blocks (keeps last 25 + last 24h) to `inbox/archive/<role>.md`. Coordinator runs bus-wide during `коорд: разбери` / `проверь шину`. |
-| `коорд: промпт <role> <task>` | coordinator | Draft a FULL self-contained directive (mandatory reads + integrity block + specialist's claim + task + acceptance criteria + commit.lock/journal/no-push), write it into `.coord/inbox/<role-slug>.md`, hand the operator the trigger-list. The coordinator does NOT execute or trigger. |
+| `коорд: промпт <role> <task>` | coordinator | Draft a FULL self-contained directive (mandatory reads + integrity block + specialist's claim + task + acceptance criteria + **binding preamble/postamble** + commit.lock/journal/no-push), write it into `.coord/inbox/<role-slug>.md`, hand the operator the trigger-list. The coordinator does NOT execute or trigger. |
 
 Default duty regardless of commands: at the start of EVERY turn each session re-reads
 the bus (§1 items 2–4) and acts on what it finds (barrier → ack; foreign journal
@@ -232,6 +248,10 @@ Sessions read the PERMANENT role mailbox `inbox/<role>.md`. On each turn:
 - Mid-task: hold "N pending" — do NOT interrupt.
 - Completion hook: end reply with "разобрать входящие? (N новых)" if pending.
 STRICT variant (auto-process mid-task) = operator opt-in.
+**CC binding consume (NORM-CUR-07):** also read `.coord/cc/<role>.md`; CONSUME the latest RESULT
+(mark `> consumed <UTC> by <role>`), relay a short digest to `inbox/coordinator.md`. If RESULT
+is ABSENT but `git log origin/<branch>..HEAD` shows new commits — RECONCILE from object store
+(L-SC-04/L-SC-18 fallback); do NOT report "CC didn't finish" on a dropped binding.
 **AUTO-ARCHIVAL:** after processing your inbox, if it exceeds ~40 blocks (or ~250 lines), run
 `python3 tools/inbox_archive.py .coord/inbox/<role>.md` — prunes handled/old blocks to
 `inbox/archive/<role>.md`, keeping last 25 + last 24h. Coordinator runs it bus-wide during
@@ -247,6 +267,8 @@ carries only short turn-triggers.
 Structure:
 - `.coord/inbox/<slug>.md` — append-only messages TO that session.
 - `.coord/inbox/coordinator.md` — questions/escalations TO the coordinator.
+- `.coord/cc/<role>.md` — CC<->spec binding channel (NORM-CUR-07): one BINDING block per CC-open,
+  auto-archived. CC writes RESULT here; spec consumes and relays digest to coordinator.
 Message block format (Python+fsync, append-only):
 ```
 ## <UTC> | from: <slug> | to: <slug>

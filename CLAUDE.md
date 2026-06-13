@@ -2052,7 +2052,7 @@ Should I run the documentation sync?
 - Max already said "no" earlier in the same session
 - The only changes since last sync are to test files or internal tooling with no user impact
 
-*TZ version: 2.7 | CLAUDE.md last updated: 2026-06-13 (§42.8 inbox auto-archival)*
+*TZ version: 2.7 | CLAUDE.md last updated: 2026-06-13 (§42.8 CC<->spec binding NORM-CUR-07)*
 ---
 
 ## 33. RTM Service — Multi-tenancy Architecture
@@ -2789,6 +2789,7 @@ Before adding any new localStorage key, verify:
 ├── sessions/<slug>.md   ← one file per active Cowork session
 ├── locks/commit.lock    ← exclusive commit token (repo-wide)
 ├── journal.md           ← append-only commit log
+├── cc/<role>.md         ← CC<->spec binding channel (NORM-CUR-07), auto-archived
 └── push/
     ├── request.md       ← active push barrier request
     └── acks/<slug>.md   ← per-session push readiness acks
@@ -2984,6 +2985,10 @@ opt-in via session config; default is SAFE.
 **AUTO-ARCHIVAL:** after processing, if `inbox/<role>.md` exceeds ~40 blocks, run
 `python3 tools/inbox_archive.py .coord/inbox/<role>.md`. Coordinator runs bus-wide during
 `коорд: разбери`.
+
+**CC binding consume (NORM-CUR-07):** also read `.coord/cc/<role>.md`; CONSUME the latest RESULT
+(mark `> consumed`), relay digest to `inbox/coordinator.md`. If RESULT is absent but git log
+shows new commits — reconcile from object store (L-SC-04/L-SC-18 fallback).
 
 ### §42.9 Session lifecycle summary
 
