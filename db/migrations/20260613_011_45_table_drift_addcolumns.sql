@@ -36,6 +36,15 @@ ALTER TABLE "RTSData_Interaction" ADD COLUMN IF NOT EXISTS "CustomCallData18" te
 ALTER TABLE "RTSData_Interaction" ADD COLUMN IF NOT EXISTS "CustomCallData19" text;
 ALTER TABLE "RTSData_Interaction" ADD COLUMN IF NOT EXISTS "CustomCallData20" text;
 
+-- [45 cross-check 2026-06-13] additional canonical columns missing on 45:
+
+-- RTSData_UserStatus.MaxDuraction — BODY-REFERENCED by RTSData_getUsersStatuses (RETURNS+SELECT) => 42703 on re-apply if absent
+ALTER TABLE "RTSData_UserStatus" ADD COLUMN IF NOT EXISTS "MaxDuraction" integer;
+
+-- NGC_Queues/NGC_AgentGroups.CreatedDatetime — canonical PARITY (no function references after 3db705d fix; added for canonical end-state)
+ALTER TABLE "NGC_Queues"      ADD COLUMN IF NOT EXISTS "CreatedDatetime" timestamptz DEFAULT now();
+ALTER TABLE "NGC_AgentGroups" ADD COLUMN IF NOT EXISTS "CreatedDatetime" timestamptz DEFAULT now();
+
 -- §38a self-record (MANDATORY for db/migrations/ files)
 INSERT INTO public.db_patch_history (migration_name)
 VALUES ('20260613_011_45_table_drift_addcolumns')
