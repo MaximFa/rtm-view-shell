@@ -546,9 +546,9 @@ END;
 $$;
 
 -- ============================================================================
--- 13. NGC_CreateBusinessUnitQueueClassificationMapping — AUTHORITATIVE overload set
---     Arity-3: (integer, text, uuid) FUNCTION RETURNS void (Shell)
---     Arity-5: (integer, text, text, text, uuid) PROCEDURE (RTM full)
+-- 13. NGC_CreateBusinessUnitQueueClassificationMapping — PROCEDURE only (RTM CALL)
+--     [REMOVED] Arity-3 FUNCTION (dead code - Shell grep=0 callers)
+--     Arity-5: (integer, text, text, text, uuid) PROCEDURE (RTM ExecuteNonQuery=CALL)
 -- ============================================================================
 -- Kind-agnostic DROP
 DO $drop_createbusinessunitqueueclassificationmapping$
@@ -559,22 +559,6 @@ BEGIN
     ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_createbusinessunitqueueclassificationmapping$;
-
--- Arity-3: (bu_id, queue_id, tenant_id) FUNCTION RETURNS void — Shell caller (SELECT fn())
-CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnitQueueClassificationMapping"(
-    p_business_unit_id integer,
-    p_queue_id text,
-    p_tenant_id uuid
-)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    INSERT INTO "NGC_BusinessUnitQueueClassification" ("BusinessUnitId", "QueueId", "CreatedDatetime", "TenantId")
-    VALUES (p_business_unit_id, p_queue_id, NOW(), p_tenant_id)
-    ON CONFLICT ("BusinessUnitId", "QueueId") DO NOTHING;
-END;
-$$;
 
 -- Arity-5: (bu_id, queue_id, classification_id, created_by, tenant_id) PROCEDURE — RTM (CALL)
 CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitQueueClassificationMapping"(
@@ -644,9 +628,9 @@ END;
 $$;
 
 -- ============================================================================
--- 15. NGC_CreateBusinessUnitSupergroupMapping — AUTHORITATIVE overload set
---     Arity-3: (integer, integer, uuid) FUNCTION RETURNS void
---     Arity-4: (integer, integer, text, uuid) PROCEDURE
+-- 15. NGC_CreateBusinessUnitSupergroupMapping — PROCEDURE only (RTM CALL)
+--     [REMOVED] Arity-3 FUNCTION (dead code - Shell grep=0 callers)
+--     Arity-4: (integer, integer, text, uuid) PROCEDURE (RTM ExecuteNonQuery=CALL)
 -- ============================================================================
 -- Kind-agnostic DROP
 DO $drop_createbusinessunitsupergroupmapping$
@@ -657,22 +641,6 @@ BEGIN
     ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_createbusinessunitsupergroupmapping$;
-
--- Arity-3: (bu_id, supergroup_id, tenant_id) FUNCTION RETURNS void — Shell
-CREATE OR REPLACE FUNCTION "NGC_CreateBusinessUnitSupergroupMapping"(
-    p_business_unit_id integer,
-    p_supergroup_id integer,
-    p_tenant_id uuid
-)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    INSERT INTO "NGC_BusinessUnitSupergroup" ("BusinessUnitId", "SupergroupId", "CreatedDatetime", "TenantId")
-    VALUES (p_business_unit_id, p_supergroup_id, NOW(), p_tenant_id)
-    ON CONFLICT ("BusinessUnitId", "SupergroupId") DO NOTHING;
-END;
-$$;
 
 -- Arity-4: (bu_id, supergroup_id, created_by, tenant_id) PROCEDURE — RTM
 CREATE OR REPLACE PROCEDURE "NGC_CreateBusinessUnitSupergroupMapping"(
@@ -719,9 +687,9 @@ END;
 $$;
 
 -- ============================================================================
--- 17. NGC_CreateSupergroupAgentgroupMapping — AUTHORITATIVE overload set
---     Arity-3: (integer, text, uuid) FUNCTION RETURNS void
---     Arity-4: (integer, text, text, uuid) PROCEDURE
+-- 17. NGC_CreateSupergroupAgentgroupMapping — PROCEDURE only (RTM CALL)
+--     [REMOVED] Arity-3 FUNCTION (dead code - Shell grep=0 callers)
+--     Arity-4: (integer, text, text, uuid) PROCEDURE (RTM ExecuteNonQuery=CALL)
 -- ============================================================================
 -- Kind-agnostic DROP
 DO $drop_createsupergroupagentgroupmapping$
@@ -732,21 +700,6 @@ BEGIN
     ELSE                  EXECUTE 'DROP FUNCTION '  || r.sig::text; END IF;
   END LOOP;
 END $drop_createsupergroupagentgroupmapping$;
-
--- Arity-3: (supergroup_id, agentgroup_id, tenant_id) FUNCTION RETURNS void — Shell
-CREATE OR REPLACE FUNCTION "NGC_CreateSupergroupAgentgroupMapping"(
-    p_supergroup_id integer,
-    p_agentgroup_id text,
-    p_tenant_id uuid
-)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    INSERT INTO "NGC_SupergroupAgentgroup" ("SupergroupId", "AgentgroupId", "CreatedDatetime", "TenantId")
-    VALUES (p_supergroup_id, p_agentgroup_id, NOW(), p_tenant_id);
-END;
-$$;
 
 -- Arity-4: (supergroup_id, agentgroup_id, created_by, tenant_id) PROCEDURE — RTM
 CREATE OR REPLACE PROCEDURE "NGC_CreateSupergroupAgentgroupMapping"(
