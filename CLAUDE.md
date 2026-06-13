@@ -339,18 +339,17 @@ Core responsibilities:
 - Multi-tenant user management (create / edit / block / reset password)
 - Permission Groups — granular access control: menus, screens, queues, skills, supergroups, BUs
 - Dashboard (screen) management — create / rename / delete named screens per group
-- Widget catalogue — browse categories and widget types; actual widget rendering is **out of scope**
+- Widget catalogue — browse categories and widget types; widgets are **rendered** on dashboards (see §18, §34 + `Components/Widgets/`)
 - Secure authentication: local accounts + e-mail 2FA + SSO stub, JWT for REST API
 - Full audit trail for all auth events and permission changes
 
-**Out of scope for this shell (do NOT implement):**
-- Widget rendering / real-time data fetching from CC platforms
-- Drag-and-drop layout of widgets on a screen
-- Widget configuration forms / data binding
-- Real-time data feeds
+**Implemented (originally out of scope — see scope note below):**
+- Widget rendering — `src/CcDashboard.Web/Components/Widgets/` (DataSlot, DayTrend, QueueGrid, AgentGrid, AgentStateDistribution, InfoSlot, KPI, QueueSummary) + `RenderWidget.razor` dispatcher
+- Real-time data feeds — server-side RTM relay (§34): `IRtmRelayService` + SignalR push
+- Drag-and-drop layout of widgets on a screen — `wwwroot/js/widget-resize.js` + `ScreenEditorPage.razor` canvas (draggable / ondrop / resize)
+- Widget configuration forms / data binding — `ScreenEditorPage.razor` widget config modal (`OpenWidgetConfig`/`SaveWidgetConfig`), `WidgetConfig`, metric-selection wizards, `ConfigJson`
 
-When you encounter tasks related to the above, create a stub interface/component and leave a
-`// TODO: widget-library` comment.
+> **Scope note (2026-06-13):** This shell began as a *container only* — widget rendering, drag-and-drop layout, widget config, and live data feeds were originally out of scope. The project has since evolved into a full dashboard platform; **all four are now implemented and verified in code**. The old "container only / out of scope" framing in any older doc is **superseded**. Genuinely future work (if any) must be re-listed explicitly here when identified.
 
 ---
 
@@ -1046,9 +1045,10 @@ author, creation date, `IsPublic`.
 **[WGT-03]** Only Superadmin can add / edit / deactivate catalogue items.
 Deactivated items hidden from non-Superadmin.
 
-**[WGT-04]** Widget rendering is **out of scope**. On dashboard editor, widget selection
-creates a `DashboardWidget` record (stub). Layout/config left as `PositionJson`/`ConfigJson`
-jsonb fields for the future widget library.
+**[WGT-04]** Widget rendering is **implemented** (originally out of scope). On the dashboard editor,
+widget selection creates a `DashboardWidget` record; widgets render via `Components/Widgets/` + `RenderWidget.razor`,
+with layout persisted in `PositionJson` and per-widget settings in `ConfigJson` (config modal in `ScreenEditorPage.razor`).
+Live data flows through the RTM relay (§34). Drag-and-drop layout: `wwwroot/js/widget-resize.js`.
 
 ---
 
@@ -3073,4 +3073,4 @@ session-coord skill §13.
   + Security ack + prod push.
 - A whole release stays in ONE Cowork (e.g. the Server-234 upgrade = wholly A).
 
-*TZ version: 2.7 | CLAUDE.md last updated: 2026-06-13 (§0.6b mandatory CC<->spec binding NORM-CUR-07c)*
+*TZ version: 2.8 | CLAUDE.md last updated: 2026-06-13 (§1/§18 scope-sync — widget rendering/drag&drop/config/data-binding now IMPLEMENTED, verified by code)*
