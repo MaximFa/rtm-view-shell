@@ -2052,7 +2052,7 @@ Should I run the documentation sync?
 - Max already said "no" earlier in the same session
 - The only changes since last sync are to test files or internal tooling with no user impact
 
-*TZ version: 2.7 | CLAUDE.md last updated: 2026-06-12 (§42.7 doc-gate, §42.8 inbox-hook)*
+*TZ version: 2.7 | CLAUDE.md last updated: 2026-06-13 (§42.8 inbox auto-archival)*
 ---
 
 ## 33. RTM Service — Multi-tenancy Architecture
@@ -2980,6 +2980,10 @@ Default behaviour is the **SAFE variant** (does not interrupt mid-task work):
 
 **Operator toggle:** The STRICT variant (auto-process even mid-task) is the operator's explicit
 opt-in via session config; default is SAFE.
+
+**AUTO-ARCHIVAL:** after processing, if `inbox/<role>.md` exceeds ~40 blocks, run
+`python3 tools/inbox_archive.py .coord/inbox/<role>.md`. Coordinator runs bus-wide during
+`коорд: разбери`.
 
 ### §42.9 Session lifecycle summary
 

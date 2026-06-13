@@ -2,7 +2,7 @@
 name: session-coord
 description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42."
 type: process
-updated: 2026-06-07 (v1.7 — L-SC-18 cross-view inherent + L-SC-19 append-ACKS; Track 2 wrapper)
+updated: 2026-06-13 (v1.8 — L-SC-25 inbox auto-archival + koord: chistka verb)
 ---
 
 # session-coord — multi-session coordination
@@ -175,6 +175,7 @@ is the only protection for same-file work.
 | L-SC-22 | **Permanent role mailbox norm.** Each role (coordinator, devops, metrics, techwriter, etc.) has a PERMANENT inbox at `inbox/<role>.md` — NOT per-session-slug. Sessions inherit and append to it. On takeover, the successor continues reading the same role inbox. Supersedes per-slug inboxes and the L-SC-21 migration. |
 | L-SC-23 | **Tech Writer = mandatory doc-sync gate.** The push-barrier quorum (§42.7) is NOT complete without Tech Writer's READY or HOLD. Impact triage: no-impact = instant READY; minor = READY + doc-debt; doc-blocking (user-facing/schema/API/install-upgrade/security) = HOLD until doc in `approved/`. |
 | L-SC-24 | **Skills edited via CC prompts.** The session-coord skill (and all skills) is a normal versioned file in the repo, NOT a "read-only cache". Edit via CC prompt; running sessions refresh via L-SC-15 cache-bump (re-read note + operator `коорд: входящие`). |
+| L-SC-25 | **Inbox auto-archival (NORM-CUR-06).** Role inboxes grow unbounded; handled blocks are durable but clutter. `tools/inbox_archive.py` moves old blocks to `inbox/archive/<role>.md` (append-only, never deletes). Keep last 25 blocks + last 24h in the live inbox. Coordinator runs `коорд: чистка` bus-wide; any session runs `сессия: чистка` on its own inbox. |
 
 ## 10. Operator command set — EXECUTE LITERALLY
 
@@ -210,6 +211,7 @@ Replies must be SHORT: result + what the operator should do next (if anything).
 | `коорд: передай координацию` | outgoing coordinator | Write a HANDOFF block to `.coord/inbox/coordinator.md` capturing what is NOT derivable from the bus (see §12), set own session `status: done`. Reply: handoff written, safe to open a fresh coordinator. |
 | `коорд: ты координатор` (on a FRESH session) | new session | Register as coordinator; read skill + FULL bus audit + the HANDOFF block in coordinator.md; reconstruct state. Reply: reconstructed picture + any gaps. |
 | `коорд: ревью` | any session (asks); coordinator (acts) | Coordinator §4 review of a CC prompt OR a returned result: checks mandatory blocks (§0.6a integrity, §40 skill-loads, sync block), claim correctness, acceptance criteria, fact-consistency vs code/object-store. Verdict PASS / REVISE-with-notes -> writes verdict to requester's inbox. |
+| `коорд: чистка [<role>]` (alias: `сессия: чистка`) | any session / coordinator | Run inbox auto-archival: `python3 tools/inbox_archive.py .coord/inbox/<role>.md`. Prunes handled/old blocks (keeps last 25 + last 24h) to `inbox/archive/<role>.md`. Coordinator runs bus-wide during `коорд: разбери` / `проверь шину`. |
 | `коорд: промпт <role> <task>` | coordinator | Draft a FULL self-contained directive (mandatory reads + integrity block + specialist's claim + task + acceptance criteria + commit.lock/journal/no-push), write it into `.coord/inbox/<role-slug>.md`, hand the operator the trigger-list. The coordinator does NOT execute or trigger. |
 
 Default duty regardless of commands: at the start of EVERY turn each session re-reads
@@ -230,7 +232,10 @@ Sessions read the PERMANENT role mailbox `inbox/<role>.md`. On each turn:
 - Mid-task: hold "N pending" — do NOT interrupt.
 - Completion hook: end reply with "разобрать входящие? (N новых)" if pending.
 STRICT variant (auto-process mid-task) = operator opt-in.
-
+**AUTO-ARCHIVAL:** after processing your inbox, if it exceeds ~40 blocks (or ~250 lines), run
+`python3 tools/inbox_archive.py .coord/inbox/<role>.md` — prunes handled/old blocks to
+`inbox/archive/<role>.md`, keeping last 25 + last 24h. Coordinator runs it bus-wide during
+`коорд: разбери` / `коорд: проверь шину`.
 
 
 ## 11. Mailbox (.coord/inbox/) — directed messages without operator copy-paste
