@@ -578,6 +578,53 @@ if ($CheckEfModel) {
     [void]$DeltaLines.Add("")
 }
 
+# ====== DIMENSION F: SEQUENCE SYNC (E3) ======
+Write-Host "`n[F] SEQUENCE SYNC (owned sequences vs column max)" -ForegroundColor Yellow
+[void]$DeltaLines.Add("-" * 40)
+[void]$DeltaLines.Add("DIMENSION F: SEQUENCE SYNC (E3)")
+[void]$DeltaLines.Add("-" * 40)
+
+$SeqLagging = 0
+$seqQuery = @"
+SELECT s.relname AS seq, t.relname AS tbl, a.attname AS col, n.nspname AS sch
+FROM pg_class s
+JOIN pg_depend d  ON d.objid = s.oid AND d.deptype = 'a'
+JOIN pg_class t   ON t.oid = d.refobjid
+JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
+JOIN pg_namespace n ON n.oid = t.relnamespace
+WHERE s.relkind = 'S' AND n.nspname IN ('public','identity','audit')
+ORDER BY 1;
+"@
+$seqRows = Run-SQL $seqQuery
+$seqAlignEmitted = $false
+
+foreach ($row in $seqRows) {
+    $parts = $row -split '\|'
+    if ($parts.Count -ge 4) {
+        $seq = $parts[0]; $tbl = $parts[1]; $col = $parts[2]; $sch = $parts[3]
+        $lastValResult = Run-SQL "SELECT last_value FROM `"$sch`".`"$seq`";"
+        $maxValResult = Run-SQL "SELECT COALESCE(MAX(`"$col`"),0) FROM `"$sch`".`"$tbl`";"
+        $lastVal = [long]($lastValResult -replace '\s','')
+        $maxVal = [long]($maxValResult -replace '\s','')
+        if ($maxVal -gt $lastVal) {
+            $SeqLagging++
+            Write-Host "  $sch.$seq backing $tbl.$($col): last_value=$lastVal < MAX=$maxVal -> LAGGING (23505 risk)" -ForegroundColor Red
+            [void]$DeltaLines.Add("  $sch.$seq backing $tbl.$($col): last_value=$lastVal < MAX=$maxVal -> LAGGING (23505 risk)")
+            if (-not $seqAlignEmitted) {
+                [void]$AlignLines.Add("-- ===== DIMENSION F: SEQUENCE SYNC =====")
+                $seqAlignEmitted = $true
+            }
+            [void]$AlignLines.Add("SELECT setval('`"$sch`".`"$seq`"', (SELECT COALESCE(MAX(`"$col`"),1) FROM `"$sch`".`"$tbl`"), true);")
+        }
+    }
+}
+
+if ($SeqLagging -eq 0) {
+    Write-Host "  All owned sequences ahead of their column max (no 23505 risk)." -ForegroundColor Green
+    [void]$DeltaLines.Add("  All owned sequences ahead of their column max (no 23505 risk).")
+}
+[void]$DeltaLines.Add("")
+
 # ====== FINALIZE OUTPUT ======
 [void]$DeltaLines.Add("=" * 80)
 [void]$DeltaLines.Add("SUMMARY")
@@ -587,9 +634,10 @@ if ($CheckEfModel) {
 [void]$DeltaLines.Add("C. Metric drift:           $MetricDrift")
 [void]$DeltaLines.Add("D. Unapplied migrations:   $UnappliedMigrationCount")
 if ($CheckEfModel) { [void]$DeltaLines.Add("E. EF model pending:       $EfPending") }
+[void]$DeltaLines.Add("F. Sequences lagging:      $SeqLagging")
 [void]$DeltaLines.Add("")
 
-$totalIssues = $SchemaDiffLines + $RoutineFlags + $MetricDrift + $UnappliedMigrationCount
+$totalIssues = $SchemaDiffLines + $RoutineFlags + $MetricDrift + $UnappliedMigrationCount + $SeqLagging
 if ($totalIssues -eq 0) {
     [void]$DeltaLines.Add("*** NO DRIFT DETECTED. Server matches baseline. ***")
     $AlignLines.Clear()

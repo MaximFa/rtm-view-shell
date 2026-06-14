@@ -122,14 +122,38 @@ foreach ($f in @("01_ngc_functions.sql","02_rtsdata_functions.sql","03_rtsgrid_r
 }
 
 # ── Step 4: Data (as superuser, no session_replication_role needed) ───────
-Write-Host "" ; Write-Host "[ 4/4 ] Applying data..." -ForegroundColor Cyan
+Write-Host "" ; Write-Host "[ 4/5 ] Applying data..." -ForegroundColor Cyan
 foreach ($f in (Get-ChildItem $DataDir -Filter "*.sql" | Sort-Object Name)) {
     & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -f $f.FullName -q
     Write-Host "  $($f.Name)" -ForegroundColor Green
 }
 
+# ── Step 5: E3 Sequence resync (setval to column max — prevents 23505) ────
+Write-Host "" ; Write-Host "[ 5/5 ] Resyncing sequences to column max (E3)..." -ForegroundColor Cyan
+$seqResyncSql = @'
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT n.nspname AS sch, s.relname AS seq, t.relname AS tbl, a.attname AS col
+    FROM pg_class s
+    JOIN pg_depend d ON d.objid=s.oid AND d.deptype='a'
+    JOIN pg_class t ON t.oid=d.refobjid
+    JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=d.refobjsubid
+    JOIN pg_namespace n ON n.oid=t.relnamespace
+    WHERE s.relkind='S' AND n.nspname IN ('public','identity','audit')
+  LOOP
+    EXECUTE format('SELECT setval(%L, (SELECT COALESCE(MAX(%I),1) FROM %I.%I), true)',
+                   r.sch||'.'||r.seq, r.col, r.sch, r.tbl);
+  END LOOP;
+END $$;
+'@
+Set-Content -Path $TmpSql -Value $seqResyncSql -Encoding UTF8
+& $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -f $TmpSql -q
+Write-Host "  [E3] sequences resynced." -ForegroundColor Green
+
 # ── Grant app user access ────────────────────────────────────────────────
-Write-Host "" ; Write-Host "[ +  ] Granting access to $AppUser..." -ForegroundColor Cyan
+Write-Host "" ; Write-Host "[  +  ] Granting access to $AppUser..." -ForegroundColor Cyan
 $grantSql = @"
 GRANT USAGE ON SCHEMA public TO $AppUser;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $AppUser;
