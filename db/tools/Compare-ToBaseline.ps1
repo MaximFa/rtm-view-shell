@@ -215,6 +215,37 @@ $ExtraOnServer   = $ServerNorm | Where-Object { -not $BaselineSet.Contains($_) }
 
 $SchemaDiffLines = @($MissingOnServer).Count + @($ExtraOnServer).Count
 
+# E2: Enumerate objects from diff lines (classify by type)
+function Classify-SchemaLines([array]$lines) {
+    $result = @{
+        Tables = [System.Collections.ArrayList]@()
+        Indexes = [System.Collections.ArrayList]@()
+        Constraints = [System.Collections.ArrayList]@()
+        Routines = [System.Collections.ArrayList]@()
+        Sequences = [System.Collections.ArrayList]@()
+        DetailCount = 0
+    }
+    foreach ($line in $lines) {
+        if ($line -match '(?i)^CREATE\s+TABLE\s+(\S+)') {
+            [void]$result.Tables.Add($Matches[1])
+        } elseif ($line -match '(?i)^CREATE\s+(?:UNIQUE\s+)?INDEX\s+(\S+)') {
+            [void]$result.Indexes.Add($Matches[1])
+        } elseif ($line -match '(?i)ADD\s+CONSTRAINT\s+"?(\w+)"?') {
+            [void]$result.Constraints.Add($Matches[1])
+        } elseif ($line -match '(?i)^CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+(\S+?)\s*\(') {
+            [void]$result.Routines.Add($Matches[1])
+        } elseif ($line -match '(?i)^CREATE\s+SEQUENCE\s+(\S+)') {
+            [void]$result.Sequences.Add($Matches[1])
+        } else {
+            $result.DetailCount++
+        }
+    }
+    return $result
+}
+
+$MissingEnum = Classify-SchemaLines $MissingOnServer
+$ExtraEnum = Classify-SchemaLines $ExtraOnServer
+
 if ($SchemaDiffLines -eq 0) {
     Write-Host "  Schema matches baseline." -ForegroundColor Green
     [void]$DeltaLines.Add("Schema matches baseline (no drift detected).")
@@ -223,7 +254,42 @@ if ($SchemaDiffLines -eq 0) {
     [void]$DeltaLines.Add("Schema drift detected:")
     [void]$DeltaLines.Add("  Lines missing on server: $(@($MissingOnServer).Count)")
     [void]$DeltaLines.Add("  Lines extra on server:   $(@($ExtraOnServer).Count)")
-    
+    [void]$DeltaLines.Add("")
+    [void]$DeltaLines.Add("  --- ENUMERATED (E2) ---")
+
+    # Tables
+    $missTables = if ($MissingEnum.Tables.Count -gt 0) { $MissingEnum.Tables -join ", " } else { "(none)" }
+    $extraTables = if ($ExtraEnum.Tables.Count -gt 0) { $ExtraEnum.Tables -join ", " } else { "(none)" }
+    [void]$DeltaLines.Add("  Tables   missing-on-server: $missTables")
+    [void]$DeltaLines.Add("  Tables   extra-on-server:   $extraTables")
+
+    # Indexes
+    $missIdx = if ($MissingEnum.Indexes.Count -gt 0) { $MissingEnum.Indexes -join ", " } else { "(none)" }
+    $extraIdx = if ($ExtraEnum.Indexes.Count -gt 0) { $ExtraEnum.Indexes -join ", " } else { "(none)" }
+    [void]$DeltaLines.Add("  Indexes  missing: $missIdx")
+    [void]$DeltaLines.Add("  Indexes  extra:   $extraIdx")
+
+    # Constraints
+    $missCon = if ($MissingEnum.Constraints.Count -gt 0) { $MissingEnum.Constraints -join ", " } else { "(none)" }
+    $extraCon = if ($ExtraEnum.Constraints.Count -gt 0) { $ExtraEnum.Constraints -join ", " } else { "(none)" }
+    [void]$DeltaLines.Add("  Constraints missing: $missCon")
+    [void]$DeltaLines.Add("  Constraints extra:   $extraCon")
+
+    # Routines
+    $missRt = if ($MissingEnum.Routines.Count -gt 0) { $MissingEnum.Routines -join ", " } else { "(none)" }
+    $extraRt = if ($ExtraEnum.Routines.Count -gt 0) { $ExtraEnum.Routines -join ", " } else { "(none)" }
+    [void]$DeltaLines.Add("  Routines missing: $missRt")
+    [void]$DeltaLines.Add("  Routines extra:   $extraRt")
+
+    # Sequences
+    $missSeq = if ($MissingEnum.Sequences.Count -gt 0) { $MissingEnum.Sequences -join ", " } else { "(none)" }
+    $extraSeq = if ($ExtraEnum.Sequences.Count -gt 0) { $ExtraEnum.Sequences -join ", " } else { "(none)" }
+    [void]$DeltaLines.Add("  Sequences missing: $missSeq")
+    [void]$DeltaLines.Add("  Sequences extra:   $extraSeq")
+
+    # Detail lines
+    [void]$DeltaLines.Add("  Detail (column/clause) lines: missing $($MissingEnum.DetailCount) / extra $($ExtraEnum.DetailCount)")
+
     [void]$AlignLines.Add("-- ===== DIMENSION A: SCHEMA =====")
     [void]$AlignLines.Add("-- MANUAL REVIEW: Schema drift detected but not auto-fixed.")
     [void]$AlignLines.Add("-- Apply unapplied migrations below. For remaining drift, review manually.")
@@ -232,13 +298,15 @@ if ($SchemaDiffLines -eq 0) {
 [void]$DeltaLines.Add("")
 Remove-Item $ServerSchemaFile -ErrorAction SilentlyContinue
 
-# ====== DIMENSION B: ROUTINE KIND ======
+# ====== DIMENSION B: ROUTINE KIND (E2: multi-overload aware) ======
 Write-Host "`n[B] ROUTINE KIND (prokind) -- CRITICAL" -ForegroundColor Yellow
 [void]$DeltaLines.Add("-" * 40)
 [void]$DeltaLines.Add("DIMENSION B: ROUTINE KIND (prokind) [RTM-SEC-002]")
 [void]$DeltaLines.Add("-" * 40)
 
-$ExpectedRoutines = @{}
+# E2: Collect ALL declared kinds per routine name into a SET (handles overloads)
+$ExpectedKinds = @{}    # name -> HashSet of 'p'/'f'
+$ExpectedSource = @{}   # name -> first source file (for messages)
 Get-ChildItem (Join-Path $DbDir "functions") -Filter "*.sql" | ForEach-Object {
     $content = Get-Content $_.FullName -Raw
     $pattern = 'CREATE\s+(?:OR\s+REPLACE\s+)?(PROCEDURE|FUNCTION)\s+"?(\w+)"?\s*\(([^)]*)\)'
@@ -247,35 +315,56 @@ Get-ChildItem (Join-Path $DbDir "functions") -Filter "*.sql" | ForEach-Object {
         $kind = $m.Groups[1].Value.ToUpper()
         $name = $m.Groups[2].Value
         $prokind = if ($kind -eq "PROCEDURE") { "p" } else { "f" }
-        $ExpectedRoutines[$name] = @{ Kind = $prokind; Source = $_.Name }
+        if (-not $ExpectedKinds.ContainsKey($name)) {
+            $ExpectedKinds[$name] = [System.Collections.Generic.HashSet[string]]::new()
+            $ExpectedSource[$name] = $_.Name
+        }
+        [void]$ExpectedKinds[$name].Add($prokind)
     }
 }
 
 $routineSql = "SELECT n.nspname, p.proname, p.prokind, p.pronargs FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname IN ('public','identity','audit') ORDER BY 1,2;"
 $serverRoutines = Run-SQL $routineSql
 
-$ServerRoutineMap = @{}
+# E2: Collect ALL server kinds per routine name into a SET
+$ServerKinds = @{}    # name -> HashSet of prokinds
 foreach ($row in $serverRoutines) {
     $parts = $row -split '\|'
     if ($parts.Count -ge 4) {
-        $ServerRoutineMap[$parts[1]] = @{ Schema = $parts[0]; Kind = $parts[2]; ArgCount = [int]$parts[3] }
+        $name = $parts[1]
+        $prokind = $parts[2]
+        if (-not $ServerKinds.ContainsKey($name)) {
+            $ServerKinds[$name] = [System.Collections.Generic.HashSet[string]]::new()
+        }
+        [void]$ServerKinds[$name].Add($prokind)
     }
 }
 
 $RoutineMismatches = @()
 $RoutineMissing = @()
 
-foreach ($routineName in $ExpectedRoutines.Keys) {
-    $expected = $ExpectedRoutines[$routineName]
-    if (-not $ServerRoutineMap.ContainsKey($routineName)) {
+foreach ($routineName in $ExpectedKinds.Keys) {
+    $expectedSet = $ExpectedKinds[$routineName]
+    if (-not $ServerKinds.ContainsKey($routineName)) {
+        # Routine missing entirely
         $RoutineMissing += $routineName
         $RoutineFlags++
     } else {
-        $actual = $ServerRoutineMap[$routineName]
-        if ($actual.Kind -ne $expected.Kind) {
-            $RoutineMismatches += @{ Name = $routineName; ExpectedKind = $expected.Kind; ActualKind = $actual.Kind; Source = $expected.Source }
+        $serverSet = $ServerKinds[$routineName]
+        # E2: Flag only if a kind the baseline declares is ABSENT on the server
+        $missingKinds = [System.Collections.Generic.HashSet[string]]::new($expectedSet)
+        $missingKinds.ExceptWith($serverSet)
+        if ($missingKinds.Count -gt 0) {
+            $RoutineMismatches += @{
+                Name = $routineName
+                ExpectedSet = ($expectedSet -join ",")
+                ServerSet = ($serverSet -join ",")
+                MissingKinds = ($missingKinds -join ",")
+                Source = $ExpectedSource[$routineName]
+            }
             $RoutineFlags++
         }
+        # Note: if server has EXTRA kinds (more overloads) -> NOT a flag
     }
 }
 
@@ -286,14 +375,18 @@ if ($RoutineFlags -eq 0) {
     Write-Host "  Routine issues: $($RoutineMissing.Count) missing, $($RoutineMismatches.Count) kind mismatches" -ForegroundColor Red
     if ($RoutineMissing.Count -gt 0) {
         [void]$DeltaLines.Add("Missing routines:")
-        $RoutineMissing | ForEach-Object { [void]$DeltaLines.Add("  - $_ (expected in $($ExpectedRoutines[$_].Source))") }
+        $RoutineMissing | ForEach-Object {
+            $kindsLabel = ($ExpectedKinds[$_] | ForEach-Object { if ($_ -eq "p") { "PROCEDURE" } else { "FUNCTION" } }) -join "+"
+            [void]$DeltaLines.Add("  - $_ [$kindsLabel] (expected in $($ExpectedSource[$_]))")
+        }
     }
     if ($RoutineMismatches.Count -gt 0) {
         [void]$DeltaLines.Add("Kind mismatches (RTM-SEC-002):")
         foreach ($mm in $RoutineMismatches) {
-            $expLabel = if ($mm.ExpectedKind -eq "p") { "PROCEDURE" } else { "FUNCTION" }
-            $actLabel = if ($mm.ActualKind -eq "p") { "PROCEDURE" } else { "FUNCTION" }
-            [void]$DeltaLines.Add("  - $($mm.Name): expected $expLabel, server has $actLabel")
+            $expLabel = ($mm.ExpectedSet -split "," | ForEach-Object { if ($_ -eq "p") { "p" } else { "f" } }) -join "+"
+            $srvLabel = ($mm.ServerSet -split "," | ForEach-Object { if ($_ -eq "p") { "p" } else { "f" } }) -join "+"
+            $missLabel = ($mm.MissingKinds -split "," | ForEach-Object { if ($_ -eq "p") { "PROCEDURE" } else { "FUNCTION" } }) -join "+"
+            [void]$DeltaLines.Add("  - $($mm.Name): expected {$expLabel}, server has {$srvLabel}, missing: $missLabel")
         }
         [void]$AlignLines.Add("-- ===== DIMENSION B: ROUTINE KIND FIXES =====")
         foreach ($mm in $RoutineMismatches) {
