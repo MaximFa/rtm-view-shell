@@ -676,3 +676,24 @@ if ($totalIssues -eq 0) {
 } else {
     Write-Host "Drift detected. Review delta report and run alignment SQL as postgres." -ForegroundColor Yellow
 }
+
+# ====== E1: DRIFT-BASED EXIT CODE (pre-deploy gate) ======
+# REAL drift = structural objects missing/extra, routine kind mismatches, lagging sequences, or EF pending
+# Dimensions C (data) and D (migrations) = WARN only, do NOT block (deploy-applied separately)
+$realDriftA = ($MissingEnum.Tables.Count + $MissingEnum.Indexes.Count + $MissingEnum.Constraints.Count + $MissingEnum.Routines.Count + $MissingEnum.Sequences.Count +
+               $ExtraEnum.Tables.Count + $ExtraEnum.Indexes.Count + $ExtraEnum.Constraints.Count + $ExtraEnum.Routines.Count + $ExtraEnum.Sequences.Count)
+$realDriftB = $RoutineMismatches.Count   # Real kind mismatches (post-E2 multi-overload logic)
+$realDriftF = $SeqLagging
+$realDriftE = if ($CheckEfModel) { $EfPending } else { 0 }
+
+$realDrift = $realDriftA + $realDriftB + $realDriftF + $realDriftE
+
+Write-Host ""
+if ($realDrift -eq 0) {
+    Write-Host "GATE: CLEAN -- $DeltaFile" -ForegroundColor Green
+    exit 0
+} else {
+    Write-Host "GATE: REAL DRIFT -- $DeltaFile" -ForegroundColor Red
+    Write-Host "  (A objects: $realDriftA, B mismatches: $realDriftB, F sequences: $realDriftF, E pending: $realDriftE)" -ForegroundColor Red
+    exit 2
+}
