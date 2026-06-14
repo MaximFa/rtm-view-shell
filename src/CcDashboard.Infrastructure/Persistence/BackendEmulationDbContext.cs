@@ -311,6 +311,7 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.StatusGroup).HasMaxLength(100);
             e.Property(x => x.DisplayName).HasMaxLength(100);
             e.Property(x => x.TimeZone).HasMaxLength(10);
+            e.Property(x => x.MaxDuration).HasColumnName("MaxDuraction"); // real DB column mis-spelled (matches RTSData_* fns, schema.sql, RTSGrid_UserStatus); C# keeps readable name
         });
 
         mb.Entity<RtsDataUserStatusLog>(e =>
