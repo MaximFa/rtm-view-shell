@@ -1,8 +1,13 @@
+-- ============================================================================
+-- GENERATED â€” do not hand-edit. Regenerate via db/tools/Regen-Schema.ps1
+-- Sources: EF AppDbContext + AuditDbContext + BackendEmulationDbContext @ c1f66af
+--          + db/functions/*.sql + db/migrations/*.sql (all applied)
+-- Generated: 2026-06-14T07:36:13Z | git: c1f66aff27dfedd903266cc55f225995e0f4161d
+-- ============================================================================
 --
 -- PostgreSQL database dump
 --
 
-\restrict jLqaLMGhdaLXozJEH1v9Te808t2DQf0z6R9pKm39P4DHYfyiYqnkmLumDjRyttj
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -86,21 +91,6 @@ $$;
 
 
 --
--- Name: NGC_CreateBusinessUnitQueueClassificationMapping(integer, text, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."NGC_CreateBusinessUnitQueueClassificationMapping"(p_business_unit_id integer, p_queue_id text, p_tenant_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    INSERT INTO "NGC_BusinessUnitQueueClassification" ("BusinessUnitId", "QueueId", "CreatedDatetime", "TenantId")
-    VALUES (p_business_unit_id, p_queue_id, NOW(), p_tenant_id)
-    ON CONFLICT ("BusinessUnitId", "QueueId") DO NOTHING;
-END;
-$$;
-
-
---
 -- Name: NGC_CreateBusinessUnitQueueClassificationMapping(integer, text, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
 
@@ -112,21 +102,6 @@ BEGIN
         ("BusinessUnitId", "QueueId", "ClassificationId", "CreatedDatetime", "TenantId")
     VALUES (p_business_unit_id, p_queue_id, p_classification_id, NOW(), p_tenant_id)
     ON CONFLICT ("BusinessUnitId", "QueueId") DO NOTHING;
-END;
-$$;
-
-
---
--- Name: NGC_CreateBusinessUnitSupergroupMapping(integer, integer, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."NGC_CreateBusinessUnitSupergroupMapping"(p_business_unit_id integer, p_supergroup_id integer, p_tenant_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    INSERT INTO "NGC_BusinessUnitSupergroup" ("BusinessUnitId", "SupergroupId", "CreatedDatetime", "TenantId")
-    VALUES (p_business_unit_id, p_supergroup_id, NOW(), p_tenant_id)
-    ON CONFLICT ("BusinessUnitId", "SupergroupId") DO NOTHING;
 END;
 $$;
 
@@ -196,20 +171,6 @@ $$;
 
 
 --
--- Name: NGC_CreateSupergroupAgentgroupMapping(integer, text, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."NGC_CreateSupergroupAgentgroupMapping"(p_supergroup_id integer, p_agentgroup_id text, p_tenant_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    INSERT INTO "NGC_SupergroupAgentgroup" ("SupergroupId", "AgentgroupId", "CreatedDatetime", "TenantId")
-    VALUES (p_supergroup_id, p_agentgroup_id, NOW(), p_tenant_id);
-END;
-$$;
-
-
---
 -- Name: NGC_CreateSupergroupAgentgroupMapping(integer, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
 
@@ -240,54 +201,6 @@ $$;
 
 
 --
--- Name: NGC_DeleteBusinessUnitQueueClassificationMapping(integer, text, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."NGC_DeleteBusinessUnitQueueClassificationMapping"(p_business_unit_id integer, p_queue_id text, p_tenant_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    DELETE FROM "NGC_BusinessUnitQueueClassification"
-    WHERE "BusinessUnitId" = p_business_unit_id
-      AND "QueueId" = p_queue_id
-      AND "TenantId" = p_tenant_id;
-END;
-$$;
-
-
---
--- Name: NGC_DeleteBusinessUnitQueueClassificationMapping(integer, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
---
-
-CREATE PROCEDURE public."NGC_DeleteBusinessUnitQueueClassificationMapping"(IN p_business_unit_id integer, IN p_queue_id text, IN p_classification_id text, IN p_tenant_id uuid)
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    DELETE FROM "NGC_BusinessUnitQueueClassification"
-    WHERE "BusinessUnitId"   = p_business_unit_id
-      AND "QueueId"          = p_queue_id
-      AND "TenantId"         = p_tenant_id;
-END;
-$$;
-
-
---
--- Name: NGC_DeleteBusinessUnitSupergroupMapping(integer, integer, uuid); Type: PROCEDURE; Schema: public; Owner: -
---
-
-CREATE PROCEDURE public."NGC_DeleteBusinessUnitSupergroupMapping"(IN p_business_unit_id integer, IN p_supergroup_id integer, IN p_tenant_id uuid)
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    DELETE FROM "NGC_BusinessUnitSupergroup"
-    WHERE "BusinessUnitId" = p_business_unit_id
-      AND "SupergroupId"   = p_supergroup_id
-      AND "TenantId"       = p_tenant_id;
-END;
-$$;
-
-
---
 -- Name: NGC_DeleteSupergroup(integer, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
 
@@ -297,23 +210,7 @@ CREATE PROCEDURE public."NGC_DeleteSupergroup"(IN p_supergroup_id integer, IN p_
 BEGIN
     DELETE FROM "NGC_Supergroup"
     WHERE "SupergroupId" = p_supergroup_id
-      AND "TenantId"     = p_tenant_id;
-END;
-$$;
-
-
---
--- Name: NGC_DeleteSupergroupAgentgroupMapping(integer, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
---
-
-CREATE PROCEDURE public."NGC_DeleteSupergroupAgentgroupMapping"(IN p_supergroup_id integer, IN p_agentgroup_id text, IN p_tenant_id uuid)
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    DELETE FROM "NGC_SupergroupAgentgroup"
-    WHERE "SupergroupId" = p_supergroup_id
-      AND "AgentgroupId" = p_agentgroup_id
-      AND "TenantId"     = p_tenant_id;
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -327,8 +224,11 @@ CREATE PROCEDURE public."NGC_DeleteUserAgentgroup"(IN p_user_id text, IN p_agent
     AS $$
 BEGIN
     DELETE FROM "NGC_UserAgentgroup"
-    WHERE "TenantId"=p_tenant_id AND "UserId"=p_user_id AND "AgentgroupId"=p_agentgroup_id;
-END; $$;
+    WHERE "TenantId" = p_tenant_id
+      AND "UserId" = p_user_id
+      AND "AgentgroupId" = p_agentgroup_id;
+END;
+$$;
 
 
 --
@@ -483,7 +383,8 @@ BEGIN
     INSERT INTO "NGC_AgentGroups" ("Id", "ExternalId", "Name", "IsActive", "TenantId")
     VALUES (gen_random_uuid(), p_external_id, p_name, true, p_tenant_id)
     ON CONFLICT ("ExternalId", "TenantId") DO NOTHING;
-END; $$;
+END;
+$$;
 
 
 --
@@ -497,7 +398,8 @@ BEGIN
     INSERT INTO "NGC_Queues" ("Id", "ExternalId", "Name", "IsActive", "TenantId")
     VALUES (gen_random_uuid(), p_external_id, p_name, true, p_tenant_id)
     ON CONFLICT ("ExternalId", "TenantId") DO NOTHING;
-END; $$;
+END;
+$$;
 
 
 --
@@ -598,9 +500,9 @@ CREATE PROCEDURE public."NGC_ModifyBusinessUnit"(IN p_business_unit_id integer, 
 BEGIN
     UPDATE "NGC_BusinessUnit"
     SET "BusinessUnitName" = p_business_unit_name,
-        "Description"      = p_description
+        "Description" = p_description
     WHERE "BusinessUnitId" = p_business_unit_id
-      AND "TenantId"       = p_tenant_id;
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -615,9 +517,9 @@ CREATE PROCEDURE public."NGC_ModifySupergroup"(IN p_supergroup_id integer, IN p_
 BEGIN
     UPDATE "NGC_Supergroup"
     SET "SupergroupName" = p_supergroup_name,
-        "Description"    = p_description
+        "Description" = p_description
     WHERE "SupergroupId" = p_supergroup_id
-      AND "TenantId"     = p_tenant_id;
+      AND "TenantId" = p_tenant_id;
 END;
 $$;
 
@@ -630,138 +532,10 @@ CREATE PROCEDURE public."NGC_SetUserAgentgroup"(IN p_user_id text, IN p_agentgro
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO "NGC_UserAgentgroup" ("UserId","AgentgroupId","CreatedDatetime","TenantId")
+    INSERT INTO "NGC_UserAgentgroup" ("UserId", "AgentgroupId", "CreatedDatetime", "TenantId")
     VALUES (p_user_id, p_agentgroup_id, NOW(), p_tenant_id)
-    ON CONFLICT ("TenantId","UserId","AgentgroupId") DO NOTHING;
-END; $$;
-
-
---
--- Name: RTSData_GetInteractions(uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_GetInteractions"(p_tenant_id uuid) RETURNS TABLE("TenantId" uuid, "InteractionId" text, "Segment" integer, "OnDate" text, "ServerId" text, "Workgroup" text, "UserId" text, "ClassificationCode" text, "InteractionType" text, "CallType" text, "Direction" text, "CustomCallData" text, "IsTransferred" boolean, "IsAnswered" boolean, "IsInQueue" boolean, "IsTalk" boolean, "IsAbandoned" boolean, "TimeInQueue" integer, "TalkTime" integer, "InQueueDateTime" timestamp with time zone, "AnsweredDateTime" timestamp with time zone, "UpdateTime" timestamp with time zone, "LastUserId" text, "LastWorkgroup" text, "IsMessaging" boolean, "RemoteAddress" text, "IsCallbackRequest" boolean, "TimeZone" text)
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        i."TenantId",
-        i."InteractionId"::text,
-        i."Segment",
-        i."OnDate"::text,
-        i."ServerId"::text,
-        i."Workgroup"::text,
-        i."UserId"::text,
-        i."ClassificationCode"::text,
-        i."InteractionType"::text,
-        i."CallType"::text,
-        i."Direction"::text,
-        i."CustomCallData"::text,
-        i."IsTransferred",
-        i."IsAnswered",
-        i."IsInQueue",
-        i."IsTalk",
-        i."IsAbandoned",
-        i."TimeInQueue",
-        i."TalkTime",
-        i."InQueueDateTime",
-        i."AnsweredDateTime",
-        i."UpdateTime",
-        i."LastUserId"::text,
-        i."LastWorkgroup"::text,
-        i."IsMessaging",
-        i."RemoteAddress"::text,
-        i."IsCallbackRequest",
-        i."TimeZone"::text
-    FROM "RTSData_Interaction" i
-    WHERE i."TenantId" = p_tenant_id;
+    ON CONFLICT ("TenantId", "UserId", "AgentgroupId") DO NOTHING;
 END;
-$$;
-
-
---
--- Name: RTSData_GetInteractions(text, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_GetInteractions"(p_on_date text, p_tenant_id uuid) RETURNS TABLE("InteractionId" text, "Segment" integer, "Workgroup" text, "ClassificationCode" text, "InteractionType" text, "CallType" text, "Direction" text, "CustomCallData" text, "RemoteAddress" text, "UserId" text, "IsTransferred" boolean, "IsAnswered" boolean, "IsInQueue" boolean, "IsTalk" boolean, "IsAbandoned" boolean, "IsMessaging" boolean, "TimeInQueue" integer, "TalkTime" integer, "InQueueDateTime" timestamp without time zone, "AnsweredDateTime" timestamp without time zone, "LastUserId" text, "LastWorkgroup" text, "CustomCallData1" text, "CustomCallData2" text, "CustomCallData3" text, "CustomCallData4" text, "CustomCallData5" text, "CustomCallData6" text, "CustomCallData7" text, "CustomCallData8" text, "CustomCallData9" text, "CustomCallData10" text, "CustomCallData11" text, "CustomCallData12" text, "CustomCallData13" text, "CustomCallData14" text, "CustomCallData15" text, "CustomCallData16" text, "CustomCallData17" text, "CustomCallData18" text, "CustomCallData19" text, "CustomCallData20" text, "IsCallbackRequest" boolean, "TimeZone" text, "ServerId" text, "OnDate" text)
-    LANGUAGE sql
-    AS $$
-    SELECT
-        "InteractionId"::text, "Segment", "Workgroup"::text,
-        "ClassificationCode"::text, "InteractionType"::text,
-        "CallType"::text, "Direction"::text, "CustomCallData"::text,
-        "RemoteAddress"::text, "UserId"::text,
-        "IsTransferred", "IsAnswered", "IsInQueue", "IsTalk", "IsAbandoned",
-        "IsMessaging", "TimeInQueue", "TalkTime",
-        ("InQueueDateTime" AT TIME ZONE 'UTC'),
-        ("AnsweredDateTime" AT TIME ZONE 'UTC'),
-        "LastUserId"::text, "LastWorkgroup"::text,
-        "CustomCallData1"::text, "CustomCallData2"::text,
-        "CustomCallData3"::text, "CustomCallData4"::text,
-        "CustomCallData5"::text, "CustomCallData6"::text,
-        "CustomCallData7"::text, "CustomCallData8"::text,
-        "CustomCallData9"::text, "CustomCallData10"::text,
-        "CustomCallData11"::text, "CustomCallData12"::text,
-        "CustomCallData13"::text, "CustomCallData14"::text,
-        "CustomCallData15"::text, "CustomCallData16"::text,
-        "CustomCallData17"::text, "CustomCallData18"::text,
-        "CustomCallData19"::text, "CustomCallData20"::text,
-        "IsCallbackRequest", "TimeZone"::text,
-        "ServerId"::text, "OnDate"::text
-    FROM "RTSData_Interaction"
-    WHERE "OnDate" = p_on_date
-      AND "TenantId" = p_tenant_id
-    ORDER BY "Segment", "UpdateTime" DESC;
-$$;
-
-
---
--- Name: RTSData_GetUsersStatuses(uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_GetUsersStatuses"(p_tenant_id uuid) RETURNS TABLE("TenantId" uuid, "UserId" text, "StatusId" text, "ServerId" text, "OnDate" text, "StatusName" text, "StatusGroup" text, "TotalDuration" integer, "MaxDuraction" integer, "TotalCount" integer, "UpdateTime" timestamp with time zone, "DisplayName" text, "TimeZone" text)
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        s."TenantId",
-        s."UserId"::text,
-        s."StatusId"::text,
-        s."ServerId"::text,
-        s."OnDate"::text,
-        s."StatusName"::text,
-        s."StatusGroup"::text,
-        s."TotalDuration",
-        s."MaxDuraction",
-        s."TotalCount",
-        s."UpdateTime",
-        s."DisplayName"::text,
-        s."TimeZone"::text
-    FROM "RTSData_UserStatus" s
-    WHERE s."TenantId" = p_tenant_id;
-END;
-$$;
-
-
---
--- Name: RTSData_GetUsersStatuses(text, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_GetUsersStatuses"(p_on_date text, p_tenant_id uuid) RETURNS TABLE("UserId" text, "StatusId" text, "StatusName" text, "StatusGroup" text, "TotalDuration" integer, "MaxDuraction" integer, "TotalCount" integer, "DisplayName" text, "TimeZone" text, "UpdateTime" timestamp without time zone, "ServerId" text)
-    LANGUAGE sql
-    AS $$
-    SELECT
-        "UserId"::text, "StatusId"::text, "StatusName"::text,
-        "StatusGroup"::text, "TotalDuration", "MaxDuraction",
-        "TotalCount", "DisplayName"::text, "TimeZone"::text,
-        ("UpdateTime" AT TIME ZONE 'UTC'),
-        "ServerId"::text
-    FROM "RTSData_UserStatus"
-    WHERE "OnDate" = p_on_date
-      AND "TenantId" = p_tenant_id
-    ORDER BY "UpdateTime" DESC;
 $$;
 
 
@@ -773,105 +547,35 @@ CREATE FUNCTION public."RTSData_MidnightClear"(p_tenant_id uuid) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    -- [RTM-SEC-001] CRITICAL: Must scope DELETE by TenantId to prevent cross-tenant data loss
     DELETE FROM "RTSData_Interaction" WHERE "TenantId" = p_tenant_id;
     DELETE FROM "RTSData_UserStatus" WHERE "TenantId" = p_tenant_id;
-    -- RTSData_ChatMessage is intentionally NOT cleared per production behavior
-END;
-$$;
+END; $$;
 
 
 --
--- Name: RTSData_SetChatMessage(text, text, integer, text, text, text, text, text, text, text, timestamp with time zone, text, timestamp with time zone, uuid); Type: FUNCTION; Schema: public; Owner: -
+-- Name: RTSData_SetChatMessage(text, text, integer, text, text, text, text, text, text, text, timestamp with time zone, text, timestamp with time zone, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public."RTSData_SetChatMessage"(p_message_id text, p_interaction_id text, p_segment_id integer, p_user_id text, p_msg_direction text, p_sender text, p_recipient text, p_body text, p_delivery_status text, p_server_id text, p_update_time timestamp with time zone, p_on_date text, p_time_stamp timestamp with time zone, p_tenant_id uuid) RETURNS void
+CREATE PROCEDURE public."RTSData_SetChatMessage"(IN p_message_id text, IN p_interaction_id text, IN p_segment_id integer, IN p_user_id text, IN p_msg_direction text, IN p_sender text, IN p_recipient text, IN p_body text, IN p_delivery_status text, IN p_server_id text, IN p_update_time timestamp with time zone, IN p_on_date text, IN p_time_stamp timestamp with time zone, IN p_tenant_id uuid)
     LANGUAGE plpgsql
     AS $$
 BEGIN
     INSERT INTO "RTSData_ChatMessage" (
-        "MessageId", "ServerId", "OnDate",
-        "InteractionId", "SegmentId", "UserId", "MsgDirection",
-        "Sender", "Recipient", "Body", "DeliveryStatus",
-        "UpdateTime", "TimeStamp", "TenantId"
-    )
-    VALUES (
-        p_message_id, p_server_id, p_on_date,
-        p_interaction_id, p_segment_id, p_user_id, p_msg_direction,
-        p_sender, p_recipient, p_body, p_delivery_status,
-        p_update_time, p_time_stamp, p_tenant_id
+        "MessageId", "ServerId", "OnDate", "InteractionId", "SegmentId", "UserId", "MsgDirection",
+        "Sender", "Recipient", "Body", "DeliveryStatus", "UpdateTime", "TimeStamp", "TenantId"
+    ) VALUES (
+        p_message_id, p_server_id, p_on_date, p_interaction_id, p_segment_id, p_user_id, p_msg_direction,
+        p_sender, p_recipient, p_body, p_delivery_status, p_update_time, p_time_stamp, p_tenant_id
     )
     ON CONFLICT ("MessageId", "ServerId")
     DO UPDATE SET
-        "OnDate" = EXCLUDED."OnDate",
-        "InteractionId" = EXCLUDED."InteractionId",
-        "SegmentId" = EXCLUDED."SegmentId",
-        "UserId" = EXCLUDED."UserId",
-        "MsgDirection" = EXCLUDED."MsgDirection",
-        "Sender" = EXCLUDED."Sender",
-        "Recipient" = EXCLUDED."Recipient",
-        "Body" = EXCLUDED."Body",
-        "DeliveryStatus" = EXCLUDED."DeliveryStatus",
-        "UpdateTime" = EXCLUDED."UpdateTime",
-        "TimeStamp" = EXCLUDED."TimeStamp",
-        "TenantId" = EXCLUDED."TenantId";
-END;
-$$;
-
-
---
--- Name: RTSData_SetInteraction(text, integer, text, text, text, text, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, integer, integer, timestamp with time zone, timestamp with time zone, timestamp with time zone, text, text, boolean, text, boolean, text, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_SetInteraction"(p_interaction_id text, p_segment integer, p_on_date text, p_server_id text, p_workgroup text, p_user_id text, p_classification_code text, p_interaction_type text, p_call_type text, p_direction text, p_custom_call_data text, p_is_transferred boolean, p_is_answered boolean, p_is_in_queue boolean, p_is_talk boolean, p_is_abandoned boolean, p_time_in_queue integer, p_talk_time integer, p_in_queue_date_time timestamp with time zone, p_answered_date_time timestamp with time zone, p_update_time timestamp with time zone, p_last_user_id text, p_last_workgroup text, p_is_messaging boolean, p_remote_address text, p_is_callback_request boolean, p_time_zone text, p_tenant_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    INSERT INTO "RTSData_Interaction" (
-        "InteractionId", "Segment", "OnDate", "ServerId", "Workgroup", "UserId",
-        "ClassificationCode", "InteractionType", "CallType", "Direction", "CustomCallData",
-        "IsTransferred", "IsAnswered", "IsInQueue", "IsTalk", "IsAbandoned",
-        "TimeInQueue", "TalkTime", "InQueueDateTime", "AnsweredDateTime", "UpdateTime",
-        "LastUserId", "LastWorkgroup", "IsMessaging", "RemoteAddress", "IsCallbackRequest", "TimeZone",
-        "TenantId"
-    )
-    VALUES (
-        p_interaction_id, p_segment, p_on_date, p_server_id, p_workgroup, p_user_id,
-        p_classification_code, p_interaction_type, p_call_type, p_direction, p_custom_call_data,
-        p_is_transferred, p_is_answered, p_is_in_queue, p_is_talk, p_is_abandoned,
-        p_time_in_queue, p_talk_time, p_in_queue_date_time, p_answered_date_time, p_update_time,
-        p_last_user_id, p_last_workgroup, p_is_messaging, p_remote_address, p_is_callback_request, p_time_zone,
-        p_tenant_id
-    )
-    ON CONFLICT ("InteractionId", "Segment", "ServerId")
-    DO UPDATE SET
-        "OnDate" = EXCLUDED."OnDate",
-        "Workgroup" = EXCLUDED."Workgroup",
-        "UserId" = EXCLUDED."UserId",
-        "ClassificationCode" = EXCLUDED."ClassificationCode",
-        "InteractionType" = EXCLUDED."InteractionType",
-        "CallType" = EXCLUDED."CallType",
-        "Direction" = EXCLUDED."Direction",
-        "CustomCallData" = EXCLUDED."CustomCallData",
-        "IsTransferred" = EXCLUDED."IsTransferred",
-        "IsAnswered" = EXCLUDED."IsAnswered",
-        "IsInQueue" = EXCLUDED."IsInQueue",
-        "IsTalk" = EXCLUDED."IsTalk",
-        "IsAbandoned" = EXCLUDED."IsAbandoned",
-        "TimeInQueue" = EXCLUDED."TimeInQueue",
-        "TalkTime" = EXCLUDED."TalkTime",
-        "InQueueDateTime" = EXCLUDED."InQueueDateTime",
-        "AnsweredDateTime" = EXCLUDED."AnsweredDateTime",
-        "UpdateTime" = EXCLUDED."UpdateTime",
-        "LastUserId" = EXCLUDED."LastUserId",
-        "LastWorkgroup" = EXCLUDED."LastWorkgroup",
-        "IsMessaging" = EXCLUDED."IsMessaging",
-        "RemoteAddress" = EXCLUDED."RemoteAddress",
-        "IsCallbackRequest" = EXCLUDED."IsCallbackRequest",
-        "TimeZone" = EXCLUDED."TimeZone",
-        "TenantId" = EXCLUDED."TenantId";
-END;
-$$;
+        "OnDate" = EXCLUDED."OnDate", "InteractionId" = EXCLUDED."InteractionId",
+        "SegmentId" = EXCLUDED."SegmentId", "UserId" = EXCLUDED."UserId",
+        "MsgDirection" = EXCLUDED."MsgDirection", "Sender" = EXCLUDED."Sender",
+        "Recipient" = EXCLUDED."Recipient", "Body" = EXCLUDED."Body",
+        "DeliveryStatus" = EXCLUDED."DeliveryStatus", "UpdateTime" = EXCLUDED."UpdateTime",
+        "TimeStamp" = EXCLUDED."TimeStamp", "TenantId" = EXCLUDED."TenantId";
+END; $$;
 
 
 --
@@ -1008,46 +712,6 @@ BEGIN
         "TimeZone"      = EXCLUDED."TimeZone",
         "TenantId"      = EXCLUDED."TenantId";
 END;
-$$;
-
-
---
--- Name: RTSData_getInteractions(uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_getInteractions"(p_tenant_id uuid) RETURNS TABLE("TenantId" uuid, "InteractionId" text, "Segment" integer, "OnDate" text, "ServerId" text, "Workgroup" text, "UserId" text, "ClassificationCode" text, "InteractionType" text, "CallType" text, "Direction" text, "CustomCallData" text, "IsTransferred" boolean, "IsAnswered" boolean, "IsInQueue" boolean, "IsTalk" boolean, "IsAbandoned" boolean, "TimeInQueue" integer, "TalkTime" integer, "InQueueDateTime" timestamp with time zone, "AnsweredDateTime" timestamp with time zone, "UpdateTime" timestamp with time zone, "LastUserId" text, "LastWorkgroup" text, "IsMessaging" boolean, "RemoteAddress" text, "IsCallbackRequest" boolean, "TimeZone" text)
-    LANGUAGE sql
-    AS $$ SELECT * FROM "RTSData_GetInteractions"(p_tenant_id); $$;
-
-
---
--- Name: RTSData_getInteractions(text, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_getInteractions"(p_on_date text, p_tenant_id uuid) RETURNS TABLE("InteractionId" text, "Segment" integer, "Workgroup" text, "ClassificationCode" text, "InteractionType" text, "CallType" text, "Direction" text, "CustomCallData" text, "RemoteAddress" text, "UserId" text, "IsTransferred" boolean, "IsAnswered" boolean, "IsInQueue" boolean, "IsTalk" boolean, "IsAbandoned" boolean, "IsMessaging" boolean, "TimeInQueue" integer, "TalkTime" integer, "InQueueDateTime" timestamp without time zone, "AnsweredDateTime" timestamp without time zone, "LastUserId" text, "LastWorkgroup" text, "CustomCallData1" text, "CustomCallData2" text, "CustomCallData3" text, "CustomCallData4" text, "CustomCallData5" text, "CustomCallData6" text, "CustomCallData7" text, "CustomCallData8" text, "CustomCallData9" text, "CustomCallData10" text, "CustomCallData11" text, "CustomCallData12" text, "CustomCallData13" text, "CustomCallData14" text, "CustomCallData15" text, "CustomCallData16" text, "CustomCallData17" text, "CustomCallData18" text, "CustomCallData19" text, "CustomCallData20" text, "IsCallbackRequest" boolean, "TimeZone" text, "ServerId" text, "OnDate" text)
-    LANGUAGE sql
-    AS $$
-    SELECT * FROM "RTSData_GetInteractions"(p_on_date, p_tenant_id);
-$$;
-
-
---
--- Name: RTSData_getUsersStatuses(uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_getUsersStatuses"(p_tenant_id uuid) RETURNS TABLE("TenantId" uuid, "UserId" text, "StatusId" text, "ServerId" text, "OnDate" text, "StatusName" text, "StatusGroup" text, "TotalDuration" integer, "MaxDuraction" integer, "TotalCount" integer, "UpdateTime" timestamp with time zone, "DisplayName" text, "TimeZone" text)
-    LANGUAGE sql
-    AS $$ SELECT * FROM "RTSData_GetUsersStatuses"(p_tenant_id); $$;
-
-
---
--- Name: RTSData_getUsersStatuses(text, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public."RTSData_getUsersStatuses"(p_on_date text, p_tenant_id uuid) RETURNS TABLE("UserId" text, "StatusId" text, "StatusName" text, "StatusGroup" text, "TotalDuration" integer, "MaxDuraction" integer, "TotalCount" integer, "DisplayName" text, "TimeZone" text, "UpdateTime" timestamp without time zone, "ServerId" text)
-    LANGUAGE sql
-    AS $$
-    SELECT * FROM "RTSData_GetUsersStatuses"(p_on_date, p_tenant_id);
 $$;
 
 
@@ -1514,6 +1178,16 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: __ef_migrations_history; Type: TABLE; Schema: audit; Owner: -
+--
+
+CREATE TABLE audit.__ef_migrations_history (
+    "MigrationId" character varying(150) NOT NULL,
+    "ProductVersion" character varying(32) NOT NULL
+);
+
+
+--
 -- Name: audit_logs; Type: TABLE; Schema: audit; Owner: -
 --
 
@@ -1726,31 +1400,15 @@ CREATE TABLE identity.users (
 
 
 --
--- Name: AuditEvents; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."AuditEvents" (
-    "Id" uuid NOT NULL,
-    "UserId" uuid,
-    "EventType" character varying(64) NOT NULL,
-    "IpAddress" character varying(45) NOT NULL,
-    "UserAgent" character varying(512) NOT NULL,
-    "Detail" character varying(2000),
-    "OccurredAt" timestamp with time zone NOT NULL
-);
-
-
---
 -- Name: NGC_AgentGroups; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public."NGC_AgentGroups" (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "ExternalId" character varying(100) NOT NULL,
-    "Name" character varying(200) NOT NULL,
-    "IsActive" boolean NOT NULL,
-    "CreatedDatetime" timestamp with time zone DEFAULT now()
+    "Id" uuid CONSTRAINT "ngc_AgentGroups_Id_not_null" NOT NULL,
+    "TenantId" uuid CONSTRAINT "ngc_AgentGroups_TenantId_not_null" NOT NULL,
+    "ExternalId" character varying(100) CONSTRAINT "ngc_AgentGroups_ExternalId_not_null" NOT NULL,
+    "Name" character varying(200) CONSTRAINT "ngc_AgentGroups_Name_not_null" NOT NULL,
+    "IsActive" boolean CONSTRAINT "ngc_AgentGroups_IsActive_not_null" NOT NULL
 );
 
 
@@ -1815,12 +1473,11 @@ ALTER TABLE public."NGC_BusinessUnit" ALTER COLUMN "BusinessUnitId" ADD GENERATE
 --
 
 CREATE TABLE public."NGC_Queues" (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "ExternalId" character varying(100) NOT NULL,
-    "Name" character varying(200) NOT NULL,
-    "IsActive" boolean NOT NULL,
-    "CreatedDatetime" timestamp with time zone DEFAULT now()
+    "Id" uuid CONSTRAINT "ngc_queues_Id_not_null" NOT NULL,
+    "TenantId" uuid CONSTRAINT "ngc_queues_TenantId_not_null" NOT NULL,
+    "ExternalId" character varying(100) CONSTRAINT "ngc_queues_ExternalId_not_null" NOT NULL,
+    "Name" character varying(200) CONSTRAINT "ngc_queues_Name_not_null" NOT NULL,
+    "IsActive" boolean CONSTRAINT "ngc_queues_IsActive_not_null" NOT NULL
 );
 
 
@@ -1829,8 +1486,8 @@ CREATE TABLE public."NGC_Queues" (
 --
 
 CREATE TABLE public."NGC_Site" (
-    "SiteId" character varying(50) NOT NULL,
-    "TenantId" uuid NOT NULL,
+    "SiteId" character varying(50) CONSTRAINT "ngc_site_SiteId_not_null" NOT NULL,
+    "TenantId" uuid CONSTRAINT "ngc_site_TenantId_not_null" NOT NULL,
     "SiteName" character varying(200),
     "Description" character varying(500),
     "TimeZone" character varying(10),
@@ -1843,8 +1500,8 @@ CREATE TABLE public."NGC_Site" (
 --
 
 CREATE TABLE public."NGC_Supergroup" (
-    "SupergroupId" integer NOT NULL,
-    "TenantId" uuid NOT NULL,
+    "SupergroupId" integer CONSTRAINT "ngc_supergroup_SupergroupId_not_null" NOT NULL,
+    "TenantId" uuid CONSTRAINT "ngc_supergroup_TenantId_not_null" NOT NULL,
     "SupergroupName" character varying(200),
     "Description" character varying(500),
     "CreatedDatetime" timestamp with time zone,
@@ -1882,20 +1539,6 @@ ALTER TABLE public."NGC_SupergroupAgentgroup" ALTER COLUMN "Id" ADD GENERATED AL
 
 
 --
--- Name: NGC_Supergroup_SupergroupId_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-ALTER TABLE public."NGC_Supergroup" ALTER COLUMN "SupergroupId" ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public."NGC_Supergroup_SupergroupId_seq"
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
 -- Name: NGC_UserAgentgroup; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1920,19 +1563,6 @@ ALTER TABLE public."NGC_UserAgentgroup" ALTER COLUMN "Id" ADD GENERATED ALWAYS A
     NO MINVALUE
     NO MAXVALUE
     CACHE 1
-);
-
-
---
--- Name: PermissionGroups; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."PermissionGroups" (
-    "Id" uuid NOT NULL,
-    "Name" character varying(256) NOT NULL,
-    "Description" character varying(1000) NOT NULL,
-    "MenuPermissions" text[] NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL
 );
 
 
@@ -1968,7 +1598,7 @@ CREATE TABLE public."RTSData_Interaction" (
     "OnDate" character varying(50) NOT NULL,
     "ServerId" character varying(50) NOT NULL,
     "Workgroup" character varying(100) NOT NULL,
-    "UserId" character varying(50) NOT NULL,
+    "UserId" character varying(50) DEFAULT ''::character varying NOT NULL,
     "ClassificationCode" text,
     "InteractionType" character varying(50),
     "CallType" character varying(50),
@@ -1988,6 +1618,8 @@ CREATE TABLE public."RTSData_Interaction" (
     "LastWorkgroup" character varying(100),
     "IsMessaging" boolean,
     "RemoteAddress" character varying(50),
+    "IsCallbackRequest" boolean,
+    "TimeZone" character varying(10),
     "CustomCallData1" text,
     "CustomCallData2" text,
     "CustomCallData3" text,
@@ -2005,11 +1637,7 @@ CREATE TABLE public."RTSData_Interaction" (
     "CustomCallData15" text,
     "CustomCallData16" text,
     "CustomCallData17" text,
-    "CustomCallData18" text,
-    "CustomCallData19" text,
-    "CustomCallData20" text,
-    "IsCallbackRequest" boolean,
-    "TimeZone" character varying(10)
+    "CustomCallData18" text
 );
 
 
@@ -2047,7 +1675,7 @@ CREATE TABLE public."RTSData_UserStatusLog" (
     "OnDate" character varying(50),
     "StartTime" timestamp with time zone,
     "EndTime" timestamp with time zone,
-    "Duration" integer,
+    "Duration" bigint,
     "UpdateTime" timestamp with time zone,
     "TimeZone" character varying(10),
     "StatusGroup" character varying(50)
@@ -2058,20 +1686,14 @@ CREATE TABLE public."RTSData_UserStatusLog" (
 -- Name: RTSData_UserStatusLog_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public."RTSData_UserStatusLog_Id_seq"
-    AS integer
+ALTER TABLE public."RTSData_UserStatusLog" ALTER COLUMN "Id" ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public."RTSData_UserStatusLog_Id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: RTSData_UserStatusLog_Id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public."RTSData_UserStatusLog_Id_seq" OWNED BY public."RTSData_UserStatusLog"."Id";
+    CACHE 1
+);
 
 
 --
@@ -2167,15 +1789,15 @@ ALTER TABLE public."RTSGrid_Grid" ALTER COLUMN "GridId" ADD GENERATED ALWAYS AS 
 --
 
 CREATE TABLE public."RTSGrid_Metric" (
-    "MetricId" character varying(100) NOT NULL,
+    "MetricId" character varying(100) CONSTRAINT "rtsgrid_metric_MetricId_not_null" NOT NULL,
     "Description" text,
-    "DataType" character varying(50) NOT NULL,
-    "MetricFunction" character varying(200) NOT NULL,
-    "MetricParameter" character varying(200) NOT NULL,
+    "DataType" character varying(50) CONSTRAINT "rtsgrid_metric_DataType_not_null" NOT NULL,
+    "MetricFunction" character varying(200) CONSTRAINT "rtsgrid_metric_MetricFunction_not_null" NOT NULL,
+    "MetricParameter" character varying(200) CONSTRAINT "rtsgrid_metric_MetricParameter_not_null" NOT NULL,
     "MetricFormat" character varying(100),
     "DefaultValue" character varying(100),
-    "ValueType" character varying(20) DEFAULT 'String'::character varying NOT NULL,
-    "MetricType" character varying(20) DEFAULT 'Agent'::character varying NOT NULL,
+    "ValueType" character varying(20) DEFAULT 'String'::character varying CONSTRAINT "rtsgrid_metric_ValueType_not_null" NOT NULL,
+    "MetricType" character varying(20) DEFAULT 'Agent'::character varying CONSTRAINT "rtsgrid_metric_MetricType_not_null" NOT NULL,
     "CatalogCategory" character varying(20),
     "CatalogNotes" text,
     "CatalogStatus" character varying(20),
@@ -2271,34 +1893,6 @@ CREATE TABLE public."RTSGrid_Statistic" (
 
 ALTER TABLE public."RTSGrid_Statistic" ALTER COLUMN "StatisticId" ADD GENERATED BY DEFAULT AS IDENTITY (
     SEQUENCE NAME public."RTSGrid_Statistic_StatisticId_seq"
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
--- Name: RTSGrid_TemplateCell; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."RTSGrid_TemplateCell" (
-    "CellTemplateId" integer NOT NULL,
-    "StyleId" integer,
-    "CellType" character varying(50),
-    "Value" character varying(500),
-    "Tooltip" character varying(500),
-    "OnClick" character varying(500)
-);
-
-
---
--- Name: RTSGrid_TemplateCell_CellTemplateId_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-ALTER TABLE public."RTSGrid_TemplateCell" ALTER COLUMN "CellTemplateId" ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME public."RTSGrid_TemplateCell_CellTemplateId_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -2414,104 +2008,10 @@ ALTER TABLE public."RTSUserGrid_Grid" ALTER COLUMN "GridId" ADD GENERATED ALWAYS
 
 
 --
--- Name: ResourcePermissions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."ResourcePermissions" (
-    "Id" uuid NOT NULL,
-    "GroupId" uuid NOT NULL,
-    "ResourceType" character varying(32) NOT NULL,
-    "ResourceId" character varying(256) NOT NULL,
-    "CanView" boolean NOT NULL
-);
-
-
---
--- Name: ScreenPermissions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."ScreenPermissions" (
-    "ScreenId" uuid NOT NULL,
-    "GroupId" uuid NOT NULL,
-    "CanView" boolean NOT NULL,
-    "CanEdit" boolean NOT NULL,
-    "CanDelete" boolean NOT NULL
-);
-
-
---
--- Name: Screens; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."Screens" (
-    "Id" uuid NOT NULL,
-    "Name" character varying(256) NOT NULL,
-    "OwnerId" uuid NOT NULL,
-    "OwnerGroupId" uuid,
-    "Status" character varying(32) DEFAULT 'Draft'::character varying NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL
-);
-
-
---
--- Name: UserGroups; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."UserGroups" (
-    "UserId" uuid NOT NULL,
-    "GroupId" uuid NOT NULL
-);
-
-
---
--- Name: Users; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."Users" (
-    "Id" uuid NOT NULL,
-    "Email" character varying(256) NOT NULL,
-    "DisplayName" character varying(256) NOT NULL,
-    "PasswordHash" character varying(1024) NOT NULL,
-    "IsSsoUser" boolean NOT NULL,
-    "TwoFactorEnabled" boolean NOT NULL,
-    "TwoFactorSecret" character varying(512),
-    "TwoFactorSecretExpiry" timestamp with time zone,
-    "IsActive" boolean DEFAULT true NOT NULL,
-    "AccessFailedCount" integer NOT NULL,
-    "LockoutEnd" timestamp with time zone,
-    "LastLoginAt" timestamp with time zone,
-    "CreatedAt" timestamp with time zone NOT NULL
-);
-
-
---
--- Name: WidgetSlots; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."WidgetSlots" (
-    "Id" uuid NOT NULL,
-    "ScreenId" uuid NOT NULL,
-    "CategoryId" character varying(256) NOT NULL,
-    "WidgetTypeId" character varying(256) NOT NULL
-);
-
-
---
 -- Name: __BackendEmulationMigrationsHistory; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public."__BackendEmulationMigrationsHistory" (
-    "MigrationId" character varying(150) NOT NULL,
-    "ProductVersion" character varying(32) NOT NULL
-);
-
-
---
--- Name: __EFMigrationsHistory; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public."__EFMigrationsHistory" (
     "MigrationId" character varying(150) NOT NULL,
     "ProductVersion" character varying(32) NOT NULL
 );
@@ -2610,6 +2110,16 @@ CREATE TABLE public.dashboards (
 
 
 --
+-- Name: db_patch_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.db_patch_history (
+    migration_name text NOT NULL,
+    applied_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: history_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2683,6 +2193,31 @@ CREATE TABLE public.menu_permissions (
     "PermissionGroupId" uuid NOT NULL,
     "MenuKey" character varying(100) NOT NULL,
     "TenantId" uuid NOT NULL
+);
+
+
+--
+-- Name: metric_deploy_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.metric_deploy_log (
+    "MetricId" text NOT NULL,
+    "DeployedAt" timestamp with time zone NOT NULL,
+    "SourceCommit" text
+);
+
+
+--
+-- Name: ngc_supergroup_SupergroupId_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public."NGC_Supergroup" ALTER COLUMN "SupergroupId" ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public."ngc_supergroup_SupergroupId_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
 );
 
 
@@ -2889,10 +2424,11 @@ CREATE TABLE public.widget_templates (
 
 
 --
--- Name: RTSData_UserStatusLog Id; Type: DEFAULT; Schema: public; Owner: -
+-- Name: __ef_migrations_history PK___ef_migrations_history; Type: CONSTRAINT; Schema: audit; Owner: -
 --
 
-ALTER TABLE ONLY public."RTSData_UserStatusLog" ALTER COLUMN "Id" SET DEFAULT nextval('public."RTSData_UserStatusLog_Id_seq"'::regclass);
+ALTER TABLE ONLY audit.__ef_migrations_history
+    ADD CONSTRAINT "PK___ef_migrations_history" PRIMARY KEY ("MigrationId");
 
 
 --
@@ -2992,22 +2528,6 @@ ALTER TABLE ONLY identity.users
 
 
 --
--- Name: AuditEvents PK_AuditEvents; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."AuditEvents"
-    ADD CONSTRAINT "PK_AuditEvents" PRIMARY KEY ("Id");
-
-
---
--- Name: NGC_AgentGroups PK_NGC_AgentGroups; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."NGC_AgentGroups"
-    ADD CONSTRAINT "PK_NGC_AgentGroups" PRIMARY KEY ("Id");
-
-
---
 -- Name: NGC_BusinessUnit PK_NGC_BusinessUnit; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3029,14 +2549,6 @@ ALTER TABLE ONLY public."NGC_BusinessUnitQueueClassification"
 
 ALTER TABLE ONLY public."NGC_BusinessUnitSupergroup"
     ADD CONSTRAINT "PK_NGC_BusinessUnitSupergroup" PRIMARY KEY ("BusinessUnitId", "SupergroupId");
-
-
---
--- Name: NGC_Queues PK_NGC_Queues; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."NGC_Queues"
-    ADD CONSTRAINT "PK_NGC_Queues" PRIMARY KEY ("Id");
 
 
 --
@@ -3072,14 +2584,6 @@ ALTER TABLE ONLY public."NGC_UserAgentgroup"
 
 
 --
--- Name: PermissionGroups PK_PermissionGroups; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."PermissionGroups"
-    ADD CONSTRAINT "PK_PermissionGroups" PRIMARY KEY ("Id");
-
-
---
 -- Name: RTSData_ChatMessage PK_RTSData_ChatMessage; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3101,6 +2605,14 @@ ALTER TABLE ONLY public."RTSData_Interaction"
 
 ALTER TABLE ONLY public."RTSData_UserStatus"
     ADD CONSTRAINT "PK_RTSData_UserStatus" PRIMARY KEY ("UserId", "StatusId", "ServerId", "OnDate");
+
+
+--
+-- Name: RTSData_UserStatusLog PK_RTSData_UserStatusLog; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."RTSData_UserStatusLog"
+    ADD CONSTRAINT "PK_RTSData_UserStatusLog" PRIMARY KEY ("Id");
 
 
 --
@@ -3128,14 +2640,6 @@ ALTER TABLE ONLY public."RTSGrid_Grid"
 
 
 --
--- Name: RTSGrid_Metric PK_RTSGrid_Metric; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."RTSGrid_Metric"
-    ADD CONSTRAINT "PK_RTSGrid_Metric" PRIMARY KEY ("MetricId");
-
-
---
 -- Name: RTSGrid_MetricTranslation PK_RTSGrid_MetricTranslation; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3157,14 +2661,6 @@ ALTER TABLE ONLY public."RTSGrid_Row"
 
 ALTER TABLE ONLY public."RTSGrid_Statistic"
     ADD CONSTRAINT "PK_RTSGrid_Statistic" PRIMARY KEY ("StatisticId");
-
-
---
--- Name: RTSGrid_TemplateCell PK_RTSGrid_TemplateCell; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."RTSGrid_TemplateCell"
-    ADD CONSTRAINT "PK_RTSGrid_TemplateCell" PRIMARY KEY ("CellTemplateId");
 
 
 --
@@ -3200,67 +2696,11 @@ ALTER TABLE ONLY public."RTSUserGrid_Grid"
 
 
 --
--- Name: ResourcePermissions PK_ResourcePermissions; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."ResourcePermissions"
-    ADD CONSTRAINT "PK_ResourcePermissions" PRIMARY KEY ("Id");
-
-
---
--- Name: ScreenPermissions PK_ScreenPermissions; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."ScreenPermissions"
-    ADD CONSTRAINT "PK_ScreenPermissions" PRIMARY KEY ("ScreenId", "GroupId");
-
-
---
--- Name: Screens PK_Screens; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."Screens"
-    ADD CONSTRAINT "PK_Screens" PRIMARY KEY ("Id");
-
-
---
--- Name: UserGroups PK_UserGroups; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."UserGroups"
-    ADD CONSTRAINT "PK_UserGroups" PRIMARY KEY ("UserId", "GroupId");
-
-
---
--- Name: Users PK_Users; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."Users"
-    ADD CONSTRAINT "PK_Users" PRIMARY KEY ("Id");
-
-
---
--- Name: WidgetSlots PK_WidgetSlots; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."WidgetSlots"
-    ADD CONSTRAINT "PK_WidgetSlots" PRIMARY KEY ("Id");
-
-
---
 -- Name: __BackendEmulationMigrationsHistory PK___BackendEmulationMigrationsHistory; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."__BackendEmulationMigrationsHistory"
     ADD CONSTRAINT "PK___BackendEmulationMigrationsHistory" PRIMARY KEY ("MigrationId");
-
-
---
--- Name: __EFMigrationsHistory PK___EFMigrationsHistory; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."__EFMigrationsHistory"
-    ADD CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId");
 
 
 --
@@ -3344,6 +2784,22 @@ ALTER TABLE ONLY public.menu_permissions
 
 
 --
+-- Name: NGC_AgentGroups PK_ngc_AgentGroups; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."NGC_AgentGroups"
+    ADD CONSTRAINT "PK_ngc_AgentGroups" PRIMARY KEY ("Id");
+
+
+--
+-- Name: NGC_Queues PK_ngc_queues; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."NGC_Queues"
+    ADD CONSTRAINT "PK_ngc_queues" PRIMARY KEY ("Id");
+
+
+--
 -- Name: permission_groups PK_permission_groups; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3381,6 +2837,14 @@ ALTER TABLE ONLY public.pg_skills
 
 ALTER TABLE ONLY public.pg_supergroups
     ADD CONSTRAINT "PK_pg_supergroups" PRIMARY KEY ("PermissionGroupId", "SupergroupId");
+
+
+--
+-- Name: RTSGrid_Metric PK_rtsgrid_metric; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."RTSGrid_Metric"
+    ADD CONSTRAINT "PK_rtsgrid_metric" PRIMARY KEY ("MetricId");
 
 
 --
@@ -3456,11 +2920,19 @@ ALTER TABLE ONLY public.widget_templates
 
 
 --
--- Name: RTSData_UserStatusLog RTSData_UserStatusLog_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: db_patch_history db_patch_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public."RTSData_UserStatusLog"
-    ADD CONSTRAINT "RTSData_UserStatusLog_pkey" PRIMARY KEY ("Id");
+ALTER TABLE ONLY public.db_patch_history
+    ADD CONSTRAINT db_patch_history_pkey PRIMARY KEY (migration_name);
+
+
+--
+-- Name: metric_deploy_log metric_deploy_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.metric_deploy_log
+    ADD CONSTRAINT metric_deploy_log_pkey PRIMARY KEY ("MetricId");
 
 
 --
@@ -3565,20 +3037,6 @@ CREATE UNIQUE INDEX "UserNameIndex" ON identity.users USING btree ("NormalizedUs
 
 
 --
--- Name: IX_AuditEvents_OccurredAt; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "IX_AuditEvents_OccurredAt" ON public."AuditEvents" USING btree ("OccurredAt");
-
-
---
--- Name: IX_AuditEvents_UserId; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "IX_AuditEvents_UserId" ON public."AuditEvents" USING btree ("UserId");
-
-
---
 -- Name: IX_NGC_BusinessUnitSupergroup_SupergroupId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3607,13 +3065,6 @@ CREATE UNIQUE INDEX "IX_NGC_UserAgentgroup_TenantId_UserId_AgentgroupId" ON publ
 
 
 --
--- Name: IX_PermissionGroups_Name; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX "IX_PermissionGroups_Name" ON public."PermissionGroups" USING btree ("Name");
-
-
---
 -- Name: IX_RTSData_ChatMessage_MessageId_ServerId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3632,48 +3083,6 @@ CREATE UNIQUE INDEX "IX_RTSData_Interaction_UpsertKey" ON public."RTSData_Intera
 --
 
 CREATE INDEX "IX_RTSData_UserStatusLog_StatusGroup_Time" ON public."RTSData_UserStatusLog" USING btree ("TenantId", "StatusGroup", "StartTime", "EndTime");
-
-
---
--- Name: IX_ResourcePermissions_GroupId_ResourceType; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "IX_ResourcePermissions_GroupId_ResourceType" ON public."ResourcePermissions" USING btree ("GroupId", "ResourceType");
-
-
---
--- Name: IX_ScreenPermissions_GroupId; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "IX_ScreenPermissions_GroupId" ON public."ScreenPermissions" USING btree ("GroupId");
-
-
---
--- Name: IX_Screens_OwnerId; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "IX_Screens_OwnerId" ON public."Screens" USING btree ("OwnerId");
-
-
---
--- Name: IX_UserGroups_GroupId; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "IX_UserGroups_GroupId" ON public."UserGroups" USING btree ("GroupId");
-
-
---
--- Name: IX_Users_Email; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX "IX_Users_Email" ON public."Users" USING btree ("Email");
-
-
---
--- Name: IX_WidgetSlots_ScreenId; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "IX_WidgetSlots_ScreenId" ON public."WidgetSlots" USING btree ("ScreenId");
 
 
 --
@@ -3912,54 +3321,6 @@ ALTER TABLE ONLY public."NGC_SupergroupAgentgroup"
 
 
 --
--- Name: ResourcePermissions FK_ResourcePermissions_PermissionGroups_GroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."ResourcePermissions"
-    ADD CONSTRAINT "FK_ResourcePermissions_PermissionGroups_GroupId" FOREIGN KEY ("GroupId") REFERENCES public."PermissionGroups"("Id") ON DELETE CASCADE;
-
-
---
--- Name: ScreenPermissions FK_ScreenPermissions_PermissionGroups_GroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."ScreenPermissions"
-    ADD CONSTRAINT "FK_ScreenPermissions_PermissionGroups_GroupId" FOREIGN KEY ("GroupId") REFERENCES public."PermissionGroups"("Id") ON DELETE CASCADE;
-
-
---
--- Name: ScreenPermissions FK_ScreenPermissions_Screens_ScreenId; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."ScreenPermissions"
-    ADD CONSTRAINT "FK_ScreenPermissions_Screens_ScreenId" FOREIGN KEY ("ScreenId") REFERENCES public."Screens"("Id") ON DELETE CASCADE;
-
-
---
--- Name: UserGroups FK_UserGroups_PermissionGroups_GroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."UserGroups"
-    ADD CONSTRAINT "FK_UserGroups_PermissionGroups_GroupId" FOREIGN KEY ("GroupId") REFERENCES public."PermissionGroups"("Id") ON DELETE CASCADE;
-
-
---
--- Name: UserGroups FK_UserGroups_Users_UserId; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."UserGroups"
-    ADD CONSTRAINT "FK_UserGroups_Users_UserId" FOREIGN KEY ("UserId") REFERENCES public."Users"("Id") ON DELETE CASCADE;
-
-
---
--- Name: WidgetSlots FK_WidgetSlots_Screens_ScreenId; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public."WidgetSlots"
-    ADD CONSTRAINT "FK_WidgetSlots_Screens_ScreenId" FOREIGN KEY ("ScreenId") REFERENCES public."Screens"("Id") ON DELETE CASCADE;
-
-
---
 -- Name: dashboard_categories FK_dashboard_categories_tenants_TenantId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4154,6 +3515,4 @@ ALTER TABLE ONLY public.widget_templates
 --
 -- PostgreSQL database dump complete
 --
-
-\unrestrict jLqaLMGhdaLXozJEH1v9Te808t2DQf0z6R9pKm39P4DHYfyiYqnkmLumDjRyttj
 
