@@ -29,7 +29,16 @@ param(
     [string]$RTMSvcName    = "RTMService",
     [switch]$SkipShell,
     [switch]$SkipRTM,
-    [int]   $KeepBackups   = 5
+    [int]   $KeepBackups   = 5,
+    [switch]$ForceDeploy,         # E1: skip drift gate
+    [Alias("SkipDriftGate")]
+    [switch]$SkipDrift,           # alias
+    # DB connection for drift gate
+    [string]$DBHost        = "localhost",
+    [string]$DBPort        = "5432",
+    [string]$Database      = "rtmviewdb",
+    [string]$DBUser        = "ccdashboard_user",
+    [string]$DBPassword    = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -91,6 +100,32 @@ if ($allBackups.Count -gt $KeepBackups) {
         Remove-Item $b.FullName -Recurse -Force
         Write-Host "  Pruned old backup: $($b.Name)" -ForegroundColor Gray
     }
+}
+
+# ── E1: Pre-deploy drift gate ─────────────────────────────────────────────────
+Write-Host ""
+$skipGate = $ForceDeploy -or $SkipDrift
+if (-not $skipGate) {
+    Write-Host "[E1] Pre-deploy drift gate: running Compare-ToBaseline..." -ForegroundColor Cyan
+    # Locate Compare-ToBaseline.ps1 relative to this script (deploy/ -> repo root -> db/tools/)
+    $RepoRoot = Split-Path -Parent $ScriptDir
+    $ComparePath = Join-Path $RepoRoot "db\tools\Compare-ToBaseline.ps1"
+    if (-not (Test-Path $ComparePath)) {
+        Write-Host "  [WARN] Compare-ToBaseline.ps1 not found at $ComparePath - skipping drift gate." -ForegroundColor Yellow
+    } else {
+        $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+        & $ComparePath -DBHost $DBHost -DBPort $DBPort -Database $Database -User $DBUser -Password $DBPassword
+        $driftExit = $LASTEXITCODE
+        $ErrorActionPreference = $prevEAP
+        if ($driftExit -eq 2) {
+            throw "[E1] REAL schema drift detected vs baseline - review the baseline_delta report before deploying. Re-run with -ForceDeploy to override (only if the drift is understood/intended)."
+        } elseif ($driftExit -ne 0) {
+            throw "[E1] Compare-ToBaseline failed to run (exit $driftExit) - cannot verify drift. Fix tooling or pass -ForceDeploy."
+        }
+        Write-Host "[E1] Drift gate PASSED (no real drift)." -ForegroundColor Green
+    }
+} else {
+    Write-Host "[E1] Drift gate SKIPPED (-ForceDeploy)." -ForegroundColor Yellow
 }
 
 # ── Deploy new files ──────────────────────────────────────────────────────────
