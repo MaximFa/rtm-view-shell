@@ -48,7 +48,8 @@ param(
     [string]$User        = "ccdashboard_user",
     [string]$Password    = "",
     [string]$OutDir      = "",
-    [string]$BaselineDir = ""
+    [string]$BaselineDir = "",
+    [switch]$CheckEfModel   # E4: optional Dimension E — runs has-pending-model-changes (requires dotnet ef)
 )
 $ErrorActionPreference = "Stop"
 
@@ -553,6 +554,30 @@ if ($UnappliedMigrationCount -eq 0 -and $UnknownMigrations.Count -eq 0) {
 }
 [void]$DeltaLines.Add("")
 
+# ====== DIMENSION E: EF MODEL (optional, -CheckEfModel) ======
+$EfPending = 0
+if ($CheckEfModel) {
+    Write-Host "`n[E] EF MODEL SYNC (has-pending-model-changes)" -ForegroundColor Yellow
+    [void]$DeltaLines.Add("-" * 40)
+    [void]$DeltaLines.Add("DIMENSION E: EF MODEL (has-pending-model-changes)")
+    [void]$DeltaLines.Add("-" * 40)
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    foreach ($ctx in @("AppDbContext","AuditDbContext","BackendEmulationDbContext")) {
+        dotnet ef migrations has-pending-model-changes --context $ctx `
+            --project src/CcDashboard.Infrastructure --startup-project src/CcDashboard.Web 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            $EfPending++
+            Write-Host "  $ctx`: PENDING model changes" -ForegroundColor Red
+            [void]$DeltaLines.Add("  - $ctx`: PENDING model changes (model NOT fully captured by migrations)")
+        } else {
+            Write-Host "  $ctx`: OK (model captured)" -ForegroundColor Green
+            [void]$DeltaLines.Add("  - $ctx`: OK (model captured)")
+        }
+    }
+    $ErrorActionPreference = $prevEAP
+    [void]$DeltaLines.Add("")
+}
+
 # ====== FINALIZE OUTPUT ======
 [void]$DeltaLines.Add("=" * 80)
 [void]$DeltaLines.Add("SUMMARY")
@@ -561,6 +586,7 @@ if ($UnappliedMigrationCount -eq 0 -and $UnknownMigrations.Count -eq 0) {
 [void]$DeltaLines.Add("B. Routine kind issues:    $RoutineFlags")
 [void]$DeltaLines.Add("C. Metric drift:           $MetricDrift")
 [void]$DeltaLines.Add("D. Unapplied migrations:   $UnappliedMigrationCount")
+if ($CheckEfModel) { [void]$DeltaLines.Add("E. EF model pending:       $EfPending") }
 [void]$DeltaLines.Add("")
 
 $totalIssues = $SchemaDiffLines + $RoutineFlags + $MetricDrift + $UnappliedMigrationCount

@@ -65,6 +65,23 @@ Write-Host "=== REGEN-SCHEMA.PS1 ===" -ForegroundColor Cyan
 Write-Host "Repo root: $RepoRoot"
 Write-Host "Scratch DB: $ScratchDb"
 
+# -- E4: EF-model >= migrations invariant -- abort if any context has uncaptured model changes --
+Write-Host "`n[E4] Verifying EF model is fully captured by migrations..." -ForegroundColor Cyan
+$ctxs = @("AppDbContext","AuditDbContext","BackendEmulationDbContext")
+$prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+foreach ($ctx in $ctxs) {
+    $output = dotnet ef migrations has-pending-model-changes --context $ctx `
+        --project "$RepoRoot\src\CcDashboard.Infrastructure" --startup-project "$RepoRoot\src\CcDashboard.Web" 2>&1
+    $rc = $LASTEXITCODE
+    $output | ForEach-Object { Write-Host "  $_" }
+    if ($rc -ne 0) {
+        $ErrorActionPreference = $prevEAP
+        throw "[E4] $ctx has PENDING model changes -- model diverges from its last migration. Add a migration (dotnet ef migrations add ...) BEFORE regenerating schema.sql. (EF-model >= schema.sql invariant -- PD-008.)"
+    }
+    Write-Host "  [E4] $ctx : model captured (no pending changes)." -ForegroundColor Green
+}
+$ErrorActionPreference = $prevEAP
+
 # 1.1 Drop + create scratch DB
 Write-Host "`n[1.1] Drop + create scratch DB..."
 $env:PGPASSWORD = $SuperPassword
