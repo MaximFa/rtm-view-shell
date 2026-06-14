@@ -131,9 +131,16 @@ function Invoke-Rollback([string]$reason) {
             $env:PGPASSWORD = $SuperPassword
             # E-015: pg_restore writes progress/warnings to stderr; EAP=Continue prevents NativeCommandError abort
             $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-            & $psql -h $DBHost -p $DBPort -U $SuperUser -d "postgres" -c "DROP DATABASE IF EXISTS `"$Database`" WITH (FORCE);" 2>&1 | ForEach-Object { Log "  $_" }
+            # Quote-safe: write SQL to temp file (PowerShell -c strips embedded quotes)
+            $tmpDrop = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.sql')
+            [System.IO.File]::WriteAllText($tmpDrop, "DROP DATABASE IF EXISTS `"$Database`" WITH (FORCE);", (New-Object System.Text.UTF8Encoding($false)))
+            & $psql -h $DBHost -p $DBPort -U $SuperUser -d "postgres" -f $tmpDrop 2>&1 | ForEach-Object { Log "  $_" }
             $rc1 = $LASTEXITCODE
-            & $psql -h $DBHost -p $DBPort -U $SuperUser -d "postgres" -c "CREATE DATABASE `"$Database`";" 2>&1 | ForEach-Object { Log "  $_" }
+            Remove-Item $tmpDrop -ErrorAction SilentlyContinue
+            $tmpCreate = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.sql')
+            [System.IO.File]::WriteAllText($tmpCreate, "CREATE DATABASE `"$Database`";", (New-Object System.Text.UTF8Encoding($false)))
+            & $psql -h $DBHost -p $DBPort -U $SuperUser -d "postgres" -f $tmpCreate 2>&1 | ForEach-Object { Log "  $_" }
+            Remove-Item $tmpCreate -ErrorAction SilentlyContinue
             $rc2 = $LASTEXITCODE
             & (Find-PGTool "pg_restore") -h $DBHost -p $DBPort -U $SuperUser -d $Database $backupFile 2>&1 | ForEach-Object { Log "  $_" }
             $rc3 = $LASTEXITCODE
@@ -844,8 +851,13 @@ if ($rtmTenantId -and $rtmTenantId -ne "00000000-0000-0000-0000-000000000000") {
 
     $env:PGPASSWORD = $AppPassword
     $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-    $updateOutput = & $psql -h $DBHost -p $DBPort -U $AppUser -d $Database -c $updateSql 2>&1
+    # B2 quote-safe: write SQL to temp file (PowerShell -c strips embedded quotes -> 42703)
+    $tmpB2 = [System.IO.Path]::GetTempFileName()
+    $tmpB2 = [System.IO.Path]::ChangeExtension($tmpB2, '.sql')
+    [System.IO.File]::WriteAllText($tmpB2, $updateSql, (New-Object System.Text.UTF8Encoding($false)))
+    $updateOutput = & $psql -h $DBHost -p $DBPort -U $AppUser -d $Database -v ON_ERROR_STOP=1 -f $tmpB2 2>&1
     $updateExitCode = $LASTEXITCODE
+    Remove-Item $tmpB2 -ErrorAction SilentlyContinue
     $ErrorActionPreference = $prevEAP
     $env:PGPASSWORD = $null
 

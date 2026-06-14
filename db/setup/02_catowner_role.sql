@@ -1,6 +1,13 @@
 -- db/setup/02_catowner_role.sql
 -- Least-privilege role for CcDashboard.ApplyService (hot-reload metrics). Idempotent.
 -- NOTE: psql :'var' does NOT substitute inside DO $$...$$ — pass via session GUC set at top level.
+
+-- MF-2 (security FF): suppress statement logging for this provisioning session so the catowner
+-- password (set_config below + CREATE/ALTER ROLE ... PASSWORD) is never written to the server log.
+-- Session-local; superuser-settable (script runs as the PG superuser); auto-reset when the psql -f session ends.
+SET log_statement = 'none';
+SET log_min_duration_statement = -1;
+
 SELECT set_config('ccdashboard.catowner_pw', :'catowner_pw', false);
 
 DO $$
