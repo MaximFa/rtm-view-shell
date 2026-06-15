@@ -1,19 +1,19 @@
 ---
 name: session-coord
-description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42."
+description: "Multi-session coordination over the .coord/ file bus — registration, claims, commit serialisation, push barrier. Load at the START of EVERY Cowork session; apply to every CC prompt. Normative spec: CLAUDE.md §42 (horizontal) + §45 (vertical)."
 type: process
-updated: 2026-06-13 (v2.0 — L-SC-28 mandatory binding in CLAUDE.md §0.6b, NORM-CUR-07c)
+updated: 2026-06-15 (v2.1 — L-SC-30 Specialist Protocol vertical axis, NORM-CUR-11)
 ---
 
 # session-coord — multi-session coordination
 
-CLAUDE.md §42 is the normative spec. This skill is the operational layer: runbooks,
-checklists and lessons from the first live run (2026-06-05/06: 3 sessions on the bus,
-4 protocol commits, 6-commit consensus push, **zero lost artefacts** — vs 3 artefact
-classes lost in the pre-protocol push).
+CLAUDE.md §42 is the normative spec for the HORIZONTAL axis (session ↔ session in the moment).
+CLAUDE.md §45 is the normative spec for the VERTICAL axis (role across its own re-instantiations).
+This skill is the operational layer: runbooks, checklists and lessons from live runs.
 
-## 1. Session start runbook
+## 1. Session start runbook (HORIZONTAL + VERTICAL)
 
+**HORIZONTAL (bus sync):**
 1. §0.2 integrity check. Known false-M (hash==HEAD, do not touch):
    `db/data/02_metrics.sql`, `db/schema.sql` — always verify with
    `git hash-object <f>` vs `git rev-parse HEAD:<f>` before "restoring" anything.
@@ -24,6 +24,13 @@ classes lost in the pre-protocol push).
 4. Check `.coord/push/request.md`. Present → barrier active: no new CC tasks,
    write your ack first (§6).
 5. Write/refresh your session file (template §7.1). Slug: `<name-without-RTM>-MMDD`.
+
+**VERTICAL (role expertise — INIT wake-ritual, NORM-CUR-11):**
+6. Read your role-skill §A CORE: `.claude/skills/role-<role>/role-<role>.md` §A.
+   This makes you expert from line 1 — no re-learning each incarnation.
+7. Run §C VERIFY: spot-check the cardinal truths against CURRENT code/artifacts.
+   Mismatch → mark the line superseded in §A, do NOT act on it.
+8. Read your role charter + re-claim territory (§42.2) + read your role inbox.
 
 ## 2. Claims (hybrid, §42.3)
 
@@ -195,6 +202,7 @@ is the only protection for same-file work.
 | L-SC-27 | **Binding block format v1.** PREAMBLE: `## <UTC> \| binding: <role> <-> CC \| directive: tools/<file>.md \| status: open`. POSTAMBLE/RESULT: same header with `status: done\|failed` + RESULT body (commit, files, build/test, blockers, object-store verify). |
 | L-SC-28 | **Mandatory binding (NORM-CUR-07c).** The CC<->spec binding is NO LONGER opt-in per prompt. CLAUDE.md §0.6b now specifies the PREAMBLE/POSTAMBLE as mandatory blocks in EVERY CC prompt, placed after the integrity check. `коорд: промпт` enforces this. |
 | L-SC-29 | **Push-prompt preflight (chronic staleness).** NEVER run a push prompt blind. Before every push barrier verify, in order: (1) branch == `v2-backend` (NOT `v2`); (2) staging only EXPLICIT narrow adds — never `git add -A` / `git add docs/` / `git add db/`; (3) §0.2-restore any truncated working-tree file from HEAD BEFORE staging (PD-007 cross-session truncation); (4) NO `Export-All` in the push path; (5) no secrets in the prompt/log. A push prompt is the ONLY prompt allowed to `git push` (§37) — keep its guard inside the standing prompt so it cannot drift. |
+| L-SC-30 | **Specialist Protocol (NORM-CUR-11).** The VERTICAL axis: how ONE role keeps and grows its expertise across its own re-instantiations. Two layers: PERSISTENT (role-skill `.claude/skills/role-<role>/role-<role>.md` — survives reap) vs EPHEMERAL (session file — dies at reap). INIT wake-ritual: read role-skill §A CORE, run §C VERIFY vs current code. CAPTURE is MANDATORY: any lesson → append to §B BEFORE task closes, wired into §0.6b postamble. Cold-start from ARTIFACTS, not session narrative. Normative spec: CLAUDE.md §45 + `.coord/protocols/role-skill-standard.md`. |
 
 ## 10. Operator command set — EXECUTE LITERALLY
 

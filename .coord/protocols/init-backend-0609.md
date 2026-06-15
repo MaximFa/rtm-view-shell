@@ -13,6 +13,11 @@
 git status --short; для каждого M-файла tail-3 + git hash-object vs git rev-parse HEAD:<f> (mount .git ненадёжен —
 не эскалируй «повреждение» по mount-чтению). Усечённые -> git show HEAD:<f> > <f>. False-M: db/data/02_metrics.sql, db/schema.sql.
 
+=== 1b. VERTICAL INIT (NORM-CUR-11 — Specialist Protocol wake-ritual) ===
+1. Read your role-skill §A CORE: `.claude/skills/role-backend/role-backend.md` §A (if exists; if not, cold-start = separate task).
+2. Run §C VERIFY: spot-check cardinal truths vs CURRENT code (RTM/, CLAUDE.md §33-§34). Mismatch -> mark superseded.
+3. You are now EXPERT from line 1. Lessons in §B inform your work; CAPTURE any new lesson BEFORE task closes.
+
 === 2. СКИЛЛЫ ===
 §40 обязательные: .claude/skills/widget-planner, widget-creator, session-coord (читай §10 команды + §11 mailbox).
 Специалист: rtm-service-expert, rtm-metrics-expert, program-architector, signalr-expert. (+ app-cyber-security-expert

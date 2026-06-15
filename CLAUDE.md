@@ -274,12 +274,17 @@ that differ from HEAD by more than noise (empty lines, locale differences).
 - object-store verify: <yes: commit exists in git log | no: reconcile needed>
 ```
 
+**CAPTURE (after RESULT, before re-sync — MANDATORY, NORM-CUR-11):** If this task yielded a lesson,
+append a dated, source-pinned line to the role-skill §B (`.claude/skills/role-<role>/role-<role>.md`)
+BEFORE closing. Format: `<date> · <what happened> · <rule> · SOURCE:<commit/file:line> · status: active`.
+This is NOT opt-in — every lesson must be captured or it is lost at reap.
+
 **Note:** The binding is an INDEX to git, not a source of truth. If the RESULT write is dropped
 (mount write-back, session crash), the spec reconciles from the object store via `git log` and
 the build artifact (L-SC-04/L-SC-18 fallback). For no-repo/server contexts where `.coord/` is
 inaccessible (e.g. bash-blind to mount): emit a result artifact + use operator-relay backstop.
 
-**Cowork adds binding preamble/postamble to every CC prompt automatically.**
+**Cowork adds binding preamble/postamble + CAPTURE reminder to every CC prompt automatically.**
 
 ---
 
@@ -3073,4 +3078,62 @@ session-coord skill §13.
   + Security ack + prod push.
 - A whole release stays in ONE Cowork (e.g. the Server-234 upgrade = wholly A).
 
-*TZ version: 2.8 | CLAUDE.md last updated: 2026-06-13 (§1/§18 scope-sync — widget rendering/drag&drop/config/data-binding now IMPLEMENTED, verified by code)*
+---
+
+## 45. Specialist Protocol — vertical axis (NORM-CUR-11)
+
+> The coordination protocol (§42) solves the HORIZONTAL axis: how sessions talk and serialise
+> in the moment (bus, claims, commit-lock, push-barrier). The **Specialist Protocol** solves the
+> VERTICAL axis: how ONE role keeps and grows its expertise across its own re-instantiations
+> and over time. Together they form the warp and weft of the same fabric.
+
+### §45.1 Two layers — the cut
+
+| Layer | Location | Survives reap? |
+|---|---|---|
+| **PERSISTENT (role)** | `.claude/skills/role-<role>/role-<role>.md` | YES — the worker's notebook |
+| **EPHEMERAL (incarnation)** | `.coord/sessions/<slug>.md` | NO — claims, heartbeat, cc_task; dies at reap |
+
+**Iron rule:** nothing durable lives ONLY in the ephemeral layer. A lesson learned is written into
+the PERSISTENT layer BEFORE the incarnation ends, or it is lost by design.
+
+### §45.2 role-skill anatomy
+
+Frontmatter: `role, project, version, last_verified, owner: <role>, reviewer: curator`.
+
+- **§A CORE** — invariant, HARD CAP ~40 lines, loaded EVERY init. Role rules + the caveat
+  "reality wins — update me" + 3–7 cardinal truths, EACH source-pinned.
+- **§B LESSONS** — append-only, dated, with status:
+  `<date> · <what happened> · <rule> · SOURCE:<commit/journal-ts/file:line> · status: active|superseded-by:<id>`
+- **§C VERIFY** — at init: spot-check §A cardinal truths against CURRENT code/artifacts; mismatch → mark superseded, do NOT act on it.
+- **§D REFERENCE** (optional) — deep material, NOT loaded each init.
+
+### §45.3 Four invariant properties
+
+1. **Co-ownership** with a reality-node (the role + the code/artifacts; reviewer = curator).
+2. **"Reality wins — update me"** caveat explicit in §A.
+3. **Core vs Periphery** separation — invariant §A vs append-able §B.
+4. **Source-grounding** — every fact pins a source, not session narrative (sessions confabulate).
+
+### §45.4 CAPTURE — mandatory lifecycle step
+
+Any task that yields a lesson → append the dated, source-pinned lesson to §B BEFORE the task closes.
+This is MANDATORY, not opt-in. Wired into the CC postamble next to binding-RESULT (§0.6b).
+
+### §45.5 Cold-start from artifacts
+
+A new role-skill is cold-started FROM ARTIFACTS (git log of territory, `.coord/journal.md`, prod logs,
+`.claude/memory`), NOT from session narrative. This prevents confabulation.
+
+### §45.6 Promotion gate
+
+A lesson stays PROJECT-scoped by default. Promotion to the agnostic curator tier requires:
+- Substrate-level proof (mount / git / protocol), OR
+- ≥2 independent occurrences, each cited with a commit/journal pin FROM EACH project.
+
+A single-domain pattern is NEVER promoted.
+
+**Standard:** `.coord/protocols/role-skill-standard.md` (normative).
+**Template:** `.coord/protocols/role-skill-TEMPLATE.md`.
+
+*TZ version: 2.9 | CLAUDE.md last updated: 2026-06-15 (§45 Specialist Protocol vertical axis, NORM-CUR-11)*

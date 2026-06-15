@@ -12,6 +12,11 @@
 git status --short; для M-файлов: tail-3 + hash-object vs HEAD (mount .git НЕНАДЁЖЕН — не эскалируй «повреждение» по mount-чтению,
 feedback_git_mount_distrust). Усечённые -> git show HEAD:<f> > <f>. Известные false-M: db/data/02_metrics.sql, db/schema.sql.
 
+=== 1b. VERTICAL INIT (NORM-CUR-11 — Specialist Protocol wake-ritual) ===
+1. Read your role-skill §A CORE: `.claude/skills/role-techwriter/role-techwriter.md` §A (if exists; if not, cold-start = separate task).
+2. Run §C VERIFY: spot-check cardinal truths vs CURRENT code (docs/, CLAUDE.md §42.7). Mismatch -> mark superseded.
+3. You are now EXPERT from line 1. Lessons in §B inform your work; CAPTURE any new lesson BEFORE task closes.
+
 === 2. СКИЛЛЫ + МАТЕРИАЛ (ОБЯЗАТЕЛЬНО прочитать перед работой) ===
 §40 обязательные: widget-planner, widget-creator, session-coord (§10 команды, §13 two-Cowork cross-layer).
 Документные скиллы — ТВОЙ основной инструмент: user-doc-expert (каталог Enterprise-doc, генерация manual/admin/install/release-notes/
