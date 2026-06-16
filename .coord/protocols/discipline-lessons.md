@@ -144,3 +144,45 @@ gets re-patched by hand each barrier instead of being fixed once. Stale hazards 
 **DURABLE FIX:** maintain a VERIFIED canonical push prompt that is COMMITTED + carries a self-check of (a)-(d) at the top; OR author a fresh
 per-barrier prompt (e.g. tools/cc_prompt_push_45green.md, 2026-06-13) and commit it. Either way the safe prompt must be tracked so it can't
 silently revert. Curator: codify (a)-(d) as a push-prompt preflight into session-coord skill (§push / §42.7).
+## NORM-CUR-11 | 2026-06-15T12:14Z | Specialist Protocol — the VERTICAL axis (role continuity-of-expertise)
+PERSISTENT role-skill `.claude/skills/role-<role>/role-<role>.md` (survives reap) vs EPHEMERAL session-file (dies). Nothing
+durable lives only in the ephemeral layer. Anatomy §A CORE (≤40 ln, every init) / §B LESSONS (append-only, dated, source-pinned,
+status) / §C VERIFY (init spot-check vs code) / §D. 4 properties: co-ownership-with-reality / reality-wins-update-me / core-vs-
+periphery / source-grounding-not-narrative. CAPTURE is MANDATORY (wired into §0.6b CC postamble), not opt-in (opt-in = why memory
+lagged to 06-04). Cold-start role-skills FROM ARTIFACTS, not session memory. PROMOTION GATE: project-tier -> agnostic ONLY if
+substrate-level OR >=2 projects; single-domain NEVER (contagion vector). Standard: .coord/protocols/role-skill-standard.md.
+Operator-launched 2026-06-15 (operator+Маяк). Spec: .coord/specialist-protocol.md. UNIFORM both projects.
+
+## L-SC-29 | 2026-06-15T12:16Z | push-prompt chronically reverts to UNSAFE (per-barrier preflight)
+cc_prompt_push.md recurs to unsafe (wrong branch v2 vs v2-backend; broad `git add docs/+db/` committing PD-007-truncated WT over
+HEAD + sweeping HELD drafts; unwanted Export-All) — fixed at barrier #3 by rewrite but didn't persist + wasn't recorded -> recurred
+2026-06-13. MANDATORY per-barrier PREFLIGHT: (a) verify target branch; (b) explicit-narrow adds only (no broad git add); (c) restore
+truncated files from HEAD FIRST; (d) skip Export-All. Durable fix TBD: committed self-checking canonical push prompt vs per-barrier
+authored+committed. Codify into skill §42.7/§push (FROZEN-deferred behind the Specialist Protocol spine).
+
+## NORM-CUR-12 | 2026-06-15T12:16Z | External-contour immutability (foundational, operator)
+No change to the EXTERNAL contour without an explicit operator verdict. Baseline: external systems (Cisco Finesse REST/XMPP, legacy
+DB schema/SP/payload/protocol contracts) CANNOT tell they're talking to a NEW version of the app — same contracts as legacy. The new
+app's OWN PostgreSQL is INTERNAL, not the external contour. (AD primary — legacy Cisco/ACE contracts; RTM analog = CC-platform/RTM
+Service contracts.) AD recorded it (CLAUDE.md §23/§25, B-30); recorded here for uniform parity. Codify RTM-side (FROZEN-deferred).
+
+## NORM-CUR-11b | 2026-06-15T12:33Z | promotion gate is PREVENT-BEFORE / fail-closed (peer-review Маяк)
+The agnostic-tier promotion gate is FAIL-CLOSED (default-deny, mirrors AUTHZ-03): a lesson stays PROJECT-scoped by default and
+enters the agnostic curator skill ONLY after the curator AFFIRMATIVELY confirms (a) substrate-level proof OR (b) >=2 independent
+occurrences, each with a commit/journal pin FROM EACH project. TWO-KEY: role marks a `promotion-candidate` (stays project-scoped);
+curator promotes with pinned evidence. No silent promotion; append-ONLY-AFTER-PROOF. Async audit = secondary backstop only. Stops
+contagion BEFORE it crosses, not after. role-skill-standard.md updated (both repos). UNIFORM.
+
+## NORM-CUR-11c | 2026-06-16T07:15Z | §C VERIFY write-time gate (run-green before commit)
+A §C check that fails against correct code FALSE-supersedes a TRUE truth (anti-rot defeated). RULE: every §C check is EXECUTED
+once at authoring + confirmed to return its EXPECTED result BEFORE the role-skill commits; un-run/red §C does not ship. §4-review
+REJECTS any §C not run-green. A later §C failure at init = signal of code drift, investigate (don't blind-supersede). Defect that
+surfaced it: role-backend §C#1 (5636cc6) grep 'CREATE PROCEDURE'=2 vs 'CREATE OR REPLACE PROCEDURE'=15. UNIFORM both repos.
+
+## NORM-CUR-13 | 2026-06-16T09:14Z | curator status/verified-fact claims are OBJECT-STORE-PINNED (agnostic, substrate-level)
+The curator's operational 'verified fact' / status claims MUST be source-pinned to the OBJECT STORE (`git show HEAD:<f>` /
+`git cat-file` / HEAD hash), NEVER asserted from the mount working tree (stale / truncated / cross-view-lossy, §0.5/L-SC-04).
+Substrate-level (mount/git) -> AGNOSTIC tier (passes the fail-closed promotion gate, NORM-CUR-11b). Founding §A cardinal truth of
+role-curator. INCIDENT: 2026-06-16 I claimed §0.6b CAPTURE=0 / spine-not-done from a stale WT read; HEAD (fddfbe7) had it wired ->
+false 'redo codify' directive, retracted. The discipline node hit the very failure §0.5 guards.
+

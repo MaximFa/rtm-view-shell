@@ -51,3 +51,13 @@ fresh incarnation reads it and is ALREADY expert.
      cross-domain contagion vector; over-generalization = contamination).
 - The async curator audit is a SECONDARY backstop (catch slips), NOT the primary gate. The gate stops the contagion
   BEFORE it crosses, not after it crossed.
+
+## §C VERIFY — WRITE-TIME GATE (NORM-CUR-11c, peer-review Маяк)
+A broken verifier is WORSE than none: a §C check that FAILS against correct code FALSELY marks a TRUE truth superseded —
+defeating the anti-rot purpose (real defect: role-backend §C#1 grep `CREATE PROCEDURE`=2 vs `CREATE OR REPLACE PROCEDURE`=15).
+- Every §C VERIFY check MUST be EXECUTED ONCE at AUTHORING time and confirmed to return its EXPECTED result BEFORE the role-skill
+  is committed. A §C line that does not pass against the CURRENT code at write-time does NOT ship.
+- §4-REVIEW REJECT item: any §C check not run-green at authoring -> verdict REVISE, not PASS. (Mirrors cold-start "from artifacts":
+  do not ship a self-check you did not run, same as you do not ship a truth you did not pin.)
+- When §C later FAILS at init, treat it as a SIGNAL the code drifted (or the check needs updating) — investigate; do NOT blindly
+  supersede a truth on a check you never proved correct.
