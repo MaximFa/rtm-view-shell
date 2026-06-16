@@ -52,6 +52,7 @@ Cardinal truths (source-pinned):
 - 2026-06-06 · DataSlot BU not saved to RTS Row (UnionId=NULL) — SelectBusinessUnit must update ConfigDataSlotBusinessUnitId · SOURCE:a20b591 · status: active
 - 2026-06-07 · dark-mode gaps in configurator modal (9 fields) — use generic .dark-mode input selector · SOURCE:5acf274, 60c01df · status: active
 - 2026-06-09 · F-1 metrics read-only — remove client create/edit/delete; vendor-deploy only · SOURCE:b7b20e4 · status: active
+- 2026-06-16 · F-A alignment guides: cache other widget rects at drag-start (not per-mousemove) to avoid O(n) layout thrash · SOURCE:9734252, widget-resize.js:cacheAlignTargets · status: active
 
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path src\CcDashboard.Web\wwwroot\js\widget-resize.js` — must be True
