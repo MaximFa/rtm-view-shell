@@ -3157,3 +3157,36 @@ button.clr-swatch,
 .font-size-badge .btn-close::before {
     font-size: 12px;
 }
+
+/* ─── Widget Alignment Guides (F-A) ───────────────────────────────────── */
+.widget-align-guide {
+    position: absolute;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+}
+
+.widget-align-guide.visible {
+    opacity: 1;
+}
+
+.widget-align-guide.vertical {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: var(--clr-primary);
+}
+
+.widget-align-guide.horizontal {
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: var(--clr-primary);
+}
+
+/* Dark mode - keep same accent colour (primary is already theme-aware) */
+.dark-mode .widget-align-guide.vertical,
+.dark-mode .widget-align-guide.horizontal {
+    background-color: var(--clr-primary);
+}

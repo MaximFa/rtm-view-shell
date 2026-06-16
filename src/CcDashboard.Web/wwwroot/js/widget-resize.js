@@ -10,6 +10,11 @@ window.widgetResize = {
     startLeft: 0,
     startTop: 0,
     dotNetRef: null,
+    alignTargets: null,      // Cached rects of other widgets + canvas for alignment
+    guideV: null,            // Vertical guide line element
+    guideH: null,            // Horizontal guide line element
+    ALIGN_THRESHOLD: 6,      // Snap threshold in pixels
+    SNAP_ENABLED: true,      // Enable snap-to-guide
 
     init: function (dotNetRef) {
         this.dotNetRef = dotNetRef;
@@ -17,6 +22,12 @@ window.widgetResize = {
         this._onMouseUp = this.onMouseUp.bind(this);
         document.addEventListener('mousemove', this._onMouseMove);
         document.addEventListener('mouseup', this._onMouseUp);
+
+        // Create alignment guide lines (reusable, hidden by default)
+        this.guideV = document.createElement('div');
+        this.guideV.className = 'widget-align-guide vertical';
+        this.guideH = document.createElement('div');
+        this.guideH.className = 'widget-align-guide horizontal';
 
         // Watch for modal appearing and set up drag/resize
         const observer = new MutationObserver(() => {
@@ -63,6 +74,51 @@ window.widgetResize = {
         widget.classList.add('moving');
         document.body.style.cursor = 'move';
         document.body.style.userSelect = 'none';
+
+        // Cache alignment targets (other widgets + canvas edges/centre)
+        this.cacheAlignTargets(widget);
+    },
+
+    // Cache rects of other widgets and canvas for alignment checks
+    cacheAlignTargets: function (draggedWidget) {
+        const canvas = document.querySelector('.dashboard-canvas-grid');
+        if (!canvas) { this.alignTargets = null; return; }
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const targets = [];
+
+        // Canvas edges and centre
+        targets.push({
+            type: 'canvas',
+            left: 0,
+            centreX: canvasRect.width / 2,
+            right: canvasRect.width,
+            top: 0,
+            centreY: canvasRect.height / 2,
+            bottom: canvasRect.height
+        });
+
+        // Other widgets
+        canvas.querySelectorAll('.widget').forEach(w => {
+            if (w === draggedWidget) return;
+            const r = w.getBoundingClientRect();
+            const cRect = canvas.getBoundingClientRect();
+            targets.push({
+                type: 'widget',
+                left: r.left - cRect.left,
+                centreX: r.left - cRect.left + r.width / 2,
+                right: r.right - cRect.left,
+                top: r.top - cRect.top,
+                centreY: r.top - cRect.top + r.height / 2,
+                bottom: r.bottom - cRect.top
+            });
+        });
+
+        this.alignTargets = targets;
+
+        // Append guides to canvas if not already
+        if (!this.guideV.parentNode) canvas.appendChild(this.guideV);
+        if (!this.guideH.parentNode) canvas.appendChild(this.guideH);
     },
 
     // Setup modal drag/resize - called via MutationObserver
@@ -214,6 +270,11 @@ window.widgetResize = {
             newLeft = Math.max(0, newLeft);
             newTop = Math.max(0, newTop);
 
+            // Check alignment and show guides
+            const alignResult = this.checkAlignment(widget, newLeft, newTop);
+            if (alignResult.snapLeft !== null && this.SNAP_ENABLED) newLeft = alignResult.snapLeft;
+            if (alignResult.snapTop !== null && this.SNAP_ENABLED) newTop = alignResult.snapTop;
+
             widget.style.left = newLeft + 'px';
             widget.style.top = newTop + 'px';
         }
@@ -259,6 +320,91 @@ window.widgetResize = {
         this.mode = null;
     },
 
+    // Check alignment with other widgets/canvas and show guides
+    checkAlignment: function (widget, newLeft, newTop) {
+        const result = { snapLeft: null, snapTop: null };
+        if (!this.alignTargets) return result;
+
+        const w = widget.offsetWidth;
+        const h = widget.offsetHeight;
+        const draggedLeft = newLeft;
+        const draggedCentreX = newLeft + w / 2;
+        const draggedRight = newLeft + w;
+        const draggedTop = newTop;
+        const draggedCentreY = newTop + h / 2;
+        const draggedBottom = newTop + h;
+
+        let bestV = null, bestVDist = this.ALIGN_THRESHOLD + 1;
+        let bestH = null, bestHDist = this.ALIGN_THRESHOLD + 1;
+
+        for (const t of this.alignTargets) {
+            // Vertical alignment (X axis): left-left, centre-centre, right-right, left-right, right-left
+            const vChecks = [
+                { dragged: draggedLeft, target: t.left, snap: t.left },
+                { dragged: draggedLeft, target: t.centreX, snap: t.centreX },
+                { dragged: draggedLeft, target: t.right, snap: t.right },
+                { dragged: draggedCentreX, target: t.left, snap: t.left - w / 2 },
+                { dragged: draggedCentreX, target: t.centreX, snap: t.centreX - w / 2 },
+                { dragged: draggedCentreX, target: t.right, snap: t.right - w / 2 },
+                { dragged: draggedRight, target: t.left, snap: t.left - w },
+                { dragged: draggedRight, target: t.centreX, snap: t.centreX - w },
+                { dragged: draggedRight, target: t.right, snap: t.right - w }
+            ];
+            for (const c of vChecks) {
+                const dist = Math.abs(c.dragged - c.target);
+                if (dist <= this.ALIGN_THRESHOLD && dist < bestVDist) {
+                    bestVDist = dist;
+                    bestV = { x: c.target, snap: c.snap };
+                }
+            }
+
+            // Horizontal alignment (Y axis)
+            const hChecks = [
+                { dragged: draggedTop, target: t.top, snap: t.top },
+                { dragged: draggedTop, target: t.centreY, snap: t.centreY },
+                { dragged: draggedTop, target: t.bottom, snap: t.bottom },
+                { dragged: draggedCentreY, target: t.top, snap: t.top - h / 2 },
+                { dragged: draggedCentreY, target: t.centreY, snap: t.centreY - h / 2 },
+                { dragged: draggedCentreY, target: t.bottom, snap: t.bottom - h / 2 },
+                { dragged: draggedBottom, target: t.top, snap: t.top - h },
+                { dragged: draggedBottom, target: t.centreY, snap: t.centreY - h },
+                { dragged: draggedBottom, target: t.bottom, snap: t.bottom - h }
+            ];
+            for (const c of hChecks) {
+                const dist = Math.abs(c.dragged - c.target);
+                if (dist <= this.ALIGN_THRESHOLD && dist < bestHDist) {
+                    bestHDist = dist;
+                    bestH = { y: c.target, snap: c.snap };
+                }
+            }
+        }
+
+        // Show/hide guides
+        if (bestV) {
+            this.guideV.style.left = bestV.x + 'px';
+            this.guideV.classList.add('visible');
+            result.snapLeft = bestV.snap;
+        } else {
+            this.guideV.classList.remove('visible');
+        }
+
+        if (bestH) {
+            this.guideH.style.top = bestH.y + 'px';
+            this.guideH.classList.add('visible');
+            result.snapTop = bestH.snap;
+        } else {
+            this.guideH.classList.remove('visible');
+        }
+
+        return result;
+    },
+
+    // Hide alignment guides
+    hideGuides: function () {
+        if (this.guideV) this.guideV.classList.remove('visible');
+        if (this.guideH) this.guideH.classList.remove('visible');
+    },
+
     getCursor: function (handle) {
         const cursors = {
             'e': 'ew-resize',
@@ -276,8 +422,12 @@ window.widgetResize = {
     dispose: function () {
         if (this._onMouseMove) document.removeEventListener('mousemove', this._onMouseMove);
         if (this._onMouseUp) document.removeEventListener('mouseup', this._onMouseUp);
+        // Remove guide elements
+        if (this.guideV && this.guideV.parentNode) this.guideV.parentNode.removeChild(this.guideV);
+        if (this.guideH && this.guideH.parentNode) this.guideH.parentNode.removeChild(this.guideH);
         this.dotNetRef = null;
         this.activeWidget = null;
+        this.alignTargets = null;
     },
 
     getDropPosition: function (clientX, clientY) {
