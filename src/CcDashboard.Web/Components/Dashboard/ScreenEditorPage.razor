@@ -5431,6 +5431,10 @@
         // By State segment colors (keyed by AgentStateName)
         public Dictionary<string, string>? StateSegmentColors { get; set; }
         public Dictionary<string, string>? DarkStateSegmentColors { get; set; }
+
+        // Widget size (for template save/restore, T6 6A)
+        public int? Width { get; set; }
+        public int? Height { get; set; }
     }
 
     public record DayTrendMetricConfig(string MetricId, bool Enabled, string Color, string Label, string ValueType = "number")
@@ -5559,6 +5563,9 @@
         SavingTemplate = true;
         try
         {
+            // Capture widget size into config for template (T6 6A)
+            WidgetToSaveAsTemplate.Config.Width = WidgetToSaveAsTemplate.Width;
+            WidgetToSaveAsTemplate.Config.Height = WidgetToSaveAsTemplate.Height;
             var configJson = System.Text.Json.JsonSerializer.Serialize(WidgetToSaveAsTemplate.Config, _jsonOptions);
             var result = await Mediator.Send(new CreateWidgetTemplateCommand(
                 TemplateName.Trim(),
@@ -5675,8 +5682,8 @@
             Name = DraggedTemplate.Name,
             OriginalWidgetName = catalogItem?.Name ?? DraggedTemplate.Name,
             Category = catalogItem?.Category ?? "",
-            Width = 280,
-            Height = 200,
+            Width = config.Width ?? 280,
+            Height = config.Height ?? 200,
             X = posX,
             Y = posY,
             Config = config
