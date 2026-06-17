@@ -112,6 +112,11 @@ Export-Table "RTSUserGrid_Column"
 Export-Table "NGC_Site"
 
 $out += "SET session_replication_role = DEFAULT;"
+$out += ''
+$out += '-- metric_deploy_log baseline seed (ledger completeness, contract 3.0)'
+$out += 'INSERT INTO public.metric_deploy_log ("MetricId","DeployedAt","SourceCommit")'
+$out += 'SELECT "MetricId", now(), ''baseline'' FROM public."RTSGrid_Metric"'
+$out += 'ON CONFLICT ("MetricId") DO NOTHING;'
 
 $content = $out -join "`r`n"
 $bytes = [System.Text.Encoding]::UTF8.GetPreamble() + [System.Text.Encoding]::UTF8.GetBytes($content)

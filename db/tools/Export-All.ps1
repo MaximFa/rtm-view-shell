@@ -118,6 +118,11 @@ $metrics = @("-- 02_metrics.sql: RTSGrid metrics and statistics","SET session_re
 $metrics += Export-TableData "RTSGrid_Metric"
 $metrics += Export-TableData "RTSGrid_Statistic"
 $metrics += "SET session_replication_role = DEFAULT;"
+$metrics += ''
+$metrics += '-- metric_deploy_log baseline seed (ledger completeness, contract 3.0)'
+$metrics += 'INSERT INTO public.metric_deploy_log ("MetricId","DeployedAt","SourceCommit")'
+$metrics += 'SELECT "MetricId", now(), ''baseline'' FROM public."RTSGrid_Metric"'
+$metrics += 'ON CONFLICT ("MetricId") DO NOTHING;'
 Write-UTF8 (Join-Path $DataDir "02_metrics.sql") $metrics
 
 # 03_rtsgrid.sql — RTSGrid structure (Grid/Row/Column/Cell) + RTSUserGrid

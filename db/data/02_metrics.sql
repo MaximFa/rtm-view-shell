@@ -212,3 +212,8 @@ QueueCurMaxWaitTimeInteractions	QM - Current Max Wait Time of Interactions in Qu
 TRUNCATE TABLE "RTSGrid_Statistic" RESTART IDENTITY CASCADE;
 
 SET session_replication_role = DEFAULT;
+
+-- metric_deploy_log baseline seed (ledger completeness, contract 3.0)
+INSERT INTO public.metric_deploy_log ("MetricId","DeployedAt","SourceCommit")
+SELECT "MetricId", now(), 'baseline' FROM public."RTSGrid_Metric"
+ON CONFLICT ("MetricId") DO NOTHING;

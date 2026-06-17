@@ -260,3 +260,8 @@ IL	019e03e9-60dd-72da-bd01-648ffdb2b433	Israel	Israel	+02:00	00:00
 \.
 
 SET session_replication_role = DEFAULT;
+
+-- metric_deploy_log baseline seed (ledger completeness, contract 3.0)
+INSERT INTO public.metric_deploy_log ("MetricId","DeployedAt","SourceCommit")
+SELECT "MetricId", now(), 'baseline' FROM public."RTSGrid_Metric"
+ON CONFLICT ("MetricId") DO NOTHING;
