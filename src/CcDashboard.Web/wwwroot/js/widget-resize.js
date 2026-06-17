@@ -15,6 +15,7 @@ window.widgetResize = {
     guideH: null,            // Horizontal guide line element
     ALIGN_THRESHOLD: 6,      // Snap threshold in pixels
     SNAP_ENABLED: true,      // Enable snap-to-guide
+    selectedWidgets: new Set(), // Multi-select: widget IDs currently selected
 
     init: function (dotNetRef) {
         this.dotNetRef = dotNetRef;
@@ -34,6 +35,52 @@ window.widgetResize = {
             this.setupModalDragResize();
         });
         observer.observe(document.body, { childList: true, subtree: true });
+    },
+
+    // Toggle widget in multi-selection (Ctrl/Cmd-click)
+    toggleSelection: function (widgetId, add) {
+        if (add) {
+            if (this.selectedWidgets.has(widgetId)) {
+                this.selectedWidgets.delete(widgetId);
+            } else {
+                this.selectedWidgets.add(widgetId);
+            }
+        } else {
+            // Normal click - clear set and select only this one
+            this.selectedWidgets.clear();
+            this.selectedWidgets.add(widgetId);
+        }
+        this.updateSelectionClasses();
+    },
+
+    // Clear all selections (click on empty canvas)
+    clearSelection: function () {
+        this.selectedWidgets.clear();
+        this.updateSelectionClasses();
+    },
+
+    // Update .selected class on all widgets
+    updateSelectionClasses: function () {
+        const canvas = document.querySelector('.dashboard-canvas-grid');
+        if (!canvas) return;
+        canvas.querySelectorAll('.dashboard-widget').forEach(w => {
+            const id = w.dataset.widgetId;
+            if (this.selectedWidgets.has(id)) {
+                w.classList.add('selected');
+            } else {
+                w.classList.remove('selected');
+            }
+        });
+    },
+
+    // Check if widget is in selection set
+    isSelected: function (widgetId) {
+        return this.selectedWidgets.has(widgetId);
+    },
+
+    // Get all selected widget IDs
+    getSelectedIds: function () {
+        return Array.from(this.selectedWidgets);
     },
 
     startResize: function (widgetId, handle, coords) {
@@ -71,7 +118,26 @@ window.widgetResize = {
         this.startLeft = left;
         this.startTop = top;
 
-        widget.classList.add('moving');
+        // If dragged widget is in selection set (multi-select), capture all selected positions
+        this.groupMove = null;
+        if (this.selectedWidgets.has(widgetId) && this.selectedWidgets.size > 1) {
+            this.groupMove = [];
+            this.selectedWidgets.forEach(id => {
+                const w = document.querySelector(`[data-widget-id="${id}"]`);
+                if (w) {
+                    const s = window.getComputedStyle(w);
+                    this.groupMove.push({
+                        id: id,
+                        element: w,
+                        startLeft: parseInt(s.left) || 0,
+                        startTop: parseInt(s.top) || 0
+                    });
+                    w.classList.add('moving');
+                }
+            });
+        } else {
+            widget.classList.add('moving');
+        }
         document.body.style.cursor = 'move';
         document.body.style.userSelect = 'none';
 
@@ -270,13 +336,29 @@ window.widgetResize = {
             newLeft = Math.max(0, newLeft);
             newTop = Math.max(0, newTop);
 
-            // Check alignment and show guides
+            // Check alignment and show guides (for primary widget)
             const alignResult = this.checkAlignment(widget, newLeft, newTop);
             if (alignResult.snapLeft !== null && this.SNAP_ENABLED) newLeft = alignResult.snapLeft;
             if (alignResult.snapTop !== null && this.SNAP_ENABLED) newTop = alignResult.snapTop;
 
             widget.style.left = newLeft + 'px';
             widget.style.top = newTop + 'px';
+
+            // Group move: apply same delta to all selected widgets
+            if (this.groupMove && this.groupMove.length > 1) {
+                const actualDeltaX = newLeft - this.startLeft;
+                const actualDeltaY = newTop - this.startTop;
+                this.groupMove.forEach(g => {
+                    if (g.id !== this.activeWidget.id) {
+                        let gLeft = g.startLeft + actualDeltaX;
+                        let gTop = g.startTop + actualDeltaY;
+                        gLeft = Math.max(0, gLeft);
+                        gTop = Math.max(0, gTop);
+                        g.element.style.left = gLeft + 'px';
+                        g.element.style.top = gTop + 'px';
+                    }
+                });
+            }
         }
     },
 
@@ -309,15 +391,26 @@ window.widgetResize = {
                     this.dotNetRef.invokeMethodAsync('OnWidgetMoved', widgetId, parseInt(s.left) || 0, parseInt(s.top) || 0);
                 }
             } else if (this.mode === 'move') {
-                const style = window.getComputedStyle(widget);
-                const left = parseInt(style.left) || 0;
-                const top = parseInt(style.top) || 0;
-                this.dotNetRef.invokeMethodAsync('OnWidgetMoved', widgetId, left, top);
+                // Group move: batch commit all moved widgets
+                if (this.groupMove && this.groupMove.length > 1) {
+                    const movedWidgets = this.groupMove.map(g => {
+                        const s = window.getComputedStyle(g.element);
+                        g.element.classList.remove('moving');
+                        return { id: g.id, left: parseInt(s.left) || 0, top: parseInt(s.top) || 0 };
+                    });
+                    this.dotNetRef.invokeMethodAsync('OnWidgetsMoved', movedWidgets);
+                } else {
+                    const style = window.getComputedStyle(widget);
+                    const left = parseInt(style.left) || 0;
+                    const top = parseInt(style.top) || 0;
+                    this.dotNetRef.invokeMethodAsync('OnWidgetMoved', widgetId, left, top);
+                }
             }
         }
 
         this.hideGuides();
         this.activeWidget = null;
+        this.groupMove = null;
         this.mode = null;
     },
 

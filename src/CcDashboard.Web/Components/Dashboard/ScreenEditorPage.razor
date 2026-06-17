@@ -178,7 +178,8 @@
              @ondragover="OnDragOver"
              @ondragover:preventDefault="true"
              @ondrop="OnDropAtPosition"
-             @ondrop:preventDefault="true">
+             @ondrop:preventDefault="true"
+             @onclick="OnCanvasClick">
             @if (PlacedWidgets.Count == 0)
             {
                 <div class="text-center py-5 text-muted" style="pointer-events: none;">
@@ -194,7 +195,8 @@
                          data-widget-id="@widget.Id"
                          style="@GetWidgetStyle(widget)"
                          @key="widget.Id"
-                         @onclick="() => SelectWidget(widget.Id)"
+                         @onclick="e => SelectWidget(widget.Id, e.CtrlKey, e.ShiftKey)"
+                         @onclick:stopPropagation="true"
                          @onmousedown="e => { if (widget.Config?.HideHeader == true) StartMove(widget.Id, e); }"
                          @onmousedown:stopPropagation="@(widget.Config?.HideHeader == true)">
                         <div class="widget-toolbar">
@@ -2271,6 +2273,7 @@
     private bool IsDragging;
     private WidgetCatalogItemDto? DraggedWidget;
     private Guid? SelectedWidgetId;
+    private HashSet<Guid> SelectedWidgetIds = new(); // Multi-select set for group move
 
     // Widget Configuration
     private PlacedWidget? ConfiguringWidget;
@@ -3163,6 +3166,31 @@
         }
     }
 
+    [JSInvokable]
+    public void OnWidgetsMoved(List<WidgetMoveData> moves)
+    {
+        foreach (var move in moves)
+        {
+            if (Guid.TryParse(move.Id, out var widgetId))
+            {
+                var widget = PlacedWidgets.FirstOrDefault(w => w.Id == widgetId);
+                if (widget != null)
+                {
+                    widget.X = move.Left;
+                    widget.Y = move.Top;
+                }
+            }
+        }
+        StateHasChanged();
+    }
+
+    public class WidgetMoveData
+    {
+        public string Id { get; set; } = "";
+        public int Left { get; set; }
+        public int Top { get; set; }
+    }
+
     private string GetWidgetStyle(PlacedWidget widget)
     {
         var style = $"left:{widget.X}px; top:{widget.Y}px; width:{widget.Width}px; height:{widget.Height}px;";
@@ -3177,9 +3205,40 @@
         return style;
     }
 
-    private void SelectWidget(Guid widgetId)
+    
+    private async Task OnCanvasClick(MouseEventArgs e)
     {
-        SelectedWidgetId = SelectedWidgetId == widgetId ? null : widgetId;
+        // If clicking empty canvas (not on a widget), clear selection
+        // This is called after widget's onclick if click was on widget, 
+        // so we check if click target was canvas
+        // JS will handle the actual clearing via widgetResize.clearSelection
+        // We clear Blazor-side as well
+        if (!e.CtrlKey && !e.ShiftKey && !e.MetaKey)
+        {
+            // Clear selection when clicking empty area
+            SelectedWidgetIds.Clear();
+            SelectedWidgetId = null;
+            await JS.InvokeVoidAsync("widgetResize.clearSelection");
+        }
+    }
+    private async Task SelectWidget(Guid widgetId, bool ctrlKey = false, bool shiftKey = false)
+    {
+        // Multi-select: Ctrl/Cmd or Shift toggles in set
+        if (ctrlKey || shiftKey)
+        {
+            if (SelectedWidgetIds.Contains(widgetId))
+                SelectedWidgetIds.Remove(widgetId);
+            else
+                SelectedWidgetIds.Add(widgetId);
+        }
+        else
+        {
+            // Normal click: clear set and select only this
+            SelectedWidgetIds.Clear();
+            SelectedWidgetIds.Add(widgetId);
+        }
+        await JS.InvokeVoidAsync("widgetResize.toggleSelection", widgetId.ToString(), ctrlKey || shiftKey);
+        SelectedWidgetId = widgetId;
     }
 
     private void RemoveWidget(Guid widgetId)
