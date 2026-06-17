@@ -51,8 +51,10 @@
             }
             else
             {
-                <div class="dashboard-canvas-grid" style="position: relative; min-height: calc(100vh - 120px);">
-                    @foreach (var widget in PlacedWidgets)
+                <div class="fullscreen-scale-wrap">
+                    <div class="fullscreen-design-layer" @ref="_designLayerRef"
+                         style="width: @(_designWidth)px; height: @(_designHeight)px; position: relative;">
+                        @foreach (var widget in PlacedWidgets)
                     {
                         _renderWidgetRefs.TryAdd(widget.Id, null);
                         var config = widget.Config;
@@ -88,6 +90,7 @@
                             </div>
                         </div>
                     }
+                    </div>
                 </div>
             }
         </div>
@@ -104,6 +107,10 @@
     private bool _positionsApplied;
     private bool _darkMode = false;
     private readonly Dictionary<Guid, RenderWidget?> _renderWidgetRefs = new();
+    private ElementReference _designLayerRef;
+    private int _designWidth = 1920;
+    private int _designHeight = 1080;
+    private bool _scaleApplied;
 
     private void ToggleDarkMode() => _darkMode = !_darkMode;
 
@@ -157,6 +164,12 @@
                     }
                 }
             }
+            // Compute design layer dimensions (bounding box of all widgets + padding)
+            if (PlacedWidgets.Count > 0)
+            {
+                _designWidth = PlacedWidgets.Max(w => w.X + w.Width) + 32;
+                _designHeight = PlacedWidgets.Max(w => w.Y + w.Height) + 32;
+            }
         }
         catch { }
         finally { Loading = false; }
@@ -176,6 +189,13 @@
             await JS.InvokeVoidAsync("widgetResize.applyAllWidgetPositions", (object)positions);
             _positionsApplied = true;
             StateHasChanged();
+        }
+        
+        // Apply scale-to-fit after positions are applied
+        if (_positionsApplied && !_scaleApplied && PlacedWidgets.Count > 0)
+        {
+            await JS.InvokeVoidAsync("viewerScale.init", _designLayerRef, _designWidth, _designHeight);
+            _scaleApplied = true;
         }
     }
 
@@ -272,5 +292,10 @@
     }
 
     private readonly CancellationTokenSource _cts = new();
-    public void Dispose() => _cts.Cancel();
+    public void Dispose()
+    {
+        _cts.Cancel();
+        // Clean up resize listener
+        _ = JS.InvokeVoidAsync("viewerScale.dispose");
+    }
 }

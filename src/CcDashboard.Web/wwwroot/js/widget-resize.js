@@ -759,3 +759,69 @@ window.widgetResize = {
         });
     }
 };
+
+
+// Viewer scale-to-fit (fullscreen viewer only, not editor)
+window.viewerScale = {
+    designEl: null,
+    designWidth: 0,
+    designHeight: 0,
+    _onResize: null,
+    
+    init: function (designEl, designWidth, designHeight) {
+        this.designEl = designEl;
+        this.designWidth = designWidth;
+        this.designHeight = designHeight;
+        
+        // Initial scale
+        this.applyScale();
+        
+        // Add resize listener
+        this._onResize = this.debounce(() => this.applyScale(), 100);
+        window.addEventListener('resize', this._onResize);
+    },
+    
+    applyScale: function () {
+        if (!this.designEl) return;
+        
+        // Get wrapper dimensions (parent of design layer)
+        const wrapEl = this.designEl.parentElement;
+        if (!wrapEl) return;
+        
+        const wrapW = wrapEl.clientWidth;
+        const wrapH = wrapEl.clientHeight;
+        
+        // Calculate scale (min to fit both dimensions)
+        const scaleX = wrapW / this.designWidth;
+        const scaleY = wrapH / this.designHeight;
+        const scale = Math.min(scaleX, scaleY);
+        
+        // Apply transform
+        this.designEl.style.transform = 'scale(' + scale + ')';
+        this.designEl.style.transformOrigin = 'top left';
+        
+        // Center the scaled content
+        const scaledWidth = this.designWidth * scale;
+        const scaledHeight = this.designHeight * scale;
+        const offsetX = Math.max(0, (wrapW - scaledWidth) / 2);
+        const offsetY = Math.max(0, (wrapH - scaledHeight) / 2);
+        this.designEl.style.marginLeft = offsetX + 'px';
+        this.designEl.style.marginTop = offsetY + 'px';
+    },
+    
+    debounce: function (fn, delay) {
+        let timer = null;
+        return function () {
+            clearTimeout(timer);
+            timer = setTimeout(fn, delay);
+        };
+    },
+    
+    dispose: function () {
+        if (this._onResize) {
+            window.removeEventListener('resize', this._onResize);
+            this._onResize = null;
+        }
+        this.designEl = null;
+    }
+};

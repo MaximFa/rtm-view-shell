@@ -2246,6 +2246,23 @@ button.clr-swatch,
     background-color: #F5F5F5;
 }
 
+/* Viewer scale-to-fit wrapper (T5) */
+.fullscreen-scale-wrap {
+    width: 100%;
+    height: calc(100vh - 80px);
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    position: relative;
+}
+
+.fullscreen-design-layer {
+    transform-origin: top left;
+    /* JS sets transform: scale(...) and margin for centering */
+}
+
+
 .fullscreen-canvas .dashboard-widget {
     position: absolute;
 }
