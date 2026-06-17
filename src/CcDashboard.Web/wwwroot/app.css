@@ -1483,6 +1483,22 @@ a:hover {
     border-color: var(--clr-primary);
     box-shadow: 0 0 0 2px var(--clr-primary-subtle);
 }
+/* Marquee (rubber-band) area selection */
+.widget-marquee {
+    position: absolute;
+    border: 2px dashed var(--clr-primary);
+    background-color: rgba(0, 102, 204, 0.08);
+    pointer-events: none;
+    z-index: 100;
+    box-sizing: border-box;
+}
+
+/* Candidate widget during marquee drag (dashed outline) */
+.dashboard-widget.marquee-candidate {
+    outline: 2px dashed var(--clr-primary);
+    outline-offset: 2px;
+}
+
 
 /* Header hidden mode - hide header, show toolbar on hover, drag from anywhere */
 .dashboard-widget.header-hidden {
@@ -2694,6 +2710,17 @@ button.clr-swatch,
     border-color: var(--clr-primary) !important;
     box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.3) !important;
 }
+
+/* Marquee - dark mode */
+.editor-fullscreen.dark-mode .widget-marquee {
+    border-color: #60A5FA;
+    background-color: rgba(96, 165, 250, 0.1);
+}
+
+.editor-fullscreen.dark-mode .dashboard-widget.marquee-candidate {
+    outline-color: #60A5FA;
+}
+
 
 .editor-fullscreen.dark-mode .widget-header {
     background-color: #2D2D2D !important;

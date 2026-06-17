@@ -16,6 +16,10 @@ window.widgetResize = {
     ALIGN_THRESHOLD: 6,      // Snap threshold in pixels
     SNAP_ENABLED: true,      // Enable snap-to-guide
     selectedWidgets: new Set(), // Multi-select: widget IDs currently selected
+    
+    // Marquee (rubber-band) selection state
+    marquee: null,           // { startX, startY, element, widgetRects, shiftKey }
+    MARQUEE_THRESHOLD: 5,    // px movement before a mousedown becomes a marquee (vs click)
 
     init: function (dotNetRef) {
         this.dotNetRef = dotNetRef;
@@ -81,6 +85,153 @@ window.widgetResize = {
     // Get all selected widget IDs
     getSelectedIds: function () {
         return Array.from(this.selectedWidgets);
+    },
+
+
+    // Start marquee selection on empty canvas mousedown
+    startMarquee: function (e, canvasElement) {
+        // Only start if mousedown was directly on canvas (not on a widget)
+        if (e.target !== canvasElement && !e.target.classList.contains('dashboard-canvas-grid')) return false;
+        
+        const canvasRect = canvasElement.getBoundingClientRect();
+        const startX = e.clientX - canvasRect.left;
+        const startY = e.clientY - canvasRect.top;
+        
+        // Create marquee element (hidden until threshold met)
+        const marqueeEl = document.createElement('div');
+        marqueeEl.className = 'widget-marquee';
+        marqueeEl.style.display = 'none';
+        canvasElement.appendChild(marqueeEl);
+        
+        // Cache widget rects for intersection testing
+        const widgetRects = [];
+        canvasElement.querySelectorAll('.dashboard-widget').forEach(w => {
+            const rect = w.getBoundingClientRect();
+            widgetRects.push({
+                id: w.dataset.widgetId,
+                element: w,
+                left: rect.left - canvasRect.left,
+                top: rect.top - canvasRect.top,
+                right: rect.right - canvasRect.left,
+                bottom: rect.bottom - canvasRect.top
+            });
+        });
+        
+        this.marquee = {
+            startX: startX,
+            startY: startY,
+            currentX: startX,
+            currentY: startY,
+            element: marqueeEl,
+            canvas: canvasElement,
+            canvasRect: canvasRect,
+            widgetRects: widgetRects,
+            shiftKey: e.shiftKey,
+            active: false  // becomes true after threshold
+        };
+        
+        document.body.style.userSelect = 'none';
+        return true;
+    },
+    
+    // Update marquee during drag
+    updateMarquee: function (e) {
+        if (!this.marquee) return;
+        
+        const canvasRect = this.marquee.canvasRect;
+        this.marquee.currentX = e.clientX - canvasRect.left;
+        this.marquee.currentY = e.clientY - canvasRect.top;
+        
+        const dx = Math.abs(this.marquee.currentX - this.marquee.startX);
+        const dy = Math.abs(this.marquee.currentY - this.marquee.startY);
+        
+        // Activate after threshold
+        if (!this.marquee.active && (dx > this.MARQUEE_THRESHOLD || dy > this.MARQUEE_THRESHOLD)) {
+            this.marquee.active = true;
+            this.marquee.element.style.display = 'block';
+        }
+        
+        if (!this.marquee.active) return;
+        
+        // Calculate rect (handle all drag directions)
+        const left = Math.min(this.marquee.startX, this.marquee.currentX);
+        const top = Math.min(this.marquee.startY, this.marquee.currentY);
+        const width = Math.abs(this.marquee.currentX - this.marquee.startX);
+        const height = Math.abs(this.marquee.currentY - this.marquee.startY);
+        
+        // Position the marquee element
+        this.marquee.element.style.left = left + 'px';
+        this.marquee.element.style.top = top + 'px';
+        this.marquee.element.style.width = width + 'px';
+        this.marquee.element.style.height = height + 'px';
+        
+        // Find intersecting widgets and mark as candidates
+        const marqueeRect = { left, top, right: left + width, bottom: top + height };
+        this.marquee.widgetRects.forEach(wr => {
+            const intersects = !(wr.right < marqueeRect.left || wr.left > marqueeRect.right ||
+                                 wr.bottom < marqueeRect.top || wr.top > marqueeRect.bottom);
+            if (intersects) {
+                wr.element.classList.add('marquee-candidate');
+            } else {
+                wr.element.classList.remove('marquee-candidate');
+            }
+        });
+    },
+    
+    // Finalize marquee selection
+    finalizeMarquee: function () {
+        if (!this.marquee) return null;
+        
+        const wasActive = this.marquee.active;
+        const shiftKey = this.marquee.shiftKey;
+        
+        // Calculate final rect
+        const left = Math.min(this.marquee.startX, this.marquee.currentX);
+        const top = Math.min(this.marquee.startY, this.marquee.currentY);
+        const width = Math.abs(this.marquee.currentX - this.marquee.startX);
+        const height = Math.abs(this.marquee.currentY - this.marquee.startY);
+        const marqueeRect = { left, top, right: left + width, bottom: top + height };
+        
+        // Collect selected widget IDs
+        const selectedIds = [];
+        this.marquee.widgetRects.forEach(wr => {
+            wr.element.classList.remove('marquee-candidate');
+            if (wasActive) {
+                const intersects = !(wr.right < marqueeRect.left || wr.left > marqueeRect.right ||
+                                     wr.bottom < marqueeRect.top || wr.top > marqueeRect.bottom);
+                if (intersects) {
+                    selectedIds.push(wr.id);
+                }
+            }
+        });
+        
+        // Remove marquee element
+        if (this.marquee.element && this.marquee.element.parentNode) {
+            this.marquee.element.parentNode.removeChild(this.marquee.element);
+        }
+        
+        // Update selection
+        if (wasActive && selectedIds.length > 0) {
+            if (shiftKey) {
+                // Add to existing selection
+                selectedIds.forEach(id => this.selectedWidgets.add(id));
+            } else {
+                // Replace selection
+                this.selectedWidgets.clear();
+                selectedIds.forEach(id => this.selectedWidgets.add(id));
+            }
+            this.updateSelectionClasses();
+        } else if (wasActive && selectedIds.length === 0 && !shiftKey) {
+            // Marquee dragged but nothing selected -> clear
+            this.selectedWidgets.clear();
+            this.updateSelectionClasses();
+        }
+        // If not active (was just a click, not a drag) -> handled by clearSelection in onclick
+        
+        document.body.style.userSelect = '';
+        const result = wasActive ? Array.from(this.selectedWidgets) : null;
+        this.marquee = null;
+        return result;
     },
 
     startResize: function (widgetId, handle, coords) {
@@ -261,6 +412,12 @@ window.widgetResize = {
     },
 
     onMouseMove: function (event) {
+        // Handle marquee selection
+        if (this.marquee) {
+            this.updateMarquee(event);
+            return;
+        }
+        
         // Handle modal operations
         if (this.activeModal) {
             const deltaX = event.clientX - this.startX;
@@ -363,6 +520,16 @@ window.widgetResize = {
     },
 
     onMouseUp: function (event) {
+        // Handle marquee selection finalize
+        if (this.marquee) {
+            const selectedIds = this.finalizeMarquee();
+            // Notify Blazor to sync SelectedWidgetIds
+            if (selectedIds !== null && this.dotNetRef) {
+                this.dotNetRef.invokeMethodAsync('OnMarqueeSelect', selectedIds);
+            }
+            return;
+        }
+        
         // Handle modal operations - keep modal-dragging class to maintain position
         if (this.activeModal) {
             document.body.style.cursor = '';
