@@ -53,6 +53,7 @@ Cardinal truths (source-pinned):
 - 2026-06-09 · L-SC-21 inbox migration missed -> lost directives; now permanent role mailboxes · SOURCE:1799534 · status: active
 - 2026-06-14 · mount false-M on db/*.sql (hash==HEAD) -> verify by git hash-object, not git status · SOURCE:coordinator_handoff.md · status: active
 - 2026-06-15 · L-SC-29 push-prompt without preflight shipped stale artefacts -> bake preflight into standing prompt · SOURCE:b618a14 · status: active
+- 2026-06-17 · status-review T1-T6: git-committed != product. T1 (9734252) object-store verified BUT BROKEN in prod — #1 .widget!=.dashboard-widget (no widget-to-widget guides), #2 onMouseUp missing hideGuides (stuck lines); T4 grid bg absent · RULE: status has TWO floors — object-store AND product; mark product-divergence per-item, committed!=works · SOURCE: 9734252, ScreenEditorPage.razor:190, widget-resize.js:onMouseUp · status: active
 
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Select-String -Path ".claude/skills/session-coord/session-coord.md" -Pattern "L-SC-" | Measure-Object` — expect count >20
