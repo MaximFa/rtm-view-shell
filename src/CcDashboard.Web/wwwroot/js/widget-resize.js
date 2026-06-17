@@ -99,7 +99,7 @@ window.widgetResize = {
         });
 
         // Other widgets
-        canvas.querySelectorAll('.widget').forEach(w => {
+        canvas.querySelectorAll('.dashboard-widget').forEach(w => {
             if (w === draggedWidget) return;
             const r = w.getBoundingClientRect();
             const cRect = canvas.getBoundingClientRect();
@@ -316,6 +316,7 @@ window.widgetResize = {
             }
         }
 
+        this.hideGuides();
         this.activeWidget = null;
         this.mode = null;
     },

@@ -53,6 +53,7 @@ Cardinal truths (source-pinned):
 - 2026-06-07 · dark-mode gaps in configurator modal (9 fields) — use generic .dark-mode input selector · SOURCE:5acf274, 60c01df · status: active
 - 2026-06-09 · F-1 metrics read-only — remove client create/edit/delete; vendor-deploy only · SOURCE:b7b20e4 · status: active
 - 2026-06-16 · F-A alignment guides: cache other widget rects at drag-start (not per-mousemove) to avoid O(n) layout thrash · SOURCE:9734252, widget-resize.js:cacheAlignTargets · status: active
+- 2026-06-17 · JS canvas selectors must match RENDERED class — widgets are .dashboard-widget not .widget (ScreenEditorPage.razor:190); wrong selector silently no-ops (drag works, feature dead). + always hideGuides() on drag-end or lines stick. · RULE: grep actual razor class before querySelectorAll; pair show-guide with drag-end hide. · SOURCE: widget-resize.js:102+onMouseUp; 9734252 broke, fixed THIS. · status: active
 
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path src\CcDashboard.Web\wwwroot\js\widget-resize.js` — must be True
