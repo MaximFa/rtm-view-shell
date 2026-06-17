@@ -25,8 +25,10 @@ window.widgetResize = {
         this.dotNetRef = dotNetRef;
         this._onMouseMove = this.onMouseMove.bind(this);
         this._onMouseUp = this.onMouseUp.bind(this);
+        this._onMouseDown = this.onMouseDown.bind(this);
         document.addEventListener('mousemove', this._onMouseMove);
         document.addEventListener('mouseup', this._onMouseUp);
+        document.addEventListener('mousedown', this._onMouseDown);
 
         // Create alignment guide lines (reusable, hidden by default)
         this.guideV = document.createElement('div');
@@ -39,6 +41,23 @@ window.widgetResize = {
             this.setupModalDragResize();
         });
         observer.observe(document.body, { childList: true, subtree: true });
+    },
+
+
+    // Handle mousedown for marquee start (real DOM event, not Blazor-routed)
+    onMouseDown: function (e) {
+        // Ignore if already in a mode (move/resize/modal)
+        if (this.activeWidget || this.activeModal || this.marquee) return;
+        
+        // Find canvas grid
+        const canvas = e.target.closest('.dashboard-canvas-grid');
+        if (!canvas) return;
+        
+        // Only start marquee if click is on empty canvas, NOT on a widget
+        if (e.target.closest('.dashboard-widget')) return;
+        
+        // Start marquee with real DOM event
+        this.startMarquee(e, canvas);
     },
 
     // Toggle widget in multi-selection (Ctrl/Cmd-click)
@@ -88,11 +107,8 @@ window.widgetResize = {
     },
 
 
-    // Start marquee selection on empty canvas mousedown
+    // Start marquee selection on empty canvas mousedown (called from real DOM listener)
     startMarquee: function (e, canvasElement) {
-        // Only start if mousedown was directly on canvas (not on a widget)
-        if (e.target !== canvasElement && !e.target.classList.contains('dashboard-canvas-grid')) return false;
-        
         const canvasRect = canvasElement.getBoundingClientRect();
         const startX = e.clientX - canvasRect.left;
         const startY = e.clientY - canvasRect.top;

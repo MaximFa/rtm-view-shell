@@ -188,9 +188,6 @@
                 </div>
             }
             <div class="dashboard-canvas-grid"
-                 @ref="_canvasRef"
-                 @onmousedown="OnCanvasMouseDown"
-                 @onmousedown:stopPropagation="false"
                  style="position: relative; min-height: calc(100vh - 60px); @(_positionsApplied || PlacedWidgets.Count == 0 ? "" : "visibility: hidden;")">
                 @foreach (var widget in PlacedWidgets)
                 {
@@ -2278,7 +2275,6 @@
     private Guid? SelectedWidgetId;
     private HashSet<Guid> SelectedWidgetIds = new(); // Multi-select set for group move
     private bool _suppressNextSelect = false; // Suppress SelectWidget after a group drag
-    private ElementReference _canvasRef; // Reference to canvas for marquee
 
     // Widget Configuration
     private PlacedWidget? ConfiguringWidget;
@@ -3242,12 +3238,6 @@
             SelectedWidgetId = null;
             await JS.InvokeVoidAsync("widgetResize.clearSelection");
         }
-    }
-
-    private async Task OnCanvasMouseDown(MouseEventArgs e)
-    {
-        // Start marquee selection on empty canvas mousedown
-        await JS.InvokeVoidAsync("widgetResize.startMarquee", new { clientX = e.ClientX, clientY = e.ClientY, shiftKey = e.ShiftKey, target = "canvas" }, _canvasRef);
     }
 
     private async Task SelectWidget(Guid widgetId, bool ctrlKey = false, bool shiftKey = false)
