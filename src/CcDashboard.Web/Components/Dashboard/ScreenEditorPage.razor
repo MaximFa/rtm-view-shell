@@ -191,7 +191,7 @@
                  style="position: relative; min-height: calc(100vh - 60px); @(_positionsApplied || PlacedWidgets.Count == 0 ? "" : "visibility: hidden;")">
                 @foreach (var widget in PlacedWidgets)
                 {
-                    <div class="dashboard-widget @(SelectedWidgetId == widget.Id ? "selected" : "") @(widget.Config?.HideHeader == true ? "header-hidden" : "")"
+                    <div class="dashboard-widget @(SelectedWidgetIds.Contains(widget.Id) ? "selected" : "") @(widget.Config?.HideHeader == true ? "header-hidden" : "")"
                          data-widget-id="@widget.Id"
                          style="@GetWidgetStyle(widget)"
                          @key="widget.Id"
@@ -2274,6 +2274,7 @@
     private WidgetCatalogItemDto? DraggedWidget;
     private Guid? SelectedWidgetId;
     private HashSet<Guid> SelectedWidgetIds = new(); // Multi-select set for group move
+    private bool _suppressNextSelect = false; // Suppress SelectWidget after a group drag
 
     // Widget Configuration
     private PlacedWidget? ConfiguringWidget;
@@ -3169,6 +3170,8 @@
     [JSInvokable]
     public void OnWidgetsMoved(List<WidgetMoveData> moves)
     {
+        // Set flag to suppress the click event that fires after mouseup on a group drag
+        _suppressNextSelect = true;
         foreach (var move in moves)
         {
             if (Guid.TryParse(move.Id, out var widgetId))
@@ -3223,6 +3226,12 @@
     }
     private async Task SelectWidget(Guid widgetId, bool ctrlKey = false, bool shiftKey = false)
     {
+        // Suppress selection after a group drag ended
+        if (_suppressNextSelect)
+        {
+            _suppressNextSelect = false;
+            return;
+        }
         // Multi-select: Ctrl/Cmd or Shift toggles in set
         if (ctrlKey || shiftKey)
         {
