@@ -795,5 +795,15 @@
   <data name="Metrics_DeployWarning"><value>פעולה זו תחיל את הגירת המדד ותפעיל הידור מחדש של RTM.</value></data>
   <data name="Metrics_MirrorPair"><value>זוג מראה</value></data>
   <data name="Metrics_MoreDeployed"><value>ועוד {0} מדדים פרוסים...</value></data>
+
+  <!-- ── Metrics Status Messages ── -->
+  <data name="Metrics_Status_CatalogMissing"><value>קובץ קטלוג המדדים עדיין לא הותקן בשרת זה — מציג מדדים ממסד הנתונים.</value></data>
+  <data name="Metrics_Status_LedgerMissing"><value>רשומת הפריסה לא זמינה. כל מדדי הקטלוג מוצגים כלא מותקנים.</value></data>
+  <data name="Metrics_Status_LoadFailed"><value>טעינת נתוני פריסה נכשלה: {0}</value></data>
+  <data name="Metrics_Status_RequiresSuperadmin"><value>הפריסה דורשת הרשאות סופר-אדמין.</value></data>
+  <data name="Metrics_Status_Deployed"><value>נפרס: {0}</value></data>
+  <data name="Metrics_Status_DeployError"><value>שגיאת פריסה: {0}</value></data>
+  <data name="Metrics_Status_RecompileSent"><value>קומפילציה נשלחה: {0}</value></data>
+  <data name="Metrics_Status_RecompileError"><value>שגיאת קומפילציה: {0}</value></data>
 </root>
 

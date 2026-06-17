@@ -954,5 +954,15 @@
   <data name="Metrics_DeployWarning"><value>This will apply the metric migration and trigger RTM recompilation.</value></data>
   <data name="Metrics_MirrorPair"><value>Mirror pair</value></data>
   <data name="Metrics_MoreDeployed"><value>and {0} more deployed metrics...</value></data>
+
+  <!-- ── Metrics Status Messages ── -->
+  <data name="Metrics_Status_CatalogMissing"><value>The metrics catalog file isn't deployed on this server yet — showing metrics from the database instead.</value></data>
+  <data name="Metrics_Status_LedgerMissing"><value>Deploy ledger not available. Showing all catalog metrics as undeployed.</value></data>
+  <data name="Metrics_Status_LoadFailed"><value>Failed to load deploy data: {0}</value></data>
+  <data name="Metrics_Status_RequiresSuperadmin"><value>Deploy requires Superadmin role.</value></data>
+  <data name="Metrics_Status_Deployed"><value>Deployed: {0}</value></data>
+  <data name="Metrics_Status_DeployError"><value>Deploy error: {0}</value></data>
+  <data name="Metrics_Status_RecompileSent"><value>Recompile sent: {0}</value></data>
+  <data name="Metrics_Status_RecompileError"><value>Recompile error: {0}</value></data>
 </root>
 

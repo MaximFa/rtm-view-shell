@@ -895,5 +895,15 @@
   <data name="Metrics_DeployWarning"><value>Это применит миграцию метрики и запустит перекомпиляцию RTM.</value></data>
   <data name="Metrics_MirrorPair"><value>Зеркальная пара</value></data>
   <data name="Metrics_MoreDeployed"><value>и ещё {0} развёрнутых метрик...</value></data>
+
+  <!-- ── Metrics Status Messages ── -->
+  <data name="Metrics_Status_CatalogMissing"><value>Файл каталога метрик ещё не развёрнут на этом сервере — показываем метрики из базы данных.</value></data>
+  <data name="Metrics_Status_LedgerMissing"><value>Реестр развёртывания недоступен. Все метрики каталога отображаются как неразвёрнутые.</value></data>
+  <data name="Metrics_Status_LoadFailed"><value>Не удалось загрузить данные развёртывания: {0}</value></data>
+  <data name="Metrics_Status_RequiresSuperadmin"><value>Развёртывание доступно только для роли Суперадмин.</value></data>
+  <data name="Metrics_Status_Deployed"><value>Развёрнуто: {0}</value></data>
+  <data name="Metrics_Status_DeployError"><value>Ошибка развёртывания: {0}</value></data>
+  <data name="Metrics_Status_RecompileSent"><value>Перекомпиляция отправлена: {0}</value></data>
+  <data name="Metrics_Status_RecompileError"><value>Ошибка перекомпиляции: {0}</value></data>
 </root>
 

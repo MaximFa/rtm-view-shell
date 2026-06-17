@@ -161,14 +161,14 @@ else if (ActiveTab == "deploy")
             {
                 <h6 class="mb-2">@L["Metrics_UndeployedSection"] <span class="badge bg-warning text-dark">@UndeployedMetrics.Count</span></h6>
                 <div class="table-responsive mb-4">
-                    <table class="table table-sm table-hover align-middle">
+                    <table class="table table-sm table-hover align-middle metrics-deploy-table">
                         <thead class="table-light">
                             <tr>
-                                <th style="width:25%">@L["Metrics_MetricId"]</th>
-                                <th style="width:25%">@L["Metrics_DisplayName"]</th>
-                                <th style="width:10%">@L["Metrics_Type"]</th>
-                                <th style="width:25%">@L["Metrics_Description"]</th>
-                                <th style="width:15%"></th>
+                                <th>@L["Metrics_MetricId"]</th>
+                                <th>@L["Metrics_DisplayName"]</th>
+                                <th>@L["Metrics_Type"]</th>
+                                <th>@L["Metrics_Description"]</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -203,14 +203,14 @@ else if (ActiveTab == "deploy")
             {
                 <h6 class="mb-2">@L["Metrics_DeployedSection"] <span class="badge bg-success">@DeployedMetrics.Count</span></h6>
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover align-middle">
+                    <table class="table table-sm table-hover align-middle metrics-deploy-table">
                         <thead class="table-light">
                             <tr>
-                                <th style="width:25%">@L["Metrics_MetricId"]</th>
-                                <th style="width:25%">@L["Metrics_DisplayName"]</th>
-                                <th style="width:10%">@L["Metrics_Type"]</th>
-                                <th style="width:25%">@L["Metrics_Description"]</th>
-                                <th style="width:15%"></th>
+                                <th>@L["Metrics_MetricId"]</th>
+                                <th>@L["Metrics_DisplayName"]</th>
+                                <th>@L["Metrics_Type"]</th>
+                                <th>@L["Metrics_Description"]</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -347,7 +347,7 @@ else if (ActiveTab == "deploy")
             }
             else
             {
-                DeployError = "Metrics catalog not found. Using database metrics as fallback.";
+                DeployError = L["Metrics_Status_CatalogMissing"];
                 foreach (var m in Metrics.Where(m => m.CatalogStatus == "active"))
                 {
                     catalogMetrics.Add(new CatalogMetric { MetricId = m.MetricId, DisplayName = m.DisplayName ?? m.Description, ShortDescription = m.ShortDescription, Status = m.CatalogStatus ?? "active" });
@@ -356,7 +356,7 @@ else if (ActiveTab == "deploy")
 
             IReadOnlySet<string> appliedIds;
             try { appliedIds = await LedgerReader.GetAppliedMetricIdsAsync(_cts.Token); }
-            catch { appliedIds = new HashSet<string>(); if (DeployError == null) DeployError = "Deploy ledger not available. Showing all catalog metrics as undeployed."; }
+            catch { appliedIds = new HashSet<string>(); if (DeployError == null) DeployError = L["Metrics_Status_LedgerMissing"]; }
 
             foreach (var m in catalogMetrics.Where(m => m.Status == "active"))
             {
@@ -366,7 +366,7 @@ else if (ActiveTab == "deploy")
                 else DeployedMetrics.Add(entry);
             }
         }
-        catch (Exception ex) { DeployError = $"Failed to load deploy data: {ex.Message}"; Logger.LogError(ex, "MetricsPage: failed to load deploy data"); }
+        catch (Exception ex) { DeployError = L["Metrics_Status_LoadFailed", ex.Message]; Logger.LogError(ex, "MetricsPage: failed to load deploy data"); }
         finally { DeployLoading = false; }
     }
 
@@ -387,7 +387,7 @@ else if (ActiveTab == "deploy")
 
         try
         {
-            if (CurrentUser.Role != "Superadmin") { DeployError = "Deploy requires Superadmin role."; return; }
+            if (CurrentUser.Role != "Superadmin") { DeployError = L["Metrics_Status_RequiresSuperadmin"]; return; }
 
             var request = new ApplyMetricsRequest { PackageRef = "shell-manual", MigrationRef = "manual-deploy", MetricIds = metricIds, TriggeredBy = userId };
             var response = await ApplyClient.ApplyAsync(request, _cts.Token);
@@ -401,11 +401,11 @@ else if (ActiveTab == "deploy")
             }
 
             Logger.LogInformation("MetricsPage: Deploy success for {MetricId}, appliedRtMetricIds=[{RtIds}], auditId={AuditId}", DeployTarget.MetricId, string.Join(", ", response.AppliedRtMetricIds ?? []), response.AuditId);
-            DeploySuccess = $"Deployed: {DeployTarget.DisplayName ?? DeployTarget.MetricId}";
+            DeploySuccess = L["Metrics_Status_Deployed", DeployTarget.DisplayName ?? DeployTarget.MetricId];
             if (response.Warnings?.Count > 0) DeploySuccess += $" (warnings: {string.Join("; ", response.Warnings)})";
             await LoadDeployDataAsync();
         }
-        catch (Exception ex) { DeployError = $"Deploy error: {ex.Message}"; Logger.LogError(ex, "MetricsPage: Deploy exception for {MetricId}", DeployTarget.MetricId); }
+        catch (Exception ex) { DeployError = L["Metrics_Status_DeployError", ex.Message]; Logger.LogError(ex, "MetricsPage: Deploy exception for {MetricId}", DeployTarget.MetricId); }
         finally { Deploying = false; DeployTarget = null; }
     }
 
@@ -422,10 +422,10 @@ else if (ActiveTab == "deploy")
         {
             if (!TenantContext.IsResolved) throw new InvalidOperationException("No tenant context");
             await RtmRelay.InvokeCompileMetricsAsync(TenantContext.TenantId, new[] { entry.MetricId }, _cts.Token);
-            DeploySuccess = $"Recompile sent: {entry.DisplayName ?? entry.MetricId}";
+            DeploySuccess = L["Metrics_Status_RecompileSent", entry.DisplayName ?? entry.MetricId];
             Logger.LogInformation("MetricsPage: Recompile success for {MetricId}", entry.MetricId);
         }
-        catch (Exception ex) { DeployError = $"Recompile error: {ex.Message}"; Logger.LogError(ex, "MetricsPage: Recompile exception for {MetricId}", entry.MetricId); }
+        catch (Exception ex) { DeployError = L["Metrics_Status_RecompileError", ex.Message]; Logger.LogError(ex, "MetricsPage: Recompile exception for {MetricId}", entry.MetricId); }
         finally { Deploying = false; }
     }
 

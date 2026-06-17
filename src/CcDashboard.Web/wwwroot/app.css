@@ -3190,3 +3190,24 @@ button.clr-swatch,
 .dark-mode .widget-align-guide.horizontal {
     background-color: var(--clr-primary);
 }
+
+/* Deploy-tab tables: fixed layout to prevent action-column overflow at 1280px */
+.metrics-deploy-table {
+    table-layout: fixed;
+    width: 100%;
+}
+.metrics-deploy-table th:nth-child(1),
+.metrics-deploy-table td:nth-child(1) { width: 22%; }
+.metrics-deploy-table th:nth-child(2),
+.metrics-deploy-table td:nth-child(2) { width: 22%; }
+.metrics-deploy-table th:nth-child(3),
+.metrics-deploy-table td:nth-child(3) { width: 10%; }
+.metrics-deploy-table th:nth-child(4),
+.metrics-deploy-table td:nth-child(4) { width: 28%; }
+.metrics-deploy-table th:nth-child(5),
+.metrics-deploy-table td:nth-child(5) { width: 18%; min-width: 100px; }
+.metrics-deploy-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
