@@ -5,7 +5,9 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject ICurrentUserAccessor CurrentUser
 @using MediatR
+@using CcDashboard.Domain.Interfaces
 @using Microsoft.Extensions.Localization
 @using CcDashboard.Application.Commands.Dashboards
 @using CcDashboard.Application.Queries.Dashboards
