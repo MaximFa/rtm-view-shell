@@ -81,6 +81,13 @@ window.widgetResize = {
         this.selectedWidgets.clear();
         this.updateSelectionClasses();
     },
+    
+    // Consume the marquee-just-finished flag (called by OnCanvasClick to skip trailing deselect)
+    consumeMarqueeFlag: function () {
+        const v = this._marqueeJustFinished === true;
+        this._marqueeJustFinished = false;
+        return v;
+    },
 
     // Update .selected class on all widgets
     updateSelectionClasses: function () {
@@ -247,6 +254,12 @@ window.widgetResize = {
         document.body.style.userSelect = '';
         const result = wasActive ? Array.from(this.selectedWidgets) : null;
         this.marquee = null;
+        
+        // Set flag to suppress the trailing click that follows mouseup
+        if (wasActive) {
+            this._marqueeJustFinished = true;
+        }
+        
         return result;
     },
 
@@ -699,6 +712,7 @@ window.widgetResize = {
     dispose: function () {
         if (this._onMouseMove) document.removeEventListener('mousemove', this._onMouseMove);
         if (this._onMouseUp) document.removeEventListener('mouseup', this._onMouseUp);
+        if (this._onMouseDown) document.removeEventListener('mousedown', this._onMouseDown);
         // Remove guide elements
         if (this.guideV && this.guideV.parentNode) this.guideV.parentNode.removeChild(this.guideV);
         if (this.guideH && this.guideH.parentNode) this.guideH.parentNode.removeChild(this.guideH);

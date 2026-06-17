@@ -3226,6 +3226,9 @@
     
     private async Task OnCanvasClick(MouseEventArgs e)
     {
+        // Skip clearing if this is the trailing click after a marquee selection
+        if (await JS.InvokeAsync<bool>("widgetResize.consumeMarqueeFlag")) return;
+        
         // If clicking empty canvas (not on a widget), clear selection
         // This is called after widget's onclick if click was on widget, 
         // so we check if click target was canvas
