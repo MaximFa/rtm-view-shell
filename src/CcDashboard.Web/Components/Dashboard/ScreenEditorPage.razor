@@ -97,6 +97,7 @@
             </div>
         </div>
 
+        <div class="editor-body">
         <!-- Slide-out Widget Palette -->
         <div class="editor-palette @(PaletteOpen ? "open" : "")">
             <div class="palette-header">
@@ -238,6 +239,7 @@
                     </div>
                 }
             </div>
+        </div>
         </div>
     }
 </div>
@@ -2255,7 +2257,12 @@
 
     // Fullscreen editor state
     private bool PaletteOpen = false;
-    private void TogglePalette() => PaletteOpen = !PaletteOpen;
+    private async Task TogglePalette()
+    {
+        PaletteOpen = !PaletteOpen;
+        var userId = CurrentUser?.UserId?.ToString() ?? "anon";
+        await JS.InvokeVoidAsync("localStorage.setItem", $"cc:screeneditor:palette:{userId}", PaletteOpen.ToString().ToLower());
+    }
     private void ToggleDarkMode() => _darkMode = !_darkMode;
 
     // Drag & Drop state

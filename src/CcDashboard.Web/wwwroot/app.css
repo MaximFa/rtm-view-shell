@@ -1444,6 +1444,14 @@ a:hover {
     width: 100%;
 }
 
+/* Editor canvas faint grid background (32px) - editor mode only */
+.editor-fullscreen .dashboard-canvas-grid {
+    background-image:
+        linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+}
+
 .dashboard-canvas-grid.viewer-mode {
     min-height: 500px;
     background: var(--clr-bg);
@@ -2454,29 +2462,28 @@ button.clr-swatch,
     color: rgba(255, 255, 255, 0.5);
 }
 
+/* Editor body flex container for palette + canvas in-flow layout */
+.editor-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
 .editor-palette {
-    position: fixed;
-    inset-block-start: 56px;
-    inset-block-end: 0;
-    inset-inline-start: 0;
-    width: 300px;
+    flex: 0 0 auto;
+    width: 0;
+    overflow: hidden;
     background-color: #FFFFFF;
     border-inline-end: 1px solid rgba(0, 0, 0, 0.1);
-    box-shadow: var(--shadow-lg);
-    z-index: 50;
     display: flex;
     flex-direction: column;
-    transform: translateX(-100%);
-    transition: transform var(--dur-slow) var(--ease-out);
+    transition: width var(--dur-slow) var(--ease-out);
 }
 
-/* RTL: slide from right */
-[dir="rtl"] .editor-palette {
-    transform: translateX(100%);
-}
+/* RTL: flex layout handles inline-start position automatically */
 
 .editor-palette.open {
-    transform: translateX(0);
+    width: 300px;
 }
 
 .palette-header {
@@ -2502,6 +2509,7 @@ button.clr-swatch,
 
 .editor-canvas {
     flex: 1;
+    min-width: 0;
     overflow: auto;
     padding: var(--sp-4);
     background-color: #F5F5F5;
@@ -2627,6 +2635,14 @@ button.clr-swatch,
 
 .editor-fullscreen.dark-mode .editor-canvas.drag-over {
     background-color: #1A3A5C !important;
+}
+
+/* Editor canvas grid - dark mode */
+.editor-fullscreen.dark-mode .dashboard-canvas-grid {
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
 }
 
 .editor-fullscreen.dark-mode .editor-palette {
