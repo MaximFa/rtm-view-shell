@@ -1507,6 +1507,18 @@ PostgreSQL + Redis) via ASP.NET Core Health Checks.
 copy new files -> `pg_basebackup` before migrations -> apply migrations -> start pools.
 Max downtime: 2 minutes.
 
+**[DEPLOY-16] Deploy discipline (lessons from 234+45, 2026-06-19):**
+- **MANDATORY Compare-ToBaseline before ANY deploy.** Never rely on memory; never reuse another
+  server's -MigrationList. The Compare yields the server-specific migration list AND catches drift.
+- **pg_dump as object owner (postgres)** for complete backup before applying migrations.
+- **Preserve operator config** across binary updates: appsettings.json + *.Production.json + data.sys.
+- **StrictMode @() wraps**: wrap Get-ChildItem/Split pipeline results in `@(...)` — single-item
+  returns a scalar whose `.Count` throws under `Set-StrictMode -Version Latest`.
+- **UTF-8 BOM + CRLF** for all PS1 files (§35) — box-draw/Cyrillic without BOM fails PS 5.1.
+- On ANY tool error mid-deploy: **STOP, do NOT improvise** — rollback from pg_dump backup.
+
+See role-skills for detail: `.claude/skills/role-devops/`, `.claude/skills/role-dba/`.
+
 ---
 
 ## 25. Code conventions and security checklist

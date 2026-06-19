@@ -46,6 +46,11 @@ Cardinal truths (source-pinned):
    Tool-success ≠ delivery; status tables from repo walk + git show HEAD:, not recall.
    · SOURCE: CLAUDE.md §0.1, discipline-lessons NORM-CUR-13, d3a91dc
 
+8. **MANDATORY Compare-ToBaseline before ANY deploy. Never rely on memory.**
+   Never apply migrations/binaries without FIRST running Compare-ToBaseline against THAT server.
+   Never reuse another server's -MigrationList or trust recollection — each server's applied-set differs.
+   · SOURCE: 234+45 deploys 2026-06-19; journal 2026-06-19
+
 ## §B LESSONS  (append-only · dated · source-pinned · status)
 - 2026-06-05 · run-1 push barrier: acks collected before freeze -> 3 re-acks · freeze first, acks after · SOURCE:a8ac25b · status: active
 - 2026-06-06 · 4 unpushed commits invisible to mount journal view -> L-SC-04 reconcile · journal=convenience,git=truth · SOURCE:7cf83cb · status: active
@@ -54,6 +59,7 @@ Cardinal truths (source-pinned):
 - 2026-06-14 · mount false-M on db/*.sql (hash==HEAD) -> verify by git hash-object, not git status · SOURCE:coordinator_handoff.md · status: active
 - 2026-06-15 · L-SC-29 push-prompt without preflight shipped stale artefacts -> bake preflight into standing prompt · SOURCE:b618a14 · status: active
 - 2026-06-17 · status-review T1-T6: git-committed != product. T1 (9734252) object-store verified BUT BROKEN in prod — #1 .widget!=.dashboard-widget (no widget-to-widget guides), #2 onMouseUp missing hideGuides (stuck lines); T4 grid bg absent · RULE: status has TWO floors — object-store AND product; mark product-divergence per-item, committed!=works · SOURCE: 9734252, ScreenEditorPage.razor:190, widget-resize.js:onMouseUp · status: active
+- 2026-06-19 · Anti-saga deploy discipline (worked on 234): stepwise via inbox; mandatory Compare gate BEFORE apply; pg_dump backup FIRST (FAIL-STOP); on ANY tool error mid-deploy -> STOP, do NOT improvise, rollback from pg_dump backup; config clobber -> restore from deploy binary-backup; verify EVERY specialist binding RESULT natively by object-store before greenlight. Zero data loss across 4 caught defects. · SOURCE: 234+45 full deploys 2026-06-19 · status: active
 
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Select-String -Path ".claude/skills/session-coord/session-coord.md" -Pattern "L-SC-" | Measure-Object` — expect count >20
