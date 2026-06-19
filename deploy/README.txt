@@ -69,15 +69,34 @@ UPDATE (existing installation)
   4. Run:
        powershell -ExecutionPolicy Bypass -File Update-RTMView.ps1
 
-     Optional:
-       -SkipShell    # Update RTM Service only
-       -SkipRTM      # Update Shell only
+     Optional parameters:
+       -SkipShell              # Update RTM Service only
+       -SkipRTM                # Update Shell only
+       -ForceDeploy            # Skip drift gate (E1) if you understand the drift
+       -MigrationList "m1,m2"  # Apply DB migrations (comma-separated, in order)
+       -DBApplyUser "user"     # Privileged user for migrations (if different)
+       -DBApplyPassword "pwd"  # Password for privileged user
+
+     Example with migrations:
+       powershell -ExecutionPolicy Bypass -File Update-RTMView.ps1 `
+         -DBPassword "YourPwd" `
+         -MigrationList "20260607_001_add_metric,20260608_002_fix_function"
 
   NOTE: The update script automatically:
     - Backs up current binaries to C:\RTMView\Backup\<timestamp>\
+    - Backs up the database via pg_dump (custom format .dump) BEFORE any changes
+    - Re-applies SQL functions (self-heals NGC procedures per RTM-SEC-002)
+    - Applies migrations in order (if -MigrationList specified)
     - Preserves appsettings.Production.json and data.sys
     - Replaces app.dat from the new package
     - Keeps the last 5 backups
+
+  PRIVILEGE NOTE for migrations:
+    Most migrations are idempotent (IF NOT EXISTS guards). Default apply user is
+    ccdashboard_user which has INSERT/UPDATE/DELETE on RTSGrid_Metric etc.
+    Structural migrations (ALTER TABLE, CREATE INDEX) need owner or superuser
+    privileges but are no-ops if the objects already exist. Use -DBApplyUser
+    for privileged operations if needed (consult DBA before running).
 
 
 SERVICE MANAGEMENT
