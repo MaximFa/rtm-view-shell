@@ -134,7 +134,7 @@ try {
     $env:PGPASSWORD = $null
 }
 
-$allBackups = Get-ChildItem $BackupRoot -Directory | Sort-Object Name
+$allBackups = @(Get-ChildItem $BackupRoot -Directory | Sort-Object Name)
 if ($allBackups.Count -gt $KeepBackups) {
     $toDelete = $allBackups | Select-Object -First ($allBackups.Count - $KeepBackups)
     foreach ($b in $toDelete) {
@@ -201,7 +201,7 @@ if ($MigrationList -and $MigrationList.Trim()) {
         }
 
         $migrationsDir = Join-Path $ScriptDir "db\migrations"
-        $migrations = $MigrationList.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        $migrations = @($MigrationList.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
         foreach ($mig in $migrations) {
             $migPath = Join-Path $migrationsDir ($mig + ".sql")
             if (-not (Test-Path $migPath)) {
