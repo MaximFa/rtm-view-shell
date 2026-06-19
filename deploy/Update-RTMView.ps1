@@ -230,7 +230,7 @@ Write-Host "[ 4/5 ] Deploying new files..." -ForegroundColor Cyan
 if (-not $SkipShell) {
     $srcShell = Join-Path $ScriptDir "Shell"
     if (Test-Path $srcShell) {
-        $preserveFiles = @("appsettings.Production.json", "nlog.config")
+        $preserveFiles = @("appsettings.json", "appsettings.Production.json", "nlog.config")
         $preserved = @{}
         foreach ($pf in $preserveFiles) {
             $existing = Join-Path $ShellDest $pf
