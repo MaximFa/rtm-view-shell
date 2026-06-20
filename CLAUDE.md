@@ -3149,3 +3149,19 @@ A single-domain pattern is NEVER promoted.
 **Template:** `.coord/protocols/role-skill-TEMPLATE.md`.
 
 *TZ version: 2.9 | CLAUDE.md last updated: 2026-06-15 (§45 Specialist Protocol vertical axis, NORM-CUR-11)*
+
+
+---
+
+## 46. Identity convention — external vs internal IDs (project-wide)
+
+**[IDENT-01]** Queues and Agents are **EXTERNAL** contact-centre (CC-platform) entities — always key them by their
+**external identifier** (e.g. `NGC_Queues.ExternalId`, `RTSData_*.UserId`/Workgroup). Never key agents on `ApplicationUser.Id`.
+
+**[IDENT-02]** System **users** (people who log into the Shell — Superadmin/Administrator/Editor/Viewer) are **INTERNAL** —
+keyed by `ApplicationUser.Id` (uuid). Report creators/owners/permissions (`user_reports`) use the internal uuid.
+
+**[IDENT-03]** Do not conflate **User** (internal Shell account) with **Agent** (external CC entity) — legacy tables confuse
+the two. When in doubt: agents/queues = external CC id, system users = internal uuid.
+
+*SOURCE: operator rule 2026-06-19 (Historical Reports B5).*
