@@ -25,5 +25,9 @@ public class TenantSettings
     public string? FontColorPalette { get; set; }        // JSON array of hex colors
     public string? FontSizes { get; set; }               // JSON array of font size options
 
+    // Historical Reports SL threshold (seconds) - per tenant, used by aggregation
+    // NULL = use default (20 sec). Caveat: changing after data accrues needs re-aggregation.
+    public int? SlThresholdSeconds { get; set; }
+
     public Tenant? Tenant { get; set; }
 }

@@ -142,6 +142,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IHistoricalReportRepository, HistoricalReportRepository>();
         services.AddScoped<IReportScopeResolver, ReportScopeResolver>();
         services.AddHostedService<HistoricalAggregationService>();
+        services.AddHostedService<ArchiverService>();
 
         // API hook (no-op until CC-platform API is available)
         services.AddScoped<IConfigurationApiHook, RtmConfigurationApiHook>();

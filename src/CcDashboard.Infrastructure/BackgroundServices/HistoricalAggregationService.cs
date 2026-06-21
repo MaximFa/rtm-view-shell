@@ -21,7 +21,9 @@ public class HistoricalAggregationService(
     ILogger<HistoricalAggregationService> logger) : BackgroundService
 {
     private const int IntervalMinutes = 30;
-    private const int SlThresholdSec = 20;
+    private const int DefaultSlThresholdSec = 20;
+    // Hold StatusId literal: deploy-smoke 234 confirms "Hold" string is used in StatusId column
+    // Graceful 0 handled if absent (no holds recorded).
     private static readonly TimeSpan StartupLookback = TimeSpan.FromHours(24);
     private static readonly TimeSpan PeriodicLookback = TimeSpan.FromHours(2);
     private static readonly TimeSpan PeriodicInterval = TimeSpan.FromHours(2);
@@ -92,18 +94,26 @@ public class HistoricalAggregationService(
         var beDb = scope.ServiceProvider.GetRequiredService<BackendEmulationDbContext>();
         var repo = scope.ServiceProvider.GetRequiredService<IHistoricalReportRepository>();
 
+        // Read per-tenant SL threshold (nullable, default 20 if null)
+        var tenantSettings = await appDb.TenantSettings
+            .AsNoTracking()
+            .Where(ts => ts.TenantId == tenantId)
+            .Select(ts => new { ts.SlThresholdSeconds })
+            .FirstOrDefaultAsync(ct);
+        var slThreshold = tenantSettings?.SlThresholdSeconds ?? DefaultSlThresholdSec;
+
         var fromBucket = FloorToInterval(from);
         var toBucket = FloorToInterval(to).AddMinutes(IntervalMinutes);
 
-        await AggregateQueueIntervalsAsync(tenantId, fromBucket, toBucket, appDb, beDb, repo, ct);
+        await AggregateQueueIntervalsAsync(tenantId, fromBucket, toBucket, slThreshold, appDb, beDb, repo, ct);
         await AggregateAgentIntervalsAsync(tenantId, fromBucket, toBucket, appDb, beDb, repo, ct);
         await repo.UpsertWatermarkAsync(tenantId, toBucket, ct);
 
-        logger.LogDebug("HistoricalAggregationService: tenant {TenantId} aggregated {From:O} to {To:O}", tenantId, fromBucket, toBucket);
+        logger.LogDebug("HistoricalAggregationService: tenant {TenantId} aggregated {From:O} to {To:O} (SL={Sl}s)", tenantId, fromBucket, toBucket, slThreshold);
     }
 
     private async Task AggregateQueueIntervalsAsync(
-        Guid tenantId, DateTime from, DateTime to,
+        Guid tenantId, DateTime from, DateTime to, int slThreshold,
         AppDbContext appDb, BackendEmulationDbContext beDb,
         IHistoricalReportRepository repo, CancellationToken ct)
     {
@@ -137,7 +147,7 @@ public class HistoricalAggregationService(
             var offered = g.Count();
             var answered = g.Count(i => i.IsAnswered == true);
             var abandoned = g.Count(i => i.IsAbandoned == true);
-            var answeredInSl = g.Count(i => i.IsAnswered == true && i.TimeInQueue.HasValue && i.TimeInQueue.Value <= SlThresholdSec);
+            var answeredInSl = g.Count(i => i.IsAnswered == true && i.TimeInQueue.HasValue && i.TimeInQueue.Value <= slThreshold);
             var sumWaitAnswered = g.Where(i => i.IsAnswered == true && i.TimeInQueue.HasValue).Sum(i => (long)i.TimeInQueue!.Value);
             var sumTalk = g.Where(i => i.IsAnswered == true && i.TalkTime.HasValue).Sum(i => (long)i.TalkTime!.Value);
 
@@ -204,6 +214,7 @@ public class HistoricalAggregationService(
         foreach (var g in statusLogsByAgent)
         {
             var sumAvailable = g.Where(s => s.StatusGroup == "AVAILABLE").Sum(s => s.Duration ?? 0);
+            // Hold StatusId check: deploy-smoke 234 confirms. Graceful 0 if absent.
             var sumOnphone = g.Where(s => s.StatusGroup == "ONPHONE").Sum(s => s.Duration ?? 0);
             var sumHold = g.Where(s => s.StatusGroup == "ONPHONE" && s.StatusId == "Hold").Sum(s => s.Duration ?? 0);
             var sumPaperwork = g.Where(s => s.StatusGroup == "PAPERWORK").Sum(s => s.Duration ?? 0);
