@@ -194,7 +194,19 @@ Write-Host "`n[A] SCHEMA COMPARISON" -ForegroundColor Yellow
 $ServerSchemaFile = [System.IO.Path]::GetTempFileName() + ".sql"
 & $pgdump -h $DBHost -p $DBPort -U $User -d $Database --schema-only --no-owner --no-acl --schema=public --schema=identity --schema=audit -f $ServerSchemaFile 2>$null
 
-$BaselineSchemaFile = Join-Path $DbDir "schema.sql"
+# R0d: Build combined baseline (schema.sql = tables, db/functions/* = routines)
+# This matches the actual rebuild order (schema.sql + functions/01..04).
+$BaselineSchemaFile = [System.IO.Path]::GetTempFileName() + ".sql"
+$schemaContent = Get-Content (Join-Path $DbDir "schema.sql") -Raw -ErrorAction SilentlyContinue
+$functionsDir = Join-Path $DbDir "functions"
+$functionsContent = ""
+if (Test-Path $functionsDir) {
+    foreach ($f in (Get-ChildItem $functionsDir -Filter "*.sql" | Sort-Object Name)) {
+        $functionsContent += "`n-- === $($f.Name) ===`n"
+        $functionsContent += (Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue)
+    }
+}
+[System.IO.File]::WriteAllText($BaselineSchemaFile, ($schemaContent + $functionsContent), [System.Text.UTF8Encoding]::new($false))
 
 function Normalize-Schema([string]$path) {
     $lines = Get-Content $path -ErrorAction SilentlyContinue
@@ -298,6 +310,7 @@ if ($SchemaDiffLines -eq 0) {
 }
 [void]$DeltaLines.Add("")
 Remove-Item $ServerSchemaFile -ErrorAction SilentlyContinue
+Remove-Item $BaselineSchemaFile -ErrorAction SilentlyContinue  # R0d: temp combined baseline
 
 # ====== DIMENSION B: ROUTINE KIND (E2: multi-overload aware) ======
 Write-Host "`n[B] ROUTINE KIND (prokind) -- CRITICAL" -ForegroundColor Yellow

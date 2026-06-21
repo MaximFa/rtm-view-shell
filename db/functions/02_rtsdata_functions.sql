@@ -491,6 +491,126 @@ LANGUAGE sql STABLE AS $$
     ORDER BY 1, 2;
 $$;
 
+
+-- ============================================================================
+-- 8. fn_daytrendinteractions — Queue-scoped interaction metrics for DayTrend widget
+--    Moved from schema.sql (R0d single-source)
+-- ============================================================================
+DROP FUNCTION IF EXISTS public.fn_daytrendinteractions(uuid, character varying, text[], integer);
+
+CREATE OR REPLACE FUNCTION public.fn_daytrendinteractions(
+    p_tenantid uuid, p_ondate character varying, p_queuelist text[], p_intervalmin integer)
+RETURNS TABLE(interval_start timestamp with time zone, metric_id text, value double precision)
+LANGUAGE sql STABLE AS $$
+    WITH base AS (
+        SELECT
+            DATE_TRUNC('hour', "InQueueDateTime") +
+                (FLOOR(EXTRACT(MINUTE FROM "InQueueDateTime") / p_intervalmin)
+                 * (p_intervalmin || ' minutes')::interval)  AS interval_start,
+            "InteractionType",
+            "Direction",
+            "CallType",
+            "IsAnswered",
+            "IsAbandoned",
+            "IsTransferred",
+            "IsCallbackRequest",
+            "IsInQueue",
+            "IsTalk",
+            "TimeInQueue",
+            "TalkTime"
+        FROM "RTSData_Interaction"
+        WHERE "TenantId"  = p_tenantid
+          AND "OnDate"    = p_ondate
+          AND "Workgroup" = ANY(p_queuelist)
+          AND "InQueueDateTime" IS NOT NULL
+    ),
+    agg AS (
+        SELECT
+            interval_start,
+            -- QueueNumIncomingOnlineCalls: Call + External + Incoming
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call'
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Incoming')                            AS incoming_calls,
+            -- QueueNumAnsweredCalls: Call + External + Incoming + IsAnswered
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call'
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Incoming'
+                               AND "IsAnswered"      = true)                                  AS answered_calls,
+            -- QueueNumAbandonedCalls: Call + External + Incoming + IsAbandoned + !IsCallbackRequest
+            COUNT(*) FILTER (WHERE "InteractionType"    = 'Call'
+                               AND "CallType"           = 'External'
+                               AND "Direction"          = 'Incoming'
+                               AND "IsAbandoned"        = true
+                               AND "IsCallbackRequest"  = false)                              AS abandoned_calls,
+            -- QueueNumCallbackRequests: IsCallbackRequest + Incoming + External
+            COUNT(*) FILTER (WHERE "IsCallbackRequest" = true
+                               AND "CallType"          = 'External'
+                               AND "Direction"         = 'Incoming')                          AS callback_requests,
+            -- QueueNumCompletedCallbacks: Callback + External + Outgoing + IsAnswered
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Callback'
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Outgoing'
+                               AND "IsAnswered"      = true)                                  AS completed_callbacks,
+            -- QueueNumOutboundCalls: Call + External + Outgoing
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call'
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Outgoing')                            AS outbound_calls,
+            -- QueueNumTransferredCalls: Call + External + Incoming + IsTransferred
+            COUNT(*) FILTER (WHERE "InteractionType" = 'Call'
+                               AND "CallType"        = 'External'
+                               AND "Direction"       = 'Incoming'
+                               AND "IsTransferred"   = true)                                  AS transferred_calls,
+            -- QueueAvgWaitTimeCalls: Call + External + Incoming + completed (!IsInQueue)
+            AVG("TimeInQueue") FILTER (WHERE "InteractionType" = 'Call'
+                                         AND "CallType"        = 'External'
+                                         AND "Direction"       = 'Incoming'
+                                         AND "IsInQueue"       = false
+                                         AND "IsAnswered"      = true)                        AS avg_wait_time,
+            -- QueueCurMaxWaitTimeCalls: Call + External + Incoming
+            MAX("TimeInQueue") FILTER (WHERE "InteractionType" = 'Call'
+                                         AND "CallType"        = 'External'
+                                         AND "Direction"       = 'Incoming'
+                                         AND "IsAnswered"      = true)                        AS max_wait_time,
+            -- QueueAvgTalkingDurationCalls: Call + External + Incoming + !IsTalk + !IsInQueue
+            AVG("TalkTime")    FILTER (WHERE "InteractionType" = 'Call'
+                                         AND "CallType"        = 'External'
+                                         AND "Direction"       = 'Incoming'
+                                         AND "IsAnswered"      = true
+                                         AND "IsTalk"          = false
+                                         AND "IsInQueue"       = false)                       AS avg_talk_time,
+            -- QueueAvgTimeToAbandCalls: Call + External + Incoming + !IsInQueue + IsAbandoned
+            AVG("TimeInQueue") FILTER (WHERE "InteractionType" = 'Call'
+                                         AND "CallType"        = 'External'
+                                         AND "Direction"       = 'Incoming'
+                                         AND "IsAbandoned"     = true
+                                         AND "IsInQueue"       = false)                       AS avg_abandon_wait
+        FROM base
+        GROUP BY interval_start
+    )
+    SELECT interval_start, 'interaction.incoming_calls',      incoming_calls::double precision      FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.answered_calls',      answered_calls::double precision      FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.abandoned_calls',     abandoned_calls::double precision     FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.callback_requests',   callback_requests::double precision   FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.completed_callbacks', completed_callbacks::double precision FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.outbound_calls',      outbound_calls::double precision      FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.transferred_calls',   transferred_calls::double precision   FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.avg_wait_time',       avg_wait_time                         FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.max_wait_time',       max_wait_time                         FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.avg_talk_time',       avg_talk_time                         FROM agg
+    UNION ALL
+    SELECT interval_start, 'interaction.avg_abandon_wait',    avg_abandon_wait                      FROM agg
+    ORDER BY 1, 2;
+$$;
+
 -- ============================================================================
 -- End of RTSData_* functions
 -- ============================================================================

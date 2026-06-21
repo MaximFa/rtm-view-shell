@@ -117,6 +117,8 @@ $rtmTables = @(
     @rtmTables `
     -f $schemaFile
 Write-Host "  schema.sql written (26 RTM tables)." -ForegroundColor Green
+# R0d: Functions are sourced from db/functions/* (single-source §39.1), NOT from pg_dump.
+# The -t whitelist exports tables only; functions are intentionally excluded from schema.sql.
 
 # ── 2. Data by category ───────────────────────────────────────────────────
 Write-Host "[ 2/3 ] Exporting data..." -ForegroundColor Cyan
