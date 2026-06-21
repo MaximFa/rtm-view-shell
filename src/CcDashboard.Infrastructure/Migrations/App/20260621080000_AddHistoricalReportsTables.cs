@@ -97,6 +97,9 @@ public partial class AddHistoricalReportsTables : Migration
             );
 
             -- DEFAULT partitions as safety net for any window not pre-created
+            -- OPS NOTE: if ensure_partitions lapses >window AND rows land in the DEFAULT partition for a month,
+            -- a later CREATE ... PARTITION OF ... FOR VALUES for that month will ERROR (PG won't auto-move DEFAULT
+            -- rows). Recovery: detach+drain the DEFAULT partition for that month before creating the monthly one.
             CREATE TABLE public.hist_queue_intervals_default
                 PARTITION OF public.hist_queue_intervals DEFAULT;
 
@@ -206,18 +209,10 @@ public partial class AddHistoricalReportsTables : Migration
                             RAISE NOTICE 'Dropped aged partition %', part_rec.partition_name;
                         END IF;
                     EXCEPTION WHEN OTHERS THEN
-                        -- Skip partitions with unexpected naming
-                        NULL;
+                        RAISE WARNING 'fn_hist_drop_aged: skipped partition % (%)', part_rec.partition_name, SQLERRM;
                     END;
                 END LOOP;
             END $$;
-            """);
-
-        // Self-record in db_patch_history (§38a)
-        migrationBuilder.Sql("""
-            INSERT INTO public.db_patch_history (migration_name)
-            VALUES ('20260621080000_AddHistoricalReportsTables')
-            ON CONFLICT (migration_name) DO NOTHING;
             """);
     }
 
@@ -230,8 +225,6 @@ public partial class AddHistoricalReportsTables : Migration
             DROP TABLE IF EXISTS public.user_reports;
             DROP TABLE IF EXISTS public.hist_agent_intervals CASCADE;
             DROP TABLE IF EXISTS public.hist_queue_intervals CASCADE;
-
-            DELETE FROM public.db_patch_history WHERE migration_name = '20260621080000_AddHistoricalReportsTables';
             """);
     }
 }
