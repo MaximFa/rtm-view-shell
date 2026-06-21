@@ -42,7 +42,10 @@ try
     var signalR = services.AddSignalR();
     if (!isDev)
         signalR.AddStackExchangeRedis(redisConn, opts =>
-            opts.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("CcDashboard"));
+        {
+            opts.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("CcDashboard");
+            opts.Configuration.AbortOnConnectFail = false;
+        });
 
     services.AddRazorComponents()
         .AddInteractiveServerComponents();
