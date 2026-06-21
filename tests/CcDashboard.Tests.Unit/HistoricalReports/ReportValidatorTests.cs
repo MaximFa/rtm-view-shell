@@ -72,4 +72,45 @@ public class ReportValidatorTests
         queueValidator.Validate(new GetQueueIntervalReportQuery(date, date)).IsValid.Should().BeTrue();
         agentValidator.Validate(new GetAgentMonthlyReportQuery(date, date)).IsValid.Should().BeTrue();
     }
+
+    [Fact]
+    public void QueueIntervalValidator_RejectsDateRangeOverCap()
+    {
+        var validator = new GetQueueIntervalReportQueryValidator();
+        var query = new GetQueueIntervalReportQuery(
+            DateTime.UtcNow.AddDays(-100),
+            DateTime.UtcNow);
+
+        var result = validator.Validate(query);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("92 days"));
+    }
+
+    [Fact]
+    public void QueueIntervalValidator_AcceptsDateRangeWithinCap()
+    {
+        var validator = new GetQueueIntervalReportQueryValidator();
+        var query = new GetQueueIntervalReportQuery(
+            DateTime.UtcNow.AddDays(-90),
+            DateTime.UtcNow);
+
+        var result = validator.Validate(query);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AgentMonthlyValidator_RejectsDateRangeOverCap()
+    {
+        var validator = new GetAgentMonthlyReportQueryValidator();
+        var query = new GetAgentMonthlyReportQuery(
+            DateTime.UtcNow.AddDays(-100),
+            DateTime.UtcNow);
+
+        var result = validator.Validate(query);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("92 days"));
+    }
 }

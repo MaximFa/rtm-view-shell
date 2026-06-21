@@ -5,8 +5,13 @@ using MediatR;
 
 namespace CcDashboard.Infrastructure.Handlers;
 
+/// <summary>
+/// SF-BI-001: All handlers use ReportScopeResolver to enforce PG-based filtering.
+/// Non-superadmin users can ONLY see data they have PG access to.
+/// </summary>
 public class GetQueueIntervalReportQueryHandler(
     IHistoricalReportRepository repo,
+    IReportScopeResolver scopeResolver,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetQueueIntervalReportQuery, QueueIntervalReportResult>
 {
@@ -14,8 +19,14 @@ public class GetQueueIntervalReportQueryHandler(
         GetQueueIntervalReportQuery query, CancellationToken ct)
     {
         var tenantId = currentUser.TenantId!.Value;
+        var scope = await scopeResolver.ResolveQueueScopeAsync(ct);
+        var effectiveWorkgroups = scope.IntersectWorkgroups(query.Workgroups);
+
+        if (!scope.FullScope && effectiveWorkgroups.Count == 0)
+            return new QueueIntervalReportResult([], 0, query.Page, query.PageSize);
+
         var intervals = await repo.GetQueueIntervalsAsync(
-            tenantId, query.From, query.To, query.Workgroups, ct);
+            tenantId, query.From, query.To, scope, effectiveWorkgroups, ct);
 
         var rows = intervals.Select(i => new QueueIntervalRow(
             i.IntervalStart,
@@ -45,6 +56,7 @@ public class GetQueueIntervalReportQueryHandler(
 
 public class GetQueueWaitTimeReportQueryHandler(
     IHistoricalReportRepository repo,
+    IReportScopeResolver scopeResolver,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetQueueWaitTimeReportQuery, QueueWaitTimeReportResult>
 {
@@ -52,8 +64,14 @@ public class GetQueueWaitTimeReportQueryHandler(
         GetQueueWaitTimeReportQuery query, CancellationToken ct)
     {
         var tenantId = currentUser.TenantId!.Value;
+        var scope = await scopeResolver.ResolveQueueScopeAsync(ct);
+        var effectiveWorkgroups = scope.IntersectWorkgroups(query.Workgroups);
+
+        if (!scope.FullScope && effectiveWorkgroups.Count == 0)
+            return new QueueWaitTimeReportResult([], 0, query.Page, query.PageSize, null);
+
         var intervals = await repo.GetQueueIntervalsAsync(
-            tenantId, query.From, query.To, query.Workgroups, ct);
+            tenantId, query.From, query.To, scope, effectiveWorkgroups, ct);
 
         var rows = intervals.Select(i => new QueueWaitTimeRow(
             i.IntervalStart,
@@ -81,6 +99,7 @@ public class GetQueueWaitTimeReportQueryHandler(
 
 public class GetAgentMonthlyReportQueryHandler(
     IHistoricalReportRepository repo,
+    IReportScopeResolver scopeResolver,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetAgentMonthlyReportQuery, AgentMonthlyReportResult>
 {
@@ -88,8 +107,14 @@ public class GetAgentMonthlyReportQueryHandler(
         GetAgentMonthlyReportQuery query, CancellationToken ct)
     {
         var tenantId = currentUser.TenantId!.Value;
+        var scope = await scopeResolver.ResolveAgentScopeAsync(ct);
+        var effectiveAgents = scope.IntersectAgents(query.AgentExternalIds);
+
+        if (!scope.FullScope && effectiveAgents.Count == 0)
+            return new AgentMonthlyReportResult([], 0, query.Page, query.PageSize);
+
         var intervals = await repo.GetAgentIntervalsAsync(
-            tenantId, query.From, query.To, query.AgentExternalIds, ct);
+            tenantId, query.From, query.To, scope, effectiveAgents, ct);
 
         var rows = intervals
             .GroupBy(x => new { YearMonth = x.IntervalStart.ToString("yyyy-MM"), x.AgentExternalId })
@@ -142,6 +167,7 @@ public class GetAgentMonthlyReportQueryHandler(
 
 public class GetAgentShiftDetailReportQueryHandler(
     IHistoricalReportRepository repo,
+    IReportScopeResolver scopeResolver,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetAgentShiftDetailReportQuery, AgentShiftDetailReportResult>
 {
@@ -149,8 +175,14 @@ public class GetAgentShiftDetailReportQueryHandler(
         GetAgentShiftDetailReportQuery query, CancellationToken ct)
     {
         var tenantId = currentUser.TenantId!.Value;
+        var scope = await scopeResolver.ResolveAgentScopeAsync(ct);
+        var effectiveAgents = scope.IntersectAgents(query.AgentExternalIds);
+
+        if (!scope.FullScope && effectiveAgents.Count == 0)
+            return new AgentShiftDetailReportResult([], 0, query.Page, query.PageSize);
+
         var intervals = await repo.GetAgentIntervalsAsync(
-            tenantId, query.From, query.To, query.AgentExternalIds, ct);
+            tenantId, query.From, query.To, scope, effectiveAgents, ct);
 
         var rows = intervals.Select(i =>
         {

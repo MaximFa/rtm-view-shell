@@ -140,6 +140,7 @@ public static class InfrastructureServiceExtensions
 
         // Historical Reports (CC-HIST-001)
         services.AddScoped<IHistoricalReportRepository, HistoricalReportRepository>();
+        services.AddScoped<IReportScopeResolver, ReportScopeResolver>();
         services.AddHostedService<HistoricalAggregationService>();
 
         // API hook (no-op until CC-platform API is available)

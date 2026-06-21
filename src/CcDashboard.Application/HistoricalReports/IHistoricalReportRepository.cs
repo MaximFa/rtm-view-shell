@@ -4,24 +4,32 @@ namespace CcDashboard.Application.HistoricalReports;
 
 /// <summary>
 /// Repository interface for historical reports data access.
-/// All reads are AsNoTracking. PG queue-filter applied in repository (role-bi §A#3).
+/// All reads are AsNoTracking. SF-BI-001: PG scope is MANDATORY on all query methods.
 /// </summary>
 public interface IHistoricalReportRepository
 {
-    /// <summary>Get queue intervals for a date range, optionally filtered by queues.</summary>
+    /// <summary>
+    /// Get queue intervals for a date range with mandatory PG scope.
+    /// SF-BI-001: workgroups filter is ALWAYS applied for non-FullScope.
+    /// </summary>
     Task<IReadOnlyList<HistQueueInterval>> GetQueueIntervalsAsync(
         Guid tenantId,
         DateTime from,
         DateTime to,
-        IReadOnlyList<string>? workgroups,
+        ReportScope scope,
+        IReadOnlySet<string> effectiveWorkgroups,
         CancellationToken ct);
 
-    /// <summary>Get agent intervals for a date range, optionally filtered by agents.</summary>
+    /// <summary>
+    /// Get agent intervals for a date range with mandatory PG scope.
+    /// SF-BI-001: agent filter is ALWAYS applied for non-FullScope.
+    /// </summary>
     Task<IReadOnlyList<HistAgentInterval>> GetAgentIntervalsAsync(
         Guid tenantId,
         DateTime from,
         DateTime to,
-        IReadOnlyList<string>? agentExternalIds,
+        ReportScope scope,
+        IReadOnlySet<string> effectiveAgentIds,
         CancellationToken ct);
 
     /// <summary>Get watermark for a tenant (aggregation progress).</summary>

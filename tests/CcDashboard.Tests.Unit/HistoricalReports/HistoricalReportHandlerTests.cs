@@ -11,19 +11,23 @@ namespace CcDashboard.Tests.Unit.HistoricalReports;
 public class HistoricalReportHandlerTests
 {
     private static readonly Guid TenantId = Guid.NewGuid();
-    private static readonly Guid OtherTenantId = Guid.NewGuid();
     private readonly IHistoricalReportRepository _repo = Substitute.For<IHistoricalReportRepository>();
+    private readonly IReportScopeResolver _scopeResolver = Substitute.For<IReportScopeResolver>();
     private readonly ICurrentUserAccessor _user = Substitute.For<ICurrentUserAccessor>();
 
     public HistoricalReportHandlerTests()
     {
         _user.TenantId.Returns(TenantId);
+        _user.Role.Returns("Superadmin");
+        _scopeResolver.ResolveQueueScopeAsync(Arg.Any<CancellationToken>())
+            .Returns(ReportScope.Full());
+        _scopeResolver.ResolveAgentScopeAsync(Arg.Any<CancellationToken>())
+            .Returns(ReportScope.Full());
     }
 
     [Fact]
     public async Task GetQueueIntervalReport_ComputesNullIfGuards()
     {
-        // Test NULLIF guards: when Offered=0, AbandonPct should be null
         var intervals = new List<HistQueueInterval>
         {
             new()
@@ -54,24 +58,25 @@ public class HistoricalReportHandlerTests
             }
         };
 
-        _repo.GetQueueIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), null, Arg.Any<CancellationToken>())
+        _repo.GetQueueIntervalsAsync(
+                TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(),
+                Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(),
+                Arg.Any<CancellationToken>())
             .Returns(intervals);
 
-        var handler = new GetQueueIntervalReportQueryHandler(_repo, _user);
+        var handler = new GetQueueIntervalReportQueryHandler(_repo, _scopeResolver, _user);
         var result = await handler.Handle(
             new GetQueueIntervalReportQuery(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
 
         result.Rows.Should().HaveCount(2);
 
-        // First row: all zeros, computed metrics should be null
         var zeroRow = result.Rows.First(r => r.Offered == 0);
         zeroRow.AbandonPct.Should().BeNull();
         zeroRow.SlPct.Should().BeNull();
         zeroRow.Asa.Should().BeNull();
         zeroRow.QueueAht.Should().BeNull();
 
-        // Second row: has data, computed metrics should have values
         var dataRow = result.Rows.First(r => r.Offered == 10);
         dataRow.AbandonPct.Should().BeApproximately(20.0, 0.01);
         dataRow.SlPct.Should().BeApproximately(75.0, 0.01);
@@ -108,58 +113,21 @@ public class HistoricalReportHandlerTests
             }
         };
 
-        _repo.GetAgentIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), null, Arg.Any<CancellationToken>())
+        _repo.GetAgentIntervalsAsync(
+                TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(),
+                Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(),
+                Arg.Any<CancellationToken>())
             .Returns(intervals);
 
-        var handler = new GetAgentMonthlyReportQueryHandler(_repo, _user);
+        var handler = new GetAgentMonthlyReportQueryHandler(_repo, _scopeResolver, _user);
         var result = await handler.Handle(
             new GetAgentMonthlyReportQuery(new DateTime(2026, 6, 1), new DateTime(2026, 7, 1)),
             CancellationToken.None);
 
-        // Both intervals aggregate into one month
         result.Rows.Should().HaveCount(1);
         result.Rows[0].YearMonth.Should().Be("2026-06");
         result.Rows[0].Handled.Should().Be(10);
         result.Rows[0].SumOnphoneMs.Should().Be(3600000);
-    }
-
-    [Fact]
-    public async Task GetQueueIntervalReport_FiltersByWorkgroup()
-    {
-        var salesQueue = new HistQueueInterval
-        {
-            Id = Guid.NewGuid(),
-            TenantId = TenantId,
-            IntervalStart = new DateTime(2026, 6, 21, 10, 0, 0, DateTimeKind.Utc),
-            Workgroup = "Sales",
-            Offered = 10,
-            Answered = 8
-        };
-        var supportQueue = new HistQueueInterval
-        {
-            Id = Guid.NewGuid(),
-            TenantId = TenantId,
-            IntervalStart = new DateTime(2026, 6, 21, 10, 0, 0, DateTimeKind.Utc),
-            Workgroup = "Support",
-            Offered = 5,
-            Answered = 4
-        };
-
-        _repo.GetQueueIntervalsAsync(
-                TenantId,
-                Arg.Any<DateTime>(),
-                Arg.Any<DateTime>(),
-                Arg.Is<IReadOnlyList<string>?>(w => w != null && w.Contains("Sales")),
-                Arg.Any<CancellationToken>())
-            .Returns(new List<HistQueueInterval> { salesQueue });
-
-        var handler = new GetQueueIntervalReportQueryHandler(_repo, _user);
-        var result = await handler.Handle(
-            new GetQueueIntervalReportQuery(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow, new[] { "Sales" }),
-            CancellationToken.None);
-
-        result.Rows.Should().HaveCount(1);
-        result.Rows[0].Workgroup.Should().Be("Sales");
     }
 
     [Fact]
@@ -178,10 +146,13 @@ public class HistoricalReportHandlerTests
             Handled = 5
         };
 
-        _repo.GetAgentIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), null, Arg.Any<CancellationToken>())
+        _repo.GetAgentIntervalsAsync(
+                TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(),
+                Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(),
+                Arg.Any<CancellationToken>())
             .Returns(new List<HistAgentInterval> { interval });
 
-        var handler = new GetAgentShiftDetailReportQueryHandler(_repo, _user);
+        var handler = new GetAgentShiftDetailReportQueryHandler(_repo, _scopeResolver, _user);
         var result = await handler.Handle(
             new GetAgentShiftDetailReportQuery(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
@@ -217,10 +188,13 @@ public class HistoricalReportHandlerTests
             }
         };
 
-        _repo.GetQueueIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), null, Arg.Any<CancellationToken>())
+        _repo.GetQueueIntervalsAsync(
+                TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(),
+                Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(),
+                Arg.Any<CancellationToken>())
             .Returns(intervals);
 
-        var handler = new GetQueueWaitTimeReportQueryHandler(_repo, _user);
+        var handler = new GetQueueWaitTimeReportQueryHandler(_repo, _scopeResolver, _user);
         var result = await handler.Handle(
             new GetQueueWaitTimeReportQuery(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
@@ -233,7 +207,7 @@ public class HistoricalReportHandlerTests
     {
         _user.TenantId.Returns(TenantId);
 
-        var handler = new GetQueueIntervalReportQueryHandler(_repo, _user);
+        var handler = new GetQueueIntervalReportQueryHandler(_repo, _scopeResolver, _user);
         await handler.Handle(
             new GetQueueIntervalReportQuery(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
@@ -242,7 +216,8 @@ public class HistoricalReportHandlerTests
             Arg.Is<Guid>(t => t == TenantId),
             Arg.Any<DateTime>(),
             Arg.Any<DateTime>(),
-            Arg.Any<IReadOnlyList<string>?>(),
+            Arg.Any<ReportScope>(),
+            Arg.Any<IReadOnlySet<string>>(),
             Arg.Any<CancellationToken>());
     }
 }

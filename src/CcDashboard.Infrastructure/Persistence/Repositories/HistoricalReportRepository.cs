@@ -4,13 +4,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CcDashboard.Infrastructure.Persistence.Repositories;
 
+/// <summary>
+/// SF-BI-001: Repository with MANDATORY scope filtering.
+/// Non-FullScope queries ALWAYS filter by the provided scope - no bypass possible.
+/// </summary>
 public class HistoricalReportRepository(AppDbContext db) : IHistoricalReportRepository
 {
     public async Task<IReadOnlyList<HistQueueInterval>> GetQueueIntervalsAsync(
         Guid tenantId,
         DateTime from,
         DateTime to,
-        IReadOnlyList<string>? workgroups,
+        ReportScope scope,
+        IReadOnlySet<string> effectiveWorkgroups,
         CancellationToken ct)
     {
         var query = db.HistQueueIntervals
@@ -20,8 +25,17 @@ public class HistoricalReportRepository(AppDbContext db) : IHistoricalReportRepo
                      && x.IntervalStart >= from
                      && x.IntervalStart < to);
 
-        if (workgroups is { Count: > 0 })
-            query = query.Where(x => workgroups.Contains(x.Workgroup));
+        if (!scope.FullScope)
+        {
+            if (effectiveWorkgroups.Count == 0)
+                return Array.Empty<HistQueueInterval>();
+
+            query = query.Where(x => effectiveWorkgroups.Contains(x.Workgroup));
+        }
+        else if (effectiveWorkgroups.Count > 0)
+        {
+            query = query.Where(x => effectiveWorkgroups.Contains(x.Workgroup));
+        }
 
         return await query
             .OrderBy(x => x.IntervalStart)
@@ -33,7 +47,8 @@ public class HistoricalReportRepository(AppDbContext db) : IHistoricalReportRepo
         Guid tenantId,
         DateTime from,
         DateTime to,
-        IReadOnlyList<string>? agentExternalIds,
+        ReportScope scope,
+        IReadOnlySet<string> effectiveAgentIds,
         CancellationToken ct)
     {
         var query = db.HistAgentIntervals
@@ -43,8 +58,17 @@ public class HistoricalReportRepository(AppDbContext db) : IHistoricalReportRepo
                      && x.IntervalStart >= from
                      && x.IntervalStart < to);
 
-        if (agentExternalIds is { Count: > 0 })
-            query = query.Where(x => agentExternalIds.Contains(x.AgentExternalId));
+        if (!scope.FullScope)
+        {
+            if (effectiveAgentIds.Count == 0)
+                return Array.Empty<HistAgentInterval>();
+
+            query = query.Where(x => effectiveAgentIds.Contains(x.AgentExternalId));
+        }
+        else if (effectiveAgentIds.Count > 0)
+        {
+            query = query.Where(x => effectiveAgentIds.Contains(x.AgentExternalId));
+        }
 
         return await query
             .OrderBy(x => x.IntervalStart)

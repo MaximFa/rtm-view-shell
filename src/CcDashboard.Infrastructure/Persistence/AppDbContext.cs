@@ -372,8 +372,9 @@ public class AppDbContext(
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
             e.Property(x => x.Description).HasMaxLength(500);
             e.Property(x => x.Config).HasColumnType("jsonb");
-            e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
-            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+            e.Property(x => x.IsDeleted).HasDefaultValue(false);
+            e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique().HasFilter("\"IsDeleted\" = false");
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId && !x.IsDeleted);
         });
 
         mb.Entity<HistAggregationWatermark>(e =>
