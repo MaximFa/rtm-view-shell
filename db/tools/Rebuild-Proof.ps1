@@ -46,8 +46,8 @@ $DbDir        = Join-Path $RepoRoot "db"
 $SchemaFile   = Join-Path $DbDir "schema.sql"
 $FunctionsDir = Join-Path $DbDir "functions"
 $DataDir      = Join-Path $DbDir "data"
-$SetupSql     = Join-Path $DbDir "setup" "01_init_db.sql"
-$CompareTool  = Join-Path $DbDir "tools" "Compare-ToBaseline.ps1"
+$SetupSql     = Join-Path (Join-Path $DbDir "setup") "01_init_db.sql"
+$CompareTool  = Join-Path (Join-Path $DbDir "tools") "Compare-ToBaseline.ps1"
 $TmpSql       = [System.IO.Path]::GetTempFileName() + ".sql"
 
 function Find-PGTool([string]$Name) {
