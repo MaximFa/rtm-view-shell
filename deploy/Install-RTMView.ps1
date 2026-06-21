@@ -180,6 +180,20 @@ if ($SkipMemurai -or -not $InstallRTM) {
     }
 }
 
+# Harden Memurai service: auto-start at boot + auto-restart on failure (INC-2026.06.20-001 resilience)
+$memSvc = Get-Service -Name "Memurai" -ErrorAction SilentlyContinue
+if ($memSvc) {
+    try {
+        Set-Service -Name "Memurai" -StartupType Automatic -ErrorAction Stop
+        # Recovery: restart after 5s, 10s, then 60s; reset failure count daily
+        & sc.exe failure "Memurai" reset= 86400 actions= restart/5000/restart/10000/restart/60000 | Out-Null
+        & sc.exe failureflag "Memurai" 1 | Out-Null
+        Write-Host "  Memurai resilience: StartupType=Automatic, recovery=auto-restart" -ForegroundColor Green
+    } catch {
+        Write-Host "  [WARN] Could not set Memurai resilience: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
 # ── [3/6] Stop existing services ─────────────────────────────────────────────
 Write-Host ""
 Write-Host "[ 3/6 ] Stopping existing services..." -ForegroundColor Cyan

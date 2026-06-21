@@ -130,6 +130,21 @@ DATABASE
     psql -h localhost -U postgres -d rtmviewdb -f DB\rtmviewdb_DDMMYYYY.sql
 
 
+MONITORING
+------------
+  Health endpoints (Shell):
+    GET /health        Liveness check (always 200 if process is up)
+    GET /health/ready  Readiness check (includes Redis/PostgreSQL connectivity)
+
+  Alert on non-200 from /health/ready — indicates Redis or DB down.
+  Example monitoring command:
+    curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/health/ready
+    (should return 200; 503 = dependency unhealthy)
+
+  If Redis/Memurai crashes, the Shell continues serving cached data but SignalR
+  backplane degrades. Memurai is configured to auto-restart on failure (Install-RTMView.ps1).
+
+
 TROUBLESHOOTING
 -----------------
   Service fails to start:
