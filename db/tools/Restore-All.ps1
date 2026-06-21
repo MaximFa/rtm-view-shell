@@ -18,6 +18,8 @@ param(
     [switch]$DropAndRecreate
 )
 $ErrorActionPreference = "Stop"
+# R0c fix: Set UTF-8 encoding for psql to avoid WIN1252 byte-sequence errors
+$env:PGCLIENTENCODING = "UTF8"
 $ScriptDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot     = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 $DbDir        = Join-Path $RepoRoot "db"
@@ -50,7 +52,7 @@ Write-Host ""
 if ($SuperPassword) { $env:PGPASSWORD = $SuperPassword }
 
 function Run-Super([string]$sql, [string]$db = "postgres") {
-    Set-Content -Path $TmpSql -Value $sql -Encoding UTF8
+    [System.IO.File]::WriteAllText($TmpSql, $sql, (New-Object System.Text.UTF8Encoding($false)))
     & $psql -h $DBHost -p $DBPort -U $SuperUser -d $db -f $TmpSql 2>&1 | Out-Null
 }
 
@@ -102,11 +104,16 @@ BEGIN
     LOOP
         EXECUTE 'ALTER FUNCTION ' || quote_ident(r.s) || '.' || quote_ident(r.n) || '(' || r.a || ') OWNER TO ccdashboard_user';
     END LOOP;
-    ALTER SCHEMA identity OWNER TO ccdashboard_user;
-    ALTER SCHEMA audit OWNER TO ccdashboard_user;
+    -- Conditionally set schema ownership (schemas may not exist if RTM-only restore)
+    IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'identity') THEN
+        ALTER SCHEMA identity OWNER TO ccdashboard_user;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'audit') THEN
+        ALTER SCHEMA audit OWNER TO ccdashboard_user;
+    END IF;
 END $body$;
 '@
-    Set-Content -Path $TmpSql -Value $ownerSql -Encoding UTF8
+    [System.IO.File]::WriteAllText($TmpSql, $ownerSql, (New-Object System.Text.UTF8Encoding($false)))
     & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -f $TmpSql -q
     Write-Host "  Ownership transferred to $AppUser." -ForegroundColor Green
 } else { Write-Host "  schema.sql not found." -ForegroundColor Yellow }
@@ -121,7 +128,7 @@ foreach ($f in @("01_ngc_functions.sql","02_rtsdata_functions.sql","03_rtsgrid_r
     }
 }
 
-# ── Step 4: Data (as superuser, no session_replication_role needed) ───────
+# ── Step 4: Data (RTM-only post-R0c — app data seeded by Web.exe migrate) ───────
 Write-Host "" ; Write-Host "[ 4/5 ] Applying data..." -ForegroundColor Cyan
 foreach ($f in (Get-ChildItem $DataDir -Filter "*.sql" | Sort-Object Name)) {
     & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -f $f.FullName -q
@@ -148,26 +155,33 @@ BEGIN
   END LOOP;
 END $$;
 '@
-Set-Content -Path $TmpSql -Value $seqResyncSql -Encoding UTF8
+[System.IO.File]::WriteAllText($TmpSql, $seqResyncSql, (New-Object System.Text.UTF8Encoding($false)))
 & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -f $TmpSql -q
 Write-Host "  [E3] sequences resynced." -ForegroundColor Green
 
 # ── Grant app user access ────────────────────────────────────────────────
 Write-Host "" ; Write-Host "[  +  ] Granting access to $AppUser..." -ForegroundColor Cyan
+# RTM-only grants (identity/audit may not exist without Web.exe migrate)
 $grantSql = @"
 GRANT USAGE ON SCHEMA public TO $AppUser;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $AppUser;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $AppUser;
 GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO $AppUser;
-GRANT USAGE ON SCHEMA identity TO $AppUser;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA identity TO $AppUser;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA identity TO $AppUser;
-GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA identity TO $AppUser;
-GRANT USAGE ON SCHEMA audit TO $AppUser;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA audit TO $AppUser;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA audit TO $AppUser;
-ALTER SCHEMA identity OWNER TO $AppUser;
-ALTER SCHEMA audit OWNER TO $AppUser;
+DO \$\$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'identity') THEN
+        EXECUTE 'GRANT USAGE ON SCHEMA identity TO $AppUser';
+        EXECUTE 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA identity TO $AppUser';
+        EXECUTE 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA identity TO $AppUser';
+        EXECUTE 'ALTER SCHEMA identity OWNER TO $AppUser';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'audit') THEN
+        EXECUTE 'GRANT USAGE ON SCHEMA audit TO $AppUser';
+        EXECUTE 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA audit TO $AppUser';
+        EXECUTE 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA audit TO $AppUser';
+        EXECUTE 'ALTER SCHEMA audit OWNER TO $AppUser';
+    END IF;
+END \$\$;
 "@
 Run-Super $grantSql $Database
 Write-Host "  Grants applied." -ForegroundColor Green

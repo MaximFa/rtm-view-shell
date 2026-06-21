@@ -37,6 +37,7 @@ Cardinal truths (source-pinned):
 - 2026-06-19 · Idempotent-migration NOTICEs ("already exists, skipping" / "does not exist, skipping") on already-populated server are EXPECTED, not errors — the guards (IF NOT EXISTS / to_regclass / ON CONFLICT) make re-apply safe. · SOURCE: 234 STEP-4b log (all 10 migs [OK] amid NOTICEs) · status: active
 - 2026-06-19 · Pre-ledger migrations (created before _002_db_patch_history) CANNOT self-record (§38a) -> permanent D-drift (MISSING/unknown) in Compare even when applied+effective. Optional 1-row-each ledger-backfill to reach D=0. · SOURCE: 234 Compare-after 114916 (D=4: _604_001/_605_004/_606_005/_606_008) · status: active
 
+- 2026-06-21 · A schema.sql carve is INCOMPLETE unless mirrored across db/data seeds AND rebuild tooling — static schema verify (table count, FK) passed GREEN while the FUNCTIONAL rebuild FAILED because db/data still seeded carved tables (tenants/identity/widget_catalog) + Restore-All wrote BOM temp files + WIN1252 client. Rule: a carve = schema + seed + tooling; always run the functional rebuild proof, never trust static verify alone. · SOURCE: R0b proof FAIL 2026-06-21, R0c fix · status: active
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path "db/tools/Compare-ToBaseline.ps1"` — must be True
 2. `Select-String -Path "db/schema.sql" -Pattern "CREATE TABLE"` — expect count >10

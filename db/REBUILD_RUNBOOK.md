@@ -64,13 +64,15 @@ psql -U ccdashboard_user -d rtmviewdb -f db/functions/03_rtsgrid_read.sql
 psql -U ccdashboard_user -d rtmviewdb -f db/functions/04_misc_functions.sql
 ```
 
-### 5. Seed Data
+### 5. Seed Data (RTM-only)
+
+> Note: EF-app tables (tenants, roles, superadmin, widget_catalog) are seeded by Step 2 (Web.exe migrate / DatabaseInitializer).
+> db/data/ contains RTM-canonical seed data only.
 
 ```bash
-psql -U ccdashboard_user -d rtmviewdb -f db/data/01_system.sql
 psql -U ccdashboard_user -d rtmviewdb -f db/data/02_metrics.sql
 psql -U ccdashboard_user -d rtmviewdb -f db/data/03_rtsgrid.sql
-psql -U ccdashboard_user -d rtmviewdb -f db/data/04_catalog.sql
+psql -U ccdashboard_user -d rtmviewdb -f db/data/04_catalog.sql   # NGC_Site only
 # If present:
 psql -U ccdashboard_user -d rtmviewdb -f db/data/05_metric_translations.sql 2>/dev/null || true
 ```

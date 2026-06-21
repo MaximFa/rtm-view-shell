@@ -32,7 +32,7 @@ SET row_security = off;
 -- Name: public; Type: SCHEMA; Schema: -; Owner: -
 --
 
-CREATE SCHEMA public;
+CREATE SCHEMA IF NOT EXISTS public;
 
 --
 -- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
@@ -1366,7 +1366,9 @@ CREATE TABLE public."RTSData_Interaction" (
     "CustomCallData15" text,
     "CustomCallData16" text,
     "CustomCallData17" text,
-    "CustomCallData18" text
+    "CustomCallData18" text,
+    "CustomCallData19" text,
+    "CustomCallData20" text
 );
 
 --

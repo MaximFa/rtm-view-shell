@@ -121,34 +121,9 @@ Write-Host "  schema.sql written (26 RTM tables)." -ForegroundColor Green
 # ── 2. Data by category ───────────────────────────────────────────────────
 Write-Host "[ 2/3 ] Exporting data..." -ForegroundColor Cyan
 
-# Get Platform tenant ID
-$r = Run-SQL "SELECT `"Id`" FROM tenants WHERE `"Slug`" = 'platform' LIMIT 1;"
-$platformId = ($r | Where-Object { $_ -match "^[0-9a-f-]{36}$" } | Select-Object -First 1).Trim()
-
-# Get Superadmin ID
-$saSql = @"
-SELECT u."Id" FROM identity.users u
-JOIN identity.user_roles ur ON u."Id" = ur."UserId"
-JOIN identity.roles r ON ur."RoleId" = r."Id"
-WHERE r."NormalizedName" = 'SUPERADMIN' LIMIT 1;
-"@
-$saId = (Run-SQL $saSql | Where-Object { $_ -match "^[0-9a-f-]{36}$" } | Select-Object -First 1).Trim()
-
-# 01_system.sql — tenant, roles, superadmin + EF migration history
-$sys = @("-- 01_system.sql: Platform tenant + Superadmin + EF migration history","SET session_replication_role = replica;","")
-$sys += Export-TableData "tenants"         "`"Slug`" = 'platform'"
-$sys += Export-TableData "tenant_settings" "`"TenantId`" = '$platformId'"
-$sys += Export-TableData "identity.roles"
-if ($saId) {
-    $sys += Export-TableData "identity.users"      "`"Id`" = '$saId'"
-    $sys += Export-TableData "identity.user_roles" "`"UserId`" = '$saId'"
-}
-# EF migration history — Shell checks these on startup to skip already-applied migrations
-$sys += Export-TableData "__EFMigrationsHistory"
-$sys += Export-TableData "__BackendEmulationMigrationsHistory"
-$sys += Export-TableData "__ef_migrations_history"
-$sys += "SET session_replication_role = DEFAULT;"
-Write-UTF8 (Join-Path $DataDir "01_system.sql") $sys
+# R0c (2026-06-21): 01_system.sql export removed.
+# EF-app tables (tenants, identity.*, EF migration history) are now seeded by
+# Web.exe migrate / DatabaseInitializer, NOT by psql db/data scripts.
 
 # 02_metrics.sql — RTSGrid_Metric + Statistic
 $metrics = @("-- 02_metrics.sql: RTSGrid metrics and statistics","SET session_replication_role = replica;","")
@@ -174,9 +149,8 @@ $rts += Export-TableData "RTSUserGrid_Column"
 $rts += "SET session_replication_role = DEFAULT;"
 Write-UTF8 (Join-Path $DataDir "03_rtsgrid.sql") $rts
 
-# 04_catalog.sql — widget_catalog + NGC_Site
-$cat = @("-- 04_catalog.sql: Widget catalog and NGC site definitions","SET session_replication_role = replica;","")
-$cat += Export-TableData "widget_catalog"
+# 04_catalog.sql — NGC_Site only (widget_catalog is EF-managed)
+$cat = @("-- 04_catalog.sql: NGC site definitions (RTM-only)","SET session_replication_role = replica;","")
 $cat += Export-TableData "NGC_Site"
 $cat += "SET session_replication_role = DEFAULT;"
 Write-UTF8 (Join-Path $DataDir "04_catalog.sql") $cat
