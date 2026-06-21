@@ -1,0 +1,124 @@
+﻿@using MediatR
+@using Microsoft.Extensions.Localization
+@using CcDashboard.Application.HistoricalReports.Queries
+@inject IMediator Mediator
+@inject IStringLocalizer<SharedResources> L
+
+<ReportFilterBar 
+    ShowWorkgroupFilter="true"
+    TotalCount="@_totalCount"
+    OnFilterApply="HandleFilter" />
+
+@if (_overallAsa.HasValue)
+{
+    <div class="alert alert-secondary mb-3">
+        <strong>@L["Report_OverallASA"]:</strong> @FormatDuration(_overallAsa)
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@L["Common_Loading"]</span>
+        </div>
+    </div>
+}
+else if (_rows is null || _rows.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>@L["Report_NoData"]
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-hover report-table">
+            <thead class="table-light">
+                <tr>
+                    <th>@L["Report_Interval"]</th>
+                    <th>@L["Report_Workgroup"]</th>
+                    <th class="text-end">@L["Report_Answered"]</th>
+                    <th class="text-end">@L["Report_SumWaitAnswered"]</th>
+                    <th class="text-end">@L["Report_ASA"]</th>
+                    <th class="text-end">@L["Report_AnsweredInSL"]</th>
+                    <th class="text-end">@L["Report_SLPct"]</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        <td>@row.IntervalStart.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@row.Workgroup</td>
+                        <td class="text-end">@row.Answered</td>
+                        <td class="text-end">@FormatMs(row.SumWaitAnswered)</td>
+                        <td class="text-end">@FormatDuration(row.Asa)</td>
+                        <td class="text-end">@row.AnsweredInSl</td>
+                        <td class="text-end">@FormatPct(row.SlPct)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool _loading;
+    private IReadOnlyList<QueueWaitTimeRow>? _rows;
+    private int _totalCount;
+    private double? _overallAsa;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData(DateTime.Today.AddDays(-7), DateTime.Today, 50, 1, null);
+    }
+
+    private async Task HandleFilter(ReportFilterBar.ReportFilterArgs args)
+    {
+        await LoadData(args.From, args.To, args.PageSize, args.Page, args.Workgroups);
+    }
+
+    private async Task LoadData(DateTime from, DateTime to, int pageSize, int page, IReadOnlyList<string>? workgroups)
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Mediator.Send(new GetQueueWaitTimeReportQuery(from, to, workgroups, pageSize, page));
+            _rows = result.Rows;
+            _totalCount = result.TotalCount;
+            _overallAsa = result.OverallAsa;
+        }
+        catch
+        {
+            _rows = null;
+            _totalCount = 0;
+            _overallAsa = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string FormatPct(double? val) => val.HasValue ? $"{val.Value:F1}%" : "-";
+
+    private string FormatDuration(double? seconds)
+    {
+        if (!seconds.HasValue) return "-";
+        var ts = TimeSpan.FromSeconds(seconds.Value);
+        return ts.TotalHours >= 1 
+            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+
+    private string FormatMs(long ms)
+    {
+        var ts = TimeSpan.FromMilliseconds(ms);
+        return ts.TotalHours >= 1 
+            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+}

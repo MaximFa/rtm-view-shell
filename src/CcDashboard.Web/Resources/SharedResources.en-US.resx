@@ -964,5 +964,49 @@
   <data name="Metrics_Status_DeployError"><value>Deploy error: {0}</value></data>
   <data name="Metrics_Status_RecompileSent"><value>Recompile sent: {0}</value></data>
   <data name="Metrics_Status_RecompileError"><value>Recompile error: {0}</value></data>
+
+  <!-- ── Historical Reports ── -->
+  <data name="Nav_Reports"><value>Reports</value></data>
+  <data name="Report_Title"><value>Historical Reports</value></data>
+  <data name="Report_QueueInterval"><value>Queue Interval</value></data>
+  <data name="Report_QueueWaitTime"><value>Queue Wait Time</value></data>
+  <data name="Report_AgentMonthly"><value>Agent Monthly</value></data>
+  <data name="Report_AgentShiftDetail"><value>Agent Shift Detail</value></data>
+  <data name="Report_From"><value>From</value></data>
+  <data name="Report_To"><value>To</value></data>
+  <data name="Report_Workgroups"><value>Workgroups</value></data>
+  <data name="Report_WorkgroupsPlaceholder"><value>Queue1, Queue2... (empty = all allowed)</value></data>
+  <data name="Report_Agents"><value>Agents</value></data>
+  <data name="Report_AgentsPlaceholder"><value>Agent1, Agent2... (empty = all allowed)</value></data>
+  <data name="Report_PageSize"><value>Page Size</value></data>
+  <data name="Report_Apply"><value>Apply</value></data>
+  <data name="Report_Showing"><value>Showing</value></data>
+  <data name="Report_Of"><value>of</value></data>
+  <data name="Report_NoData"><value>No data found for the selected period. Your access may be limited to specific queues or agents.</value></data>
+  <data name="Report_Interval"><value>Interval</value></data>
+  <data name="Report_Workgroup"><value>Workgroup</value></data>
+  <data name="Report_Offered"><value>Offered</value></data>
+  <data name="Report_Answered"><value>Answered</value></data>
+  <data name="Report_Abandoned"><value>Abandoned</value></data>
+  <data name="Report_AbandonPct"><value>Abandon %</value></data>
+  <data name="Report_AnsweredInSL"><value>Ans. in SL</value></data>
+  <data name="Report_SLPct"><value>SL %</value></data>
+  <data name="Report_ASA"><value>ASA</value></data>
+  <data name="Report_AHT"><value>AHT</value></data>
+  <data name="Report_OverallASA"><value>Overall ASA</value></data>
+  <data name="Report_SumWaitAnswered"><value>Total Wait</value></data>
+  <data name="Report_YearMonth"><value>Month</value></data>
+  <data name="Report_Agent"><value>Agent</value></data>
+  <data name="Report_Available"><value>Available</value></data>
+  <data name="Report_OnPhone"><value>On Phone</value></data>
+  <data name="Report_TalkPure"><value>Talk (Pure)</value></data>
+  <data name="Report_Hold"><value>Hold</value></data>
+  <data name="Report_Paperwork"><value>Paperwork</value></data>
+  <data name="Report_Break"><value>Break</value></data>
+  <data name="Report_Training"><value>Training</value></data>
+  <data name="Report_LoggedIn"><value>Logged In</value></data>
+  <data name="Report_Handled"><value>Handled</value></data>
+  <data name="Report_Occupancy"><value>Occupancy %</value></data>
+  <data name="Report_HoldPct"><value>Hold %</value></data>
 </root>
 

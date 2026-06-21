@@ -805,5 +805,49 @@
   <data name="Metrics_Status_DeployError"><value>שגיאת פריסה: {0}</value></data>
   <data name="Metrics_Status_RecompileSent"><value>קומפילציה נשלחה: {0}</value></data>
   <data name="Metrics_Status_RecompileError"><value>שגיאת קומפילציה: {0}</value></data>
+
+  <!-- ── Historical Reports ── -->
+  <data name="Nav_Reports"><value>דוחות</value></data>
+  <data name="Report_Title"><value>דוחות היסטוריים</value></data>
+  <data name="Report_QueueInterval"><value>מרווחי תורים</value></data>
+  <data name="Report_QueueWaitTime"><value>זמני המתנה</value></data>
+  <data name="Report_AgentMonthly"><value>סיכום חודשי נציג</value></data>
+  <data name="Report_AgentShiftDetail"><value>פרטי משמרת</value></data>
+  <data name="Report_From"><value>מתאריך</value></data>
+  <data name="Report_To"><value>עד תאריך</value></data>
+  <data name="Report_Workgroups"><value>תורים</value></data>
+  <data name="Report_WorkgroupsPlaceholder"><value>Queue1, Queue2... (ריק = כל המורשים)</value></data>
+  <data name="Report_Agents"><value>נציגים</value></data>
+  <data name="Report_AgentsPlaceholder"><value>Agent1, Agent2... (ריק = כל המורשים)</value></data>
+  <data name="Report_PageSize"><value>גודל עמוד</value></data>
+  <data name="Report_Apply"><value>החל</value></data>
+  <data name="Report_Showing"><value>מציג</value></data>
+  <data name="Report_Of"><value>מתוך</value></data>
+  <data name="Report_NoData"><value>לא נמצאו נתונים לתקופה שנבחרה. הגישה שלך עשויה להיות מוגבלת לתורים או נציגים מסוימים.</value></data>
+  <data name="Report_Interval"><value>מרווח</value></data>
+  <data name="Report_Workgroup"><value>תור</value></data>
+  <data name="Report_Offered"><value>הוצעו</value></data>
+  <data name="Report_Answered"><value>נענו</value></data>
+  <data name="Report_Abandoned"><value>ננטשו</value></data>
+  <data name="Report_AbandonPct"><value>% נטישה</value></data>
+  <data name="Report_AnsweredInSL"><value>נענו ב-SL</value></data>
+  <data name="Report_SLPct"><value>SL %</value></data>
+  <data name="Report_ASA"><value>ASA</value></data>
+  <data name="Report_AHT"><value>AHT</value></data>
+  <data name="Report_OverallASA"><value>ASA כולל</value></data>
+  <data name="Report_SumWaitAnswered"><value>סה״כ המתנה</value></data>
+  <data name="Report_YearMonth"><value>חודש</value></data>
+  <data name="Report_Agent"><value>נציג</value></data>
+  <data name="Report_Available"><value>זמין</value></data>
+  <data name="Report_OnPhone"><value>בשיחה</value></data>
+  <data name="Report_TalkPure"><value>שיחה (נקי)</value></data>
+  <data name="Report_Hold"><value>המתנה</value></data>
+  <data name="Report_Paperwork"><value>עבודה משלימה</value></data>
+  <data name="Report_Break"><value>הפסקה</value></data>
+  <data name="Report_Training"><value>הדרכה</value></data>
+  <data name="Report_LoggedIn"><value>מחובר</value></data>
+  <data name="Report_Handled"><value>טופלו</value></data>
+  <data name="Report_Occupancy"><value>תפוסה %</value></data>
+  <data name="Report_HoldPct"><value>% המתנה</value></data>
 </root>
 

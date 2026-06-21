@@ -1,0 +1,124 @@
+﻿@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResources> L
+
+<div class="report-filter-bar d-flex flex-wrap align-items-end gap-3 mb-4 p-3 bg-body-tertiary rounded">
+    <div class="filter-item">
+        <label class="form-label small mb-1">@L["Report_From"]</label>
+        <input type="date" class="form-control form-control-sm" @bind="From" />
+    </div>
+    <div class="filter-item">
+        <label class="form-label small mb-1">@L["Report_To"]</label>
+        <input type="date" class="form-control form-control-sm" @bind="To" />
+    </div>
+    @if (ShowWorkgroupFilter)
+    {
+        <div class="filter-item flex-grow-1" style="min-width: 200px;">
+            <label class="form-label small mb-1">@L["Report_Workgroups"]</label>
+            <input type="text" class="form-control form-control-sm" 
+                   placeholder="@L["Report_WorkgroupsPlaceholder"]"
+                   @bind="WorkgroupFilterText" />
+        </div>
+    }
+    @if (ShowAgentFilter)
+    {
+        <div class="filter-item flex-grow-1" style="min-width: 200px;">
+            <label class="form-label small mb-1">@L["Report_Agents"]</label>
+            <input type="text" class="form-control form-control-sm"
+                   placeholder="@L["Report_AgentsPlaceholder"]"
+                   @bind="AgentFilterText" />
+        </div>
+    }
+    <div class="filter-item">
+        <label class="form-label small mb-1">@L["Report_PageSize"]</label>
+        <select class="form-select form-select-sm" style="width: 80px;" @bind="PageSize">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+        </select>
+    </div>
+    <div class="filter-item">
+        <button class="btn btn-primary btn-sm" @onclick="ApplyFilter">
+            <i class="bi bi-search me-1"></i>@L["Report_Apply"]
+        </button>
+    </div>
+</div>
+
+@if (TotalCount > 0)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted small">
+            @L["Report_Showing"] @(((Page - 1) * PageSize) + 1)-@Math.Min(Page * PageSize, TotalCount) @L["Report_Of"] @TotalCount
+        </span>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" disabled="@(Page <= 1)" @onclick="PrevPage">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <span class="btn btn-outline-secondary disabled">@Page</span>
+            <button class="btn btn-outline-secondary" disabled="@(Page * PageSize >= TotalCount)" @onclick="NextPage">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public DateTime From { get; set; } = DateTime.Today.AddDays(-7);
+    [Parameter] public DateTime To { get; set; } = DateTime.Today;
+    [Parameter] public int PageSize { get; set; } = 50;
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public bool ShowWorkgroupFilter { get; set; }
+    [Parameter] public bool ShowAgentFilter { get; set; }
+    [Parameter] public string? WorkgroupFilterText { get; set; }
+    [Parameter] public string? AgentFilterText { get; set; }
+    [Parameter] public EventCallback<ReportFilterArgs> OnFilterApply { get; set; }
+
+    private async Task ApplyFilter()
+    {
+        Page = 1;
+        await RaiseFilterEvent();
+    }
+
+    private async Task PrevPage()
+    {
+        if (Page > 1)
+        {
+            Page--;
+            await RaiseFilterEvent();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (Page * PageSize < TotalCount)
+        {
+            Page++;
+            await RaiseFilterEvent();
+        }
+    }
+
+    private Task RaiseFilterEvent()
+    {
+        var args = new ReportFilterArgs(From, To, PageSize, Page, 
+            ParseList(WorkgroupFilterText), ParseList(AgentFilterText));
+        return OnFilterApply.InvokeAsync(args);
+    }
+
+    private IReadOnlyList<string>? ParseList(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var items = text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return items.Length > 0 ? items : null;
+    }
+}
+
+@* Filter args record for event *@
+@code {
+    public record ReportFilterArgs(
+        DateTime From, 
+        DateTime To, 
+        int PageSize, 
+        int Page,
+        IReadOnlyList<string>? Workgroups,
+        IReadOnlyList<string>? Agents);
+}

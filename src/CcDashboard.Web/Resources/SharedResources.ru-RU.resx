@@ -905,5 +905,49 @@
   <data name="Metrics_Status_DeployError"><value>Ошибка развёртывания: {0}</value></data>
   <data name="Metrics_Status_RecompileSent"><value>Перекомпиляция отправлена: {0}</value></data>
   <data name="Metrics_Status_RecompileError"><value>Ошибка перекомпиляции: {0}</value></data>
+
+  <!-- ── Historical Reports ── -->
+  <data name="Nav_Reports"><value>Отчёты</value></data>
+  <data name="Report_Title"><value>Исторические отчёты</value></data>
+  <data name="Report_QueueInterval"><value>Интервалы очередей</value></data>
+  <data name="Report_QueueWaitTime"><value>Время ожидания</value></data>
+  <data name="Report_AgentMonthly"><value>Операторы за месяц</value></data>
+  <data name="Report_AgentShiftDetail"><value>Детали смены</value></data>
+  <data name="Report_From"><value>С</value></data>
+  <data name="Report_To"><value>По</value></data>
+  <data name="Report_Workgroups"><value>Очереди</value></data>
+  <data name="Report_WorkgroupsPlaceholder"><value>Queue1, Queue2... (пусто = все доступные)</value></data>
+  <data name="Report_Agents"><value>Операторы</value></data>
+  <data name="Report_AgentsPlaceholder"><value>Agent1, Agent2... (пусто = все доступные)</value></data>
+  <data name="Report_PageSize"><value>На странице</value></data>
+  <data name="Report_Apply"><value>Применить</value></data>
+  <data name="Report_Showing"><value>Показано</value></data>
+  <data name="Report_Of"><value>из</value></data>
+  <data name="Report_NoData"><value>Данные не найдены за выбранный период. Ваш доступ может быть ограничен определёнными очередями или операторами.</value></data>
+  <data name="Report_Interval"><value>Интервал</value></data>
+  <data name="Report_Workgroup"><value>Очередь</value></data>
+  <data name="Report_Offered"><value>Поступило</value></data>
+  <data name="Report_Answered"><value>Принято</value></data>
+  <data name="Report_Abandoned"><value>Потеряно</value></data>
+  <data name="Report_AbandonPct"><value>% потерь</value></data>
+  <data name="Report_AnsweredInSL"><value>Принято в SL</value></data>
+  <data name="Report_SLPct"><value>SL %</value></data>
+  <data name="Report_ASA"><value>ASA</value></data>
+  <data name="Report_AHT"><value>AHT</value></data>
+  <data name="Report_OverallASA"><value>Общий ASA</value></data>
+  <data name="Report_SumWaitAnswered"><value>Сумма ожидания</value></data>
+  <data name="Report_YearMonth"><value>Месяц</value></data>
+  <data name="Report_Agent"><value>Оператор</value></data>
+  <data name="Report_Available"><value>Доступен</value></data>
+  <data name="Report_OnPhone"><value>На линии</value></data>
+  <data name="Report_TalkPure"><value>Разговор</value></data>
+  <data name="Report_Hold"><value>Удержание</value></data>
+  <data name="Report_Paperwork"><value>Пост-обработка</value></data>
+  <data name="Report_Break"><value>Перерыв</value></data>
+  <data name="Report_Training"><value>Обучение</value></data>
+  <data name="Report_LoggedIn"><value>В системе</value></data>
+  <data name="Report_Handled"><value>Обработано</value></data>
+  <data name="Report_Occupancy"><value>Загрузка %</value></data>
+  <data name="Report_HoldPct"><value>% удержания</value></data>
 </root>
 

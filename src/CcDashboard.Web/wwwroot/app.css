@@ -1,4 +1,4 @@
-/* ══════════════════════════════════════════════════════════════════════════
+﻿/* ══════════════════════════════════════════════════════════════════════════
    RTM View Shell — Enterprise Grade Stylesheet
    Uses design tokens from css/tokens.css (loaded before this file)
    Uses CSS logical properties for RTL support
@@ -3270,4 +3270,50 @@ button.clr-swatch,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ─── Report Tables ────────────────────────────────────────────────────── */
+.report-table {
+    font-size: var(--text-sm);
+}
+
+.report-table th {
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+    background-color: var(--clr-surface);
+}
+
+.report-table td {
+    vertical-align: middle;
+}
+
+.report-table .text-end {
+    font-variant-numeric: tabular-nums;
+}
+
+.report-filter-bar {
+    border: 1px solid var(--clr-border);
+}
+
+.report-filter-bar .filter-item label {
+    color: var(--clr-text-muted);
+}
+
+/* Dark mode report tables */
+[data-bs-theme="dark"] .report-table th {
+    background-color: var(--clr-surface-dark);
+}
+
+[data-bs-theme="dark"] .report-filter-bar {
+    background-color: var(--clr-surface-dark) !important;
+    border-color: var(--clr-border-dark);
+}
+
+/* RTL support for report tables */
+[dir="rtl"] .report-table .text-end {
+    text-align: start !important;
+}
+
+[dir="rtl"] .report-filter-bar {
+    direction: rtl;
 }

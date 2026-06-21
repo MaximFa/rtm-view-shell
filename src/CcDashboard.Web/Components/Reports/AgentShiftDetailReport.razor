@@ -1,0 +1,128 @@
+﻿@using MediatR
+@using Microsoft.Extensions.Localization
+@using CcDashboard.Application.HistoricalReports.Queries
+@inject IMediator Mediator
+@inject IStringLocalizer<SharedResources> L
+
+<ReportFilterBar 
+    ShowAgentFilter="true"
+    TotalCount="@_totalCount"
+    OnFilterApply="HandleFilter" />
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@L["Common_Loading"]</span>
+        </div>
+    </div>
+}
+else if (_rows is null || _rows.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>@L["Report_NoData"]
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-hover report-table">
+            <thead class="table-light">
+                <tr>
+                    <th>@L["Report_Interval"]</th>
+                    <th>@L["Report_Agent"]</th>
+                    <th class="text-end">@L["Report_Available"]</th>
+                    <th class="text-end">@L["Report_OnPhone"]</th>
+                    <th class="text-end">@L["Report_TalkPure"]</th>
+                    <th class="text-end">@L["Report_Hold"]</th>
+                    <th class="text-end">@L["Report_Paperwork"]</th>
+                    <th class="text-end">@L["Report_Break"]</th>
+                    <th class="text-end">@L["Report_Training"]</th>
+                    <th class="text-end">@L["Report_LoggedIn"]</th>
+                    <th class="text-end">@L["Report_Handled"]</th>
+                    <th class="text-end">@L["Report_Occupancy"]</th>
+                    <th class="text-end">@L["Report_AHT"]</th>
+                    <th class="text-end">@L["Report_HoldPct"]</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        <td>@row.IntervalStart.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@(row.AgentDisplayName ?? row.AgentExternalId)</td>
+                        <td class="text-end">@FormatMs(row.SumAvailableMs)</td>
+                        <td class="text-end">@FormatMs(row.SumOnphoneMs)</td>
+                        <td class="text-end">@FormatMs(row.TalkPureMs)</td>
+                        <td class="text-end">@FormatMs(row.SumHoldMs)</td>
+                        <td class="text-end">@FormatMs(row.SumPaperworkMs)</td>
+                        <td class="text-end">@FormatMs(row.SumBreakMs)</td>
+                        <td class="text-end">@FormatMs(row.SumTrainingMs)</td>
+                        <td class="text-end">@FormatMs(row.SumLoggedInMs)</td>
+                        <td class="text-end">@row.Handled</td>
+                        <td class="text-end">@FormatPct(row.OccupancyPct)</td>
+                        <td class="text-end">@FormatDuration(row.AgentAht)</td>
+                        <td class="text-end">@FormatPct(row.HoldPct)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool _loading;
+    private IReadOnlyList<AgentShiftDetailRow>? _rows;
+    private int _totalCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData(DateTime.Today.AddDays(-7), DateTime.Today, 50, 1, null);
+    }
+
+    private async Task HandleFilter(ReportFilterBar.ReportFilterArgs args)
+    {
+        await LoadData(args.From, args.To, args.PageSize, args.Page, args.Agents);
+    }
+
+    private async Task LoadData(DateTime from, DateTime to, int pageSize, int page, IReadOnlyList<string>? agentIds)
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Mediator.Send(new GetAgentShiftDetailReportQuery(from, to, agentIds, pageSize, page));
+            _rows = result.Rows;
+            _totalCount = result.TotalCount;
+        }
+        catch
+        {
+            _rows = null;
+            _totalCount = 0;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string FormatPct(double? val) => val.HasValue ? $"{val.Value:F1}%" : "-";
+
+    private string FormatDuration(double? seconds)
+    {
+        if (!seconds.HasValue) return "-";
+        var ts = TimeSpan.FromSeconds(seconds.Value);
+        return ts.TotalHours >= 1 
+            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+
+    private string FormatMs(long ms)
+    {
+        var ts = TimeSpan.FromMilliseconds(ms);
+        if (ts.TotalHours >= 1)
+            return $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}";
+        return $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+}
