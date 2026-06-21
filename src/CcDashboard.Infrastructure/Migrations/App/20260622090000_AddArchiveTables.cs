@@ -6,7 +6,8 @@ namespace CcDashboard.Infrastructure.Migrations.App;
 
 /// <summary>
 /// Historical Reports v1 data architecture: tier-2 RAW archive tables + tier-3 aggregate indexes.
-/// Per Reports_v1_DataArch.md: arch_rtsdata_* (4 partitioned tables), arch_watermark, +2 agg indexes.
+/// Per Reports_v1_DataArch.md: arch_rtsdata_* (3 partitioned tables - ChatMessage carved out SF-ARC-001/002/003),
+/// arch_watermark, +2 agg indexes.
 /// NOTE: EF-app migrations are tracked by __ef_migrations_history, NOT db_patch_history (§38a).
 /// </summary>
 public partial class AddArchiveTables : Migration
@@ -101,31 +102,9 @@ public partial class AddArchiveTables : Migration
             CREATE TABLE public.arch_rtsdata_userstatuslog_default PARTITION OF public.arch_rtsdata_userstatuslog DEFAULT;
             """);
 
-        // T2.1: arch_rtsdata_chatmessage (partitioned by PartTime monthly)
-        migrationBuilder.Sql("""
-            CREATE TABLE public.arch_rtsdata_chatmessage (
-                "MessageId" varchar(100) NOT NULL,
-                "ServerId" varchar(50) NOT NULL,
-                "OnDate" varchar(50) NOT NULL,
-                "PartTime" timestamptz NOT NULL,
-                "ArchivedAt" timestamptz NOT NULL DEFAULT now(),
-                "TenantId" uuid,
-                "InteractionId" varchar(100),
-                "SegmentId" int,
-                "UserId" varchar(100),
-                "MsgDirection" varchar(50),
-                "Sender" varchar(200),
-                "Recipient" varchar(200),
-                "Body" text,
-                "DeliveryStatus" varchar(50),
-                "UpdateTime" timestamptz,
-                "TimeStamp" timestamptz,
-                PRIMARY KEY ("MessageId", "ServerId", "OnDate", "PartTime")
-            ) PARTITION BY RANGE ("PartTime");
-
-            CREATE INDEX ix_arch_chatmessage_tenant_parttime ON public.arch_rtsdata_chatmessage ("TenantId", "PartTime");
-            CREATE TABLE public.arch_rtsdata_chatmessage_default PARTITION OF public.arch_rtsdata_chatmessage DEFAULT;
-            """);
+        // ChatMessage CARVED OUT per SF-ARC-001/002/003 security ruling (2026-06-22):
+        // RTSData_ChatMessage has NO TenantId column -> tenant-scoping needs JOIN-inference
+        // whose cross-tenant-leak + orphan + PII/content-retention risk must be spec'd separately.
 
         // T2.1: arch_rtsdata_userstatus (partitioned by PartTime monthly)
         migrationBuilder.Sql("""
@@ -163,6 +142,7 @@ public partial class AddArchiveTables : Migration
             """);
 
         // Create initial partitions for arch tables (current + next 2 + prior month)
+        // NOTE: ChatMessage removed from tables array per SF-ARC-001/002/003
         migrationBuilder.Sql("""
             DO $$
             DECLARE
@@ -170,7 +150,7 @@ public partial class AddArchiveTables : Migration
                 m date;
                 part_name text;
                 tables text[] := ARRAY['arch_rtsdata_interaction', 'arch_rtsdata_userstatuslog',
-                                       'arch_rtsdata_chatmessage', 'arch_rtsdata_userstatus'];
+                                       'arch_rtsdata_userstatus'];
                 t text;
             BEGIN
                 FOREACH t IN ARRAY tables LOOP
@@ -193,7 +173,6 @@ public partial class AddArchiveTables : Migration
         migrationBuilder.Sql("""
             DROP TABLE IF EXISTS public.arch_watermark;
             DROP TABLE IF EXISTS public.arch_rtsdata_userstatus CASCADE;
-            DROP TABLE IF EXISTS public.arch_rtsdata_chatmessage CASCADE;
             DROP TABLE IF EXISTS public.arch_rtsdata_userstatuslog CASCADE;
             DROP TABLE IF EXISTS public.arch_rtsdata_interaction CASCADE;
             DROP INDEX IF EXISTS public.ix_hist_agent_intervals_tenant_agent_interval;

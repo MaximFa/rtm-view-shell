@@ -15,7 +15,9 @@ namespace CcDashboard.Infrastructure.BackgroundServices;
 /// Invariant: archive-FIRST -> purge-SECOND (watermark only advances after batch commit).
 ///
 /// NOTE: Uses raw SQL for archive inserts because EF entity RtsDataInteraction does not have
-/// CustomCallData1-20 columns, and RtsDataChatMessage has no TenantId. Raw SQL matches db/schema.sql.
+/// CustomCallData1-20 columns. Raw SQL INSERT...SELECT is faithful column-map and avoids
+/// routing ~255M rows through the EF change-tracker.
+/// ChatMessage CARVED OUT per SF-ARC-001/002/003 (source has no TenantId column).
 /// </summary>
 public class ArchiverService(
     IServiceScopeFactory scopeFactory,
@@ -88,10 +90,10 @@ public class ArchiverService(
         var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         // Archive each table type using raw SQL (EF entities don't have all columns)
+        // ChatMessage CARVED OUT per SF-ARC-001/002/003 (source has no TenantId column)
         await ArchiveInteractionsAsync(tenantId, appDb, ct);
         await ArchiveUserStatusLogsAsync(tenantId, appDb, ct);
         await ArchiveUserStatusesAsync(tenantId, appDb, ct);
-        // ChatMessage skipped: source table has no TenantId column
     }
 
     private async Task ArchiveInteractionsAsync(Guid tenantId, AppDbContext db, CancellationToken ct)
@@ -101,7 +103,8 @@ public class ArchiverService(
         var cutoff = DateTime.UtcNow - SafetyLag;
 
         // Archive using raw SQL with ON CONFLICT DO UPDATE (source is UPSERTED)
-        // PartTime = COALESCE("InQueueDateTime", to_timestamp("OnDate",'YYYY-MM-DD'))
+        // PartTime = COALESCE("InQueueDateTime", to_timestamp("OnDate",'DD/MM/YYYY'))
+        // OnDate format is DD/MM/YYYY per RtsDataInteraction entity comments
         var count = await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.arch_rtsdata_interaction (
                 "InteractionId", "Segment", "OnDate", "ServerId", "Workgroup", "PartTime",
@@ -116,7 +119,7 @@ public class ArchiverService(
             )
             SELECT
                 "InteractionId", "Segment", "OnDate", "ServerId", "Workgroup",
-                COALESCE("InQueueDateTime", to_timestamp("OnDate", 'YYYY-MM-DD')) AS "PartTime",
+                COALESCE("InQueueDateTime", to_timestamp("OnDate", 'DD/MM/YYYY')) AS "PartTime",
                 "TenantId", "UserId", "ClassificationCode", "InteractionType", "CallType", "Direction",
                 "CustomCallData", "IsTransferred", "IsAnswered", "IsInQueue", "IsTalk", "IsAbandoned",
                 "TimeInQueue", "TalkTime", "InQueueDateTime", "AnsweredDateTime", "UpdateTime",
@@ -182,7 +185,7 @@ public class ArchiverService(
         var cutoff = DateTime.UtcNow - SafetyLag;
 
         // Archive using raw SQL with ON CONFLICT DO NOTHING (source is APPEND-ONLY)
-        // PartTime = COALESCE("StartTime", to_timestamp("OnDate",'YYYY-MM-DD'))
+        // PartTime = COALESCE("StartTime", to_timestamp("OnDate",'DD/MM/YYYY'))
         var count = await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.arch_rtsdata_userstatuslog (
                 "Id", "PartTime", "TenantId", "UserId", "StatusId", "ServerId", "OnDate",
@@ -190,7 +193,7 @@ public class ArchiverService(
             )
             SELECT
                 "Id",
-                COALESCE("StartTime", to_timestamp("OnDate", 'YYYY-MM-DD')) AS "PartTime",
+                COALESCE("StartTime", to_timestamp("OnDate", 'DD/MM/YYYY')) AS "PartTime",
                 "TenantId", "UserId", "StatusId", "ServerId", "OnDate",
                 "StartTime", "EndTime", "Duration", "UpdateTime", "TimeZone", "StatusGroup"
             FROM "RTSData_UserStatusLog"
@@ -226,7 +229,7 @@ public class ArchiverService(
         var cutoff = DateTime.UtcNow - SafetyLag;
 
         // Archive using raw SQL with ON CONFLICT DO UPDATE (source is UPSERTED daily)
-        // PartTime = to_timestamp("OnDate",'YYYY-MM-DD') (OnDate is stable snapshot key)
+        // PartTime = to_timestamp("OnDate",'DD/MM/YYYY') (OnDate is stable snapshot key)
         var count = await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.arch_rtsdata_userstatus (
                 "UserId", "StatusId", "ServerId", "OnDate", "PartTime", "TenantId",
@@ -235,7 +238,7 @@ public class ArchiverService(
             )
             SELECT
                 "UserId", "StatusId", "ServerId", "OnDate",
-                to_timestamp("OnDate", 'YYYY-MM-DD') AS "PartTime",
+                to_timestamp("OnDate", 'DD/MM/YYYY') AS "PartTime",
                 "TenantId", "StatusName", "StatusGroup", "TotalDuration", "MaxDuraction", "TotalCount",
                 "UpdateTime", "DisplayName", "TimeZone"
             FROM "RTSData_UserStatus"
@@ -285,8 +288,9 @@ public class ArchiverService(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+        // ChatMessage CARVED OUT per SF-ARC-001/002/003
         var tables = new[] { "arch_rtsdata_interaction", "arch_rtsdata_userstatuslog",
-                            "arch_rtsdata_chatmessage", "arch_rtsdata_userstatus" };
+                            "arch_rtsdata_userstatus" };
 
         foreach (var table in tables)
         {
