@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\src\CcDashboard.Domain\CcDashboard.Domain.csproj" />
     <ProjectReference Include="..\..\src\CcDashboard.Application\CcDashboard.Application.csproj" />
     <ProjectReference Include="..\..\src\CcDashboard.Contracts\CcDashboard.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\CcDashboard.Infrastructure\CcDashboard.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

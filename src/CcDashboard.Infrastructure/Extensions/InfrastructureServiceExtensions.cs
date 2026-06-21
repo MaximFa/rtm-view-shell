@@ -1,6 +1,8 @@
+using CcDashboard.Application.HistoricalReports;
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Audit;
+using CcDashboard.Infrastructure.BackgroundServices;
 using CcDashboard.Infrastructure.Caching;
 using CcDashboard.Infrastructure.Email;
 using CcDashboard.Infrastructure.Handlers;
@@ -135,6 +137,10 @@ public static class InfrastructureServiceExtensions
 
         // RTS repositories
         services.AddScoped<IRtsRepository, RtsRepository>();
+
+        // Historical Reports (CC-HIST-001)
+        services.AddScoped<IHistoricalReportRepository, HistoricalReportRepository>();
+        services.AddHostedService<HistoricalAggregationService>();
 
         // API hook (no-op until CC-platform API is available)
         services.AddScoped<IConfigurationApiHook, RtmConfigurationApiHook>();

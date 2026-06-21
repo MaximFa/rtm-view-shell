@@ -1,4 +1,5 @@
 using CcDashboard.Domain.Domain;
+using CcDashboard.Domain.Domain.Historical;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -47,6 +48,12 @@ public class AppDbContext(
 
     // User widget view settings (per-user per-widget local config)
     public DbSet<UserWidgetSettings> UserWidgetSettings => Set<UserWidgetSettings>();
+
+    // Historical Reports (CC-HIST-001)
+    public DbSet<HistQueueInterval> HistQueueIntervals => Set<HistQueueInterval>();
+    public DbSet<HistAgentInterval> HistAgentIntervals => Set<HistAgentInterval>();
+    public DbSet<UserReport> UserReports => Set<UserReport>();
+    public DbSet<HistAggregationWatermark> HistAggregationWatermarks => Set<HistAggregationWatermark>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -335,6 +342,44 @@ public class AppDbContext(
             e.HasIndex(x => new { x.TenantId, x.UserId, x.WidgetId }).IsUnique();
             e.Property(x => x.SettingsJson).HasColumnType("jsonb");
             e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        // Historical Reports (CC-HIST-001) — partitioned tables, EF queries as partition-agnostic
+        mb.Entity<HistQueueInterval>(e =>
+        {
+            e.ToTable("hist_queue_intervals");
+            e.HasKey(x => new { x.Id, x.IntervalStart });
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Workgroup).HasMaxLength(100).IsRequired();
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        mb.Entity<HistAgentInterval>(e =>
+        {
+            e.ToTable("hist_agent_intervals");
+            e.HasKey(x => new { x.Id, x.IntervalStart });
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.AgentExternalId).HasMaxLength(100).IsRequired();
+            e.Property(x => x.AgentDisplayName).HasMaxLength(200);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        mb.Entity<UserReport>(e =>
+        {
+            e.ToTable("user_reports");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.Config).HasColumnType("jsonb");
+            e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        mb.Entity<HistAggregationWatermark>(e =>
+        {
+            e.ToTable("hist_aggregation_watermarks");
+            e.HasKey(x => x.TenantId);
         });
 
     }
