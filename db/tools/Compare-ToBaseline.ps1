@@ -192,21 +192,25 @@ Write-Host "`n[A] SCHEMA COMPARISON" -ForegroundColor Yellow
 [void]$DeltaLines.Add("-" * 40)
 
 $ServerSchemaFile = [System.IO.Path]::GetTempFileName() + ".sql"
-& $pgdump -h $DBHost -p $DBPort -U $User -d $Database --schema-only --no-owner --no-acl --schema=public --schema=identity --schema=audit -f $ServerSchemaFile 2>$null
+# R0e: Tables-only dump matching db/schema.sql scope (RTM whitelist)
+$rtmTables = @(
+    '-t', 'public."NGC_AgentGroups"', '-t', 'public."NGC_BusinessUnit"',
+    '-t', 'public."NGC_BusinessUnitQueueClassification"', '-t', 'public."NGC_BusinessUnitSupergroup"',
+    '-t', 'public."NGC_Queues"', '-t', 'public."NGC_Site"', '-t', 'public."NGC_Supergroup"',
+    '-t', 'public."NGC_SupergroupAgentgroup"', '-t', 'public."NGC_UserAgentgroup"',
+    '-t', 'public."RTSData_ChatMessage"', '-t', 'public."RTSData_Interaction"',
+    '-t', 'public."RTSData_UserStatus"', '-t', 'public."RTSData_UserStatusLog"',
+    '-t', 'public."RTSGrid_Cell"', '-t', 'public."RTSGrid_Column"', '-t', 'public."RTSGrid_Grid"',
+    '-t', 'public."RTSGrid_Metric"', '-t', 'public."RTSGrid_MetricTranslation"',
+    '-t', 'public."RTSGrid_Row"', '-t', 'public."RTSGrid_Statistic"', '-t', 'public."RTSGrid_UserStatus"',
+    '-t', 'public."RTSUserGrid_Column"', '-t', 'public."RTSUserGrid_ColumnsSet"', '-t', 'public."RTSUserGrid_Grid"',
+    '-t', 'public.db_patch_history', '-t', 'public.metric_deploy_log'
+)
+& $pgdump -h $DBHost -p $DBPort -U $User -d $Database --schema-only --no-owner --no-acl @rtmTables -f $ServerSchemaFile 2>$null
 
-# R0d: Build combined baseline (schema.sql = tables, db/functions/* = routines)
-# This matches the actual rebuild order (schema.sql + functions/01..04).
-$BaselineSchemaFile = [System.IO.Path]::GetTempFileName() + ".sql"
-$schemaContent = Get-Content (Join-Path $DbDir "schema.sql") -Raw -ErrorAction SilentlyContinue
-$functionsDir = Join-Path $DbDir "functions"
-$functionsContent = ""
-if (Test-Path $functionsDir) {
-    foreach ($f in (Get-ChildItem $functionsDir -Filter "*.sql" | Sort-Object Name)) {
-        $functionsContent += "`n-- === $($f.Name) ===`n"
-        $functionsContent += (Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue)
-    }
-}
-[System.IO.File]::WriteAllText($BaselineSchemaFile, ($schemaContent + $functionsContent), [System.Text.UTF8Encoding]::new($false))
+# R0e: Baseline = db/schema.sql (tables-only). Routines validated separately by presence check.
+$BaselineSchemaFile = Join-Path $DbDir "schema.sql"
+
 
 function Normalize-Schema([string]$path) {
     $lines = Get-Content $path -ErrorAction SilentlyContinue
@@ -310,7 +314,85 @@ if ($SchemaDiffLines -eq 0) {
 }
 [void]$DeltaLines.Add("")
 Remove-Item $ServerSchemaFile -ErrorAction SilentlyContinue
-Remove-Item $BaselineSchemaFile -ErrorAction SilentlyContinue  # R0d: temp combined baseline
+# BaselineSchemaFile is now the actual schema.sql (no temp file to clean)
+
+
+# ====== [A]-ROUTINES: NAME/SIGNATURE PRESENCE CHECK ======
+# R0e: Validate routines by name+signature presence (not line-diff)
+Write-Host "[A-R] ROUTINE PRESENCE (name+signature)" -ForegroundColor Yellow
+[void]$DeltaLines.Add("-" * 40)
+[void]$DeltaLines.Add("[A-R] ROUTINE PRESENCE CHECK")
+[void]$DeltaLines.Add("-" * 40)
+
+# Server routines: name + identity args
+$serverRoutineSql = "SELECT p.proname, pg_get_function_identity_arguments(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' ORDER BY 1,2;"
+$serverRoutineRows = Run-SQL $serverRoutineSql
+$ServerRoutineSet = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($row in $serverRoutineRows) {
+    $parts = $row -split '\|'
+    if ($parts.Count -ge 2) {
+        $sig = "$($parts[0])($($parts[1]))"
+        [void]$ServerRoutineSet.Add($sig)
+    }
+}
+
+# Baseline routines: parse db/functions/*.sql for CREATE FUNCTION/PROCEDURE
+$BaselineRoutineSet = [System.Collections.Generic.HashSet[string]]::new()
+$fnDir = Join-Path $DbDir "functions"
+if (Test-Path $fnDir) {
+    foreach ($f in (Get-ChildItem $fnDir -Filter "*.sql")) {
+        $fnContent = Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue
+        # Match: CREATE [OR REPLACE] FUNCTION|PROCEDURE [public.]"?name"?(args)
+        $pattern = 'CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+(?:public\.)?"?(\w+)"?\s*\(([^)]*)\)'
+        $fnMatches = [regex]::Matches($fnContent, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        foreach ($m in $fnMatches) {
+            $name = $m.Groups[1].Value
+            $rawArgs = $m.Groups[2].Value -replace '\s+', ' '
+            # Normalize: extract just type names for comparison
+            $argTypes = @()
+            foreach ($arg in ($rawArgs -split ',')) {
+                $arg = $arg.Trim()
+                if ($arg -match '(\w+)\s*$') {
+                    $argTypes += $Matches[1]
+                } elseif ($arg -match '^\s*(\w+)') {
+                    $argTypes += $Matches[1]
+                }
+            }
+            $sig = "$name($($argTypes -join ', '))"
+            [void]$BaselineRoutineSet.Add($sig)
+        }
+    }
+}
+
+$RoutineMissingOnServer = @()
+$RoutineExtraOnServer = @()
+foreach ($r in $BaselineRoutineSet) {
+    if (-not $ServerRoutineSet.Contains($r)) { $RoutineMissingOnServer += $r }
+}
+foreach ($r in $ServerRoutineSet) {
+    # Skip system/internal functions
+    if ($r -notmatch '^(pg_|_|information_schema)') {
+        if (-not $BaselineRoutineSet.Contains($r)) { $RoutineExtraOnServer += $r }
+    }
+}
+
+$RoutineDrift = $RoutineMissingOnServer.Count + $RoutineExtraOnServer.Count
+if ($RoutineDrift -eq 0) {
+    Write-Host "  Routine presence matches baseline." -ForegroundColor Green
+    [void]$DeltaLines.Add("Routine presence matches baseline.")
+} else {
+    Write-Host "  Routine drift: $($RoutineMissingOnServer.Count) missing, $($RoutineExtraOnServer.Count) extra" -ForegroundColor Red
+    [void]$DeltaLines.Add("Routine presence drift:")
+    [void]$DeltaLines.Add("  Missing on server: $($RoutineMissingOnServer.Count)")
+    foreach ($r in $RoutineMissingOnServer | Select-Object -First 10) {
+        [void]$DeltaLines.Add("    - $r")
+    }
+    [void]$DeltaLines.Add("  Extra on server: $($RoutineExtraOnServer.Count)")
+    foreach ($r in $RoutineExtraOnServer | Select-Object -First 10) {
+        [void]$DeltaLines.Add("    + $r")
+    }
+}
+[void]$DeltaLines.Add("")
 
 # ====== DIMENSION B: ROUTINE KIND (E2: multi-overload aware) ======
 Write-Host "`n[B] ROUTINE KIND (prokind) -- CRITICAL" -ForegroundColor Yellow

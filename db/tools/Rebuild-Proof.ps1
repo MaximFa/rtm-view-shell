@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     One-command rebuild proof: creates a scratch DB, runs the full rebuild per
@@ -153,6 +153,18 @@ foreach ($f in (Get-ChildItem $DataDir -Filter "*.sql" | Sort-Object Name)) {
     Write-Host "  $($f.Name)" -ForegroundColor Green
 }
 
+# ── Step 6.5: Grant app-user access to RTM tables ─────────────────────────────
+# RTM tables are owned by postgres after psql schema.sql; app-user needs access for Compare
+Write-Host "[ 6+ ] Granting $AppUser access to RTM tables..." -ForegroundColor Cyan
+$grantSql = @"
+GRANT USAGE ON SCHEMA public TO $AppUser;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO $AppUser;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO $AppUser;
+"@
+Write-NoBoM $TmpSql $grantSql
+& $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -f $TmpSql -q
+Write-Host "  Grants applied." -ForegroundColor Green
+
 # ── Step 7: Compare-ToBaseline ───────────────────────────────────────────────
 Write-Host "[ 7/7 ] Compare-ToBaseline..." -ForegroundColor Cyan
 if (Test-Path $CompareTool) {
@@ -164,9 +176,13 @@ if (Test-Path $CompareTool) {
     $bMatch = [regex]::Match(($compareResult -join "`n"), 'B:?\s*(\d+)')
     $bCount = if ($bMatch.Success) { [int]$bMatch.Groups[1].Value } else { -1 }
 
-    if ($bCount -eq 0) {
+    # Parse for A=0 too
+    $aMatch = [regex]::Match(($compareResult -join "`n"), 'A:?\s*(\d+)')
+    $aCount = if ($aMatch.Success) { [int]$aMatch.Groups[1].Value } else { -1 }
+
+    if ($bCount -eq 0 -and $aCount -eq 0) {
         Write-Host ""
-        Write-Host "PASS: Compare-ToBaseline B=0" -ForegroundColor Green
+        Write-Host "PASS: Compare-ToBaseline A=0 B=0" -ForegroundColor Green
     } else {
         Write-Host ""
         Write-Host "FAIL: Compare-ToBaseline B=$bCount (expected 0)" -ForegroundColor Red
@@ -192,13 +208,13 @@ if (-not $KeepDb) {
 
 $env:PGPASSWORD = ""
 Write-Host ""
-if ($bCount -eq 0) {
-    Write-Host "REBUILD PROOF COMPLETE — B=0" -ForegroundColor Green
+if ($bCount -eq 0 -and $aCount -ge 0) {
+    Write-Host "REBUILD PROOF COMPLETE — A=$aCount B=0" -ForegroundColor Green
     exit 0
 } elseif ($bCount -eq -1) {
     Write-Host "REBUILD PROOF COMPLETE — Compare not run, verify manually" -ForegroundColor Yellow
     exit 0
 } else {
-    Write-Host "REBUILD PROOF FAILED — B=$bCount" -ForegroundColor Red
+    Write-Host "REBUILD PROOF FAILED — A=$aCount B=$bCount" -ForegroundColor Red
     exit 1
 }
