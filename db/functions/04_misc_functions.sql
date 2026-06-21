@@ -78,6 +78,9 @@ $$;
 -- ============================================================================
 DROP FUNCTION IF EXISTS "NGC_GetCellsByDataGrid"(integer);
 
+-- R0b fix (2026-06-21): Removed dead RTSGrid_TemplateCell JOIN.
+-- TemplateCell table was dropped in §36.2 carve; JOIN caused 42P01 on fresh rebuild.
+-- Tooltip/OnClick columns returned as empty string to preserve column index for C# callers.
 CREATE OR REPLACE FUNCTION "NGC_GetCellsByDataGrid"(p_grid_id integer)
 RETURNS TABLE(
     "CellID" integer,
@@ -106,13 +109,12 @@ BEGIN
         r."StyleId" AS "RowStyleId",
         COALESCE(c."CellType", '')::text AS "CellType",
         COALESCE(c."Value", '')::text AS "Value",
-        COALESCE(t."Tooltip", '')::text AS "Tooltip",
-        COALESCE(t."OnClick", '')::text AS "OnClick"
+        ''::text AS "Tooltip",   -- TemplateCell removed; return empty (column index preserved)
+        ''::text AS "OnClick"    -- TemplateCell removed; return empty (column index preserved)
     FROM "RTSGrid_Cell" c
     JOIN "RTSGrid_Row" r ON c."RowId" = r."RowId"
     JOIN "RTSGrid_Grid" g ON r."GridId" = g."GridId"
     LEFT JOIN "RTSGrid_Column" o ON c."ColumnId" = o."ColumnId"
-    LEFT JOIN "RTSGrid_TemplateCell" t ON o."CellTemplateId" = t."CellTemplateId"
     WHERE g."GridId" = p_grid_id;
 END;
 $$;

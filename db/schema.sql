@@ -1,13 +1,13 @@
 -- ============================================================================
--- GENERATED â€” do not hand-edit. Regenerate via db/tools/Regen-Schema.ps1
--- Sources: EF AppDbContext + AuditDbContext + BackendEmulationDbContext @ c1f66af
---          + db/functions/*.sql + db/migrations/*.sql (all applied)
--- Generated: 2026-06-14T07:36:13Z | git: c1f66aff27dfedd903266cc55f225995e0f4161d
+-- RTM-CANONICAL SCHEMA — 26 tables (RTM authority only)
+-- Regenerate via db/tools/Export-All.ps1 (whitelist approach)
+--
+-- R0b carve (2026-06-21): EF-app tables (38) removed. They are created by
+-- Web.exe migrate (App + Audit EF contexts). See db/REBUILD_RUNBOOK.md.
 -- ============================================================================
 --
 -- PostgreSQL database dump
 --
-
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -25,18 +25,8 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: audit; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA audit;
-
 
 --
--- Name: identity; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA identity;
-
 
 --
 -- Name: public; Type: SCHEMA; Schema: -; Owner: -
@@ -44,13 +34,11 @@ CREATE SCHEMA identity;
 
 CREATE SCHEMA public;
 
-
 --
 -- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
 --
 
 COMMENT ON SCHEMA public IS 'standard public schema';
-
 
 --
 -- Name: NGC_CreateBusinessUnit(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -66,7 +54,6 @@ BEGIN
     RETURNING "NGC_BusinessUnit"."BusinessUnitId";
 END;
 $$;
-
 
 --
 -- Name: NGC_CreateBusinessUnit(text, text, text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -89,7 +76,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_CreateBusinessUnitQueueClassificationMapping(integer, text, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
@@ -105,7 +91,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_CreateBusinessUnitSupergroupMapping(integer, integer, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
@@ -119,7 +104,6 @@ BEGIN
     ON CONFLICT ("BusinessUnitId", "SupergroupId") DO NOTHING;
 END;
 $$;
-
 
 --
 -- Name: NGC_CreateSupergroup(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -136,7 +120,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_CreateSupergroup(text, text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -151,7 +134,6 @@ BEGIN
     RETURNING "NGC_Supergroup"."SupergroupId";
 END;
 $$;
-
 
 --
 -- Name: NGC_CreateSupergroup(integer, text, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
@@ -169,7 +151,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_CreateSupergroupAgentgroupMapping(integer, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
@@ -183,7 +164,6 @@ BEGIN
     ON CONFLICT ("SupergroupId", "AgentgroupId") DO NOTHING;
 END;
 $$;
-
 
 --
 -- Name: NGC_DeleteBusinessUnit(integer, uuid); Type: PROCEDURE; Schema: public; Owner: -
@@ -199,7 +179,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_DeleteSupergroup(integer, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
@@ -213,7 +192,6 @@ BEGIN
       AND "TenantId" = p_tenant_id;
 END;
 $$;
-
 
 --
 -- Name: NGC_DeleteUserAgentgroup(text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
@@ -229,7 +207,6 @@ BEGIN
       AND "AgentgroupId" = p_agentgroup_id;
 END;
 $$;
-
 
 --
 -- Name: NGC_GetBusinessUnitIdByName(text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -249,7 +226,6 @@ BEGIN
     RETURN v_id;  -- NULL if not found
 END;
 $$;
-
 
 --
 -- Name: NGC_GetBusinessUnitQueueClassificationTable(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -272,7 +248,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_GetBusinessUnitSupergroupTable(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -292,7 +267,6 @@ BEGIN
     WHERE bs."TenantId" = p_tenant_id;
 END;
 $$;
-
 
 --
 -- Name: NGC_GetBusinessUnitTable(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -317,11 +291,11 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_GetCellsByDataGrid(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
+-- R0b fix (2026-06-21): Removed dead RTSGrid_TemplateCell JOIN (42P01 on fresh rebuild)
 CREATE FUNCTION public."NGC_GetCellsByDataGrid"(p_grid_id integer) RETURNS TABLE("CellID" integer, "ColumnId" integer, "RowNumber" integer, "RowId" integer, "CssStyleID" integer, "GridStyleId" integer, "RowStyleId" integer, "CellType" text, "Value" text, "Tooltip" text, "OnClick" text)
     LANGUAGE plpgsql
     AS $$
@@ -337,17 +311,15 @@ BEGIN
         r."StyleId" AS "RowStyleId",
         COALESCE(c."CellType", '')::text AS "CellType",
         COALESCE(c."Value", '')::text AS "Value",
-        COALESCE(t."Tooltip", '')::text AS "Tooltip",
-        COALESCE(t."OnClick", '')::text AS "OnClick"
+        ''::text AS "Tooltip",
+        ''::text AS "OnClick"
     FROM "RTSGrid_Cell" c
     JOIN "RTSGrid_Row" r ON c."RowId" = r."RowId"
     JOIN "RTSGrid_Grid" g ON r."GridId" = g."GridId"
     LEFT JOIN "RTSGrid_Column" o ON c."ColumnId" = o."ColumnId"
-    LEFT JOIN "RTSGrid_TemplateCell" t ON o."CellTemplateId" = t."CellTemplateId"
     WHERE g."GridId" = p_grid_id;
 END;
 $$;
-
 
 --
 -- Name: NGC_GetDataGrid(integer); Type: FUNCTION; Schema: public; Owner: -
@@ -371,7 +343,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_GetOrCreateAgentGroup(text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
@@ -386,7 +357,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_GetOrCreateQueue(text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
@@ -400,7 +370,6 @@ BEGIN
     ON CONFLICT ("ExternalId", "TenantId") DO NOTHING;
 END;
 $$;
-
 
 --
 -- Name: NGC_GetSiteTable(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -423,7 +392,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_GetSupergroupAgentgroupTable(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -445,7 +413,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_GetSupergroupIdByName(text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -464,7 +431,6 @@ BEGIN
     RETURN v_id;
 END;
 $$;
-
 
 --
 -- Name: NGC_GetSupergroupTable(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -489,7 +455,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_ModifyBusinessUnit(integer, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
@@ -505,7 +470,6 @@ BEGIN
       AND "TenantId" = p_tenant_id;
 END;
 $$;
-
 
 --
 -- Name: NGC_ModifySupergroup(integer, text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
@@ -523,7 +487,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: NGC_SetUserAgentgroup(text, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
@@ -538,7 +501,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: RTSData_MidnightClear(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -550,7 +512,6 @@ BEGIN
     DELETE FROM "RTSData_Interaction" WHERE "TenantId" = p_tenant_id;
     DELETE FROM "RTSData_UserStatus" WHERE "TenantId" = p_tenant_id;
 END; $$;
-
 
 --
 -- Name: RTSData_SetChatMessage(text, text, integer, text, text, text, text, text, text, text, timestamp with time zone, text, timestamp with time zone, uuid); Type: PROCEDURE; Schema: public; Owner: -
@@ -576,7 +537,6 @@ BEGIN
         "DeliveryStatus" = EXCLUDED."DeliveryStatus", "UpdateTime" = EXCLUDED."UpdateTime",
         "TimeStamp" = EXCLUDED."TimeStamp", "TenantId" = EXCLUDED."TenantId";
 END; $$;
-
 
 --
 -- Name: RTSData_SetInteraction(text, integer, text, text, text, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, boolean, double precision, double precision, timestamp with time zone, timestamp with time zone, text, text, text, text, text, text, text, text, text, text, text, text, text, text, text, text, text, text, text, text, text, text, boolean, text, text, timestamp with time zone, text, uuid); Type: PROCEDURE; Schema: public; Owner: -
@@ -664,7 +624,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: RTSData_SetUserStatus(text, text, text, text, text, text, double precision, double precision, integer, text, timestamp with time zone, timestamp with time zone, text, timestamp with time zone, uuid); Type: PROCEDURE; Schema: public; Owner: -
 --
@@ -714,7 +673,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: RTSGrid_GetAllMetrics(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -738,7 +696,6 @@ BEGIN
     FROM "RTSGrid_Metric" m;
 END;
 $$;
-
 
 --
 -- Name: RTSGrid_GetAllStatistics(); Type: FUNCTION; Schema: public; Owner: -
@@ -777,7 +734,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: RTSGrid_GetAllUnionQueueClassifications(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -803,7 +759,6 @@ BEGIN
       AND s."TenantId" = p_tenant_id;
 END;
 $$;
-
 
 --
 -- Name: RTSGrid_GetAllUnionUserGroups(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -834,7 +789,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: RTSGrid_GetDataCells(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -863,7 +817,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: RTSGrid_GetStatisticCells(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -884,7 +837,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: RTSGrid_GetUnionUsersMetrics(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -902,7 +854,6 @@ BEGIN
     ORDER BY g."UnionId";
 END;
 $$;
-
 
 --
 -- Name: RTSUserGrid_GetAllGrids(); Type: FUNCTION; Schema: public; Owner: -
@@ -925,7 +876,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: RTSUserView_GetHTMLSettings(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -940,7 +890,6 @@ BEGIN
     RETURN;
 END;
 $$;
-
 
 --
 -- Name: fn_daytrendagentstatus(uuid, character varying, integer, integer); Type: FUNCTION; Schema: public; Owner: -
@@ -1054,7 +1003,6 @@ CREATE FUNCTION public.fn_daytrendagentstatus(p_tenantid uuid, p_ondate characte
     UNION ALL SELECT ss.interval_start,'statuslog.total_active_time_ms',ss.total_active_time_ms::double precision FROM status_summary ss
     ORDER BY 1, 2;
 $$;
-
 
 --
 -- Name: fn_daytrendinteractions(uuid, character varying, text[], integer); Type: FUNCTION; Schema: public; Owner: -
@@ -1172,233 +1120,27 @@ CREATE FUNCTION public.fn_daytrendinteractions(p_tenantid uuid, p_ondate charact
     ORDER BY 1, 2;
 $$;
 
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: __ef_migrations_history; Type: TABLE; Schema: audit; Owner: -
+--
+--
+--
 --
 
-CREATE TABLE audit.__ef_migrations_history (
-    "MigrationId" character varying(150) NOT NULL,
-    "ProductVersion" character varying(32) NOT NULL
-);
-
-
 --
--- Name: audit_logs; Type: TABLE; Schema: audit; Owner: -
+--
+--
 --
 
-CREATE TABLE audit.audit_logs (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid,
-    "UserId" uuid,
-    "UserName" character varying(256) NOT NULL,
-    "EventType" character varying(64) NOT NULL,
-    "EventResult" character varying(16) NOT NULL,
-    "IpAddress" text,
-    "UserAgent" text,
-    "Details" jsonb,
-    "CreatedAt" timestamp with time zone NOT NULL
-);
-
-
 --
--- Name: refresh_tokens; Type: TABLE; Schema: identity; Owner: -
 --
-
-CREATE TABLE identity.refresh_tokens (
-    "Id" uuid NOT NULL,
-    "UserId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "Jti" uuid NOT NULL,
-    "TokenHash" character varying(64) NOT NULL,
-    "ExpiresAt" timestamp with time zone NOT NULL,
-    "IssuedAt" timestamp with time zone NOT NULL,
-    "RevokedAt" timestamp with time zone,
-    "ReplacedByTokenId" uuid,
-    "IpAddress" text NOT NULL,
-    "UserAgent" text NOT NULL
-);
-
-
 --
--- Name: role_claims; Type: TABLE; Schema: identity; Owner: -
 --
-
-CREATE TABLE identity.role_claims (
-    "Id" integer NOT NULL,
-    "RoleId" uuid NOT NULL,
-    "ClaimType" text,
-    "ClaimValue" text
-);
-
-
 --
--- Name: role_claims_Id_seq; Type: SEQUENCE; Schema: identity; Owner: -
 --
-
-ALTER TABLE identity.role_claims ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME identity."role_claims_Id_seq"
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
--- Name: roles; Type: TABLE; Schema: identity; Owner: -
---
-
-CREATE TABLE identity.roles (
-    "Id" uuid NOT NULL,
-    "Name" character varying(256),
-    "NormalizedName" character varying(256),
-    "ConcurrencyStamp" text
-);
-
-
---
--- Name: two_factor_codes; Type: TABLE; Schema: identity; Owner: -
---
-
-CREATE TABLE identity.two_factor_codes (
-    "Id" uuid NOT NULL,
-    "UserId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "CodeHash" character varying(64) NOT NULL,
-    "Salt" character varying(32) NOT NULL,
-    "ExpiresAt" timestamp with time zone NOT NULL,
-    "AttemptCount" integer NOT NULL,
-    "ConsumedAt" timestamp with time zone
-);
-
-
---
--- Name: user_claims; Type: TABLE; Schema: identity; Owner: -
---
-
-CREATE TABLE identity.user_claims (
-    "Id" integer NOT NULL,
-    "UserId" uuid NOT NULL,
-    "ClaimType" text,
-    "ClaimValue" text
-);
-
-
---
--- Name: user_claims_Id_seq; Type: SEQUENCE; Schema: identity; Owner: -
---
-
-ALTER TABLE identity.user_claims ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME identity."user_claims_Id_seq"
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
--- Name: user_logins; Type: TABLE; Schema: identity; Owner: -
---
-
-CREATE TABLE identity.user_logins (
-    "LoginProvider" text NOT NULL,
-    "ProviderKey" text NOT NULL,
-    "ProviderDisplayName" text,
-    "UserId" uuid NOT NULL
-);
-
-
---
--- Name: user_password_history; Type: TABLE; Schema: identity; Owner: -
---
-
-CREATE TABLE identity.user_password_history (
-    "Id" uuid NOT NULL,
-    "UserId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "PasswordHash" text NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL
-);
-
-
---
--- Name: user_roles; Type: TABLE; Schema: identity; Owner: -
---
-
-CREATE TABLE identity.user_roles (
-    "UserId" uuid NOT NULL,
-    "RoleId" uuid NOT NULL
-);
-
-
---
--- Name: user_sessions; Type: TABLE; Schema: identity; Owner: -
---
-
-CREATE TABLE identity.user_sessions (
-    "Id" uuid NOT NULL,
-    "UserId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "ExpiresAt" timestamp with time zone NOT NULL,
-    "IpAddress" character varying(45),
-    "UserAgent" character varying(500),
-    "IsRevoked" boolean NOT NULL
-);
-
-
---
--- Name: user_tokens; Type: TABLE; Schema: identity; Owner: -
---
-
-CREATE TABLE identity.user_tokens (
-    "UserId" uuid NOT NULL,
-    "LoginProvider" text NOT NULL,
-    "Name" text NOT NULL,
-    "Value" text
-);
-
-
---
--- Name: users; Type: TABLE; Schema: identity; Owner: -
---
-
-CREATE TABLE identity.users (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "FirstName" character varying(100) NOT NULL,
-    "LastName" character varying(100) NOT NULL,
-    "PermissionGroupId" uuid,
-    "IsActive" boolean NOT NULL,
-    "Is2faEnabled" boolean NOT NULL,
-    "LastLoginAt" timestamp with time zone,
-    "PreferredLocale" character varying(10) DEFAULT 'en-US'::character varying NOT NULL,
-    "MustChangePasswordAt" timestamp with time zone,
-    "UserName" character varying(256),
-    "NormalizedUserName" character varying(256),
-    "Email" character varying(256),
-    "NormalizedEmail" character varying(256),
-    "EmailConfirmed" boolean NOT NULL,
-    "PasswordHash" text,
-    "SecurityStamp" text,
-    "ConcurrencyStamp" text,
-    "PhoneNumber" text,
-    "PhoneNumberConfirmed" boolean NOT NULL,
-    "TwoFactorEnabled" boolean NOT NULL,
-    "LockoutEnd" timestamp with time zone,
-    "LockoutEnabled" boolean NOT NULL,
-    "AccessFailedCount" integer NOT NULL
-);
-
-
 --
 -- Name: NGC_AgentGroups; Type: TABLE; Schema: public; Owner: -
 --
@@ -1410,7 +1152,6 @@ CREATE TABLE public."NGC_AgentGroups" (
     "Name" character varying(200) CONSTRAINT "ngc_AgentGroups_Name_not_null" NOT NULL,
     "IsActive" boolean CONSTRAINT "ngc_AgentGroups_IsActive_not_null" NOT NULL
 );
-
 
 --
 -- Name: NGC_BusinessUnit; Type: TABLE; Schema: public; Owner: -
@@ -1426,7 +1167,6 @@ CREATE TABLE public."NGC_BusinessUnit" (
     "SiteId" character varying(50)
 );
 
-
 --
 -- Name: NGC_BusinessUnitQueueClassification; Type: TABLE; Schema: public; Owner: -
 --
@@ -1440,7 +1180,6 @@ CREATE TABLE public."NGC_BusinessUnitQueueClassification" (
     "CreatedBy" character varying(100)
 );
 
-
 --
 -- Name: NGC_BusinessUnitSupergroup; Type: TABLE; Schema: public; Owner: -
 --
@@ -1452,7 +1191,6 @@ CREATE TABLE public."NGC_BusinessUnitSupergroup" (
     "CreatedDatetime" timestamp with time zone,
     "CreatedBy" character varying(100)
 );
-
 
 --
 -- Name: NGC_BusinessUnit_BusinessUnitId_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1467,7 +1205,6 @@ ALTER TABLE public."NGC_BusinessUnit" ALTER COLUMN "BusinessUnitId" ADD GENERATE
     CACHE 1
 );
 
-
 --
 -- Name: NGC_Queues; Type: TABLE; Schema: public; Owner: -
 --
@@ -1479,7 +1216,6 @@ CREATE TABLE public."NGC_Queues" (
     "Name" character varying(200) CONSTRAINT "ngc_queues_Name_not_null" NOT NULL,
     "IsActive" boolean CONSTRAINT "ngc_queues_IsActive_not_null" NOT NULL
 );
-
 
 --
 -- Name: NGC_Site; Type: TABLE; Schema: public; Owner: -
@@ -1493,7 +1229,6 @@ CREATE TABLE public."NGC_Site" (
     "TimeZone" character varying(10),
     "ClearTime" character varying(5)
 );
-
 
 --
 -- Name: NGC_Supergroup; Type: TABLE; Schema: public; Owner: -
@@ -1509,7 +1244,6 @@ CREATE TABLE public."NGC_Supergroup" (
     "SupergroupIdOld" integer
 );
 
-
 --
 -- Name: NGC_SupergroupAgentgroup; Type: TABLE; Schema: public; Owner: -
 --
@@ -1522,7 +1256,6 @@ CREATE TABLE public."NGC_SupergroupAgentgroup" (
     "CreatedDatetime" timestamp with time zone,
     "CreatedBy" character varying(100)
 );
-
 
 --
 -- Name: NGC_SupergroupAgentgroup_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1537,7 +1270,6 @@ ALTER TABLE public."NGC_SupergroupAgentgroup" ALTER COLUMN "Id" ADD GENERATED AL
     CACHE 1
 );
 
-
 --
 -- Name: NGC_UserAgentgroup; Type: TABLE; Schema: public; Owner: -
 --
@@ -1551,7 +1283,6 @@ CREATE TABLE public."NGC_UserAgentgroup" (
     "CreatedBy" character varying(100)
 );
 
-
 --
 -- Name: NGC_UserAgentgroup_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
@@ -1564,7 +1295,6 @@ ALTER TABLE public."NGC_UserAgentgroup" ALTER COLUMN "Id" ADD GENERATED ALWAYS A
     NO MAXVALUE
     CACHE 1
 );
-
 
 --
 -- Name: RTSData_ChatMessage; Type: TABLE; Schema: public; Owner: -
@@ -1585,7 +1315,6 @@ CREATE TABLE public."RTSData_ChatMessage" (
     "UpdateTime" timestamp with time zone,
     "TimeStamp" timestamp with time zone
 );
-
 
 --
 -- Name: RTSData_Interaction; Type: TABLE; Schema: public; Owner: -
@@ -1640,7 +1369,6 @@ CREATE TABLE public."RTSData_Interaction" (
     "CustomCallData18" text
 );
 
-
 --
 -- Name: RTSData_UserStatus; Type: TABLE; Schema: public; Owner: -
 --
@@ -1661,7 +1389,6 @@ CREATE TABLE public."RTSData_UserStatus" (
     "TimeZone" character varying(10)
 );
 
-
 --
 -- Name: RTSData_UserStatusLog; Type: TABLE; Schema: public; Owner: -
 --
@@ -1681,7 +1408,6 @@ CREATE TABLE public."RTSData_UserStatusLog" (
     "StatusGroup" character varying(50)
 );
 
-
 --
 -- Name: RTSData_UserStatusLog_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
@@ -1694,7 +1420,6 @@ ALTER TABLE public."RTSData_UserStatusLog" ALTER COLUMN "Id" ADD GENERATED ALWAY
     NO MAXVALUE
     CACHE 1
 );
-
 
 --
 -- Name: RTSGrid_Cell; Type: TABLE; Schema: public; Owner: -
@@ -1716,7 +1441,6 @@ CREATE TABLE public."RTSGrid_Cell" (
     "OldRowId" integer
 );
 
-
 --
 -- Name: RTSGrid_Cell_CellId_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
@@ -1730,7 +1454,6 @@ ALTER TABLE public."RTSGrid_Cell" ALTER COLUMN "CellId" ADD GENERATED ALWAYS AS 
     CACHE 1
 );
 
-
 --
 -- Name: RTSGrid_Column; Type: TABLE; Schema: public; Owner: -
 --
@@ -1741,7 +1464,6 @@ CREATE TABLE public."RTSGrid_Column" (
     "ColumnNumber" integer NOT NULL,
     "CellTemplateId" integer
 );
-
 
 --
 -- Name: RTSGrid_Column_ColumnId_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1756,7 +1478,6 @@ ALTER TABLE public."RTSGrid_Column" ALTER COLUMN "ColumnId" ADD GENERATED ALWAYS
     CACHE 1
 );
 
-
 --
 -- Name: RTSGrid_Grid; Type: TABLE; Schema: public; Owner: -
 --
@@ -1768,7 +1489,6 @@ CREATE TABLE public."RTSGrid_Grid" (
     "Title" character varying(100) NOT NULL,
     "ThresholdScript" text
 );
-
 
 --
 -- Name: RTSGrid_Grid_GridId_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1782,7 +1502,6 @@ ALTER TABLE public."RTSGrid_Grid" ALTER COLUMN "GridId" ADD GENERATED ALWAYS AS 
     NO MAXVALUE
     CACHE 1
 );
-
 
 --
 -- Name: RTSGrid_Metric; Type: TABLE; Schema: public; Owner: -
@@ -1812,7 +1531,6 @@ CREATE TABLE public."RTSGrid_Metric" (
     "ThresholdSec" integer
 );
 
-
 --
 -- Name: RTSGrid_MetricTranslation; Type: TABLE; Schema: public; Owner: -
 --
@@ -1825,7 +1543,6 @@ CREATE TABLE public."RTSGrid_MetricTranslation" (
     "LongDescription" text,
     "Comparison" text
 );
-
 
 --
 -- Name: RTSGrid_Row; Type: TABLE; Schema: public; Owner: -
@@ -1841,7 +1558,6 @@ CREATE TABLE public."RTSGrid_Row" (
     "OldRowId" integer
 );
 
-
 --
 -- Name: RTSGrid_Row_RowId_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
@@ -1854,7 +1570,6 @@ ALTER TABLE public."RTSGrid_Row" ALTER COLUMN "RowId" ADD GENERATED ALWAYS AS ID
     NO MAXVALUE
     CACHE 1
 );
-
 
 --
 -- Name: RTSGrid_Statistic; Type: TABLE; Schema: public; Owner: -
@@ -1886,7 +1601,6 @@ CREATE TABLE public."RTSGrid_Statistic" (
     "ParamValue10" character varying(500)
 );
 
-
 --
 -- Name: RTSGrid_Statistic_StatisticId_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
@@ -1899,7 +1613,6 @@ ALTER TABLE public."RTSGrid_Statistic" ALTER COLUMN "StatisticId" ADD GENERATED 
     NO MAXVALUE
     CACHE 1
 );
-
 
 --
 -- Name: RTSGrid_UserStatus; Type: TABLE; Schema: public; Owner: -
@@ -1917,7 +1630,6 @@ CREATE TABLE public."RTSGrid_UserStatus" (
     "OnDate" character varying(50)
 );
 
-
 --
 -- Name: RTSUserGrid_Column; Type: TABLE; Schema: public; Owner: -
 --
@@ -1930,7 +1642,6 @@ CREATE TABLE public."RTSUserGrid_Column" (
     "StyleId" integer,
     "ColumnsOrder" integer NOT NULL
 );
-
 
 --
 -- Name: RTSUserGrid_Column_ColumnId_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1945,7 +1656,6 @@ ALTER TABLE public."RTSUserGrid_Column" ALTER COLUMN "ColumnId" ADD GENERATED AL
     CACHE 1
 );
 
-
 --
 -- Name: RTSUserGrid_ColumnsSet; Type: TABLE; Schema: public; Owner: -
 --
@@ -1956,7 +1666,6 @@ CREATE TABLE public."RTSUserGrid_ColumnsSet" (
     "Description" text,
     "Direction" character varying(10)
 );
-
 
 --
 -- Name: RTSUserGrid_ColumnsSet_ColumnsSetId_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1970,7 +1679,6 @@ ALTER TABLE public."RTSUserGrid_ColumnsSet" ALTER COLUMN "ColumnsSetId" ADD GENE
     NO MAXVALUE
     CACHE 1
 );
-
 
 --
 -- Name: RTSUserGrid_Grid; Type: TABLE; Schema: public; Owner: -
@@ -1992,7 +1700,6 @@ CREATE TABLE public."RTSUserGrid_Grid" (
     "TextDirection" character varying(5)
 );
 
-
 --
 -- Name: RTSUserGrid_Grid_GridId_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
@@ -2006,109 +1713,14 @@ ALTER TABLE public."RTSUserGrid_Grid" ALTER COLUMN "GridId" ADD GENERATED ALWAYS
     CACHE 1
 );
 
-
 --
--- Name: __BackendEmulationMigrationsHistory; Type: TABLE; Schema: public; Owner: -
 --
-
-CREATE TABLE public."__BackendEmulationMigrationsHistory" (
-    "MigrationId" character varying(150) NOT NULL,
-    "ProductVersion" character varying(32) NOT NULL
-);
-
-
 --
--- Name: __ef_migrations_history; Type: TABLE; Schema: public; Owner: -
+--
+--
 --
 
-CREATE TABLE public.__ef_migrations_history (
-    "MigrationId" character varying(150) NOT NULL,
-    "ProductVersion" character varying(32) NOT NULL
-);
-
-
 --
--- Name: dashboard_categories; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.dashboard_categories (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "Name" character varying(200) NOT NULL,
-    "Description" character varying(500),
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "CreatedByUserId" uuid NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL,
-    "UpdatedByUserId" uuid NOT NULL
-);
-
-
---
--- Name: dashboard_permissions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.dashboard_permissions (
-    "PermissionGroupId" uuid NOT NULL,
-    "DashboardId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "AccessLevel" integer NOT NULL
-);
-
-
---
--- Name: dashboard_widgets; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.dashboard_widgets (
-    "Id" uuid NOT NULL,
-    "DashboardId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "WidgetCatalogItemId" uuid NOT NULL,
-    "IsDeleted" boolean NOT NULL,
-    "PositionJson" jsonb,
-    "ConfigJson" jsonb,
-    "GridId" integer NOT NULL
-);
-
-
---
--- Name: dashboard_widgets_GridId_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-ALTER TABLE public.dashboard_widgets ALTER COLUMN "GridId" ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME public."dashboard_widgets_GridId_seq"
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
--- Name: dashboards; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.dashboards (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "Name" character varying(200) NOT NULL,
-    "Description" text,
-    "Status" character varying(20) NOT NULL,
-    "IsPublic" boolean NOT NULL,
-    "CreatedByUserId" uuid NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL,
-    "UpdatedByUserId" uuid NOT NULL,
-    "IsDeleted" boolean NOT NULL,
-    "DeletedAt" timestamp with time zone,
-    "DeletedByUserId" uuid,
-    "LayoutJson" jsonb,
-    "CategoryId" uuid,
-    "IsDarkMode" boolean DEFAULT false NOT NULL
-);
-
-
 --
 -- Name: db_patch_history; Type: TABLE; Schema: public; Owner: -
 --
@@ -2118,84 +1730,11 @@ CREATE TABLE public.db_patch_history (
     applied_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
 --
--- Name: history_metrics; Type: TABLE; Schema: public; Owner: -
 --
-
-CREATE TABLE public.history_metrics (
-    "MetricId" character varying(100) NOT NULL,
-    "Description" character varying(200) NOT NULL,
-    "DataType" character varying(20) NOT NULL,
-    "MetricFunction" character varying(50) NOT NULL,
-    "MetricParameter" character varying(200) NOT NULL,
-    "MetricFormat" character varying(20) NOT NULL,
-    "DefaultValue" character varying(20) NOT NULL,
-    "ValueType" character varying(20) NOT NULL,
-    "MetricType" character varying(50) NOT NULL
-);
-
-
 --
--- Name: info_slot_messages; Type: TABLE; Schema: public; Owner: -
 --
-
-CREATE TABLE public.info_slot_messages (
-    "Id" uuid NOT NULL,
-    "InfoSlotId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "Content" text NOT NULL,
-    "Priority" character varying(10) NOT NULL,
-    "ExpiresAt" timestamp with time zone,
-    "IsActive" boolean NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "CreatedByUserId" uuid NOT NULL,
-    "DeactivatedAt" timestamp with time zone,
-    "DeactivatedByUserId" uuid
-);
-
-
 --
--- Name: info_slot_permissions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.info_slot_permissions (
-    "InfoSlotId" uuid NOT NULL,
-    "PermissionGroupId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL
-);
-
-
---
--- Name: info_slots; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.info_slots (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "Name" character varying(200) NOT NULL,
-    "Description" character varying(500),
-    "DisplayMode" character varying(20) NOT NULL,
-    "SecondsPerMessage" integer NOT NULL,
-    "IsActive" boolean NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "CreatedByUserId" uuid NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL,
-    "UpdatedByUserId" uuid NOT NULL
-);
-
-
---
--- Name: menu_permissions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.menu_permissions (
-    "PermissionGroupId" uuid NOT NULL,
-    "MenuKey" character varying(100) NOT NULL,
-    "TenantId" uuid NOT NULL
-);
-
-
 --
 -- Name: metric_deploy_log; Type: TABLE; Schema: public; Owner: -
 --
@@ -2205,7 +1744,6 @@ CREATE TABLE public.metric_deploy_log (
     "DeployedAt" timestamp with time zone NOT NULL,
     "SourceCommit" text
 );
-
 
 --
 -- Name: ngc_supergroup_SupergroupId_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -2220,312 +1758,45 @@ ALTER TABLE public."NGC_Supergroup" ALTER COLUMN "SupergroupId" ADD GENERATED AL
     CACHE 1
 );
 
-
 --
--- Name: permission_groups; Type: TABLE; Schema: public; Owner: -
 --
-
-CREATE TABLE public.permission_groups (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "Name" character varying(200) NOT NULL,
-    "Description" text,
-    "IsActive" boolean NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "CreatedByUserId" uuid NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL,
-    "UpdatedByUserId" uuid NOT NULL
-);
-
-
 --
--- Name: pg_business_units; Type: TABLE; Schema: public; Owner: -
+--
+--
+--
+--
+--
+--
+--
+--
+--
+--
+--
 --
 
-CREATE TABLE public.pg_business_units (
-    "PermissionGroupId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "BusinessUnitId" integer DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: pg_queues; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.pg_queues (
-    "PermissionGroupId" uuid NOT NULL,
-    "ObjectId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL
-);
-
-
---
--- Name: pg_skills; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.pg_skills (
-    "PermissionGroupId" uuid NOT NULL,
-    "ObjectId" uuid NOT NULL,
-    "TenantId" uuid NOT NULL
-);
-
-
---
--- Name: pg_supergroups; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.pg_supergroups (
-    "PermissionGroupId" uuid NOT NULL,
-    "SupergroupId" integer NOT NULL,
-    "TenantId" uuid NOT NULL
-);
-
-
---
--- Name: sso_configurations; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.sso_configurations (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "Provider" character varying(20) NOT NULL,
-    "MetadataUrl" text,
-    "ClientId" text,
-    "ClientSecret" text,
-    "ClaimMappings" jsonb NOT NULL,
-    "IsActive" boolean NOT NULL
-);
-
-
---
--- Name: tenant_agent_state_definitions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.tenant_agent_state_definitions (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "AgentStateId" uuid NOT NULL,
-    "AgentStateGroupId" uuid NOT NULL,
-    "IsActive" boolean NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL
-);
-
-
---
--- Name: tenant_agent_state_groups; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.tenant_agent_state_groups (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "GroupName" character varying(100) NOT NULL,
-    "IsActive" boolean NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL
-);
-
-
---
--- Name: tenant_agent_states; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.tenant_agent_states (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "AgentState" character varying(100) NOT NULL,
-    "IsActive" boolean NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL
-);
-
-
---
--- Name: tenant_settings; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.tenant_settings (
-    "TenantId" uuid NOT NULL,
-    "PasswordMinLength" integer NOT NULL,
-    "PasswordExpireDays" integer NOT NULL,
-    "Require2faForAll" boolean NOT NULL,
-    "AuditRetentionDays" integer NOT NULL,
-    "DefaultLocale" text NOT NULL,
-    "SoftDeleteDashboards" boolean NOT NULL,
-    "SoftDeleteRetentionDays" integer NOT NULL,
-    "EmailProviderConfig" text,
-    "SsoConfigurationId" uuid,
-    "MaxConcurrentConnections" integer DEFAULT 0 NOT NULL,
-    "PurchasedLicences" integer DEFAULT 0 NOT NULL,
-    "SignalRConnectionUrl" text,
-    "BackgroundColorPalette" text,
-    "FontColorPalette" text,
-    "FontSizes" text
-);
-
-
---
--- Name: tenants; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.tenants (
-    "Id" uuid NOT NULL,
-    "Slug" character varying(100) NOT NULL,
-    "Name" character varying(200) NOT NULL,
-    "Status" character varying(20) NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL
-);
-
-
---
--- Name: user_widget_settings; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.user_widget_settings (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "UserId" uuid NOT NULL,
-    "WidgetId" uuid NOT NULL,
-    "SettingsJson" jsonb NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL
-);
-
-
---
--- Name: widget_catalog; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.widget_catalog (
-    "Id" uuid NOT NULL,
-    "Category" character varying(100) NOT NULL,
-    "Name" character varying(200) NOT NULL,
-    "Description" text,
-    "IconUrl" text,
-    "IsActive" boolean NOT NULL
-);
-
-
 --
--- Name: widget_templates; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.widget_templates (
-    "Id" uuid NOT NULL,
-    "TenantId" uuid NOT NULL,
-    "Name" character varying(200) NOT NULL,
-    "WidgetCatalogItemId" uuid NOT NULL,
-    "ConfigJson" jsonb,
-    "CreatedByUserId" uuid NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL
-);
-
-
---
--- Name: __ef_migrations_history PK___ef_migrations_history; Type: CONSTRAINT; Schema: audit; Owner: -
---
-
-ALTER TABLE ONLY audit.__ef_migrations_history
-    ADD CONSTRAINT "PK___ef_migrations_history" PRIMARY KEY ("MigrationId");
-
-
---
--- Name: audit_logs PK_audit_logs; Type: CONSTRAINT; Schema: audit; Owner: -
---
-
-ALTER TABLE ONLY audit.audit_logs
-    ADD CONSTRAINT "PK_audit_logs" PRIMARY KEY ("Id");
-
-
---
--- Name: refresh_tokens PK_refresh_tokens; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.refresh_tokens
-    ADD CONSTRAINT "PK_refresh_tokens" PRIMARY KEY ("Id");
-
-
---
--- Name: role_claims PK_role_claims; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.role_claims
-    ADD CONSTRAINT "PK_role_claims" PRIMARY KEY ("Id");
-
-
---
--- Name: roles PK_roles; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.roles
-    ADD CONSTRAINT "PK_roles" PRIMARY KEY ("Id");
-
-
---
--- Name: two_factor_codes PK_two_factor_codes; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.two_factor_codes
-    ADD CONSTRAINT "PK_two_factor_codes" PRIMARY KEY ("Id");
-
-
---
--- Name: user_claims PK_user_claims; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.user_claims
-    ADD CONSTRAINT "PK_user_claims" PRIMARY KEY ("Id");
-
-
---
--- Name: user_logins PK_user_logins; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.user_logins
-    ADD CONSTRAINT "PK_user_logins" PRIMARY KEY ("LoginProvider", "ProviderKey");
-
-
---
--- Name: user_password_history PK_user_password_history; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.user_password_history
-    ADD CONSTRAINT "PK_user_password_history" PRIMARY KEY ("Id");
-
-
---
--- Name: user_roles PK_user_roles; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.user_roles
-    ADD CONSTRAINT "PK_user_roles" PRIMARY KEY ("UserId", "RoleId");
-
-
---
--- Name: user_sessions PK_user_sessions; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.user_sessions
-    ADD CONSTRAINT "PK_user_sessions" PRIMARY KEY ("Id");
-
-
---
--- Name: user_tokens PK_user_tokens; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.user_tokens
-    ADD CONSTRAINT "PK_user_tokens" PRIMARY KEY ("UserId", "LoginProvider", "Name");
-
-
---
--- Name: users PK_users; Type: CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.users
-    ADD CONSTRAINT "PK_users" PRIMARY KEY ("Id");
-
 
 --
 -- Name: NGC_BusinessUnit PK_NGC_BusinessUnit; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2534,14 +1805,12 @@ ALTER TABLE ONLY identity.users
 ALTER TABLE ONLY public."NGC_BusinessUnit"
     ADD CONSTRAINT "PK_NGC_BusinessUnit" PRIMARY KEY ("BusinessUnitId");
 
-
 --
 -- Name: NGC_BusinessUnitQueueClassification PK_NGC_BusinessUnitQueueClassification; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."NGC_BusinessUnitQueueClassification"
     ADD CONSTRAINT "PK_NGC_BusinessUnitQueueClassification" PRIMARY KEY ("BusinessUnitId", "QueueId");
-
 
 --
 -- Name: NGC_BusinessUnitSupergroup PK_NGC_BusinessUnitSupergroup; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2550,14 +1819,12 @@ ALTER TABLE ONLY public."NGC_BusinessUnitQueueClassification"
 ALTER TABLE ONLY public."NGC_BusinessUnitSupergroup"
     ADD CONSTRAINT "PK_NGC_BusinessUnitSupergroup" PRIMARY KEY ("BusinessUnitId", "SupergroupId");
 
-
 --
 -- Name: NGC_Site PK_NGC_Site; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."NGC_Site"
     ADD CONSTRAINT "PK_NGC_Site" PRIMARY KEY ("SiteId");
-
 
 --
 -- Name: NGC_Supergroup PK_NGC_Supergroup; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2566,14 +1833,12 @@ ALTER TABLE ONLY public."NGC_Site"
 ALTER TABLE ONLY public."NGC_Supergroup"
     ADD CONSTRAINT "PK_NGC_Supergroup" PRIMARY KEY ("SupergroupId");
 
-
 --
 -- Name: NGC_SupergroupAgentgroup PK_NGC_SupergroupAgentgroup; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."NGC_SupergroupAgentgroup"
     ADD CONSTRAINT "PK_NGC_SupergroupAgentgroup" PRIMARY KEY ("Id");
-
 
 --
 -- Name: NGC_UserAgentgroup PK_NGC_UserAgentgroup; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2582,14 +1847,12 @@ ALTER TABLE ONLY public."NGC_SupergroupAgentgroup"
 ALTER TABLE ONLY public."NGC_UserAgentgroup"
     ADD CONSTRAINT "PK_NGC_UserAgentgroup" PRIMARY KEY ("Id");
 
-
 --
 -- Name: RTSData_ChatMessage PK_RTSData_ChatMessage; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."RTSData_ChatMessage"
     ADD CONSTRAINT "PK_RTSData_ChatMessage" PRIMARY KEY ("MessageId", "ServerId", "OnDate");
-
 
 --
 -- Name: RTSData_Interaction PK_RTSData_Interaction; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2598,14 +1861,12 @@ ALTER TABLE ONLY public."RTSData_ChatMessage"
 ALTER TABLE ONLY public."RTSData_Interaction"
     ADD CONSTRAINT "PK_RTSData_Interaction" PRIMARY KEY ("InteractionId", "Segment", "OnDate", "ServerId", "Workgroup");
 
-
 --
 -- Name: RTSData_UserStatus PK_RTSData_UserStatus; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."RTSData_UserStatus"
     ADD CONSTRAINT "PK_RTSData_UserStatus" PRIMARY KEY ("UserId", "StatusId", "ServerId", "OnDate");
-
 
 --
 -- Name: RTSData_UserStatusLog PK_RTSData_UserStatusLog; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2614,14 +1875,12 @@ ALTER TABLE ONLY public."RTSData_UserStatus"
 ALTER TABLE ONLY public."RTSData_UserStatusLog"
     ADD CONSTRAINT "PK_RTSData_UserStatusLog" PRIMARY KEY ("Id");
 
-
 --
 -- Name: RTSGrid_Cell PK_RTSGrid_Cell; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."RTSGrid_Cell"
     ADD CONSTRAINT "PK_RTSGrid_Cell" PRIMARY KEY ("CellId");
-
 
 --
 -- Name: RTSGrid_Column PK_RTSGrid_Column; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2630,14 +1889,12 @@ ALTER TABLE ONLY public."RTSGrid_Cell"
 ALTER TABLE ONLY public."RTSGrid_Column"
     ADD CONSTRAINT "PK_RTSGrid_Column" PRIMARY KEY ("ColumnId");
 
-
 --
 -- Name: RTSGrid_Grid PK_RTSGrid_Grid; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."RTSGrid_Grid"
     ADD CONSTRAINT "PK_RTSGrid_Grid" PRIMARY KEY ("GridId");
-
 
 --
 -- Name: RTSGrid_MetricTranslation PK_RTSGrid_MetricTranslation; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2646,14 +1903,12 @@ ALTER TABLE ONLY public."RTSGrid_Grid"
 ALTER TABLE ONLY public."RTSGrid_MetricTranslation"
     ADD CONSTRAINT "PK_RTSGrid_MetricTranslation" PRIMARY KEY ("MetricId", "Locale");
 
-
 --
 -- Name: RTSGrid_Row PK_RTSGrid_Row; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."RTSGrid_Row"
     ADD CONSTRAINT "PK_RTSGrid_Row" PRIMARY KEY ("RowId");
-
 
 --
 -- Name: RTSGrid_Statistic PK_RTSGrid_Statistic; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2662,14 +1917,12 @@ ALTER TABLE ONLY public."RTSGrid_Row"
 ALTER TABLE ONLY public."RTSGrid_Statistic"
     ADD CONSTRAINT "PK_RTSGrid_Statistic" PRIMARY KEY ("StatisticId");
 
-
 --
 -- Name: RTSGrid_UserStatus PK_RTSGrid_UserStatus; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."RTSGrid_UserStatus"
     ADD CONSTRAINT "PK_RTSGrid_UserStatus" PRIMARY KEY ("UserId", "StatusId");
-
 
 --
 -- Name: RTSUserGrid_Column PK_RTSUserGrid_Column; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2678,14 +1931,12 @@ ALTER TABLE ONLY public."RTSGrid_UserStatus"
 ALTER TABLE ONLY public."RTSUserGrid_Column"
     ADD CONSTRAINT "PK_RTSUserGrid_Column" PRIMARY KEY ("ColumnId");
 
-
 --
 -- Name: RTSUserGrid_ColumnsSet PK_RTSUserGrid_ColumnsSet; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."RTSUserGrid_ColumnsSet"
     ADD CONSTRAINT "PK_RTSUserGrid_ColumnsSet" PRIMARY KEY ("ColumnsSetId");
-
 
 --
 -- Name: RTSUserGrid_Grid PK_RTSUserGrid_Grid; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2694,94 +1945,27 @@ ALTER TABLE ONLY public."RTSUserGrid_ColumnsSet"
 ALTER TABLE ONLY public."RTSUserGrid_Grid"
     ADD CONSTRAINT "PK_RTSUserGrid_Grid" PRIMARY KEY ("GridId");
 
-
---
--- Name: __BackendEmulationMigrationsHistory PK___BackendEmulationMigrationsHistory; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public."__BackendEmulationMigrationsHistory"
-    ADD CONSTRAINT "PK___BackendEmulationMigrationsHistory" PRIMARY KEY ("MigrationId");
-
-
---
--- Name: __ef_migrations_history PK___ef_migrations_history; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.__ef_migrations_history
-    ADD CONSTRAINT "PK___ef_migrations_history" PRIMARY KEY ("MigrationId");
-
-
---
--- Name: dashboard_categories PK_dashboard_categories; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboard_categories
-    ADD CONSTRAINT "PK_dashboard_categories" PRIMARY KEY ("Id");
-
-
---
--- Name: dashboard_permissions PK_dashboard_permissions; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboard_permissions
-    ADD CONSTRAINT "PK_dashboard_permissions" PRIMARY KEY ("PermissionGroupId", "DashboardId");
-
-
---
--- Name: dashboard_widgets PK_dashboard_widgets; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboard_widgets
-    ADD CONSTRAINT "PK_dashboard_widgets" PRIMARY KEY ("Id");
-
-
---
--- Name: dashboards PK_dashboards; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboards
-    ADD CONSTRAINT "PK_dashboards" PRIMARY KEY ("Id");
-
-
---
--- Name: history_metrics PK_history_metrics; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.history_metrics
-    ADD CONSTRAINT "PK_history_metrics" PRIMARY KEY ("MetricId");
-
-
---
--- Name: info_slot_messages PK_info_slot_messages; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.info_slot_messages
-    ADD CONSTRAINT "PK_info_slot_messages" PRIMARY KEY ("Id");
-
-
---
--- Name: info_slot_permissions PK_info_slot_permissions; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.info_slot_permissions
-    ADD CONSTRAINT "PK_info_slot_permissions" PRIMARY KEY ("InfoSlotId", "PermissionGroupId");
-
-
---
--- Name: info_slots PK_info_slots; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.info_slots
-    ADD CONSTRAINT "PK_info_slots" PRIMARY KEY ("Id");
-
-
 --
--- Name: menu_permissions PK_menu_permissions; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.menu_permissions
-    ADD CONSTRAINT "PK_menu_permissions" PRIMARY KEY ("PermissionGroupId", "MenuKey");
-
 
 --
 -- Name: NGC_AgentGroups PK_ngc_AgentGroups; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2790,7 +1974,6 @@ ALTER TABLE ONLY public.menu_permissions
 ALTER TABLE ONLY public."NGC_AgentGroups"
     ADD CONSTRAINT "PK_ngc_AgentGroups" PRIMARY KEY ("Id");
 
-
 --
 -- Name: NGC_Queues PK_ngc_queues; Type: CONSTRAINT; Schema: public; Owner: -
 --
@@ -2798,46 +1981,15 @@ ALTER TABLE ONLY public."NGC_AgentGroups"
 ALTER TABLE ONLY public."NGC_Queues"
     ADD CONSTRAINT "PK_ngc_queues" PRIMARY KEY ("Id");
 
-
---
--- Name: permission_groups PK_permission_groups; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.permission_groups
-    ADD CONSTRAINT "PK_permission_groups" PRIMARY KEY ("Id");
-
-
---
--- Name: pg_business_units PK_pg_business_units; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.pg_business_units
-    ADD CONSTRAINT "PK_pg_business_units" PRIMARY KEY ("PermissionGroupId", "BusinessUnitId");
-
-
---
--- Name: pg_queues PK_pg_queues; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.pg_queues
-    ADD CONSTRAINT "PK_pg_queues" PRIMARY KEY ("PermissionGroupId", "ObjectId");
-
-
---
--- Name: pg_skills PK_pg_skills; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.pg_skills
-    ADD CONSTRAINT "PK_pg_skills" PRIMARY KEY ("PermissionGroupId", "ObjectId");
-
-
 --
--- Name: pg_supergroups PK_pg_supergroups; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.pg_supergroups
-    ADD CONSTRAINT "PK_pg_supergroups" PRIMARY KEY ("PermissionGroupId", "SupergroupId");
-
 
 --
 -- Name: RTSGrid_Metric PK_rtsgrid_metric; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2846,78 +1998,23 @@ ALTER TABLE ONLY public.pg_supergroups
 ALTER TABLE ONLY public."RTSGrid_Metric"
     ADD CONSTRAINT "PK_rtsgrid_metric" PRIMARY KEY ("MetricId");
 
-
---
--- Name: sso_configurations PK_sso_configurations; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.sso_configurations
-    ADD CONSTRAINT "PK_sso_configurations" PRIMARY KEY ("Id");
-
-
---
--- Name: tenant_agent_state_definitions PK_tenant_agent_state_definitions; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_agent_state_definitions
-    ADD CONSTRAINT "PK_tenant_agent_state_definitions" PRIMARY KEY ("Id");
-
-
---
--- Name: tenant_agent_state_groups PK_tenant_agent_state_groups; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_agent_state_groups
-    ADD CONSTRAINT "PK_tenant_agent_state_groups" PRIMARY KEY ("Id");
-
-
---
--- Name: tenant_agent_states PK_tenant_agent_states; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_agent_states
-    ADD CONSTRAINT "PK_tenant_agent_states" PRIMARY KEY ("Id");
-
-
---
--- Name: tenant_settings PK_tenant_settings; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_settings
-    ADD CONSTRAINT "PK_tenant_settings" PRIMARY KEY ("TenantId");
-
-
---
--- Name: tenants PK_tenants; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenants
-    ADD CONSTRAINT "PK_tenants" PRIMARY KEY ("Id");
-
-
---
--- Name: user_widget_settings PK_user_widget_settings; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.user_widget_settings
-    ADD CONSTRAINT "PK_user_widget_settings" PRIMARY KEY ("Id");
-
-
---
--- Name: widget_catalog PK_widget_catalog; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.widget_catalog
-    ADD CONSTRAINT "PK_widget_catalog" PRIMARY KEY ("Id");
-
-
 --
--- Name: widget_templates PK_widget_templates; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.widget_templates
-    ADD CONSTRAINT "PK_widget_templates" PRIMARY KEY ("Id");
-
 
 --
 -- Name: db_patch_history db_patch_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2926,14 +2023,12 @@ ALTER TABLE ONLY public.widget_templates
 ALTER TABLE ONLY public.db_patch_history
     ADD CONSTRAINT db_patch_history_pkey PRIMARY KEY (migration_name);
 
-
 --
 -- Name: metric_deploy_log metric_deploy_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.metric_deploy_log
     ADD CONSTRAINT metric_deploy_log_pkey PRIMARY KEY ("MetricId");
-
 
 --
 -- Name: NGC_AgentGroups uq_ngc_agentgroups_external_tenant; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2942,14 +2037,12 @@ ALTER TABLE ONLY public.metric_deploy_log
 ALTER TABLE ONLY public."NGC_AgentGroups"
     ADD CONSTRAINT uq_ngc_agentgroups_external_tenant UNIQUE ("ExternalId", "TenantId");
 
-
 --
 -- Name: NGC_Queues uq_ngc_queues_external_tenant; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."NGC_Queues"
     ADD CONSTRAINT uq_ngc_queues_external_tenant UNIQUE ("ExternalId", "TenantId");
-
 
 --
 -- Name: NGC_SupergroupAgentgroup uq_supergroup_agentgroup; Type: CONSTRAINT; Schema: public; Owner: -
@@ -2958,83 +2051,27 @@ ALTER TABLE ONLY public."NGC_Queues"
 ALTER TABLE ONLY public."NGC_SupergroupAgentgroup"
     ADD CONSTRAINT uq_supergroup_agentgroup UNIQUE ("SupergroupId", "AgentgroupId");
 
-
---
--- Name: IX_audit_logs_EventType_CreatedAt; Type: INDEX; Schema: audit; Owner: -
 --
 
-CREATE INDEX "IX_audit_logs_EventType_CreatedAt" ON audit.audit_logs USING btree ("EventType", "CreatedAt");
-
-
---
--- Name: IX_audit_logs_TenantId_CreatedAt; Type: INDEX; Schema: audit; Owner: -
 --
 
-CREATE INDEX "IX_audit_logs_TenantId_CreatedAt" ON audit.audit_logs USING btree ("TenantId", "CreatedAt");
-
-
---
--- Name: EmailIndex; Type: INDEX; Schema: identity; Owner: -
 --
 
-CREATE INDEX "EmailIndex" ON identity.users USING btree ("NormalizedEmail");
-
-
---
--- Name: IX_role_claims_RoleId; Type: INDEX; Schema: identity; Owner: -
 --
 
-CREATE INDEX "IX_role_claims_RoleId" ON identity.role_claims USING btree ("RoleId");
-
-
---
--- Name: IX_user_claims_UserId; Type: INDEX; Schema: identity; Owner: -
 --
 
-CREATE INDEX "IX_user_claims_UserId" ON identity.user_claims USING btree ("UserId");
-
-
---
--- Name: IX_user_logins_UserId; Type: INDEX; Schema: identity; Owner: -
 --
 
-CREATE INDEX "IX_user_logins_UserId" ON identity.user_logins USING btree ("UserId");
-
-
---
--- Name: IX_user_roles_RoleId; Type: INDEX; Schema: identity; Owner: -
 --
 
-CREATE INDEX "IX_user_roles_RoleId" ON identity.user_roles USING btree ("RoleId");
-
-
---
--- Name: IX_user_sessions_UserId_IsRevoked_ExpiresAt; Type: INDEX; Schema: identity; Owner: -
 --
 
-CREATE INDEX "IX_user_sessions_UserId_IsRevoked_ExpiresAt" ON identity.user_sessions USING btree ("UserId", "IsRevoked", "ExpiresAt");
-
-
---
--- Name: IX_users_NormalizedEmail_TenantId; Type: INDEX; Schema: identity; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_users_NormalizedEmail_TenantId" ON identity.users USING btree ("NormalizedEmail", "TenantId") WHERE ("IsActive" = true);
-
-
---
--- Name: RoleNameIndex; Type: INDEX; Schema: identity; Owner: -
 --
 
-CREATE UNIQUE INDEX "RoleNameIndex" ON identity.roles USING btree ("NormalizedName");
-
-
 --
--- Name: UserNameIndex; Type: INDEX; Schema: identity; Owner: -
---
-
-CREATE UNIQUE INDEX "UserNameIndex" ON identity.users USING btree ("NormalizedUserName");
-
 
 --
 -- Name: IX_NGC_BusinessUnitSupergroup_SupergroupId; Type: INDEX; Schema: public; Owner: -
@@ -3042,13 +2079,11 @@ CREATE UNIQUE INDEX "UserNameIndex" ON identity.users USING btree ("NormalizedUs
 
 CREATE INDEX "IX_NGC_BusinessUnitSupergroup_SupergroupId" ON public."NGC_BusinessUnitSupergroup" USING btree ("SupergroupId");
 
-
 --
 -- Name: IX_NGC_BusinessUnit_SiteId; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX "IX_NGC_BusinessUnit_SiteId" ON public."NGC_BusinessUnit" USING btree ("SiteId");
-
 
 --
 -- Name: IX_NGC_SupergroupAgentgroup_SupergroupId; Type: INDEX; Schema: public; Owner: -
@@ -3056,13 +2091,11 @@ CREATE INDEX "IX_NGC_BusinessUnit_SiteId" ON public."NGC_BusinessUnit" USING btr
 
 CREATE INDEX "IX_NGC_SupergroupAgentgroup_SupergroupId" ON public."NGC_SupergroupAgentgroup" USING btree ("SupergroupId");
 
-
 --
 -- Name: IX_NGC_UserAgentgroup_TenantId_UserId_AgentgroupId; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX "IX_NGC_UserAgentgroup_TenantId_UserId_AgentgroupId" ON public."NGC_UserAgentgroup" USING btree ("TenantId", "UserId", "AgentgroupId");
-
 
 --
 -- Name: IX_RTSData_ChatMessage_MessageId_ServerId; Type: INDEX; Schema: public; Owner: -
@@ -3070,13 +2103,11 @@ CREATE UNIQUE INDEX "IX_NGC_UserAgentgroup_TenantId_UserId_AgentgroupId" ON publ
 
 CREATE UNIQUE INDEX "IX_RTSData_ChatMessage_MessageId_ServerId" ON public."RTSData_ChatMessage" USING btree ("MessageId", "ServerId");
 
-
 --
 -- Name: IX_RTSData_Interaction_UpsertKey; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX "IX_RTSData_Interaction_UpsertKey" ON public."RTSData_Interaction" USING btree ("InteractionId", "Segment", "ServerId");
-
 
 --
 -- Name: IX_RTSData_UserStatusLog_StatusGroup_Time; Type: INDEX; Schema: public; Owner: -
@@ -3084,201 +2115,59 @@ CREATE UNIQUE INDEX "IX_RTSData_Interaction_UpsertKey" ON public."RTSData_Intera
 
 CREATE INDEX "IX_RTSData_UserStatusLog_StatusGroup_Time" ON public."RTSData_UserStatusLog" USING btree ("TenantId", "StatusGroup", "StartTime", "EndTime");
 
-
---
--- Name: IX_dashboard_categories_TenantId_Name; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_dashboard_categories_TenantId_Name" ON public.dashboard_categories USING btree ("TenantId", "Name");
-
-
---
--- Name: IX_dashboard_permissions_DashboardId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_dashboard_permissions_DashboardId" ON public.dashboard_permissions USING btree ("DashboardId");
-
-
---
--- Name: IX_dashboard_widgets_DashboardId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_dashboard_widgets_DashboardId" ON public.dashboard_widgets USING btree ("DashboardId");
-
-
---
--- Name: IX_dashboard_widgets_WidgetCatalogItemId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_dashboard_widgets_WidgetCatalogItemId" ON public.dashboard_widgets USING btree ("WidgetCatalogItemId");
-
-
---
--- Name: IX_dashboards_CategoryId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_dashboards_CategoryId" ON public.dashboards USING btree ("CategoryId");
-
-
---
--- Name: IX_dashboards_TenantId_Name; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_dashboards_TenantId_Name" ON public.dashboards USING btree ("TenantId", "Name");
-
-
---
--- Name: IX_info_slot_messages_InfoSlotId_IsActive_ExpiresAt; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_info_slot_messages_InfoSlotId_IsActive_ExpiresAt" ON public.info_slot_messages USING btree ("InfoSlotId", "IsActive", "ExpiresAt");
-
-
---
--- Name: IX_info_slot_messages_TenantId_CreatedAt; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_info_slot_messages_TenantId_CreatedAt" ON public.info_slot_messages USING btree ("TenantId", "CreatedAt");
-
-
---
--- Name: IX_info_slot_permissions_PermissionGroupId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_info_slot_permissions_PermissionGroupId" ON public.info_slot_permissions USING btree ("PermissionGroupId");
-
-
---
--- Name: IX_info_slots_TenantId_Name; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_info_slots_TenantId_Name" ON public.info_slots USING btree ("TenantId", "Name");
-
-
---
--- Name: IX_permission_groups_TenantId_Name; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_permission_groups_TenantId_Name" ON public.permission_groups USING btree ("TenantId", "Name");
-
-
---
--- Name: IX_sso_configurations_TenantId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_sso_configurations_TenantId" ON public.sso_configurations USING btree ("TenantId");
-
-
---
--- Name: IX_tenant_agent_state_definitions_AgentStateGroupId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_tenant_agent_state_definitions_AgentStateGroupId" ON public.tenant_agent_state_definitions USING btree ("AgentStateGroupId");
-
-
---
--- Name: IX_tenant_agent_state_definitions_AgentStateId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_tenant_agent_state_definitions_AgentStateId" ON public.tenant_agent_state_definitions USING btree ("AgentStateId");
-
-
---
--- Name: IX_tenant_agent_state_definitions_TenantId_AgentStateId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_tenant_agent_state_definitions_TenantId_AgentStateId" ON public.tenant_agent_state_definitions USING btree ("TenantId", "AgentStateId");
-
-
---
--- Name: IX_tenant_agent_state_groups_TenantId_GroupName; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_tenant_agent_state_groups_TenantId_GroupName" ON public.tenant_agent_state_groups USING btree ("TenantId", "GroupName");
-
-
---
--- Name: IX_tenant_agent_states_TenantId_AgentState; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_tenant_agent_states_TenantId_AgentState" ON public.tenant_agent_states USING btree ("TenantId", "AgentState");
-
-
---
--- Name: IX_tenants_Slug; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_tenants_Slug" ON public.tenants USING btree ("Slug");
-
-
---
--- Name: IX_user_widget_settings_TenantId_UserId_WidgetId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_user_widget_settings_TenantId_UserId_WidgetId" ON public.user_widget_settings USING btree ("TenantId", "UserId", "WidgetId");
-
-
---
--- Name: IX_widget_templates_TenantId_Name; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX "IX_widget_templates_TenantId_Name" ON public.widget_templates USING btree ("TenantId", "Name");
-
-
---
--- Name: IX_widget_templates_WidgetCatalogItemId; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "IX_widget_templates_WidgetCatalogItemId" ON public.widget_templates USING btree ("WidgetCatalogItemId");
-
-
---
--- Name: role_claims FK_role_claims_roles_RoleId; Type: FK CONSTRAINT; Schema: identity; Owner: -
 --
 
-ALTER TABLE ONLY identity.role_claims
-    ADD CONSTRAINT "FK_role_claims_roles_RoleId" FOREIGN KEY ("RoleId") REFERENCES identity.roles("Id") ON DELETE CASCADE;
-
-
---
--- Name: user_claims FK_user_claims_users_UserId; Type: FK CONSTRAINT; Schema: identity; Owner: -
 --
 
-ALTER TABLE ONLY identity.user_claims
-    ADD CONSTRAINT "FK_user_claims_users_UserId" FOREIGN KEY ("UserId") REFERENCES identity.users("Id") ON DELETE CASCADE;
-
-
---
--- Name: user_logins FK_user_logins_users_UserId; Type: FK CONSTRAINT; Schema: identity; Owner: -
 --
 
-ALTER TABLE ONLY identity.user_logins
-    ADD CONSTRAINT "FK_user_logins_users_UserId" FOREIGN KEY ("UserId") REFERENCES identity.users("Id") ON DELETE CASCADE;
-
-
---
--- Name: user_roles FK_user_roles_roles_RoleId; Type: FK CONSTRAINT; Schema: identity; Owner: -
 --
 
-ALTER TABLE ONLY identity.user_roles
-    ADD CONSTRAINT "FK_user_roles_roles_RoleId" FOREIGN KEY ("RoleId") REFERENCES identity.roles("Id") ON DELETE CASCADE;
-
-
---
--- Name: user_roles FK_user_roles_users_UserId; Type: FK CONSTRAINT; Schema: identity; Owner: -
 --
 
-ALTER TABLE ONLY identity.user_roles
-    ADD CONSTRAINT "FK_user_roles_users_UserId" FOREIGN KEY ("UserId") REFERENCES identity.users("Id") ON DELETE CASCADE;
-
-
 --
--- Name: user_tokens FK_user_tokens_users_UserId; Type: FK CONSTRAINT; Schema: identity; Owner: -
---
-
-ALTER TABLE ONLY identity.user_tokens
-    ADD CONSTRAINT "FK_user_tokens_users_UserId" FOREIGN KEY ("UserId") REFERENCES identity.users("Id") ON DELETE CASCADE;
-
 
 --
 -- Name: NGC_BusinessUnitQueueClassification FK_NGC_BusinessUnitQueueClassification_NGC_BusinessUnit_Busine~; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -3287,14 +2176,12 @@ ALTER TABLE ONLY identity.user_tokens
 ALTER TABLE ONLY public."NGC_BusinessUnitQueueClassification"
     ADD CONSTRAINT "FK_NGC_BusinessUnitQueueClassification_NGC_BusinessUnit_Busine~" FOREIGN KEY ("BusinessUnitId") REFERENCES public."NGC_BusinessUnit"("BusinessUnitId") ON DELETE CASCADE;
 
-
 --
 -- Name: NGC_BusinessUnitSupergroup FK_NGC_BusinessUnitSupergroup_NGC_BusinessUnit_BusinessUnitId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."NGC_BusinessUnitSupergroup"
     ADD CONSTRAINT "FK_NGC_BusinessUnitSupergroup_NGC_BusinessUnit_BusinessUnitId" FOREIGN KEY ("BusinessUnitId") REFERENCES public."NGC_BusinessUnit"("BusinessUnitId") ON DELETE CASCADE;
-
 
 --
 -- Name: NGC_BusinessUnitSupergroup FK_NGC_BusinessUnitSupergroup_NGC_Supergroup_SupergroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -3303,14 +2190,12 @@ ALTER TABLE ONLY public."NGC_BusinessUnitSupergroup"
 ALTER TABLE ONLY public."NGC_BusinessUnitSupergroup"
     ADD CONSTRAINT "FK_NGC_BusinessUnitSupergroup_NGC_Supergroup_SupergroupId" FOREIGN KEY ("SupergroupId") REFERENCES public."NGC_Supergroup"("SupergroupId") ON DELETE CASCADE;
 
-
 --
 -- Name: NGC_BusinessUnit FK_NGC_BusinessUnit_NGC_Site_SiteId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."NGC_BusinessUnit"
     ADD CONSTRAINT "FK_NGC_BusinessUnit_NGC_Site_SiteId" FOREIGN KEY ("SiteId") REFERENCES public."NGC_Site"("SiteId") ON DELETE SET NULL;
-
 
 --
 -- Name: NGC_SupergroupAgentgroup FK_NGC_SupergroupAgentgroup_NGC_Supergroup_SupergroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -3319,200 +2204,54 @@ ALTER TABLE ONLY public."NGC_BusinessUnit"
 ALTER TABLE ONLY public."NGC_SupergroupAgentgroup"
     ADD CONSTRAINT "FK_NGC_SupergroupAgentgroup_NGC_Supergroup_SupergroupId" FOREIGN KEY ("SupergroupId") REFERENCES public."NGC_Supergroup"("SupergroupId");
 
-
---
--- Name: dashboard_categories FK_dashboard_categories_tenants_TenantId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboard_categories
-    ADD CONSTRAINT "FK_dashboard_categories_tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES public.tenants("Id") ON DELETE CASCADE;
-
-
---
--- Name: dashboard_permissions FK_dashboard_permissions_dashboards_DashboardId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboard_permissions
-    ADD CONSTRAINT "FK_dashboard_permissions_dashboards_DashboardId" FOREIGN KEY ("DashboardId") REFERENCES public.dashboards("Id") ON DELETE CASCADE;
-
-
---
--- Name: dashboard_permissions FK_dashboard_permissions_permission_groups_PermissionGroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboard_permissions
-    ADD CONSTRAINT "FK_dashboard_permissions_permission_groups_PermissionGroupId" FOREIGN KEY ("PermissionGroupId") REFERENCES public.permission_groups("Id") ON DELETE CASCADE;
-
-
---
--- Name: dashboard_widgets FK_dashboard_widgets_dashboards_DashboardId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboard_widgets
-    ADD CONSTRAINT "FK_dashboard_widgets_dashboards_DashboardId" FOREIGN KEY ("DashboardId") REFERENCES public.dashboards("Id") ON DELETE CASCADE;
-
-
---
--- Name: dashboard_widgets FK_dashboard_widgets_widget_catalog_WidgetCatalogItemId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboard_widgets
-    ADD CONSTRAINT "FK_dashboard_widgets_widget_catalog_WidgetCatalogItemId" FOREIGN KEY ("WidgetCatalogItemId") REFERENCES public.widget_catalog("Id") ON DELETE CASCADE;
-
-
---
--- Name: dashboards FK_dashboards_dashboard_categories_CategoryId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboards
-    ADD CONSTRAINT "FK_dashboards_dashboard_categories_CategoryId" FOREIGN KEY ("CategoryId") REFERENCES public.dashboard_categories("Id") ON DELETE SET NULL;
-
-
---
--- Name: dashboards FK_dashboards_tenants_TenantId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.dashboards
-    ADD CONSTRAINT "FK_dashboards_tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES public.tenants("Id") ON DELETE CASCADE;
-
-
---
--- Name: info_slot_messages FK_info_slot_messages_info_slots_InfoSlotId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.info_slot_messages
-    ADD CONSTRAINT "FK_info_slot_messages_info_slots_InfoSlotId" FOREIGN KEY ("InfoSlotId") REFERENCES public.info_slots("Id") ON DELETE CASCADE;
-
-
---
--- Name: info_slot_permissions FK_info_slot_permissions_info_slots_InfoSlotId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.info_slot_permissions
-    ADD CONSTRAINT "FK_info_slot_permissions_info_slots_InfoSlotId" FOREIGN KEY ("InfoSlotId") REFERENCES public.info_slots("Id") ON DELETE CASCADE;
-
-
---
--- Name: info_slot_permissions FK_info_slot_permissions_permission_groups_PermissionGroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.info_slot_permissions
-    ADD CONSTRAINT "FK_info_slot_permissions_permission_groups_PermissionGroupId" FOREIGN KEY ("PermissionGroupId") REFERENCES public.permission_groups("Id") ON DELETE CASCADE;
-
-
---
--- Name: menu_permissions FK_menu_permissions_permission_groups_PermissionGroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.menu_permissions
-    ADD CONSTRAINT "FK_menu_permissions_permission_groups_PermissionGroupId" FOREIGN KEY ("PermissionGroupId") REFERENCES public.permission_groups("Id") ON DELETE CASCADE;
-
-
---
--- Name: permission_groups FK_permission_groups_tenants_TenantId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.permission_groups
-    ADD CONSTRAINT "FK_permission_groups_tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES public.tenants("Id") ON DELETE CASCADE;
-
-
---
--- Name: pg_business_units FK_pg_business_units_permission_groups_PermissionGroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.pg_business_units
-    ADD CONSTRAINT "FK_pg_business_units_permission_groups_PermissionGroupId" FOREIGN KEY ("PermissionGroupId") REFERENCES public.permission_groups("Id") ON DELETE CASCADE;
-
-
---
--- Name: pg_queues FK_pg_queues_permission_groups_PermissionGroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.pg_queues
-    ADD CONSTRAINT "FK_pg_queues_permission_groups_PermissionGroupId" FOREIGN KEY ("PermissionGroupId") REFERENCES public.permission_groups("Id") ON DELETE CASCADE;
-
-
---
--- Name: pg_skills FK_pg_skills_permission_groups_PermissionGroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.pg_skills
-    ADD CONSTRAINT "FK_pg_skills_permission_groups_PermissionGroupId" FOREIGN KEY ("PermissionGroupId") REFERENCES public.permission_groups("Id") ON DELETE CASCADE;
-
-
---
--- Name: pg_supergroups FK_pg_supergroups_permission_groups_PermissionGroupId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.pg_supergroups
-    ADD CONSTRAINT "FK_pg_supergroups_permission_groups_PermissionGroupId" FOREIGN KEY ("PermissionGroupId") REFERENCES public.permission_groups("Id") ON DELETE CASCADE;
-
-
---
--- Name: sso_configurations FK_sso_configurations_tenants_TenantId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.sso_configurations
-    ADD CONSTRAINT "FK_sso_configurations_tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES public.tenants("Id") ON DELETE CASCADE;
-
-
---
--- Name: tenant_agent_state_definitions FK_tenant_agent_state_definitions_tenant_agent_state_groups_Ag~; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_agent_state_definitions
-    ADD CONSTRAINT "FK_tenant_agent_state_definitions_tenant_agent_state_groups_Ag~" FOREIGN KEY ("AgentStateGroupId") REFERENCES public.tenant_agent_state_groups("Id") ON DELETE CASCADE;
-
-
---
--- Name: tenant_agent_state_definitions FK_tenant_agent_state_definitions_tenant_agent_states_AgentSta~; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_agent_state_definitions
-    ADD CONSTRAINT "FK_tenant_agent_state_definitions_tenant_agent_states_AgentSta~" FOREIGN KEY ("AgentStateId") REFERENCES public.tenant_agent_states("Id") ON DELETE CASCADE;
-
-
---
--- Name: tenant_agent_state_groups FK_tenant_agent_state_groups_tenants_TenantId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_agent_state_groups
-    ADD CONSTRAINT "FK_tenant_agent_state_groups_tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES public.tenants("Id") ON DELETE CASCADE;
-
-
---
--- Name: tenant_agent_states FK_tenant_agent_states_tenants_TenantId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_agent_states
-    ADD CONSTRAINT "FK_tenant_agent_states_tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES public.tenants("Id") ON DELETE CASCADE;
-
-
---
--- Name: tenant_settings FK_tenant_settings_tenants_TenantId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_settings
-    ADD CONSTRAINT "FK_tenant_settings_tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES public.tenants("Id") ON DELETE CASCADE;
-
-
---
--- Name: widget_templates FK_widget_templates_tenants_TenantId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.widget_templates
-    ADD CONSTRAINT "FK_widget_templates_tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES public.tenants("Id") ON DELETE CASCADE;
-
-
 --
--- Name: widget_templates FK_widget_templates_widget_catalog_WidgetCatalogItemId; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.widget_templates
-    ADD CONSTRAINT "FK_widget_templates_widget_catalog_WidgetCatalogItemId" FOREIGN KEY ("WidgetCatalogItemId") REFERENCES public.widget_catalog("Id") ON DELETE CASCADE;
-
 
 --
 -- PostgreSQL database dump complete
 --
-
