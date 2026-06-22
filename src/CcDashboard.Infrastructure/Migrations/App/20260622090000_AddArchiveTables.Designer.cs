@@ -3,6 +3,7 @@ using System;
 using CcDashboard.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CcDashboard.Infrastructure.Migrations.App
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260622090000_AddArchiveTables")]
+    partial class AddArchiveTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -284,190 +287,6 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.HasIndex("WidgetCatalogItemId");
 
                     b.ToTable("dashboard_widgets", (string)null);
-                });
-
-            modelBuilder.Entity("CcDashboard.Domain.Domain.Historical.HistAgentInterval", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("IntervalStart")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("AgentDisplayName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("AgentExternalId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Handled")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("SumAvailableMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("SumBreakMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("SumHoldMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("SumLoggedInMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("SumOnphoneMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("SumPaperworkMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("SumTrainingMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("SumUnavailableMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id", "IntervalStart");
-
-                    b.ToTable("hist_agent_intervals", (string)null);
-                });
-
-            modelBuilder.Entity("CcDashboard.Domain.Domain.Historical.HistAggregationWatermark", b =>
-                {
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("AggregatedThrough")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("LastRunAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("TenantId");
-
-                    b.ToTable("hist_aggregation_watermarks", (string)null);
-                });
-
-            modelBuilder.Entity("CcDashboard.Domain.Domain.Historical.HistQueueInterval", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("IntervalStart")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Abandoned")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Answered")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("AnsweredInSl")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Offered")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid?>("QueueId")
-                        .HasColumnType("uuid");
-
-                    b.Property<long>("SumTalk")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("SumWaitAnswered")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Workgroup")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id", "IntervalStart");
-
-                    b.ToTable("hist_queue_intervals", (string)null);
-                });
-
-            modelBuilder.Entity("CcDashboard.Domain.Domain.Historical.UserReport", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Config")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("CreatedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("DeletedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<bool>("IsPublic")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsSystem")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid?>("OwnerUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UpdatedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "Name")
-                        .IsUnique()
-                        .HasFilter("\"IsDeleted\" = false");
-
-                    b.ToTable("user_reports", (string)null);
                 });
 
             modelBuilder.Entity("CcDashboard.Domain.Domain.HistoryMetric", b =>
@@ -872,9 +691,6 @@ namespace CcDashboard.Infrastructure.Migrations.App
                     b.Property<string>("SignalRConnectionUrl")
                         .HasColumnType("text");
 
-                    b.Property<int?>("SlThresholdSeconds")
-                        .HasColumnType("integer");
-
                     b.Property<bool>("SoftDeleteDashboards")
                         .HasColumnType("boolean");
 
@@ -883,6 +699,9 @@ namespace CcDashboard.Infrastructure.Migrations.App
 
                     b.Property<Guid?>("SsoConfigurationId")
                         .HasColumnType("uuid");
+
+                    b.Property<int?>("SlThresholdSeconds")
+                        .HasColumnType("integer");
 
                     b.HasKey("TenantId");
 
