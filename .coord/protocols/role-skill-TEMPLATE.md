@@ -28,3 +28,5 @@ Cardinal truths (3-7, each SOURCE-pinned):
 - <check 2: ...>
 
 ## §D REFERENCE  (optional · NOT loaded each init)
+## COMMIT-block guidance (AGNOSTIC, curator-blessed 2026-06-21)
+COMMIT must be an EXPLICIT executable step (NOT under `##` comments — commands under `##` are read as docs and do not run) + `git add -f .claude/skills/...` + verify HEAD advanced + `git cat-file -e HEAD:<path>`.

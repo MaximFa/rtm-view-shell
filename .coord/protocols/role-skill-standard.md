@@ -65,3 +65,5 @@ defeating the anti-rot purpose (real defect: role-backend §C#1 grep `CREATE PRO
   do not ship a self-check you did not run, same as you do not ship a truth you did not pin.)
 - When §C later FAILS at init, treat it as a SIGNAL the code drifted (or the check needs updating) — investigate; do NOT blindly
   supersede a truth on a check you never proved correct.
+## §A source-pin discipline (AGNOSTIC, curator-blessed 2026-06-21)
+NEVER pin a SOURCE to a § that does not literally support the claim (verify the cite exists). If the codified location is absent, mark CONVENTION/skill-provided — do not fabricate a CLAUDE § (cf. finesse-sim #6 / CODE-05 catches).
