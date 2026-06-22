@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Verify Garnet PoC parity matrix for INC-2026.06.20-001 (d) Phase 1 gate.
