@@ -55,6 +55,7 @@ public static class InfrastructureServiceExtensions
             opts.UseNpgsql(config.GetConnectionString("Default"), npg =>
             {
                 npg.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                npg.MigrationsHistoryTable("__ef_migrations_history", "audit");
             });
         });
 
