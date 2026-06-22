@@ -1,5 +1,6 @@
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Enums;
+using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Audit;
 using CcDashboard.Infrastructure.Identity;
 using CcDashboard.Infrastructure.Persistence;
@@ -21,6 +22,7 @@ public class DatabaseInitializer(
     BackendEmulationDbContext beDb,
     UserManager<ApplicationUser> userManager,
     RoleManager<ApplicationRole> roleManager,
+    ITenantContext tenantContext,
     IConfiguration config,
     IHostEnvironment env,
     ILogger<DatabaseInitializer> logger) : IDatabaseInitializer
@@ -43,6 +45,11 @@ public class DatabaseInitializer(
 
         await SeedRolesAsync(ct);
         var platformTenant = await SeedPlatformTenantAsync(ct);
+
+        // ARCH-07: startup seed has no HTTP/tenant context — resolve the platform tenant
+        // explicitly so AppDbContext Global Query Filters (ITenantContext.TenantId) evaluate.
+        tenantContext.Set(platformTenant.Id, platformTenant.Slug);
+
         await SeedSuperadminAsync(platformTenant, ct);
         await SeedWidgetCatalogAsync(ct);
         await SeedRtsGridMetricsAsync(ct);
