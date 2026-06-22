@@ -92,6 +92,70 @@ Invoke-WebRequest http://localhost:5000/health -UseBasicParsing
 
 ---
 
+## Garnet -> Memurai Rollback (INC-001(d) Phase 2)
+
+If Garnet fails after migration, restore the Memurai service:
+
+### Symptoms indicating Garnet failure
+
+- `Garnet` service not starting (`Get-Service Garnet` shows Stopped)
+- Shell logs show Redis connection failures
+- SignalR backplane errors (WebSocket 1011, clients not receiving updates)
+
+### Rollback procedure
+
+```powershell
+# 1. Stop Garnet and the services that depend on it
+Stop-Service Garnet -Force -ErrorAction SilentlyContinue
+Stop-Service RTMViewShell -Force -ErrorAction SilentlyContinue
+Stop-Service RTMService -Force -ErrorAction SilentlyContinue
+
+# 2. Disable Garnet, re-enable Memurai
+Set-Service -Name "Garnet" -StartupType Disabled -ErrorAction SilentlyContinue
+Set-Service -Name "Memurai" -StartupType Automatic
+
+# 3. Start Memurai
+Start-Service Memurai
+Start-Sleep 3
+Get-Service Memurai  # Should show Running
+
+# 4. If Shell was using Garnet password in connection string, revert it:
+#    Edit C:\RTMView\Shell\appsettings.json:
+#    Change "ConnectionStrings:Redis" from "127.0.0.1:6379,password=<pwd>" back to "127.0.0.1:6379"
+#    (OR keep the password if Memurai has requirepass set)
+
+# 5. Start application services
+Start-Service RTMService
+Start-Service RTMViewShell
+
+# 6. Verify
+Get-Service Memurai, RTMService, RTMViewShell | Select Name, Status
+```
+
+### Security note (COND-1)
+
+The Memurai->Garnet swap **resets Redis-resident security state**:
+- Revoked-JTI list (AUTH-API-05) starts **EMPTY** — a revoked but unexpired access token (<=15min old) will be honored again
+- Rate-limit counters (BFP-02) start **EMPTY** — in-progress lockouts reset
+
+**Mitigations:**
+- Perform the swap during a maintenance window or low-traffic period
+- For critical user deactivations done just before the swap, bump the user's `SecurityStamp` after the swap to force re-authentication
+- The JTI list and counters repopulate naturally as new tokens are issued and login attempts occur
+
+### Memurai NOT uninstalled
+
+Phase 2 deliberately keeps Memurai installed but disabled (`StartupType=Disabled`). This allows rapid rollback without reinstalling the MSI.
+
+To fully remove Memurai after confirming Garnet stability (Phase 3+):
+```powershell
+# Only after confirming Garnet is stable in production
+msiexec /x {Memurai-GUID} /quiet
+# Or via Control Panel -> Programs and Features
+```
+
+---
+
 ## Notes
 
 - This tag marks the LAST version physically tested on production servers before v3 reports work.

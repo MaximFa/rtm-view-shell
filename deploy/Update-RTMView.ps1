@@ -8,6 +8,9 @@
     Stops services, backs up current binaries and DB,
     deploys new files, applies migrations, starts services.
 
+    NOTE: If the package includes Garnet and the server has Memurai, this script
+    will migrate to Garnet (disable Memurai, install Garnet). See INC-001(d) Phase 2.
+
 .PARAMETER InstallRoot
     Root installation folder (default: C:\RTMView)
 .PARAMETER ShellSvcName / RTMSvcName
@@ -23,11 +26,18 @@
 .PARAMETER DBApplyUser / DBApplyPassword
     Credentials for applying migrations if different from DBUser (e.g., privileged user
     for ALTER TABLE / CREATE INDEX). Default: uses DBUser credentials.
+.PARAMETER RedisPassword
+    Password for Garnet. REQUIRED when migrating from Memurai to Garnet.
+.PARAMETER GarnetInstallDir
+    Installation directory for Garnet (default: C:\Garnet)
+.PARAMETER SkipCacheMigration
+    Skip Memurai->Garnet migration (keep existing cache service)
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File Update-RTMView.ps1
     powershell -ExecutionPolicy Bypass -File Update-RTMView.ps1 -SkipShell
     powershell -ExecutionPolicy Bypass -File Update-RTMView.ps1 -MigrationList "20260607_001_fix,20260608_002_add"
+    powershell -ExecutionPolicy Bypass -File Update-RTMView.ps1 -RedisPassword "MyPwd"  # Memurai->Garnet migration
 #>
 
 [CmdletBinding()]
@@ -48,7 +58,11 @@ param(
     [string]$DBPassword    = "",
     [string]$MigrationList = "",
     [string]$DBApplyUser   = "",
-    [string]$DBApplyPassword = ""
+    [string]$DBApplyPassword = "",
+    [string]$RedisPassword = "",
+    [string]$GarnetInstallDir = "C:\Garnet",
+    [string]$GarnetSvcName = "Garnet",
+    [switch]$SkipCacheMigration
 )
 
 $ErrorActionPreference = "Stop"
@@ -273,6 +287,105 @@ if (-not $SkipRTM) {
     } else {
         Write-Host "  [WARN] RTM\ not found next to script - skipping RTM update." -ForegroundColor Yellow
     }
+}
+
+# ── [4b/5] Memurai -> Garnet migration (INC-001(d) Phase 2) ──────────────────
+Write-Host ""
+$garnetSrc = Join-Path $ScriptDir "Extras\Garnet"
+$hasGarnetPackage = Test-Path $garnetSrc
+
+if (-not $SkipCacheMigration -and $hasGarnetPackage) {
+    Write-Host "[ 4b/5 ] Cache service migration (Memurai -> Garnet)..." -ForegroundColor Cyan
+
+    $memuraiSvc = Get-Service -Name "Memurai" -ErrorAction SilentlyContinue
+    $garnetSvc = Get-Service -Name $GarnetSvcName -ErrorAction SilentlyContinue
+
+    if ($garnetSvc) {
+        Write-Host "  Garnet already installed — ensuring it's running..." -ForegroundColor Green
+        # Ensure Garnet is set to Automatic + recovery
+        try {
+            Set-Service -Name $GarnetSvcName -StartupType Automatic -ErrorAction Stop
+            & sc.exe failure $GarnetSvcName reset= 86400 actions= restart/5000/restart/10000/restart/60000 | Out-Null
+            & sc.exe failureflag $GarnetSvcName 1 | Out-Null
+        } catch { }
+        Start-Service $GarnetSvcName -ErrorAction SilentlyContinue
+        Write-Host "  Garnet: $((Get-Service $GarnetSvcName).Status)" -ForegroundColor Green
+    } elseif ($memuraiSvc) {
+        # Memurai exists, Garnet doesn't — migrate
+        Write-Host "  Detected Memurai — migrating to Garnet..." -ForegroundColor Yellow
+
+        # Validate RedisPassword
+        if (-not $RedisPassword) {
+            Write-Host "  [ERROR] RedisPassword is REQUIRED to migrate from Memurai to Garnet." -ForegroundColor Red
+            Write-Host "          Re-run with -RedisPassword <password>, or -SkipCacheMigration to keep Memurai." -ForegroundColor Red
+            throw "RedisPassword required for Memurai->Garnet migration"
+        }
+
+        # Stop and disable Memurai (but do NOT uninstall — rollback safety)
+        Write-Host "  Stopping and disabling Memurai (retained for rollback)..." -ForegroundColor Gray
+        Stop-Service "Memurai" -Force -ErrorAction SilentlyContinue
+        Set-Service -Name "Memurai" -StartupType Disabled -ErrorAction SilentlyContinue
+        Write-Host "  Memurai: Stopped, StartupType=Disabled" -ForegroundColor Gray
+
+        # Install Garnet
+        if (-not (Test-Path $GarnetInstallDir)) {
+            New-Item -ItemType Directory -Path $GarnetInstallDir -Force | Out-Null
+        }
+        Copy-Item -Path "$garnetSrc\*" -Destination $GarnetInstallDir -Recurse -Force
+        Write-Host "  Copied Garnet binaries to $GarnetInstallDir" -ForegroundColor Gray
+
+        # Create checkpoint directory
+        $checkpointDir = Join-Path $GarnetInstallDir "data"
+        if (-not (Test-Path $checkpointDir)) {
+            New-Item -ItemType Directory -Path $checkpointDir -Force | Out-Null
+        }
+
+        # Copy NSSM
+        $nssmSrc = Join-Path $ScriptDir "Extras\nssm\nssm.exe"
+        if (Test-Path $nssmSrc) {
+            $nssmDest = Join-Path $GarnetInstallDir "nssm.exe"
+            Copy-Item $nssmSrc -Destination $nssmDest -Force
+        } else {
+            Write-Error "NSSM not found at $nssmSrc. Cannot register Garnet service."
+        }
+
+        # Register Garnet service via NSSM
+        $garnetExe = Join-Path $GarnetInstallDir "GarnetServer.exe"
+        $garnetArgs = "--bind 127.0.0.1 --port 6379 --auth Password --password $RedisPassword --checkpointdir `"$checkpointDir`" --recover --checkpoint-freq 300"
+        $nssmExe = Join-Path $GarnetInstallDir "nssm.exe"
+
+        Write-Host "  Registering $GarnetSvcName service via NSSM..." -ForegroundColor Gray
+        & $nssmExe install $GarnetSvcName $garnetExe $garnetArgs | Out-Null
+        & $nssmExe set $GarnetSvcName AppDirectory $GarnetInstallDir | Out-Null
+        & $nssmExe set $GarnetSvcName Start SERVICE_AUTO_START | Out-Null
+        & $nssmExe set $GarnetSvcName DisplayName "Garnet (Redis-compatible cache)" | Out-Null
+        & $nssmExe set $GarnetSvcName Description "Microsoft Garnet - Redis-compatible cache for RTM View Shell (INC-001d)" | Out-Null
+
+        # Apply recovery policy
+        & sc.exe failure $GarnetSvcName reset= 86400 actions= restart/5000/restart/10000/restart/60000 | Out-Null
+        & sc.exe failureflag $GarnetSvcName 1 | Out-Null
+
+        # Start Garnet
+        Start-Sleep 2
+        Start-Service $GarnetSvcName -ErrorAction SilentlyContinue
+        Start-Sleep 3
+        $s = Get-Service $GarnetSvcName -ErrorAction SilentlyContinue
+        Write-Host "  $GarnetSvcName : $($s.Status)" -ForegroundColor $(if ($s.Status -eq "Running") {"Green"} else {"Red"})
+
+        Write-Host ""
+        Write-Host "  *** SECURITY NOTE (INC-001d COND-1): ***" -ForegroundColor Yellow
+        Write-Host "  Redis state was RESET by the cache swap. Revoked-JTI list and rate-limit" -ForegroundColor Yellow
+        Write-Host "  counters start EMPTY. A revoked token (<=15min old) may work again." -ForegroundColor Yellow
+        Write-Host "  For critical users, bump their SecurityStamp after this migration." -ForegroundColor Yellow
+        Write-Host ""
+    } else {
+        # Neither Memurai nor Garnet — fresh install needed
+        Write-Host "  No cache service found. Run Install-RTMView.ps1 for fresh install." -ForegroundColor Yellow
+    }
+} elseif ($SkipCacheMigration) {
+    Write-Host "[ 4b/5 ] Cache migration skipped (-SkipCacheMigration)." -ForegroundColor Gray
+} else {
+    Write-Host "[ 4b/5 ] No Garnet package in Extras\ — cache service unchanged." -ForegroundColor Gray
 }
 
 Write-Host ""

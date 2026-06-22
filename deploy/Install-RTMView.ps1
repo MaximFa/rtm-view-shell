@@ -1,13 +1,16 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Свежая установка RTM View Shell + RTM Service на сервер.
 .DESCRIPTION
     Запускать из распакованного zip-пакета (C:\Temp\<zip>\).
-    Устанавливает Memurai, разворачивает Shell и RTM Service,
+    Устанавливает Garnet (Redis-compatible cache), разворачивает Shell и RTM Service,
     регистрирует Windows Services, создаёт БД и восстанавливает backup.
     Минимум ручных операций — нужен только data.sys.
+
+    NOTE: Garnet (MIT, native Windows) replaced Memurai as of INC-001(d) Phase 2.
+    For rollback to Memurai, pass -UseMemurai.
 
 .PARAMETER Mode
     Full  = Shell + RTM (default)
@@ -25,15 +28,18 @@
     Создаётся автоматически если не существует.
 .PARAMETER SkipDB
     Не трогать БД (уже настроена).
-.PARAMETER SkipMemurai
-    Не устанавливать Memurai (Redis уже есть).
+.PARAMETER SkipRedis
+    Не устанавливать Garnet/Memurai (Redis-compatible cache уже есть).
+.PARAMETER UseMemurai
+    Use legacy Memurai instead of Garnet (rollback path). Default: Garnet.
 .PARAMETER RedisPassword
-    Пароль Memurai/Redis.
+    Пароль Garnet/Memurai/Redis. REQUIRED for Garnet (no anonymous auth).
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File Install-RTMView.ps1
     powershell -ExecutionPolicy Bypass -File Install-RTMView.ps1 -Mode RTM -SkipDB
     powershell -ExecutionPolicy Bypass -File Install-RTMView.ps1 -DBPassword "PgSup3r!" -RedisPassword "R3dis!"
+    powershell -ExecutionPolicy Bypass -File Install-RTMView.ps1 -UseMemurai  # Rollback to Memurai
 #>
 
 [CmdletBinding()]
@@ -57,8 +63,13 @@ param(
     [string]$DBAppPassword = "",
 
     [switch]$SkipDB,
-    [switch]$SkipMemurai,
+    [Alias("SkipMemurai")]
+    [switch]$SkipRedis,
+    [switch]$UseMemurai,
     [string]$RedisPassword = "",
+
+    [string]$GarnetInstallDir = "C:\Garnet",
+    [string]$GarnetSvcName = "Garnet",
 
     [string]$ShellSvcName  = "RTMViewShell",
     [string]$RTMSvcName    = "RTMService"
@@ -147,20 +158,22 @@ if ($InstallShell -and -not (Test-Path $ShellDest)) { New-Item -ItemType Directo
 if ($InstallRTM   -and -not (Test-Path $RTMDest))   { New-Item -ItemType Directory -Path $RTMDest   -Force | Out-Null }
 Write-Host "  OK: $InstallRoot" -ForegroundColor Green
 
-# ── [2/6] Install Memurai ─────────────────────────────────────────────────────
+# ── [2/6] Install Redis-compatible cache (Garnet default, Memurai legacy) ────
 Write-Host ""
-Write-Host "[ 2/6 ] Memurai (Redis for Windows)..." -ForegroundColor Cyan
-if ($SkipMemurai -or -not $InstallRTM) {
+Write-Host "[ 2/6 ] Redis-compatible cache (Garnet/Memurai)..." -ForegroundColor Cyan
+if ($SkipRedis -or -not $InstallRTM) {
     Write-Host "  Skipped." -ForegroundColor Gray
-} else {
+} elseif ($UseMemurai) {
+    # ── LEGACY PATH: Memurai MSI (rollback) ──────────────────────────────────
+    Write-Host "  Using LEGACY Memurai (rollback path)..." -ForegroundColor Yellow
     $redisSvc = Get-Service -Name "Memurai" -ErrorAction SilentlyContinue
     if ($redisSvc) {
         Write-Host "  Already installed — $($redisSvc.Status)" -ForegroundColor Green
     } else {
-        $msi = Get-ChildItem -Path (Join-Path $ScriptDir "Extras") -Filter "memurai*.msi" -ErrorAction SilentlyContinue |
-               Select-Object -First 1
+        $msi = Get-ChildItem -Path (Join-Path $ScriptDir "Extras") -Filter "*.msi" -ErrorAction SilentlyContinue |
+               Where-Object { $_.Name -match "memurai|Memurai" } | Select-Object -First 1
         if (-not $msi) {
-            Write-Host "  [WARN] memurai*.msi not found in Extras\ — install Redis manually." -ForegroundColor Yellow
+            Write-Host "  [WARN] Memurai MSI not found in Extras\ — install manually." -ForegroundColor Yellow
         } else {
             Write-Host "  Installing $($msi.Name)..." -ForegroundColor Gray
             Start-Process "msiexec.exe" -ArgumentList @("/i",$msi.FullName,"/quiet","/norestart","ADDDEFAULT=ALL") -Wait -NoNewWindow
@@ -178,19 +191,89 @@ if ($SkipMemurai -or -not $InstallRTM) {
             Write-Host "  Memurai: $($s.Status)" -ForegroundColor $(if ($s.Status -eq "Running") {"Green"} else {"Yellow"})
         }
     }
-}
+    # Harden Memurai service
+    $memSvc = Get-Service -Name "Memurai" -ErrorAction SilentlyContinue
+    if ($memSvc) {
+        try {
+            Set-Service -Name "Memurai" -StartupType Automatic -ErrorAction Stop
+            & sc.exe failure "Memurai" reset= 86400 actions= restart/5000/restart/10000/restart/60000 | Out-Null
+            & sc.exe failureflag "Memurai" 1 | Out-Null
+            Write-Host "  Memurai resilience: StartupType=Automatic, recovery=auto-restart" -ForegroundColor Green
+        } catch {
+            Write-Host "  [WARN] Could not set Memurai resilience: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+} else {
+    # ── DEFAULT PATH: Garnet (INC-001(d) Phase 2) ────────────────────────────
+    Write-Host "  Installing Garnet (MIT, native Windows)..." -ForegroundColor Cyan
 
-# Harden Memurai service: auto-start at boot + auto-restart on failure (INC-2026.06.20-001 resilience)
-$memSvc = Get-Service -Name "Memurai" -ErrorAction SilentlyContinue
-if ($memSvc) {
-    try {
-        Set-Service -Name "Memurai" -StartupType Automatic -ErrorAction Stop
-        # Recovery: restart after 5s, 10s, then 60s; reset failure count daily
-        & sc.exe failure "Memurai" reset= 86400 actions= restart/5000/restart/10000/restart/60000 | Out-Null
-        & sc.exe failureflag "Memurai" 1 | Out-Null
-        Write-Host "  Memurai resilience: StartupType=Automatic, recovery=auto-restart" -ForegroundColor Green
-    } catch {
-        Write-Host "  [WARN] Could not set Memurai resilience: $($_.Exception.Message)" -ForegroundColor Yellow
+    # Validate RedisPassword is provided (Garnet requires auth)
+    if (-not $RedisPassword) {
+        Write-Error "RedisPassword is REQUIRED for Garnet. Pass -RedisPassword <password>."
+    }
+
+    # Check if Garnet service already exists
+    $garnetSvc = Get-Service -Name $GarnetSvcName -ErrorAction SilentlyContinue
+    if ($garnetSvc) {
+        Write-Host "  Garnet service already exists — $($garnetSvc.Status)" -ForegroundColor Green
+    } else {
+        # Copy Garnet binaries
+        $garnetSrc = Join-Path $ScriptDir "Extras\Garnet"
+        if (-not (Test-Path $garnetSrc)) {
+            Write-Error "Garnet binaries not found at $garnetSrc. Use a package built with -Mode Full or -Mode RTM."
+        }
+        if (-not (Test-Path $GarnetInstallDir)) {
+            New-Item -ItemType Directory -Path $GarnetInstallDir -Force | Out-Null
+        }
+        Copy-Item -Path "$garnetSrc\*" -Destination $GarnetInstallDir -Recurse -Force
+        Write-Host "  Copied Garnet binaries to $GarnetInstallDir" -ForegroundColor Gray
+
+        # Create checkpoint directory
+        $checkpointDir = Join-Path $GarnetInstallDir "data"
+        if (-not (Test-Path $checkpointDir)) {
+            New-Item -ItemType Directory -Path $checkpointDir -Force | Out-Null
+        }
+
+        # Copy NSSM
+        $nssmSrc = Join-Path $ScriptDir "Extras\nssm"
+        $nssmExe = Join-Path $nssmSrc "nssm.exe"
+        if (-not (Test-Path $nssmExe)) {
+            Write-Error "NSSM not found at $nssmExe. Use a package built with Garnet support."
+        }
+        $nssmDest = Join-Path $GarnetInstallDir "nssm.exe"
+        Copy-Item $nssmExe -Destination $nssmDest -Force
+        Write-Host "  Copied NSSM to $nssmDest" -ForegroundColor Gray
+
+        # Register Garnet as Windows Service via NSSM
+        $garnetExe = Join-Path $GarnetInstallDir "GarnetServer.exe"
+        $garnetArgs = "--bind 127.0.0.1 --port 6379 --auth Password --password $RedisPassword --checkpointdir `"$checkpointDir`" --recover --checkpoint-freq 300"
+
+        Write-Host "  Registering $GarnetSvcName service via NSSM..." -ForegroundColor Gray
+        & $nssmDest install $GarnetSvcName $garnetExe $garnetArgs | Out-Null
+        & $nssmDest set $GarnetSvcName AppDirectory $GarnetInstallDir | Out-Null
+        & $nssmDest set $GarnetSvcName Start SERVICE_AUTO_START | Out-Null
+        & $nssmDest set $GarnetSvcName DisplayName "Garnet (Redis-compatible cache)" | Out-Null
+        & $nssmDest set $GarnetSvcName Description "Microsoft Garnet - Redis-compatible cache for RTM View Shell (INC-001d)" | Out-Null
+
+        # Start the service
+        Start-Sleep 2
+        Start-Service $GarnetSvcName -ErrorAction SilentlyContinue
+        Start-Sleep 3
+        $s = Get-Service $GarnetSvcName -ErrorAction SilentlyContinue
+        Write-Host "  $GarnetSvcName : $($s.Status)" -ForegroundColor $(if ($s.Status -eq "Running") {"Green"} else {"Yellow"})
+    }
+
+    # Harden Garnet service: auto-start + auto-restart on failure (parity with da4cd7e Memurai hardening)
+    $garnetSvc = Get-Service -Name $GarnetSvcName -ErrorAction SilentlyContinue
+    if ($garnetSvc) {
+        try {
+            Set-Service -Name $GarnetSvcName -StartupType Automatic -ErrorAction Stop
+            & sc.exe failure $GarnetSvcName reset= 86400 actions= restart/5000/restart/10000/restart/60000 | Out-Null
+            & sc.exe failureflag $GarnetSvcName 1 | Out-Null
+            Write-Host "  Garnet resilience: StartupType=Automatic, recovery=auto-restart" -ForegroundColor Green
+        } catch {
+            Write-Host "  [WARN] Could not set Garnet resilience: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
     }
 }
 

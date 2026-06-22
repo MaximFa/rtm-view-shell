@@ -1,15 +1,18 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds a unified Prod Release package: RTM View Shell + RTM Service + DB backup + Memurai.
+    Builds a unified Prod Release package: RTM View Shell + RTM Service + DB backup + Garnet (Redis alternative).
 .DESCRIPTION
     Выполняет:
       1. dotnet publish CcDashboard.Web  -> publish\shell\
       2. dotnet publish RTM\RTM          -> publish\rtm\
       3. pg_dump rtmviewdb               -> publish\db\
-      4. Копирует Memurai installer      из tools\cache\
+      4. Копирует Garnet + NSSM          из tools\cache\garnet-*\ и tools\cache\nssm\
       5. Упаковывает всё в              Installations\DDMMYYYY.HHMM.zip
     Включает в zip: Install-RTMView.ps1, Update-RTMView.ps1, README.txt из deploy\
+
+    NOTE: Memurai MSI is deprecated. Garnet (MIT, native Windows) replaces it as of INC-001(d) Phase 2.
+    For rollback to Memurai, pass -UseMemurai (retained for rollback path).
 
 .PARAMETER DBHost
     PostgreSQL хост (default: localhost)
@@ -25,13 +28,18 @@
     Пропустить pg_dump (если backup уже есть или делается отдельно)
 .PARAMETER SkipBuild
     Пропустить dotnet publish (использовать уже готовые publish\shell\ и publish\rtm\)
-.PARAMETER MemuraiMsi
-    Путь к Memurai MSI. По умолчанию tools\cache\memurai-developer.msi
+.PARAMETER UseMemurai
+    Use legacy Memurai MSI instead of Garnet (rollback path). Default: Garnet.
+.PARAMETER GarnetDir
+    Path to Garnet net8.0 binaries folder. Default: tools\cache\garnet-1.1.10-win-x64-net8\
+.PARAMETER NssmDir
+    Path to NSSM folder (contains nssm.exe). Default: tools\cache\nssm\
 
 .EXAMPLE
     .\Build-ProdRelease.ps1
     .\Build-ProdRelease.ps1 -SkipDB
     .\Build-ProdRelease.ps1 -DBPassword "MyPwd!" -DBUser "ccdashboard_user"
+    .\Build-ProdRelease.ps1 -UseMemurai  # Rollback to Memurai (deprecated)
 #>
 
 [CmdletBinding()]
@@ -51,6 +59,9 @@ param(
     [switch]$SkipDB,
     [string]$DumpFile    = "",
     [switch]$SkipBuild,
+    [switch]$UseMemurai,
+    [string]$GarnetDir   = "",
+    [string]$NssmDir     = "",
     [string]$MemuraiMsi  = ""
 )
 
@@ -72,10 +83,24 @@ $DeployDir    = Join-Path $Root "deploy"
 $CacheDir     = Join-Path $Root "tools\cache"
 $OutDir       = Join-Path $Root "Installations"
 
-if (-not $MemuraiMsi) {
-    $MemuraiMsi = Join-Path $CacheDir "memurai-developer.msi"
+# Garnet defaults (INC-001(d) Phase 2 — Memurai replacement)
+if (-not $GarnetDir) {
+    $GarnetDir = Join-Path $CacheDir "garnet-1.1.10-win-x64-net8"
 }
-# Resolve relative path against project root
+if ($GarnetDir -and -not [System.IO.Path]::IsPathRooted($GarnetDir)) {
+    $GarnetDir = Join-Path $Root $GarnetDir
+}
+if (-not $NssmDir) {
+    $NssmDir = Join-Path $CacheDir "nssm"
+}
+if ($NssmDir -and -not [System.IO.Path]::IsPathRooted($NssmDir)) {
+    $NssmDir = Join-Path $Root $NssmDir
+}
+
+# Memurai path (legacy rollback)
+if (-not $MemuraiMsi) {
+    $MemuraiMsi = Join-Path $CacheDir "Memurai-for-Redis-v4.2.2.msi"
+}
 if ($MemuraiMsi -and -not [System.IO.Path]::IsPathRooted($MemuraiMsi)) {
     $MemuraiMsi = Join-Path $Root $MemuraiMsi
 }
@@ -106,18 +131,52 @@ if (-not $SkipBuild) {
     Write-Host "  dotnet  : $dotnetVer" -ForegroundColor Gray
 }
 
-# Memurai MSI
-if (-not (Test-Path $MemuraiMsi)) {
-    Write-Host ""
-    Write-Host "  [WARN] Memurai installer not found:" -ForegroundColor Yellow
-    Write-Host "         $MemuraiMsi" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  Download from https://www.memurai.com/get-memurai" -ForegroundColor Yellow
-    Write-Host "  Save as: tools\cache\memurai-developer.msi" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Error "Memurai MSI not found: $MemuraiMsi`nПоложите файл в tools\cache\ или передайте правильный путь через -MemuraiMsi."
+# Cache check: Garnet (default) or Memurai (rollback)
+if ($UseMemurai) {
+    # Legacy Memurai path
+    if (-not (Test-Path $MemuraiMsi)) {
+        Write-Host ""
+        Write-Host "  [WARN] Memurai installer not found:" -ForegroundColor Yellow
+        Write-Host "         $MemuraiMsi" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  Download from https://www.memurai.com/get-memurai" -ForegroundColor Yellow
+        Write-Host "  Save as: tools\cache\Memurai-for-Redis-v4.2.2.msi" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Error "Memurai MSI not found: $MemuraiMsi`nПоложите файл в tools\cache\ или передайте правильный путь через -MemuraiMsi."
+    } else {
+        Write-Host "  Memurai : OK ($MemuraiMsi) [LEGACY ROLLBACK]" -ForegroundColor Yellow
+    }
 } else {
-    Write-Host "  Memurai : OK ($MemuraiMsi)" -ForegroundColor Gray
+    # Garnet (default, INC-001(d))
+    $garnetExe = Join-Path $GarnetDir "GarnetServer.exe"
+    if (-not (Test-Path $garnetExe)) {
+        Write-Host ""
+        Write-Host "  [ERROR] Garnet binaries not found:" -ForegroundColor Red
+        Write-Host "          $GarnetDir" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  Download Garnet 1.1.10 from:" -ForegroundColor Yellow
+        Write-Host "    https://github.com/microsoft/garnet/releases/tag/v1.1.10" -ForegroundColor Yellow
+        Write-Host "  Get: win-x64-based-readytorun.zip -> extract net8.0 folder -> tools\cache\garnet-1.1.10-win-x64-net8\" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Error "Garnet not found: $garnetExe`nDownload and extract to tools\cache\garnet-1.1.10-win-x64-net8\"
+    } else {
+        Write-Host "  Garnet  : OK ($GarnetDir)" -ForegroundColor Gray
+    }
+    # NSSM check
+    $nssmExe = Join-Path $NssmDir "nssm.exe"
+    if (-not (Test-Path $nssmExe)) {
+        Write-Host ""
+        Write-Host "  [ERROR] NSSM not found:" -ForegroundColor Red
+        Write-Host "          $NssmDir" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  Download NSSM (public domain) from:" -ForegroundColor Yellow
+        Write-Host "    https://nssm.cc/download" -ForegroundColor Yellow
+        Write-Host "  Extract nssm.exe (win64 version) to: tools\cache\nssm\" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Error "NSSM not found: $nssmExe`nDownload and extract to tools\cache\nssm\"
+    } else {
+        Write-Host "  NSSM    : OK ($NssmDir)" -ForegroundColor Gray
+    }
 }
 
 # pg_dump
@@ -289,12 +348,37 @@ if (-not $SkipDB -and (Test-Path $PublishDB)) {
     Write-Host "  + DB/" -ForegroundColor Gray
 }
 
-# Memurai — only when RTM is included (Redis is RTM dependency)
-if ($BuildRTM -and $MemuraiMsi -and (Test-Path $MemuraiMsi)) {
+# Cache service — Garnet (default) or Memurai (rollback) — only when RTM is included
+if ($BuildRTM) {
     $stgExtras = Join-Path $StagingDir "Extras"
     New-Item -ItemType Directory -Path $stgExtras -Force | Out-Null
-    Copy-Item $MemuraiMsi -Destination $stgExtras -Force
-    Write-Host "  + Extras/memurai-developer.msi" -ForegroundColor Gray
+
+    if ($UseMemurai) {
+        # Legacy Memurai MSI (rollback path)
+        if (Test-Path $MemuraiMsi) {
+            Copy-Item $MemuraiMsi -Destination $stgExtras -Force
+            Write-Host "  + Extras/$([System.IO.Path]::GetFileName($MemuraiMsi)) [LEGACY]" -ForegroundColor Yellow
+        }
+    } else {
+        # Garnet (default, INC-001(d) Phase 2)
+        $stgGarnet = Join-Path $stgExtras "Garnet"
+        New-Item -ItemType Directory -Path $stgGarnet -Force | Out-Null
+        Copy-Item -Path "$GarnetDir\*" -Destination $stgGarnet -Recurse -Force
+        Write-Host "  + Extras/Garnet/ (net8.0 binaries)" -ForegroundColor Gray
+
+        # Copy NSSM for service registration
+        $stgNssm = Join-Path $stgExtras "nssm"
+        New-Item -ItemType Directory -Path $stgNssm -Force | Out-Null
+        Copy-Item -Path "$NssmDir\*" -Destination $stgNssm -Recurse -Force
+        Write-Host "  + Extras/nssm/ (service wrapper)" -ForegroundColor Gray
+
+        # Copy redis-cli if available (for health probes)
+        $redisCli = Join-Path $CacheDir "redis-cli.exe"
+        if (Test-Path $redisCli) {
+            Copy-Item $redisCli -Destination $stgGarnet -Force
+            Write-Host "  + Extras/Garnet/redis-cli.exe (health probes)" -ForegroundColor Gray
+        }
+    }
 }
 
 # Deploy scripts and README
