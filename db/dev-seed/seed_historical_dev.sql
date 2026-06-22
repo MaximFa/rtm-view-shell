@@ -1,9 +1,19 @@
 -- ============================================================================
--- DEV SEED: Historical Reports Test Data (Q1/Q5/A4/A5 tabs)
+-- DEV SEED: Historical Reports Test Data (Q1/Q5/A4/A5 tabs) — DATA-ONLY
 -- ============================================================================
 -- Owner: role-bi (bi-0619). DEV ONLY — DO NOT RUN ON PROD.
 -- §4-PASS: coordinator-0622 approved. dba-REVIEWED before run.
 -- Idempotent: ON CONFLICT DO UPDATE. Reusable.
+--
+-- CORE RULE (2026-06-22 lesson): This seed is DATA-ONLY (INSERT).
+-- Schema + functions come from EF migrations ONLY — NEVER CREATE TABLE/FUNCTION here.
+-- That desyncs __ef_migrations_history and omits migration functions -> startup 42883.
+-- Always: migrate-first, seed data-only.
+--
+-- PREREQUISITE: Run EF migrations FIRST (dotnet ef database update), which creates:
+--   - fn_hist_ensure_partitions, fn_hist_drop_aged
+--   - hist_queue_intervals, hist_agent_intervals (partitioned)
+--   - arch_* tables, user_reports, etc.
 --
 -- USAGE:
 --   psql -U ccdashboard_user -d rtmviewdb -v DEV_CONFIRM=1 -f seed_historical_dev.sql
@@ -27,126 +37,25 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- STEP 1: Create hist_* tables if they don't exist
+-- PREREQUISITE CHECK: Verify EF migrations were applied (tables + functions exist)
 -- ============================================================================
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hist_queue_intervals') THEN
-        RAISE NOTICE 'Creating hist_queue_intervals...';
-        EXECUTE '
-            CREATE TABLE public.hist_queue_intervals (
-                "Id" uuid NOT NULL,
-                "TenantId" uuid NOT NULL,
-                "IntervalStart" timestamptz NOT NULL,
-                "Workgroup" varchar(100) NOT NULL,
-                "QueueId" uuid NULL,
-                "Offered" int NOT NULL DEFAULT 0,
-                "Answered" int NOT NULL DEFAULT 0,
-                "Abandoned" int NOT NULL DEFAULT 0,
-                "AnsweredInSl" int NOT NULL DEFAULT 0,
-                "SumWaitAnswered" bigint NOT NULL DEFAULT 0,
-                "SumTalk" bigint NOT NULL DEFAULT 0,
-                "CreatedAt" timestamptz NOT NULL DEFAULT now(),
-                "UpdatedAt" timestamptz NOT NULL DEFAULT now(),
-                PRIMARY KEY ("Id", "IntervalStart")
-            ) PARTITION BY RANGE ("IntervalStart")';
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ix_hist_queue_intervals_tenant_interval_workgroup
-            ON public.hist_queue_intervals ("TenantId", "IntervalStart", "Workgroup");
-        CREATE INDEX IF NOT EXISTS ix_hist_queue_intervals_tenant_interval
-            ON public.hist_queue_intervals ("TenantId", "IntervalStart");
-        CREATE TABLE IF NOT EXISTS public.hist_queue_intervals_default
-            PARTITION OF public.hist_queue_intervals DEFAULT;
+        RAISE EXCEPTION 'PREREQUISITE FAIL: hist_queue_intervals does not exist. Run EF migrations first: dotnet ef database update';
     END IF;
-
     IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hist_agent_intervals') THEN
-        RAISE NOTICE 'Creating hist_agent_intervals...';
-        EXECUTE '
-            CREATE TABLE public.hist_agent_intervals (
-                "Id" uuid NOT NULL,
-                "TenantId" uuid NOT NULL,
-                "IntervalStart" timestamptz NOT NULL,
-                "AgentExternalId" varchar(100) NOT NULL,
-                "AgentDisplayName" varchar(200) NULL,
-                "SumAvailableMs" bigint NOT NULL DEFAULT 0,
-                "SumOnphoneMs" bigint NOT NULL DEFAULT 0,
-                "SumHoldMs" bigint NOT NULL DEFAULT 0,
-                "SumPaperworkMs" bigint NOT NULL DEFAULT 0,
-                "SumBreakMs" bigint NOT NULL DEFAULT 0,
-                "SumTrainingMs" bigint NOT NULL DEFAULT 0,
-                "SumUnavailableMs" bigint NOT NULL DEFAULT 0,
-                "SumLoggedInMs" bigint NOT NULL DEFAULT 0,
-                "Handled" int NOT NULL DEFAULT 0,
-                "CreatedAt" timestamptz NOT NULL DEFAULT now(),
-                "UpdatedAt" timestamptz NOT NULL DEFAULT now(),
-                PRIMARY KEY ("Id", "IntervalStart")
-            ) PARTITION BY RANGE ("IntervalStart")';
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ix_hist_agent_intervals_tenant_interval_agent
-            ON public.hist_agent_intervals ("TenantId", "IntervalStart", "AgentExternalId");
-        CREATE INDEX IF NOT EXISTS ix_hist_agent_intervals_tenant_interval
-            ON public.hist_agent_intervals ("TenantId", "IntervalStart");
-        CREATE TABLE IF NOT EXISTS public.hist_agent_intervals_default
-            PARTITION OF public.hist_agent_intervals DEFAULT;
+        RAISE EXCEPTION 'PREREQUISITE FAIL: hist_agent_intervals does not exist. Run EF migrations first.';
     END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_reports') THEN
-        RAISE NOTICE 'Creating user_reports...';
-        CREATE TABLE public.user_reports (
-            "Id" uuid PRIMARY KEY NOT NULL,
-            "TenantId" uuid NOT NULL,
-            "Name" varchar(200) NOT NULL,
-            "Description" varchar(500) NULL,
-            "IsSystem" boolean NOT NULL DEFAULT false,
-            "IsPublic" boolean NOT NULL DEFAULT false,
-            "OwnerUserId" uuid NULL,
-            "Config" jsonb NULL,
-            "CreatedAt" timestamptz NOT NULL DEFAULT now(),
-            "UpdatedAt" timestamptz NOT NULL DEFAULT now(),
-            "CreatedByUserId" uuid NOT NULL,
-            "UpdatedByUserId" uuid NOT NULL,
-            "IsDeleted" boolean NOT NULL DEFAULT false,
-            "DeletedAt" timestamptz NULL,
-            "DeletedByUserId" uuid NULL
-        );
-        CREATE UNIQUE INDEX ix_user_reports_tenant_name ON public.user_reports ("TenantId", "Name");
+    IF to_regprocedure('fn_hist_ensure_partitions(text,int,int)') IS NULL THEN
+        RAISE EXCEPTION 'PREREQUISITE FAIL: fn_hist_ensure_partitions does not exist. Run EF migrations first.';
     END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hist_aggregation_watermarks') THEN
-        RAISE NOTICE 'Creating hist_aggregation_watermarks...';
-        CREATE TABLE public.hist_aggregation_watermarks (
-            "TenantId" uuid PRIMARY KEY NOT NULL,
-            "AggregatedThrough" timestamptz NOT NULL,
-            "LastRunAt" timestamptz NOT NULL DEFAULT now()
-        );
-    END IF;
+    RAISE NOTICE 'PREREQUISITE PASS: hist_* tables + fn_hist_ensure_partitions exist (EF migrations applied)';
 END $$;
 
--- Create monthly partitions
-DO $$
-DECLARE
-    curr_month date := date_trunc('month', CURRENT_DATE);
-    m date;
-    part_name text;
-BEGIN
-    FOR i IN -1..2 LOOP
-        m := curr_month + (i || ' months')::interval;
-
-        part_name := 'hist_queue_intervals_' || to_char(m, 'YYYY_MM');
-        IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = part_name) THEN
-            EXECUTE format('CREATE TABLE public.%I PARTITION OF public.hist_queue_intervals FOR VALUES FROM (%L) TO (%L)',
-                part_name, m, m + '1 month'::interval);
-            RAISE NOTICE 'Created partition %', part_name;
-        END IF;
-
-        part_name := 'hist_agent_intervals_' || to_char(m, 'YYYY_MM');
-        IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = part_name) THEN
-            EXECUTE format('CREATE TABLE public.%I PARTITION OF public.hist_agent_intervals FOR VALUES FROM (%L) TO (%L)',
-                part_name, m, m + '1 month'::interval);
-            RAISE NOTICE 'Created partition %', part_name;
-        END IF;
-    END LOOP;
-END $$;
+-- Ensure partitions exist for the data range (function exists from EF migration)
+SELECT fn_hist_ensure_partitions('hist_queue_intervals', 1, 2);
+SELECT fn_hist_ensure_partitions('hist_agent_intervals', 1, 2);
 
 -- ============================================================================
 -- MAIN SEED BLOCK
