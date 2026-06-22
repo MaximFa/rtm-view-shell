@@ -28,6 +28,10 @@ Frontmatter: `role, project, version, last_verified, owner: <role>, reviewer: cu
 - CAPTURE is a MANDATORY lifecycle step (not opt-in): any task that yields a lesson -> append the dated, source-pinned
   lesson to §B BEFORE the task closes. Wired into the CC postamble next to binding-RESULT (§0.6b).
 - Status active/superseded only; SILENT editing forbidden (like the journal). Reality-wins caveat. VERIFY at init.
+- ROUTING (operator 2026-06-22): EVERY lesson is recorded in §B (append-only) — nothing is 'too small for §B'. A lesson is
+  ELEVATED to §A as a source-pinned CARDINAL TRUTH ONLY when it is a CRITICAL AMPLIFIER: a load-bearing invariant that changes
+  how the role ACTS at init / high recurrence / high blast-radius. Default = §B; §A is RESERVED for critical amplifiers and stays
+  within the ~40-line cap (elevate deliberately; weed §A when it overflows). Capture EVERYTHING in §B; promote ONLY amplifiers.
 - Periodically weed §B so §A stays loadable. Writes are native-CC only (mount truncates), via §4-review.
 
 ## Lifecycle (vertical, brother of the §42 horizontal lifecycle)

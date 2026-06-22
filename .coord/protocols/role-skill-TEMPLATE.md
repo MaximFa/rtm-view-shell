@@ -14,11 +14,13 @@ reviewer: curator
 Role: <one line — what this role owns + its claim/territory>.
 **Reality wins — update me.** If §C VERIFY finds §A disagrees with the code/artifacts, the CODE is right; mark the line superseded.
 Cardinal truths (3-7, each SOURCE-pinned):
+> ROUTING (operator 2026-06-22): §A holds ONLY CRITICAL AMPLIFIERS — load-bearing invariants that change init-time behaviour / high recurrence / large blast-radius. Everything else stays in §B. Keep within the ~40-line cap.
 - <truth 1> · SOURCE:<commit/file:line/journal-ts>
 - <truth 2> · SOURCE:<...>
 - ...
 
 ## §B LESSONS  (append-only · dated · source-pinned · status)
+> ROUTING: record EVERY lesson here (append-only, nothing too small). Elevate to §A as a source-pinned cardinal ONLY if it is a critical amplifier (see §A). Default = §B. SOURCE: operator 2026-06-22 / role-skill-standard 'Capture discipline'.
 - <date> · <what happened> · <rule> · SOURCE:<...> · status: active
 
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
