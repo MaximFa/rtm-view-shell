@@ -68,8 +68,7 @@ SELECT
     "Is2faEnabled", "LastLoginAt", "PreferredLocale", "MustChangePasswordAt"
 FROM identity.users;
 GRANT SELECT ON identity.users_safe TO soma_ro;
--- Keep full users table revoked - soma_ro uses users_safe instead
--- (soma_ro still has SELECT on users but queries should use users_safe)
+-- Base identity.users SELECT is REVOKED (SF-SOMA-001) - soma_ro MUST use users_safe
 
 -- sso_configurations: create view without ClientSecret
 DROP VIEW IF EXISTS public.sso_configurations_safe;
@@ -91,6 +90,16 @@ SELECT
     "SignalRConnectionUrl"
 FROM public.tenant_settings;
 GRANT SELECT ON public.tenant_settings_safe TO soma_ro;
+
+-- ============================================================
+-- SF-SOMA-001: revoke BASE secret-bearing tables so soma_ro uses ONLY the *_safe views
+-- (PostgreSQL views run with the view OWNER's privileges, so revoking soma_ro's base-table
+--  SELECT does NOT break users_safe / sso_configurations_safe / tenant_settings_safe.)
+-- Idempotent: REVOKE of a non-existent grant is a harmless no-op.
+-- ============================================================
+REVOKE SELECT ON identity.users           FROM soma_ro;
+REVOKE SELECT ON public.sso_configurations FROM soma_ro;
+REVOKE SELECT ON public.tenant_settings   FROM soma_ro;
 
 -- ============================================================
 -- Explicitly deny write operations (defense in depth)
