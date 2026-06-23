@@ -38,6 +38,17 @@
 ## 5. Console / log
 - [ ] No unexpected ERR on the smoke path (login -> dashboards -> reports). Read via dotnet console or `src/CcDashboard.Web/logs/log-<date>.txt` (note Cowork mount-lag).
 
+
+## 6. Widget grid lifecycle — DB-verified (Queue Grid + Agent Grid)
+*Confirms widget add/config/save/delete materialises & cleans the grid config tables. KEY: a widget must be CONFIGURED (BU + at least a row/columns) before Save — an unconfigured widget shows "Save widget config to connect" and creates NO grid row.*
+- [ ] Create a dashboard -> open editor (/screens/{id}/edit) -> open the widget palette.
+- [ ] **Queue Grid**: drag onto canvas -> config (Rows: add a Business Unit row; Columns: default 5 QM/Agent-Group metrics) -> widget Save -> dashboard Save. DB (Soma): `RTSGrid_Grid` +1 (and `RTSGrid_Row`/`RTSGrid_Column`/`RTSGrid_Cell` created).
+- [ ] Delete Queue Grid (trash -> confirm "also delete the associated grid configuration") -> dashboard Save. DB: `RTSGrid_Grid` back to baseline (Row/Cell/dashboard_widgets = 0).
+- [ ] **Agent Grid**: drag onto canvas -> config (General: select a Business Unit; Columns: default 5 agent metrics) -> widget Save -> dashboard Save. DB: `RTSUserGrid_Grid` +1 (`RTSUserGrid_Column` created). (Agent Grid -> RTSUserGrid_*, NOT RTSGrid_*.)
+- [ ] View Mode (/screens/{id}): Agent Grid renders ("Connection failed/Retry" is OK in dev = no live RTM relay feed).
+- [ ] Edit -> delete Agent Grid -> dashboard Save. DB: `RTSUserGrid_Grid` back to baseline.
+- [ ] Clean up: delete the test dashboard.
+
 ## Verdict
 - [ ] **PASS** — all green -> QA ack = GREEN for the push barrier.
 - [ ] **HOLD: <area> — <finding>** (floor-pin: where / expected vs actual) -> route to the owning role; no push until cleared.
@@ -49,3 +60,4 @@
 | Version | Date | Summary |
 |---|---|---|
 | v1 | 2026-06-23 | Initial standing pre-push regression checklist (auth, dashboards, reports, background services, UI=DB, F-QA-1/5/6 guards). |
+| v2 | 2026-06-24 | Added section 6: widget grid lifecycle DB-verify (Queue->RTSGrid_Grid, Agent->RTSUserGrid_Grid; config-before-save key). |
