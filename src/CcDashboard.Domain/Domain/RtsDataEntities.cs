@@ -35,7 +35,26 @@ public class RtsDataInteraction
     public string? RemoteAddress { get; set; }
     public bool? IsCallbackRequest { get; set; }
     public string? TimeZone { get; set; }
-    // CustomCallData1..CustomCallData20 omitted — add on demand
+    public string? CustomCallData1 { get; set; }
+    public string? CustomCallData2 { get; set; }
+    public string? CustomCallData3 { get; set; }
+    public string? CustomCallData4 { get; set; }
+    public string? CustomCallData5 { get; set; }
+    public string? CustomCallData6 { get; set; }
+    public string? CustomCallData7 { get; set; }
+    public string? CustomCallData8 { get; set; }
+    public string? CustomCallData9 { get; set; }
+    public string? CustomCallData10 { get; set; }
+    public string? CustomCallData11 { get; set; }
+    public string? CustomCallData12 { get; set; }
+    public string? CustomCallData13 { get; set; }
+    public string? CustomCallData14 { get; set; }
+    public string? CustomCallData15 { get; set; }
+    public string? CustomCallData16 { get; set; }
+    public string? CustomCallData17 { get; set; }
+    public string? CustomCallData18 { get; set; }
+    public string? CustomCallData19 { get; set; }
+    public string? CustomCallData20 { get; set; }
 }
 
 /// <summary>
