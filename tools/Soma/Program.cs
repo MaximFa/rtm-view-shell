@@ -201,7 +201,7 @@ var dangerousSqlPatterns = new Regex(
     @"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|GRANT|REVOKE|COPY|pg_read_file|pg_ls_dir|lo_import|lo_export|dblink|pg_sleep)\b",
     RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.1.0", service = "Soma" }));
+app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.2.0", service = "Soma" }));
 
 app.MapGet("/ui", () => Results.Content(GenerateUiHtml(token), "text/html"));
 
@@ -275,6 +275,59 @@ app.MapGet("/cc/runs/{id}/log", (string id) =>
     var logPath = Path.Combine(ccRunsDir, $"{id}.log");
     if (!File.Exists(logPath)) return Results.NotFound($"Log not found for run: {id}");
     return Results.Text(ReadTextShared(logPath), "text/plain");
+});
+
+app.MapPost("/cc/mark-done", async (HttpContext ctx) =>
+{
+    using var reader = new StreamReader(ctx.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    string promptFile;
+    try { using var doc = JsonDocument.Parse(body); promptFile = doc.RootElement.GetProperty("promptFile").GetString() ?? ""; }
+    catch { return Results.BadRequest("Invalid JSON body"); }
+    if (!ValidatePromptFile(promptFile, out var error)) return Results.BadRequest(error);
+
+    var runId = $"manual-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}";
+    var now = DateTime.UtcNow;
+    var runs = LoadCcRuns();
+    runs.Add(new CcRunEntry { RunId = runId, PromptFile = promptFile, StartedAt = now, FinishedAt = now, Status = "ok", ExitCode = 0 });
+    SaveCcRuns(runs);
+    AuditLog("CC_MARK_DONE", $"promptFile={promptFile}");
+    return Results.Json(new { promptFile, status = "ok", manual = true });
+});
+
+app.MapPost("/cc/mark-all-done", async (HttpContext ctx) =>
+{
+    bool onlyUnrun = true;
+    try {
+        using var reader = new StreamReader(ctx.Request.Body);
+        var body = await reader.ReadToEndAsync();
+        if (!string.IsNullOrWhiteSpace(body)) {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("onlyUnrun", out var prop)) onlyUnrun = prop.GetBoolean();
+        }
+    } catch { }
+
+    var promptsPath = Path.Combine(repoRoot, promptsDir);
+    if (!Directory.Exists(promptsPath)) return Results.Json(new { marked = 0, skipped = 0 });
+
+    var runs = LoadCcRuns();
+    var files = Directory.GetFiles(promptsPath, "cc_prompt_*.md");
+    int marked = 0, skipped = 0;
+    var now = DateTime.UtcNow;
+
+    foreach (var f in files)
+    {
+        var relPath = Path.Combine(promptsDir, Path.GetFileName(f)).Replace('\\', '/');
+        var lastRun = runs.Where(r => r.PromptFile == relPath).OrderByDescending(r => r.StartedAt).FirstOrDefault();
+        if (onlyUnrun && lastRun?.Status == "ok") { skipped++; continue; }
+        var runId = $"manual-{now:yyyyMMdd-HHmmss-fff}-{marked}";
+        runs.Add(new CcRunEntry { RunId = runId, PromptFile = relPath, StartedAt = now, FinishedAt = now, Status = "ok", ExitCode = 0 });
+        marked++;
+    }
+
+    SaveCcRuns(runs);
+    AuditLog("CC_MARK_ALL", $"marked={marked}|skipped={skipped}");
+    return Results.Json(new { marked, skipped });
 });
 
 app.MapGet("/db/agent-states", async (Guid? tenant) =>
@@ -539,6 +592,8 @@ tr:hover{{background:#252540}}
 button{{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem}}
 .btn-run{{background:#00d9ff;color:#000}}.btn-run:hover{{background:#00b8d4}}
 .btn-log{{background:#444;color:#eee}}.btn-log:hover{{background:#555}}
+.btn-mark{{background:#2e7d32;color:#fff;padding:4px 8px;font-size:0.75rem}}.btn-mark:hover{{background:#388e3c}}
+.btn-markall{{background:#1b5e20;color:#fff}}.btn-markall:hover{{background:#2e7d32}}
 .console{{background:#0d0d1a;border:1px solid #333;border-radius:6px;padding:12px;margin-top:20px;min-height:300px;max-height:500px;overflow:auto;font-family:monospace;font-size:0.85rem;white-space:pre-wrap}}
 .console-header{{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}}
 .console-header h3{{margin:0;font-size:1rem;color:#888}}
@@ -552,6 +607,7 @@ button{{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:
 <h1>Soma CC Panel</h1>
 <span id=""somaStatus"" class=""status"">...</span>
 <span id=""shellStatus"" class=""status"">...</span>
+<button class=""btn-markall"" onclick=""markAllDone()"">Mark All Done</button>
 </div>
 <div class=""filters"">
 <input type=""text"" id=""searchInput"" placeholder=""Search prompts..."">
@@ -596,7 +652,7 @@ return `<tr>
 <td>${{p.file}}</td>
 <td class=""mtime"">${{new Date(p.mtime).toLocaleString()}}</td>
 <td>${{badge}} <span class=""mtime"">${{lastRun}}</span></td>
-<td><button class=""btn-run"" onclick=""runPrompt('${{p.file}}')"">▶ Run</button> ${{logBtn}}</td>
+<td><button class=""btn-run"" onclick=""runPrompt('${{p.file}}')"">▶ Run</button> <button class=""btn-mark"" onclick=""markDone('${{p.file}}')"" title=""Mark done"">✓</button> ${{logBtn}}</td>
 </tr>`;
 }}).join('');
 }}
@@ -644,6 +700,25 @@ document.getElementById('logContent').textContent=log;
 function copyLog(){{
 const text=document.getElementById('logContent').textContent;
 navigator.clipboard.writeText(text).then(()=>alert('Copied!')).catch(e=>alert('Copy failed: '+e));
+}}
+
+async function markDone(file){{
+if(!confirm('Mark '+file+' as done (without running)?'))return;
+try{{
+const r=await fetch('/cc/mark-done',{{method:'POST',headers,body:JSON.stringify({{promptFile:file}})}});
+const d=await r.json();
+if(d.status==='ok'){{loadPrompts();}}else{{alert('Error: '+JSON.stringify(d));}}
+}}catch(e){{alert('Error: '+e);}}
+}}
+
+async function markAllDone(){{
+if(!confirm('Mark ALL unrun prompts as done?'))return;
+try{{
+const r=await fetch('/cc/mark-all-done',{{method:'POST',headers,body:JSON.stringify({{onlyUnrun:true}})}});
+const d=await r.json();
+alert('Marked: '+d.marked+', Skipped (already ok): '+d.skipped);
+loadPrompts();
+}}catch(e){{alert('Error: '+e);}}
 }}
 
 document.getElementById('searchInput').addEventListener('input',renderPrompts);
