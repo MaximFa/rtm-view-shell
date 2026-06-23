@@ -3165,3 +3165,35 @@ keyed by `ApplicationUser.Id` (uuid). Report creators/owners/permissions (`user_
 the two. When in doubt: agents/queues = external CC id, system users = internal uuid.
 
 *SOURCE: operator rule 2026-06-19 (Historical Reports B5).*
+
+---
+
+## 47. Soma: локальный ops-мост колонии (для ВСЕХ ролей)
+
+**ЧТО:** Soma даёт read-глаза (БД, логи) + named-операции (Shell start/stop/restart/status, build, test, health, tail) на ЛОКАЛЬНОЙ машине.
+
+**ПРЕДУСЛОВИЕ:** Soma — operator-managed демон на `http://127.0.0.1:<PORT>`. ПЕРЕД использованием — `GET /health`.
+Connection-refused = Soma не запущена → ФЛАГНУТЬ ОПЕРАТОРУ (роли НЕ запускают её сами).
+
+**AUTH:** Bearer-токен, читать из `tools/Soma/appsettings.json` (`Soma:Token`). НИКОГДА не хардкодить и не коммитить токен.
+Файл `appsettings.json` gitignored; template = `appsettings.example.json`.
+
+**ВЫЗОВ:** HttpClient / Invoke-RestMethod с `Authorization: Bearer <token>`. Полный каталог эндпойнтов + примеры → `tools/Soma/USAGE.md`.
+
+**ПРИНЦИП:** ТОЛЬКО именованные операции (ноль произвольного shell / SQL сверх SELECT). Видит всё, чинит ничего —
+находки роутятся ВЛАДЕЛЬЦУ фикса. Для `identity.users`/`sso_configurations`/`tenant_settings` — запрашивать `*_safe` views (секреты redacted).
+
+**БЕЗОПАСНОСТЬ:** loopback-only, read-only роль `soma_ro` (секреты revoked), spawn без shell (ArgumentList), таймауты, аудит control/exec.
+
+**Эндпойнты (краткий справочник):**
+- `GET /health` — liveness (без auth)
+- `GET /db/agent-states?tenant=<guid>` — agent states + groups
+- `GET /db/queues?tenant=<guid>` — queues + counts
+- `GET /db/dashboards?tenant=<guid>` — dashboards + widgets
+- `POST /db/query` — free SELECT (JSON `{"sql":"..."}` или raw text)
+- `GET /logs/tail?source=<serilog|soma-shell|soma-audit>&n=<N>` — log tail
+- `GET /shell/status`, `POST /shell/start|stop|restart` — Soma-owned process control
+- `POST /ops/build`, `POST /ops/test?suite=<unit|integration|architecture|security>` — build/test
+- `GET /ops/health` — ping Shell /health + /health/ready
+
+*TZ version: 3.0 | CLAUDE.md last updated: 2026-06-23 (§47 Soma ops-bridge)*
