@@ -6,10 +6,54 @@ using Npgsql;
 var builder = WebApplication.CreateBuilder(args);
 
 var config = builder.Configuration.GetSection("Soma");
-var port = int.Parse(config["Port"] ?? "5199");
-var token = config["Token"] ?? throw new InvalidOperationException("Soma:Token not configured");
-var connStr = config["ReadonlyConnectionString"] ?? throw new InvalidOperationException("Soma:ReadonlyConnectionString not configured");
+
+bool IsUnset(string? v) => string.IsNullOrWhiteSpace(v) || v.StartsWith("<FILL", StringComparison.OrdinalIgnoreCase);
+
+var configErrors = new List<string>();
+var portRaw = config["Port"];
+int port = 5199;
+if (IsUnset(portRaw))
+{
+    configErrors.Add($"  - Port: должен быть числом, напр. 5199 (сейчас: '{portRaw ?? "(пусто)"}')");
+}
+else if (!int.TryParse(portRaw, out port))
+{
+    configErrors.Add($"  - Port: должен быть числом, напр. 5199 (сейчас: '{portRaw}')");
+}
+
+var tokenRaw = config["Token"];
+if (IsUnset(tokenRaw))
+{
+    configErrors.Add("  - Token: задай длинный случайный токен (см. README)");
+}
+
+var connStrRaw = config["ReadonlyConnectionString"];
+if (IsUnset(connStrRaw) || (connStrRaw?.Contains("<FILL") ?? false))
+{
+    configErrors.Add("  - ReadonlyConnectionString: впиши пароль soma_ro");
+}
+
 var serilogPath = config["SerilogPath"];
+if (IsUnset(serilogPath))
+{
+    Console.WriteLine("[warn] SerilogPath не задан — /logs/serilog вернёт ошибку, пока не заполнишь");
+}
+
+if (configErrors.Count > 0)
+{
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Soma: конфиг не готов. Заполни tools/Soma/appsettings.json (секция \"Soma\"):");
+    Console.Error.WriteLine();
+    foreach (var err in configErrors)
+        Console.Error.WriteLine(err);
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("См. tools/Soma/README.md");
+    Console.Error.WriteLine();
+    Environment.Exit(1);
+}
+
+var token = tokenRaw!;
+var connStr = connStrRaw!;
 var auditLogPath = config["AuditLogPath"] ?? Path.Combine(AppContext.BaseDirectory, "soma-audit.log");
 var shellLogPath = config["ShellLogPath"] ?? Path.Combine(AppContext.BaseDirectory, "soma-shell.log");
 
@@ -84,7 +128,7 @@ var dangerousSqlPatterns = new Regex(
     @"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|GRANT|REVOKE|COPY|pg_read_file|pg_ls_dir|lo_import|lo_export|dblink|pg_sleep)\b",
     RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.0.0", service = "Soma" }));
+app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.0.1", service = "Soma" }));
 
 app.MapGet("/db/agent-states", async (Guid? tenant) =>
 {
@@ -353,15 +397,15 @@ app.MapGet("/logs/tail", (string? source, int? n) =>
 
 app.MapGet("/logs/serilog", (int? tail, string? contains) =>
 {
-    if (string.IsNullOrWhiteSpace(serilogPath))
-        return Results.BadRequest("SerilogPath not configured");
+    if (IsUnset(serilogPath))
+        return Results.Problem("SerilogPath not configured", statusCode: 500);
+    
+    if (!File.Exists(serilogPath))
+        return Results.Problem($"Serilog file not found: {serilogPath}", statusCode: 500);
     
     var n = tail ?? 100;
     if (n < 1 || n > 2000)
         return Results.BadRequest("tail must be 1..2000");
-
-    if (!File.Exists(serilogPath))
-        return Results.NotFound($"Log file not found: {serilogPath}");
 
     var lines = File.ReadAllLines(serilogPath);
     IEnumerable<string> result = lines.TakeLast(n);
