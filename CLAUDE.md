@@ -2983,6 +2983,12 @@ Push happens ONLY when every active session has confirmed readiness:
    task they run `git fetch` and verify local HEAD is an ancestor of origin or equal.
 
 
+**Functional/QA gate (mandatory in every push-barrier quorum) [norm 2026-06-23]:**
+
+QA — the `test` session (test-5-0607) — is a MANDATORY quorum ack, a PEER of Security and the Doc-sync gate, NEVER logged as 'stake-clear / non-gating'. The push barrier is NOT complete without QA's READY/GREEN or HOLD. QA's ack means **functionally verified**, not a diff-read: for any commit touching code / schema / migration the Definition-of-Done is (a) unit tests GREEN, (b) fresh-DB migrate clean (no latent migration/seed defect), (c) smoke — the app starts AND the key user path works (e.g. /reports renders seeded rows; the To-day incl. today is shown). 'No defect visible in the diff' is NOT a QA ack — object-store/code verification is necessary but NOT sufficient. The stale 'no QA role' assumption is RETIRED: `test` is the standing functional-gate owner.
+
+(Origin: v3 was pushed to origin/v3 on 2026-06-22 with no functional gate; malformed migrations + seed bugs surfaced expensively at first clean stand-up. QA had been acking barriers as 'stake-clear' — a gate demoted to a formality. On 2026-06-23 the functional gate then caught a real off-by-one (exclusive To-date dropping today's data, 640→735) that the object-store code-review had missed — proof the gate is load-bearing.)
+
 **Doc-sync gate (mandatory in every push-barrier quorum):**
 
 Tech Writer is a MANDATORY ack in every push-barrier quorum (peer of Security/DBA). The barrier
