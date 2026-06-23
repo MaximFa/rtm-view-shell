@@ -89,7 +89,7 @@ else
     {
         // Normalize date bounds to UTC (Npgsql 8 throws on Kind=Local to timestamptz)
         from = DateTime.SpecifyKind(from, DateTimeKind.Utc);
-        to = DateTime.SpecifyKind(to, DateTimeKind.Utc);
+        to = DateTime.SpecifyKind(to.Date.AddDays(1), DateTimeKind.Utc);
 
         _loading = true;
         StateHasChanged();
