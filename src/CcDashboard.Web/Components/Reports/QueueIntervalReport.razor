@@ -1,8 +1,10 @@
 ﻿@using MediatR
 @using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
 @using CcDashboard.Application.HistoricalReports.Queries
 @inject IMediator Mediator
 @inject IStringLocalizer<SharedResources> L
+@inject ILogger<QueueIntervalReport> Logger
 
 <ReportFilterBar 
     ShowWorkgroupFilter="true"
@@ -69,7 +71,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadData(DateTime.Today.AddDays(-7), DateTime.Today, 50, 1, null);
+        await LoadData(DateTime.UtcNow.Date.AddDays(-7), DateTime.UtcNow.Date, 50, 1, null);
     }
 
     private async Task HandleFilter(ReportFilterBar.ReportFilterArgs args)
@@ -79,6 +81,10 @@ else
 
     private async Task LoadData(DateTime from, DateTime to, int pageSize, int page, IReadOnlyList<string>? workgroups)
     {
+        // Normalize date bounds to UTC (Npgsql 8 throws on Kind=Local to timestamptz)
+        from = DateTime.SpecifyKind(from, DateTimeKind.Utc);
+        to = DateTime.SpecifyKind(to, DateTimeKind.Utc);
+
         _loading = true;
         StateHasChanged();
 
@@ -88,8 +94,9 @@ else
             _rows = result.Rows;
             _totalCount = result.TotalCount;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "Report load failed ({Report})", nameof(QueueIntervalReport));
             _rows = null;
             _totalCount = 0;
         }
