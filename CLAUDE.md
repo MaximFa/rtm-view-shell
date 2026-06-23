@@ -2989,6 +2989,10 @@ QA — the `test` session (test-5-0607) — is a MANDATORY quorum ack, a PEER of
 
 (Origin: v3 was pushed to origin/v3 on 2026-06-22 with no functional gate; malformed migrations + seed bugs surfaced expensively at first clean stand-up. QA had been acking barriers as 'stake-clear' — a gate demoted to a formality. On 2026-06-23 the functional gate then caught a real off-by-one (exclusive To-date dropping today's data, 640→735) that the object-store code-review had missed — proof the gate is load-bearing.)
 
+**Per-change QA + standing pre-push regression (norm 2026-06-23):**
+
+QA verification is not only a barrier gate — it is CONTINUOUS: (1) EVERY change / fix / addition gets IMMEDIATE QA verification right after it lands (per-change functional check by `test` — object-store + a live run + a clean log), NOT deferred to the barrier; (2) before EVERY push, `test` runs the standing pre-push REGRESSION over UI + DB (Dashboards + Historical Reports) per `testing/regression_checklist.md` and emits ONE consolidated GREEN/HOLD. The barrier's QA quorum ack = that CONSOLIDATED regression GREEN (NOT the sum of piecemeal per-feature checks). The checklist is versioned and carries an explicit regression guard for every closed defect (e.g. F-QA-1/5/6) so none can silently regress.
+
 **Doc-sync gate (mandatory in every push-barrier quorum):**
 
 Tech Writer is a MANDATORY ack in every push-barrier quorum (peer of Security/DBA). The barrier
