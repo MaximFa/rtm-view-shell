@@ -90,6 +90,45 @@ void AuditLog(string action, string details)
     try { File.AppendAllText(auditLogPath, entry + Environment.NewLine); } catch { }
 }
 
+// Build ProcessStartInfo for CC exe (handles .ps1/.cmd npm shims on Windows)
+ProcessStartInfo BuildCcProcess(string exe, string workDir, IEnumerable<string> args)
+{
+    var psi = new ProcessStartInfo
+    {
+        WorkingDirectory = workDir,
+        UseShellExecute = false,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        CreateNoWindow = true
+    };
+
+    var ext = Path.GetExtension(exe).ToLowerInvariant();
+    if (ext == ".ps1")
+    {
+        psi.FileName = "powershell.exe";
+        psi.ArgumentList.Add("-NoProfile");
+        psi.ArgumentList.Add("-ExecutionPolicy");
+        psi.ArgumentList.Add("Bypass");
+        psi.ArgumentList.Add("-File");
+        psi.ArgumentList.Add(exe);
+    }
+    else if (ext == ".cmd" || ext == ".bat")
+    {
+        psi.FileName = "cmd.exe";
+        psi.ArgumentList.Add("/c");
+        psi.ArgumentList.Add(exe);
+    }
+    else
+    {
+        psi.FileName = exe;
+    }
+
+    foreach (var arg in args)
+        psi.ArgumentList.Add(arg);
+
+    return psi;
+}
+
 string? ResolveLogFile(string? path)
 {
     if (string.IsNullOrWhiteSpace(path)) return null;
@@ -201,7 +240,7 @@ var dangerousSqlPatterns = new Regex(
     @"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|GRANT|REVOKE|COPY|pg_read_file|pg_ls_dir|lo_import|lo_export|dblink|pg_sleep)\b",
     RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.2.0", service = "Soma" }));
+app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.3.0", service = "Soma" }));
 
 app.MapGet("/ui", () => Results.Content(GenerateUiHtml(token), "text/html"));
 
@@ -237,10 +276,10 @@ app.MapPost("/cc/run", async (HttpContext ctx) =>
     AuditLog("CC_RUN", $"runId={runId}|promptFile={promptFile}|skipPermissions={ccSkipPermissions}");
 
     var fullPrompt = $"Выполни задачу из файла {promptFile}. В САМОМ конце ОБЯЗАТЕЛЬНО продублируй в stdout краткий RESULT-блок (commits, build/test, files changed, status done|failed, blockers).";
-    var psi = new ProcessStartInfo { FileName = ccExe, WorkingDirectory = repoRoot, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
-    psi.ArgumentList.Add("-p");
-    if (ccSkipPermissions) psi.ArgumentList.Add("--dangerously-skip-permissions");
-    psi.ArgumentList.Add(fullPrompt);
+    var ccArgs = new List<string> { "-p" };
+    if (ccSkipPermissions) ccArgs.Add("--dangerously-skip-permissions");
+    ccArgs.Add(fullPrompt);
+    var psi = BuildCcProcess(ccExe, repoRoot, ccArgs);
 
     StreamWriter logWriter; Process proc;
     try { logWriter = new StreamWriter(new FileStream(logPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true }; proc = Process.Start(psi)!; }
