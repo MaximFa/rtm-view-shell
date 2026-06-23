@@ -79,6 +79,33 @@ void AuditLog(string action, string details)
     try { File.AppendAllText(auditLogPath, entry + Environment.NewLine); } catch { }
 }
 
+// Resolve log path: if file -> return it; if folder -> return newest .txt/.log/.json (Serilog rotates daily)
+string? ResolveLogFile(string? path)
+{
+    if (string.IsNullOrWhiteSpace(path)) return null;
+    if (File.Exists(path)) return path;
+    if (Directory.Exists(path))
+    {
+        var newest = new DirectoryInfo(path)
+            .GetFiles("*.*").Where(f => f.Extension is ".txt" or ".log" or ".json")
+            .OrderByDescending(f => f.LastWriteTimeUtc).FirstOrDefault();
+        return newest?.FullName;
+    }
+    return null;
+}
+
+// Read lines from a file with sharing (Serilog holds it open)
+string[] ReadLinesShared(string path)
+{
+    using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+    using var sr = new StreamReader(fs);
+    var lines = new List<string>();
+    string? line;
+    while ((line = sr.ReadLine()) != null)
+        lines.Add(line);
+    return lines.ToArray();
+}
+
 app.Use(async (ctx, next) =>
 {
     if (ctx.Request.Path == "/health")
@@ -111,9 +138,9 @@ var reportWhitelist = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 
 var logSourceWhitelist = new Dictionary<string, Func<string?>>(StringComparer.OrdinalIgnoreCase)
 {
-    ["serilog"] = () => serilogPath,
-    ["soma-shell"] = () => shellLogPath,
-    ["soma-audit"] = () => auditLogPath
+    ["serilog"] = () => ResolveLogFile(serilogPath),
+    ["soma-shell"] = () => ResolveLogFile(shellLogPath),
+    ["soma-audit"] = () => ResolveLogFile(auditLogPath)
 };
 
 var testSuiteWhitelist = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -408,10 +435,10 @@ app.MapGet("/logs/tail", (string? source, int? n) =>
     if (count < 1 || count > 2000)
         return Results.BadRequest("n must be 1..2000");
 
-    if (!File.Exists(path))
-        return Results.NotFound($"Log file not found: {path}");
+    if (path is null || !File.Exists(path))
+        return Results.NotFound($"Log file not found: {path ?? "(unresolved)"}");
 
-    var lines = File.ReadAllLines(path).TakeLast(count).ToArray();
+    var lines = ReadLinesShared(path).TakeLast(count).ToArray();
     return Results.Json(new { source, path, lineCount = lines.Length, lines });
 });
 
@@ -420,14 +447,15 @@ app.MapGet("/logs/serilog", (int? tail, string? contains) =>
     if (IsUnset(serilogPath))
         return Results.Problem("SerilogPath not configured", statusCode: 500);
     
-    if (!File.Exists(serilogPath))
-        return Results.Problem($"Serilog file not found: {serilogPath}", statusCode: 500);
+    var file = ResolveLogFile(serilogPath);
+    if (file is null)
+        return Results.Problem($"Serilog file not found under: {serilogPath}", statusCode: 500);
     
     var n = tail ?? 100;
     if (n < 1 || n > 2000)
         return Results.BadRequest("tail must be 1..2000");
 
-    var lines = File.ReadAllLines(serilogPath);
+    var lines = ReadLinesShared(file);
     IEnumerable<string> result = lines.TakeLast(n);
     
     if (!string.IsNullOrWhiteSpace(contains))
@@ -462,9 +490,21 @@ app.MapPost("/shell/start", async () =>
     {
         if (trackedShellProcess is not null && !trackedShellProcess.HasExited)
         {
-            return Results.Conflict(new { error = "Shell already running", pid = trackedShellProcess.Id });
+            return Results.Conflict(new { error = "Shell already running (tracked)", pid = trackedShellProcess.Id });
         }
     }
+
+    // Guard: check if Shell is already up (started manually, not tracked by Soma)
+    try
+    {
+        using var probe = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        var probeResp = await probe.GetAsync(shellHealthUrl);
+        if (probeResp.IsSuccessStatusCode)
+        {
+            return Results.Json(new { running = true, tracked = false, healthy = true, note = "Shell already up (untracked)" });
+        }
+    }
+    catch { /* Shell not responding - proceed to start */ }
 
     AuditLog("SHELL_START", $"exe={shellExe}|args={string.Join(" ", shellArgs)}|cwd={shellWorkingDir}");
 
@@ -480,20 +520,20 @@ app.MapPost("/shell/start", async () =>
     foreach (var arg in shellArgs)
         psi.ArgumentList.Add(arg);
 
-    var logFile = File.AppendText(shellLogPath);
+    StreamWriter logFile;
     Process proc;
     try
     {
+        logFile = new StreamWriter(new FileStream(shellLogPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
         proc = Process.Start(psi)!;
     }
     catch (Exception ex)
     {
-        logFile.Dispose();
-        return Results.Problem($"Failed to start shell: {ex.Message}");
+        return Results.Problem($"Failed to start shell: {ex.Message}", statusCode: 500);
     }
 
-    proc.OutputDataReceived += (_, e) => { if (e.Data != null) { lock (logFile) { logFile.WriteLine(e.Data); logFile.Flush(); } } };
-    proc.ErrorDataReceived += (_, e) => { if (e.Data != null) { lock (logFile) { logFile.WriteLine($"[ERR] {e.Data}"); logFile.Flush(); } } };
+    proc.OutputDataReceived += (_, e) => { if (e.Data != null) { lock (logFile) { logFile.WriteLine(e.Data); } } };
+    proc.ErrorDataReceived += (_, e) => { if (e.Data != null) { lock (logFile) { logFile.WriteLine($"[ERR] {e.Data}"); } } };
     proc.BeginOutputReadLine();
     proc.BeginErrorReadLine();
 
@@ -520,7 +560,7 @@ app.MapPost("/shell/start", async () =>
     }
 
     AuditLog("SHELL_STARTED", $"pid={proc.Id}|healthy={healthy}");
-    return Results.Json(new { running = true, pid = proc.Id, healthy });
+    return Results.Json(new { running = true, tracked = true, pid = proc.Id, healthy });
 });
 
 app.MapPost("/shell/stop", () =>
@@ -582,20 +622,20 @@ app.MapPost("/shell/restart", async () =>
     foreach (var arg in shellArgs)
         psi.ArgumentList.Add(arg);
 
-    var logFile = File.AppendText(shellLogPath);
+    StreamWriter logFile;
     Process proc;
     try
     {
+        logFile = new StreamWriter(new FileStream(shellLogPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
         proc = Process.Start(psi)!;
     }
     catch (Exception ex)
     {
-        logFile.Dispose();
-        return Results.Problem($"Failed to start shell: {ex.Message}");
+        return Results.Problem($"Failed to start shell: {ex.Message}", statusCode: 500);
     }
 
-    proc.OutputDataReceived += (_, e) => { if (e.Data != null) { lock (logFile) { logFile.WriteLine(e.Data); logFile.Flush(); } } };
-    proc.ErrorDataReceived += (_, e) => { if (e.Data != null) { lock (logFile) { logFile.WriteLine($"[ERR] {e.Data}"); logFile.Flush(); } } };
+    proc.OutputDataReceived += (_, e) => { if (e.Data != null) { lock (logFile) { logFile.WriteLine(e.Data); } } };
+    proc.ErrorDataReceived += (_, e) => { if (e.Data != null) { lock (logFile) { logFile.WriteLine($"[ERR] {e.Data}"); } } };
     proc.BeginOutputReadLine();
     proc.BeginErrorReadLine();
 
