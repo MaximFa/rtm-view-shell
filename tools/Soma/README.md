@@ -1,4 +1,4 @@
-﻿# Soma — Colony Ops Bridge
+# Soma — Colony Ops Bridge
 
 Local loopback service providing the colony with read access to database/logs and 
 named control operations (shell management, build, test). Security-hardened: 
@@ -39,24 +39,18 @@ psql -U postgres -c "ALTER ROLE soma_ro PASSWORD 'your-strong-password';"
 
 ### 2. Configure appsettings.json
 
-```json
-{
-  "Soma": {
-    "Port": "5199",
-    "Token": "your-long-random-token",
-    "ReadonlyConnectionString": "Host=127.0.0.1;Database=rtmviewdb;Username=soma_ro;Password=xxx;SSL Mode=Disable",
-    "SerilogPath": "C:\\ProgramData\\CcDashboard\\logs\\log-20260623.json",
-    "AuditLogPath": "C:\\ProgramData\\Soma\\soma-audit.log",
-    "ShellLogPath": "C:\\ProgramData\\Soma\\soma-shell.log",
-    "Shell": {
-      "WorkingDir": "D:\\Claude\\Projects\\RTM View Shell",
-      "Exe": "dotnet",
-      "Args": ["watch", "run", "--project", "src/CcDashboard.Web"],
-      "HealthUrl": "http://localhost:7196/health"
-    }
-  }
-}
+Copy `appsettings.example.json` to `appsettings.json` and fill in your values:
+
+```powershell
+Copy-Item tools\Soma\appsettings.example.json tools\Soma\appsettings.json
+# Edit appsettings.json with your values
 ```
+
+Required fields:
+- `Port`: e.g. `5199`
+- `Token`: long random string (see below)
+- `ReadonlyConnectionString`: with soma_ro password
+- `SerilogPath`: path to Serilog JSON log file
 
 Generate a secure token:
 ```powershell
@@ -69,6 +63,8 @@ Generate a secure token:
 dotnet run --project tools/Soma
 ```
 
+If config is incomplete, Soma will print a friendly error listing missing fields.
+
 ## Important: Shell Process Ownership
 
 Soma ONLY controls shell processes it started itself:
@@ -77,3 +73,12 @@ Soma ONLY controls shell processes it started itself:
 - A manually-started `dotnet watch run` by the operator is NOT affected
 
 This means you can run Soma alongside your own dev server without interference.
+
+## /db/query Endpoint
+
+Accepts SQL queries in two formats:
+
+1. **JSON (preferred)**: `POST /db/query` with body `{"sql": "SELECT ..."}`
+2. **Raw text (fallback)**: `POST /db/query` with body `SELECT ...`
+
+See `USAGE.md` for full examples.

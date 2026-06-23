@@ -66,3 +66,7 @@ docs/**/node_modules/
 .sync_marker
 tools/__pycache__/
 **/__pycache__/
+
+# Soma local config (contains secrets)
+tools/Soma/appsettings.json
+!tools/Soma/appsettings.example.json

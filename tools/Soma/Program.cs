@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Npgsql;
@@ -128,7 +128,7 @@ var dangerousSqlPatterns = new Regex(
     @"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|GRANT|REVOKE|COPY|pg_read_file|pg_ls_dir|lo_import|lo_export|dblink|pg_sleep)\b",
     RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.0.1", service = "Soma" }));
+app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.0.2", service = "Soma" }));
 
 app.MapGet("/db/agent-states", async (Guid? tenant) =>
 {
@@ -317,10 +317,30 @@ app.MapGet("/db/report", async (string? name, Guid? tenant, DateTime? from, Date
 app.MapPost("/db/query", async (HttpContext ctx) =>
 {
     using var reader = new StreamReader(ctx.Request.Body);
-    var sql = await reader.ReadToEndAsync();
+    var body = await reader.ReadToEndAsync();
+
+    string sql;
+    try
+    {
+        using var doc = JsonDocument.Parse(body);
+        if (doc.RootElement.TryGetProperty("sql", out var sqlProp) ||
+            doc.RootElement.TryGetProperty("Sql", out sqlProp) ||
+            doc.RootElement.TryGetProperty("SQL", out sqlProp))
+        {
+            sql = sqlProp.GetString() ?? "";
+        }
+        else
+        {
+            sql = body;
+        }
+    }
+    catch (JsonException)
+    {
+        sql = body;
+    }
 
     if (string.IsNullOrWhiteSpace(sql))
-        return Results.BadRequest("SQL query required in body");
+        return Results.BadRequest("SQL query required in body (JSON {\"sql\":\"...\"} or raw text)");
     if (sql.Length > 10000)
         return Results.BadRequest("Query too long (max 10000 chars)");
     if (sql.Contains(';'))

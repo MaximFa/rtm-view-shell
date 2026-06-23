@@ -1,4 +1,4 @@
-﻿# Soma — Usage Guide (All Colony Roles)
+# Soma — Usage Guide (All Colony Roles)
 
 Soma is the colony's "body" on the host: it SENSES (reads DB/logs) and ACTS 
 (controls Shell, runs build/test). All operations are named and bounded — 
@@ -20,7 +20,7 @@ no arbitrary shell execution.
 | `/db/queues?tenant=<guid>` | GET | Queues + active interaction counts |
 | `/db/dashboards?tenant=<guid>` | GET | Dashboards + widgets |
 | `/db/report?name=<n>&tenant=<g>&from=<d>&to=<d>` | GET | Historical report data |
-| `/db/query` | POST | Free SELECT (body = SQL, max 5000 rows) |
+| `/db/query` | POST | Free SELECT (JSON or raw text, max 5000 rows) |
 
 ### Read Plane (Logs)
 | Endpoint | Method | Description |
@@ -72,7 +72,11 @@ $from = "2026-06-01T00:00:00Z"
 $to = "2026-06-23T00:00:00Z"
 Invoke-RestMethod "$base/db/report?name=hist_queue_intervals&tenant=$tenant&from=$from&to=$to" -Headers $headers
 
-# Free SELECT query
+# Free SELECT query (JSON format - preferred)
+$body = @{ sql = 'SELECT "Id", "Name" FROM public.tenants LIMIT 10' } | ConvertTo-Json
+Invoke-RestMethod "$base/db/query" -Method POST -Headers $headers -Body $body -ContentType "application/json"
+
+# Free SELECT query (raw text - also works)
 $sql = 'SELECT "Id", "Name" FROM public.tenants LIMIT 10'
 Invoke-RestMethod "$base/db/query" -Method POST -Headers $headers -Body $sql -ContentType "text/plain"
 
@@ -119,10 +123,15 @@ var tenant = Guid.Parse("...");
 // Agent states
 var states = await client.GetFromJsonAsync<List<AgentStateDto>>($"/db/agent-states?tenant={tenant}");
 
-// Free query
+// Free query (JSON format - preferred)
+var jsonBody = JsonSerializer.Serialize(new { sql = "SELECT * FROM public.tenants LIMIT 10" });
 var response = await client.PostAsync("/db/query", 
-    new StringContent("SELECT * FROM public.tenants", Encoding.UTF8, "text/plain"));
+    new StringContent(jsonBody, Encoding.UTF8, "application/json"));
 var result = await response.Content.ReadFromJsonAsync<QueryResult>();
+
+// Free query (raw text - also works)
+var response2 = await client.PostAsync("/db/query", 
+    new StringContent("SELECT 1 AS x", Encoding.UTF8, "text/plain"));
 
 // Shell control
 await client.PostAsync("/shell/start", null);
@@ -136,6 +145,22 @@ var buildResult = await build.Content.ReadFromJsonAsync<BuildResult>();
 // Test
 var test = await client.PostAsync("/ops/test?suite=unit", null);
 ```
+
+---
+
+## /db/query — Input Formats
+
+The endpoint accepts TWO input formats:
+
+1. **JSON (preferred)**: `{"sql": "SELECT ..."}`
+   - Content-Type: `application/json`
+   - Case-insensitive field name: `sql`, `Sql`, or `SQL`
+
+2. **Raw text (fallback)**: `SELECT ...`
+   - Content-Type: `text/plain`
+   - For backward compatibility
+
+Both formats apply the same security guards.
 
 ---
 
@@ -174,3 +199,4 @@ All control/exec operations are logged to `soma-audit.log`:
 - Token should be rotated periodically
 - Soma only controls processes it started (manual `dotnet watch run` is untouched)
 - AuditLogPath/ShellLogPath default to app directory if not configured
+- Copy `appsettings.example.json` to `appsettings.json` and fill in your values

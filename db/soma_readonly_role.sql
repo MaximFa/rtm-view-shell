@@ -1,4 +1,4 @@
-﻿-- Soma read-only PostgreSQL role (soma_ro)
+-- Soma read-only PostgreSQL role (soma_ro)
 -- Run as superuser (postgres). Idempotent.
 -- Migrates from qa_eyes_ro if exists, otherwise creates fresh.
 
