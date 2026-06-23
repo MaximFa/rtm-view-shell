@@ -276,7 +276,7 @@ public class ArchiverService(
     {
         var watermark = await db.Database
             .SqlQueryRaw<DateTime?>(
-                """SELECT "ArchivedThrough" FROM public.arch_watermark WHERE "TableName" = {0} AND "TenantId" = {1}""",
+                """SELECT "ArchivedThrough" AS "Value" FROM public.arch_watermark WHERE "TableName" = {0} AND "TenantId" = {1}""",
                 tableName, tenantId)
             .FirstOrDefaultAsync(ct);
 
