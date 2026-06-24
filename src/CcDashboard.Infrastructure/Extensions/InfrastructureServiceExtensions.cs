@@ -142,6 +142,7 @@ public static class InfrastructureServiceExtensions
         // Historical Reports (CC-HIST-001)
         services.AddScoped<IHistoricalReportRepository, HistoricalReportRepository>();
         services.AddScoped<IReportScopeResolver, ReportScopeResolver>();
+        services.AddScoped<IBuMembershipResolver, BuMembershipResolver>();
         services.AddHostedService<HistoricalAggregationService>();
         services.AddHostedService<ArchiverService>();
 
