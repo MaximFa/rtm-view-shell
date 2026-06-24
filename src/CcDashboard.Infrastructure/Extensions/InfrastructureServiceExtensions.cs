@@ -152,6 +152,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IHistoricalReportRepository, HistoricalReportRepository>();
         services.AddScoped<IReportScopeResolver, ReportScopeResolver>();
         services.AddScoped<IBuMembershipResolver, BuMembershipResolver>();
+        services.AddScoped<IReportWidgetScopeService, ReportWidgetScopeService>();
         services.AddHostedService<HistoricalAggregationService>();
         services.AddHostedService<ArchiverService>();
 

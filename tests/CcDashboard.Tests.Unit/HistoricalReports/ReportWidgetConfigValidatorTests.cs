@@ -1,0 +1,332 @@
+using CcDashboard.Application.HistoricalReports;
+using CcDashboard.Application.HistoricalReports.Validators;
+using CcDashboard.Domain.Domain.Reports;
+using FluentAssertions;
+
+namespace CcDashboard.Tests.Unit.HistoricalReports;
+
+/// <summary>
+/// Tests for ReportWidgetConfig parsing and validation.
+/// Per Reports-Backend-v1-Spec §2 LOCKED.
+/// </summary>
+public class ReportWidgetConfigValidatorTests
+{
+    [Fact]
+    public void ValidConfig_BuMode_Passes()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Title = "Test Widget",
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = new[] { 1, 2 }
+            },
+            Columns = new[] { "Offered", "Answered" },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ValidConfig_QueuesMode_Passes()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "queues",
+                QueueIds = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() }
+            },
+            Columns = new[] { "Offered" },
+            PageSize = 50
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void InvalidMode_Fails()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "invalid",
+                QueueIds = new[] { Guid.NewGuid() }
+            },
+            Columns = new[] { "Offered" },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("queues") || e.ErrorMessage.Contains("bu"));
+    }
+
+    [Fact]
+    public void BuMode_EmptyBusinessUnitIds_Fails()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = Array.Empty<int>()
+            },
+            Columns = new[] { "Offered" },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("BusinessUnitIds"));
+    }
+
+    [Fact]
+    public void QueuesMode_EmptyQueueIds_Fails()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "queues",
+                QueueIds = Array.Empty<Guid>()
+            },
+            Columns = new[] { "Offered" },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("QueueIds"));
+    }
+
+    [Fact]
+    public void EmptyColumns_Fails()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = new[] { 1 }
+            },
+            Columns = Array.Empty<string>(),
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("Columns"));
+    }
+
+    [Theory]
+    [InlineData(30, true)]
+    [InlineData(60, true)]
+    [InlineData(15, false)]
+    [InlineData(45, false)]
+    public void Interval_ValidatesCorrectly(int interval, bool expectedValid)
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = new[] { 1 }
+            },
+            Columns = new[] { "Offered" },
+            Interval = interval,
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    [Theory]
+    [InlineData(25, true)]
+    [InlineData(50, true)]
+    [InlineData(100, true)]
+    [InlineData(10, false)]
+    [InlineData(75, false)]
+    [InlineData(200, false)]
+    public void PageSize_ValidatesCorrectly(int pageSize, bool expectedValid)
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = new[] { 1 }
+            },
+            Columns = new[] { "Offered" },
+            PageSize = pageSize
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    [Fact]
+    public void AgentWidget_BuMode_NoAgentAxis_Fails()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = new[] { 1 }
+            },
+            Columns = new[] { "SumAvailableMs" },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigWithTypeValidator();
+        var result = validator.Validate((config, ReportWidgetType.AgentMonthly));
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("AgentAxis"));
+    }
+
+    [Fact]
+    public void AgentWidget_BuMode_WithAgentAxis_Passes()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = new[] { 1 },
+                AgentAxis = AgentReportAxis.Detail
+            },
+            Columns = new[] { "SumAvailableMs" },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigWithTypeValidator();
+        var result = validator.Validate((config, ReportWidgetType.AgentMonthly));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AgentWidget_QueuesMode_Fails()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "queues",
+                QueueIds = new[] { Guid.NewGuid() }
+            },
+            Columns = new[] { "SumAvailableMs" },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigWithTypeValidator();
+        var result = validator.Validate((config, ReportWidgetType.AgentMonthly));
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("Agent widgets do not support"));
+    }
+
+    [Fact]
+    public void QueueWidget_QueuesMode_Passes()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "queues",
+                QueueIds = new[] { Guid.NewGuid(), Guid.NewGuid() }
+            },
+            Columns = new[] { "Offered" },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigWithTypeValidator();
+        var result = validator.Validate((config, ReportWidgetType.QueueInterval));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ParseValidJson_ReturnsConfig()
+    {
+        var json = """
+        {
+            "title": "My Widget",
+            "scope": {
+                "mode": "bu",
+                "businessUnitIds": [1, 2, 3],
+                "agentAxis": "detail"
+            },
+            "columns": ["Offered", "Answered"],
+            "pageSize": 50,
+            "interval": 30
+        }
+        """;
+
+        var config = ReportWidgetConfig.Parse(json);
+
+        config.Title.Should().Be("My Widget");
+        config.Scope.Mode.Should().Be("bu");
+        config.Scope.BusinessUnitIds.Should().BeEquivalentTo(new[] { 1, 2, 3 });
+        config.Scope.AgentAxis.Should().Be(AgentReportAxis.Detail);
+        config.Columns.Should().BeEquivalentTo(new[] { "Offered", "Answered" });
+        config.PageSize.Should().Be(50);
+        config.Interval.Should().Be(30);
+    }
+
+    [Fact]
+    public void ParseInvalidJson_Throws()
+    {
+        var json = "{ invalid json }";
+
+        Action act = () => ReportWidgetConfig.Parse(json);
+
+        act.Should().Throw<System.Text.Json.JsonException>();
+    }
+
+    [Fact]
+    public void TitleTooLong_Fails()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Title = new string('x', 250),
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = new[] { 1 }
+            },
+            Columns = new[] { "Offered" },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName.Contains("Title"));
+    }
+}
