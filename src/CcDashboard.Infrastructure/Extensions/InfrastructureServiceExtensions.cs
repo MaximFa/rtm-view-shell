@@ -1,5 +1,6 @@
 using CcDashboard.Application.HistoricalReports;
 using CcDashboard.Application.Interfaces;
+using CcDashboard.Application.Reports.Interfaces;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Audit;
 using CcDashboard.Infrastructure.BackgroundServices;
@@ -155,6 +156,9 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IReportWidgetScopeService, ReportWidgetScopeService>();
         services.AddHostedService<HistoricalAggregationService>();
         services.AddHostedService<ArchiverService>();
+
+        // Report screen CRUD (CC-HIST-F5a)
+        services.AddScoped<IReportScreenRepository, ReportScreenRepository>();
 
         // API hook (no-op until CC-platform API is available)
         services.AddScoped<IConfigurationApiHook, RtmConfigurationApiHook>();
