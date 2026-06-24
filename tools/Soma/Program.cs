@@ -487,11 +487,11 @@ app.MapGet("/db/agent-states", async (Guid? tenant) =>
     if (tenant is null || tenant == Guid.Empty) return Results.BadRequest("tenant is required and must be a valid GUID");
     await using var conn = new NpgsqlConnection(connStr); await conn.OpenAsync();
     var results = new List<object>();
-    var sql = @"SELECT tas.""Id"", tas.""AgentStateName"", tas.""IsActive"", tas.""TenantId"", tasg.""GroupName"" as ""MappedGroup""
+    var sql = @"SELECT tas.""Id"", tas.""AgentState"" AS ""AgentStateName"", tas.""IsActive"", tas.""TenantId"", tasg.""GroupName"" as ""MappedGroup""
         FROM public.tenant_agent_states tas
         LEFT JOIN public.tenant_agent_state_definitions tasd ON tas.""Id"" = tasd.""AgentStateId"" AND tasd.""TenantId"" = @t
         LEFT JOIN public.tenant_agent_state_groups tasg ON tasd.""AgentStateGroupId"" = tasg.""Id""
-        WHERE tas.""TenantId"" = @t ORDER BY tas.""AgentStateName""";
+        WHERE tas.""TenantId"" = @t ORDER BY tas.""AgentState""";
     await using var cmd = new NpgsqlCommand(sql, conn); cmd.Parameters.AddWithValue("t", tenant.Value);
     await using var rdr = await cmd.ExecuteReaderAsync();
     while (await rdr.ReadAsync()) { results.Add(new { Id = rdr.GetGuid(0), AgentStateName = rdr.GetString(1), IsActive = rdr.GetBoolean(2), TenantId = rdr.GetGuid(3), MappedGroup = rdr.IsDBNull(4) ? null : rdr.GetString(4) }); }
@@ -505,7 +505,7 @@ app.MapGet("/db/queues", async (Guid? tenant) =>
     var results = new List<object>();
     var sql = @"SELECT q.""Id"", q.""ExternalId"", q.""Name"", q.""IsActive"", q.""TenantId"",
         (SELECT COUNT(*) FROM public.""RTSData_Interaction"" i WHERE i.""Workgroup"" = q.""ExternalId"" AND i.""TenantId"" = @t) as ""ActiveInteractions""
-        FROM public.queues q WHERE q.""TenantId"" = @t ORDER BY q.""Name""";
+        FROM public.""NGC_Queues"" q WHERE q.""TenantId"" = @t ORDER BY q.""Name""";
     await using var cmd = new NpgsqlCommand(sql, conn); cmd.Parameters.AddWithValue("t", tenant.Value);
     await using var rdr = await cmd.ExecuteReaderAsync();
     while (await rdr.ReadAsync()) { results.Add(new { Id = rdr.GetGuid(0), ExternalId = rdr.IsDBNull(1) ? null : rdr.GetString(1), Name = rdr.GetString(2), IsActive = rdr.GetBoolean(3), TenantId = rdr.GetGuid(4), ActiveInteractions = rdr.GetInt64(5) }); }
