@@ -3492,18 +3492,25 @@ button.clr-swatch,
     margin-inline-end: var(--sp-2);
 }
 
-/* ===== Report Fullscreen Date Bar (Ф5b-1 fix) ===== */
-.report-fullscreen-datebar {
-    padding: var(--sp-2) var(--sp-4);
-    background-color: var(--clr-surface);
-    border-bottom: 1px solid var(--clr-border);
+/* ===== Report Header Date Controls (in-header datebar) ===== */
+.report-header-datebar {
+    margin-inline-end: var(--sp-2);
 }
 
-.fullscreen-dashboard.dark-mode .report-fullscreen-datebar {
+.report-header-datebar input[type="date"] {
+    min-width: 130px;
+}
+
+.fullscreen-dashboard.dark-mode .report-header-datebar input[type="date"] {
     background-color: var(--clr-surface-dark, #1e293b);
     border-color: var(--clr-border-dark, #334155);
+    color: var(--clr-text-dark, #e2e8f0);
 }
 
-[dir="rtl"] .report-fullscreen-datebar {
+.fullscreen-dashboard.dark-mode .report-header-datebar label {
+    color: var(--clr-text-dark, #e2e8f0);
+}
+
+[dir="rtl"] .report-header-datebar {
     direction: rtl;
 }
