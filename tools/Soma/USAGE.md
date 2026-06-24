@@ -209,3 +209,4 @@ All control/exec operations are logged to `soma-audit.log`:
 - Soma only controls processes it started (manual `dotnet watch run` is untouched)
 - AuditLogPath/ShellLogPath default to app directory if not configured
 - Copy `appsettings.example.json` to `appsettings.json` and fill in your values
+- `Shell.HealthUrl` must match the Shell's bound scheme/port: dev = `http://localhost:5238` (HTTP); prod = the prod Shell URL. Probing the HTTPS port (5239) over http yields `up:false`. `/health` also reports 503 if Redis/Memurai/Garnet is down.
