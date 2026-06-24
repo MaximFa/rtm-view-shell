@@ -1,20 +1,25 @@
+@page "/reports/{Id:guid}/fullscreen"
+@page "/reports/{Id:guid}/view"
 @page "/reports/{Id:guid}"
 @rendermode InteractiveServer
-@layout MainLayout
 @attribute [Authorize]
 @inject IMediator Mediator
 @inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ILogger<ReportViewPage> Logger
 @using MediatR
 @using CcDashboard.Application.Reports.Queries
 @using CcDashboard.Application.Reports.DTOs
 @using CcDashboard.Domain.Domain.Reports
 @using CcDashboard.Web.Components.ReportWidgets
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.Logging
 @using System.Text.Json
+@implements IDisposable
 
-<PageTitle>@(_report?.Name ?? L["Reports_Title"]) — RTM View Shell</PageTitle>
+<PageTitle>@(_report?.Name ?? L["Reports_Title"]) — Fullscreen</PageTitle>
 
-<div class="report-view-page @(_darkMode ? "dark-mode" : "")">
+<div class="fullscreen-dashboard @(_darkMode ? "dark-mode" : "")">
     @if (_loading)
     {
         <div class="text-center py-5" aria-busy="true">
@@ -33,118 +38,120 @@
     }
     else
     {
-        <div class="report-view-header d-flex justify-content-between align-items-center mb-3">
-            <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-sm btn-outline-secondary" @onclick="BackToList" title="@L["Screens_Back"]">
-                    <i class="bi bi-arrow-left"></i>
-                </button>
-                <h1 class="h4 mb-0">@_report.Name</h1>
-                @StatusBadge(_report.Status)
-            </div>
+        <div class="fullscreen-header">
+            <h1 class="fullscreen-title mb-0">@_report.Name</h1>
             <div class="d-flex gap-2">
                 <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")"
                         @onclick="ToggleDarkMode" title="@(_darkMode ? L["WidgetCfg_LightMode"] : L["WidgetCfg_DarkMode"])">
                     <i class="bi @(_darkMode ? "bi-sun" : "bi-moon")"></i>
                 </button>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" disabled title="@L["Reports_ExportStub"]">
-                        <i class="bi bi-download me-1"></i>@L["Reports_Export"]
-                    </button>
-                </div>
-                <button class="btn btn-sm btn-outline-secondary" disabled title="@L["Reports_ScheduleStub"]">
+                <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")" disabled title="@L["Reports_ExportStub"]">
+                    <i class="bi bi-download me-1"></i>@L["Reports_Export"]
+                </button>
+                <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")" disabled title="@L["Reports_ScheduleStub"]">
                     <i class="bi bi-calendar-event me-1"></i>@L["Reports_Schedule"]
                 </button>
-                @if ((_report.AccessLevel & 2) != 0)
-                {
-                    <a href="/reports/@Id/edit" class="btn btn-sm btn-primary">
-                        <i class="bi bi-pencil me-1"></i>@L["Common_Edit"]
-                    </a>
-                }
+                <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary") fullscreen-close" @onclick="ExitToList" title="@L["Screens_Back"]">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
         </div>
 
-        <div class="report-date-bar bg-light border rounded p-3 mb-3">
-            <div class="row g-2 align-items-end">
-                <div class="col-auto">
-                    <label class="form-label small mb-1">@L["Report_From"]</label>
-                    <input type="date" class="form-control form-control-sm" @bind="_from" />
-                </div>
-                <div class="col-auto">
-                    <label class="form-label small mb-1">@L["Report_To"]</label>
-                    <input type="date" class="form-control form-control-sm" @bind="_to" />
-                </div>
-                <div class="col-auto">
-                    <button class="btn btn-sm btn-primary" @onclick="ApplyDateRange">
-                        <i class="bi bi-check2 me-1"></i>@L["Report_Apply"]
-                    </button>
-                </div>
+        <div class="report-fullscreen-datebar">
+            <div class="d-flex gap-2 align-items-center">
+                <label class="small mb-0">@L["Report_From"]</label>
+                <input type="date" class="form-control form-control-sm" style="width: auto;" @bind="_from" />
+                <label class="small mb-0">@L["Report_To"]</label>
+                <input type="date" class="form-control form-control-sm" style="width: auto;" @bind="_to" />
+                <button class="btn btn-sm btn-primary" @onclick="ApplyDateRange">
+                    <i class="bi bi-check2 me-1"></i>@L["Report_Apply"]
+                </button>
             </div>
         </div>
 
-        @if (_report.Widgets.Count == 0)
-        {
-            <div class="text-center py-5 text-muted">
-                <i class="bi bi-grid-3x3-gap fs-1 mb-3 opacity-50"></i>
-                <p>@L["Reports_NoWidgets"]</p>
-            </div>
-        }
-        else
-        {
-            <div class="report-canvas" style="position: relative; min-height: 600px;">
-                @foreach (var widget in _report.Widgets)
-                {
-                    var pos = ParsePosition(widget.PositionJson);
-                    var widgetStyle = $"position: absolute; left: {pos.X}px; top: {pos.Y}px; width: {pos.Width}px; height: {pos.Height}px;";
+        <div class="fullscreen-canvas" style="@(_positionsApplied ? "" : "visibility: hidden;")">
+            @if (_report.Widgets.Count == 0)
+            {
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-grid-3x3-gap fs-1 mb-3 opacity-50"></i>
+                    <p>@L["Reports_NoWidgets"]</p>
+                </div>
+            }
+            else
+            {
+                <div class="fullscreen-scale-wrap">
+                    <div class="fullscreen-design-layer" @ref="_designLayerRef"
+                         style="width: @(_designWidth)px; height: @(_designHeight)px; position: relative;">
+                        @foreach (var widget in _report.Widgets)
+                        {
+                            var pos = ParsePosition(widget.PositionJson);
+                            var widgetStyle = $"position: absolute; left: {pos.X}px; top: {pos.Y}px; width: {pos.Width}px; height: {pos.Height}px;";
 
-                    <div class="report-widget-container" style="@widgetStyle" @key="widget.Id">
-                        <div class="widget-header d-flex align-items-center justify-content-between">
-                            <span class="text-truncate small fw-medium">@GetWidgetTitle(widget)</span>
-                        </div>
-                        <div class="widget-content">
-                            <RenderReportWidget
-                                WidgetType="widget.WidgetType"
-                                ConfigJson="@widget.ConfigJson"
-                                From="_rangeFrom"
-                                To="_rangeTo"
-                                DarkMode="_darkMode" />
-                        </div>
+                            <div class="dashboard-widget" data-widget-id="@widget.Id" style="@widgetStyle" @key="widget.Id">
+                                <div class="widget-header d-flex align-items-center justify-content-between">
+                                    <span class="text-truncate">@GetWidgetTitle(widget)</span>
+                                </div>
+                                <div class="widget-content">
+                                    <RenderReportWidget
+                                        WidgetType="widget.WidgetType"
+                                        ConfigJson="@widget.ConfigJson"
+                                        From="_rangeFrom"
+                                        To="_rangeTo"
+                                        DarkMode="_darkMode" />
+                                </div>
+                            </div>
+                        }
                     </div>
-                }
-            </div>
-        }
+                </div>
+            }
+        </div>
     }
 </div>
 
 @code {
     [Parameter] public Guid Id { get; set; }
 
-    private bool _loading;
+    private bool _loading = true;
     private bool _denied;
     private ReportScreenDetailDto? _report;
     private bool _darkMode;
+    private bool _positionsApplied;
+    private bool _scaleApplied;
+    private ElementReference _designLayerRef;
+    private int _designWidth = 1920;
+    private int _designHeight = 1080;
 
     private DateTime _from = DateTime.UtcNow.Date.AddDays(-7);
     private DateTime _to = DateTime.UtcNow.Date;
     private DateTime _rangeFrom;
     private DateTime _rangeTo;
 
+    private readonly CancellationTokenSource _cts = new();
+
     protected override async Task OnInitializedAsync()
     {
         _rangeFrom = _from;
         _rangeTo = _to;
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
         _loading = true;
-        _denied = false;
-        StateHasChanged();
 
         try
         {
-            _report = await Mediator.Send(new GetReportScreenQuery(Id));
+            _report = await Mediator.Send(new GetReportScreenQuery(Id), _cts.Token);
             _darkMode = _report.IsDarkMode;
+
+            if (_report.Widgets.Count > 0)
+            {
+                var maxX = 0;
+                var maxY = 0;
+                foreach (var w in _report.Widgets)
+                {
+                    var pos = ParsePosition(w.PositionJson);
+                    if (pos.X + pos.Width > maxX) maxX = pos.X + pos.Width;
+                    if (pos.Y + pos.Height > maxY) maxY = pos.Y + pos.Height;
+                }
+                _designWidth = maxX + 32;
+                _designHeight = maxY + 32;
+            }
         }
         catch (CcDashboard.Domain.Exceptions.ForbiddenException)
         {
@@ -155,13 +162,43 @@
         {
             _report = null;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "Report view load failed for {Id}", Id);
             _report = null;
         }
         finally
         {
             _loading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_positionsApplied && _report?.Widgets.Count > 0 && !_loading)
+        {
+            var positions = _report.Widgets.Select(w =>
+            {
+                var pos = ParsePosition(w.PositionJson);
+                return new
+                {
+                    id = w.Id.ToString(),
+                    x = pos.X,
+                    y = pos.Y,
+                    width = pos.Width,
+                    height = pos.Height
+                };
+            }).ToArray();
+
+            await JS.InvokeVoidAsync("widgetResize.applyAllWidgetPositions", (object)positions);
+            _positionsApplied = true;
+            StateHasChanged();
+        }
+
+        if (_positionsApplied && !_scaleApplied && _report?.Widgets.Count > 0)
+        {
+            await JS.InvokeVoidAsync("viewerScale.init", _designLayerRef, _designWidth, _designHeight);
+            _scaleApplied = true;
         }
     }
 
@@ -172,7 +209,7 @@
         StateHasChanged();
     }
 
-    private void BackToList() => Nav.NavigateTo("/reports");
+    private void ExitToList() => Nav.NavigateTo("/reports");
 
     private void ToggleDarkMode() => _darkMode = !_darkMode;
 
@@ -216,12 +253,11 @@
         return widget.WidgetType.ToString();
     }
 
-    private RenderFragment StatusBadge(ReportScreenStatus status) => status switch
+    public void Dispose()
     {
-        ReportScreenStatus.Draft => @<span class="badge bg-warning text-dark ms-2">@L["Screens_Draft"]</span>,
-        ReportScreenStatus.Published => @<span class="badge bg-success ms-2">@L["Screens_Published"]</span>,
-        _ => @<span class="badge bg-secondary ms-2">@status</span>
-    };
+        _cts.Cancel();
+        _ = JS.InvokeVoidAsync("viewerScale.dispose");
+    }
 
     private record WidgetPosition(int X, int Y, int Width, int Height);
 }

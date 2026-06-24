@@ -3491,3 +3491,19 @@ button.clr-swatch,
     margin-inline-start: 0;
     margin-inline-end: var(--sp-2);
 }
+
+/* ===== Report Fullscreen Date Bar (Ф5b-1 fix) ===== */
+.report-fullscreen-datebar {
+    padding: var(--sp-2) var(--sp-4);
+    background-color: var(--clr-surface);
+    border-bottom: 1px solid var(--clr-border);
+}
+
+.fullscreen-dashboard.dark-mode .report-fullscreen-datebar {
+    background-color: var(--clr-surface-dark, #1e293b);
+    border-color: var(--clr-border-dark, #334155);
+}
+
+[dir="rtl"] .report-fullscreen-datebar {
+    direction: rtl;
+}
