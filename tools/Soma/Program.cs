@@ -90,6 +90,62 @@ void AuditLog(string action, string details)
     try { File.AppendAllText(auditLogPath, entry + Environment.NewLine); } catch { }
 }
 
+// FreeShellPort: kill processes LISTENING on port 5239 (except Soma itself)
+// F-QA-4 SAFETY: NEVER blanket-kill dotnet processes; verify by path before kill
+List<int> FreeShellPort(int port = 5239)
+{
+    var freedPids = new List<int>();
+    var somaPid = Environment.ProcessId;
+
+    // Use PowerShell Get-NetTCPConnection to find PIDs listening on the port
+    var psi = new ProcessStartInfo
+    {
+        FileName = "powershell.exe",
+        UseShellExecute = false,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        CreateNoWindow = true
+    };
+    psi.ArgumentList.Add("-NoProfile");
+    psi.ArgumentList.Add("-Command");
+    psi.ArgumentList.Add($"Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess");
+
+    try
+    {
+        using var proc = Process.Start(psi);
+        if (proc == null) return freedPids;
+        var output = proc.StandardOutput.ReadToEnd();
+        proc.WaitForExit(10000);
+
+        var pids = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => int.TryParse(s.Trim(), out var pid) ? pid : 0)
+            .Where(pid => pid > 0 && pid != somaPid)
+            .Distinct()
+            .ToList();
+
+        foreach (var pid in pids)
+        {
+            try
+            {
+                var target = Process.GetProcessById(pid);
+                // F-QA-4: Verify it's a Shell process by checking the working directory or exe path
+                // Only kill if it looks like the Shell (dotnet/CcDashboard.Web)
+                var exeName = target.ProcessName.ToLowerInvariant();
+                if (exeName != "dotnet" && !exeName.Contains("ccdashboard")) continue;
+
+                AuditLog("SHELL_FREE_PORT", $"pid={pid}|port={port}|exe={exeName}");
+                target.Kill(entireProcessTree: true);
+                target.WaitForExit(10000);
+                freedPids.Add(pid);
+            }
+            catch { /* Process already gone or access denied */ }
+        }
+    }
+    catch { /* PowerShell not available or other error */ }
+
+    return freedPids;
+}
+
 // Build ProcessStartInfo for CC exe (handles .ps1/.cmd npm shims on Windows)
 ProcessStartInfo BuildCcProcess(string exe, string workDir, IEnumerable<string> args)
 {
@@ -240,7 +296,7 @@ var dangerousSqlPatterns = new Regex(
     @"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|GRANT|REVOKE|COPY|pg_read_file|pg_ls_dir|lo_import|lo_export|dblink|pg_sleep)\b",
     RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.3.0", service = "Soma" }));
+app.MapGet("/health", () => Results.Json(new { ok = true, version = "2.4.0", service = "Soma" }));
 
 app.MapGet("/ui", () => Results.Content(GenerateUiHtml(token), "text/html"));
 
@@ -512,7 +568,9 @@ app.MapPost("/shell/start", async () =>
     try { using var probe = new HttpClient { Timeout = TimeSpan.FromSeconds(2) }; var probeResp = await probe.GetAsync(shellHealthUrl);
         if (probeResp.IsSuccessStatusCode) return Results.Json(new { running = true, tracked = false, healthy = true, note = "Shell already up (untracked)" });
     } catch { }
-    AuditLog("SHELL_START", $"exe={shellExe}|args={string.Join(" ", shellArgs)}|cwd={shellWorkingDir}");
+    // Free port 5239 before starting (F-QA-3/7: kill orphans holding the port)
+    var freed = FreeShellPort(5239);
+    AuditLog("SHELL_START", $"exe={shellExe}|args={string.Join(" ", shellArgs)}|cwd={shellWorkingDir}|freedPids=[{string.Join(",", freed)}]");
     var psi = new ProcessStartInfo { FileName = shellExe, WorkingDirectory = shellWorkingDir, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
     foreach (var arg in shellArgs) psi.ArgumentList.Add(arg);
     StreamWriter logFile; Process proc;
@@ -530,26 +588,34 @@ app.MapPost("/shell/start", async () =>
 
 app.MapPost("/shell/stop", () =>
 {
+    int? trackedPid = null;
     lock (shellLock) {
-        if (trackedShellProcess is null || trackedShellProcess.HasExited) return Results.Json(new { stopped = false, reason = "No tracked shell process running" });
-        var pid = trackedShellProcess.Id; AuditLog("SHELL_STOP", $"pid={pid}");
-        try { trackedShellProcess.Kill(entireProcessTree: true); trackedShellProcess.WaitForExit(10000); }
-        catch (Exception ex) { return Results.Problem($"Failed to stop shell: {ex.Message}"); }
-        trackedShellProcess = null; AuditLog("SHELL_STOPPED", $"pid={pid}");
-        return Results.Json(new { stopped = true, pid });
+        if (trackedShellProcess is not null && !trackedShellProcess.HasExited) {
+            trackedPid = trackedShellProcess.Id; AuditLog("SHELL_STOP", $"pid={trackedPid}");
+            try { trackedShellProcess.Kill(entireProcessTree: true); trackedShellProcess.WaitForExit(10000); }
+            catch (Exception ex) { AuditLog("SHELL_STOP_ERROR", $"pid={trackedPid}|err={ex.Message}"); }
+        }
+        trackedShellProcess = null;
     }
+    // Always free port 5239 to catch orphans (F-QA-3/7)
+    var freed = FreeShellPort(5239);
+    AuditLog("SHELL_STOPPED", $"trackedPid={trackedPid?.ToString() ?? "none"}|freedPids=[{string.Join(",", freed)}]");
+    return Results.Json(new { stopped = true, trackedPid, freedPids = freed });
 });
 
 app.MapPost("/shell/restart", async () =>
 {
+    int? trackedPid = null;
     lock (shellLock) {
         if (trackedShellProcess is not null && !trackedShellProcess.HasExited) {
-            var pid = trackedShellProcess.Id; AuditLog("SHELL_RESTART_STOP", $"pid={pid}");
+            trackedPid = trackedShellProcess.Id; AuditLog("SHELL_RESTART_STOP", $"pid={trackedPid}");
             try { trackedShellProcess.Kill(entireProcessTree: true); trackedShellProcess.WaitForExit(10000); } catch { }
             trackedShellProcess = null;
         }
     }
-    AuditLog("SHELL_RESTART_START", $"exe={shellExe}");
+    // Free port 5239 to catch orphans (F-QA-3/7)
+    var freedOnStop = FreeShellPort(5239);
+    AuditLog("SHELL_RESTART_START", $"exe={shellExe}|freedOnStop=[{string.Join(",", freedOnStop)}]");
     var psi = new ProcessStartInfo { FileName = shellExe, WorkingDirectory = shellWorkingDir, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
     foreach (var arg in shellArgs) psi.ArgumentList.Add(arg);
     StreamWriter logFile; Process proc;
@@ -563,6 +629,15 @@ app.MapPost("/shell/restart", async () =>
     for (int i = 0; i < 12; i++) { await Task.Delay(5000); try { var resp = await http.GetAsync(shellHealthUrl); if (resp.IsSuccessStatusCode) { healthy = true; break; } } catch { } }
     AuditLog("SHELL_RESTARTED", $"pid={proc.Id}|healthy={healthy}");
     return Results.Json(new { running = true, pid = proc.Id, healthy });
+});
+
+// Kill-stray: explicit recover path to free port 5239 and reset tracking (F-QA-4)
+app.MapPost("/shell/kill-stray", () =>
+{
+    lock (shellLock) { trackedShellProcess = null; }
+    var freed = FreeShellPort(5239);
+    AuditLog("SHELL_KILL_STRAY", $"freedPids=[{string.Join(",", freed)}]");
+    return Results.Json(new { freedPids = freed, trackingReset = true });
 });
 
 app.MapPost("/ops/build", async () =>
