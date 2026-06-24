@@ -1,5 +1,6 @@
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Domain.Historical;
+using CcDashboard.Domain.Domain.Reports;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -54,6 +55,13 @@ public class AppDbContext(
     public DbSet<HistAgentInterval> HistAgentIntervals => Set<HistAgentInterval>();
     public DbSet<UserReport> UserReports => Set<UserReport>();
     public DbSet<HistAggregationWatermark> HistAggregationWatermarks => Set<HistAggregationWatermark>();
+
+    // Reports-as-Dashboards (v1 spec F1)
+    public DbSet<ReportCategory> ReportCategories => Set<ReportCategory>();
+    public DbSet<ReportScreen> ReportScreens => Set<ReportScreen>();
+    public DbSet<ReportWidget> ReportWidgets => Set<ReportWidget>();
+    public DbSet<ReportPermission> ReportPermissions => Set<ReportPermission>();
+    public DbSet<ReportSchedule> ReportSchedules => Set<ReportSchedule>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -381,6 +389,87 @@ public class AppDbContext(
         {
             e.ToTable("hist_aggregation_watermarks");
             e.HasKey(x => x.TenantId);
+        });
+
+        // Reports-as-Dashboards (v1 spec F1) — SEPARATE entity layer
+        mb.Entity<ReportCategory>(e =>
+        {
+            e.ToTable("report_categories");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        mb.Entity<ReportScreen>(e =>
+        {
+            e.ToTable("report_screens");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.LayoutJson).HasColumnType("jsonb");
+            e.Property(x => x.RowVersion).IsRowVersion().HasColumnName("xmin").HasColumnType("xid");
+            e.HasIndex(x => new { x.TenantId, x.Name });
+            e.HasIndex(x => x.CategoryId);
+            e.HasOne(x => x.Category)
+                .WithMany(x => x.ReportScreens)
+                .HasForeignKey(x => x.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId && !x.IsDeleted);
+        });
+
+        mb.Entity<ReportWidget>(e =>
+        {
+            e.ToTable("report_widgets");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.WidgetType).HasConversion<string>().HasMaxLength(50);
+            e.Property(x => x.PositionJson).HasColumnType("jsonb");
+            e.Property(x => x.ConfigJson).HasColumnType("jsonb");
+            e.HasIndex(x => x.ReportScreenId);
+            e.HasIndex(x => x.TenantId);
+            e.HasOne(x => x.ReportScreen)
+                .WithMany(x => x.Widgets)
+                .HasForeignKey(x => x.ReportScreenId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId && !x.IsDeleted);
+        });
+
+        mb.Entity<ReportPermission>(e =>
+        {
+            e.ToTable("report_permissions");
+            e.HasKey(x => new { x.PermissionGroupId, x.ReportScreenId });
+            e.HasIndex(x => x.ReportScreenId);
+            e.HasOne(x => x.PermissionGroup)
+                .WithMany()
+                .HasForeignKey(x => x.PermissionGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ReportScreen)
+                .WithMany(x => x.Permissions)
+                .HasForeignKey(x => x.ReportScreenId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
+        });
+
+        mb.Entity<ReportSchedule>(e =>
+        {
+            e.ToTable("report_schedules");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Cadence).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Recipients).HasColumnType("jsonb");
+            e.Property(x => x.Format).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.DateWindow).HasConversion<string>().HasMaxLength(20);
+            e.HasIndex(x => x.ReportScreenId);
+            e.HasIndex(x => new { x.TenantId, x.IsActive, x.NextRunAt });
+            e.HasOne(x => x.ReportScreen)
+                .WithMany(x => x.Schedules)
+                .HasForeignKey(x => x.ReportScreenId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.TenantId == tenantContext.TenantId);
         });
 
     }
