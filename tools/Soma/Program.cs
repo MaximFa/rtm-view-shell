@@ -90,14 +90,14 @@ void AuditLog(string action, string details)
     try { File.AppendAllText(auditLogPath, entry + Environment.NewLine); } catch { }
 }
 
-// FreeShellPort: kill processes LISTENING on port 5239 (except Soma itself)
-// F-QA-4 SAFETY: NEVER blanket-kill dotnet processes; verify by path before kill
-List<int> FreeShellPort(int port = 5239)
-{
-    var freedPids = new List<int>();
-    var somaPid = Environment.ProcessId;
+// F-QA-4: Test-infra process names that must NEVER be killed (fail-closed)
+HashSet<string> TestInfraNames = new(StringComparer.OrdinalIgnoreCase)
+    { "testhost", "vstest.console", "vstest", "dotnet-test" };
 
-    // Use PowerShell Get-NetTCPConnection to find PIDs listening on the port
+// F-QA-4: Get PIDs listening on a specific port (helper for protectedPids)
+HashSet<int> GetPidsListeningOnPort(int targetPort)
+{
+    var result = new HashSet<int>();
     var psi = new ProcessStartInfo
     {
         FileName = "powershell.exe",
@@ -108,7 +108,46 @@ List<int> FreeShellPort(int port = 5239)
     };
     psi.ArgumentList.Add("-NoProfile");
     psi.ArgumentList.Add("-Command");
-    psi.ArgumentList.Add($"Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess");
+    psi.ArgumentList.Add($"Get-NetTCPConnection -LocalPort {targetPort} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess");
+
+    try
+    {
+        using var proc = Process.Start(psi);
+        if (proc == null) return result;
+        var output = proc.StandardOutput.ReadToEnd();
+        proc.WaitForExit(5000);
+        foreach (var line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (int.TryParse(line.Trim(), out var pid) && pid > 0) result.Add(pid);
+        }
+    }
+    catch { /* PowerShell not available */ }
+    return result;
+}
+
+// FreeShellPort: kill processes LISTENING on port 5239 (except protected pids)
+// F-QA-4 SAFETY: fail-closed protected-pid gate (Soma + own-port + test-infra), forensic audit
+List<int> FreeShellPort(int shellPort = 5239)
+{
+    var freedPids = new List<int>();
+    var somaPid = Environment.ProcessId;
+
+    // F-QA-4: Build protected-pid set = Soma + anything listening on Soma's own port
+    var protectedPids = new HashSet<int> { somaPid };
+    foreach (var pid in GetPidsListeningOnPort(port)) protectedPids.Add(pid); // 'port' is Soma's listen port (5199)
+
+    // Use PowerShell Get-NetTCPConnection to find PIDs listening on the Shell port
+    var psi = new ProcessStartInfo
+    {
+        FileName = "powershell.exe",
+        UseShellExecute = false,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        CreateNoWindow = true
+    };
+    psi.ArgumentList.Add("-NoProfile");
+    psi.ArgumentList.Add("-Command");
+    psi.ArgumentList.Add($"Get-NetTCPConnection -LocalPort {shellPort} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess");
 
     try
     {
@@ -119,7 +158,7 @@ List<int> FreeShellPort(int port = 5239)
 
         var pids = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(s => int.TryParse(s.Trim(), out var pid) ? pid : 0)
-            .Where(pid => pid > 0 && pid != somaPid)
+            .Where(pid => pid > 0)
             .Distinct()
             .ToList();
 
@@ -127,13 +166,36 @@ List<int> FreeShellPort(int port = 5239)
         {
             try
             {
-                var target = Process.GetProcessById(pid);
-                // F-QA-4: Verify it's a Shell process by checking the working directory or exe path
-                // Only kill if it looks like the Shell (dotnet/CcDashboard.Web)
-                var exeName = target.ProcessName.ToLowerInvariant();
-                if (exeName != "dotnet" && !exeName.Contains("ccdashboard")) continue;
+                // F-QA-4: FAIL-CLOSED protected-pid check FIRST (before any other logic)
+                if (protectedPids.Contains(pid))
+                {
+                    AuditLog("KILL_SKIP", $"pid={pid}|reason=soma-protected|port={shellPort}");
+                    continue;
+                }
 
-                AuditLog("SHELL_FREE_PORT", $"pid={pid}|port={port}|exe={exeName}");
+                var target = Process.GetProcessById(pid);
+                var procName = target.ProcessName.ToLowerInvariant();
+                var modulePath = "unknown";
+                try { modulePath = target.MainModule?.FileName?.ToLowerInvariant() ?? "unknown"; } catch { }
+
+                // F-QA-4: Skip test-infra processes (testhost, vstest, etc.)
+                if (TestInfraNames.Contains(procName) || procName.Contains("testhost") || procName.Contains("vstest"))
+                {
+                    AuditLog("KILL_SKIP", $"pid={pid}|reason=test-infra|name={procName}|port={shellPort}");
+                    continue;
+                }
+
+                // F-QA-4: Only kill if it's actually a Shell process (ccdashboard* or dotnet on Shell port with Shell path)
+                var isShellExe = procName.Contains("ccdashboard");
+                var isDotnetShell = procName == "dotnet" && (modulePath.Contains("ccdashboard") || modulePath.Contains("bin\\debug") || modulePath.Contains("bin\\release"));
+
+                if (!isShellExe && !isDotnetShell)
+                {
+                    AuditLog("KILL_SKIP", $"pid={pid}|reason=not-shell|name={procName}|path={modulePath}|port={shellPort}");
+                    continue;
+                }
+
+                AuditLog("SHELL_FREE_PORT", $"pid={pid}|port={shellPort}|name={procName}|path={modulePath}|reason=port-{shellPort}-shell");
                 target.Kill(entireProcessTree: true);
                 target.WaitForExit(10000);
                 freedPids.Add(pid);
@@ -147,11 +209,15 @@ List<int> FreeShellPort(int port = 5239)
 }
 
 // FreeShellByPath: kill CcDashboard.Web processes by MainModule path (for orphans not listening on port)
-// F-QA-4 SAFETY: EXCLUDE Environment.ProcessId (Soma), match ONLY Shell path, NEVER blanket dotnet kill
+// F-QA-4 SAFETY: fail-closed protected-pid gate (Soma + own-port + test-infra), forensic audit
 List<int> FreeShellByPath()
 {
     var freedPids = new List<int>();
     var somaPid = Environment.ProcessId;
+
+    // F-QA-4: Build protected-pid set = Soma + anything listening on Soma's own port
+    var protectedPids = new HashSet<int> { somaPid };
+    foreach (var pid in GetPidsListeningOnPort(port)) protectedPids.Add(pid); // 'port' is Soma's listen port (5199)
 
     // Shell process names to look for (CcDashboard.Web.exe when published)
     var shellMarkers = new[] { "ccdashboard.web", "ccdashboard" };
@@ -162,11 +228,25 @@ List<int> FreeShellByPath()
         {
             try
             {
-                if (proc.Id == somaPid) continue;
+                // F-QA-4: FAIL-CLOSED protected-pid check FIRST (before any other logic)
+                if (protectedPids.Contains(proc.Id))
+                {
+                    AuditLog("KILL_SKIP", $"pid={proc.Id}|reason=soma-protected|method=path");
+                    continue;
+                }
+
                 if (proc.HasExited) continue;
 
                 // Check process name (cheap)
                 var procName = proc.ProcessName.ToLowerInvariant();
+
+                // F-QA-4: Skip test-infra processes (testhost, vstest, etc.)
+                if (TestInfraNames.Contains(procName) || procName.Contains("testhost") || procName.Contains("vstest"))
+                {
+                    AuditLog("KILL_SKIP", $"pid={proc.Id}|reason=test-infra|name={procName}|method=path");
+                    continue;
+                }
+
                 var isShellByName = shellMarkers.Any(m => procName.Contains(m));
 
                 if (isShellByName)
@@ -177,7 +257,7 @@ List<int> FreeShellByPath()
                         var modulePath = proc.MainModule?.FileName?.ToLowerInvariant() ?? "";
                         if (modulePath.Contains("ccdashboard") || modulePath.Contains("bin\\debug") || modulePath.Contains("bin\\release") || modulePath.Contains("publish"))
                         {
-                            AuditLog("SHELL_FREE_PATH", $"pid={proc.Id}|name={procName}|path={modulePath}");
+                            AuditLog("SHELL_FREE_PATH", $"pid={proc.Id}|name={procName}|path={modulePath}|reason=path-shell");
                             proc.Kill(entireProcessTree: true);
                             proc.WaitForExit(10000);
                             freedPids.Add(proc.Id);

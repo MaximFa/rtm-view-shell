@@ -202,6 +202,24 @@ All control/exec operations are logged to `soma-audit.log`:
 
 ---
 
+## Two Easily-Confused Ports
+
+**`Soma:Port` (5199)** = the port **Soma itself** listens on. Verify Soma is alive via
+`GET http://localhost:5199/health` (no auth) → `{ok:true,service:Soma}`.
+
+**`Soma:Shell.HealthUrl` (`http://localhost:5238/health`)** = the URL Soma probes to check
+the **Shell** (for `/ops/health`). 5238 is the Shell's dev HTTP port (Shell binds https:5239 +
+http:5238). **Soma does NOT listen on 5238.**
+
+⇒ **NEVER** probe 5238 to verify Soma — that tests the Shell. `/ops/health up:false` = the
+Shell is down (or Redis down → Shell `/health` 503), NOT Soma.
+
+A cold `dotnet run` in `tools/Soma` (restore+build) can take >30s — don't declare Soma 'down'
+after ~12s. Read `tools/Soma/out.log` for `Now listening on: http://localhost:5199` or
+`err.log` for errors.
+
+---
+
 ## Notes
 
 - Never expose Soma outside localhost
