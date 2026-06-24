@@ -77,6 +77,19 @@ public class UserRepository(AppDbContext db, UserManager<ApplicationUser> userMa
         return q.CountAsync(ct);
     }
 
+    public async Task<Dictionary<Guid, string>> GetDisplayNamesAsync(IEnumerable<Guid> userIds, CancellationToken ct = default)
+    {
+        var ids = userIds.ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, string>();
+
+        return await db.Users.AsNoTracking().IgnoreQueryFilters()
+            .Where(u => ids.Contains(u.Id))
+            .ToDictionaryAsync(
+                u => u.Id,
+                u => $"{u.FirstName} {u.LastName}".Trim(),
+                ct);
+    }
+
     private static ApplicationUserSnapshot ToSnapshot(ApplicationUser u, string? role) => new(
         u.Id, u.TenantId, u.UserName ?? string.Empty, u.Email ?? string.Empty,
         u.FirstName, u.LastName, role, u.PermissionGroupId, u.IsActive, u.Is2faEnabled,

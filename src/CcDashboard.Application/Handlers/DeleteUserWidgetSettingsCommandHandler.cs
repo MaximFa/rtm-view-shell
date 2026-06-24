@@ -1,13 +1,13 @@
 using CcDashboard.Application.Commands.Widgets;
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Interfaces;
-using CcDashboard.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace CcDashboard.Infrastructure.Handlers;
+namespace CcDashboard.Application.Handlers;
 
 public sealed class DeleteUserWidgetSettingsCommandHandler(
-    IDbContextFactory<AppDbContext> dbFactory,
+    IAppDbContextFactory dbFactory,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<DeleteUserWidgetSettingsCommand>
 {

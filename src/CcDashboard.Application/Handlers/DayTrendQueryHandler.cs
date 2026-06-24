@@ -1,16 +1,16 @@
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Application.Queries.Widgets;
 using CcDashboard.Domain.Interfaces;
-using CcDashboard.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace CcDashboard.Infrastructure.Handlers;
+namespace CcDashboard.Application.Handlers;
 
 public sealed class DayTrendQueryHandler(
-    IDbContextFactory<BackendEmulationDbContext> beDbFactory,
+    IBackendEmulationDbContextFactory beDbFactory,
     ITenantContext tenantContext,
     ILogger<DayTrendQueryHandler> logger)
     : IRequestHandler<DayTrendQuery, DayTrendResult>

@@ -2,7 +2,7 @@ using CcDashboard.Application.HistoricalReports;
 using CcDashboard.Application.HistoricalReports.Queries;
 using CcDashboard.Domain.Domain.Historical;
 using CcDashboard.Domain.Interfaces;
-using CcDashboard.Infrastructure.Handlers;
+using CcDashboard.Application.Handlers;
 using FluentAssertions;
 using NSubstitute;
 

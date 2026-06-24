@@ -1,13 +1,13 @@
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Application.Queries.Widgets;
 using CcDashboard.Domain.Interfaces;
-using CcDashboard.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace CcDashboard.Infrastructure.Handlers;
+namespace CcDashboard.Application.Handlers;
 
 public sealed class GetUserWidgetSettingsQueryHandler(
-    IDbContextFactory<AppDbContext> dbFactory,
+    IAppDbContextFactory dbFactory,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetUserWidgetSettingsQuery, string?>
 {

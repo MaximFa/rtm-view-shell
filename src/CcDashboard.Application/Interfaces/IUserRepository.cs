@@ -12,6 +12,12 @@ public interface IUserRepository
         Guid? tenantId, string? search, string? role, Guid? pgId, bool? isActive,
         int page, int pageSize, string sortBy, bool desc, CancellationToken ct = default);
     Task<int> CountAsync(Guid? tenantId, string? search, string? role, Guid? pgId, bool? isActive, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get display names for a batch of user IDs (cross-tenant, for audit/display purposes).
+    /// Returns dictionary of UserId -> "FirstName LastName" (trimmed).
+    /// </summary>
+    Task<Dictionary<Guid, string>> GetDisplayNamesAsync(IEnumerable<Guid> userIds, CancellationToken ct = default);
 }
 
 public record ApplicationUserSnapshot(

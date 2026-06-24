@@ -1,21 +1,21 @@
 using CcDashboard.Application.Commands.InfoSlots;
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Application.Queries.InfoSlots;
 using CcDashboard.Contracts.Common;
 using CcDashboard.Contracts.DTOs.InfoSlots;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Exceptions;
 using CcDashboard.Domain.Interfaces;
-using CcDashboard.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UUIDNext;
 
-namespace CcDashboard.Infrastructure.Handlers;
+namespace CcDashboard.Application.Handlers;
 
 #region Query Handlers
 
 public class GetInfoSlotsQueryHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetInfoSlotsQuery, IReadOnlyList<InfoSlotListDto>>
 {
@@ -51,7 +51,8 @@ public class GetInfoSlotsQueryHandler(
 }
 
 public class GetInfoSlotsForViewerQueryHandler(
-    AppDbContext db,
+    IAppDbContext db,
+    IUserRepository userRepo,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetInfoSlotsForViewerQuery, IReadOnlyList<InfoSlotViewerDto>>
 {
@@ -89,16 +90,14 @@ public class GetInfoSlotsForViewerQueryHandler(
             var idString = slot.Id.ToString();
             var dashboardNames = await db.Database
                 .SqlQueryRaw<string>(
-                    @"SELECT DISTINCT d.""Name"" FROM dashboard_widgets w 
-                      JOIN dashboards d ON w.""DashboardId"" = d.""Id"" 
+                    @"SELECT DISTINCT d.""Name"" FROM dashboard_widgets w
+                      JOIN dashboards d ON w.""DashboardId"" = d.""Id""
                       WHERE w.""ConfigJson""::text ILIKE {0}",
                     $"%{idString}%")
                 .ToListAsync(ct);
 
             var userIds = slot.Messages.Select(m => m.CreatedByUserId).Distinct().ToList();
-            var users = await db.Users.IgnoreQueryFilters()
-                .Where(u => userIds.Contains(u.Id))
-                .ToDictionaryAsync(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim(), ct);
+            var users = await userRepo.GetDisplayNamesAsync(userIds, ct);
 
             result.Add(new InfoSlotViewerDto(
                 slot.Id,
@@ -127,7 +126,9 @@ public class GetInfoSlotsForViewerQueryHandler(
     }
 }
 
-public class GetActiveMessagesQueryHandler(AppDbContext db)
+public class GetActiveMessagesQueryHandler(
+    IAppDbContext db,
+    IUserRepository userRepo)
     : IRequestHandler<GetActiveMessagesQuery, IReadOnlyList<InfoSlotMessageDto>>
 {
     public async Task<IReadOnlyList<InfoSlotMessageDto>> Handle(GetActiveMessagesQuery query, CancellationToken ct)
@@ -143,9 +144,7 @@ public class GetActiveMessagesQueryHandler(AppDbContext db)
             .ToListAsync(ct);
 
         var userIds = messages.Select(m => m.CreatedByUserId).Distinct().ToList();
-        var users = await db.Users.IgnoreQueryFilters()
-            .Where(u => userIds.Contains(u.Id))
-            .ToDictionaryAsync(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim(), ct);
+        var users = await userRepo.GetDisplayNamesAsync(userIds, ct);
 
         return messages.Select(m => new InfoSlotMessageDto(
             m.Id,
@@ -161,7 +160,7 @@ public class GetActiveMessagesQueryHandler(AppDbContext db)
 }
 
 public class GetInfoSlotsForWidgetConfigQueryHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetInfoSlotsForWidgetConfigQuery, IReadOnlyList<InfoSlotSummaryDto>>
 {
@@ -186,7 +185,8 @@ public class GetInfoSlotsForWidgetConfigQueryHandler(
 }
 
 public class GetInfoSlotWidgetDataQueryHandler(
-    IDbContextFactory<AppDbContext> dbFactory,
+    IAppDbContextFactory dbFactory,
+    IUserRepository userRepo,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetInfoSlotWidgetDataQuery, InfoSlotWidgetDataDto?>
 {
@@ -215,9 +215,7 @@ public class GetInfoSlotWidgetDataQueryHandler(
             .ToListAsync(ct);
 
         var userIds = messages.Select(m => m.CreatedByUserId).Distinct().ToList();
-        var users = await db.Users.IgnoreQueryFilters()
-            .Where(u => userIds.Contains(u.Id))
-            .ToDictionaryAsync(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim(), ct);
+        var users = await userRepo.GetDisplayNamesAsync(userIds, ct);
 
         return new InfoSlotWidgetDataDto(
             slot.DisplayMode,
@@ -240,7 +238,7 @@ public class GetInfoSlotWidgetDataQueryHandler(
 #region Command Handlers
 
 public class CreateInfoSlotCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<CreateInfoSlotCommand, Result<Guid>>
@@ -284,7 +282,7 @@ public class CreateInfoSlotCommandHandler(
 }
 
 public class UpdateInfoSlotCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<UpdateInfoSlotCommand, Result>
@@ -333,15 +331,15 @@ public class UpdateInfoSlotCommandHandler(
         var idString = infoSlotId.ToString();
         return await db.Database
             .SqlQueryRaw<string>(
-                @"SELECT DISTINCT d.""Name"" FROM dashboard_widgets w 
-                  JOIN dashboards d ON w.""DashboardId"" = d.""Id"" 
+                @"SELECT DISTINCT d.""Name"" FROM dashboard_widgets w
+                  JOIN dashboards d ON w.""DashboardId"" = d.""Id""
                   WHERE w.""ConfigJson""::text ILIKE {0}",
                 $"%{idString}%")
             .ToListAsync(ct);
     }
 }
 
-public class DeleteInfoSlotCommandHandler(AppDbContext db)
+public class DeleteInfoSlotCommandHandler(IAppDbContext db)
     : IRequestHandler<DeleteInfoSlotCommand, Result>
 {
     public async Task<Result> Handle(DeleteInfoSlotCommand cmd, CancellationToken ct)
@@ -353,8 +351,8 @@ public class DeleteInfoSlotCommandHandler(AppDbContext db)
         var idString = cmd.Id.ToString();
         var placements = await db.Database
             .SqlQueryRaw<string>(
-                @"SELECT DISTINCT d.""Name"" FROM dashboard_widgets w 
-                  JOIN dashboards d ON w.""DashboardId"" = d.""Id"" 
+                @"SELECT DISTINCT d.""Name"" FROM dashboard_widgets w
+                  JOIN dashboards d ON w.""DashboardId"" = d.""Id""
                   WHERE w.""ConfigJson""::text ILIKE {0}",
                 $"%{idString}%")
             .ToListAsync(ct);
@@ -370,7 +368,8 @@ public class DeleteInfoSlotCommandHandler(AppDbContext db)
 }
 
 public class CreateInfoSlotMessageCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
+    IUserRepository userRepo,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<CreateInfoSlotMessageCommand, Result<InfoSlotMessageDto>>
@@ -396,9 +395,9 @@ public class CreateInfoSlotMessageCommandHandler(
                 return Result.Failure<InfoSlotMessageDto>("Access denied: your permission group cannot write to this Info Slot");
         }
 
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
-        var authorName = user is not null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown";
-        if (string.IsNullOrEmpty(authorName)) authorName = user?.UserName ?? "Unknown";
+        var userSnapshot = await userRepo.GetByIdAsync(userId, ct);
+        var authorName = userSnapshot is not null ? $"{userSnapshot.FirstName} {userSnapshot.LastName}".Trim() : "Unknown";
+        if (string.IsNullOrEmpty(authorName)) authorName = userSnapshot?.UserName ?? "Unknown";
 
         var message = new InfoSlotMessage
         {
@@ -429,7 +428,8 @@ public class CreateInfoSlotMessageCommandHandler(
 }
 
 public class UpdateInfoSlotMessageCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
+    IUserRepository userRepo,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<UpdateInfoSlotMessageCommand, InfoSlotMessageDto>
 {
@@ -457,10 +457,9 @@ public class UpdateInfoSlotMessageCommandHandler(
 
         await db.SaveChangesAsync(ct);
 
-        var user = await db.Users.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.Id == message.CreatedByUserId, ct);
-        var authorName = user is not null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown";
-        if (string.IsNullOrEmpty(authorName)) authorName = user?.UserName ?? "Unknown";
+        var userSnapshot = await userRepo.GetByIdAsync(message.CreatedByUserId, ct);
+        var authorName = userSnapshot is not null ? $"{userSnapshot.FirstName} {userSnapshot.LastName}".Trim() : "Unknown";
+        if (string.IsNullOrEmpty(authorName)) authorName = userSnapshot?.UserName ?? "Unknown";
 
         return new InfoSlotMessageDto(
             message.Id,
@@ -475,7 +474,7 @@ public class UpdateInfoSlotMessageCommandHandler(
 }
 
 public class DeactivateInfoSlotMessageCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<DeactivateInfoSlotMessageCommand, Result>
@@ -506,7 +505,7 @@ public class DeactivateInfoSlotMessageCommandHandler(
 
 
 public class UpdateInfoSlotDisplayModeCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<UpdateInfoSlotDisplayModeCommand, Result>
 {

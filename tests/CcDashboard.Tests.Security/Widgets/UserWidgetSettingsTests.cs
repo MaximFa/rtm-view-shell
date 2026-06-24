@@ -1,6 +1,7 @@
 using CcDashboard.Application.Commands.Widgets;
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Application.Queries.Widgets;
-using CcDashboard.Infrastructure.Handlers;
+using CcDashboard.Application.Handlers;
 using CcDashboard.Infrastructure.Persistence;
 using CcDashboard.Tests.Security.Fixtures;
 using FluentAssertions;
@@ -19,13 +20,23 @@ public class UserWidgetSettingsTests(PostgresFixture postgres)
 {
     private readonly Guid _widgetId = Uuid.NewSequential();
 
+    /// <summary>
+    /// Test adapter: wraps IDbContextFactory&lt;AppDbContext&gt; as IAppDbContextFactory
+    /// </summary>
+    private class TestAppDbContextFactory(IDbContextFactory<AppDbContext> inner) : IAppDbContextFactory
+    {
+        public async Task<IAppDbContext> CreateDbContextAsync(CancellationToken ct = default)
+            => await inner.CreateDbContextAsync(ct);
+    }
+
     // ── Helper: create handler trio for a given tenant+user ─────────────────
     private (GetUserWidgetSettingsQueryHandler get,
              SaveUserWidgetSettingsCommandHandler save,
              DeleteUserWidgetSettingsCommandHandler delete)
         CreateHandlers(Guid tenantId, Guid userId)
     {
-        var dbFactory = postgres.CreateDbContextFactory(tenantId);
+        var efFactory = postgres.CreateDbContextFactory(tenantId);
+        var dbFactory = new TestAppDbContextFactory(efFactory);
         var currentUser = Substitute.For<CcDashboard.Domain.Interfaces.ICurrentUserAccessor>();
         currentUser.UserId.Returns(userId);
         var tenantCtx = Substitute.For<CcDashboard.Domain.Interfaces.ITenantContext>();
@@ -161,7 +172,8 @@ public class UserWidgetSettingsTests(PostgresFixture postgres)
     [Trait("Req", "UWS-08")]
     public async Task Get_ReturnsNull_WhenUserIdIsNull()
     {
-        var dbFactory = postgres.CreateDbContextFactory(postgres.TenantAId);
+        var efFactory = postgres.CreateDbContextFactory(postgres.TenantAId);
+        var dbFactory = new TestAppDbContextFactory(efFactory);
         var currentUser = Substitute.For<CcDashboard.Domain.Interfaces.ICurrentUserAccessor>();
         currentUser.UserId.Returns((Guid?)null);
         var handler = new GetUserWidgetSettingsQueryHandler(dbFactory, currentUser);

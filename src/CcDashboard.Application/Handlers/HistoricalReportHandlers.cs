@@ -3,7 +3,7 @@ using CcDashboard.Application.HistoricalReports.Queries;
 using CcDashboard.Domain.Interfaces;
 using MediatR;
 
-namespace CcDashboard.Infrastructure.Handlers;
+namespace CcDashboard.Application.Handlers;
 
 /// <summary>
 /// SF-BI-001: All handlers use ReportScopeResolver to enforce PG-based filtering.

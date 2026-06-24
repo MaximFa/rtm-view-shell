@@ -5,7 +5,6 @@ using CcDashboard.Infrastructure.Audit;
 using CcDashboard.Infrastructure.BackgroundServices;
 using CcDashboard.Infrastructure.Caching;
 using CcDashboard.Infrastructure.Email;
-using CcDashboard.Infrastructure.Handlers;
 using CcDashboard.Infrastructure.Identity;
 using CcDashboard.Infrastructure.Persistence;
 using CcDashboard.Infrastructure.Persistence.Repositories;
@@ -72,6 +71,7 @@ public static class InfrastructureServiceExtensions
 
         // ADR-009: Interface abstractions for handlers in Application
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddSingleton<IAppDbContextFactory, AppDbContextAbstractionFactory>();
         services.AddScoped<IBackendEmulationDbContext>(sp =>
         {
             var factory = sp.GetRequiredService<IDbContextFactory<BackendEmulationDbContext>>();
@@ -162,8 +162,8 @@ public static class InfrastructureServiceExtensions
             client.Timeout = TimeSpan.FromSeconds(5);
         });
 
-        // MediatR handlers in Infrastructure (e.g., DayTrendQueryHandler)
-        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<DayTrendQueryHandler>());
+        // NOTE: MediatR handlers moved to Application per ADR-009 (R2).
+        // Application assembly is scanned by Web/Api Program.cs, not here.
 
         return services;
     }

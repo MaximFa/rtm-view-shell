@@ -1,5 +1,6 @@
 using CcDashboard.Domain.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace CcDashboard.Application.Interfaces;
 
@@ -12,6 +13,12 @@ public interface IBackendEmulationDbContext : IAsyncDisposable
 {
     // RTS Grid metrics (cross-tenant) — used by GetAgentStateDefinitions for MetricId lookup
     DbSet<RtsGridMetric> RtsGridMetrics { get; }
+
+    // NGC junction tables — used by DayTrendQueryHandler for queue resolution
+    DbSet<NgcBusinessUnitQueueClassification> NgcBusinessUnitQueueClassifications { get; }
+
+    // For raw SQL (DayTrend stored functions)
+    DatabaseFacade Database { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

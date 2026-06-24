@@ -1,15 +1,15 @@
 using CcDashboard.Application.Commands.Widgets;
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Interfaces;
-using CcDashboard.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UUIDNext;
 
-namespace CcDashboard.Infrastructure.Handlers;
+namespace CcDashboard.Application.Handlers;
 
 public sealed class SaveUserWidgetSettingsCommandHandler(
-    IDbContextFactory<AppDbContext> dbFactory,
+    IAppDbContextFactory dbFactory,
     ICurrentUserAccessor currentUser,
     ITenantContext tenantContext,
     IDateTimeProvider clock)
