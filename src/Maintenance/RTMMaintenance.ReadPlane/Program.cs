@@ -5,6 +5,7 @@ using RTMMaintenance.ReadPlane.Models;
 using RTMMaintenance.ReadPlane.Services;
 using RTMMaintenance.ReadPlane.Jobs;
 using RTMMaintenance.ReadPlane.Contracts;
+using RTMMaintenance.ReadPlane.Validation;
 using Serilog;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
@@ -31,6 +32,10 @@ public class Program
         try
         {
             Log.Information("Starting RTMMaintenance.ReadPlane service");
+
+            // SF-MS-003: Verify signal-to-script mapping is complete at startup (fail fast)
+            SignalScriptMap.VerifyCompleteness();
+            Log.Information("SF-MS-003: Signal-script map verified ({Count} signals)", SignalScriptMap.MappedCount);
 
             var builder = WebApplication.CreateBuilder(args);
 
@@ -120,7 +125,7 @@ public class Program
         services.Configure<SecurityOptions>(config.GetSection("Security"));
         services.Configure<JobOptions>(config.GetSection("Jobs"));
 
-        services.AddSingleton<ISignalValidator, SignalValidator>();
+        services.AddSingleton<ISignalValidator, CollectIncidentValidator>();
         services.AddSingleton<ISecretScrubber, DefaultSecretScrubber>();
         services.AddSingleton<IAuditService, LocalAuditService>();
         services.AddSingleton<IJobManager, JobManager>();
