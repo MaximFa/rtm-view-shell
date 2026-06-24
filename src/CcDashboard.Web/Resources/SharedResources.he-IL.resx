@@ -856,5 +856,20 @@
   <data name="ReportWidget_Title"><value>כותרת</value></data>
   <data name="ReportWidget_ColumnsHint"><value>הגדרת עמודות תהיה זמינה בעדכון עתידי.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>הגדרת ספים תהיה זמינה בעדכון עתידי.</value></data>
+  <data name="Reports_Title"><value>דוחות</value></data>
+  <data name="Reports_New"><value>דוח חדש</value></data>
+  <data name="Reports_SearchPlaceholder"><value>חיפוש דוחות...</value></data>
+  <data name="Reports_AllStatuses"><value>כל הסטטוסים</value></data>
+  <data name="Reports_AllCategories"><value>כל הקטגוריות</value></data>
+  <data name="Reports_NoReports"><value>לא נמצאו דוחות</value></data>
+  <data name="Reports_CreateFirst"><value>צור את הדוח הראשון שלך</value></data>
+  <data name="Reports_Name"><value>שם</value></data>
+  <data name="Reports_Category"><value>קטגוריה</value></data>
+  <data name="Reports_NotFound"><value>הדוח לא נמצא</value></data>
+  <data name="Reports_NoWidgets"><value>לדוח זה אין עדיין ווידג'טים</value></data>
+  <data name="Reports_Export"><value>ייצוא</value></data>
+  <data name="Reports_Schedule"><value>תזמון</value></data>
+  <data name="Reports_ExportStub"><value>פונקציית הייצוא תהיה זמינה בקרוב</value></data>
+  <data name="Reports_ScheduleStub"><value>פונקציית התזמון תהיה זמינה בקרוב</value></data>
 </root>
 

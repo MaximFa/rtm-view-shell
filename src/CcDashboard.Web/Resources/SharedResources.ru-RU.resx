@@ -956,5 +956,20 @@
   <data name="ReportWidget_Title"><value>Заголовок</value></data>
   <data name="ReportWidget_ColumnsHint"><value>Настройка столбцов будет доступна в будущем обновлении.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>Настройка пороговых значений будет доступна в будущем обновлении.</value></data>
+  <data name="Reports_Title"><value>Отчёты</value></data>
+  <data name="Reports_New"><value>Новый отчёт</value></data>
+  <data name="Reports_SearchPlaceholder"><value>Поиск отчётов...</value></data>
+  <data name="Reports_AllStatuses"><value>Все статусы</value></data>
+  <data name="Reports_AllCategories"><value>Все категории</value></data>
+  <data name="Reports_NoReports"><value>Отчёты не найдены</value></data>
+  <data name="Reports_CreateFirst"><value>Создайте первый отчёт</value></data>
+  <data name="Reports_Name"><value>Название</value></data>
+  <data name="Reports_Category"><value>Категория</value></data>
+  <data name="Reports_NotFound"><value>Отчёт не найден</value></data>
+  <data name="Reports_NoWidgets"><value>В этом отчёте ещё нет виджетов</value></data>
+  <data name="Reports_Export"><value>Экспорт</value></data>
+  <data name="Reports_Schedule"><value>Расписание</value></data>
+  <data name="Reports_ExportStub"><value>Функция экспорта скоро будет доступна</value></data>
+  <data name="Reports_ScheduleStub"><value>Функция расписания скоро будет доступна</value></data>
 </root>
 

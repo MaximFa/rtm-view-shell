@@ -1,0 +1,250 @@
+@page "/reports"
+@rendermode InteractiveServer
+@layout MainLayout
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@using MediatR
+@using CcDashboard.Application.Reports.Queries
+@using CcDashboard.Application.Reports.DTOs
+@using CcDashboard.Application.Reports.Commands
+@using CcDashboard.Contracts.Common
+@using CcDashboard.Domain.Domain.Reports
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>@L["Reports_Title"] — RTM View Shell</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">@L["Reports_Title"]</h1>
+    <AuthorizeView Roles="Superadmin,Administrator,Editor">
+        <button class="btn btn-primary btn-sm" @onclick="CreateReport">@L["Reports_New"]</button>
+    </AuthorizeView>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-md-3">
+        <input class="form-control form-control-sm" placeholder="@L["Reports_SearchPlaceholder"]"
+               @bind="_search" @bind:event="oninput" @onkeyup="OnSearchKey" />
+    </div>
+    <div class="col-md-2">
+        <select class="form-select form-select-sm" @bind="_statusFilter" @bind:after="LoadAsync">
+            <option value="">@L["Reports_AllStatuses"]</option>
+            <option value="Draft">@L["Screens_Draft"]</option>
+            <option value="Published">@L["Screens_Published"]</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select form-select-sm" @bind="_categoryFilter" @bind:after="LoadAsync">
+            <option value="">@L["Reports_AllCategories"]</option>
+            @foreach (var c in _categories)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+}
+else if (_reports == null || _reports.Items.Count == 0)
+{
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-file-earmark-bar-graph fs-1 mb-3 opacity-50"></i>
+        <p>@L["Reports_NoReports"]</p>
+        <AuthorizeView Roles="Superadmin,Administrator,Editor">
+            <button class="btn btn-outline-primary btn-sm" @onclick="CreateReport">@L["Reports_CreateFirst"]</button>
+        </AuthorizeView>
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle report-list-table" style="table-layout: fixed;">
+            <caption class="visually-hidden">@L["Reports_Title"]</caption>
+            <colgroup>
+                <col style="width: 30%;" />
+                <col style="width: 15%;" />
+                <col style="width: 12%;" />
+                <col style="width: 18%;" />
+                <col style="width: 15%;" />
+                <col style="width: 10%;" />
+            </colgroup>
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">@L["Reports_Name"]</th>
+                    <th scope="col">@L["Reports_Category"]</th>
+                    <th scope="col">@L["Screens_Status"]</th>
+                    <th scope="col">@L["Common_UpdatedBy"]</th>
+                    <th scope="col">@L["Common_Updated"]</th>
+                    <th scope="col" class="text-end">@L["Common_Actions"]</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _reports.Items)
+                {
+                    <tr @key="r.Id">
+                        <td>
+                            <a href="/reports/@r.Id" class="text-decoration-none fw-medium">@r.Name</a>
+                            @if (!string.IsNullOrEmpty(r.Description))
+                            {
+                                <div class="text-muted small text-truncate">@r.Description</div>
+                            }
+                        </td>
+                        <td class="small">@(r.CategoryName ?? "—")</td>
+                        <td>
+                            @StatusBadge(r.Status)
+                            @if (r.IsPublic) { <span class="badge bg-info text-dark ms-1">@L["Screens_Public"]</span> }
+                        </td>
+                        <td class="small">@(r.UpdatedByName ?? "—")</td>
+                        <td class="small">@r.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                        <td class="text-end">
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="/reports/@r.Id" class="btn btn-sm btn-icon" title="@L["Common_View"]">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                @if ((r.AccessLevel & 2) != 0)
+                                {
+                                    <a href="/reports/@r.Id/edit" class="btn btn-sm btn-icon" title="@L["Common_Edit"]">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <span class="text-muted small">@_reports.TotalCount @L["Common_Records"]</span>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(_reports.Page <= 1)"
+                    @onclick="PrevPage">@L["Common_Prev"]</button>
+            <span class="align-self-center small">@L["Common_Page"] @_reports.Page @L["Common_Of"] @_reports.TotalPages</span>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(_reports.Page >= _reports.TotalPages)"
+                    @onclick="NextPage">@L["Common_Next"]</button>
+        </div>
+    </div>
+}
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger alert-dismissible mt-2 py-2" role="alert">
+        @_error <button type="button" class="btn-close btn-sm" @onclick="() => _error = null"></button>
+    </div>
+}
+
+@code {
+    private bool _loading;
+    private string? _error;
+    private string? _search;
+    private string? _statusFilter;
+    private Guid? _categoryFilter;
+    private int _page = 1;
+    private const int PageSize = 25;
+
+    private PagedResult<ReportScreenDto>? _reports;
+    private IReadOnlyList<ReportCategoryDto> _categories = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategoriesAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            _categories = await Mediator.Send(new GetReportCategoriesQuery());
+        }
+        catch
+        {
+            _categories = [];
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            ReportScreenStatus? status = null;
+            if (!string.IsNullOrEmpty(_statusFilter) && Enum.TryParse<ReportScreenStatus>(_statusFilter, out var s))
+                status = s;
+
+            var request = new ReportScreenListRequest(
+                _search,
+                _categoryFilter,
+                status,
+                null,
+                _page,
+                PageSize);
+
+            _reports = await Mediator.Send(new GetReportScreensQuery(request));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _reports = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _page = 1;
+            await LoadAsync();
+        }
+    }
+
+    private async Task PrevPage()
+    {
+        if (_page > 1)
+        {
+            _page--;
+            await LoadAsync();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_reports?.HasNextPage == true)
+        {
+            _page++;
+            await LoadAsync();
+        }
+    }
+
+    private async Task CreateReport()
+    {
+        try
+        {
+            var request = new CreateReportScreenRequest("New Report");
+            var result = await Mediator.Send(new CreateReportScreenCommand(request));
+            Nav.NavigateTo($"/reports/{result.Id}/edit");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private RenderFragment StatusBadge(ReportScreenStatus status) => status switch
+    {
+        ReportScreenStatus.Draft => @<span class="badge bg-warning text-dark">@L["Screens_Draft"]</span>,
+        ReportScreenStatus.Published => @<span class="badge bg-success">@L["Screens_Published"]</span>,
+        _ => @<span class="badge bg-secondary">@status</span>
+    };
+}

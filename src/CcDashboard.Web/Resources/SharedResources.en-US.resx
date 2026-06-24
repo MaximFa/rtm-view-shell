@@ -1015,5 +1015,20 @@
   <data name="ReportWidget_Title"><value>Title</value></data>
   <data name="ReportWidget_ColumnsHint"><value>Column configuration will be available in a future update.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>Threshold configuration will be available in a future update.</value></data>
+  <data name="Reports_Title"><value>Reports</value></data>
+  <data name="Reports_New"><value>New report</value></data>
+  <data name="Reports_SearchPlaceholder"><value>Search reports...</value></data>
+  <data name="Reports_AllStatuses"><value>All statuses</value></data>
+  <data name="Reports_AllCategories"><value>All categories</value></data>
+  <data name="Reports_NoReports"><value>No reports found</value></data>
+  <data name="Reports_CreateFirst"><value>Create your first report</value></data>
+  <data name="Reports_Name"><value>Name</value></data>
+  <data name="Reports_Category"><value>Category</value></data>
+  <data name="Reports_NotFound"><value>Report not found</value></data>
+  <data name="Reports_NoWidgets"><value>This report has no widgets yet</value></data>
+  <data name="Reports_Export"><value>Export</value></data>
+  <data name="Reports_Schedule"><value>Schedule</value></data>
+  <data name="Reports_ExportStub"><value>Export functionality coming soon</value></data>
+  <data name="Reports_ScheduleStub"><value>Schedule functionality coming soon</value></data>
 </root>
 

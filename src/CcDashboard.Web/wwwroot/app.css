@@ -3404,3 +3404,90 @@ button.clr-swatch,
 [dir="rtl"] .report-widget-table .text-end {
     text-align: start !important;
 }
+
+/* ===== Report List & View Pages (Ф5b-1) ===== */
+.report-list-table .btn-icon {
+    padding: 0.25rem 0.4rem;
+    line-height: 1;
+}
+
+.report-list-table .btn-icon i {
+    font-size: 0.875rem;
+}
+
+.report-view-page {
+    padding: var(--sp-4);
+}
+
+.report-view-header {
+    margin-bottom: var(--sp-4);
+}
+
+.report-date-bar {
+    background-color: var(--clr-surface);
+}
+
+.report-canvas {
+    background-color: var(--clr-bg);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-md);
+    padding: var(--sp-4);
+}
+
+.report-widget-container {
+    background-color: var(--clr-surface);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.report-widget-container .widget-header {
+    padding: var(--sp-2) var(--sp-3);
+    background-color: var(--clr-surface);
+    border-bottom: 1px solid var(--clr-border);
+    flex-shrink: 0;
+}
+
+.report-widget-container .widget-content {
+    flex: 1;
+    overflow: auto;
+    padding: var(--sp-2);
+}
+
+/* Dark mode report pages */
+.dark-mode.report-view-page {
+    background-color: var(--clr-bg-dark, #0f172a);
+    color: var(--clr-text-dark);
+}
+
+.dark-mode .report-date-bar {
+    background-color: var(--clr-surface-dark, #1e293b);
+    border-color: var(--clr-border-dark);
+}
+
+.dark-mode .report-canvas {
+    background-color: var(--clr-bg-dark, #0f172a);
+    border-color: var(--clr-border-dark);
+}
+
+.dark-mode .report-widget-container {
+    background-color: var(--clr-surface-dark, #1e293b);
+    border-color: var(--clr-border-dark);
+}
+
+.dark-mode .report-widget-container .widget-header {
+    background-color: var(--clr-surface-dark, #1e293b);
+    border-color: var(--clr-border-dark);
+}
+
+/* RTL support for report pages */
+[dir="rtl"] .report-view-page {
+    direction: rtl;
+}
+
+[dir="rtl"] .report-date-bar .col-auto {
+    margin-inline-start: 0;
+    margin-inline-end: var(--sp-2);
+}
