@@ -1008,5 +1008,12 @@
   <data name="Report_Handled"><value>Handled</value></data>
   <data name="Report_Occupancy"><value>Occupancy %</value></data>
   <data name="Report_HoldPct"><value>Hold %</value></data>
+  <data name="Report_AccessDenied"><value>Access denied. You do not have permission to view this report.</value></data>
+  <data name="Report_Total"><value>Total</value></data>
+  <data name="Report_Distribution"><value>Distribution</value></data>
+  <data name="ReportWidget_Configure"><value>Configure Report Widget</value></data>
+  <data name="ReportWidget_Title"><value>Title</value></data>
+  <data name="ReportWidget_ColumnsHint"><value>Column configuration will be available in a future update.</value></data>
+  <data name="ReportWidget_ThresholdsHint"><value>Threshold configuration will be available in a future update.</value></data>
 </root>
 

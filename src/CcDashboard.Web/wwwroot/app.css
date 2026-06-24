@@ -3364,3 +3364,43 @@ button.clr-swatch,
 [dir="rtl"] .report-widget-stub {
     direction: rtl;
 }
+
+/* ===== Report Widgets (Ф4 components) ===== */
+.report-widget-table {
+    margin-bottom: 0;
+}
+
+.report-widget-table caption {
+    caption-side: top;
+}
+
+.distribution-chart-container {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+    max-height: 400px;
+}
+
+.distribution-chart {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Dark mode report widgets */
+.dark-mode .report-widget-table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--clr-text-dark);
+}
+
+.dark-mode .distribution-chart-container {
+    color: var(--clr-text-dark);
+}
+
+/* RTL support for report widgets */
+[dir="rtl"] .report-widget-table {
+    direction: rtl;
+}
+
+[dir="rtl"] .report-widget-table .text-end {
+    text-align: start !important;
+}

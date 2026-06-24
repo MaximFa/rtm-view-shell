@@ -849,5 +849,12 @@
   <data name="Report_Handled"><value>טופלו</value></data>
   <data name="Report_Occupancy"><value>תפוסה %</value></data>
   <data name="Report_HoldPct"><value>% המתנה</value></data>
+  <data name="Report_AccessDenied"><value>הגישה נדחתה. אין לך הרשאה לצפות בדוח זה.</value></data>
+  <data name="Report_Total"><value>סה"כ</value></data>
+  <data name="Report_Distribution"><value>התפלגות</value></data>
+  <data name="ReportWidget_Configure"><value>הגדרת ווידג'ט דוח</value></data>
+  <data name="ReportWidget_Title"><value>כותרת</value></data>
+  <data name="ReportWidget_ColumnsHint"><value>הגדרת עמודות תהיה זמינה בעדכון עתידי.</value></data>
+  <data name="ReportWidget_ThresholdsHint"><value>הגדרת ספים תהיה זמינה בעדכון עתידי.</value></data>
 </root>
 

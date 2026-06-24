@@ -949,5 +949,12 @@
   <data name="Report_Handled"><value>Обработано</value></data>
   <data name="Report_Occupancy"><value>Загрузка %</value></data>
   <data name="Report_HoldPct"><value>% удержания</value></data>
+  <data name="Report_AccessDenied"><value>Доступ запрещён. У вас нет прав для просмотра этого отчёта.</value></data>
+  <data name="Report_Total"><value>Всего</value></data>
+  <data name="Report_Distribution"><value>Распределение</value></data>
+  <data name="ReportWidget_Configure"><value>Настройка виджета отчёта</value></data>
+  <data name="ReportWidget_Title"><value>Заголовок</value></data>
+  <data name="ReportWidget_ColumnsHint"><value>Настройка столбцов будет доступна в будущем обновлении.</value></data>
+  <data name="ReportWidget_ThresholdsHint"><value>Настройка пороговых значений будет доступна в будущем обновлении.</value></data>
 </root>
 

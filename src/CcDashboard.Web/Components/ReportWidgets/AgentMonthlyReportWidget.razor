@@ -1,0 +1,174 @@
+@using MediatR
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
+@using CcDashboard.Application.HistoricalReports.Queries
+@using CcDashboard.Domain.Domain.Reports
+@inject IMediator Mediator
+@inject IStringLocalizer<SharedResources> L
+@inject ILogger<AgentMonthlyReportWidget> Logger
+
+@if (_denied)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-shield-exclamation me-2"></i>@L["Report_AccessDenied"]
+    </div>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>@_error
+    </div>
+}
+else if (_loading)
+{
+    <div class="d-flex justify-content-center py-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@L["Common_Loading"]</span>
+        </div>
+    </div>
+}
+else if (_result is null || _result.Rows.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>@L["Report_NoData"]
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-hover report-table report-widget-table" aria-label="@L["Report_AgentMonthly"]">
+            <caption class="visually-hidden">@L["Report_AgentMonthly"]</caption>
+            <thead class="@(DarkMode ? "table-dark" : "table-light")">
+                <tr>
+                    <th scope="col">@L["Report_YearMonth"]</th>
+                    <th scope="col">@L["Report_Agent"]</th>
+                    <th scope="col" class="text-end">@L["Report_Available"]</th>
+                    <th scope="col" class="text-end">@L["Report_OnPhone"]</th>
+                    <th scope="col" class="text-end">@L["Report_Hold"]</th>
+                    <th scope="col" class="text-end">@L["Report_Paperwork"]</th>
+                    <th scope="col" class="text-end">@L["Report_Break"]</th>
+                    <th scope="col" class="text-end">@L["Report_Training"]</th>
+                    <th scope="col" class="text-end">@L["Report_LoggedIn"]</th>
+                    <th scope="col" class="text-end">@L["Report_Handled"]</th>
+                    <th scope="col" class="text-end">@L["Report_Occupancy"]</th>
+                    <th scope="col" class="text-end">@L["Report_AHT"]</th>
+                    <th scope="col" class="text-end">@L["Report_HoldPct"]</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _result.Rows)
+                {
+                    <tr>
+                        <td>@row.YearMonth</td>
+                        <td>@(row.AgentDisplayName ?? row.AgentExternalId)</td>
+                        <td class="text-end">@FormatMs(row.SumAvailableMs)</td>
+                        <td class="text-end">@FormatMs(row.SumOnphoneMs)</td>
+                        <td class="text-end">@FormatMs(row.SumHoldMs)</td>
+                        <td class="text-end">@FormatMs(row.SumPaperworkMs)</td>
+                        <td class="text-end">@FormatMs(row.SumBreakMs)</td>
+                        <td class="text-end">@FormatMs(row.SumTrainingMs)</td>
+                        <td class="text-end">@FormatMs(row.SumLoggedInMs)</td>
+                        <td class="text-end">@row.Handled</td>
+                        <td class="text-end">@FormatPct(row.OccupancyPct)</td>
+                        <td class="text-end">@FormatDuration(row.AgentAht)</td>
+                        <td class="text-end">@FormatPct(row.HoldPct)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (_result.TotalCount > _result.Rows.Count)
+    {
+        <div class="text-muted small mt-2">
+            @L["Report_Showing"] @_result.Rows.Count @L["Report_Of"] @_result.TotalCount
+        </div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public ReportWidgetConfig? Config { get; set; }
+    [Parameter, EditorRequired] public DateTime From { get; set; }
+    [Parameter, EditorRequired] public DateTime To { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public int Page { get; set; } = 1;
+
+    private bool _loading;
+    private bool _denied;
+    private string? _error;
+    private AgentMonthlyReportResult? _result;
+    private DateTime _lastFrom;
+    private DateTime _lastTo;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (From != _lastFrom || To != _lastTo)
+        {
+            _lastFrom = From;
+            _lastTo = To;
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        _denied = false;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var configJson = Config?.ToJson() ?? "{}";
+            var res = await Mediator.Send(new RunReportWidgetQuery(
+                ReportWidgetType.AgentMonthly,
+                configJson,
+                From,
+                To,
+                Page));
+
+            if (res.Denied)
+            {
+                _denied = true;
+                _result = null;
+            }
+            else if (!string.IsNullOrEmpty(res.Error))
+            {
+                _error = res.Error;
+                _result = null;
+            }
+            else
+            {
+                _result = res.AgentMonthly;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AgentMonthlyReportWidget load failed");
+            _error = ex.Message;
+            _result = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string FormatPct(double? val) => val.HasValue ? $"{val.Value:F1}%" : "-";
+
+    private static string FormatDuration(double? seconds)
+    {
+        if (!seconds.HasValue) return "-";
+        var ts = TimeSpan.FromSeconds(seconds.Value);
+        return ts.TotalHours >= 1
+            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+
+    private static string FormatMs(long ms)
+    {
+        var ts = TimeSpan.FromMilliseconds(ms);
+        if (ts.TotalHours >= 1)
+            return $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}";
+        return $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+}

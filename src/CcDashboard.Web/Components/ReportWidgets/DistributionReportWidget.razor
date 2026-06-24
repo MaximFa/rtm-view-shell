@@ -1,0 +1,195 @@
+@using MediatR
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
+@using Microsoft.JSInterop
+@using CcDashboard.Application.HistoricalReports.Queries
+@using CcDashboard.Domain.Domain.Reports
+@inject IMediator Mediator
+@inject IJSRuntime JS
+@inject IStringLocalizer<SharedResources> L
+@inject ILogger<DistributionReportWidget> Logger
+@implements IAsyncDisposable
+
+@if (_denied)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-shield-exclamation me-2"></i>@L["Report_AccessDenied"]
+    </div>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>@_error
+    </div>
+}
+else if (_loading)
+{
+    <div class="d-flex justify-content-center py-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@L["Common_Loading"]</span>
+        </div>
+    </div>
+}
+else if (_result is null || _result.Buckets.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>@L["Report_NoData"]
+    </div>
+}
+else
+{
+    <div class="distribution-chart-container">
+        @if (_result.OverallAsa.HasValue)
+        {
+            <div class="text-center mb-2">
+                <strong>@L["Report_OverallASA"]:</strong> @FormatDuration(_result.OverallAsa)
+                <span class="text-muted">(@L["Report_Total"]: @_result.TotalCount)</span>
+            </div>
+        }
+        <canvas id="@_canvasId" class="distribution-chart"></canvas>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ReportWidgetConfig? Config { get; set; }
+    [Parameter, EditorRequired] public DateTime From { get; set; }
+    [Parameter, EditorRequired] public DateTime To { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public int Page { get; set; } = 1;
+
+    private readonly string _canvasId = $"dist-chart-{Guid.NewGuid():N}";
+    private bool _loading;
+    private bool _denied;
+    private string? _error;
+    private DistributionReportResult? _result;
+    private DateTime _lastFrom;
+    private DateTime _lastTo;
+    private bool _chartRendered;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (From != _lastFrom || To != _lastTo)
+        {
+            _lastFrom = From;
+            _lastTo = To;
+            await LoadData();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_result is not null && _result.Buckets.Count > 0 && !_chartRendered)
+        {
+            await RenderChart();
+            _chartRendered = true;
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        _denied = false;
+        _error = null;
+        _chartRendered = false;
+        StateHasChanged();
+
+        try
+        {
+            var configJson = Config?.ToJson() ?? "{}";
+            var res = await Mediator.Send(new RunReportWidgetQuery(
+                ReportWidgetType.Distribution,
+                configJson,
+                From,
+                To,
+                Page));
+
+            if (res.Denied)
+            {
+                _denied = true;
+                _result = null;
+            }
+            else if (!string.IsNullOrEmpty(res.Error))
+            {
+                _error = res.Error;
+                _result = null;
+            }
+            else
+            {
+                _result = res.Distribution;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "DistributionReportWidget load failed");
+            _error = ex.Message;
+            _result = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RenderChart()
+    {
+        if (_result is null) return;
+
+        var segments = _result.Buckets.Select(b => new
+        {
+            label = b.Label,
+            value = b.Count,
+            color = GetBucketColor(b.LowerBoundSec)
+        }).ToArray();
+
+        var options = new
+        {
+            chartType = "bar",
+            showLegend = false,
+            showValueLabels = true,
+            valueDisplay = "percentages",
+            fontColor = DarkMode ? "#e0e0e0" : "#333"
+        };
+
+        try
+        {
+            await JS.InvokeVoidAsync("reportDistributionChart.render", _canvasId, segments, options);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to render distribution chart");
+        }
+    }
+
+    private static string GetBucketColor(int lowerBoundSec)
+    {
+        return lowerBoundSec switch
+        {
+            0 => "#22c55e",    // 0-30s: green (excellent)
+            30 => "#84cc16",   // 30-60s: lime (good)
+            60 => "#eab308",   // 60-120s: yellow (acceptable)
+            120 => "#f97316",  // 120-180s: orange (warning)
+            _ => "#ef4444"     // 180s+: red (critical)
+        };
+    }
+
+    private static string FormatDuration(double? seconds)
+    {
+        if (!seconds.HasValue) return "-";
+        var ts = TimeSpan.FromSeconds(seconds.Value);
+        return ts.TotalHours >= 1
+            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("reportDistributionChart.destroy", _canvasId);
+        }
+        catch
+        {
+            // Ignore disposal errors
+        }
+    }
+}

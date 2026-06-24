@@ -1,0 +1,170 @@
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResources> L
+
+@if (IsOpen)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@L["ReportWidget_Configure"]</h5>
+                    <button type="button" class="btn-close" @onclick="Close" aria-label="@L["Common_Close"]"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link @(_tab == "general" ? "active" : "")" @onclick='() => _tab = "general"'>
+                                @L["WidgetCfg_General"]
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(_tab == "columns" ? "active" : "")" @onclick='() => _tab = "columns"'>
+                                @L["WidgetCfg_Columns"]
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(_tab == "thresholds" ? "active" : "")" @onclick='() => _tab = "thresholds"'>
+                                @L["WidgetCfg_Thresholds"]
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(_tab == "appearance" ? "active" : "")" @onclick='() => _tab = "appearance"'>
+                                @L["WidgetCfg_Appearance"]
+                            </button>
+                        </li>
+                    </ul>
+
+                    @if (_tab == "general")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">@L["ReportWidget_Title"]</label>
+                            <input type="text" class="form-control" @bind="_config.Title" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">@L["Report_PageSize"]</label>
+                            <select class="form-select" @bind="_pageSize">
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                    }
+                    else if (_tab == "columns")
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>@L["ReportWidget_ColumnsHint"]
+                        </div>
+                    }
+                    else if (_tab == "thresholds")
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>@L["ReportWidget_ThresholdsHint"]
+                        </div>
+                    }
+                    else if (_tab == "appearance")
+                    {
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>@L["WidgetCfg_LightMode"]</h6>
+                                <div class="mb-2">
+                                    <label class="form-label small">@L["Widgets_TableFontSize"]</label>
+                                    <select class="form-select form-select-sm" @bind="_tableFontSize">
+                                        <option value="">@L["Common_Select"]</option>
+                                        <option value="small">@L["Widgets_FontSize_Small"]</option>
+                                        <option value="normal">@L["Widgets_FontSize_Normal"]</option>
+                                        <option value="large">@L["Widgets_FontSize_Large"]</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">@L["Widgets_HeaderFontSize"]</label>
+                                    <select class="form-select form-select-sm" @bind="_headerFontSize">
+                                        <option value="">@L["Common_Select"]</option>
+                                        <option value="small">@L["Widgets_FontSize_Small"]</option>
+                                        <option value="normal">@L["Widgets_FontSize_Normal"]</option>
+                                        <option value="large">@L["Widgets_FontSize_Large"]</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>@L["WidgetCfg_DarkMode"]</h6>
+                                <div class="mb-2">
+                                    <label class="form-label small">@L["WidgetCfg_WidgetBackground"]</label>
+                                    <input type="color" class="form-control form-control-sm form-control-color" @bind="_darkBackground" />
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">@L["WidgetCfg_TextColor"]</label>
+                                    <input type="color" class="form-control form-control-sm form-control-color" @bind="_darkTextColor" />
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="Close">@L["Common_Cancel"]</button>
+                    <button type="button" class="btn btn-primary" @onclick="Save">@L["Common_Save"]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<ReportWidgetConfig> OnSave { get; set; }
+    [Parameter] public ReportWidgetConfig? InitialConfig { get; set; }
+
+    private string _tab = "general";
+    private ConfigBuilder _config = new();
+    private int _pageSize = 25;
+    private string _tableFontSize = "";
+    private string _headerFontSize = "";
+    private string _darkBackground = "#1e293b";
+    private string _darkTextColor = "#e2e8f0";
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && InitialConfig is not null)
+        {
+            _config = new ConfigBuilder
+            {
+                Title = InitialConfig.Title
+            };
+            _pageSize = InitialConfig.PageSize ?? 25;
+            _tableFontSize = InitialConfig.Appearance?.TableFontSize ?? "";
+            _headerFontSize = InitialConfig.Appearance?.HeaderFontSize ?? "";
+            _darkBackground = InitialConfig.Appearance?.DarkBackground ?? "#1e293b";
+            _darkTextColor = InitialConfig.Appearance?.DarkTextColor ?? "#e2e8f0";
+        }
+    }
+
+    private async Task Save()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Title = _config.Title,
+            PageSize = _pageSize,
+            Appearance = new AppearanceConfig
+            {
+                TableFontSize = string.IsNullOrEmpty(_tableFontSize) ? null : _tableFontSize,
+                HeaderFontSize = string.IsNullOrEmpty(_headerFontSize) ? null : _headerFontSize,
+                DarkBackground = _darkBackground,
+                DarkTextColor = _darkTextColor
+            }
+        };
+
+        await OnSave.InvokeAsync(config);
+        await Close();
+    }
+
+    private async Task Close()
+    {
+        _tab = "general";
+        await OnClose.InvokeAsync();
+    }
+
+    private class ConfigBuilder
+    {
+        public string? Title { get; set; }
+    }
+}

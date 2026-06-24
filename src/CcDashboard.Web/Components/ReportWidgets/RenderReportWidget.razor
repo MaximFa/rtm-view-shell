@@ -1,40 +1,25 @@
 @using CcDashboard.Domain.Domain.Reports
 @inject IStringLocalizer<SharedResources> L
 
-@* Report Widget dispatcher - mirrors RenderWidget pattern for report-specific widgets *@
+@* Report Widget dispatcher - routes to specific report widget components *@
 
 <div class="report-widget-render">
     @switch (WidgetType)
     {
         case ReportWidgetType.QueueInterval:
-            <div class="report-widget-stub">
-                <i class="bi bi-table"></i>
-                <span>@L["QueueInterval"] — stub</span>
-            </div>
+            <QueueIntervalReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
             break;
         case ReportWidgetType.QueueWaitTime:
-            <div class="report-widget-stub">
-                <i class="bi bi-clock-history"></i>
-                <span>@L["QueueWaitTime"] — stub</span>
-            </div>
+            <QueueWaitTimeReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
             break;
         case ReportWidgetType.AgentMonthly:
-            <div class="report-widget-stub">
-                <i class="bi bi-calendar-month"></i>
-                <span>@L["AgentMonthly"] — stub</span>
-            </div>
+            <AgentMonthlyReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
             break;
         case ReportWidgetType.AgentShiftDetail:
-            <div class="report-widget-stub">
-                <i class="bi bi-person-lines-fill"></i>
-                <span>@L["AgentShiftDetail"] — stub</span>
-            </div>
+            <AgentShiftDetailReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
             break;
         case ReportWidgetType.Distribution:
-            <div class="report-widget-stub">
-                <i class="bi bi-pie-chart"></i>
-                <span>@L["Distribution"] — stub</span>
-            </div>
+            <DistributionReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
             break;
         default:
             <div class="report-widget-stub report-widget-unknown">
@@ -49,4 +34,14 @@
     [Parameter, EditorRequired] public ReportWidgetType WidgetType { get; set; }
     [Parameter] public string? ConfigJson { get; set; }
     [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public DateTime From { get; set; } = DateTime.UtcNow.Date.AddDays(-7);
+    [Parameter] public DateTime To { get; set; } = DateTime.UtcNow.Date;
+    [Parameter] public int Page { get; set; } = 1;
+
+    private ReportWidgetConfig? _config;
+
+    protected override void OnParametersSet()
+    {
+        _config = ReportWidgetConfig.Parse(ConfigJson);
+    }
 }
