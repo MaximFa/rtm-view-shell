@@ -45,6 +45,15 @@ Log sources: `serilog`, `soma-shell`, `soma-audit`
 
 Test suites: `unit`, `integration`, `architecture`, `security`
 
+**Docker requirement:** The `security` and `integration` test suites use Testcontainers 
+and require Docker to be installed and running. If Docker is not available, these suites 
+will return `{skipped: true, reason: "...requires Docker..."}` instead of failing with 
+fixture-initialization errors.
+
+**Orphan cleanup:** Both `/ops/build` and `/ops/test` automatically free any orphaned 
+CcDashboard.Web processes (by port 5239 and by path) before running. This prevents 
+MSB3026/MSB3027 "Exceeded retry count" errors when an orphan holds bin/ files open.
+
 ---
 
 ## PowerShell Examples

@@ -146,6 +146,63 @@ List<int> FreeShellPort(int port = 5239)
     return freedPids;
 }
 
+// FreeShellByPath: kill CcDashboard.Web processes by MainModule path (for orphans not listening on port)
+// F-QA-4 SAFETY: EXCLUDE Environment.ProcessId (Soma), match ONLY Shell path, NEVER blanket dotnet kill
+List<int> FreeShellByPath()
+{
+    var freedPids = new List<int>();
+    var somaPid = Environment.ProcessId;
+
+    // Shell process names to look for (CcDashboard.Web.exe when published)
+    var shellMarkers = new[] { "ccdashboard.web", "ccdashboard" };
+
+    try
+    {
+        foreach (var proc in Process.GetProcesses())
+        {
+            try
+            {
+                if (proc.Id == somaPid) continue;
+                if (proc.HasExited) continue;
+
+                // Check process name (cheap)
+                var procName = proc.ProcessName.ToLowerInvariant();
+                var isShellByName = shellMarkers.Any(m => procName.Contains(m));
+
+                if (isShellByName)
+                {
+                    // CcDashboard.Web.exe (published) - verify it's in our project path
+                    try
+                    {
+                        var modulePath = proc.MainModule?.FileName?.ToLowerInvariant() ?? "";
+                        if (modulePath.Contains("ccdashboard") || modulePath.Contains("bin\\debug") || modulePath.Contains("bin\\release") || modulePath.Contains("publish"))
+                        {
+                            AuditLog("SHELL_FREE_PATH", $"pid={proc.Id}|name={procName}|path={modulePath}");
+                            proc.Kill(entireProcessTree: true);
+                            proc.WaitForExit(10000);
+                            freedPids.Add(proc.Id);
+                        }
+                    }
+                    catch { /* Access denied to MainModule - skip */ }
+                }
+            }
+            catch { /* Process gone or access denied */ }
+        }
+    }
+    catch { /* Enumeration failed */ }
+
+    return freedPids;
+}
+
+// FreeShellOrphans: combined port + path orphan cleanup (F-QA-7 ext)
+// Call at start of /ops/build and /ops/test to free orphans holding bin/ files
+(List<int> PortFreed, List<int> PathFreed) FreeShellOrphans()
+{
+    var portFreed = FreeShellPort(5239);
+    var pathFreed = FreeShellByPath();
+    return (portFreed, pathFreed);
+}
+
 // Build ProcessStartInfo for CC exe (handles .ps1/.cmd npm shims on Windows)
 ProcessStartInfo BuildCcProcess(string exe, string workDir, IEnumerable<string> args)
 {
@@ -642,7 +699,9 @@ app.MapPost("/shell/kill-stray", () =>
 
 app.MapPost("/ops/build", async () =>
 {
-    AuditLog("OPS_BUILD", "start");
+    // F-QA-7 ext: Free orphan CcDashboard.Web holding bin/ files (MSB3026/3027 prevention)
+    var (portFreed, pathFreed) = FreeShellOrphans();
+    AuditLog("OPS_BUILD", $"start|freedPort=[{string.Join(",", portFreed)}]|freedPath=[{string.Join(",", pathFreed)}]");
     var psi = new ProcessStartInfo { FileName = "dotnet", WorkingDirectory = shellWorkingDir, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
     psi.ArgumentList.Add("build"); psi.ArgumentList.Add("CcDashboard.sln");
     var output = new List<string>(); using var proc = Process.Start(psi)!;
@@ -652,14 +711,40 @@ app.MapPost("/ops/build", async () =>
     var completed = await Task.Run(() => proc.WaitForExit(300000));
     if (!completed) { proc.Kill(entireProcessTree: true); AuditLog("OPS_BUILD", "timeout"); return Results.Json(new { success = false, exitCode = -1, reason = "timeout", tail = output.TakeLast(50).ToArray() }); }
     AuditLog("OPS_BUILD", $"exitCode={proc.ExitCode}");
-    return Results.Json(new { success = proc.ExitCode == 0, exitCode = proc.ExitCode, tail = output.TakeLast(50).ToArray() });
+    return Results.Json(new { success = proc.ExitCode == 0, exitCode = proc.ExitCode, freedOrphans = portFreed.Count + pathFreed.Count, tail = output.TakeLast(50).ToArray() });
 });
 
 app.MapPost("/ops/test", async (string? suite) =>
 {
     if (string.IsNullOrWhiteSpace(suite)) return Results.BadRequest("suite is required");
     if (!testSuiteWhitelist.TryGetValue(suite, out var project)) return Results.NotFound($"Unknown suite: {suite}. Allowed: {string.Join(", ", testSuiteWhitelist.Keys)}");
-    AuditLog("OPS_TEST", $"suite={suite}|project={project}");
+
+    // Docker-gate: security + integration suites need Testcontainers/Docker
+    var dockerSuites = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "security", "integration" };
+    if (dockerSuites.Contains(suite))
+    {
+        // Check if Docker is available (docker info succeeds)
+        var dockerCheck = new ProcessStartInfo { FileName = "docker", UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+        dockerCheck.ArgumentList.Add("info");
+        try
+        {
+            using var dp = Process.Start(dockerCheck);
+            if (dp == null || !dp.WaitForExit(10000) || dp.ExitCode != 0)
+            {
+                AuditLog("OPS_TEST", $"suite={suite}|skipped=docker_unavailable");
+                return Results.Json(new { success = false, skipped = true, reason = $"Suite '{suite}' requires Docker (Testcontainers). Docker not available or not running." });
+            }
+        }
+        catch
+        {
+            AuditLog("OPS_TEST", $"suite={suite}|skipped=docker_not_found");
+            return Results.Json(new { success = false, skipped = true, reason = $"Suite '{suite}' requires Docker (Testcontainers). Docker not installed or not in PATH." });
+        }
+    }
+
+    // F-QA-7 ext: Free orphan CcDashboard.Web holding bin/ files (MSB3026/3027 prevention)
+    var (portFreed, pathFreed) = FreeShellOrphans();
+    AuditLog("OPS_TEST", $"suite={suite}|project={project}|freedPort=[{string.Join(",", portFreed)}]|freedPath=[{string.Join(",", pathFreed)}]");
     var psi = new ProcessStartInfo { FileName = "dotnet", WorkingDirectory = shellWorkingDir, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
     psi.ArgumentList.Add("test"); psi.ArgumentList.Add(project);
     var output = new List<string>(); using var proc = Process.Start(psi)!;
@@ -669,7 +754,7 @@ app.MapPost("/ops/test", async (string? suite) =>
     var completed = await Task.Run(() => proc.WaitForExit(600000));
     if (!completed) { proc.Kill(entireProcessTree: true); AuditLog("OPS_TEST", $"suite={suite}|timeout"); return Results.Json(new { success = false, exitCode = -1, reason = "timeout", tail = output.TakeLast(100).ToArray() }); }
     AuditLog("OPS_TEST", $"suite={suite}|exitCode={proc.ExitCode}");
-    return Results.Json(new { success = proc.ExitCode == 0, exitCode = proc.ExitCode, tail = output.TakeLast(100).ToArray() });
+    return Results.Json(new { success = proc.ExitCode == 0, exitCode = proc.ExitCode, freedOrphans = portFreed.Count + pathFreed.Count, tail = output.TakeLast(100).ToArray() });
 });
 
 app.MapGet("/ops/health", async () =>
