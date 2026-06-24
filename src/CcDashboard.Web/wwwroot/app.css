@@ -3317,3 +3317,50 @@ button.clr-swatch,
 [dir="rtl"] .report-filter-bar {
     direction: rtl;
 }
+
+/* ===== Reports (Ф3 scaffold) ===== */
+.report-widget-render {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 120px;
+}
+
+.report-widget-stub {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    padding: var(--sp-4);
+    color: var(--clr-text-muted);
+    text-align: center;
+}
+
+.report-widget-stub i {
+    font-size: var(--text-2xl);
+    opacity: 0.5;
+}
+
+.report-widget-stub span {
+    font-size: var(--text-sm);
+}
+
+.report-widget-unknown {
+    color: var(--clr-warning);
+}
+
+/* Dark mode */
+.dark-mode .report-widget-stub {
+    color: var(--clr-text-muted-dark, rgba(255, 255, 255, 0.5));
+}
+
+.dark-mode .report-widget-unknown {
+    color: var(--clr-warning-dark, #ffc107);
+}
+
+/* RTL support */
+[dir="rtl"] .report-widget-stub {
+    direction: rtl;
+}
