@@ -517,10 +517,13 @@ app.MapGet("/db/dashboards", async (Guid? tenant) =>
     if (tenant is null || tenant == Guid.Empty) return Results.BadRequest("tenant is required and must be a valid GUID");
     await using var conn = new NpgsqlConnection(connStr); await conn.OpenAsync();
     var sql = @"SELECT d.""Id"", d.""Name"", d.""Description"", d.""IsPublic"", d.""IsDeleted"", d.""CreatedAt"", d.""TenantId"" FROM public.dashboards d WHERE d.""TenantId"" = @t ORDER BY d.""Name""";
-    await using var cmd = new NpgsqlCommand(sql, conn); cmd.Parameters.AddWithValue("t", tenant.Value);
-    await using var rdr = await cmd.ExecuteReaderAsync();
     var dashboards = new List<(Guid Id, string Name, string? Desc, bool Public, bool Deleted, DateTime Created)>();
-    while (await rdr.ReadAsync()) { dashboards.Add((rdr.GetGuid(0), rdr.GetString(1), rdr.IsDBNull(2) ? null : rdr.GetString(2), rdr.GetBoolean(3), rdr.GetBoolean(4), rdr.GetDateTime(5))); }
+    await using (var cmd = new NpgsqlCommand(sql, conn))
+    {
+        cmd.Parameters.AddWithValue("t", tenant.Value);
+        await using var rdr = await cmd.ExecuteReaderAsync();
+        while (await rdr.ReadAsync()) { dashboards.Add((rdr.GetGuid(0), rdr.GetString(1), rdr.IsDBNull(2) ? null : rdr.GetString(2), rdr.GetBoolean(3), rdr.GetBoolean(4), rdr.GetDateTime(5))); }
+    }
     var results = new List<object>();
     foreach (var db in dashboards)
     {
