@@ -1,19 +1,19 @@
 using CcDashboard.Application.Commands.AgentStates;
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Application.Queries.AgentStates;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Interfaces;
-using CcDashboard.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UUIDNext;
 
-namespace CcDashboard.Infrastructure.Handlers;
+namespace CcDashboard.Application.Handlers;
 
 #region Query Handlers
 
 public class GetAgentStateDefinitionsQueryHandler(
-    AppDbContext db,
-    IDbContextFactory<BackendEmulationDbContext> beDbFactory,
+    IAppDbContext db,
+    IBackendEmulationDbContextFactory beDbFactory,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetAgentStateDefinitionsQuery, IReadOnlyList<AgentStateDefinitionDto>>
 {
@@ -68,7 +68,7 @@ public class GetAgentStateDefinitionsQueryHandler(
 }
 
 public class GetAgentStateGroupsQueryHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetAgentStateGroupsQuery, IReadOnlyList<AgentStateGroupDto>>
 {
@@ -105,7 +105,7 @@ public class GetAgentStateGroupsQueryHandler(
 }
 
 public class GetAgentStatesQueryHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetAgentStatesQuery, IReadOnlyList<AgentStateDto>>
 {
@@ -140,7 +140,7 @@ public class GetAgentStatesQueryHandler(
 #region Command Handlers
 
 public class CreateAgentStateGroupCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<CreateAgentStateGroupCommand, Guid>
@@ -175,7 +175,7 @@ public class CreateAgentStateGroupCommandHandler(
 }
 
 public class UpdateAgentStateGroupCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<UpdateAgentStateGroupCommand, bool>
@@ -208,7 +208,7 @@ public class UpdateAgentStateGroupCommandHandler(
 }
 
 public class DeactivateAgentStateGroupCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<DeactivateAgentStateGroupCommand, bool>
@@ -277,7 +277,7 @@ public class DeactivateAgentStateGroupCommandHandler(
 }
 
 public class CreateAgentStateCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<CreateAgentStateCommand, Guid>
@@ -333,7 +333,7 @@ public class CreateAgentStateCommandHandler(
 }
 
 public class UpdateAgentStateCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<UpdateAgentStateCommand, bool>
@@ -363,7 +363,7 @@ public class UpdateAgentStateCommandHandler(
 }
 
 public class DeactivateAgentStateCommandHandler(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUserAccessor currentUser,
     IDateTimeProvider clock)
     : IRequestHandler<DeactivateAgentStateCommand, bool>

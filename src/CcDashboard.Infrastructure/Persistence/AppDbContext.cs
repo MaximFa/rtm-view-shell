@@ -1,3 +1,4 @@
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Domain.Historical;
 using CcDashboard.Domain.Domain.Reports;
@@ -11,7 +12,7 @@ namespace CcDashboard.Infrastructure.Persistence;
 public class AppDbContext(
     DbContextOptions<AppDbContext> options,
     ITenantContext tenantContext)
-    : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>(options)
+    : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>(options), IAppDbContext
 {
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();

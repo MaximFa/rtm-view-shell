@@ -70,6 +70,15 @@ public static class InfrastructureServiceExtensions
             });
         });
 
+        // ADR-009: Interface abstractions for handlers in Application
+        services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddScoped<IBackendEmulationDbContext>(sp =>
+        {
+            var factory = sp.GetRequiredService<IDbContextFactory<BackendEmulationDbContext>>();
+            return factory.CreateDbContext();
+        });
+        services.AddSingleton<IBackendEmulationDbContextFactory, BackendEmulationDbContextFactory>();
+
         // ASP.NET Core Identity
         services.AddIdentity<ApplicationUser, ApplicationRole>(opts =>
         {

@@ -1,3 +1,4 @@
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,7 +11,7 @@ namespace CcDashboard.Infrastructure.Persistence;
 /// ADR-007: Database boundary — shell tables vs backend tables.
 /// </summary>
 public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContext> options)
-    : DbContext(options)
+    : DbContext(options), IBackendEmulationDbContext
 {
     // NGC Configuration tables
     public DbSet<NgcSite> NgcSites => Set<NgcSite>();
