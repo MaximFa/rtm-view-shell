@@ -71,7 +71,7 @@ public static class InfrastructureServiceExtensions
 
         // ADR-009: Interface abstractions for handlers in Application
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
-        services.AddSingleton<IAppDbContextFactory, AppDbContextAbstractionFactory>();
+        services.AddScoped<IAppDbContextFactory, AppDbContextAbstractionFactory>();
         services.AddScoped<IBackendEmulationDbContext>(sp =>
         {
             var factory = sp.GetRequiredService<IDbContextFactory<BackendEmulationDbContext>>();
