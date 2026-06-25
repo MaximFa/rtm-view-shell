@@ -3507,20 +3507,6 @@ button.clr-swatch,
     background: var(--rw-table-bg, inherit);
 }
 
-/* Report Config Modal - color grid */
-.rw-color-grid {
-    display: grid;
-    grid-template-columns: 140px 1fr 1fr;
-    gap: var(--sp-2);
-    align-items: center;
-}
-
-.rw-color-header {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--clr-text-muted);
-}
 
 /* Dark mode - report config modal elements */
 .dark-mode .report-config-modal .modal-content {
@@ -3560,10 +3546,6 @@ button.clr-swatch,
 
 .dark-mode .report-config-modal .color-setting-label {
     color: #e2e8f0;
-}
-
-.dark-mode .report-config-modal .rw-color-header {
-    color: #94a3b8;
 }
 
 /* ===== Report Header Date Controls (in-header datebar) ===== */
