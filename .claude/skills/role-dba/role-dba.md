@@ -60,6 +60,8 @@ Cardinal truths (source-pinned):
 
 - 2026-06-25 · Under `Set-StrictMode -Version Latest`, `$x.Count` THROWS PropertyNotFoundStrict when $x is a scalar (single-item) or $null (empty) — PowerShell unwraps single/empty @() on FUNCTION RETURN. FIX: assign function/pipeline results via `$x = @(...)` AND wrap every count read as `@($x).Count`. Leave hashtable .Keys.Count / property .Count. · SOURCE: Seed-ProdMirror.ps1 Inspect run 2026-06-25 · status: active
 
+- 2026-06-25 · Prod-mirror seed = 2.4a (operator): load under the ORIGINAL prod TenantId, NO re-stamp; target tenant == source. Create the `tenants` row with the ORIGINAL id (ON CONFLICT Id DO NOTHING) + tenant_settings. Single source tenant 019e03e9 (orphan 019e0422 excluded by WHERE TenantId=src). · SOURCE: coordinator §4 2026-06-26 (operator 2.4a) + inspect_20260626-020044 · status: active
+
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path "db/tools/Compare-ToBaseline.ps1"` — must be True
 2. `Select-String -Path "db/schema.sql" -Pattern "CREATE TABLE"` — expect count >10

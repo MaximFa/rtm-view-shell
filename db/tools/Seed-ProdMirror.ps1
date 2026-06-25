@@ -187,7 +187,7 @@ $ChainTables = @(
     "pg_business_units",
     "pg_queues",
     "pg_skills",
-    "pg_agent_supergroups",
+    "pg_supergroups",
     "RTSData_Interaction",
     "RTSData_UserStatus",
     "RTSData_ChatMessage"
@@ -209,7 +209,7 @@ $TenantIdTables = @(
     "pg_business_units",
     "pg_queues",
     "pg_skills",
-    "pg_agent_supergroups",
+    "pg_supergroups",
     "RTSData_Interaction",
     "RTSData_UserStatus"
 )
@@ -504,42 +504,19 @@ if (-not $clientTenant) {
 }
 $srcTenant = $clientTenant
 
-# Resolve target tenant
-if ($TargetTenantId) {
-    $targetTenant = $TargetTenantId
-    Write-Host "Using explicit TargetTenantId: $targetTenant"
-} else {
-    # Try to find by slug
-    $findQ = "SELECT `"Id`" FROM tenants WHERE `"Slug`" = '$TargetTenantSlug'"
-    $findResult = Invoke-Psql -Database $DbName -Query $findQ -TuplesOnly -NoHeaders
-    $foundId = ($findResult | Where-Object { $_ -and $_.Trim() } | Select-Object -First 1)
-    if ($foundId) {
-        $targetTenant = $foundId.Trim()
-        Write-Host "Resolved tenant '$TargetTenantSlug' to: $targetTenant"
-    } else {
-        # Create the tenant
-        Write-Host "Tenant '$TargetTenantSlug' not found. Creating..."
-        $newTenantId = [guid]::NewGuid().ToString()
-        $nowUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")
-        $insertTenantQ = @"
+# 2.4a: load under the ORIGINAL prod TenantId — target == source, NO re-stamp.
+$targetTenant = $srcTenant
+$nowUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")
+$ensureTenantQ = @"
 INSERT INTO tenants ("Id", "Slug", "Name", "Status", "CreatedAt", "UpdatedAt")
-VALUES ('$newTenantId', '$TargetTenantSlug', 'Prod Mirror', 'Active', '$nowUtc', '$nowUtc')
-ON CONFLICT ("Slug") DO NOTHING;
-"@
-        Invoke-Psql -Database $DbName -Query $insertTenantQ | Out-Null
-
-        # Also create tenant_settings
-        $insertSettingsQ = @"
-INSERT INTO tenant_settings ("TenantId", "PasswordMinLength", "PasswordExpireDays", "Require2faForAll", "AuditRetentionDays", "DefaultLocale", "SoftDeleteDashboards", "SoftDeleteRetentionDays")
-VALUES ('$newTenantId', 12, 90, false, 365, 'en-US', true, 90)
+VALUES ('$srcTenant', '$TargetTenantSlug', 'Prod Mirror (original prod tenant)', 'Active', '$nowUtc', '$nowUtc')
+ON CONFLICT ("Id") DO NOTHING;
+INSERT INTO tenant_settings ("TenantId", "PasswordMinLength", "PasswordExpireDays", "Require2faForAll", "AuditRetentionDays", "DefaultLocale", "SoftDeleteDashboards", "SoftDeleteRetentionDays", "MaxConcurrentConnections", "PurchasedLicences")
+VALUES ('$srcTenant', 12, 90, false, 365, 'en-US', true, 90, 0, 0)
 ON CONFLICT ("TenantId") DO NOTHING;
 "@
-        Invoke-Psql -Database $DbName -Query $insertSettingsQ | Out-Null
-
-        $targetTenant = $newTenantId
-        Write-Host "Created tenant: $targetTenant"
-    }
-}
+$null = Invoke-Psql -Database $DbName -Query $ensureTenantQ
+Write-Host "2.4a: target tenant = source (original prod id) $targetTenant; tenant row ensured."
 
 Write-Host "`nSource tenant:  $srcTenant"
 Write-Host "Target tenant:  $targetTenant"
