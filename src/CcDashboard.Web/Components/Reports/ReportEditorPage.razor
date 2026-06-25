@@ -18,6 +18,7 @@
 @using CcDashboard.Web.Components.ReportWidgets
 @using Microsoft.AspNetCore.Authorization
 @using System.Text.Json
+@using Microsoft.JSInterop
 @implements IDisposable
 
 <PageTitle>@L["Reports_Edit"] — @(Report?.Name ?? "...") — RTM View Shell</PageTitle>
@@ -232,6 +233,7 @@
     private static readonly ReportWidgetType[] WidgetTypes = Enum.GetValues<ReportWidgetType>();
 
     private readonly CancellationTokenSource _cts = new();
+    private DotNetObjectReference<ReportEditorPage>? _dotNetRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -284,6 +286,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender && Report is not null)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("widgetResize.init", _dotNetRef);
+        }
+
         if (!_positionsApplied && PlacedWidgets.Count > 0 && !Loading)
         {
             var positions = PlacedWidgets.Select(w =>
@@ -398,18 +406,7 @@
         Error = null;
         try
         {
-            // Gather current positions from JS
-            var posData = await JS.InvokeAsync<List<WidgetPositionData>>("widgetResize.getAllWidgetPositions");
-            var posDict = posData?.ToDictionary(p => Guid.Parse(p.Id), p => p) ?? new();
-
-            // Update positions in PlacedWidgets
-            foreach (var w in PlacedWidgets)
-            {
-                if (posDict.TryGetValue(w.Id, out var pos))
-                {
-                    w.PositionJson = JsonSerializer.Serialize(new { x = pos.X, y = pos.Y, width = pos.Width, height = pos.Height });
-                }
-            }
+            // Positions are already current in PlacedWidgets via JSInvokable callbacks
 
             // Save widgets
             var widgetRequests = PlacedWidgets.Select(w => new SaveReportWidgetRequest(
@@ -546,33 +543,92 @@
         }
     }
 
-    // Move/Resize handlers - delegate to JS widget-resize.js
+    // Move/Resize handlers - delegate to JS widget-resize.js (REAL API)
     private void StartMove(Guid id, MouseEventArgs e) =>
-        JS.InvokeVoidAsync("widgetResize.startDragWidget", id.ToString(), e.ClientX, e.ClientY);
+        JS.InvokeVoidAsync("widgetResize.startMove", id.ToString(), new { clientX = e.ClientX, clientY = e.ClientY });
 
     private void StartResizeE(Guid id, MouseEventArgs e) =>
-        JS.InvokeVoidAsync("widgetResize.startResizeE", id.ToString(), e.ClientX, e.ClientY);
+        JS.InvokeVoidAsync("widgetResize.startResize", id.ToString(), "e", new { clientX = e.ClientX, clientY = e.ClientY });
 
     private void StartResizeS(Guid id, MouseEventArgs e) =>
-        JS.InvokeVoidAsync("widgetResize.startResizeS", id.ToString(), e.ClientX, e.ClientY);
+        JS.InvokeVoidAsync("widgetResize.startResize", id.ToString(), "s", new { clientX = e.ClientX, clientY = e.ClientY });
 
     private void StartResizeSE(Guid id, MouseEventArgs e) =>
-        JS.InvokeVoidAsync("widgetResize.startResizeSE", id.ToString(), e.ClientX, e.ClientY);
+        JS.InvokeVoidAsync("widgetResize.startResize", id.ToString(), "se", new { clientX = e.ClientX, clientY = e.ClientY });
 
     private void StartResizeN(Guid id, MouseEventArgs e) =>
-        JS.InvokeVoidAsync("widgetResize.startResizeN", id.ToString(), e.ClientX, e.ClientY);
+        JS.InvokeVoidAsync("widgetResize.startResize", id.ToString(), "n", new { clientX = e.ClientX, clientY = e.ClientY });
 
     private void StartResizeW(Guid id, MouseEventArgs e) =>
-        JS.InvokeVoidAsync("widgetResize.startResizeW", id.ToString(), e.ClientX, e.ClientY);
+        JS.InvokeVoidAsync("widgetResize.startResize", id.ToString(), "w", new { clientX = e.ClientX, clientY = e.ClientY });
 
     private void StartResizeNW(Guid id, MouseEventArgs e) =>
-        JS.InvokeVoidAsync("widgetResize.startResizeNW", id.ToString(), e.ClientX, e.ClientY);
+        JS.InvokeVoidAsync("widgetResize.startResize", id.ToString(), "nw", new { clientX = e.ClientX, clientY = e.ClientY });
 
     private void StartResizeNE(Guid id, MouseEventArgs e) =>
-        JS.InvokeVoidAsync("widgetResize.startResizeNE", id.ToString(), e.ClientX, e.ClientY);
+        JS.InvokeVoidAsync("widgetResize.startResize", id.ToString(), "ne", new { clientX = e.ClientX, clientY = e.ClientY });
 
     private void StartResizeSW(Guid id, MouseEventArgs e) =>
-        JS.InvokeVoidAsync("widgetResize.startResizeSW", id.ToString(), e.ClientX, e.ClientY);
+        JS.InvokeVoidAsync("widgetResize.startResize", id.ToString(), "sw", new { clientX = e.ClientX, clientY = e.ClientY });
+
+    // JSInvokable callbacks from widget-resize.js
+    private void ApplyPos(Guid id, int? x = null, int? y = null, int? w = null, int? h = null)
+    {
+        var widget = PlacedWidgets.FirstOrDefault(p => p.Id == id);
+        if (widget is null) return;
+        var pos = ParsePosition(widget.PositionJson);
+        widget.PositionJson = JsonSerializer.Serialize(new {
+            x = x ?? pos.X, y = y ?? pos.Y, width = w ?? pos.Width, height = h ?? pos.Height });
+    }
+
+    [JSInvokable]
+    public void OnWidgetMoved(string widgetIdStr, int left, int top)
+    {
+        if (Guid.TryParse(widgetIdStr, out var id))
+        {
+            ApplyPos(id, x: left, y: top);
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnWidgetResized(string widgetIdStr, int width, int height)
+    {
+        if (Guid.TryParse(widgetIdStr, out var id))
+        {
+            ApplyPos(id, w: width, h: height);
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnWidgetsMoved(List<WidgetMoveData> moves)
+    {
+        foreach (var m in moves)
+        {
+            if (Guid.TryParse(m.Id, out var id))
+                ApplyPos(id, x: m.Left, y: m.Top);
+        }
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnMarqueeSelect(string[] widgetIds)
+    {
+        // Single-select model: set SelectedWidgetId to first parsed, or null
+        if (widgetIds.Length > 0 && Guid.TryParse(widgetIds[0], out var id))
+            SelectedWidgetId = id;
+        else
+            SelectedWidgetId = null;
+        StateHasChanged();
+    }
+
+    public class WidgetMoveData
+    {
+        public string Id { get; set; } = "";
+        public int Left { get; set; }
+        public int Top { get; set; }
+    }
 
     // Helpers
     private string GetWidgetStyle(PlacedReportWidget widget)
@@ -659,7 +715,12 @@
         _ => "bi-grid"
     };
 
-    public void Dispose() => _cts.Cancel();
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _ = JS.InvokeVoidAsync("widgetResize.dispose");
+        _dotNetRef?.Dispose();
+    }
 
     private record WidgetPosition(int X, int Y, int Width, int Height);
 
@@ -674,12 +735,4 @@
         public bool IsDeleted { get; set; }
     }
 
-    private class WidgetPositionData
-    {
-        public string Id { get; set; } = "";
-        public int X { get; set; }
-        public int Y { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
-    }
 }
