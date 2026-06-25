@@ -38,9 +38,8 @@ public class ReportWidgetConfigValidator : AbstractValidator<ReportWidgetConfig>
             .When(x => x.Scope.Mode.Equals("queues", StringComparison.OrdinalIgnoreCase))
             .WithMessage("QueueIds required when Scope.Mode='queues'");
 
-        RuleFor(x => x.Columns)
-            .NotEmpty()
-            .WithMessage("Columns cannot be empty");
+        // Columns are OPTIONAL in v1 — server supplies DefaultColumns per WidgetType when null/empty.
+        // Full Columns picker deferred to v1.1.
 
         RuleFor(x => x.Interval)
             .Must(i => !i.HasValue || ValidIntervals.Contains(i.Value))

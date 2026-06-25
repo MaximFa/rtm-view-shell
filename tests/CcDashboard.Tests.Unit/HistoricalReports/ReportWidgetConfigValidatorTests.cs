@@ -116,8 +116,9 @@ public class ReportWidgetConfigValidatorTests
     }
 
     [Fact]
-    public void EmptyColumns_Fails()
+    public void EmptyColumns_Valid_v1()
     {
+        // v1: Columns are OPTIONAL — server supplies DefaultColumns when null/empty
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
@@ -132,8 +133,49 @@ public class ReportWidgetConfigValidatorTests
         var validator = new ReportWidgetConfigValidator();
         var result = validator.Validate(config);
 
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("Columns"));
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void NullColumns_Valid_v1()
+    {
+        // v1: Columns are OPTIONAL — server supplies DefaultColumns when null/empty
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = new[] { 1 }
+            },
+            Columns = null,
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ScopeOnlyConfig_Valid_v1()
+    {
+        // v1: A Scope-only config (no columns) is VALID — server supplies DefaultColumns
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = new[] { 1, 2 }
+            },
+            PageSize = 25
+            // NO Columns property
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeTrue();
     }
 
     [Theory]
@@ -329,4 +371,131 @@ public class ReportWidgetConfigValidatorTests
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName.Contains("Title"));
     }
+
+    #region DefaultColumns and GetEffectiveColumns tests
+
+    [Theory]
+    [InlineData(ReportWidgetType.QueueInterval, new[] { "IntervalStart", "Workgroup", "Offered", "Answered", "Abandoned", "AnsweredInSl", "AbandonPct", "SlPct", "Asa", "QueueAht" })]
+    [InlineData(ReportWidgetType.QueueWaitTime, new[] { "IntervalStart", "Workgroup", "Answered", "Asa", "AnsweredInSl", "SlPct" })]
+    [InlineData(ReportWidgetType.Distribution, new[] { "Label", "Count", "Percentage" })]
+    public void DefaultColumns_ReturnsCorrectColumnsPerType(ReportWidgetType widgetType, string[] expectedColumns)
+    {
+        var columns = ReportWidgetConfig.DefaultColumns(widgetType);
+
+        columns.Should().BeEquivalentTo(expectedColumns, opts => opts.WithStrictOrdering());
+    }
+
+    [Fact]
+    public void DefaultColumns_AgentMonthly_ReturnsExpected()
+    {
+        var columns = ReportWidgetConfig.DefaultColumns(ReportWidgetType.AgentMonthly);
+
+        columns.Should().Contain("YearMonth");
+        columns.Should().Contain("AgentExternalId");
+        columns.Should().Contain("OccupancyPct");
+        columns.Should().Contain("AgentAht");
+    }
+
+    [Fact]
+    public void DefaultColumns_AgentShiftDetail_ReturnsExpected()
+    {
+        var columns = ReportWidgetConfig.DefaultColumns(ReportWidgetType.AgentShiftDetail);
+
+        columns.Should().Contain("IntervalStart");
+        columns.Should().Contain("AgentExternalId");
+        columns.Should().Contain("TalkPureMs");
+    }
+
+    [Fact]
+    public void GetEffectiveColumns_WithExplicitColumns_ReturnsExplicit()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope { Mode = "bu", BusinessUnitIds = new[] { 1 } },
+            Columns = new[] { "Offered", "Abandoned" },
+            PageSize = 25
+        };
+
+        var effective = config.GetEffectiveColumns(ReportWidgetType.QueueInterval);
+
+        effective.Should().BeEquivalentTo(new[] { "Offered", "Abandoned" }, opts => opts.WithStrictOrdering());
+    }
+
+    [Fact]
+    public void GetEffectiveColumns_WithNullColumns_ReturnsDefaults()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope { Mode = "bu", BusinessUnitIds = new[] { 1 } },
+            Columns = null,
+            PageSize = 25
+        };
+
+        var effective = config.GetEffectiveColumns(ReportWidgetType.QueueInterval);
+
+        effective.Should().BeEquivalentTo(ReportWidgetConfig.DefaultColumns(ReportWidgetType.QueueInterval));
+    }
+
+    [Fact]
+    public void GetEffectiveColumns_WithEmptyColumns_ReturnsDefaults()
+    {
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope { Mode = "bu", BusinessUnitIds = new[] { 1 } },
+            Columns = Array.Empty<string>(),
+            PageSize = 25
+        };
+
+        var effective = config.GetEffectiveColumns(ReportWidgetType.QueueWaitTime);
+
+        effective.Should().BeEquivalentTo(ReportWidgetConfig.DefaultColumns(ReportWidgetType.QueueWaitTime));
+    }
+
+    #endregion
+
+    #region Scope rules still enforced (SF-BI-001 intact)
+
+    [Fact]
+    public void ScopeOnlyConfig_MissingMode_StillFails()
+    {
+        // Scope rules STAY required even when Columns is optional
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "", // Empty mode
+                BusinessUnitIds = new[] { 1 }
+            },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("Mode"));
+    }
+
+    [Fact]
+    public void ScopeOnlyConfig_BuModeWithoutBUs_StillFails()
+    {
+        // Scope rules STAY required even when Columns is optional
+        var config = new ReportWidgetConfig
+        {
+            Scope = new ReportWidgetScope
+            {
+                Mode = "bu",
+                BusinessUnitIds = Array.Empty<int>() // Empty BU list
+            },
+            PageSize = 25
+        };
+
+        var validator = new ReportWidgetConfigValidator();
+        var result = validator.Validate(config);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("BusinessUnitIds"));
+    }
+
+    #endregion
 }

@@ -331,4 +331,128 @@ public class RunReportWidgetQueryTests
         result.Error.Should().NotBeNullOrEmpty();
         result.Error.Should().Contain("AgentAxis");
     }
+
+    #region Columns optional v1 tests
+
+    [Fact]
+    public async Task ScopeOnlyConfig_NoColumns_ReturnsDefaultColumns()
+    {
+        // v1: Columns optional — server supplies DefaultColumns for the widget type
+        var configJson = """
+        {
+            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "pageSize": 25
+        }
+        """;
+
+        _scopeService.ResolveQueueScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), Arg.Any<CancellationToken>())
+            .Returns(new ReportWidgetScopeResult
+            {
+                FullScope = true,
+                EffectiveWorkgroups = new HashSet<string> { "Sales" }
+            });
+
+        _repo.GetQueueIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<HistQueueInterval>
+            {
+                new() { Id = Guid.NewGuid(), TenantId = TenantId, IntervalStart = DateTime.UtcNow, Workgroup = "Sales", Offered = 10 }
+            });
+
+        var result = await _handler.Handle(
+            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            CancellationToken.None);
+
+        result.Error.Should().BeNull();
+        result.Denied.Should().BeFalse();
+        result.EffectiveColumns.Should().NotBeNull();
+        result.EffectiveColumns.Should().BeEquivalentTo(ReportWidgetConfig.DefaultColumns(ReportWidgetType.QueueInterval));
+    }
+
+    [Fact]
+    public async Task ExplicitColumns_PreservedInResult()
+    {
+        var configJson = """
+        {
+            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "columns": ["Offered", "Answered"],
+            "pageSize": 25
+        }
+        """;
+
+        _scopeService.ResolveQueueScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), Arg.Any<CancellationToken>())
+            .Returns(new ReportWidgetScopeResult
+            {
+                FullScope = true,
+                EffectiveWorkgroups = new HashSet<string> { "Sales" }
+            });
+
+        _repo.GetQueueIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<HistQueueInterval>());
+
+        var result = await _handler.Handle(
+            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            CancellationToken.None);
+
+        result.EffectiveColumns.Should().BeEquivalentTo(new[] { "Offered", "Answered" });
+    }
+
+    [Theory]
+    [InlineData(ReportWidgetType.QueueInterval)]
+    [InlineData(ReportWidgetType.QueueWaitTime)]
+    [InlineData(ReportWidgetType.Distribution)]
+    public async Task AllQueueWidgetTypes_NoColumns_UseDefaultColumns(ReportWidgetType widgetType)
+    {
+        var configJson = """
+        {
+            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "pageSize": 25
+        }
+        """;
+
+        _scopeService.ResolveQueueScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), Arg.Any<CancellationToken>())
+            .Returns(new ReportWidgetScopeResult
+            {
+                FullScope = true,
+                EffectiveWorkgroups = new HashSet<string> { "Sales" }
+            });
+
+        _repo.GetQueueIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<HistQueueInterval>());
+
+        var result = await _handler.Handle(
+            new RunReportWidgetQuery(widgetType, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            CancellationToken.None);
+
+        result.EffectiveColumns.Should().BeEquivalentTo(ReportWidgetConfig.DefaultColumns(widgetType));
+    }
+
+    [Fact]
+    public async Task AgentMonthly_NoColumns_UsesDefaultColumns()
+    {
+        var configJson = """
+        {
+            "scope": { "mode": "bu", "businessUnitIds": [1], "agentAxis": "detail" },
+            "pageSize": 25
+        }
+        """;
+
+        _scopeService.ResolveAgentScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), AgentReportAxis.Detail, Arg.Any<CancellationToken>())
+            .Returns(new ReportWidgetScopeResult
+            {
+                FullScope = true,
+                EffectiveAgentIds = new HashSet<string> { "agent1" }
+            });
+
+        _repo.GetAgentIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<HistAgentInterval>());
+
+        var result = await _handler.Handle(
+            new RunReportWidgetQuery(ReportWidgetType.AgentMonthly, configJson, DateTime.UtcNow.AddDays(-30), DateTime.UtcNow),
+            CancellationToken.None);
+
+        result.Error.Should().BeNull();
+        result.EffectiveColumns.Should().BeEquivalentTo(ReportWidgetConfig.DefaultColumns(ReportWidgetType.AgentMonthly));
+    }
+
+    #endregion
 }

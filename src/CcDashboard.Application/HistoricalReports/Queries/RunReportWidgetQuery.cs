@@ -30,6 +30,12 @@ public record ReportWidgetResult
     /// <summary>Error message if validation or scope resolution failed.</summary>
     public string? Error { get; init; }
 
+    /// <summary>
+    /// Effective columns to render: config.Columns if specified, else DefaultColumns for the widget type.
+    /// Frontend uses this to know which columns to display when config had no explicit selection.
+    /// </summary>
+    public IReadOnlyList<string>? EffectiveColumns { get; init; }
+
     /// <summary>QueueInterval result (populated when WidgetType = QueueInterval).</summary>
     public QueueIntervalReportResult? QueueInterval { get; init; }
 

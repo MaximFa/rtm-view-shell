@@ -16,8 +16,8 @@ public record ReportWidgetConfig
     /// <summary>Scope configuration: mode + filter IDs.</summary>
     public required ReportWidgetScope Scope { get; init; }
 
-    /// <summary>Columns to display (non-empty required).</summary>
-    public required IReadOnlyList<string> Columns { get; init; }
+    /// <summary>Columns to display. OPTIONAL in v1 — if null/empty, server uses DefaultColumns per WidgetType.</summary>
+    public IReadOnlyList<string>? Columns { get; init; }
 
     /// <summary>Threshold configuration (opaque, passed through).</summary>
     public JsonElement? Thresholds { get; init; }
@@ -48,6 +48,49 @@ public record ReportWidgetConfig
         return JsonSerializer.Deserialize<ReportWidgetConfig>(configJson, options)
                ?? throw new JsonException("ConfigJson deserialized to null");
     }
+
+    /// <summary>
+    /// Get the effective columns: config.Columns if non-empty, else DefaultColumns for the widget type.
+    /// v1: Columns picker is stub-disabled; server provides standard set when config has no columns.
+    /// </summary>
+    public IReadOnlyList<string> GetEffectiveColumns(ReportWidgetType widgetType)
+    {
+        if (Columns is { Count: > 0 })
+            return Columns;
+        return DefaultColumns(widgetType);
+    }
+
+    /// <summary>
+    /// Default/standard columns per widget type — derived from row DTO fields.
+    /// Used when ConfigJson.Columns is null/empty (v1 behavior).
+    /// </summary>
+    public static IReadOnlyList<string> DefaultColumns(ReportWidgetType widgetType) => widgetType switch
+    {
+        ReportWidgetType.QueueInterval => new[]
+        {
+            "IntervalStart", "Workgroup", "Offered", "Answered", "Abandoned",
+            "AnsweredInSl", "AbandonPct", "SlPct", "Asa", "QueueAht"
+        },
+        ReportWidgetType.QueueWaitTime => new[]
+        {
+            "IntervalStart", "Workgroup", "Answered", "Asa", "AnsweredInSl", "SlPct"
+        },
+        ReportWidgetType.AgentMonthly => new[]
+        {
+            "YearMonth", "AgentExternalId", "AgentDisplayName", "SumAvailableMs", "SumOnphoneMs",
+            "Handled", "OccupancyPct", "AgentAht"
+        },
+        ReportWidgetType.AgentShiftDetail => new[]
+        {
+            "IntervalStart", "AgentExternalId", "AgentDisplayName", "SumAvailableMs", "SumOnphoneMs",
+            "Handled", "OccupancyPct", "AgentAht", "TalkPureMs"
+        },
+        ReportWidgetType.Distribution => new[]
+        {
+            "Label", "Count", "Percentage"
+        },
+        _ => Array.Empty<string>()
+    };
 }
 
 /// <summary>Scope configuration: mode determines which filter IDs are used.</summary>

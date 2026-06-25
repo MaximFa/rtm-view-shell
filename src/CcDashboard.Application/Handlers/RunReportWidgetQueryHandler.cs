@@ -54,19 +54,22 @@ public class RunReportWidgetQueryHandler(
         var from = query.From.Date;
         var toExclusive = query.To.Date.AddDays(1);
 
+        // Compute effective columns: config.Columns if non-empty, else DefaultColumns per WidgetType
+        var effectiveColumns = config.GetEffectiveColumns(query.WidgetType);
+
         return query.WidgetType switch
         {
-            ReportWidgetType.QueueInterval => await RunQueueIntervalAsync(tenantId, config, from, toExclusive, query.Page, ct),
-            ReportWidgetType.QueueWaitTime => await RunQueueWaitTimeAsync(tenantId, config, from, toExclusive, query.Page, ct),
-            ReportWidgetType.AgentMonthly => await RunAgentMonthlyAsync(tenantId, config, from, toExclusive, query.Page, ct),
-            ReportWidgetType.AgentShiftDetail => await RunAgentShiftDetailAsync(tenantId, config, from, toExclusive, query.Page, ct),
-            ReportWidgetType.Distribution => await RunDistributionAsync(tenantId, config, from, toExclusive, ct),
+            ReportWidgetType.QueueInterval => await RunQueueIntervalAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, ct),
+            ReportWidgetType.QueueWaitTime => await RunQueueWaitTimeAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, ct),
+            ReportWidgetType.AgentMonthly => await RunAgentMonthlyAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, ct),
+            ReportWidgetType.AgentShiftDetail => await RunAgentShiftDetailAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, ct),
+            ReportWidgetType.Distribution => await RunDistributionAsync(tenantId, config, effectiveColumns, from, toExclusive, ct),
             _ => ReportWidgetResult.CreateError(query.WidgetType, $"Unknown widget type: {query.WidgetType}")
         };
     }
 
     private async Task<ReportWidgetResult> RunQueueIntervalAsync(
-        Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
     {
         var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
 
@@ -101,12 +104,13 @@ public class RunReportWidgetQueryHandler(
         return new ReportWidgetResult
         {
             WidgetType = ReportWidgetType.QueueInterval,
+            EffectiveColumns = effectiveColumns,
             QueueInterval = new QueueIntervalReportResult(pagedRows, totalCount, page, pageSize)
         };
     }
 
     private async Task<ReportWidgetResult> RunQueueWaitTimeAsync(
-        Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
     {
         var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
 
@@ -139,12 +143,13 @@ public class RunReportWidgetQueryHandler(
         return new ReportWidgetResult
         {
             WidgetType = ReportWidgetType.QueueWaitTime,
+            EffectiveColumns = effectiveColumns,
             QueueWaitTime = new QueueWaitTimeReportResult(pagedRows, totalCount, page, pageSize, overallAsa)
         };
     }
 
     private async Task<ReportWidgetResult> RunAgentMonthlyAsync(
-        Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
     {
         var axis = config.Scope.AgentAxis ?? AgentReportAxis.Detail;
         var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, axis, ct);
@@ -203,12 +208,13 @@ public class RunReportWidgetQueryHandler(
         return new ReportWidgetResult
         {
             WidgetType = ReportWidgetType.AgentMonthly,
+            EffectiveColumns = effectiveColumns,
             AgentMonthly = new AgentMonthlyReportResult(pagedRows, totalCount, page, pageSize)
         };
     }
 
     private async Task<ReportWidgetResult> RunAgentShiftDetailAsync(
-        Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
     {
         var axis = config.Scope.AgentAxis ?? AgentReportAxis.Detail;
         var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, axis, ct);
@@ -249,12 +255,13 @@ public class RunReportWidgetQueryHandler(
         return new ReportWidgetResult
         {
             WidgetType = ReportWidgetType.AgentShiftDetail,
+            EffectiveColumns = effectiveColumns,
             AgentShiftDetail = new AgentShiftDetailReportResult(pagedRows, totalCount, page, pageSize)
         };
     }
 
     private async Task<ReportWidgetResult> RunDistributionAsync(
-        Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, CancellationToken ct)
     {
         var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
 
@@ -275,6 +282,7 @@ public class RunReportWidgetQueryHandler(
         return new ReportWidgetResult
         {
             WidgetType = ReportWidgetType.Distribution,
+            EffectiveColumns = effectiveColumns,
             Distribution = new DistributionReportResult(buckets, totalAnswered, overallAsa)
         };
     }
