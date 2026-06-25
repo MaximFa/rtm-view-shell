@@ -52,6 +52,9 @@ Cardinal truths (source-pinned):
 - 2026-06-21 · Compare [A] for a tables+functions split repo: dump the SERVER tables-only via the SAME -t whitelist as schema.sql and line-diff tables vs schema.sql; validate ROUTINES by name+identity-args presence (pg_get_function_identity_arguments) vs db/functions CREATE set + prokind ([B]) — NEVER line-diff raw db/functions source vs pg_dump output (pg_dump canonicalizes -> every routine double-counts as missing+extra; my R0d concat blew A 12->106). On a fresh rebuild function drift is impossible by construction; presence/prokind is the meaningful routine check. · SOURCE: R0d (iv) wrong, R0e fix, proof delta 20260621-204906 · status: active
 - 2026-06-25 · ref: visual-check prep runbook = **docs/Visual-Test-Preflight.md** (profiles A=rebuild / B=running; shared gate Chrome→Soma /health:5199→Shell /ops/health.up→restart×3→start). Use when running or awaiting a visual check. · SOURCE: docs/Visual-Test-Preflight.md · status: active
 
+- 2026-06-25 · PS native pg-tool call whose stderr is PIPED to a cmdlet (| Out-Null / | Tee-Object) under $ErrorActionPreference='Stop' turns BENIGN stderr (dropdb NOTICE) into a terminating NativeCommandError; variable-capture ($x = & tool 2>&1 + $LASTEXITCODE) is safe. FIX: route native calls through an Invoke-Native helper (EAP='Continue' local + $LASTEXITCODE), never pipe native stderr under Stop. · SOURCE: Seed-ProdMirror.ps1 Inspect run 2026-06-25 (dropdb L260) · status: active
+- 2026-06-25 · `Join-String` is a PS7-only cmdlet — absent in Windows PowerShell 5.1; use the `-join` OPERATOR (wrap source in @() for single-item uniformity). Grep new PS1 for Join-String before ship. · SOURCE: Seed-ProdMirror.ps1 L556/L571 · status: active
+
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path "db/tools/Compare-ToBaseline.ps1"` — must be True
 2. `Select-String -Path "db/schema.sql" -Pattern "CREATE TABLE"` — expect count >10

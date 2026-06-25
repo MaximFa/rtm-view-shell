@@ -116,6 +116,29 @@ function Invoke-PsqlFile {
     return $result
 }
 
+
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory=$true)][string]$Exe,
+        [string[]]$Arguments = @(),
+        [string]$LogFile,
+        [switch]$SoftFail   # log + return exit code; do NOT throw on non-zero
+    )
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'   # native stderr must NOT terminate
+    try {
+        $out = & $Exe @Arguments 2>&1
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+    if ($LogFile) { $out | Out-File -FilePath $LogFile -Encoding utf8 }
+    if (($code -ne 0) -and (-not $SoftFail)) {
+        throw ("{0} exited {1}: {2}" -f $Exe, $code, ($out -join [Environment]::NewLine))
+    }
+    return [pscustomobject]@{ Code = $code; Output = $out }
+}
+
 function Get-TableColumns {
     param([string]$Database, [string]$TableName)
     $schema = "public"
@@ -243,10 +266,7 @@ Write-Host "Creating backup: $backupPath"
 
 $env:PGPASSWORD = $SuperPassword
 $backupArgs = @("-Fc", "-U", $SuperUser, "-d", $DbName, "-f", $backupPath)
-& $pgDump @backupArgs 2>&1 | Tee-Object -Variable backupOutput
-if ($LASTEXITCODE -ne 0) {
-    throw "pg_dump backup failed (exit $LASTEXITCODE): $backupOutput"
-}
+$backup = Invoke-Native -Exe $pgDump -Arguments $backupArgs   # must succeed -> throws on non-zero
 Write-Host "Backup created: $backupPath ($('{0:N2}' -f ((Get-Item $backupPath).Length / 1MB)) MB)" -ForegroundColor Green
 
 # =============================================================================
@@ -257,29 +277,21 @@ Write-Banner "PHASE 2 — Restore to Staging"
 # Drop existing staging DB
 Write-Host "Dropping staging DB (if exists): $StagingDb"
 $env:PGPASSWORD = $SuperPassword
-& $dropdb -U $SuperUser --if-exists $StagingDb 2>&1 | Out-Null
+$null = Invoke-Native -Exe $dropdb -Arguments @("-U", $SuperUser, "--if-exists", $StagingDb) -SoftFail
 
 # Create staging DB
 Write-Host "Creating staging DB: $StagingDb"
-& $createdb -U $SuperUser -O $SuperUser $StagingDb 2>&1
-if ($LASTEXITCODE -ne 0) {
-    throw "createdb failed for $StagingDb"
-}
+$null = Invoke-Native -Exe $createdb -Arguments @("-U", $SuperUser, "-O", $SuperUser, $StagingDb)  # must succeed
 
 # Restore into staging
 $restoreLog = Join-Path $prodMirrorDir "staging_restore_$ts.log"
 Write-Host "Restoring dump into staging (this may take a while)..."
 Write-Host "Log: $restoreLog"
 
-$prevErrPref = $ErrorActionPreference
-$ErrorActionPreference = 'Continue'
-
 $env:PGPASSWORD = $SuperPassword
 $restoreArgs = @("--no-owner", "--no-privileges", "--no-acl", "-d", $StagingDb, $DumpPath)
-& $pgRestore -U $SuperUser @restoreArgs 2>&1 | Tee-Object -FilePath $restoreLog
-
-$restoreExit = $LASTEXITCODE
-$ErrorActionPreference = $prevErrPref
+$restore = Invoke-Native -Exe $pgRestore -Arguments (@("-U", $SuperUser) + $restoreArgs) -LogFile $restoreLog -SoftFail
+$restoreExit = $restore.Code
 
 # pg_restore returns non-zero on NOTICEs/role-missing but that's expected
 # Check log for hard errors
@@ -385,6 +397,66 @@ $inspectLines += "All TenantIds found:"
 foreach ($tid in $srcTenantIds.Keys) {
     $inspectLines += "  $tid : $($srcTenantIds[$tid] -join ', ')"
 }
+
+# RTSData_* timestamp ranges (for RTM backfill planning)
+$inspectLines += ""
+$inspectLines += "=" * 60
+$inspectLines += "RTSDATA TIMESTAMP RANGES"
+$inspectLines += ""
+
+if ($clientTenant) {
+    # Check if InQueueDateTime column exists
+    $colCheckQ = "SELECT column_name FROM information_schema.columns WHERE table_name = 'RTSData_Interaction' AND column_name = 'InQueueDateTime'"
+    $colCheckResult = Invoke-Psql -Database $StagingDb -Query $colCheckQ -TuplesOnly -NoHeaders
+    $hasInQueueDateTime = ($colCheckResult | Where-Object { $_ -and $_.Trim() }).Count -gt 0
+
+    if ($hasInQueueDateTime) {
+        $tsQ = @"
+SELECT
+    min("InQueueDateTime"), max("InQueueDateTime"),
+    min("AnsweredDateTime"), max("AnsweredDateTime"),
+    min("UpdateTime"), max("UpdateTime")
+FROM "RTSData_Interaction" WHERE "TenantId" = '$clientTenant'
+"@
+        $tsResult = Invoke-Psql -Database $StagingDb -Query $tsQ -TuplesOnly -NoHeaders
+        $tsParts = ($tsResult | Where-Object { $_ -and $_.Trim() } | Select-Object -First 1)
+        if ($tsParts) {
+            $tsVals = $tsParts -split '\|'
+            if ($tsVals.Count -ge 6) {
+                $inspectLines += "RTSData_Interaction InQueueDateTime [min..max]: $($tsVals[0].Trim()) .. $($tsVals[1].Trim())"
+                $inspectLines += "RTSData_Interaction AnsweredDateTime [min..max]: $($tsVals[2].Trim()) .. $($tsVals[3].Trim())"
+                $inspectLines += "RTSData_Interaction UpdateTime [min..max]: $($tsVals[4].Trim()) .. $($tsVals[5].Trim())"
+            }
+        }
+    } else {
+        $inspectLines += "RTSData_Interaction: InQueueDateTime column not found"
+    }
+
+    # Check RTSData_UserStatus timestamp columns
+    $usColCheckQ = "SELECT column_name FROM information_schema.columns WHERE table_name = 'RTSData_UserStatus' AND column_name IN ('CreatedAt', 'UpdatedAt', 'StatusTime')"
+    $usColCheckResult = Invoke-Psql -Database $StagingDb -Query $usColCheckQ -TuplesOnly -NoHeaders
+    $usTimestampCols = @($usColCheckResult | Where-Object { $_ -and $_.Trim() } | ForEach-Object { $_.Trim() })
+    if ($usTimestampCols.Count -gt 0) {
+        foreach ($tsCol in $usTimestampCols) {
+            $ustsQ = "SELECT min(`"$tsCol`"), max(`"$tsCol`") FROM `"RTSData_UserStatus`" WHERE `"TenantId`" = '$clientTenant'"
+            $ustsResult = Invoke-Psql -Database $StagingDb -Query $ustsQ -TuplesOnly -NoHeaders
+            $usParts = ($ustsResult | Where-Object { $_ -and $_.Trim() } | Select-Object -First 1)
+            if ($usParts) {
+                $usVals = $usParts -split '\|'
+                if ($usVals.Count -ge 2) {
+                    $inspectLines += "RTSData_UserStatus $tsCol [min..max]: $($usVals[0].Trim()) .. $($usVals[1].Trim())"
+                }
+            }
+        }
+    } else {
+        $inspectLines += "RTSData_UserStatus: no timestamp columns found"
+    }
+} else {
+    $inspectLines += "WARNING: No client tenant - cannot report timestamp ranges"
+}
+
+$inspectLines += ""
+$inspectLines += "RE-STAMP POLICY: TenantId-ONLY -- business timestamps (InQueueDateTime/AnsweredDateTime/UpdateTime) are PRESERVED at their ORIGINAL historical values (NOT re-stamped). hist_* backfill must cover the [min,max] above (DEFAULT partition covers old months for the one-time proof)."
 
 # Write inspect report
 $inspectLines | Set-Content -Path $inspectPath -Encoding UTF8
@@ -553,7 +625,7 @@ foreach ($t in $tablesToLoad) {
         $whereClause = "WHERE `"TenantId`" = '$srcTenant'"
     } else {
         # Non-tenant table - load as-is
-        $selectExpr = $intCols | ForEach-Object { "`"$_`"" } | Join-String -Separator ", "
+        $selectExpr = @($intCols | ForEach-Object { "`"$_`"" }) -join ", "
         $whereClause = ""
     }
 
@@ -568,7 +640,7 @@ foreach ($t in $tablesToLoad) {
     }
 
     # Build COPY FROM command
-    $colList = $intCols | ForEach-Object { "`"$_`"" } | Join-String -Separator ", "
+    $colList = @($intCols | ForEach-Object { "`"$_`"" }) -join ", "
     $loadSql += "-- Load $tbl"
     $loadSql += "\copy `"$tbl`" ($colList) FROM '$csvPath' WITH (FORMAT csv, HEADER false);"
     $loadSql += ""
