@@ -166,4 +166,37 @@ public class ReportScreenRepository(AppDbContext db) : IReportScreenRepository
     {
         await db.ReportWidgets.AddAsync(widget, ct);
     }
+
+    public async Task<ReportScreen?> GetByIdForPurgeAsync(Guid id, Guid tenantId, CancellationToken ct = default)
+    {
+        return await db.ReportScreens
+            .IgnoreQueryFilters()
+            .Include(s => s.Widgets)
+            .Include(s => s.Permissions)
+            .Include(s => s.Schedules)
+            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId, ct);
+    }
+
+    public async Task PurgeAsync(ReportScreen screen, CancellationToken ct = default)
+    {
+        // Explicit cascade-agnostic removal: children first, then parent
+        // IgnoreQueryFilters needed because widgets have !IsDeleted GQF too
+        var widgets = await db.ReportWidgets
+            .IgnoreQueryFilters()
+            .Where(w => w.ReportScreenId == screen.Id)
+            .ToListAsync(ct);
+        db.ReportWidgets.RemoveRange(widgets);
+
+        var permissions = await db.ReportPermissions
+            .Where(p => p.ReportScreenId == screen.Id)
+            .ToListAsync(ct);
+        db.ReportPermissions.RemoveRange(permissions);
+
+        var schedules = await db.ReportSchedules
+            .Where(s => s.ReportScreenId == screen.Id)
+            .ToListAsync(ct);
+        db.ReportSchedules.RemoveRange(schedules);
+
+        db.ReportScreens.Remove(screen);
+    }
 }
