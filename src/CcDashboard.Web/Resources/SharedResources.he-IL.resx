@@ -855,7 +855,7 @@
   <data name="ReportWidget_Configure"><value>הגדרת ווידג'ט דוח</value></data>
   <data name="ReportWidget_Title"><value>כותרת</value></data>
   <data name="ReportWidget_ColumnsHint"><value>הגדרת עמודות תהיה זמינה בעדכון עתידי.</value></data>
-  <data name="ReportWidget_ThresholdsHint"><value>הגדרת ספים תהיה זמינה בעדכון עתידי.</value></data>
+  <data name="ReportWidget_ThresholdsHint"><value>ספים לפי עמודה — זמין בגרסה v1.1 (יחד עם בורר העמודות המלא).</value></data>
   <data name="Reports_Title"><value>דוחות</value></data>
   <data name="Reports_New"><value>+ דוח חדש</value></data>
   <data name="Reports_SearchPlaceholder"><value>חיפוש דוחות...</value></data>

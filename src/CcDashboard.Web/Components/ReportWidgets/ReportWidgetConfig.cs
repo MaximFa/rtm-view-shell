@@ -100,4 +100,10 @@ public record AppearanceConfig
 
     [JsonPropertyName("darkTextColor")]
     public string? DarkTextColor { get; init; }
+
+    [JsonPropertyName("lightTableBackground")]
+    public string? LightTableBackground { get; init; }
+
+    [JsonPropertyName("darkTableBackground")]
+    public string? DarkTableBackground { get; init; }
 }

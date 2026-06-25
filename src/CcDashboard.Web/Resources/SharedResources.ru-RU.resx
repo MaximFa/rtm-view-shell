@@ -955,7 +955,7 @@
   <data name="ReportWidget_Configure"><value>Настройка виджета отчёта</value></data>
   <data name="ReportWidget_Title"><value>Заголовок</value></data>
   <data name="ReportWidget_ColumnsHint"><value>Настройка столбцов будет доступна в будущем обновлении.</value></data>
-  <data name="ReportWidget_ThresholdsHint"><value>Настройка пороговых значений будет доступна в будущем обновлении.</value></data>
+  <data name="ReportWidget_ThresholdsHint"><value>Пороговые значения по столбцам — доступно в v1.1 (вместе с полным выбором столбцов).</value></data>
   <data name="Reports_Title"><value>Отчёты</value></data>
   <data name="Reports_New"><value>+ Новый отчёт</value></data>
   <data name="Reports_SearchPlaceholder"><value>Поиск отчётов...</value></data>

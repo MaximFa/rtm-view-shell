@@ -1014,7 +1014,7 @@
   <data name="ReportWidget_Configure"><value>Configure Report Widget</value></data>
   <data name="ReportWidget_Title"><value>Title</value></data>
   <data name="ReportWidget_ColumnsHint"><value>Column configuration will be available in a future update.</value></data>
-  <data name="ReportWidget_ThresholdsHint"><value>Threshold configuration will be available in a future update.</value></data>
+  <data name="ReportWidget_ThresholdsHint"><value>Per-column thresholds — available in v1.1 (together with the full Columns picker).</value></data>
   <data name="Reports_Title"><value>Reports</value></data>
   <data name="Reports_New"><value>+ New report</value></data>
   <data name="Reports_SearchPlaceholder"><value>Search reports...</value></data>

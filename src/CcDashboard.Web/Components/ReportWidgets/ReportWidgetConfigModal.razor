@@ -1,12 +1,15 @@
 @using Microsoft.Extensions.Localization
 @using MediatR
 @using CcDashboard.Application.Queries.Configuration
+@using CcDashboard.Application.Queries.TenantSettings
 @using CcDashboard.Contracts.DTOs.Configuration
 @using CcDashboard.Domain.Domain.Reports
+@using CcDashboard.Domain.Interfaces
 @using Microsoft.Extensions.Logging
 @inject IStringLocalizer<SharedResources> L
 @inject IMediator Mediator
 @inject ILogger<ReportWidgetConfigModal> Logger
+@inject ICurrentUserAccessor CurrentUser
 
 @if (IsOpen)
 {
@@ -162,37 +165,184 @@
                     }
                     else if (_tab == "appearance")
                     {
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6>@L["WidgetCfg_LightMode"]</h6>
-                                <div class="mb-2">
-                                    <label class="form-label small">@L["Widgets_TableFontSize"]</label>
+                        <!-- Typography Section -->
+                        <div class="appearance-section mb-4">
+                            <h6 class="section-label">@L["WidgetCfg_Typography"]</h6>
+                            <div class="row align-items-end">
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-1">@L["Widgets_TableFontSize"]</label>
                                     <select class="form-select form-select-sm" @bind="_tableFontSize">
-                                        <option value="">@L["Common_Select"]</option>
-                                        <option value="small">@L["Widgets_FontSize_Small"]</option>
-                                        <option value="normal">@L["Widgets_FontSize_Normal"]</option>
-                                        <option value="large">@L["Widgets_FontSize_Large"]</option>
+                                        @foreach (var size in _tenantFontSizes)
+                                        {
+                                            <option value="@size">@size px</option>
+                                        }
                                     </select>
                                 </div>
-                                <div class="mb-2">
-                                    <label class="form-label small">@L["Widgets_HeaderFontSize"]</label>
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-1">@L["Widgets_HeaderFontSize"]</label>
                                     <select class="form-select form-select-sm" @bind="_headerFontSize">
-                                        <option value="">@L["Common_Select"]</option>
-                                        <option value="small">@L["Widgets_FontSize_Small"]</option>
-                                        <option value="normal">@L["Widgets_FontSize_Normal"]</option>
-                                        <option value="large">@L["Widgets_FontSize_Large"]</option>
+                                        @foreach (var size in _tenantFontSizes)
+                                        {
+                                            <option value="@size">@size px</option>
+                                        }
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <h6>@L["WidgetCfg_DarkMode"]</h6>
-                                <div class="mb-2">
-                                    <label class="form-label small">@L["WidgetCfg_WidgetBackground"]</label>
-                                    <input type="color" class="form-control form-control-sm form-control-color" @bind="_darkBackground" />
+                        </div>
+
+                        <!-- Colors Section -->
+                        <div class="appearance-section mb-4">
+                            <h6 class="section-label">@L["WidgetCfg_Colors"]</h6>
+                            <div class="rw-color-grid">
+                                <div class="rw-color-header"></div>
+                                <div class="rw-color-header text-center small text-muted">@L["WidgetCfg_LightMode"]</div>
+                                <div class="rw-color-header text-center small text-muted">@L["WidgetCfg_DarkMode"]</div>
+
+                                <!-- Widget Background -->
+                                <div class="color-setting-row-dual">
+                                    <span class="color-setting-label">@L["WidgetCfg_WidgetBackground"]</span>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(_lightBackground, BackgroundColors)"
+                                              style="@GetColorStyle(_lightBackground); cursor: pointer;"
+                                              @onclick='() => ToggleColorPalette("lightBg")'
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "lightBg")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in BackgroundColors)
+                                                {
+                                                    <span class="clr-swatch @(_lightBackground == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => { _lightBackground = color.Value; CloseColorPalette(); }"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(_darkBackground, BackgroundColors)"
+                                              style="@GetColorStyle(_darkBackground); cursor: pointer;"
+                                              @onclick='() => ToggleColorPalette("darkBg")'
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "darkBg")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in BackgroundColors)
+                                                {
+                                                    <span class="clr-swatch @(_darkBackground == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => { _darkBackground = color.Value; CloseColorPalette(); }"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
-                                <div class="mb-2">
-                                    <label class="form-label small">@L["WidgetCfg_TextColor"]</label>
-                                    <input type="color" class="form-control form-control-sm form-control-color" @bind="_darkTextColor" />
+
+                                <!-- Text Color -->
+                                <div class="color-setting-row-dual">
+                                    <span class="color-setting-label">@L["WidgetCfg_TextColor"]</span>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(_lightTextColor, FontColors)"
+                                              style="@GetColorStyle(_lightTextColor); cursor: pointer;"
+                                              @onclick='() => ToggleColorPalette("lightText")'
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "lightText")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in FontColors)
+                                                {
+                                                    <span class="clr-swatch @(_lightTextColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => { _lightTextColor = color.Value; CloseColorPalette(); }"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(_darkTextColor, FontColors)"
+                                              style="@GetColorStyle(_darkTextColor); cursor: pointer;"
+                                              @onclick='() => ToggleColorPalette("darkText")'
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "darkText")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in FontColors)
+                                                {
+                                                    <span class="clr-swatch @(_darkTextColor == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => { _darkTextColor = color.Value; CloseColorPalette(); }"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Table Background -->
+                                <div class="color-setting-row-dual">
+                                    <span class="color-setting-label">@L["WidgetCfg_TableBackground"]</span>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(_lightTableBackground, TableBackgroundColors)"
+                                              style="@GetColorStyle(_lightTableBackground); cursor: pointer;"
+                                              @onclick='() => ToggleColorPalette("lightTable")'
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "lightTable")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in TableBackgroundColors)
+                                                {
+                                                    <span class="clr-swatch @(_lightTableBackground == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => { _lightTableBackground = color.Value; CloseColorPalette(); }"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="position-relative">
+                                        <span class="clr-swatch clr-swatch-lg"
+                                              title="@GetColorName(_darkTableBackground, TableBackgroundColors)"
+                                              style="@GetColorStyle(_darkTableBackground); cursor: pointer;"
+                                              @onclick='() => ToggleColorPalette("darkTable")'
+                                              @onclick:stopPropagation></span>
+                                        @if (_openColorPalette == "darkTable")
+                                        {
+                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                 @onclick="CloseColorPalette"></div>
+                                            <div class="color-palette-dropdown">
+                                                @foreach (var color in TableBackgroundColors)
+                                                {
+                                                    <span class="clr-swatch @(_darkTableBackground == color.Value ? "selected" : "")"
+                                                          title="@color.Name"
+                                                          style="@GetColorStyle(color.Value)"
+                                                          @onclick="() => { _darkTableBackground = color.Value; CloseColorPalette(); }"
+                                                          @onclick:stopPropagation></span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -217,10 +367,23 @@
     private string _tab = "scope";
     private string? _title;
     private int _pageSize = 25;
-    private string _tableFontSize = "";
-    private string _headerFontSize = "";
+
+    // Typography
+    private string _tableFontSize = "14";
+    private string _headerFontSize = "14";
+
+    // Colors - light mode
+    private string _lightBackground = "transparent";
+    private string _lightTextColor = "#000000";
+    private string _lightTableBackground = "transparent";
+
+    // Colors - dark mode
     private string _darkBackground = "#1e293b";
     private string _darkTextColor = "#e2e8f0";
+    private string _darkTableBackground = "transparent";
+
+    // Color palette state
+    private string? _openColorPalette;
 
     // Scope fields
     private string _scopeMode = "queues";
@@ -235,9 +398,78 @@
     private bool _busLoading;
     private bool _dataLoaded;
 
+    // Tenant palettes
+    private List<string> _tenantBackgroundColors = [];
+    private List<string> _tenantFontColors = [];
+    private List<string> _tenantFontSizes = [];
+
     private bool IsAgentWidget => WidgetType is ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail;
 
     private bool CanSave => _scopeMode == "queues" ? _selectedQueueIds.Count > 0 : _selectedBuIds.Count > 0;
+
+    // Color palettes built from tenant settings
+    private (string Name, string Value)[] BackgroundColors => BuildBackgroundColors();
+    private (string Name, string Value)[] TableBackgroundColors => BuildTableBackgroundColors();
+    private (string Name, string Value)[] FontColors => BuildFontColors();
+
+    private (string Name, string Value)[] BuildBackgroundColors()
+    {
+        var colors = new List<(string, string)> { ("Transparent", "transparent") };
+        foreach (var c in _tenantBackgroundColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    private (string Name, string Value)[] BuildTableBackgroundColors()
+    {
+        var colors = new List<(string, string)> { ("Transparent", "transparent") };
+        foreach (var c in _tenantBackgroundColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    private (string Name, string Value)[] BuildFontColors()
+    {
+        var colors = new List<(string, string)>();
+        foreach (var c in _tenantFontColors)
+            colors.Add((c.ToUpperInvariant(), c.ToUpperInvariant()));
+        return colors.ToArray();
+    }
+
+    private static List<string> GetDefaultBackgroundColors() =>
+    [
+        "#FFFFFF", "#F5F5F5", "#E8F5E9", "#FFF3E0", "#FFEBEE",
+        "#E3F2FD", "#F3E5F5", "#FFFDE7", "#E0F7FA", "#FBE9E7"
+    ];
+
+    private static List<string> GetDefaultFontColors() =>
+    [
+        "#000000", "#333333", "#666666", "#1976D2", "#388E3C",
+        "#D32F2F", "#7B1FA2", "#F57C00", "#0097A7", "#5D4037"
+    ];
+
+    private static List<string> GetDefaultFontSizes() => ["12", "14", "18", "24", "32"];
+
+    private static string GetColorStyle(string? color)
+    {
+        if (string.IsNullOrEmpty(color) || color == "transparent")
+            return "background: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%); background-size: 8px 8px; background-position: 0 0, 4px 4px;";
+        return $"background-color: {color};";
+    }
+
+    private static string GetColorName(string? color, (string Name, string Value)[] palette)
+    {
+        if (string.IsNullOrEmpty(color)) return "None";
+        var match = palette.FirstOrDefault(c => c.Value.Equals(color, StringComparison.OrdinalIgnoreCase));
+        return string.IsNullOrEmpty(match.Name) ? color : match.Name;
+    }
+
+    private void ToggleColorPalette(string paletteKey)
+    {
+        _openColorPalette = _openColorPalette == paletteKey ? null : paletteKey;
+    }
+
+    private void CloseColorPalette() => _openColorPalette = null;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -248,10 +480,18 @@
             {
                 _title = InitialConfig.Title;
                 _pageSize = InitialConfig.PageSize ?? 25;
-                _tableFontSize = InitialConfig.Appearance?.TableFontSize ?? "";
-                _headerFontSize = InitialConfig.Appearance?.HeaderFontSize ?? "";
+
+                // Appearance - typography
+                _tableFontSize = ResolveFontSizeToPixel(InitialConfig.Appearance?.TableFontSize);
+                _headerFontSize = ResolveFontSizeToPixel(InitialConfig.Appearance?.HeaderFontSize);
+
+                // Appearance - colors
+                _lightBackground = InitialConfig.Appearance?.LightBackground ?? "transparent";
+                _lightTextColor = InitialConfig.Appearance?.LightTextColor ?? "#000000";
+                _lightTableBackground = InitialConfig.Appearance?.LightTableBackground ?? "transparent";
                 _darkBackground = InitialConfig.Appearance?.DarkBackground ?? "#1e293b";
                 _darkTextColor = InitialConfig.Appearance?.DarkTextColor ?? "#e2e8f0";
+                _darkTableBackground = InitialConfig.Appearance?.DarkTableBackground ?? "transparent";
 
                 if (InitialConfig.Scope is not null)
                 {
@@ -266,6 +506,14 @@
                 // Reset to defaults for new widget
                 _title = null;
                 _pageSize = 25;
+                _tableFontSize = "14";
+                _headerFontSize = "14";
+                _lightBackground = "transparent";
+                _lightTextColor = "#000000";
+                _lightTableBackground = "transparent";
+                _darkBackground = "#1e293b";
+                _darkTextColor = "#e2e8f0";
+                _darkTableBackground = "transparent";
                 _scopeMode = "queues";
                 _selectedQueueIds = new();
                 _selectedBuIds = new();
@@ -282,8 +530,20 @@
         else
         {
             _dataLoaded = false;
+            _openColorPalette = null;
         }
     }
+
+    private static string ResolveFontSizeToPixel(string? value) => value switch
+    {
+        "small"   => "12",
+        "normal"  => "14",
+        "large"   => "18",
+        "xlarge"  => "24",
+        "xxlarge" => "32",
+        null or "" => "14",
+        _ => value.TrimEnd('p', 'x')
+    };
 
     private async Task LoadDataSources()
     {
@@ -291,7 +551,7 @@
         _busLoading = true;
         StateHasChanged();
 
-        // Load queues independently — failure must not blank BUs
+        // Load queues independently
         try
         {
             _queues = await Mediator.Send(new GetQueuesQuery());
@@ -306,7 +566,7 @@
             _queuesLoading = false;
         }
 
-        // Load business units independently — failure must not blank queues
+        // Load business units independently
         try
         {
             _businessUnits = await Mediator.Send(new GetMyBusinessUnitsQuery());
@@ -319,6 +579,41 @@
         finally
         {
             _busLoading = false;
+        }
+
+        // Load tenant palettes
+        try
+        {
+            var tenantId = CurrentUser.TenantId;
+            if (tenantId.HasValue)
+            {
+                var tenantSettings = await Mediator.Send(new GetTenantSettingsQuery(tenantId.Value));
+                if (tenantSettings is not null)
+                {
+                    _tenantBackgroundColors = tenantSettings.BackgroundColorPalette ?? GetDefaultBackgroundColors();
+                    _tenantFontColors = tenantSettings.FontColorPalette ?? GetDefaultFontColors();
+                    _tenantFontSizes = tenantSettings.FontSizes?.Count > 0 ? tenantSettings.FontSizes : GetDefaultFontSizes();
+                }
+                else
+                {
+                    _tenantBackgroundColors = GetDefaultBackgroundColors();
+                    _tenantFontColors = GetDefaultFontColors();
+                    _tenantFontSizes = GetDefaultFontSizes();
+                }
+            }
+            else
+            {
+                _tenantBackgroundColors = GetDefaultBackgroundColors();
+                _tenantFontColors = GetDefaultFontColors();
+                _tenantFontSizes = GetDefaultFontSizes();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ReportWidgetConfigModal: failed to load tenant palettes");
+            _tenantBackgroundColors = GetDefaultBackgroundColors();
+            _tenantFontColors = GetDefaultFontColors();
+            _tenantFontSizes = GetDefaultFontSizes();
         }
 
         StateHasChanged();
@@ -357,14 +652,18 @@
         {
             Title = _title,
             Scope = scope,
-            Columns = InitialConfig?.Columns, // Preserve existing columns
+            Columns = InitialConfig?.Columns,
             PageSize = _pageSize,
             Appearance = new AppearanceConfig
             {
-                TableFontSize = string.IsNullOrEmpty(_tableFontSize) ? null : _tableFontSize,
-                HeaderFontSize = string.IsNullOrEmpty(_headerFontSize) ? null : _headerFontSize,
+                TableFontSize = _tableFontSize,
+                HeaderFontSize = _headerFontSize,
+                LightBackground = _lightBackground == "transparent" ? null : _lightBackground,
+                LightTextColor = _lightTextColor,
                 DarkBackground = _darkBackground,
-                DarkTextColor = _darkTextColor
+                DarkTextColor = _darkTextColor,
+                LightTableBackground = _lightTableBackground == "transparent" ? null : _lightTableBackground,
+                DarkTableBackground = _darkTableBackground == "transparent" ? null : _darkTableBackground
             }
         };
 
@@ -375,6 +674,7 @@
     private async Task Close()
     {
         _tab = "scope";
+        _openColorPalette = null;
         await OnClose.InvokeAsync();
     }
 }

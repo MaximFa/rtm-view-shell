@@ -3,7 +3,7 @@
 
 @* Report Widget dispatcher - routes to specific report widget components *@
 
-<div class="report-widget-render">
+<div class="report-widget-render" style="@BuildAppearanceStyle()">
     @if (_unconfigured)
     {
         <div class="report-widget-unconfigured text-center text-muted py-4">
@@ -61,4 +61,50 @@
             || ((_config.Scope.QueueIds is null || _config.Scope.QueueIds.Count == 0)
                 && (_config.Scope.BusinessUnitIds is null || _config.Scope.BusinessUnitIds.Count == 0));
     }
+
+    private string BuildAppearanceStyle()
+    {
+        var appearance = _config?.Appearance;
+        if (appearance is null)
+            return string.Empty;
+
+        var vars = new List<string>();
+
+        // Background - choose light or dark based on DarkMode
+        var bg = DarkMode ? appearance.DarkBackground : appearance.LightBackground;
+        if (!string.IsNullOrEmpty(bg) && bg != "transparent")
+            vars.Add($"--rw-bg:{bg}");
+
+        // Text color
+        var text = DarkMode ? appearance.DarkTextColor : appearance.LightTextColor;
+        if (!string.IsNullOrEmpty(text))
+            vars.Add($"--rw-text:{text}");
+
+        // Table background
+        var tableBg = DarkMode ? appearance.DarkTableBackground : appearance.LightTableBackground;
+        if (!string.IsNullOrEmpty(tableBg) && tableBg != "transparent")
+            vars.Add($"--rw-table-bg:{tableBg}");
+
+        // Font sizes - convert to px
+        var tableFontPx = ResolveFontSizeToPixel(appearance.TableFontSize);
+        if (!string.IsNullOrEmpty(tableFontPx))
+            vars.Add($"--rw-table-font:{tableFontPx}px");
+
+        var headerFontPx = ResolveFontSizeToPixel(appearance.HeaderFontSize);
+        if (!string.IsNullOrEmpty(headerFontPx))
+            vars.Add($"--rw-header-font:{headerFontPx}px");
+
+        return string.Join("; ", vars);
+    }
+
+    private static string? ResolveFontSizeToPixel(string? value) => value switch
+    {
+        "small"   => "12",
+        "normal"  => "14",
+        "large"   => "18",
+        "xlarge"  => "24",
+        "xxlarge" => "32",
+        null or "" => null,
+        _ => value.TrimEnd('p', 'x')
+    };
 }
