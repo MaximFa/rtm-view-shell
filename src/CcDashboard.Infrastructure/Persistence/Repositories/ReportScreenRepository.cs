@@ -199,4 +199,16 @@ public class ReportScreenRepository(AppDbContext db) : IReportScreenRepository
 
         db.ReportScreens.Remove(screen);
     }
+
+    public async Task<ReportScreen?> GetDeletedByIdWithSchedulesAsync(Guid id, Guid tenantId, CancellationToken ct = default)
+    {
+        return await db.ReportScreens
+            .IgnoreQueryFilters()
+            .Include(s => s.Category)
+            .Include(s => s.Widgets)
+            .Include(s => s.Permissions)
+            .Include(s => s.Schedules)
+            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId && s.IsDeleted, ct);
+    }
+
 }

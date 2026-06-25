@@ -49,4 +49,12 @@ public interface IReportScreenRepository
     /// Cascade-agnostic: explicitly removes widgets, permissions, schedules, then screen.
     /// </summary>
     Task PurgeAsync(ReportScreen screen, CancellationToken ct = default);
+
+    /// <summary>
+    /// Load a soft-deleted screen with all children for restore operation.
+    /// Uses IgnoreQueryFilters (Trash items have IsDeleted=true), but scopes by TenantId.
+    /// Includes: Category, Widgets, Permissions, Schedules.
+    /// </summary>
+    Task<ReportScreen?> GetDeletedByIdWithSchedulesAsync(Guid id, Guid tenantId, CancellationToken ct = default);
+
 }

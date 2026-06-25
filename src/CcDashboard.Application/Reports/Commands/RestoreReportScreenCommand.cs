@@ -30,7 +30,7 @@ public class RestoreReportScreenCommandHandler(
             throw new ForbiddenException("Only Superadmin can restore deleted screens");
 
         // Load with schedules to count inactive ones
-        var screen = await repo.GetByIdWithWidgetsAndSchedulesAsync(cmd.Id, ct)
+        var screen = await repo.GetDeletedByIdWithSchedulesAsync(cmd.Id, currentUser.TenantId!.Value, ct)
             ?? throw new NotFoundException(nameof(ReportScreen), cmd.Id);
 
         if (!screen.IsDeleted)
