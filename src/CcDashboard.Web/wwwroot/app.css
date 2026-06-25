@@ -3502,15 +3502,27 @@ button.clr-swatch,
 }
 
 .fullscreen-dashboard.dark-mode .report-header-datebar input[type="date"] {
-    background-color: var(--clr-surface-dark, #1e293b);
-    border-color: var(--clr-border-dark, #334155);
-    color: var(--clr-text-dark, #e2e8f0);
+    background-color: #2D2D2D !important;
+    border-color: rgba(255,255,255,0.12) !important;
+    color: #E4E4E7 !important;
 }
 
 .fullscreen-dashboard.dark-mode .report-header-datebar label {
-    color: var(--clr-text-dark, #e2e8f0);
+    color: #E4E4E7;
 }
 
 [dir="rtl"] .report-header-datebar {
     direction: rtl;
 }
+
+/* ===== Dark-mode fullscreen header buttons (shared: dashboards + reports) ===== */
+.fullscreen-dashboard.dark-mode .fullscreen-header .btn {
+    color: #E4E4E7;
+    border-color: rgba(255,255,255,0.15);
+    background-color: transparent;
+}
+.fullscreen-dashboard.dark-mode .fullscreen-header .btn:hover:not(:disabled) {
+    background-color: rgba(255,255,255,0.08);
+    color: #FFFFFF;
+}
+.fullscreen-dashboard.dark-mode .fullscreen-header .btn:disabled { opacity: 0.5; }
