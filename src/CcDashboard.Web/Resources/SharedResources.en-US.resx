@@ -1016,7 +1016,7 @@
   <data name="ReportWidget_ColumnsHint"><value>Column configuration will be available in a future update.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>Threshold configuration will be available in a future update.</value></data>
   <data name="Reports_Title"><value>Reports</value></data>
-  <data name="Reports_New"><value>New report</value></data>
+  <data name="Reports_New"><value>+ New report</value></data>
   <data name="Reports_SearchPlaceholder"><value>Search reports...</value></data>
   <data name="Reports_AllStatuses"><value>All statuses</value></data>
   <data name="Reports_AllCategories"><value>All categories</value></data>
@@ -1030,5 +1030,18 @@
   <data name="Reports_Schedule"><value>Schedule</value></data>
   <data name="Reports_ExportStub"><value>Export functionality coming soon</value></data>
   <data name="Reports_ScheduleStub"><value>Schedule functionality coming soon</value></data>
+  <data name="Reports_Description"><value>Description</value></data>
+  <data name="Reports_CreateModal"><value>New Report</value></data>
+  <data name="Reports_EditModal"><value>Report Settings</value></data>
+  <data name="Reports_CreateButton"><value>Create report</value></data>
+  <data name="Reports_DeleteReport"><value>Delete Report</value></data>
+  <data name="Reports_HardDelete"><value>Permanently delete</value></data>
+  <data name="Reports_HardDeleteTitle"><value>Permanent Deletion</value></data>
+  <data name="Reports_HardDeleteWarning"><value>This action cannot be undone. The report and all its widgets will be permanently deleted.</value></data>
+  <data name="Reports_HardDeleteConfirm"><value>Are you sure you want to permanently delete "{0}"?</value></data>
+  <data name="Reports_HardDeleteButton"><value>Delete permanently</value></data>
+  <data name="Reports_RestoreSuccess"><value>Report restored successfully.</value></data>
+  <data name="Reports_RestoreScheduleHint"><value>Note: Schedules remain inactive after restore — re-enable them manually if needed.</value></data>
+  <data name="Common_Deleting"><value>Deleting...</value></data>
 </root>
 

@@ -957,7 +957,7 @@
   <data name="ReportWidget_ColumnsHint"><value>Настройка столбцов будет доступна в будущем обновлении.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>Настройка пороговых значений будет доступна в будущем обновлении.</value></data>
   <data name="Reports_Title"><value>Отчёты</value></data>
-  <data name="Reports_New"><value>Новый отчёт</value></data>
+  <data name="Reports_New"><value>+ Новый отчёт</value></data>
   <data name="Reports_SearchPlaceholder"><value>Поиск отчётов...</value></data>
   <data name="Reports_AllStatuses"><value>Все статусы</value></data>
   <data name="Reports_AllCategories"><value>Все категории</value></data>
@@ -971,5 +971,18 @@
   <data name="Reports_Schedule"><value>Расписание</value></data>
   <data name="Reports_ExportStub"><value>Функция экспорта скоро будет доступна</value></data>
   <data name="Reports_ScheduleStub"><value>Функция расписания скоро будет доступна</value></data>
+  <data name="Reports_Description"><value>Описание</value></data>
+  <data name="Reports_CreateModal"><value>Новый отчёт</value></data>
+  <data name="Reports_EditModal"><value>Настройки отчёта</value></data>
+  <data name="Reports_CreateButton"><value>Создать отчёт</value></data>
+  <data name="Reports_DeleteReport"><value>Удалить отчёт</value></data>
+  <data name="Reports_HardDelete"><value>Удалить безвозвратно</value></data>
+  <data name="Reports_HardDeleteTitle"><value>Безвозвратное удаление</value></data>
+  <data name="Reports_HardDeleteWarning"><value>Это действие нельзя отменить. Отчёт и все его виджеты будут удалены безвозвратно.</value></data>
+  <data name="Reports_HardDeleteConfirm"><value>Вы уверены, что хотите безвозвратно удалить «{0}»?</value></data>
+  <data name="Reports_HardDeleteButton"><value>Удалить безвозвратно</value></data>
+  <data name="Reports_RestoreSuccess"><value>Отчёт успешно восстановлен.</value></data>
+  <data name="Reports_RestoreScheduleHint"><value>Примечание: расписания остаются неактивными после восстановления — включите их вручную, если нужно.</value></data>
+  <data name="Common_Deleting"><value>Удаление...</value></data>
 </root>
 

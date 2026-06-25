@@ -3,137 +3,427 @@
 @layout MainLayout
 @attribute [Authorize]
 @inject IMediator Mediator
+@inject ICurrentUserAccessor CurrentUser
 @inject NavigationManager Nav
 @using MediatR
 @using CcDashboard.Application.Reports.Queries
 @using CcDashboard.Application.Reports.DTOs
 @using CcDashboard.Application.Reports.Commands
+@using CcDashboard.Application.Queries.TenantSettings
 @using CcDashboard.Contracts.Common
 @using CcDashboard.Domain.Domain.Reports
+@using CcDashboard.Domain.Interfaces
 @using Microsoft.AspNetCore.Authorization
+@implements IDisposable
 
 <PageTitle>@L["Reports_Title"] — RTM View Shell</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">@L["Reports_Title"]</h1>
     <AuthorizeView Roles="Superadmin,Administrator,Editor">
-        <button class="btn btn-primary btn-sm" @onclick="CreateReport">@L["Reports_New"]</button>
+        <button class="btn btn-primary btn-sm" @onclick="() => OpenCreate()">@L["Reports_New"]</button>
     </AuthorizeView>
 </div>
 
-<div class="row g-2 mb-3">
-    <div class="col-md-3">
-        <input class="form-control form-control-sm" placeholder="@L["Reports_SearchPlaceholder"]"
-               @bind="_search" @bind:event="oninput" @onkeyup="OnSearchKey" />
-    </div>
-    <div class="col-md-2">
-        <select class="form-select form-select-sm" @bind="_statusFilter" @bind:after="LoadAsync">
-            <option value="">@L["Reports_AllStatuses"]</option>
-            <option value="Draft">@L["Screens_Draft"]</option>
-            <option value="Published">@L["Screens_Published"]</option>
-        </select>
-    </div>
-    <div class="col-md-2">
-        <select class="form-select form-select-sm" @bind="_categoryFilter" @bind:after="LoadAsync">
-            <option value="">@L["Reports_AllCategories"]</option>
-            @foreach (var c in _categories)
-            {
-                <option value="@c.Id">@c.Name</option>
-            }
-        </select>
-    </div>
-</div>
-
-@if (_loading)
+@if (SoftDeleteEnabled)
 {
-    <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
-}
-else if (_reports == null || _reports.Items.Count == 0)
-{
-    <div class="text-center py-5 text-muted">
-        <i class="bi bi-file-earmark-bar-graph fs-1 mb-3 opacity-50"></i>
-        <p>@L["Reports_NoReports"]</p>
-        <AuthorizeView Roles="Superadmin,Administrator,Editor">
-            <button class="btn btn-outline-primary btn-sm" @onclick="CreateReport">@L["Reports_CreateFirst"]</button>
-        </AuthorizeView>
-    </div>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-hover align-middle report-list-table" style="table-layout: fixed;">
-            <caption class="visually-hidden">@L["Reports_Title"]</caption>
-            <colgroup>
-                <col style="width: 30%;" />
-                <col style="width: 15%;" />
-                <col style="width: 12%;" />
-                <col style="width: 18%;" />
-                <col style="width: 15%;" />
-                <col style="width: 10%;" />
-            </colgroup>
-            <thead class="table-light">
-                <tr>
-                    <th scope="col">@L["Reports_Name"]</th>
-                    <th scope="col">@L["Reports_Category"]</th>
-                    <th scope="col">@L["Screens_Status"]</th>
-                    <th scope="col">@L["Common_UpdatedBy"]</th>
-                    <th scope="col">@L["Common_Updated"]</th>
-                    <th scope="col" class="text-end">@L["Common_Actions"]</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var r in _reports.Items)
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(ActiveTab == "reports" ? "active" : "")" @onclick='() => SwitchTab("reports")'
+                    role="tab" aria-selected="@(ActiveTab == "reports")">
+                @L["Reports_Title"]
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(ActiveTab == "trash" ? "active" : "")" @onclick='() => SwitchTab("trash")'
+                    role="tab" aria-selected="@(ActiveTab == "trash")">
+                <i class="bi bi-trash3 me-1"></i> @L["Screens_Trash"]
+                @if (DeletedReports?.TotalCount > 0)
                 {
-                    <tr @key="r.Id">
-                        <td>
-                            <a href="/reports/@r.Id" class="text-decoration-none fw-medium">@r.Name</a>
-                            @if (!string.IsNullOrEmpty(r.Description))
-                            {
-                                <div class="text-muted small text-truncate">@r.Description</div>
-                            }
-                        </td>
-                        <td class="small">@(r.CategoryName ?? "—")</td>
-                        <td>
-                            @StatusBadge(r.Status)
-                            @if (r.IsPublic) { <span class="badge bg-info text-dark ms-1">@L["Screens_Public"]</span> }
-                        </td>
-                        <td class="small">@(r.UpdatedByName ?? "—")</td>
-                        <td class="small">@r.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
-                        <td class="text-end">
-                            <div class="d-flex gap-1 justify-content-end">
-                                <a href="/reports/@r.Id" class="btn btn-sm btn-icon" title="@L["Common_View"]">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                @if ((r.AccessLevel & 2) != 0)
-                                {
-                                    <a href="/reports/@r.Id/edit" class="btn btn-sm btn-icon" title="@L["Common_Edit"]">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                }
-                            </div>
-                        </td>
-                    </tr>
+                    <span class="badge bg-secondary ms-1">@DeletedReports.TotalCount</span>
                 }
-            </tbody>
-        </table>
-    </div>
+            </button>
+        </li>
+    </ul>
+}
 
-    <div class="d-flex justify-content-between align-items-center mt-3">
-        <span class="text-muted small">@_reports.TotalCount @L["Common_Records"]</span>
-        <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(_reports.Page <= 1)"
-                    @onclick="PrevPage">@L["Common_Prev"]</button>
-            <span class="align-self-center small">@L["Common_Page"] @_reports.Page @L["Common_Of"] @_reports.TotalPages</span>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(_reports.Page >= _reports.TotalPages)"
-                    @onclick="NextPage">@L["Common_Next"]</button>
+@if (ActiveTab == "reports")
+{
+    <div class="row g-2 mb-3">
+        <div class="col-md-3">
+            <input class="form-control form-control-sm" placeholder="@L["Reports_SearchPlaceholder"]"
+                   @bind="_search" @bind:event="oninput" @onkeyup="OnSearchKey" />
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" @bind="_statusFilter" @bind:after="LoadAsync">
+                <option value="">@L["Reports_AllStatuses"]</option>
+                <option value="Draft">@L["Screens_Draft"]</option>
+                <option value="Published">@L["Screens_Published"]</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" @bind="_categoryFilter" @bind:after="LoadAsync">
+                <option value="">@L["Reports_AllCategories"]</option>
+                @foreach (var c in _categories)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
         </div>
     </div>
+}
+
+@if (ActiveTab == "reports")
+{
+    @if (_loading)
+    {
+        <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+    }
+    else if (_reports == null || _reports.Items.Count == 0)
+    {
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-file-earmark-bar-graph fs-1 mb-3 opacity-50"></i>
+            <p>@L["Reports_NoReports"]</p>
+            <AuthorizeView Roles="Superadmin,Administrator,Editor">
+                <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenCreate()">@L["Reports_CreateFirst"]</button>
+            </AuthorizeView>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle report-list-table" style="table-layout: fixed;">
+                <caption class="visually-hidden">@L["Reports_Title"]</caption>
+                <colgroup>
+                    <col style="width: 30%;" />
+                    <col style="width: 15%;" />
+                    <col style="width: 12%;" />
+                    <col style="width: 18%;" />
+                    <col style="width: 15%;" />
+                    <col style="width: 10%;" />
+                </colgroup>
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">@L["Reports_Name"]</th>
+                        <th scope="col">@L["Reports_Category"]</th>
+                        <th scope="col">@L["Screens_Status"]</th>
+                        <th scope="col">@L["Common_UpdatedBy"]</th>
+                        <th scope="col">@L["Common_Updated"]</th>
+                        <th scope="col" class="text-end">@L["Common_Actions"]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _reports.Items)
+                    {
+                        <tr @key="r.Id">
+                            <td>
+                                <a href="/reports/@r.Id" class="text-decoration-none fw-medium">@r.Name</a>
+                                @if (!string.IsNullOrEmpty(r.Description))
+                                {
+                                    <div class="text-muted small text-truncate">@r.Description</div>
+                                }
+                            </td>
+                            <td class="small">@(r.CategoryName ?? "—")</td>
+                            <td>
+                                @StatusBadge(r.Status)
+                                @if (r.IsPublic) { <span class="badge bg-info text-dark ms-1">@L["Screens_Public"]</span> }
+                            </td>
+                            <td class="small">@(r.UpdatedByName ?? "—")</td>
+                            <td class="small">@r.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end">
+                                    <a href="/reports/@r.Id" class="btn btn-sm btn-icon" title="@L["Common_View"]">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    @if ((r.AccessLevel & 2) != 0)
+                                    {
+                                        <a href="/reports/@r.Id/edit" class="btn btn-sm btn-icon" title="@L["Common_Edit"]">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    }
+                                    <button class="btn btn-sm btn-icon" title="@L["Screens_Settings"]"
+                                            @onclick="() => OpenEdit(r)">
+                                        <i class="bi bi-gear"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="text-muted small">@_reports.TotalCount @L["Common_Records"]</span>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(_reports.Page <= 1)"
+                        @onclick="PrevPage">@L["Common_Prev"]</button>
+                <span class="align-self-center small">@L["Common_Page"] @_reports.Page @L["Common_Of"] @_reports.TotalPages</span>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(_reports.Page >= _reports.TotalPages)"
+                        @onclick="NextPage">@L["Common_Next"]</button>
+            </div>
+        </div>
+    }
+}
+else if (ActiveTab == "trash")
+{
+    @if (_loading)
+    {
+        <div class="text-center py-5"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+    }
+    else if (DeletedReports == null || DeletedReports.Items.Count == 0)
+    {
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-trash3 fs-1 mb-3 opacity-50"></i>
+            <p>@L["Screens_TrashEmpty"]</p>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            @L["Screens_TrashInfo", SoftDeleteRetentionDays]
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle" style="table-layout: fixed;">
+                <colgroup>
+                    <col style="width: 30%;" />
+                    <col style="width: 18%;" />
+                    <col style="width: 18%;" />
+                    <col style="width: 14%;" />
+                    <col style="width: 20%;" />
+                </colgroup>
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">@L["Reports_Name"]</th>
+                        <th scope="col">@L["Screens_DeletedAt"]</th>
+                        <th scope="col">@L["Screens_DeletedBy"]</th>
+                        <th scope="col">@L["Screens_DaysRemaining"]</th>
+                        <th scope="col" class="text-end">@L["Common_Actions"]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in DeletedReports.Items)
+                    {
+                        <tr @key="d.Id">
+                            <td>
+                                <span class="fw-medium">@d.Name</span>
+                                @if (!string.IsNullOrEmpty(d.Description))
+                                {
+                                    <div class="text-muted small text-truncate">@d.Description</div>
+                                }
+                            </td>
+                            <td class="small">@d.DeletedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                            <td class="small">@(d.DeletedByName ?? "—")</td>
+                            <td>
+                                @if (d.DaysUntilPermanentDelete <= 7)
+                                {
+                                    <span class="badge bg-danger">@d.DaysUntilPermanentDelete @L["Common_Days"]</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@d.DaysUntilPermanentDelete @L["Common_Days"]</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end">
+                                    <button class="btn btn-sm btn-outline-success" title="@L["Screens_Restore"]"
+                                            @onclick="() => RestoreReport(d.Id)" disabled="@_saving">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" title="@L["Reports_HardDelete"]"
+                                            @onclick="() => ConfirmHardDelete(d)" disabled="@_saving">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="text-muted small">@DeletedReports.TotalCount @L["Common_Records"]</span>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(DeletedReports.Page <= 1)"
+                        @onclick="PrevTrashPage">@L["Common_Prev"]</button>
+                <span class="align-self-center small">@L["Common_Page"] @DeletedReports.Page @L["Common_Of"] @DeletedReports.TotalPages</span>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(DeletedReports.Page >= DeletedReports.TotalPages)"
+                        @onclick="NextTrashPage">@L["Common_Next"]</button>
+            </div>
+        </div>
+    }
 }
 
 @if (_error is not null)
 {
     <div class="alert alert-danger alert-dismissible mt-2 py-2" role="alert">
         @_error <button type="button" class="btn-close btn-sm" @onclick="() => _error = null"></button>
+    </div>
+}
+
+<!-- Create Modal -->
+@if (ShowCreate)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-report-create-title">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-report-create-title">@L["Reports_CreateModal"]</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@SaveError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">@L["Reports_Name"] <span class="text-danger">*</span></label>
+                        <input class="form-control" @bind="CreateName" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Reports_Description"]</label>
+                        <textarea class="form-control" rows="2" @bind="CreateDescription" maxlength="500"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Reports_Category"]</label>
+                        <select class="form-select" @bind="CreateCategoryId">
+                            <option value="">—</option>
+                            @foreach (var c in _categories)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="isPublicCreate" @bind="CreateIsPublic" />
+                        <label class="form-check-label" for="isPublicCreate">@L["Screens_IsPublic"]</label>
+                        <div class="form-text">@L["Screens_IsPublicHelp"]</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModals">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveCreate" disabled="@_saving">
+                        @(_saving ? L["Common_Saving"].Value : L["Reports_CreateButton"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
+<!-- Edit/Settings Modal -->
+@if (ShowEdit && EditReport is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-report-edit-title">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-report-edit-title">@L["Reports_EditModal"]</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SaveError is not null)
+                    {
+                        <div class="alert alert-danger py-2">@SaveError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">@L["Reports_Name"] <span class="text-danger">*</span></label>
+                        <input class="form-control" @bind="EditName" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Reports_Description"]</label>
+                        <textarea class="form-control" rows="2" @bind="EditDescription" maxlength="500"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Reports_Category"]</label>
+                        <select class="form-select" @bind="EditCategoryId">
+                            <option value="">—</option>
+                            @foreach (var c in _categories)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Screens_Status"]</label>
+                        <select class="form-select" @bind="EditStatusStr">
+                            <option value="Draft">@L["Screens_Draft"]</option>
+                            <option value="Published">@L["Screens_Published"]</option>
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="isPublicEdit" @bind="EditIsPublic" />
+                        <label class="form-check-label" for="isPublicEdit">@L["Screens_IsPublic"]</label>
+                    </div>
+                    <AuthorizeView Roles="Superadmin,Administrator,Editor">
+                        <hr />
+                        <div class="text-danger">
+                            <strong>@L["Screens_DangerZone"]</strong>
+                            <button class="btn btn-sm btn-outline-danger ms-3"
+                                    @onclick="() => ConfirmDelete = true" disabled="@ConfirmDelete">
+                                @L["Reports_DeleteReport"]
+                            </button>
+                            @if (ConfirmDelete)
+                            {
+                                <span class="ms-2 small">@L["Screens_AreYouSure"]
+                                    <button class="btn btn-danger btn-sm ms-1" @onclick="DeleteReport">@L["Screens_YesDelete"]</button>
+                                    <button class="btn btn-secondary btn-sm ms-1" @onclick="() => ConfirmDelete = false">@L["Common_Cancel"]</button>
+                                </span>
+                            }
+                        </div>
+                    </AuthorizeView>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModals">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveEdit" disabled="@_saving">
+                        @(_saving ? L["Common_Saving"].Value : L["Common_Save"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
+<!-- Hard Delete Confirmation Modal -->
+@if (HardDeleteTarget is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-hard-delete-title">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modal-hard-delete-title">@L["Reports_HardDeleteTitle"]</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => HardDeleteTarget = null"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        @L["Reports_HardDeleteWarning"]
+                    </div>
+                    <p>@L["Reports_HardDeleteConfirm", HardDeleteTarget.Name]</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => HardDeleteTarget = null">@L["Common_Cancel"]</button>
+                    <button class="btn btn-danger" @onclick="HardDeleteReport" disabled="@_saving">
+                        @(_saving ? L["Common_Deleting"].Value : L["Reports_HardDeleteButton"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
+<!-- Restore Info Toast (simple inline) -->
+@if (_restoreSuccess)
+{
+    <div class="alert alert-success alert-dismissible mt-2 py-2" role="alert">
+        <i class="bi bi-check-circle me-1"></i>
+        @L["Reports_RestoreSuccess"]
+        <small class="d-block text-muted">@L["Reports_RestoreScheduleHint"]</small>
+        <button type="button" class="btn-close btn-sm" @onclick="() => _restoreSuccess = false"></button>
     </div>
 }
 
@@ -144,14 +434,45 @@ else
     private string? _statusFilter;
     private Guid? _categoryFilter;
     private int _page = 1;
+    private int _trashPage = 1;
     private const int PageSize = 25;
+    private bool _saving;
+    private bool _restoreSuccess;
 
     private PagedResult<ReportScreenDto>? _reports;
+    private PagedResult<DeletedReportScreenDto>? DeletedReports;
     private IReadOnlyList<ReportCategoryDto> _categories = [];
+
+    // Tabs and soft delete
+    private string ActiveTab = "reports";
+    private bool SoftDeleteEnabled;
+    private int SoftDeleteRetentionDays = 90;
+
+    // Create modal
+    private bool ShowCreate;
+    private string? CreateName;
+    private string? CreateDescription;
+    private string? CreateCategoryId;
+    private bool CreateIsPublic;
+    private string? SaveError;
+
+    // Edit modal
+    private bool ShowEdit;
+    private ReportScreenDto? EditReport;
+    private string? EditName;
+    private string? EditDescription;
+    private string? EditCategoryId;
+    private string EditStatusStr = "Draft";
+    private bool EditIsPublic;
+    private bool ConfirmDelete;
+
+    // Hard delete confirmation
+    private DeletedReportScreenDto? HardDeleteTarget;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadCategoriesAsync();
+        await LoadSettingsAsync();
         await LoadAsync();
     }
 
@@ -167,6 +488,20 @@ else
         }
     }
 
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settings = await Mediator.Send(new GetTenantSettingsQuery());
+            if (settings is not null)
+            {
+                SoftDeleteEnabled = settings.SoftDeleteDashboards;
+                SoftDeleteRetentionDays = settings.SoftDeleteRetentionDays;
+            }
+        }
+        catch { }
+    }
+
     private async Task LoadAsync()
     {
         _loading = true;
@@ -175,19 +510,26 @@ else
 
         try
         {
-            ReportScreenStatus? status = null;
-            if (!string.IsNullOrEmpty(_statusFilter) && Enum.TryParse<ReportScreenStatus>(_statusFilter, out var s))
-                status = s;
+            if (ActiveTab == "reports")
+            {
+                ReportScreenStatus? status = null;
+                if (!string.IsNullOrEmpty(_statusFilter) && Enum.TryParse<ReportScreenStatus>(_statusFilter, out var s))
+                    status = s;
 
-            var request = new ReportScreenListRequest(
-                _search,
-                _categoryFilter,
-                status,
-                null,
-                _page,
-                PageSize);
+                var request = new ReportScreenListRequest(
+                    _search,
+                    _categoryFilter,
+                    status,
+                    null,
+                    _page,
+                    PageSize);
 
-            _reports = await Mediator.Send(new GetReportScreensQuery(request));
+                _reports = await Mediator.Send(new GetReportScreensQuery(request));
+            }
+            else if (ActiveTab == "trash")
+            {
+                DeletedReports = await Mediator.Send(new GetDeletedReportScreensQuery(_search, _trashPage, PageSize));
+            }
         }
         catch (Exception ex)
         {
@@ -200,11 +542,22 @@ else
         }
     }
 
+    private async Task SwitchTab(string tab)
+    {
+        ActiveTab = tab;
+        _search = null;
+        _page = 1;
+        _trashPage = 1;
+        _restoreSuccess = false;
+        await LoadAsync();
+    }
+
     private async Task OnSearchKey(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
             _page = 1;
+            _trashPage = 1;
             await LoadAsync();
         }
     }
@@ -227,18 +580,203 @@ else
         }
     }
 
-    private async Task CreateReport()
+    private async Task PrevTrashPage()
     {
+        if (_trashPage > 1)
+        {
+            _trashPage--;
+            await LoadAsync();
+        }
+    }
+
+    private async Task NextTrashPage()
+    {
+        if (DeletedReports?.HasNextPage == true)
+        {
+            _trashPage++;
+            await LoadAsync();
+        }
+    }
+
+    private void OpenCreate()
+    {
+        CreateName = null;
+        CreateDescription = null;
+        CreateCategoryId = null;
+        CreateIsPublic = false;
+        SaveError = null;
+        ShowCreate = true;
+        ShowEdit = false;
+    }
+
+    private void OpenEdit(ReportScreenDto r)
+    {
+        EditReport = r;
+        EditName = r.Name;
+        EditDescription = r.Description;
+        EditCategoryId = r.CategoryId?.ToString();
+        EditStatusStr = r.Status.ToString();
+        EditIsPublic = r.IsPublic;
+        ConfirmDelete = false;
+        SaveError = null;
+        ShowEdit = true;
+        ShowCreate = false;
+    }
+
+    private void CloseModals()
+    {
+        ShowCreate = false;
+        ShowEdit = false;
+        SaveError = null;
+    }
+
+    private async Task SaveCreate()
+    {
+        if (string.IsNullOrWhiteSpace(CreateName))
+        {
+            SaveError = L["Reports_Name"] + " is required.";
+            return;
+        }
+        _saving = true;
+        SaveError = null;
         try
         {
-            var request = new CreateReportScreenRequest("New Report");
-            var result = await Mediator.Send(new CreateReportScreenCommand(request));
-            Nav.NavigateTo($"/reports/{result.Id}/edit");
+            Guid? categoryId = string.IsNullOrEmpty(CreateCategoryId) ? null
+                : Guid.TryParse(CreateCategoryId, out var cid) ? cid : null;
+
+            var request = new CreateReportScreenRequest(
+                CreateName.Trim(),
+                CreateDescription?.Trim(),
+                categoryId,
+                CreateIsPublic);
+
+            await Mediator.Send(new CreateReportScreenCommand(request));
+            CloseModals();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            SaveError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SaveEdit()
+    {
+        if (EditReport is null || string.IsNullOrWhiteSpace(EditName))
+        {
+            SaveError = L["Reports_Name"] + " is required.";
+            return;
+        }
+        var status = Enum.TryParse<ReportScreenStatus>(EditStatusStr, out var s) ? s : ReportScreenStatus.Draft;
+        _saving = true;
+        SaveError = null;
+        try
+        {
+            Guid? categoryId = string.IsNullOrEmpty(EditCategoryId) ? null
+                : Guid.TryParse(EditCategoryId, out var cid) ? cid : null;
+
+            var request = new UpdateReportScreenRequest(
+                EditReport.Id,
+                EditName.Trim(),
+                EditDescription?.Trim(),
+                categoryId,
+                status,
+                EditIsPublic,
+                EditReport.IsDarkMode,
+                null,
+                EditReport.RowVersion);
+
+            await Mediator.Send(new UpdateReportScreenCommand(request));
+            CloseModals();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            SaveError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DeleteReport()
+    {
+        if (EditReport is null) return;
+        _saving = true;
+        try
+        {
+            await Mediator.Send(new DeleteReportScreenCommand(EditReport.Id));
+            CloseModals();
+            await LoadAsync();
+            if (SoftDeleteEnabled) await LoadDeletedCountAsync();
+        }
+        catch (Exception ex)
+        {
+            SaveError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task RestoreReport(Guid id)
+    {
+        _saving = true;
+        _restoreSuccess = false;
+        try
+        {
+            await Mediator.Send(new RestoreReportScreenCommand(id));
+            _restoreSuccess = true;
+            await LoadAsync();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void ConfirmHardDelete(DeletedReportScreenDto d)
+    {
+        HardDeleteTarget = d;
+    }
+
+    private async Task HardDeleteReport()
+    {
+        if (HardDeleteTarget is null) return;
+        _saving = true;
+        try
+        {
+            await Mediator.Send(new PurgeReportScreenCommand(HardDeleteTarget.Id));
+            HardDeleteTarget = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task LoadDeletedCountAsync()
+    {
+        try
+        {
+            DeletedReports = await Mediator.Send(new GetDeletedReportScreensQuery(null, 1, 1));
+        }
+        catch { }
     }
 
     private RenderFragment StatusBadge(ReportScreenStatus status) => status switch
@@ -247,4 +785,7 @@ else
         ReportScreenStatus.Published => @<span class="badge bg-success">@L["Screens_Published"]</span>,
         _ => @<span class="badge bg-secondary">@status</span>
     };
+
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
 }
