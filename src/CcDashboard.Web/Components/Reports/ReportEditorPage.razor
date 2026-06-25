@@ -191,42 +191,12 @@
     }
 </div>
 
-<!-- Widget Configuration Modal -->
-@if (ConfiguringWidget is not null)
-{
-    <div class="editor-modal @(_darkMode ? "dark-mode" : "")" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="widget-config-title" data-modal-id="widget-config">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header modal-drag-header">
-                    <i class="bi bi-grip-vertical me-2 text-muted" style="font-size: 1rem; flex-shrink: 0;"></i>
-                    <h5 class="modal-title" id="widget-config-title">
-                        @L["ReportWidget_Configure"]: @GetWidgetName(ConfiguringWidget.WidgetType)
-                    </h5>
-                    <button type="button" class="btn-close ms-auto" @onclick="CloseWidgetConfig"></button>
-                </div>
-                <div class="modal-resize-handle"></div>
-                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-                    <!-- General Tab -->
-                    <div class="mb-3">
-                        <label class="form-label">@L["ReportWidget_Title"]</label>
-                        <input type="text" class="form-control" @bind="ConfigTitle" maxlength="100" />
-                    </div>
-                    <div class="alert alert-secondary py-2 small">
-                        <i class="bi bi-info-circle me-1"></i>
-                        @L["ReportWidget_ColumnsHint"]
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CloseWidgetConfig">@L["Common_Cancel"]</button>
-                    <button class="btn btn-primary" @onclick="SaveWidgetConfig" disabled="@ConfigSaving">
-                        @(ConfigSaving ? L["Common_Saving"].Value : L["Common_Save"].Value)
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="editor-modal-backdrop"></div>
-}
+<!-- Widget Configuration Modal (full Ф4 component) -->
+<ReportWidgetConfigModal
+    IsOpen="ConfiguringWidget is not null"
+    InitialConfig="_configInitial"
+    OnSave="OnWidgetConfigSaved"
+    OnClose="CloseWidgetConfig" />
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -235,7 +205,6 @@
     private List<PlacedReportWidget> PlacedWidgets = [];
     private bool Loading = true;
     private bool Saving;
-    private bool ConfigSaving;
     private bool Cloning;
     private string? Error;
     private string EditName = "";
@@ -256,7 +225,7 @@
 
     // Widget Configuration
     private PlacedReportWidget? ConfiguringWidget;
-    private string ConfigTitle = "";
+    private ReportWidgetConfig? _configInitial;
 
     // All 5 widget types
     private static readonly ReportWidgetType[] WidgetTypes = Enum.GetValues<ReportWidgetType>();
@@ -400,52 +369,24 @@
     private void OpenWidgetConfig(PlacedReportWidget widget)
     {
         ConfiguringWidget = widget;
-        var config = ReportWidgetConfig.Parse(widget.ConfigJson);
-        ConfigTitle = config?.Title ?? "";
+        _configInitial = ReportWidgetConfig.Parse(widget.ConfigJson) ?? new ReportWidgetConfig();
     }
 
     private void CloseWidgetConfig()
     {
         ConfiguringWidget = null;
-        ConfigTitle = "";
+        _configInitial = null;
     }
 
-    private async Task SaveWidgetConfig()
+    private void OnWidgetConfigSaved(ReportWidgetConfig cfg)
     {
         if (ConfiguringWidget is null) return;
 
-        ConfigSaving = true;
-        try
-        {
-            var existingConfig = ReportWidgetConfig.Parse(ConfiguringWidget.ConfigJson);
-            var newConfig = new ReportWidgetConfig
-            {
-                Title = string.IsNullOrWhiteSpace(ConfigTitle) ? null : ConfigTitle,
-                Scope = existingConfig?.Scope,
-                Columns = existingConfig?.Columns,
-                Thresholds = existingConfig?.Thresholds,
-                Interval = existingConfig?.Interval,
-                PageSize = existingConfig?.PageSize,
-                Metric = existingConfig?.Metric,
-                Appearance = existingConfig?.Appearance
-            };
-
-            ConfiguringWidget.ConfigJson = newConfig.ToJson();
-            ConfiguringWidget.DisplayName = string.IsNullOrWhiteSpace(ConfigTitle)
-                ? GetWidgetName(ConfiguringWidget.WidgetType)
-                : ConfigTitle;
-
-            CloseWidgetConfig();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to save widget config");
-            Error = ex.Message;
-        }
-        finally
-        {
-            ConfigSaving = false;
-        }
+        ConfiguringWidget.ConfigJson = cfg.ToJson();
+        ConfiguringWidget.DisplayName = string.IsNullOrWhiteSpace(cfg.Title)
+            ? GetWidgetName(ConfiguringWidget.WidgetType)
+            : cfg.Title;
+        CloseWidgetConfig();
     }
 
     private async Task SaveLayout()
