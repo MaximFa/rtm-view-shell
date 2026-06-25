@@ -362,19 +362,19 @@ foreach ($tbl in $ChainTables) {
     }
 
     # Column drift
-    $stagCols = Get-TableColumns -Database $StagingDb -TableName $tbl
-    $ourCols  = Get-TableColumns -Database $DbName    -TableName $tbl
-    if ($ourCols.Count -eq 0) {
+    $stagCols = @(Get-TableColumns -Database $StagingDb -TableName $tbl)
+    $ourCols  = @(Get-TableColumns -Database $DbName    -TableName $tbl)
+    if (@($ourCols).Count -eq 0) {
         $inspectLines += "  [TABLE NOT IN OUR DB]"
     } else {
         $intersection = @($stagCols | Where-Object { $ourCols -contains $_ })
         $stagOnly = @($stagCols | Where-Object { $ourCols -notcontains $_ })
         $ourOnly  = @($ourCols  | Where-Object { $stagCols -notcontains $_ })
-        $inspectLines += "  Columns intersection: $($intersection.Count)"
-        if ($stagOnly.Count -gt 0) {
+        $inspectLines += "  Columns intersection: $(@($intersection).Count)"
+        if (@($stagOnly).Count -gt 0) {
             $inspectLines += "  Staging-only cols: $($stagOnly -join ', ')"
         }
-        if ($ourOnly.Count -gt 0) {
+        if (@($ourOnly).Count -gt 0) {
             $inspectLines += "  Our-only cols: $($ourOnly -join ', ')"
         }
     }
@@ -419,7 +419,7 @@ if ($clientTenant) {
     # Check if InQueueDateTime column exists
     $colCheckQ = "SELECT column_name FROM information_schema.columns WHERE table_name = 'RTSData_Interaction' AND column_name = 'InQueueDateTime'"
     $colCheckResult = Invoke-Psql -Database $StagingDb -Query $colCheckQ -TuplesOnly -NoHeaders
-    $hasInQueueDateTime = ($colCheckResult | Where-Object { $_ -and $_.Trim() }).Count -gt 0
+    $hasInQueueDateTime = @($colCheckResult | Where-Object { $_ -and $_.Trim() }).Count -gt 0
 
     if ($hasInQueueDateTime) {
         $tsQ = @"
@@ -432,8 +432,8 @@ FROM "RTSData_Interaction" WHERE "TenantId" = '$clientTenant'
         $tsResult = Invoke-Psql -Database $StagingDb -Query $tsQ -TuplesOnly -NoHeaders
         $tsParts = ($tsResult | Where-Object { $_ -and $_.Trim() } | Select-Object -First 1)
         if ($tsParts) {
-            $tsVals = $tsParts -split '\|'
-            if ($tsVals.Count -ge 6) {
+            $tsVals = @($tsParts -split '\|')
+            if (@($tsVals).Count -ge 6) {
                 $inspectLines += "RTSData_Interaction InQueueDateTime [min..max]: $($tsVals[0].Trim()) .. $($tsVals[1].Trim())"
                 $inspectLines += "RTSData_Interaction AnsweredDateTime [min..max]: $($tsVals[2].Trim()) .. $($tsVals[3].Trim())"
                 $inspectLines += "RTSData_Interaction UpdateTime [min..max]: $($tsVals[4].Trim()) .. $($tsVals[5].Trim())"
@@ -447,14 +447,14 @@ FROM "RTSData_Interaction" WHERE "TenantId" = '$clientTenant'
     $usColCheckQ = "SELECT column_name FROM information_schema.columns WHERE table_name = 'RTSData_UserStatus' AND column_name IN ('CreatedAt', 'UpdatedAt', 'StatusTime')"
     $usColCheckResult = Invoke-Psql -Database $StagingDb -Query $usColCheckQ -TuplesOnly -NoHeaders
     $usTimestampCols = @($usColCheckResult | Where-Object { $_ -and $_.Trim() } | ForEach-Object { $_.Trim() })
-    if ($usTimestampCols.Count -gt 0) {
+    if (@($usTimestampCols).Count -gt 0) {
         foreach ($tsCol in $usTimestampCols) {
             $ustsQ = "SELECT min(`"$tsCol`"), max(`"$tsCol`") FROM `"RTSData_UserStatus`" WHERE `"TenantId`" = '$clientTenant'"
             $ustsResult = Invoke-Psql -Database $StagingDb -Query $ustsQ -TuplesOnly -NoHeaders
             $usParts = ($ustsResult | Where-Object { $_ -and $_.Trim() } | Select-Object -First 1)
             if ($usParts) {
-                $usVals = $usParts -split '\|'
-                if ($usVals.Count -ge 2) {
+                $usVals = @($usParts -split '\|')
+                if (@($usVals).Count -ge 2) {
                     $inspectLines += "RTSData_UserStatus $tsCol [min..max]: $($usVals[0].Trim()) .. $($usVals[1].Trim())"
                 }
             }
@@ -615,8 +615,8 @@ foreach ($t in $tablesToLoad) {
     $csvPath = Join-Path $tempDir "$tbl.csv"
 
     # Get intersection columns
-    $intCols = Get-IntersectionColumns -StagingDb $StagingDb -OurDb $DbName -TableName $tbl
-    if ($intCols.Count -eq 0) {
+    $intCols = @(Get-IntersectionColumns -StagingDb $StagingDb -OurDb $DbName -TableName $tbl)
+    if (@($intCols).Count -eq 0) {
         Write-Host "  WARNING: No common columns for $tbl, skipping" -ForegroundColor Yellow
         continue
     }
@@ -752,9 +752,9 @@ LIMIT 3
 "@
     $buResult = Invoke-Psql -Database $DbName -Query $buQ -TuplesOnly -NoHeaders
     $bus = @($buResult | Where-Object { $_ -and $_.Trim() })
-    $proofLines += "  BUs via pg_business_units: $($bus.Count)"
+    $proofLines += "  BUs via pg_business_units: $(@($bus).Count)"
 
-    if ($bus.Count -gt 0) {
+    if (@($bus).Count -gt 0) {
         $buId = ($bus[0] -split '\|')[0].Trim()
 
         # NGC_BusinessUnitQueueClassification -> queues
@@ -767,7 +767,7 @@ LIMIT 3
 "@
         $qResult = Invoke-Psql -Database $DbName -Query $qQ -TuplesOnly -NoHeaders
         $qs = @($qResult | Where-Object { $_ -and $_.Trim() })
-        $proofLines += "  Queues via BU $buId : $($qs.Count)"
+        $proofLines += "  Queues via BU $buId : $(@($qs).Count)"
         foreach ($qLine in $qs) {
             $proofLines += "    $qLine"
         }
@@ -787,7 +787,7 @@ LIMIT 3
 "@
         $agResult = Invoke-Psql -Database $DbName -Query $agQ -TuplesOnly -NoHeaders
         $ags = @($agResult | Where-Object { $_ -and $_.Trim() })
-        $proofLines += "  AgentGroups via BU $buId : $($ags.Count)"
+        $proofLines += "  AgentGroups via BU $buId : $(@($ags).Count)"
         foreach ($agLine in $ags) {
             $proofLines += "    $agLine"
         }

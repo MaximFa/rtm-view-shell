@@ -58,6 +58,8 @@ Cardinal truths (source-pinned):
 - 2026-06-25 · PowerShell STRIPS embedded double-quotes when passing `psql -c "...\"Ident\"..."` to the native exe → PG PascalCase identifiers fold to lowercase → `relation "ident" does not exist` (proven: `FROM "NGC_Site"` echoed as `FROM NGC_Site`). FIX: never pass quoted identifiers via -c; write the query to a temp .sql and run `psql -f`. · SOURCE: Seed-ProdMirror.ps1 Inspect run 2026-06-25 · status: active
 - 2026-06-25 · PS5.1 `Set-Content -Encoding UTF8` writes a BOM; `psql -f` then errors `syntax error at or near "ï»¿"`. Write SQL files UTF-8 NO-BOM via [System.IO.File]::WriteAllText($p,$sql,(New-Object System.Text.UTF8Encoding($false))). · SOURCE: prodmirror_diag.sql 2026-06-25 · status: active
 
+- 2026-06-25 · Under `Set-StrictMode -Version Latest`, `$x.Count` THROWS PropertyNotFoundStrict when $x is a scalar (single-item) or $null (empty) — PowerShell unwraps single/empty @() on FUNCTION RETURN. FIX: assign function/pipeline results via `$x = @(...)` AND wrap every count read as `@($x).Count`. Leave hashtable .Keys.Count / property .Count. · SOURCE: Seed-ProdMirror.ps1 Inspect run 2026-06-25 · status: active
+
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path "db/tools/Compare-ToBaseline.ps1"` — must be True
 2. `Select-String -Path "db/schema.sql" -Pattern "CREATE TABLE"` — expect count >10
