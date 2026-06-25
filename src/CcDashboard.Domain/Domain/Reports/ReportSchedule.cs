@@ -3,6 +3,14 @@ namespace CcDashboard.Domain.Domain.Reports;
 /// <summary>
 /// Report schedule entity — for scheduled email distribution.
 /// </summary>
+/// <remarks>
+/// [REPORT-SCHED-01] Dispatcher invariant (Ф7):
+/// The schedule-dispatch query MUST skip schedules where:
+/// - schedule.IsActive = false, OR
+/// - screen.IsDeleted = true (join ReportScreen, respect combined GQF TenantId + !IsDeleted)
+/// This ensures soft-deleted reports never auto-send emails.
+/// Dispatcher MUST NOT use IgnoreQueryFilters without also checking screen.IsDeleted.
+/// </remarks>
 public class ReportSchedule
 {
     public Guid Id { get; set; }

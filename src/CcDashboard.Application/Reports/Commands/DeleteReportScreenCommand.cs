@@ -10,7 +10,10 @@ namespace CcDashboard.Application.Reports.Commands;
 public record DeleteReportScreenCommand(Guid Id) : IRequest, ITransactional, IAuditable
 {
     public string AuditEventType => "ReportScreen.Deleted";
-    public object? AuditDetails => new { Id };
+    public object? AuditDetails { get; private set; }
+
+    public void SetAuditDetails(int schedulesDeactivated) =>
+        AuditDetails = new { Id, SchedulesDeactivated = schedulesDeactivated };
 }
 
 public class DeleteReportScreenCommandHandler(
@@ -21,7 +24,8 @@ public class DeleteReportScreenCommandHandler(
 {
     public async Task Handle(DeleteReportScreenCommand cmd, CancellationToken ct)
     {
-        var screen = await repo.GetByIdWithWidgetsAsync(cmd.Id, ct)
+        // Load with widgets AND schedules for deactivation
+        var screen = await repo.GetByIdWithWidgetsAndSchedulesAsync(cmd.Id, ct)
             ?? throw new NotFoundException(nameof(ReportScreen), cmd.Id);
 
         // Check Delete permission
@@ -45,6 +49,17 @@ public class DeleteReportScreenCommandHandler(
             widget.IsDeleted = true;
         }
 
+        // Deactivate all schedules to prevent auto-sending from Trash
+        // Keep rows for audit/history — just deactivate
+        var schedulesDeactivated = 0;
+        foreach (var schedule in screen.Schedules.Where(s => s.IsActive))
+        {
+            schedule.IsActive = false;
+            schedule.NextRunAt = null; // Clear so dispatcher scan also skips
+            schedulesDeactivated++;
+        }
+
+        cmd.SetAuditDetails(schedulesDeactivated);
         repo.Update(screen);
     }
 }

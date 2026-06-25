@@ -174,9 +174,10 @@ public class ReportScreenCrudTests
             TenantId = TenantId,
             Name = "Test",
             IsPublic = false,
-            Widgets = new List<ReportWidget>()
+            Widgets = new List<ReportWidget>(),
+            Schedules = new List<ReportSchedule>()
         };
-        _repo.GetByIdWithWidgetsAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(screen.Id, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(3); // View + Edit, but not Delete
 
@@ -201,9 +202,10 @@ public class ReportScreenCrudTests
             Widgets = new List<ReportWidget>
             {
                 new() { Id = Guid.NewGuid(), TenantId = TenantId, IsDeleted = false }
-            }
+            },
+            Schedules = new List<ReportSchedule>()
         };
-        _repo.GetByIdWithWidgetsAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(screen.Id, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(7); // Full
 
@@ -216,6 +218,94 @@ public class ReportScreenCrudTests
         screen.DeletedAt.Should().Be(_clock.UtcNow);
         screen.DeletedByUserId.Should().Be(UserId);
         screen.Widgets.All(w => w.IsDeleted).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Delete_DeactivatesActiveSchedules()
+    {
+        var schedule1 = new ReportSchedule
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantId,
+            IsActive = true,
+            NextRunAt = DateTime.UtcNow.AddDays(1)
+        };
+        var schedule2 = new ReportSchedule
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantId,
+            IsActive = false, // Already inactive
+            NextRunAt = null
+        };
+        var screen = new ReportScreen
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantId,
+            Name = "Test",
+            IsPublic = false,
+            Widgets = new List<ReportWidget>(),
+            Schedules = new List<ReportSchedule> { schedule1, schedule2 }
+        };
+        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetUserAccessLevelAsync(screen.Id, PgId, false, false, Arg.Any<CancellationToken>())
+            .Returns(7);
+
+        var handler = new DeleteReportScreenCommandHandler(_repo, _user, _clock);
+        var cmd = new DeleteReportScreenCommand(screen.Id);
+
+        await handler.Handle(cmd, CancellationToken.None);
+
+        // Active schedule should be deactivated
+        schedule1.IsActive.Should().BeFalse();
+        schedule1.NextRunAt.Should().BeNull();
+
+        // Already inactive schedule unchanged
+        schedule2.IsActive.Should().BeFalse();
+    }
+
+    #endregion
+
+    #region Restore
+
+    [Fact]
+    public async Task Restore_DoesNotReactivateSchedules()
+    {
+        _user.Role.Returns("Superadmin");
+
+        var schedule = new ReportSchedule
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantId,
+            IsActive = false, // Deactivated on delete
+            NextRunAt = null
+        };
+        var screen = new ReportScreen
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantId,
+            Name = "Test",
+            IsDeleted = true,
+            DeletedAt = _clock.UtcNow.AddDays(-1),
+            DeletedByUserId = UserId,
+            CreatedByUserId = UserId,
+            UpdatedByUserId = UserId,
+            Widgets = new List<ReportWidget>(),
+            Schedules = new List<ReportSchedule> { schedule }
+        };
+        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+
+        var handler = new RestoreReportScreenCommandHandler(_repo, _user, _clock);
+        var cmd = new RestoreReportScreenCommand(screen.Id);
+
+        await handler.Handle(cmd, CancellationToken.None);
+
+        // Screen restored
+        screen.IsDeleted.Should().BeFalse();
+        screen.DeletedAt.Should().BeNull();
+
+        // Schedule NOT auto-reactivated
+        schedule.IsActive.Should().BeFalse();
+        schedule.NextRunAt.Should().BeNull();
     }
 
     #endregion

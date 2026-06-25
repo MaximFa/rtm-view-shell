@@ -23,6 +23,16 @@ public class ReportScreenRepository(AppDbContext db) : IReportScreenRepository
             .FirstOrDefaultAsync(s => s.Id == id, ct);
     }
 
+    public async Task<ReportScreen?> GetByIdWithWidgetsAndSchedulesAsync(Guid id, CancellationToken ct = default)
+    {
+        return await db.ReportScreens
+            .Include(s => s.Category)
+            .Include(s => s.Widgets)
+            .Include(s => s.Permissions)
+            .Include(s => s.Schedules)
+            .FirstOrDefaultAsync(s => s.Id == id, ct);
+    }
+
     public async Task<(IReadOnlyList<ReportScreen> Items, int Total)> GetPageAsync(
         Guid tenantId,
         string? search,

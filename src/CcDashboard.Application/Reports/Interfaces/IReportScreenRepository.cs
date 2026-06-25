@@ -6,6 +6,7 @@ public interface IReportScreenRepository
 {
     Task<ReportScreen?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<ReportScreen?> GetByIdWithWidgetsAsync(Guid id, CancellationToken ct = default);
+    Task<ReportScreen?> GetByIdWithWidgetsAndSchedulesAsync(Guid id, CancellationToken ct = default);
 
     Task<(IReadOnlyList<ReportScreen> Items, int Total)> GetPageAsync(
         Guid tenantId,
