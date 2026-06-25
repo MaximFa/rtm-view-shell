@@ -85,6 +85,35 @@ public class ReportScreenRepository(AppDbContext db) : IReportScreenRepository
             .ToListAsync(ct);
     }
 
+    public async Task<(IReadOnlyList<ReportScreen> Items, int Total)> GetDeletedPageAsync(
+        Guid tenantId,
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var query = db.ReportScreens
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId && s.IsDeleted);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(s => s.Name.ToLower().Contains(term));
+        }
+
+        var total = await query.CountAsync(ct);
+
+        var items = await query
+            .OrderByDescending(s => s.DeletedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
+
     public async Task<int> GetUserAccessLevelAsync(
         Guid reportScreenId,
         Guid? pgId,

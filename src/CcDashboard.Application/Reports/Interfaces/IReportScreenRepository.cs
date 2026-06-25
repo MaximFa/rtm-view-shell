@@ -22,6 +22,13 @@ public interface IReportScreenRepository
 
     Task<IReadOnlyList<ReportCategory>> GetCategoriesAsync(Guid tenantId, CancellationToken ct = default);
 
+    Task<(IReadOnlyList<ReportScreen> Items, int Total)> GetDeletedPageAsync(
+        Guid tenantId,
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken ct = default);
+
     Task<int> GetUserAccessLevelAsync(Guid reportScreenId, Guid? pgId, bool isPublic, bool isSuperadmin, CancellationToken ct = default);
 
     Task AddAsync(ReportScreen screen, CancellationToken ct = default);
