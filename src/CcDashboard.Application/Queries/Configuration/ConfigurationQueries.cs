@@ -17,7 +17,7 @@ public class GetSitesQueryHandler(INgcSiteRepository repo, ICurrentUserAccessor 
 {
     public async Task<IReadOnlyList<SiteDto>> Handle(GetSitesQuery q, CancellationToken ct)
     {
-        var tenantId = user.Role == "Superadmin" ? q.TenantId : (q.TenantId ?? user.TenantId!.Value);
+        var tenantId = q.TenantId ?? user.TenantId!.Value;
         var items = await repo.GetAllByTenantAsync(tenantId, ct);
         return items.Select(s => new SiteDto(s.SiteId, s.TenantId, s.SiteName, s.Description, s.TimeZone, s.ClearTime)).ToList();
     }
@@ -111,7 +111,7 @@ public class GetSupergroupsQueryHandler(INgcSupergroupRepository repo, ICurrentU
 {
     public async Task<IReadOnlyList<SupergroupDto>> Handle(GetSupergroupsQuery q, CancellationToken ct)
     {
-        var tenantId = user.Role == "Superadmin" ? q.TenantId : (q.TenantId ?? user.TenantId!.Value);
+        var tenantId = q.TenantId ?? user.TenantId!.Value;
         var items = await repo.GetAllByTenantAsync(tenantId, ct);
         return items.Select(sg => new SupergroupDto(
             sg.SupergroupId,
@@ -156,7 +156,7 @@ public class GetQueuesQueryHandler(INgcQueueRepository repo, ICurrentUserAccesso
 {
     public async Task<IReadOnlyList<QueueDto>> Handle(GetQueuesQuery q, CancellationToken ct)
     {
-        var tenantId = user.Role == "Superadmin" ? q.TenantId : (q.TenantId ?? user.TenantId!.Value);
+        var tenantId = q.TenantId ?? user.TenantId!.Value;
         var items = await repo.GetAllByTenantAsync(tenantId, ct);
         return items.Select(x => new QueueDto(x.ExternalId, x.Name)).ToList();
     }
@@ -171,7 +171,7 @@ public class GetAgentGroupsQueryHandler(INgcAgentGroupRepository repo, ICurrentU
 {
     public async Task<IReadOnlyList<AgentGroupDto>> Handle(GetAgentGroupsQuery q, CancellationToken ct)
     {
-        var tenantId = user.Role == "Superadmin" ? q.TenantId : (q.TenantId ?? user.TenantId!.Value);
+        var tenantId = q.TenantId ?? user.TenantId!.Value;
         var items = await repo.GetAllByTenantAsync(tenantId, ct);
         return items.Select(x => new AgentGroupDto(x.ExternalId, x.Name)).ToList();
     }
