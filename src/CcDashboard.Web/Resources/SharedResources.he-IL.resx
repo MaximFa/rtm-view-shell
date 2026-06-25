@@ -900,5 +900,6 @@
   <data name="WidgetCfg_AgentAxis"><value>קיבוץ סוכנים</value></data>
   <data name="WidgetCfg_AgentAxis_Detail"><value>פירוט (לפי סוכן)</value></data>
   <data name="WidgetCfg_AgentAxis_Cumulative"><value>מצטבר (סיכומים)</value></data>
+  <data name="ReportWidget_Unconfigured"><value>הגדירו את הווידג'ט — בחרו היקף (תור או יחידה עסקית).</value></data>
 </root>
 

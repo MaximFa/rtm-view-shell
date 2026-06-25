@@ -1000,5 +1000,6 @@
   <data name="WidgetCfg_AgentAxis"><value>Группировка агентов</value></data>
   <data name="WidgetCfg_AgentAxis_Detail"><value>Детально (по агенту)</value></data>
   <data name="WidgetCfg_AgentAxis_Cumulative"><value>Суммарно (итоги)</value></data>
+  <data name="ReportWidget_Unconfigured"><value>Настройте виджет — выберите область (очередь или бизнес-юнит).</value></data>
 </root>
 
