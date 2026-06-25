@@ -984,5 +984,10 @@
   <data name="Reports_RestoreSuccess"><value>Отчёт успешно восстановлен.</value></data>
   <data name="Reports_RestoreScheduleHint"><value>Примечание: расписания остаются неактивными после восстановления — включите их вручную, если нужно.</value></data>
   <data name="Common_Deleting"><value>Удаление...</value></data>
+  <data name="Screens_HardDelete"><value>Удалить безвозвратно</value></data>
+  <data name="Screens_HardDeleteTitle"><value>Безвозвратное удаление</value></data>
+  <data name="Screens_HardDeleteWarning"><value>Это действие нельзя отменить. Дашборд и все его виджеты будут удалены безвозвратно.</value></data>
+  <data name="Screens_HardDeleteConfirm"><value>Вы уверены, что хотите безвозвратно удалить «{0}»?</value></data>
+  <data name="Screens_HardDeleteButton"><value>Удалить безвозвратно</value></data>
 </root>
 

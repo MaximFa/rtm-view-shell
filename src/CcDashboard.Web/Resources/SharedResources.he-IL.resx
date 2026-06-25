@@ -884,5 +884,10 @@
   <data name="Reports_RestoreSuccess"><value>הדוח שוחזר בהצלחה.</value></data>
   <data name="Reports_RestoreScheduleHint"><value>הערה: תזמונים נשארים לא פעילים לאחר שחזור — הפעל אותם ידנית אם צריך.</value></data>
   <data name="Common_Deleting"><value>מוחק...</value></data>
+  <data name="Screens_HardDelete"><value>מחק לצמיתות</value></data>
+  <data name="Screens_HardDeleteTitle"><value>מחיקה לצמיתות</value></data>
+  <data name="Screens_HardDeleteWarning"><value>לא ניתן לבטל פעולה זו. לוח המחוונים וכל הווידג'טים שלו יימחקו לצמיתות.</value></data>
+  <data name="Screens_HardDeleteConfirm"><value>האם אתה בטוח שברצונך למחוק לצמיתות את "{0}"?</value></data>
+  <data name="Screens_HardDeleteButton"><value>מחק לצמיתות</value></data>
 </root>
 

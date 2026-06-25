@@ -265,10 +265,16 @@ else if (ActiveTab == "trash")
                                 }
                             </td>
                             <td class="text-end">
-                                <button class="btn btn-sm btn-outline-success" title="@L["Screens_Restore"]"
-                                        @onclick="() => RestoreDashboard(d.Id)" disabled="@Saving">
-                                    <i class="bi bi-arrow-counterclockwise"></i>
-                                </button>
+                                <div class="d-flex gap-1 justify-content-end">
+                                    <button class="btn btn-sm btn-outline-success" title="@L["Screens_Restore"]"
+                                            @onclick="() => RestoreDashboard(d.Id)" disabled="@Saving">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" title="@L["Screens_HardDelete"]"
+                                            @onclick="() => ConfirmHardDelete(d)" disabled="@Saving">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -432,6 +438,35 @@ else if (ActiveTab == "trash")
     <div class="modal-backdrop fade show modal-overlay"></div>
 }
 
+<!-- Hard Delete Confirmation Modal -->
+@if (HardDeleteTarget is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="modal-hard-delete-title">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modal-hard-delete-title">@L["Screens_HardDeleteTitle"]</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => HardDeleteTarget = null"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        @L["Screens_HardDeleteWarning"]
+                    </div>
+                    <p>@L["Screens_HardDeleteConfirm", HardDeleteTarget.Name]</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => HardDeleteTarget = null">@L["Common_Cancel"]</button>
+                    <button class="btn btn-danger" @onclick="HardDeleteDashboard" disabled="@Saving">
+                        @(Saving ? L["Common_Deleting"].Value : L["Screens_HardDeleteButton"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show modal-overlay"></div>
+}
+
 @code {
     private CcDashboard.Contracts.Common.PagedResult<DashboardDto>? Dashboards;
     private CcDashboard.Contracts.Common.PagedResult<DeletedDashboardDto>? DeletedDashboards;
@@ -476,6 +511,7 @@ else if (ActiveTab == "trash")
     private string EditStatusStr = "Draft";
     private bool EditIsPublic;
     private bool ConfirmDelete;
+    private DeletedDashboardDto? HardDeleteTarget;
     private IReadOnlyList<DashboardCategoryDto> EditCategories = [];
 
     protected override async Task OnInitializedAsync()
@@ -673,6 +709,31 @@ else if (ActiveTab == "trash")
             DeletedDashboards = await Mediator.Send(new GetDeletedDashboardsQuery(null, 1, 1));
         }
         catch { }
+    }
+
+    private void ConfirmHardDelete(DeletedDashboardDto d)
+    {
+        HardDeleteTarget = d;
+    }
+
+    private async Task HardDeleteDashboard()
+    {
+        if (HardDeleteTarget is null) return;
+        Saving = true;
+        try
+        {
+            await Mediator.Send(new PurgeDashboardCommand(HardDeleteTarget.Id));
+            HardDeleteTarget = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+        finally
+        {
+            Saving = false;
+        }
     }
 
     private RenderFragment StatusBadge(DashboardStatus status) => status switch

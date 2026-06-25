@@ -1043,5 +1043,10 @@
   <data name="Reports_RestoreSuccess"><value>Report restored successfully.</value></data>
   <data name="Reports_RestoreScheduleHint"><value>Note: Schedules remain inactive after restore — re-enable them manually if needed.</value></data>
   <data name="Common_Deleting"><value>Deleting...</value></data>
+  <data name="Screens_HardDelete"><value>Permanently delete</value></data>
+  <data name="Screens_HardDeleteTitle"><value>Permanent Deletion</value></data>
+  <data name="Screens_HardDeleteWarning"><value>This action cannot be undone. The dashboard and all its widgets will be permanently deleted.</value></data>
+  <data name="Screens_HardDeleteConfirm"><value>Are you sure you want to permanently delete "{0}"?</value></data>
+  <data name="Screens_HardDeleteButton"><value>Delete permanently</value></data>
 </root>
 
