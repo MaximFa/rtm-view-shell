@@ -86,33 +86,38 @@ function Write-Banner {
 }
 
 function Invoke-Psql {
-    param(
-        [string]$Database,
-        [string]$Query,
-        [switch]$TuplesOnly,
-        [switch]$NoHeaders
-    )
+    param([string]$Database, [string]$Query, [switch]$TuplesOnly, [switch]$NoHeaders)
     $env:PGPASSWORD = $SuperPassword
-    $args = @("-U", $SuperUser, "-d", $Database, "-c", $Query)
-    if ($TuplesOnly) { $args += "-t" }
-    if ($NoHeaders)  { $args += "--no-align" }
-    $result = & $psql @args 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "psql failed: $result"
+    $tmpq = Join-Path $env:TEMP ("pm_q_" + ([guid]::NewGuid().ToString('N')) + ".sql")
+    Write-SqlFile -Sql $Query -Path $tmpq
+    $pargs = @("-U", $SuperUser, "-d", $Database, "-v", "ON_ERROR_STOP=1", "-f", $tmpq)
+    if ($TuplesOnly) { $pargs += "-t" }
+    if ($NoHeaders)  { $pargs += "--no-align" }
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $result = & $psql @pargs 2>&1
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+        Remove-Item $tmpq -ErrorAction SilentlyContinue
     }
+    if ($code -ne 0) { throw ("psql failed ({0}): {1}" -f $code, ($result -join [Environment]::NewLine)) }
     return $result
 }
 
 function Invoke-PsqlFile {
-    param(
-        [string]$Database,
-        [string]$FilePath
-    )
+    param([string]$Database, [string]$FilePath)
     $env:PGPASSWORD = $SuperPassword
-    $result = & $psql -U $SuperUser -d $Database -f $FilePath 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "psql -f failed: $result"
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $result = & $psql -U $SuperUser -d $Database -v ON_ERROR_STOP=1 -f $FilePath 2>&1
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
     }
+    if ($code -ne 0) { throw ("psql -f failed ({0}): {1}" -f $code, ($result -join [Environment]::NewLine)) }
     return $result
 }
 
@@ -137,6 +142,12 @@ function Invoke-Native {
         throw ("{0} exited {1}: {2}" -f $Exe, $code, ($out -join [Environment]::NewLine))
     }
     return [pscustomobject]@{ Code = $code; Output = $out }
+}
+
+function Write-SqlFile {
+    param([Parameter(Mandatory=$true)][string]$Sql, [Parameter(Mandatory=$true)][string]$Path)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Sql, $utf8NoBom)
 }
 
 function Get-TableColumns {
@@ -633,11 +644,13 @@ foreach ($t in $tablesToLoad) {
     $copyToQ = "\copy (SELECT $selectExpr FROM `"$tbl`" $whereClause) TO '$csvPath' WITH (FORMAT csv, HEADER false)"
     Write-Host "  Exporting $tbl..."
 
+    $tmpCopy = Join-Path $env:TEMP ("pm_copy_" + ([guid]::NewGuid().ToString('N')) + ".sql")
+    Write-SqlFile -Sql $copyToQ -Path $tmpCopy
     $env:PGPASSWORD = $SuperPassword
-    $copyResult = & $psql -U $SuperUser -d $StagingDb -c $copyToQ 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "Export failed for $tbl : $copyResult"
-    }
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $copyResult = & $psql -U $SuperUser -d $StagingDb -v ON_ERROR_STOP=1 -f $tmpCopy 2>&1; $copyCode = $LASTEXITCODE }
+    finally { $ErrorActionPreference = $prev; Remove-Item $tmpCopy -ErrorAction SilentlyContinue }
+    if ($copyCode -ne 0) { throw "Export failed for $tbl : $copyResult" }
 
     # Build COPY FROM command
     $colList = @($intCols | ForEach-Object { "`"$_`"" }) -join ", "
@@ -654,8 +667,8 @@ $loadSql += "COMMIT;"
 $loadSql += ""
 $loadSql += "-- NOTE: hist_* tables are NOT loaded; HistoricalAggregationService re-aggregates on app start"
 
-# Write load SQL
-$loadSql | Set-Content -Path $loadSqlPath -Encoding UTF8
+# Write load SQL (UTF-8 NO BOM - psql chokes on BOM)
+Write-SqlFile -Sql ($loadSql -join [Environment]::NewLine) -Path $loadSqlPath
 Write-Host "`nLoad SQL written: $loadSqlPath"
 
 # Execute load

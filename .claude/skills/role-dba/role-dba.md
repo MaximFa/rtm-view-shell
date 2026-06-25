@@ -55,6 +55,9 @@ Cardinal truths (source-pinned):
 - 2026-06-25 · PS native pg-tool call whose stderr is PIPED to a cmdlet (| Out-Null / | Tee-Object) under $ErrorActionPreference='Stop' turns BENIGN stderr (dropdb NOTICE) into a terminating NativeCommandError; variable-capture ($x = & tool 2>&1 + $LASTEXITCODE) is safe. FIX: route native calls through an Invoke-Native helper (EAP='Continue' local + $LASTEXITCODE), never pipe native stderr under Stop. · SOURCE: Seed-ProdMirror.ps1 Inspect run 2026-06-25 (dropdb L260) · status: active
 - 2026-06-25 · `Join-String` is a PS7-only cmdlet — absent in Windows PowerShell 5.1; use the `-join` OPERATOR (wrap source in @() for single-item uniformity). Grep new PS1 for Join-String before ship. · SOURCE: Seed-ProdMirror.ps1 L556/L571 · status: active
 
+- 2026-06-25 · PowerShell STRIPS embedded double-quotes when passing `psql -c "...\"Ident\"..."` to the native exe → PG PascalCase identifiers fold to lowercase → `relation "ident" does not exist` (proven: `FROM "NGC_Site"` echoed as `FROM NGC_Site`). FIX: never pass quoted identifiers via -c; write the query to a temp .sql and run `psql -f`. · SOURCE: Seed-ProdMirror.ps1 Inspect run 2026-06-25 · status: active
+- 2026-06-25 · PS5.1 `Set-Content -Encoding UTF8` writes a BOM; `psql -f` then errors `syntax error at or near "ï»¿"`. Write SQL files UTF-8 NO-BOM via [System.IO.File]::WriteAllText($p,$sql,(New-Object System.Text.UTF8Encoding($false))). · SOURCE: prodmirror_diag.sql 2026-06-25 · status: active
+
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path "db/tools/Compare-ToBaseline.ps1"` — must be True
 2. `Select-String -Path "db/schema.sql" -Pattern "CREATE TABLE"` — expect count >10
