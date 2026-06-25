@@ -3508,44 +3508,105 @@ button.clr-swatch,
 }
 
 
-/* Dark mode - report config modal elements */
+/* Dark mode - report config modal elements (neutral-gray palette, dashboard-identical) */
 .report-config-modal.dark-mode .modal-content {
-    background-color: #1e293b;
-    color: #e2e8f0;
-    border-color: rgba(255, 255, 255, 0.1);
+    background-color: #1E1E1E;
+    color: #E4E4E7;
+    border-color: rgba(255, 255, 255, 0.08);
 }
 
 .report-config-modal.dark-mode .modal-header {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.08);
 }
 
 .report-config-modal.dark-mode .modal-footer {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.report-config-modal.dark-mode .form-label {
+    color: #E4E4E7;
 }
 
 .report-config-modal.dark-mode .nav-tabs .nav-link {
-    color: #94a3b8;
+    color: #A1A1AA;
+    background-color: transparent;
+    border-color: transparent;
+}
+
+.report-config-modal.dark-mode .nav-tabs .nav-link:hover {
+    color: #E4E4E7;
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
 .report-config-modal.dark-mode .nav-tabs .nav-link.active {
-    background-color: #334155;
-    color: #f1f5f9;
-    border-color: rgba(255, 255, 255, 0.1);
+    background-color: #2D2D2D;
+    color: #E4E4E7;
+    border-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: #2D2D2D;
 }
 
 .report-config-modal.dark-mode .form-select,
 .report-config-modal.dark-mode .form-control {
-    background-color: #334155;
-    border-color: rgba(255, 255, 255, 0.1);
-    color: #f1f5f9;
+    background-color: #2D2D2D;
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #E4E4E7;
+}
+
+.report-config-modal.dark-mode .form-control:focus,
+.report-config-modal.dark-mode .form-select:focus {
+    background-color: #3D3D3D;
+    border-color: var(--clr-primary);
+}
+
+.report-config-modal.dark-mode input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]),
+.report-config-modal.dark-mode select,
+.report-config-modal.dark-mode textarea {
+    background-color: #2D2D2D;
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #E4E4E7;
+}
+
+.report-config-modal.dark-mode input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]):focus,
+.report-config-modal.dark-mode select:focus,
+.report-config-modal.dark-mode textarea:focus {
+    background-color: #3D3D3D;
+    border-color: var(--clr-primary);
+}
+
+.report-config-modal.dark-mode input[readonly] {
+    color: #B4B4B8;
+}
+
+.report-config-modal.dark-mode input::placeholder,
+.report-config-modal.dark-mode textarea::placeholder {
+    color: rgba(228, 228, 231, 0.5);
+}
+
+.report-config-modal.dark-mode .form-check-input[type=checkbox]:not(:checked) {
+    background-color: #3D3D3D;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.report-config-modal.dark-mode .form-check-input[type=checkbox]:checked {
+    background-color: var(--clr-primary);
+    border-color: var(--clr-primary);
+}
+
+.report-config-modal.dark-mode .form-check-input:focus {
+    border-color: var(--clr-primary);
+    box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.25);
 }
 
 .report-config-modal.dark-mode .section-label {
-    color: #94a3b8;
+    color: #A1A1AA;
 }
 
 .report-config-modal.dark-mode .color-setting-label {
-    color: #e2e8f0;
+    color: #E4E4E7;
+}
+
+.report-config-modal.dark-mode .color-mode-label {
+    color: #A1A1AA;
 }
 
 /* ===== Report Header Date Controls (in-header datebar) ===== */
