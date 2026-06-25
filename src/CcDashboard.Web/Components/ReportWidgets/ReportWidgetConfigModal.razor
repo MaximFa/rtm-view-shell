@@ -1,10 +1,15 @@
 @using Microsoft.Extensions.Localization
+@using MediatR
+@using CcDashboard.Application.Queries.Configuration
+@using CcDashboard.Contracts.DTOs.Configuration
+@using CcDashboard.Domain.Domain.Reports
 @inject IStringLocalizer<SharedResources> L
+@inject IMediator Mediator
 
 @if (IsOpen)
 {
-    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal show d-block report-config-modal" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 10001; position: fixed;">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable" style="z-index: 10002;">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">@L["ReportWidget_Configure"]</h5>
@@ -12,6 +17,11 @@
                 </div>
                 <div class="modal-body">
                     <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link @(_tab == "scope" ? "active" : "")" @onclick='() => _tab = "scope"'>
+                                <i class="bi bi-bullseye me-1"></i>@L["WidgetCfg_Scope"]
+                            </button>
+                        </li>
                         <li class="nav-item">
                             <button class="nav-link @(_tab == "general" ? "active" : "")" @onclick='() => _tab = "general"'>
                                 @L["WidgetCfg_General"]
@@ -34,11 +44,98 @@
                         </li>
                     </ul>
 
-                    @if (_tab == "general")
+                    @if (_tab == "scope")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">@L["WidgetCfg_ScopeMode"] <span class="text-danger">*</span></label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="scopeMode" id="scopeModeQueues"
+                                       checked="@(_scopeMode == "queues")" @onchange='() => _scopeMode = "queues"' />
+                                <label class="btn btn-outline-primary" for="scopeModeQueues">
+                                    <i class="bi bi-telephone me-1"></i>@L["WidgetCfg_Queues"]
+                                </label>
+
+                                <input type="radio" class="btn-check" name="scopeMode" id="scopeModeBu"
+                                       checked="@(_scopeMode == "bu")" @onchange='() => _scopeMode = "bu"' />
+                                <label class="btn btn-outline-primary" for="scopeModeBu">
+                                    <i class="bi bi-building me-1"></i>@L["WidgetCfg_BusinessUnits"]
+                                </label>
+                            </div>
+                        </div>
+
+                        @if (_scopeMode == "queues")
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">@L["WidgetCfg_SelectQueues"] <span class="text-danger">*</span></label>
+                                @if (_queuesLoading)
+                                {
+                                    <div class="text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>
+                                }
+                                else if (_queues.Count == 0)
+                                {
+                                    <div class="alert alert-warning py-2">@L["WidgetCfg_NoQueuesAvailable"]</div>
+                                }
+                                else
+                                {
+                                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                        @foreach (var q in _queues)
+                                        {
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="q_@q.QueueId"
+                                                       checked="@_selectedQueueIds.Contains(int.TryParse(q.QueueId, out var qid) ? qid : 0)"
+                                                       @onchange="e => ToggleQueue(q.QueueId, (bool)(e.Value ?? false))" />
+                                                <label class="form-check-label" for="q_@q.QueueId">@q.Name</label>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">@L["WidgetCfg_SelectBusinessUnits"] <span class="text-danger">*</span></label>
+                                @if (_busLoading)
+                                {
+                                    <div class="text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>
+                                }
+                                else if (_businessUnits.Count == 0)
+                                {
+                                    <div class="alert alert-warning py-2">@L["WidgetCfg_NoBusinessUnitsAvailable"]</div>
+                                }
+                                else
+                                {
+                                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                        @foreach (var bu in _businessUnits)
+                                        {
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="bu_@bu.BusinessUnitId"
+                                                       checked="@_selectedBuIds.Contains(bu.BusinessUnitId)"
+                                                       @onchange="e => ToggleBu(bu.BusinessUnitId, (bool)(e.Value ?? false))" />
+                                                <label class="form-check-label" for="bu_@bu.BusinessUnitId">@bu.BusinessUnitName</label>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @if (IsAgentWidget)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">@L["WidgetCfg_AgentAxis"]</label>
+                                <select class="form-select" @bind="_agentAxis">
+                                    <option value="detail">@L["WidgetCfg_AgentAxis_Detail"]</option>
+                                    <option value="cumulative">@L["WidgetCfg_AgentAxis_Cumulative"]</option>
+                                </select>
+                            </div>
+                        }
+                    }
+                    else if (_tab == "general")
                     {
                         <div class="mb-3">
                             <label class="form-label">@L["ReportWidget_Title"]</label>
-                            <input type="text" class="form-control" @bind="_config.Title" />
+                            <input type="text" class="form-control" @bind="_title" />
                         </div>
                         <div class="mb-3">
                             <label class="form-label">@L["Report_PageSize"]</label>
@@ -101,7 +198,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="Close">@L["Common_Cancel"]</button>
-                    <button type="button" class="btn btn-primary" @onclick="Save">@L["Common_Save"]</button>
+                    <button type="button" class="btn btn-primary" @onclick="Save" disabled="@(!CanSave)">@L["Common_Save"]</button>
                 </div>
             </div>
         </div>
@@ -113,36 +210,140 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<ReportWidgetConfig> OnSave { get; set; }
     [Parameter] public ReportWidgetConfig? InitialConfig { get; set; }
+    [Parameter] public ReportWidgetType WidgetType { get; set; }
 
-    private string _tab = "general";
-    private ConfigBuilder _config = new();
+    private string _tab = "scope";
+    private string? _title;
     private int _pageSize = 25;
     private string _tableFontSize = "";
     private string _headerFontSize = "";
     private string _darkBackground = "#1e293b";
     private string _darkTextColor = "#e2e8f0";
 
-    protected override void OnParametersSet()
+    // Scope fields
+    private string _scopeMode = "queues";
+    private List<int> _selectedQueueIds = new();
+    private List<int> _selectedBuIds = new();
+    private string _agentAxis = "detail";
+
+    // Data sources
+    private IReadOnlyList<QueueDto> _queues = [];
+    private IReadOnlyList<BusinessUnitDto> _businessUnits = [];
+    private bool _queuesLoading;
+    private bool _busLoading;
+    private bool _dataLoaded;
+
+    private bool IsAgentWidget => WidgetType is ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail;
+
+    private bool CanSave => _scopeMode == "queues" ? _selectedQueueIds.Count > 0 : _selectedBuIds.Count > 0;
+
+    protected override async Task OnParametersSetAsync()
     {
-        if (IsOpen && InitialConfig is not null)
+        if (IsOpen)
         {
-            _config = new ConfigBuilder
+            // Load initial config
+            if (InitialConfig is not null)
             {
-                Title = InitialConfig.Title
-            };
-            _pageSize = InitialConfig.PageSize ?? 25;
-            _tableFontSize = InitialConfig.Appearance?.TableFontSize ?? "";
-            _headerFontSize = InitialConfig.Appearance?.HeaderFontSize ?? "";
-            _darkBackground = InitialConfig.Appearance?.DarkBackground ?? "#1e293b";
-            _darkTextColor = InitialConfig.Appearance?.DarkTextColor ?? "#e2e8f0";
+                _title = InitialConfig.Title;
+                _pageSize = InitialConfig.PageSize ?? 25;
+                _tableFontSize = InitialConfig.Appearance?.TableFontSize ?? "";
+                _headerFontSize = InitialConfig.Appearance?.HeaderFontSize ?? "";
+                _darkBackground = InitialConfig.Appearance?.DarkBackground ?? "#1e293b";
+                _darkTextColor = InitialConfig.Appearance?.DarkTextColor ?? "#e2e8f0";
+
+                if (InitialConfig.Scope is not null)
+                {
+                    _scopeMode = InitialConfig.Scope.Mode ?? "queues";
+                    _selectedQueueIds = InitialConfig.Scope.QueueIds?.ToList() ?? new();
+                    _selectedBuIds = InitialConfig.Scope.BusinessUnitIds?.ToList() ?? new();
+                    _agentAxis = InitialConfig.Scope.AgentAxis ?? "detail";
+                }
+            }
+            else
+            {
+                // Reset to defaults for new widget
+                _title = null;
+                _pageSize = 25;
+                _scopeMode = "queues";
+                _selectedQueueIds = new();
+                _selectedBuIds = new();
+                _agentAxis = "detail";
+            }
+
+            // Load data sources if not already loaded
+            if (!_dataLoaded)
+            {
+                await LoadDataSources();
+                _dataLoaded = true;
+            }
         }
+        else
+        {
+            _dataLoaded = false;
+        }
+    }
+
+    private async Task LoadDataSources()
+    {
+        _queuesLoading = true;
+        _busLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Load queues and business units in parallel
+            var queuesTask = Mediator.Send(new GetQueuesQuery());
+            var busTask = Mediator.Send(new GetMyBusinessUnitsQuery());
+
+            _queues = await queuesTask;
+            _businessUnits = await busTask;
+        }
+        catch
+        {
+            _queues = [];
+            _businessUnits = [];
+        }
+        finally
+        {
+            _queuesLoading = false;
+            _busLoading = false;
+        }
+    }
+
+    private void ToggleQueue(string externalId, bool selected)
+    {
+        if (int.TryParse(externalId, out var qid))
+        {
+            if (selected && !_selectedQueueIds.Contains(qid))
+                _selectedQueueIds.Add(qid);
+            else if (!selected)
+                _selectedQueueIds.Remove(qid);
+        }
+    }
+
+    private void ToggleBu(int buId, bool selected)
+    {
+        if (selected && !_selectedBuIds.Contains(buId))
+            _selectedBuIds.Add(buId);
+        else if (!selected)
+            _selectedBuIds.Remove(buId);
     }
 
     private async Task Save()
     {
+        var scope = new ReportScope
+        {
+            Mode = _scopeMode,
+            QueueIds = _scopeMode == "queues" ? _selectedQueueIds : null,
+            BusinessUnitIds = _scopeMode == "bu" ? _selectedBuIds : null,
+            AgentAxis = IsAgentWidget ? _agentAxis : null
+        };
+
         var config = new ReportWidgetConfig
         {
-            Title = _config.Title,
+            Title = _title,
+            Scope = scope,
+            Columns = InitialConfig?.Columns, // Preserve existing columns
             PageSize = _pageSize,
             Appearance = new AppearanceConfig
             {
@@ -159,12 +360,7 @@
 
     private async Task Close()
     {
-        _tab = "general";
+        _tab = "scope";
         await OnClose.InvokeAsync();
-    }
-
-    private class ConfigBuilder
-    {
-        public string? Title { get; set; }
     }
 }

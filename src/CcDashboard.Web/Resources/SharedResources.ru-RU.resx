@@ -989,5 +989,16 @@
   <data name="Screens_HardDeleteWarning"><value>Это действие нельзя отменить. Дашборд и все его виджеты будут удалены безвозвратно.</value></data>
   <data name="Screens_HardDeleteConfirm"><value>Вы уверены, что хотите безвозвратно удалить «{0}»?</value></data>
   <data name="Screens_HardDeleteButton"><value>Удалить безвозвратно</value></data>
+  <data name="WidgetCfg_Scope"><value>Область</value></data>
+  <data name="WidgetCfg_ScopeMode"><value>Источник данных</value></data>
+  <data name="WidgetCfg_Queues"><value>Очереди</value></data>
+  <data name="WidgetCfg_BusinessUnits"><value>Бизнес-юниты</value></data>
+  <data name="WidgetCfg_SelectQueues"><value>Выберите очереди</value></data>
+  <data name="WidgetCfg_SelectBusinessUnits"><value>Выберите бизнес-юниты</value></data>
+  <data name="WidgetCfg_NoQueuesAvailable"><value>Нет доступных очередей</value></data>
+  <data name="WidgetCfg_NoBusinessUnitsAvailable"><value>Нет доступных бизнес-юнитов</value></data>
+  <data name="WidgetCfg_AgentAxis"><value>Группировка агентов</value></data>
+  <data name="WidgetCfg_AgentAxis_Detail"><value>Детально (по агенту)</value></data>
+  <data name="WidgetCfg_AgentAxis_Cumulative"><value>Суммарно (итоги)</value></data>
 </root>
 

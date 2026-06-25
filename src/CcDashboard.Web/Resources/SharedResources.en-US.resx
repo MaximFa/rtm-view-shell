@@ -1048,5 +1048,16 @@
   <data name="Screens_HardDeleteWarning"><value>This action cannot be undone. The dashboard and all its widgets will be permanently deleted.</value></data>
   <data name="Screens_HardDeleteConfirm"><value>Are you sure you want to permanently delete "{0}"?</value></data>
   <data name="Screens_HardDeleteButton"><value>Delete permanently</value></data>
+  <data name="WidgetCfg_Scope"><value>Scope</value></data>
+  <data name="WidgetCfg_ScopeMode"><value>Data Source</value></data>
+  <data name="WidgetCfg_Queues"><value>Queues</value></data>
+  <data name="WidgetCfg_BusinessUnits"><value>Business Units</value></data>
+  <data name="WidgetCfg_SelectQueues"><value>Select Queues</value></data>
+  <data name="WidgetCfg_SelectBusinessUnits"><value>Select Business Units</value></data>
+  <data name="WidgetCfg_NoQueuesAvailable"><value>No queues available</value></data>
+  <data name="WidgetCfg_NoBusinessUnitsAvailable"><value>No business units available</value></data>
+  <data name="WidgetCfg_AgentAxis"><value>Agent Grouping</value></data>
+  <data name="WidgetCfg_AgentAxis_Detail"><value>Detail (per agent)</value></data>
+  <data name="WidgetCfg_AgentAxis_Cumulative"><value>Cumulative (totals)</value></data>
 </root>
 

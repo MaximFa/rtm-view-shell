@@ -889,5 +889,16 @@
   <data name="Screens_HardDeleteWarning"><value>לא ניתן לבטל פעולה זו. לוח המחוונים וכל הווידג'טים שלו יימחקו לצמיתות.</value></data>
   <data name="Screens_HardDeleteConfirm"><value>האם אתה בטוח שברצונך למחוק לצמיתות את "{0}"?</value></data>
   <data name="Screens_HardDeleteButton"><value>מחק לצמיתות</value></data>
+  <data name="WidgetCfg_Scope"><value>טווח</value></data>
+  <data name="WidgetCfg_ScopeMode"><value>מקור נתונים</value></data>
+  <data name="WidgetCfg_Queues"><value>תורים</value></data>
+  <data name="WidgetCfg_BusinessUnits"><value>יחידות עסקיות</value></data>
+  <data name="WidgetCfg_SelectQueues"><value>בחר תורים</value></data>
+  <data name="WidgetCfg_SelectBusinessUnits"><value>בחר יחידות עסקיות</value></data>
+  <data name="WidgetCfg_NoQueuesAvailable"><value>אין תורים זמינים</value></data>
+  <data name="WidgetCfg_NoBusinessUnitsAvailable"><value>אין יחידות עסקיות זמינות</value></data>
+  <data name="WidgetCfg_AgentAxis"><value>קיבוץ סוכנים</value></data>
+  <data name="WidgetCfg_AgentAxis_Detail"><value>פירוט (לפי סוכן)</value></data>
+  <data name="WidgetCfg_AgentAxis_Cumulative"><value>מצטבר (סיכומים)</value></data>
 </root>
 

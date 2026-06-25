@@ -195,6 +195,7 @@
 <ReportWidgetConfigModal
     IsOpen="ConfiguringWidget is not null"
     InitialConfig="_configInitial"
+    WidgetType="ConfiguringWidget?.WidgetType ?? ReportWidgetType.QueueInterval"
     OnSave="OnWidgetConfigSaved"
     OnClose="CloseWidgetConfig" />
 
