@@ -26,6 +26,7 @@ Cardinal truths (each SOURCE-pinned):
 
 ## §B LESSONS  (append-only · dated · source-pinned · status)
 - 2026-06-20 · INC-2026.06.20-001: 234 edit+view BLANK. Coordinator (pre-role) anchored on "deploy -> stale Blazor assets / browser cache" + reported "single error 02:14" -> MISSED 7 Redis errors + RedisHubLifetimeManager.OnConnectedAsync stack + the literal AbortOnConnectFail=false hint in the SAME log -> confident WRONG root + wrong route. REAL root: Redis/Memurai DOWN -> SignalR backplane (RedisHubLifetimeManager.OnConnectedAsync) throws on connect -> WebSocket 1011 -> both pages dead. · RULE: enumerate ALL ERR/FTL first; single-cause confidence = red flag; pin to floor not narrative; recent deploy can be a TRIGGER not the bug; read FULL log. · SOURCE: log-20260620 ~14:07 Redis errors + RedisHubLifetimeManager.OnConnectedAsync; aoc:1 · status: active
+- 2026-06-25 · ref: visual-check prep runbook = **docs/Visual-Test-Preflight.md** (profiles A=rebuild / B=running; shared gate Chrome→Soma /health:5199→Shell /ops/health.up→restart×3→start). Use when running or awaiting a visual check. · SOURCE: docs/Visual-Test-Preflight.md · status: active
 
 ## §C VERIFY  (run at init — incident-anchor; mismatch -> floor wins)
 - Ledger present: `ls docs/incidents/incidents.md`; read recent entries (known-signatures).

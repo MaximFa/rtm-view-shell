@@ -31,6 +31,7 @@ Cardinal truths (each SOURCE-pinned):
 - 2026-06-13 · inbox auto-archival whole-file rewrite was L-SC-09-unsafe (concurrent-append clobber) → hardened v3 (re-read + atomic os.replace + commit.lock) · SOURCE: NORM-CUR-06b · status: active
 - 2026-06-15 · promotion gate shipped detect-after (async audit) → tightened to prevent-before/fail-closed (Маяк peer-review) · SOURCE: NORM-CUR-11b · status: active
 - 2026-06-13 · writing SQL/quoted content via Python string-embedding doubled apostrophes / unquoted PG identifier folded lowercase → heredoc + quote-quote=0 gate; quote mixed-case identifiers · SOURCE: L-CUR-01/02 · status: active
+- 2026-06-25 · ref: visual-check prep runbook = **docs/Visual-Test-Preflight.md** (profiles A=rebuild / B=running; shared gate Chrome→Soma /health:5199→Shell /ops/health.up→restart×3→start). Use when running or awaiting a visual check. · SOURCE: docs/Visual-Test-Preflight.md · status: active
 
 ## §C VERIFY  (run at init — object-store only; mismatch → superseded, don't act)
 - truth#1/#4 (CAPTURE in HEAD, not WT): `git show HEAD:CLAUDE.md | grep -c 'CAPTURE'` → expect >0.

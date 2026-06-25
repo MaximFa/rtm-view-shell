@@ -37,6 +37,7 @@ Cardinal truths (source-pinned):
 - 2026-06-19 · Deploy must PRESERVE operator config: Update-RTMView Shell-preserve missed appsettings.json -> overwrote 234's live conn-string -> 28P01 password auth failed. Preserve every operator config file, not just *.Production.json. · SOURCE: 234 Shell crash; e46e849 fix · status: active
 - 2026-06-19 · pg_dump completeness: pre-apply pg_dump must run as OBJECT OWNER (postgres), else backup is INCOMPLETE. Run the whole apply path as postgres. · SOURCE: 234 STEP-4 pg_dump-completeness flag · status: active
 - 2026-06-19 · pkg-copy PD-007: staged package file gets truncated by mount write-back AFTER native commit; re-materialize from HEAD + byte/hash-verify the swap source before every swap. · SOURCE: BOM + StrictMode fixes both needed pkg re-materialize · status: active
+- 2026-06-25 · ref: visual-check prep runbook = **docs/Visual-Test-Preflight.md** (profiles A=rebuild / B=running; shared gate Chrome→Soma /health:5199→Shell /ops/health.up→restart×3→start). Use when running or awaiting a visual check. · SOURCE: docs/Visual-Test-Preflight.md · status: active
 
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Select-String -Path "deploy/Update-RTMView.ps1" -Pattern "@\(Get-ChildItem"` — must exist (@() wrap)

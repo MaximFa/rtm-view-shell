@@ -49,6 +49,7 @@ Cardinal truths (source-pinned):
 - 2026-06-07 · Compare baseline had 13 routines as FUNCTION while prod (correct) had PROCEDURE; align.sql would have reverted prod -> 42809 storm · NEVER run align.sql blindly; verify which side is right · SOURCE:rtm-service-expert §10, journal 2026-06-07T15:14Z · status: active
 - 2026-06-07 · sig-specific DROP FUNCTION fails if server has different arity; use sig-agnostic DROP · SOURCE:55eb049, journal 2026-06-08T01:36Z · status: active
 - 2026-06-09 · Engine TryGetValue guards needed on UnionList/_gridList (whole-list-killed bug) · SOURCE:803832a, 160259a · status: active
+- 2026-06-25 · ref: visual-check prep runbook = **docs/Visual-Test-Preflight.md** (profiles A=rebuild / B=running; shared gate Chrome→Soma /health:5199→Shell /ops/health.up→restart×3→start). Use when running or awaiting a visual check. · SOURCE: docs/Visual-Test-Preflight.md · status: active
 
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `grep -c 'CREATE PROCEDURE' db/functions/01_ngc_functions.sql` — must be >10 (RTM-SEC-002)
