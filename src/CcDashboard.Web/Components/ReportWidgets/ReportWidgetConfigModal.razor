@@ -3,8 +3,10 @@
 @using CcDashboard.Application.Queries.Configuration
 @using CcDashboard.Contracts.DTOs.Configuration
 @using CcDashboard.Domain.Domain.Reports
+@using Microsoft.Extensions.Logging
 @inject IStringLocalizer<SharedResources> L
 @inject IMediator Mediator
+@inject ILogger<ReportWidgetConfigModal> Logger
 
 @if (IsOpen)
 {
@@ -289,25 +291,37 @@
         _busLoading = true;
         StateHasChanged();
 
+        // Load queues independently — failure must not blank BUs
         try
         {
-            // Load queues and business units in parallel
-            var queuesTask = Mediator.Send(new GetQueuesQuery());
-            var busTask = Mediator.Send(new GetMyBusinessUnitsQuery());
-
-            _queues = await queuesTask;
-            _businessUnits = await busTask;
+            _queues = await Mediator.Send(new GetQueuesQuery());
         }
-        catch
+        catch (Exception ex)
         {
             _queues = [];
-            _businessUnits = [];
+            Logger.LogError(ex, "ReportWidgetConfigModal: failed to load queues");
         }
         finally
         {
             _queuesLoading = false;
+        }
+
+        // Load business units independently — failure must not blank queues
+        try
+        {
+            _businessUnits = await Mediator.Send(new GetMyBusinessUnitsQuery());
+        }
+        catch (Exception ex)
+        {
+            _businessUnits = [];
+            Logger.LogError(ex, "ReportWidgetConfigModal: failed to load business units");
+        }
+        finally
+        {
             _busLoading = false;
         }
+
+        StateHasChanged();
     }
 
     private void ToggleQueue(string externalId, bool selected)
