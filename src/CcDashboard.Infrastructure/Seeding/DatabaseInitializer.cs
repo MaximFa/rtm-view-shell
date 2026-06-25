@@ -54,11 +54,23 @@ public class DatabaseInitializer(
         await SeedWidgetCatalogAsync(ct);
         await SeedRtsGridMetricsAsync(ct);
         await SeedHistoryMetricsAsync(ct);
-        await SeedSampleCcEntitiesAsync(platformTenant, ct);
+
+        // Sample/test CC data gate — prod-mirror rebuild-safety (CLAUDE.md §29.8 + Prod-Mirror-Seed-Plan §3).
+        // Default FALSE: rebuilds NEVER re-seed sample data over a prod-mirror. (config[] parse — no Binder dep.)
+        var seedSampleFlag = bool.TryParse(config["Seed:SampleData"], out var f) && f;
+        var shouldSeedSample = await SampleSeedGate.ShouldSeedAsync(seedSampleFlag, beDb, platformTenant.Id, ct);
+
+        if (shouldSeedSample)
+            await SeedSampleCcEntitiesAsync(platformTenant, ct);
+        else
+            logger.LogInformation(
+                "Sample CC seed SKIPPED (Seed:SampleData={Flag}) — prod-mirror rebuild-safety (flag off, or real CC data already present for the tenant).",
+                seedSampleFlag);
+
         await SeedAgentStateDefinitionsAsync(ct);
 
-        // Dev-only: seed RTSData test rows for DayTrend widget
-        if (env.IsDevelopment())
+        // Dev-only RTSData test rows — ALSO gated (else FAKE interactions injected over real prod RTSData on a Dev-env box)
+        if (env.IsDevelopment() && shouldSeedSample)
         {
             try
             {
@@ -315,7 +327,7 @@ public class DatabaseInitializer(
         // NGC Sites (NGC_Site table)
         try
         {
-            if (!await beDb.NgcSites.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id && s.SiteId == "SITE001", ct))
+            if (!await beDb.NgcSites.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenant.Id, ct))
             {
                 beDb.NgcSites.AddRange(
                     new NgcSite { SiteId = "SITE001", TenantId = tenant.Id, SiteName = "Main Office", Description = "Primary contact center", TimeZone = "+03:00", ClearTime = "00:00" },
