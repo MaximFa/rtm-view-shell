@@ -286,7 +286,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && Report is not null)
+        if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("widgetResize.init", _dotNetRef);
