@@ -3,6 +3,7 @@ using CcDashboard.Domain.Domain.Historical;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,8 @@ namespace CcDashboard.Infrastructure.BackgroundServices;
 /// </summary>
 public class HistoricalAggregationService(
     IServiceScopeFactory scopeFactory,
-    ILogger<HistoricalAggregationService> logger) : BackgroundService
+    ILogger<HistoricalAggregationService> logger,
+    IConfiguration config) : BackgroundService
 {
     private const int IntervalMinutes = 30;
     private const int DefaultSlThresholdSec = 20;
@@ -35,6 +37,15 @@ public class HistoricalAggregationService(
     {
         logger.LogInformation("HistoricalAggregationService: starting, initial lookback = {Hours}h", StartupLookback.TotalHours);
         await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+
+        // ONE-TIME BACKFILL: when Historical:BackfillOnStartup=true, aggregate loaded historical RTSData_*
+        // over [min,max] range BEFORE normal startup. Idempotent (DELETE+INSERT per window). Operator sets
+        // flag for ONE boot on prod-mirror, then clears it. Absent/false = ZERO behavior change.
+        var doBackfill = config.GetValue<bool>("Historical:BackfillOnStartup");
+        if (doBackfill)
+        {
+            await RunOneTimeBackfillAsync(stoppingToken);
+        }
 
         var startupTo = DateTime.UtcNow;
         var startupFrom = startupTo - StartupLookback;
@@ -82,6 +93,85 @@ public class HistoricalAggregationService(
                 logger.LogError(ex, "HistoricalAggregationService: error for tenant {TenantId}", tenantId);
             }
         }
+    }
+
+    /// <summary>
+    /// ONE-TIME backfill: derive [min,max] from loaded RTSData_* and aggregate month-by-month.
+    /// Anchor = UpdateTime (queue, completed rows) + StartTime (agent). Reuses RunAggregationAsync.
+    /// </summary>
+    private async Task RunOneTimeBackfillAsync(CancellationToken ct)
+    {
+        var (minDate, maxDate) = await DeriveBackfillRangeAsync(ct);
+        if (!minDate.HasValue || !maxDate.HasValue)
+        {
+            logger.LogWarning("HistoricalAggregationService: backfill: no completed RTSData rows, skipping");
+            return;
+        }
+
+        // Belt-and-suspenders ceiling: never run past ~now (defense-in-depth if sentinel slipped through)
+        var loopEnd = maxDate.Value < DateTime.UtcNow.AddMonths(1) ? maxDate.Value : DateTime.UtcNow.AddMonths(1);
+
+        logger.LogWarning(
+            "HistoricalAggregationService: ONE-TIME BACKFILL {From:O}..{To:O} (Historical:BackfillOnStartup=true)",
+            minDate.Value, loopEnd);
+
+        var monthStart = new DateTime(minDate.Value.Year, minDate.Value.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthCount = 0;
+
+        while (monthStart <= loopEnd)
+        {
+            var monthEnd = monthStart.AddMonths(1);
+            await RunAggregationAsync(monthStart, monthEnd, ct);
+            monthCount++;
+            monthStart = monthEnd;
+        }
+
+        logger.LogInformation(
+            "HistoricalAggregationService: BACKFILL complete ({Months} monthly windows). Clear Historical:BackfillOnStartup to avoid re-running on next boot.",
+            monthCount);
+    }
+
+    /// <summary>
+    /// Derive backfill range from RTSData_* source tables.
+    /// Queue: UpdateTime over completed rows (IsInQueue=false); Agent: StartTime.
+    /// Defensive lower guard >= 2000-01-01.
+    /// </summary>
+    private async Task<(DateTime? Min, DateTime? Max)> DeriveBackfillRangeAsync(CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var beDb = scope.ServiceProvider.GetRequiredService<BackendEmulationDbContext>();
+
+        // Queue side: UpdateTime over completed rows (IsInQueue=false)
+        var queueRange = await beDb.RtsDataInteractions
+            .AsNoTracking()
+            .Where(i => i.IsInQueue == false && i.UpdateTime.HasValue && i.UpdateTime >= new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+            .GroupBy(_ => 1)
+            .Select(g => new { Min = g.Min(i => i.UpdateTime), Max = g.Max(i => i.UpdateTime) })
+            .FirstOrDefaultAsync(ct);
+
+        // Agent side: StartTime
+        var agentRange = await beDb.RtsDataUserStatusLogs
+            .AsNoTracking()
+            .Where(s => s.StartTime.HasValue && s.StartTime >= new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+            .GroupBy(_ => 1)
+            .Select(g => new { Min = g.Min(s => s.StartTime), Max = g.Max(s => s.StartTime) })
+            .FirstOrDefaultAsync(ct);
+
+        // Overall min/max across both sources
+        DateTime? overallMin = null;
+        DateTime? overallMax = null;
+
+        if (queueRange?.Min.HasValue == true)
+            overallMin = queueRange.Min;
+        if (agentRange?.Min.HasValue == true && (!overallMin.HasValue || agentRange.Min < overallMin))
+            overallMin = agentRange.Min;
+
+        if (queueRange?.Max.HasValue == true)
+            overallMax = queueRange.Max;
+        if (agentRange?.Max.HasValue == true && (!overallMax.HasValue || agentRange.Max > overallMax))
+            overallMax = agentRange.Max;
+
+        return (overallMin, overallMax);
     }
 
     private async Task AggregateForTenantAsync(Guid tenantId, DateTime from, DateTime to, CancellationToken ct)
