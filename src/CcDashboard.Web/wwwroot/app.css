@@ -3509,42 +3509,42 @@ button.clr-swatch,
 
 
 /* Dark mode - report config modal elements */
-.dark-mode .report-config-modal .modal-content {
+.report-config-modal.dark-mode .modal-content {
     background-color: #1e293b;
     color: #e2e8f0;
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-.dark-mode .report-config-modal .modal-header {
+.report-config-modal.dark-mode .modal-header {
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-.dark-mode .report-config-modal .modal-footer {
+.report-config-modal.dark-mode .modal-footer {
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-.dark-mode .report-config-modal .nav-tabs .nav-link {
+.report-config-modal.dark-mode .nav-tabs .nav-link {
     color: #94a3b8;
 }
 
-.dark-mode .report-config-modal .nav-tabs .nav-link.active {
+.report-config-modal.dark-mode .nav-tabs .nav-link.active {
     background-color: #334155;
     color: #f1f5f9;
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-.dark-mode .report-config-modal .form-select,
-.dark-mode .report-config-modal .form-control {
+.report-config-modal.dark-mode .form-select,
+.report-config-modal.dark-mode .form-control {
     background-color: #334155;
     border-color: rgba(255, 255, 255, 0.1);
     color: #f1f5f9;
 }
 
-.dark-mode .report-config-modal .section-label {
+.report-config-modal.dark-mode .section-label {
     color: #94a3b8;
 }
 
-.dark-mode .report-config-modal .color-setting-label {
+.report-config-modal.dark-mode .color-setting-label {
     color: #e2e8f0;
 }
 

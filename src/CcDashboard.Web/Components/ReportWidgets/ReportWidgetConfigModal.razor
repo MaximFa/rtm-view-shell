@@ -13,7 +13,7 @@
 
 @if (IsOpen)
 {
-    <div class="modal show d-block report-config-modal" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 10001; position: fixed;">
+    <div class="modal show d-block report-config-modal @(DarkMode ? "dark-mode" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 10001; position: fixed;">
         <div class="modal-dialog modal-lg modal-dialog-scrollable" style="z-index: 10002;">
             <div class="modal-content">
                 <div class="modal-header">
@@ -363,6 +363,7 @@
     [Parameter] public EventCallback<ReportWidgetConfig> OnSave { get; set; }
     [Parameter] public ReportWidgetConfig? InitialConfig { get; set; }
     [Parameter] public ReportWidgetType WidgetType { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
 
     private string _tab = "scope";
     private string? _title;
