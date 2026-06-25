@@ -1,0 +1,743 @@
+@page "/reports/{Id:guid}/edit"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Superadmin,Administrator,Editor")]
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject ICurrentUserAccessor CurrentUser
+@inject ILogger<ReportEditorPage> Logger
+@using MediatR
+@using CcDashboard.Domain.Interfaces
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
+@using CcDashboard.Application.Reports.Queries
+@using CcDashboard.Application.Reports.DTOs
+@using CcDashboard.Application.Reports.Commands
+@using CcDashboard.Domain.Domain.Reports
+@using CcDashboard.Web.Components.ReportWidgets
+@using Microsoft.AspNetCore.Authorization
+@using System.Text.Json
+@implements IDisposable
+
+<PageTitle>@L["Reports_Edit"] — @(Report?.Name ?? "...") — RTM View Shell</PageTitle>
+
+<div class="editor-fullscreen @(_darkMode ? "dark-mode" : "")">
+    @if (Loading)
+    {
+        <div class="text-center py-5" aria-busy="true">
+            <span class="spinner-border text-primary"></span>
+            <p class="mt-2 text-muted">@L["Loading"]</p>
+        </div>
+    }
+    else if (Report is null)
+    {
+        <div class="alert alert-warning m-4">@L["Reports_NotFound"]</div>
+        <a href="/reports" class="btn btn-outline-primary ms-4">@L["Screens_Back"]</a>
+    }
+    else
+    {
+        <!-- Fullscreen Editor Header -->
+        <div class="editor-header">
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-sm btn-outline-light" @onclick="TogglePalette" title="@L["Widgets_Palette"]">
+                    <i class="bi bi-layout-sidebar-inset"></i>
+                </button>
+                <a href="/reports" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                <label for="report-name-input" class="visually-hidden">@L["Reports_Name"]</label>
+                <input id="report-name-input" type="text" class="form-control form-control-sm bg-dark text-white border-secondary fw-bold" style="width:250px"
+                       @bind="EditName" @bind:event="oninput" maxlength="200" />
+                <span class="badge @(Report.Status == ReportScreenStatus.Published ? "bg-success" : "bg-warning text-dark")">
+                    @Report.Status
+                </span>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-light" @onclick="ToggleDarkMode" title="@(_darkMode ? L["WidgetCfg_LightMode"] : L["WidgetCfg_DarkMode"])">
+                    <i class="bi @(_darkMode ? "bi-sun" : "bi-moon")"></i>
+                </button>
+                @if (Error is not null)
+                {
+                    <span class="text-danger small me-2">@Error</span>
+                }
+                @if (Report.Status == ReportScreenStatus.Draft)
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="PublishReport" disabled="@Saving">
+                        <i class="bi bi-send"></i> @L["Screens_Publish"]
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-warning btn-sm" @onclick="UnpublishReport" disabled="@Saving">
+                        <i class="bi bi-archive"></i> @L["Screens_Unpublish"]
+                    </button>
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="CloneReport" disabled="@(Saving || Cloning)" title="@L["Screens_Clone"]">
+                    @if (Cloning)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-copy"></i> @L["Screens_Clone"]
+                </button>
+                <button class="btn btn-primary btn-sm" @onclick="SaveLayout" disabled="@Saving">
+                    @if (Saving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-check-lg"></i> @L["Common_Save"]
+                </button>
+            </div>
+        </div>
+
+        <div class="editor-body">
+        <!-- Slide-out Widget Palette -->
+        <div class="editor-palette @(PaletteOpen ? "open" : "")">
+            <div class="palette-header">
+                <h6 class="mb-0">@L["Widgets_Palette"]</h6>
+                <button class="btn btn-sm btn-link text-muted p-0" @onclick="TogglePalette">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="palette-content">
+                @foreach (var category in WidgetTypes.GroupBy(w => GetWidgetCategory(w)))
+                {
+                    <div class="mb-3" @key="category.Key">
+                        <div class="small text-muted text-uppercase mb-2">@category.Key</div>
+                        @foreach (var widgetType in category)
+                        {
+                            <div class="widget-palette-item"
+                                 draggable="true"
+                                 @key="widgetType"
+                                 @ondragstart="() => OnDragStart(widgetType)"
+                                 @ondragend="OnDragEnd">
+                                <div class="widget-palette-icon">
+                                    <i class="bi @GetWidgetIcon(widgetType)"></i>
+                                </div>
+                                <div class="widget-palette-info">
+                                    <div class="widget-palette-name">@GetWidgetName(widgetType)</div>
+                                    <div class="widget-palette-desc">@GetWidgetDescription(widgetType)</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                @* Templates section HIDDEN (v1.1 defer) *@
+            </div>
+        </div>
+
+        <!-- Dashboard Canvas (fullscreen) -->
+        <div class="editor-canvas @(IsDragging ? "drag-over" : "")"
+             @ondragover="OnDragOver"
+             @ondragover:preventDefault="true"
+             @ondrop="OnDropAtPosition"
+             @ondrop:preventDefault="true"
+             @onclick="OnCanvasClick">
+            @if (PlacedWidgets.Count == 0)
+            {
+                <div class="text-center py-5 text-muted" style="pointer-events: none;">
+                    <i class="bi bi-grid-3x3-gap fs-1 mb-3 opacity-50"></i>
+                    <p>@L["Widgets_DragHere"]</p>
+                </div>
+            }
+            <div class="dashboard-canvas-grid"
+                 style="position: relative; min-height: calc(100vh - 60px); @(_positionsApplied || PlacedWidgets.Count == 0 ? "" : "visibility: hidden;")">
+                @foreach (var widget in PlacedWidgets)
+                {
+                    <div class="dashboard-widget @(SelectedWidgetId == widget.Id ? "selected" : "")"
+                         data-widget-id="@widget.Id"
+                         style="@GetWidgetStyle(widget)"
+                         @key="widget.Id"
+                         @onclick="e => SelectWidget(widget.Id)"
+                         @onclick:stopPropagation="true">
+                        <div class="widget-toolbar">
+                            <button class="widget-toolbar-btn" title="@L["Widgets_Configure"]"
+                                    @onclick="() => OpenWidgetConfig(widget)" @onclick:stopPropagation="true">
+                                <i class="bi bi-gear"></i>
+                            </button>
+                            <button class="widget-toolbar-btn danger" title="@L["Delete"]"
+                                    @onclick="() => RemoveWidget(widget.Id)" @onclick:stopPropagation="true">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div class="widget-header widget-drag-handle d-flex align-items-center"
+                             @onmousedown="e => StartMove(widget.Id, e)"
+                             @onmousedown:stopPropagation="true">
+                            <i class="bi bi-grip-horizontal me-1"></i>
+                            <span>@widget.DisplayName</span>
+                        </div>
+                        <div class="widget-content">
+                            <RenderReportWidget
+                                WidgetType="widget.WidgetType"
+                                ConfigJson="@widget.ConfigJson"
+                                From="_rangeFrom"
+                                To="_rangeTo"
+                                DarkMode="_darkMode" />
+                        </div>
+                        @* Resize handles *@
+                        <div class="resize-handle resize-e"  @onmousedown="e => StartResizeE(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-s"  @onmousedown="e => StartResizeS(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-se" @onmousedown="e => StartResizeSE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-n"  @onmousedown="e => StartResizeN(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-w"  @onmousedown="e => StartResizeW(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-nw" @onmousedown="e => StartResizeNW(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-ne" @onmousedown="e => StartResizeNE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        <div class="resize-handle resize-sw" @onmousedown="e => StartResizeSW(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                    </div>
+                }
+            </div>
+        </div>
+        </div>
+    }
+</div>
+
+<!-- Widget Configuration Modal -->
+@if (ConfiguringWidget is not null)
+{
+    <div class="editor-modal @(_darkMode ? "dark-mode" : "")" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="widget-config-title" data-modal-id="widget-config">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header modal-drag-header">
+                    <i class="bi bi-grip-vertical me-2 text-muted" style="font-size: 1rem; flex-shrink: 0;"></i>
+                    <h5 class="modal-title" id="widget-config-title">
+                        @L["ReportWidget_Configure"]: @GetWidgetName(ConfiguringWidget.WidgetType)
+                    </h5>
+                    <button type="button" class="btn-close ms-auto" @onclick="CloseWidgetConfig"></button>
+                </div>
+                <div class="modal-resize-handle"></div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <!-- General Tab -->
+                    <div class="mb-3">
+                        <label class="form-label">@L["ReportWidget_Title"]</label>
+                        <input type="text" class="form-control" @bind="ConfigTitle" maxlength="100" />
+                    </div>
+                    <div class="alert alert-secondary py-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        @L["ReportWidget_ColumnsHint"]
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseWidgetConfig">@L["Common_Cancel"]</button>
+                    <button class="btn btn-primary" @onclick="SaveWidgetConfig" disabled="@ConfigSaving">
+                        @(ConfigSaving ? L["Common_Saving"].Value : L["Common_Save"].Value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="editor-modal-backdrop"></div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ReportScreenDetailDto? Report;
+    private List<PlacedReportWidget> PlacedWidgets = [];
+    private bool Loading = true;
+    private bool Saving;
+    private bool ConfigSaving;
+    private bool Cloning;
+    private string? Error;
+    private string EditName = "";
+    private bool _darkMode = false;
+    private bool _positionsApplied;
+
+    // Date range for preview
+    private DateTime _rangeFrom = DateTime.UtcNow.Date.AddDays(-7);
+    private DateTime _rangeTo = DateTime.UtcNow.Date;
+
+    // Palette state
+    private bool PaletteOpen = false;
+
+    // Drag & Drop state
+    private bool IsDragging;
+    private ReportWidgetType? DraggedWidgetType;
+    private Guid? SelectedWidgetId;
+
+    // Widget Configuration
+    private PlacedReportWidget? ConfiguringWidget;
+    private string ConfigTitle = "";
+
+    // All 5 widget types
+    private static readonly ReportWidgetType[] WidgetTypes = Enum.GetValues<ReportWidgetType>();
+
+    private readonly CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Loading = true;
+        try
+        {
+            Report = await Mediator.Send(new GetReportScreenQuery(Id), _cts.Token);
+            EditName = Report.Name;
+            _darkMode = Report.IsDarkMode;
+
+            PlacedWidgets = Report.Widgets.Select(w => new PlacedReportWidget
+            {
+                Id = w.Id,
+                WidgetType = w.WidgetType,
+                PositionJson = w.PositionJson,
+                ConfigJson = w.ConfigJson,
+                DisplayName = GetWidgetDisplayName(w)
+            }).ToList();
+
+            // Load saved palette state
+            var userId = CurrentUser?.UserId?.ToString() ?? "anon";
+            try
+            {
+                var saved = await JS.InvokeAsync<string?>("localStorage.getItem", $"cc:reporteditor:palette:{userId}");
+                PaletteOpen = saved == "true";
+            }
+            catch { }
+        }
+        catch (CcDashboard.Domain.Exceptions.ForbiddenException ex)
+        {
+            Logger.LogError(ex, "Access denied to report {Id}", Id);
+            Error = L["Report_AccessDenied"];
+            Report = null;
+        }
+        catch (CcDashboard.Domain.Exceptions.NotFoundException ex)
+        {
+            Logger.LogError(ex, "Report not found {Id}", Id);
+            Report = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load report {Id}", Id);
+            Error = ex.Message;
+        }
+        finally
+        {
+            Loading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_positionsApplied && PlacedWidgets.Count > 0 && !Loading)
+        {
+            var positions = PlacedWidgets.Select(w =>
+            {
+                var pos = ParsePosition(w.PositionJson);
+                return new { id = w.Id.ToString(), x = pos.X, y = pos.Y, width = pos.Width, height = pos.Height };
+            }).ToArray();
+
+            await JS.InvokeVoidAsync("widgetResize.applyAllWidgetPositions", (object)positions);
+            _positionsApplied = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task TogglePalette()
+    {
+        PaletteOpen = !PaletteOpen;
+        var userId = CurrentUser?.UserId?.ToString() ?? "anon";
+        await JS.InvokeVoidAsync("localStorage.setItem", $"cc:reporteditor:palette:{userId}", PaletteOpen.ToString().ToLower());
+    }
+
+    private void ToggleDarkMode() => _darkMode = !_darkMode;
+
+    private void OnDragStart(ReportWidgetType widgetType)
+    {
+        IsDragging = true;
+        DraggedWidgetType = widgetType;
+    }
+
+    private void OnDragEnd()
+    {
+        IsDragging = false;
+        DraggedWidgetType = null;
+    }
+
+    private void OnDragOver(DragEventArgs e) { }
+
+    private async Task OnDropAtPosition(DragEventArgs e)
+    {
+        if (DraggedWidgetType is null) return;
+
+        var newWidget = new PlacedReportWidget
+        {
+            Id = Guid.NewGuid(),
+            WidgetType = DraggedWidgetType.Value,
+            PositionJson = JsonSerializer.Serialize(new { x = 50, y = 50, width = 400, height = 300 }),
+            ConfigJson = null,
+            DisplayName = GetWidgetName(DraggedWidgetType.Value),
+            IsNew = true
+        };
+
+        PlacedWidgets.Add(newWidget);
+        SelectedWidgetId = newWidget.Id;
+        IsDragging = false;
+        DraggedWidgetType = null;
+        _positionsApplied = false;
+        StateHasChanged();
+
+        await Task.Delay(50);
+        var positions = PlacedWidgets.Select(w =>
+        {
+            var pos = ParsePosition(w.PositionJson);
+            return new { id = w.Id.ToString(), x = pos.X, y = pos.Y, width = pos.Width, height = pos.Height };
+        }).ToArray();
+        await JS.InvokeVoidAsync("widgetResize.applyAllWidgetPositions", (object)positions);
+        _positionsApplied = true;
+    }
+
+    private void OnCanvasClick() => SelectedWidgetId = null;
+
+    private void SelectWidget(Guid id) => SelectedWidgetId = id;
+
+    private void RemoveWidget(Guid id)
+    {
+        var widget = PlacedWidgets.FirstOrDefault(w => w.Id == id);
+        if (widget is not null)
+        {
+            widget.IsDeleted = true;
+            PlacedWidgets = PlacedWidgets.Where(w => !w.IsDeleted).ToList();
+            if (SelectedWidgetId == id) SelectedWidgetId = null;
+        }
+    }
+
+    private void OpenWidgetConfig(PlacedReportWidget widget)
+    {
+        ConfiguringWidget = widget;
+        var config = ReportWidgetConfig.Parse(widget.ConfigJson);
+        ConfigTitle = config?.Title ?? "";
+    }
+
+    private void CloseWidgetConfig()
+    {
+        ConfiguringWidget = null;
+        ConfigTitle = "";
+    }
+
+    private async Task SaveWidgetConfig()
+    {
+        if (ConfiguringWidget is null) return;
+
+        ConfigSaving = true;
+        try
+        {
+            var existingConfig = ReportWidgetConfig.Parse(ConfiguringWidget.ConfigJson);
+            var newConfig = new ReportWidgetConfig
+            {
+                Title = string.IsNullOrWhiteSpace(ConfigTitle) ? null : ConfigTitle,
+                Scope = existingConfig?.Scope,
+                Columns = existingConfig?.Columns,
+                Thresholds = existingConfig?.Thresholds,
+                Interval = existingConfig?.Interval,
+                PageSize = existingConfig?.PageSize,
+                Metric = existingConfig?.Metric,
+                Appearance = existingConfig?.Appearance
+            };
+
+            ConfiguringWidget.ConfigJson = newConfig.ToJson();
+            ConfiguringWidget.DisplayName = string.IsNullOrWhiteSpace(ConfigTitle)
+                ? GetWidgetName(ConfiguringWidget.WidgetType)
+                : ConfigTitle;
+
+            CloseWidgetConfig();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save widget config");
+            Error = ex.Message;
+        }
+        finally
+        {
+            ConfigSaving = false;
+        }
+    }
+
+    private async Task SaveLayout()
+    {
+        if (Report is null) return;
+
+        Saving = true;
+        Error = null;
+        try
+        {
+            // Gather current positions from JS
+            var posData = await JS.InvokeAsync<List<WidgetPositionData>>("widgetResize.getAllWidgetPositions");
+            var posDict = posData?.ToDictionary(p => Guid.Parse(p.Id), p => p) ?? new();
+
+            // Update positions in PlacedWidgets
+            foreach (var w in PlacedWidgets)
+            {
+                if (posDict.TryGetValue(w.Id, out var pos))
+                {
+                    w.PositionJson = JsonSerializer.Serialize(new { x = pos.X, y = pos.Y, width = pos.Width, height = pos.Height });
+                }
+            }
+
+            // Save widgets
+            var widgetRequests = PlacedWidgets.Select(w => new SaveReportWidgetRequest(
+                w.IsNew ? null : w.Id,
+                w.WidgetType,
+                w.PositionJson,
+                w.ConfigJson,
+                w.IsDeleted
+            )).ToList();
+
+            await Mediator.Send(new SaveReportWidgetsCommand(Id, widgetRequests), _cts.Token);
+
+            // Update report metadata
+            var updateRequest = new UpdateReportScreenRequest(
+                Id,
+                EditName,
+                Report.Description,
+                Report.CategoryId,
+                Report.Status,
+                Report.IsPublic,
+                _darkMode,
+                Report.LayoutJson,
+                Report.RowVersion);
+
+            var updated = await Mediator.Send(new UpdateReportScreenCommand(updateRequest), _cts.Token);
+            Report = await Mediator.Send(new GetReportScreenQuery(Id), _cts.Token);
+
+            // Refresh widget list
+            PlacedWidgets = Report.Widgets.Select(w => new PlacedReportWidget
+            {
+                Id = w.Id,
+                WidgetType = w.WidgetType,
+                PositionJson = w.PositionJson,
+                ConfigJson = w.ConfigJson,
+                DisplayName = GetWidgetDisplayName(w)
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save report layout");
+            Error = ex.Message;
+        }
+        finally
+        {
+            Saving = false;
+        }
+    }
+
+    private async Task PublishReport()
+    {
+        if (Report is null) return;
+
+        Saving = true;
+        Error = null;
+        try
+        {
+            var updateRequest = new UpdateReportScreenRequest(
+                Id,
+                EditName,
+                Report.Description,
+                Report.CategoryId,
+                ReportScreenStatus.Published,
+                Report.IsPublic,
+                _darkMode,
+                Report.LayoutJson,
+                Report.RowVersion);
+
+            await Mediator.Send(new UpdateReportScreenCommand(updateRequest), _cts.Token);
+            Report = await Mediator.Send(new GetReportScreenQuery(Id), _cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to publish report");
+            Error = ex.Message;
+        }
+        finally
+        {
+            Saving = false;
+        }
+    }
+
+    private async Task UnpublishReport()
+    {
+        if (Report is null) return;
+
+        Saving = true;
+        Error = null;
+        try
+        {
+            var updateRequest = new UpdateReportScreenRequest(
+                Id,
+                EditName,
+                Report.Description,
+                Report.CategoryId,
+                ReportScreenStatus.Draft,
+                Report.IsPublic,
+                _darkMode,
+                Report.LayoutJson,
+                Report.RowVersion);
+
+            await Mediator.Send(new UpdateReportScreenCommand(updateRequest), _cts.Token);
+            Report = await Mediator.Send(new GetReportScreenQuery(Id), _cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to unpublish report");
+            Error = ex.Message;
+        }
+        finally
+        {
+            Saving = false;
+        }
+    }
+
+    private async Task CloneReport()
+    {
+        if (Report is null) return;
+
+        Cloning = true;
+        Error = null;
+        try
+        {
+            var cloned = await Mediator.Send(new CloneReportScreenCommand(Id), _cts.Token);
+            Nav.NavigateTo($"/reports/{cloned.Id}/edit");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to clone report");
+            Error = ex.Message;
+        }
+        finally
+        {
+            Cloning = false;
+        }
+    }
+
+    // Move/Resize handlers - delegate to JS widget-resize.js
+    private void StartMove(Guid id, MouseEventArgs e) =>
+        JS.InvokeVoidAsync("widgetResize.startDragWidget", id.ToString(), e.ClientX, e.ClientY);
+
+    private void StartResizeE(Guid id, MouseEventArgs e) =>
+        JS.InvokeVoidAsync("widgetResize.startResizeE", id.ToString(), e.ClientX, e.ClientY);
+
+    private void StartResizeS(Guid id, MouseEventArgs e) =>
+        JS.InvokeVoidAsync("widgetResize.startResizeS", id.ToString(), e.ClientX, e.ClientY);
+
+    private void StartResizeSE(Guid id, MouseEventArgs e) =>
+        JS.InvokeVoidAsync("widgetResize.startResizeSE", id.ToString(), e.ClientX, e.ClientY);
+
+    private void StartResizeN(Guid id, MouseEventArgs e) =>
+        JS.InvokeVoidAsync("widgetResize.startResizeN", id.ToString(), e.ClientX, e.ClientY);
+
+    private void StartResizeW(Guid id, MouseEventArgs e) =>
+        JS.InvokeVoidAsync("widgetResize.startResizeW", id.ToString(), e.ClientX, e.ClientY);
+
+    private void StartResizeNW(Guid id, MouseEventArgs e) =>
+        JS.InvokeVoidAsync("widgetResize.startResizeNW", id.ToString(), e.ClientX, e.ClientY);
+
+    private void StartResizeNE(Guid id, MouseEventArgs e) =>
+        JS.InvokeVoidAsync("widgetResize.startResizeNE", id.ToString(), e.ClientX, e.ClientY);
+
+    private void StartResizeSW(Guid id, MouseEventArgs e) =>
+        JS.InvokeVoidAsync("widgetResize.startResizeSW", id.ToString(), e.ClientX, e.ClientY);
+
+    // Helpers
+    private string GetWidgetStyle(PlacedReportWidget widget)
+    {
+        var pos = ParsePosition(widget.PositionJson);
+        return $"position: absolute; left: {pos.X}px; top: {pos.Y}px; width: {pos.Width}px; height: {pos.Height}px;";
+    }
+
+    private static WidgetPosition ParsePosition(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new WidgetPosition(0, 0, 400, 300);
+
+        try
+        {
+            var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            return new WidgetPosition(
+                root.TryGetProperty("x", out var x) ? x.GetInt32() : 0,
+                root.TryGetProperty("y", out var y) ? y.GetInt32() : 0,
+                root.TryGetProperty("width", out var w) ? w.GetInt32() : 400,
+                root.TryGetProperty("height", out var h) ? h.GetInt32() : 300
+            );
+        }
+        catch
+        {
+            return new WidgetPosition(0, 0, 400, 300);
+        }
+    }
+
+    private string GetWidgetDisplayName(ReportWidgetDto widget)
+    {
+        if (!string.IsNullOrEmpty(widget.ConfigJson))
+        {
+            try
+            {
+                var doc = JsonDocument.Parse(widget.ConfigJson);
+                if (doc.RootElement.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String)
+                {
+                    var t = title.GetString();
+                    if (!string.IsNullOrEmpty(t)) return t;
+                }
+            }
+            catch { }
+        }
+        return GetWidgetName(widget.WidgetType);
+    }
+
+    private static string GetWidgetCategory(ReportWidgetType type) => type switch
+    {
+        ReportWidgetType.QueueInterval or ReportWidgetType.QueueWaitTime => "Queues",
+        ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail => "Agents",
+        ReportWidgetType.Distribution => "Analytics",
+        _ => "Other"
+    };
+
+    private static string GetWidgetName(ReportWidgetType type) => type switch
+    {
+        ReportWidgetType.QueueInterval => "Queue Interval",
+        ReportWidgetType.QueueWaitTime => "Queue Wait Time",
+        ReportWidgetType.AgentMonthly => "Agent Monthly",
+        ReportWidgetType.AgentShiftDetail => "Agent Shift Detail",
+        ReportWidgetType.Distribution => "Distribution",
+        _ => type.ToString()
+    };
+
+    private static string GetWidgetDescription(ReportWidgetType type) => type switch
+    {
+        ReportWidgetType.QueueInterval => "Calls and service levels by time interval",
+        ReportWidgetType.QueueWaitTime => "Wait time distribution analysis",
+        ReportWidgetType.AgentMonthly => "Monthly agent performance summary",
+        ReportWidgetType.AgentShiftDetail => "Detailed shift-by-shift agent metrics",
+        ReportWidgetType.Distribution => "Call distribution charts",
+        _ => ""
+    };
+
+    private static string GetWidgetIcon(ReportWidgetType type) => type switch
+    {
+        ReportWidgetType.QueueInterval => "bi-clock-history",
+        ReportWidgetType.QueueWaitTime => "bi-hourglass-split",
+        ReportWidgetType.AgentMonthly => "bi-calendar-month",
+        ReportWidgetType.AgentShiftDetail => "bi-person-lines-fill",
+        ReportWidgetType.Distribution => "bi-pie-chart",
+        _ => "bi-grid"
+    };
+
+    public void Dispose() => _cts.Cancel();
+
+    private record WidgetPosition(int X, int Y, int Width, int Height);
+
+    private class PlacedReportWidget
+    {
+        public Guid Id { get; set; }
+        public ReportWidgetType WidgetType { get; set; }
+        public string? PositionJson { get; set; }
+        public string? ConfigJson { get; set; }
+        public string DisplayName { get; set; } = "";
+        public bool IsNew { get; set; }
+        public bool IsDeleted { get; set; }
+    }
+
+    private class WidgetPositionData
+    {
+        public string Id { get; set; } = "";
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+    }
+}
