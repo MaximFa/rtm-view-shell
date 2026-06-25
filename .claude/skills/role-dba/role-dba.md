@@ -62,6 +62,8 @@ Cardinal truths (source-pinned):
 
 - 2026-06-25 · Prod-mirror seed = 2.4a (operator): load under the ORIGINAL prod TenantId, NO re-stamp; target tenant == source. Create the `tenants` row with the ORIGINAL id (ON CONFLICT Id DO NOTHING) + tenant_settings. Single source tenant 019e03e9 (orphan 019e0422 excluded by WHERE TenantId=src). · SOURCE: coordinator §4 2026-06-26 (operator 2.4a) + inspect_20260626-020044 · status: active
 
+- 2026-06-25 · RTM CC tables (NGC_*/RTSData_*) have GLOBAL business-key PKs with NO TenantId (NGC_Site=SiteId, NGC_BusinessUnit=BusinessUnitId, RTSData_Interaction=(InteractionId,Segment,OnDate,ServerId,Workgroup),...). A per-tenant DELETE cannot clear cross-tenant PK collisions (our seed SiteId='IL' vs prod's). Prod-mirror load (operator A) = TRUNCATE these global-PK tables (one multi-table stmt under session_replication_role=replica, no CASCADE), DELETE-by-tenant only for uuid/PG-scoped tables (permission_groups/pg_*). · SOURCE: Mode=Load NGC_Site PK clash 2026-06-26 + schema.sql PKs · status: active
+
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path "db/tools/Compare-ToBaseline.ps1"` — must be True
 2. `Select-String -Path "db/schema.sql" -Pattern "CREATE TABLE"` — expect count >10

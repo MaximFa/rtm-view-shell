@@ -573,14 +573,27 @@ $loadSql += "BEGIN;"
 $loadSql += "SET session_replication_role = replica;"
 $loadSql += ""
 
-# Truncate target rows first
-$loadSql += "-- TRUNCATE target tenant rows"
+# Clear (operator Q1=A): global business-key PK CC tables -> TRUNCATE; permission_groups/pg_* -> DELETE WHERE TenantId
+$loadSql += "-- Clear (operator Q1=A): global business-key PK CC tables -> TRUNCATE; permission_groups/pg_* -> DELETE WHERE TenantId"
+# Global business-key PK tables (NO TenantId in PK) — DELETE-by-tenant cannot clear cross-tenant PK collisions (e.g. NGC_Site SiteId='IL').
+$truncateSet = @(
+    "NGC_Site", "NGC_BusinessUnit", "NGC_Supergroup", "NGC_Queues", "NGC_AgentGroups",
+    "NGC_BusinessUnitQueueClassification", "NGC_BusinessUnitSupergroup",
+    "NGC_SupergroupAgentgroup", "NGC_UserAgentgroup",
+    "RTSData_Interaction", "RTSData_UserStatus", "RTSData_ChatMessage"
+)
+$toTruncate = @($tablesToLoad | Where-Object { $truncateSet -contains $_.Name } | ForEach-Object { '"' + $_.Name + '"' })
+if (@($toTruncate).Count -gt 0) {
+    # ONE TRUNCATE for the whole self-contained CC set; runs under session_replication_role=replica
+    # (no CASCADE — must NOT touch KEPT tables; the set's inter-FKs are cleared together).
+    $loadSql += "TRUNCATE TABLE " + (@($toTruncate) -join ", ") + ";"
+}
 foreach ($t in $tablesToLoad) {
     $tbl = $t.Name
+    if ($truncateSet -contains $tbl) { continue }   # already truncated above
     if ($TenantIdTables -contains $tbl) {
         $loadSql += "DELETE FROM `"$tbl`" WHERE `"TenantId`" = '$targetTenant';"
     } else {
-        # Non-tenant table (RTSData_ChatMessage) - truncate all
         $loadSql += "TRUNCATE TABLE `"$tbl`";"
     }
 }
