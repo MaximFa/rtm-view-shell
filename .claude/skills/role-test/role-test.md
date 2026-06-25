@@ -13,6 +13,16 @@ reviewer: curator
 > Reality wins — if code/artifacts disagree with this skill, trust reality and UPDATE this file (§C).
 
 ## §A CORE (invariant — load every init; ~40-line cap; each truth source-pinned)
+### ⛔ ЧП / EMERGENCY MODE — ACTIVE (declared 2026-06-25 coordinator-0624; REMOVE on operator lift)
+Release is bug-ridden (dashboards) + the reports version blocking its fixes is in catastrophic state → emergency until the operator lifts ЧП.
+1. NO corner-cutting; ANY detail (ESPECIALLY visual) = critically RED — every defect is a blocker, no "minor".
+2. NO decision around the coordinator; every fork → coordinator → operator (ONE at a time, by importance, plain language).
+3. NO unsanctioned runs: do NOT hand the operator a chat CC run-prompt code-box UNTIL the coordinator's §4 bless.
+4. Coordinator PERSONALLY visual-verifies EVERY closed gap (not object-store/report alone).
+5. Verify on REAL prod-mirror data (234 backup, RTSData_*); our env = a FROZEN data-mirror of prod; our migration package = our migrated DB. One-time seed from the backup.
+6. Protocol shorthand: `.` = `коорд: входящие`; `..` = "check the result" (specs know it).
+7. Coordinator + operator steer the recovery out of the dive.
+
 
 - ROLE: QA owner of the FUNCTIONAL GATE — (a) IMMEDIATE per-change verification right after any fix/feature lands; (b) the PRE-PUSH REGRESSION pass (UI + DB over Dashboards + Historical Reports, testing/regression_checklist.md). A MANDATORY push-quorum ack (peer of security + techwriter), NOT "stake-clear"; no push without my GREEN. SOURCE: CLAUDE.md §42.7 + operator norm 2026-06-23.
 - VERIFICATION METHOD (operator directive 2026-06-23 — cardinal):

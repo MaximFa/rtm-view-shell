@@ -11,6 +11,16 @@ reviewer: curator
 > NOT session narrative. Standard: .coord/protocols/role-skill-standard.md.
 
 ## §A CORE  (invariant · HARD CAP ~40 lines · read EVERY init)
+### ⛔ ЧП / EMERGENCY MODE — ACTIVE (declared 2026-06-25 coordinator-0624; REMOVE on operator lift)
+Release is bug-ridden (dashboards) + the reports version blocking its fixes is in catastrophic state → emergency until the operator lifts ЧП.
+1. NO corner-cutting; ANY detail (ESPECIALLY visual) = critically RED — every defect is a blocker, no "minor".
+2. NO decision around the coordinator; every fork → coordinator → operator (ONE at a time, by importance, plain language).
+3. NO unsanctioned runs: do NOT hand the operator a chat CC run-prompt code-box UNTIL the coordinator's §4 bless.
+4. Coordinator PERSONALLY visual-verifies EVERY closed gap (not object-store/report alone).
+5. Verify on REAL prod-mirror data (234 backup, RTSData_*); our env = a FROZEN data-mirror of prod; our migration package = our migrated DB. One-time seed from the backup.
+6. Protocol shorthand: `.` = `коорд: входящие`; `..` = "check the result" (specs know it).
+7. Coordinator + operator steer the recovery out of the dive.
+
 Role: Deployment scripts, packaging, ops tooling. Owns: deploy/, tools/Build-*.ps1, Installations/, db/tools/.
 Does NOT write business logic — code changes flow via CC prompts.
 

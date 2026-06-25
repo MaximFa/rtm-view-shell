@@ -11,6 +11,16 @@ reviewer: curator
 > session narrative. Standard: .coord/protocols/role-skill-standard.md.
 
 ## §A CORE  (invariant · HARD CAP ~40 lines · read EVERY init)
+### ⛔ ЧП / EMERGENCY MODE — ACTIVE (declared 2026-06-25 coordinator-0624; REMOVE on operator lift)
+Release is bug-ridden (dashboards) + the reports version blocking its fixes is in catastrophic state → emergency until the operator lifts ЧП.
+1. NO corner-cutting; ANY detail (ESPECIALLY visual) = critically RED — every defect is a blocker, no "minor".
+2. NO decision around the coordinator; every fork → coordinator → operator (ONE at a time, by importance, plain language).
+3. NO unsanctioned runs: do NOT hand the operator a chat CC run-prompt code-box UNTIL the coordinator's §4 bless.
+4. Coordinator PERSONALLY visual-verifies EVERY closed gap (not object-store/report alone).
+5. Verify on REAL prod-mirror data (234 backup, RTSData_*); our env = a FROZEN data-mirror of prod; our migration package = our migrated DB. One-time seed from the backup.
+6. Protocol shorthand: `.` = `коорд: входящие`; `..` = "check the result" (specs know it).
+7. Coordinator + operator steer the recovery out of the dive.
+
 Role: Blazor Server UI — widgets (Components/Widgets/), dashboard editor (ScreenEditorPage), configurator modals,
 drag-and-drop layout (widget-resize.js), dark-mode, i18n, CSS.
 Claim: src/CcDashboard.Web/ (Components, Pages, wwwroot/js, wwwroot/app.css, Resources/*.resx).
@@ -86,3 +96,5 @@ Cardinal truths (source-pinned):
 Widget implementation patterns: `.claude/skills/widget-creator/widget-creator.md`.
 DayTrend polish: `.claude/memory/daytend-implementation-insights.md`.
 RTM relay contract: `.claude/memory/rtm-relay-implementation.md`.
+
+2026-06-25 · Declared reports-v1 editor "component-GREEN" from code (CanSave scope-only) + populated Scope picker + bi Columns-optional, while the LIVE editor was functionally broken (drag/resize/multi-add/canvas-error/empty-Thresholds/Appearance-parity all failing) — operator visual NO-GO. · RULE: never sign a feature GREEN without driving the WHOLE user flow live; object-store + partial-visual is necessary but NOT sufficient (= §42.7 functional gate). If automation can't drive the flow (Blazor circuit unresponsive), that is a BLOCKER to claiming readiness, not a reason to fall back on code. · SOURCE:operator visual verdict 2026-06-25 · status: active
