@@ -112,6 +112,9 @@ public class HistoricalAggregationService(
         logger.LogDebug("HistoricalAggregationService: tenant {TenantId} aggregated {From:O} to {To:O} (SL={Sl}s)", tenantId, fromBucket, toBucket, slThreshold);
     }
 
+    // OPERATOR-AUTHORIZED: anchor = UpdateTime (not InQueueDateTime), completed-only (IsInQueue=false),
+    // abandoned excludes callbacks (IsAbandoned && !IsCallbackRequest). SOURCE: operator ruling 2026-06-26;
+    // GetCallDataByInterval (RTM/H_RTM.sql L18247/18256) is operator-authored; UpdateTime supersedes InQueueDateTime.
     private async Task AggregateQueueIntervalsAsync(
         Guid tenantId, DateTime from, DateTime to, int slThreshold,
         AppDbContext appDb, BackendEmulationDbContext beDb,
@@ -128,16 +131,17 @@ public class HistoricalAggregationService(
         var interactions = await beDb.RtsDataInteractions
             .AsNoTracking()
             .Where(i => i.TenantId == tenantId
-                     && i.InQueueDateTime >= from
-                     && i.InQueueDateTime < to
+                     && i.UpdateTime >= from
+                     && i.UpdateTime < to
+                     && i.IsInQueue == false
                      && i.InteractionType == "Call"
                      && i.CallType == "External"
                      && i.Direction == "Incoming")
             .ToListAsync(ct);
 
         var groups = interactions
-            .Where(i => i.InQueueDateTime.HasValue)
-            .GroupBy(i => new { IntervalStart = FloorToInterval(i.InQueueDateTime!.Value), i.Workgroup });
+            .Where(i => i.UpdateTime.HasValue)
+            .GroupBy(i => new { IntervalStart = FloorToInterval(i.UpdateTime!.Value), i.Workgroup });
 
         var intervals = new List<HistQueueInterval>();
         var now = DateTime.UtcNow;
@@ -146,7 +150,7 @@ public class HistoricalAggregationService(
         {
             var offered = g.Count();
             var answered = g.Count(i => i.IsAnswered == true);
-            var abandoned = g.Count(i => i.IsAbandoned == true);
+            var abandoned = g.Count(i => i.IsAbandoned == true && i.IsCallbackRequest == false);
             var answeredInSl = g.Count(i => i.IsAnswered == true && i.TimeInQueue.HasValue && i.TimeInQueue.Value <= slThreshold);
             var sumWaitAnswered = g.Where(i => i.IsAnswered == true && i.TimeInQueue.HasValue).Sum(i => (long)i.TimeInQueue!.Value);
             var sumTalk = g.Where(i => i.IsAnswered == true && i.TalkTime.HasValue).Sum(i => (long)i.TalkTime!.Value);
