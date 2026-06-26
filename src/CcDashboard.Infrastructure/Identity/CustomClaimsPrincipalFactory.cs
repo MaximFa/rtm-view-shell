@@ -19,7 +19,6 @@ public class CustomClaimsPrincipalFactory(
         var identity = await base.GenerateClaimsAsync(user);
 
         identity.AddClaim(new Claim("tenant_id", user.TenantId.ToString()));
-        identity.AddClaim(new Claim("active_tenant_id", user.TenantId.ToString())); // ARCH-02: default = home; shell re-issues with target on switch
         identity.AddClaim(new Claim("locale", user.PreferredLocale));
 
         if (user.PermissionGroupId.HasValue)
