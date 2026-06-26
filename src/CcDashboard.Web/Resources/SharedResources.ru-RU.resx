@@ -1001,7 +1001,5 @@
   <data name="WidgetCfg_AgentAxis_Detail"><value>Детально (по агенту)</value></data>
   <data name="WidgetCfg_AgentAxis_Cumulative"><value>Суммарно (итоги)</value></data>
   <data name="ReportWidget_Unconfigured"><value>Настройте виджет — выберите область (очередь или бизнес-юнит).</value></data>
-  <data name="TenantSwitcher_Label"><value>Переключить тенант</value></data>
-  <data name="TenantSwitcher_Exit"><value>Выйти из режима просмотра</value></data>
 </root>
 

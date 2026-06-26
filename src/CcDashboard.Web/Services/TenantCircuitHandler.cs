@@ -1,14 +1,12 @@
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Domain.Interfaces;
 using Microsoft.AspNetCore.Components.Server.Circuits;
-using System.Security.Claims;
 
 namespace CcDashboard.Web.Services;
 
 /// <summary>
 /// Initialises ITenantContext for each Blazor Server SignalR circuit from the
-/// authenticated user's tenant claims. [ARCH-03, ARCH-07]
-/// ARCH-02 C1: For Superadmin, reads active_tenant_id; for others, reads tenant_id.
+/// authenticated user's tenant_id claim. [ARCH-03, ARCH-07]
 /// </summary>
 public class TenantCircuitHandler(
     IHttpContextAccessor httpContextAccessor,
@@ -21,19 +19,9 @@ public class TenantCircuitHandler(
     {
         if (tenantContext.IsResolved) return;
 
+        // Try to read tenant_id from the current HttpContext (available during initial negotiation)
         var httpContext = httpContextAccessor.HttpContext;
-        if (httpContext?.User?.Identity?.IsAuthenticated != true)
-        {
-            logger.LogWarning("Circuit {CircuitId}: user not authenticated.", circuit.Id);
-            await base.OnCircuitOpenedAsync(circuit, ct);
-            return;
-        }
-
-        // ARCH-02 C1: Superadmin uses active_tenant_id; others use tenant_id.
-        // Role is read from TRUSTED ClaimTypes.Role — never infer from active_tenant_id.
-        var role = httpContext.User.FindFirstValue(ClaimTypes.Role);
-        var claimName = role == "Superadmin" ? "active_tenant_id" : "tenant_id";
-        var tenantIdClaim = httpContext.User.FindFirstValue(claimName);
+        var tenantIdClaim = httpContext?.User?.FindFirst("tenant_id")?.Value;
 
         if (Guid.TryParse(tenantIdClaim, out var tenantId))
         {
@@ -41,8 +29,7 @@ public class TenantCircuitHandler(
             if (tenant != null)
             {
                 tenantContext.Set(tenant.Id, tenant.Slug);
-                logger.LogDebug("Circuit {CircuitId}: tenant resolved from {Claim} ({Slug})",
-                    circuit.Id, claimName, tenant.Slug);
+                logger.LogDebug("Circuit {CircuitId}: tenant resolved from claims ({Slug})", circuit.Id, tenant.Slug);
                 return;
             }
         }

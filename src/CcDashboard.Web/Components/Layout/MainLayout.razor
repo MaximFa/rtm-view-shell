@@ -1,11 +1,4 @@
 @inherits LayoutComponentBase
-@using MediatR
-@using CcDashboard.Application.Queries.Tenants
-@using CcDashboard.Contracts.DTOs.Tenants
-@using CcDashboard.Domain.Interfaces
-@inject IMediator Mediator
-@inject ICurrentUserAccessor CurrentUser
-@inject IStringLocalizer<SharedResources> L
 
 <div class="shell-layout">
     <nav class="sidebar">
@@ -17,57 +10,6 @@
         <header class="topbar">
             <AuthorizeView>
                 <Authorized>
-                    <!-- ARCH-02: Superadmin tenant switcher (before user info) -->
-                    <AuthorizeView Roles="Superadmin" Context="saContext">
-                        <Authorized>
-                            <div class="tenant-switcher me-3">
-                                <div class="searchable-select">
-                                    <input type="text" class="form-control form-control-sm"
-                                           placeholder="@L["TenantSwitcher_Label"]..."
-                                           value="@_tenantSearch"
-                                           @oninput="OnTenantSearchInput"
-                                           @onfocus="OnTenantSearchFocus"
-                                           @onblur="OnTenantSearchBlur" />
-                                    @if (_tenantDropdownOpen)
-                                    {
-                                        <div class="searchable-dropdown">
-                                            @foreach (var t in FilteredTenants)
-                                            {
-                                                var isCurrent = t.Id == CurrentUser.TenantId;
-                                                <form method="post" action="/auth/switch-tenant" class="tenant-switch-form">
-                                                    <AntiforgeryToken />
-                                                    <input type="hidden" name="targetTenantId" value="@t.Id" />
-                                                    <button type="submit" class="dropdown-item @(isCurrent ? "active" : "")"
-                                                            @onmousedown:preventDefault="true">
-                                                        @if (isCurrent)
-                                                        {
-                                                            <i class="bi bi-check me-1"></i>
-                                                        }
-                                                        @t.Name (@t.Slug)
-                                                    </button>
-                                                </form>
-                                            }
-                                            @if (!FilteredTenants.Any())
-                                            {
-                                                <div class="dropdown-item text-muted"><em>@L["Common_NoResults"]</em></div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
-                                @if (_isImpersonating)
-                                {
-                                    <form method="post" action="/auth/switch-tenant" class="d-inline ms-2">
-                                        <AntiforgeryToken />
-                                        <input type="hidden" name="targetTenantId" value="@_homeTenantId" />
-                                        <button type="submit" class="btn btn-sm btn-outline-warning" title="@L["TenantSwitcher_Exit"]">
-                                            <i class="bi bi-box-arrow-left"></i>
-                                        </button>
-                                    </form>
-                                }
-                            </div>
-                        </Authorized>
-                    </AuthorizeView>
-
                     <div class="user-info">
                         <span class="user-name">@context.User.Identity?.Name</span>
                         @{
@@ -101,55 +43,6 @@
 </div>
 
 @code {
-    private IReadOnlyList<TenantDto> _tenants = [];
-    private string _tenantSearch = "";
-    private bool _tenantDropdownOpen;
-    private Guid? _homeTenantId;
-    private bool _isImpersonating;
-    private bool _tenantsLoaded;
-
-    private IEnumerable<TenantDto> FilteredTenants =>
-        string.IsNullOrWhiteSpace(_tenantSearch)
-            ? _tenants.Where(t => t.Status == Domain.Enums.TenantStatus.Active)
-            : _tenants.Where(t => t.Status == Domain.Enums.TenantStatus.Active &&
-                (t.Name.Contains(_tenantSearch, StringComparison.OrdinalIgnoreCase) ||
-                 t.Slug.Contains(_tenantSearch, StringComparison.OrdinalIgnoreCase)));
-
-    protected override async Task OnInitializedAsync()
-    {
-        // Only load for Superadmin
-        if (CurrentUser.Role == "Superadmin" && !_tenantsLoaded)
-        {
-            try
-            {
-                _tenants = await Mediator.Send(new GetTenantsQuery());
-                _tenantsLoaded = true;
-            }
-            catch
-            {
-                _tenants = [];
-            }
-        }
-    }
-
-    private void OnTenantSearchInput(ChangeEventArgs e)
-    {
-        _tenantSearch = e.Value?.ToString() ?? "";
-        _tenantDropdownOpen = true;
-    }
-
-    private void OnTenantSearchFocus()
-    {
-        _tenantSearch = "";
-        _tenantDropdownOpen = true;
-    }
-
-    private async Task OnTenantSearchBlur()
-    {
-        await Task.Delay(200); // Longer delay for form submit
-        _tenantDropdownOpen = false;
-    }
-
     private static string GetInitials(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return "?";

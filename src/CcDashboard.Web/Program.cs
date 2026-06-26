@@ -1,6 +1,5 @@
 using CcDashboard.Application.Extensions;
 using CcDashboard.Application.Interfaces;
-using CcDashboard.Application.Commands.Tenants;
 using CcDashboard.Web.Hubs;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -13,11 +12,6 @@ using CcDashboard.Infrastructure.Seeding;
 using CcDashboard.Web.Components;
 using CcDashboard.Web.Middleware;
 using CcDashboard.Web.Services;
-using MediatR;
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Authentication;
-using System.Security.Claims;
 using Serilog;
 using Serilog.Events;
 
@@ -176,79 +170,6 @@ try
 
     app.MapHub<InfoSlotHub>("/hubs/info-slot");
     app.MapHub<RtmRelayHub>("/hubs/rtm-relay");
-
-    // ARCH-02: Superadmin tenant switch endpoint (SSR — sets cookie server-side)
-    app.MapPost("/auth/switch-tenant", async (
-        HttpContext httpContext,
-        IMediator mediator,
-        UserManager<CcDashboard.Infrastructure.Identity.ApplicationUser> userManager,
-        CcDashboard.Infrastructure.Identity.CustomClaimsPrincipalFactory claimsFactory,
-        IAntiforgery antiforgery) =>
-    {
-        try
-        {
-            await antiforgery.ValidateRequestAsync(httpContext);
-        }
-        catch
-        {
-            return Results.Redirect("/?error=antiforgery");
-        }
-
-        // Defense-in-depth: verify Superadmin (command also checks)
-        var role = httpContext.User.FindFirstValue(System.Security.Claims.ClaimTypes.Role);
-        if (role != "Superadmin")
-            return Results.Forbid();
-
-        var form = await httpContext.Request.ReadFormAsync();
-        if (!Guid.TryParse(form["targetTenantId"], out var targetTenantId))
-            return Results.BadRequest("Invalid tenant ID");
-
-        try
-        {
-            // Command validates Active + audits
-            var result = await mediator.Send(new SwitchTenantCommand(targetTenantId));
-
-            // Re-issue the cookie with the new active_tenant_id
-            var userId = httpContext.User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
-            if (!Guid.TryParse(userId, out var uid))
-                return Results.BadRequest("Invalid user");
-
-            var user = await userManager.FindByIdAsync(uid.ToString());
-            if (user == null)
-                return Results.BadRequest("User not found");
-
-            // Build the principal, then replace active_tenant_id with the target
-            var principal = await claimsFactory.CreateAsync(user);
-            var identity = principal.Identities.First();
-
-            // Remove the default active_tenant_id claim (which equals home tenant)
-            var existingActiveClaim = identity.FindFirst("active_tenant_id");
-            if (existingActiveClaim != null)
-                identity.RemoveClaim(existingActiveClaim);
-
-            // Add the new active_tenant_id (the switched-to tenant)
-            identity.AddClaim(new System.Security.Claims.Claim("active_tenant_id", targetTenantId.ToString()));
-
-            // Sign in with the updated principal
-            await httpContext.SignInAsync(
-                Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme,
-                principal);
-
-            return Results.Redirect("/");
-        }
-        catch (CcDashboard.Domain.Exceptions.ForbiddenException)
-        {
-            return Results.Forbid();
-        }
-        catch (CcDashboard.Domain.Exceptions.NotFoundException)
-        {
-            return Results.Redirect("/?error=tenant_not_found");
-        }
-        catch (CcDashboard.Domain.Exceptions.DomainException ex)
-        {
-            return Results.Redirect($"/?error={Uri.EscapeDataString(ex.Message)}");
-        }
-    }).RequireAuthorization();
 
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
