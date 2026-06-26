@@ -24,12 +24,11 @@ public class DeleteReportScreenCommandHandler(
 {
     public async Task Handle(DeleteReportScreenCommand cmd, CancellationToken ct)
     {
-        // Load with widgets AND schedules for deactivation
-        var screen = await repo.GetByIdWithWidgetsAndSchedulesAsync(cmd.Id, ct)
-            ?? throw new NotFoundException(nameof(ReportScreen), cmd.Id);
-
         // Check Delete permission
         var isSuperadmin = currentUser.Role == "Superadmin";
+        // Load with widgets AND schedules for deactivation
+        var screen = await repo.GetByIdWithWidgetsAndSchedulesAsync(cmd.Id, bypassTenantFilter: isSuperadmin, ct)
+            ?? throw new NotFoundException(nameof(ReportScreen), cmd.Id);
         if (!isSuperadmin)
         {
             var accessLevel = await repo.GetUserAccessLevelAsync(

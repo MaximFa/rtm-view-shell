@@ -18,10 +18,9 @@ public class GetReportScreenQueryHandler(
 {
     public async Task<ReportScreenDetailDto> Handle(GetReportScreenQuery request, CancellationToken ct)
     {
-        var screen = await repo.GetByIdWithWidgetsAsync(request.Id, ct)
-            ?? throw new NotFoundException(nameof(ReportScreen), request.Id);
-
         var isSuperadmin = currentUser.Role == "Superadmin";
+        var screen = await repo.GetByIdWithWidgetsAsync(request.Id, bypassTenantFilter: isSuperadmin, ct)
+            ?? throw new NotFoundException(nameof(ReportScreen), request.Id);
         var accessLevel = isSuperadmin ? 7
             : await repo.GetUserAccessLevelAsync(screen.Id, currentUser.PermissionGroupId, screen.IsPublic, isSuperadmin, ct);
 

@@ -29,11 +29,10 @@ public class SaveReportWidgetsCommandHandler(
 {
     public async Task<IReadOnlyList<ReportWidgetDto>> Handle(SaveReportWidgetsCommand cmd, CancellationToken ct)
     {
-        var screen = await repo.GetByIdWithWidgetsAsync(cmd.ReportScreenId, ct)
-            ?? throw new NotFoundException(nameof(ReportScreen), cmd.ReportScreenId);
-
         // Check Edit permission
         var isSuperadmin = currentUser.Role == "Superadmin";
+        var screen = await repo.GetByIdWithWidgetsAsync(cmd.ReportScreenId, bypassTenantFilter: isSuperadmin, ct)
+            ?? throw new NotFoundException(nameof(ReportScreen), cmd.ReportScreenId);
         if (!isSuperadmin)
         {
             var accessLevel = await repo.GetUserAccessLevelAsync(

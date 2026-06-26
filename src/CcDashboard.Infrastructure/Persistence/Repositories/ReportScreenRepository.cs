@@ -6,28 +6,40 @@ namespace CcDashboard.Infrastructure.Persistence.Repositories;
 
 public class ReportScreenRepository(AppDbContext db) : IReportScreenRepository
 {
-    public async Task<ReportScreen?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<ReportScreen?> GetByIdAsync(Guid id, bool bypassTenantFilter = false, CancellationToken ct = default)
     {
-        return await db.ReportScreens
+        // bypassTenantFilter: Superadmin cross-tenant single-load (mirror DashboardRepository)
+        var q = bypassTenantFilter
+            ? db.ReportScreens.IgnoreQueryFilters().Where(s => !s.IsDeleted)
+            : db.ReportScreens;
+        return await q
             .Include(s => s.Category)
             .Include(s => s.Permissions)
             .FirstOrDefaultAsync(s => s.Id == id, ct);
     }
 
-    public async Task<ReportScreen?> GetByIdWithWidgetsAsync(Guid id, CancellationToken ct = default)
+    public async Task<ReportScreen?> GetByIdWithWidgetsAsync(Guid id, bool bypassTenantFilter = false, CancellationToken ct = default)
     {
-        return await db.ReportScreens
+        // bypassTenantFilter: Superadmin cross-tenant single-load (mirror DashboardRepository)
+        var q = bypassTenantFilter
+            ? db.ReportScreens.IgnoreQueryFilters().Where(s => !s.IsDeleted)
+            : db.ReportScreens;
+        return await q
             .Include(s => s.Category)
-            .Include(s => s.Widgets)
+            .Include(s => s.Widgets.Where(w => !w.IsDeleted))  // re-add !IsDeleted for widgets
             .Include(s => s.Permissions)
             .FirstOrDefaultAsync(s => s.Id == id, ct);
     }
 
-    public async Task<ReportScreen?> GetByIdWithWidgetsAndSchedulesAsync(Guid id, CancellationToken ct = default)
+    public async Task<ReportScreen?> GetByIdWithWidgetsAndSchedulesAsync(Guid id, bool bypassTenantFilter = false, CancellationToken ct = default)
     {
-        return await db.ReportScreens
+        // bypassTenantFilter: Superadmin cross-tenant single-load (mirror DashboardRepository)
+        var q = bypassTenantFilter
+            ? db.ReportScreens.IgnoreQueryFilters().Where(s => !s.IsDeleted)
+            : db.ReportScreens;
+        return await q
             .Include(s => s.Category)
-            .Include(s => s.Widgets)
+            .Include(s => s.Widgets.Where(w => !w.IsDeleted))  // re-add !IsDeleted for widgets
             .Include(s => s.Permissions)
             .Include(s => s.Schedules)
             .FirstOrDefaultAsync(s => s.Id == id, ct);

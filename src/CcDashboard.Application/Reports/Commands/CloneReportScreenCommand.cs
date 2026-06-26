@@ -41,8 +41,8 @@ public class CloneReportScreenCommandHandler(
         var tenantId = currentUser.TenantId!.Value;
         var isSuperadmin = currentUser.Role == "Superadmin";
 
-        // 1. Load source screen with widgets (GQF: TenantId + !IsDeleted)
-        var source = await repo.GetByIdWithWidgetsAsync(cmd.SourceId, ct)
+        // 1. Load source screen with widgets (bypass GQF for Superadmin cross-tenant)
+        var source = await repo.GetByIdWithWidgetsAsync(cmd.SourceId, bypassTenantFilter: isSuperadmin, ct)
             ?? throw new NotFoundException(nameof(ReportScreen), cmd.SourceId);
 
         // Tenant isolation: source must belong to current tenant (GQF enforces this, but double-check)

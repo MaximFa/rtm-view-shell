@@ -22,11 +22,10 @@ public class UpdateReportScreenCommandHandler(
 {
     public async Task<ReportScreenDto> Handle(UpdateReportScreenCommand cmd, CancellationToken ct)
     {
-        var screen = await repo.GetByIdAsync(cmd.Request.Id, ct)
-            ?? throw new NotFoundException(nameof(ReportScreen), cmd.Request.Id);
-
         // Check Edit permission
         var isSuperadmin = currentUser.Role == "Superadmin";
+        var screen = await repo.GetByIdAsync(cmd.Request.Id, bypassTenantFilter: isSuperadmin, ct)
+            ?? throw new NotFoundException(nameof(ReportScreen), cmd.Request.Id);
         if (!isSuperadmin)
         {
             var accessLevel = await repo.GetUserAccessLevelAsync(
