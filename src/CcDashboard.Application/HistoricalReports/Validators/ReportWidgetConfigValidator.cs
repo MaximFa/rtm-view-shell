@@ -11,7 +11,6 @@ namespace CcDashboard.Application.HistoricalReports.Validators;
 public class ReportWidgetConfigValidator : AbstractValidator<ReportWidgetConfig>
 {
     private static readonly HashSet<int> ValidIntervals = new() { 30, 60 };
-    private static readonly HashSet<int> ValidPageSizes = new() { 25, 50, 100 };
 
     public ReportWidgetConfigValidator()
     {
@@ -35,8 +34,8 @@ public class ReportWidgetConfigValidator : AbstractValidator<ReportWidgetConfig>
             .WithMessage("Interval must be 30 or 60");
 
         RuleFor(x => x.PageSize)
-            .Must(ValidPageSizes.Contains)
-            .WithMessage("PageSize must be 25, 50, or 100");
+            .InclusiveBetween(1, 1000)
+            .WithMessage("PageSize must be between 1 and 1000");
     }
 }
 
