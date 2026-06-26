@@ -52,78 +52,67 @@
                     @if (_tab == "scope")
                     {
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">@L["WidgetCfg_ScopeMode"] <span class="text-danger">*</span></label>
-                            <div class="btn-group w-100" role="group">
-                                <input type="radio" class="btn-check" name="scopeMode" id="scopeModeQueues"
-                                       checked="@(_scopeMode == "queues")" @onchange='() => _scopeMode = "queues"' />
-                                <label class="btn btn-outline-primary" for="scopeModeQueues">
-                                    <i class="bi bi-telephone me-1"></i>@L["WidgetCfg_Queues"]
-                                </label>
+                            <label class="form-label fw-semibold">@L["WidgetCfg_SelectBusinessUnits"] <span class="text-danger">*</span></label>
+                            @if (_busLoading)
+                            {
+                                <div class="text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>
+                            }
+                            else if (_businessUnits.Count == 0)
+                            {
+                                <div class="alert alert-warning py-2">@L["WidgetCfg_NoBusinessUnitsAvailable"]</div>
+                            }
+                            else
+                            {
+                                <!-- Selected BUs as chips -->
+                                @if (_selectedBuIds.Count > 0)
+                                {
+                                    <div class="d-flex flex-wrap gap-1 mb-2">
+                                        @foreach (var buId in _selectedBuIds)
+                                        {
+                                            var bu = _businessUnits.FirstOrDefault(b => b.BusinessUnitId == buId);
+                                            if (bu is not null)
+                                            {
+                                                <span class="badge bg-primary d-flex align-items-center gap-1">
+                                                    @bu.BusinessUnitName
+                                                    <button type="button" class="btn-close btn-close-white btn-sm ms-1"
+                                                            style="font-size: 0.6rem;"
+                                                            @onclick="() => RemoveBu(buId)"
+                                                            @onclick:stopPropagation="true"></button>
+                                                </span>
+                                            }
+                                        }
+                                    </div>
+                                }
 
-                                <input type="radio" class="btn-check" name="scopeMode" id="scopeModeBu"
-                                       checked="@(_scopeMode == "bu")" @onchange='() => _scopeMode = "bu"' />
-                                <label class="btn btn-outline-primary" for="scopeModeBu">
-                                    <i class="bi bi-building me-1"></i>@L["WidgetCfg_BusinessUnits"]
-                                </label>
-                            </div>
+                                <!-- Searchable multi-select dropdown -->
+                                <div class="searchable-select">
+                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                           value="@_buSearch"
+                                           @oninput="OnBuSearchInput"
+                                           @onfocus="OnBuSearchFocus"
+                                           @onblur="OnBuSearchBlur" />
+                                    @if (_buDropdownOpen)
+                                    {
+                                        <div class="searchable-dropdown">
+                                            @foreach (var bu in FilteredBusinessUnits)
+                                            {
+                                                var isSelected = _selectedBuIds.Contains(bu.BusinessUnitId);
+                                                <div class="dropdown-item d-flex align-items-center @(isSelected ? "active" : "")"
+                                                     @onmousedown="() => ToggleBu(bu.BusinessUnitId)"
+                                                     @onmousedown:preventDefault="true">
+                                                    <i class="bi @(isSelected ? "bi-check-square-fill" : "bi-square") me-2"></i>
+                                                    @bu.BusinessUnitName
+                                                </div>
+                                            }
+                                            @if (!FilteredBusinessUnits.Any())
+                                            {
+                                                <div class="dropdown-item text-muted"><em>@L["Common_NoResults"]</em></div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
                         </div>
-
-                        @if (_scopeMode == "queues")
-                        {
-                            <div class="mb-3">
-                                <label class="form-label">@L["WidgetCfg_SelectQueues"] <span class="text-danger">*</span></label>
-                                @if (_queuesLoading)
-                                {
-                                    <div class="text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>
-                                }
-                                else if (_queues.Count == 0)
-                                {
-                                    <div class="alert alert-warning py-2">@L["WidgetCfg_NoQueuesAvailable"]</div>
-                                }
-                                else
-                                {
-                                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
-                                        @foreach (var q in _queues)
-                                        {
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" id="q_@q.QueueId"
-                                                       checked="@_selectedQueueIds.Contains(int.TryParse(q.QueueId, out var qid) ? qid : 0)"
-                                                       @onchange="e => ToggleQueue(q.QueueId, (bool)(e.Value ?? false))" />
-                                                <label class="form-check-label" for="q_@q.QueueId">@q.Name</label>
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="mb-3">
-                                <label class="form-label">@L["WidgetCfg_SelectBusinessUnits"] <span class="text-danger">*</span></label>
-                                @if (_busLoading)
-                                {
-                                    <div class="text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>
-                                }
-                                else if (_businessUnits.Count == 0)
-                                {
-                                    <div class="alert alert-warning py-2">@L["WidgetCfg_NoBusinessUnitsAvailable"]</div>
-                                }
-                                else
-                                {
-                                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
-                                        @foreach (var bu in _businessUnits)
-                                        {
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" id="bu_@bu.BusinessUnitId"
-                                                       checked="@_selectedBuIds.Contains(bu.BusinessUnitId)"
-                                                       @onchange="e => ToggleBu(bu.BusinessUnitId, (bool)(e.Value ?? false))" />
-                                                <label class="form-check-label" for="bu_@bu.BusinessUnitId">@bu.BusinessUnitName</label>
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        }
 
                         @if (IsAgentWidget)
                         {
@@ -386,16 +375,16 @@
     // Color palette state
     private string? _openColorPalette;
 
-    // Scope fields
-    private string _scopeMode = "queues";
-    private List<int> _selectedQueueIds = new();
+    // Scope fields (BU-only, no queue mode)
     private List<int> _selectedBuIds = new();
     private string _agentAxis = "detail";
 
+    // BU searchable dropdown state
+    private string _buSearch = "";
+    private bool _buDropdownOpen;
+
     // Data sources
-    private IReadOnlyList<QueueDto> _queues = [];
     private IReadOnlyList<BusinessUnitDto> _businessUnits = [];
-    private bool _queuesLoading;
     private bool _busLoading;
     private bool _dataLoaded;
 
@@ -406,7 +395,13 @@
 
     private bool IsAgentWidget => WidgetType is ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail;
 
-    private bool CanSave => _scopeMode == "queues" ? _selectedQueueIds.Count > 0 : _selectedBuIds.Count > 0;
+    private bool CanSave => _selectedBuIds.Count > 0;
+
+    // Filtered BUs for searchable dropdown
+    private IEnumerable<BusinessUnitDto> FilteredBusinessUnits =>
+        string.IsNullOrWhiteSpace(_buSearch)
+            ? _businessUnits
+            : _businessUnits.Where(b => b.BusinessUnitName.Contains(_buSearch, StringComparison.OrdinalIgnoreCase));
 
     // Color palettes built from tenant settings
     private (string Name, string Value)[] BackgroundColors => BuildBackgroundColors();
@@ -472,6 +467,38 @@
 
     private void CloseColorPalette() => _openColorPalette = null;
 
+    // BU search handlers (mirror dashboard clear-on-focus pattern)
+    private void OnBuSearchInput(ChangeEventArgs e)
+    {
+        _buSearch = e.Value?.ToString() ?? "";
+        _buDropdownOpen = true;
+    }
+
+    private void OnBuSearchFocus()
+    {
+        _buSearch = string.Empty;
+        _buDropdownOpen = true;
+    }
+
+    private async Task OnBuSearchBlur()
+    {
+        await Task.Delay(150);
+        _buDropdownOpen = false;
+    }
+
+    private void ToggleBu(int buId)
+    {
+        if (_selectedBuIds.Contains(buId))
+            _selectedBuIds.Remove(buId);
+        else
+            _selectedBuIds.Add(buId);
+    }
+
+    private void RemoveBu(int buId)
+    {
+        _selectedBuIds.Remove(buId);
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (IsOpen)
@@ -494,10 +521,9 @@
                 _darkTextColor = InitialConfig.Appearance?.DarkTextColor ?? "#e2e8f0";
                 _darkTableBackground = InitialConfig.Appearance?.DarkTableBackground ?? "transparent";
 
+                // Scope - BU only
                 if (InitialConfig.Scope is not null)
                 {
-                    _scopeMode = InitialConfig.Scope.Mode ?? "queues";
-                    _selectedQueueIds = InitialConfig.Scope.QueueIds?.ToList() ?? new();
                     _selectedBuIds = InitialConfig.Scope.BusinessUnitIds?.ToList() ?? new();
                     _agentAxis = InitialConfig.Scope.AgentAxis ?? "detail";
                 }
@@ -515,11 +541,13 @@
                 _darkBackground = "#1e293b";
                 _darkTextColor = "#e2e8f0";
                 _darkTableBackground = "transparent";
-                _scopeMode = "queues";
-                _selectedQueueIds = new();
                 _selectedBuIds = new();
                 _agentAxis = "detail";
             }
+
+            // Reset search state
+            _buSearch = "";
+            _buDropdownOpen = false;
 
             // Load data sources if not already loaded
             if (!_dataLoaded)
@@ -532,6 +560,7 @@
         {
             _dataLoaded = false;
             _openColorPalette = null;
+            _buDropdownOpen = false;
         }
     }
 
@@ -548,26 +577,10 @@
 
     private async Task LoadDataSources()
     {
-        _queuesLoading = true;
         _busLoading = true;
         StateHasChanged();
 
-        // Load queues independently
-        try
-        {
-            _queues = await Mediator.Send(new GetQueuesQuery());
-        }
-        catch (Exception ex)
-        {
-            _queues = [];
-            Logger.LogError(ex, "ReportWidgetConfigModal: failed to load queues");
-        }
-        finally
-        {
-            _queuesLoading = false;
-        }
-
-        // Load business units independently
+        // Load business units
         try
         {
             _businessUnits = await Mediator.Send(new GetMyBusinessUnitsQuery());
@@ -620,32 +633,11 @@
         StateHasChanged();
     }
 
-    private void ToggleQueue(string externalId, bool selected)
-    {
-        if (int.TryParse(externalId, out var qid))
-        {
-            if (selected && !_selectedQueueIds.Contains(qid))
-                _selectedQueueIds.Add(qid);
-            else if (!selected)
-                _selectedQueueIds.Remove(qid);
-        }
-    }
-
-    private void ToggleBu(int buId, bool selected)
-    {
-        if (selected && !_selectedBuIds.Contains(buId))
-            _selectedBuIds.Add(buId);
-        else if (!selected)
-            _selectedBuIds.Remove(buId);
-    }
-
     private async Task Save()
     {
         var scope = new ReportScope
         {
-            Mode = _scopeMode,
-            QueueIds = _scopeMode == "queues" ? _selectedQueueIds : null,
-            BusinessUnitIds = _scopeMode == "bu" ? _selectedBuIds : null,
+            BusinessUnitIds = _selectedBuIds.ToList(),
             AgentAxis = IsAgentWidget ? _agentAxis : null
         };
 
@@ -676,6 +668,7 @@
     {
         _tab = "scope";
         _openColorPalette = null;
+        _buDropdownOpen = false;
         await OnClose.InvokeAsync();
     }
 }

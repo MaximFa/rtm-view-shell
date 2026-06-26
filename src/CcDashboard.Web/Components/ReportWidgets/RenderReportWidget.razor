@@ -55,11 +55,11 @@
     {
         _config = ReportWidgetConfig.Parse(ConfigJson);
 
-        // Widget is unconfigured if no scope is set (no queues AND no BUs selected)
+        // Widget is unconfigured if no BUs selected (BU-only scope)
         _unconfigured = _config is null
             || _config.Scope is null
-            || ((_config.Scope.QueueIds is null || _config.Scope.QueueIds.Count == 0)
-                && (_config.Scope.BusinessUnitIds is null || _config.Scope.BusinessUnitIds.Count == 0));
+            || _config.Scope.BusinessUnitIds is null
+            || _config.Scope.BusinessUnitIds.Count == 0;
     }
 
     private string BuildAppearanceStyle()

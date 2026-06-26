@@ -61,16 +61,11 @@ public record ReportWidgetConfig
 }
 
 /// <summary>
-/// Report scope definition: queues or business units.
+/// Report scope definition: business units only.
+/// BU-to-queues resolution is server-side via NGC_BusinessUnitQueueClassification.
 /// </summary>
 public record ReportScope
 {
-    [JsonPropertyName("mode")]
-    public string? Mode { get; init; } // "queues" | "bu"
-
-    [JsonPropertyName("queueIds")]
-    public List<int>? QueueIds { get; init; }
-
     [JsonPropertyName("businessUnitIds")]
     public List<int>? BusinessUnitIds { get; init; }
 
