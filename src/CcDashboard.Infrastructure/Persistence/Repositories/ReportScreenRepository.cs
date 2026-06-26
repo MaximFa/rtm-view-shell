@@ -46,11 +46,13 @@ public class ReportScreenRepository(AppDbContext db) : IReportScreenRepository
         int pageSize,
         CancellationToken ct = default)
     {
+        // IgnoreQueryFilters for cross-tenant (Superadmin) reads; re-add !IsDeleted (GQF was TenantId && !IsDeleted)
         var query = db.ReportScreens
             .Include(s => s.Category)
             .Include(s => s.Permissions)
+            .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(s => s.TenantId == tenantId);
+            .Where(s => s.TenantId == tenantId && !s.IsDeleted);
 
         // PG-scoped: return screens where user's PG has View OR IsPublic (unless Superadmin)
         if (!isSuperadmin && pgId.HasValue)
@@ -88,7 +90,9 @@ public class ReportScreenRepository(AppDbContext db) : IReportScreenRepository
 
     public async Task<IReadOnlyList<ReportCategory>> GetCategoriesAsync(Guid tenantId, CancellationToken ct = default)
     {
+        // IgnoreQueryFilters for cross-tenant (Superadmin) reads; explicit TenantId + IsActive already present
         return await db.ReportCategories
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(c => c.TenantId == tenantId && c.IsActive)
             .OrderBy(c => c.Name)

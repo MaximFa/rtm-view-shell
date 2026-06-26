@@ -49,7 +49,7 @@ public class GetBusinessUnitsQueryHandler(INgcBusinessUnitRepository repo, ICurr
 
 // ── NGC Business Units for Current User's Permission Group ──────────────────
 
-public record GetMyBusinessUnitsQuery : IRequest<IReadOnlyList<BusinessUnitDto>>;
+public record GetMyBusinessUnitsQuery(Guid? TenantId = null) : IRequest<IReadOnlyList<BusinessUnitDto>>;
 
 public class GetMyBusinessUnitsQueryHandler(
     INgcBusinessUnitRepository repo,
@@ -57,12 +57,15 @@ public class GetMyBusinessUnitsQueryHandler(
     ICurrentUserAccessor user)
     : IRequestHandler<GetMyBusinessUnitsQuery, IReadOnlyList<BusinessUnitDto>>
 {
-    public async Task<IReadOnlyList<BusinessUnitDto>> Handle(GetMyBusinessUnitsQuery _, CancellationToken ct)
+    public async Task<IReadOnlyList<BusinessUnitDto>> Handle(GetMyBusinessUnitsQuery query, CancellationToken ct)
     {
+        // Superadmin-gated tenant resolution: non-Superadmin's TenantId param IGNORED (own tenant only)
+        var tenantId = user.Role == "Superadmin" ? (query.TenantId ?? user.TenantId) : user.TenantId;
+
         // Superadmin/Admin see all business units
         if (user.Role is "Superadmin" or "Administrator")
         {
-            var allItems = await repo.GetAllByTenantAsync(user.TenantId, ct);
+            var allItems = await repo.GetAllByTenantAsync(tenantId, ct);
             return allItems.Select(bu => new BusinessUnitDto(
                 bu.BusinessUnitId,
                 bu.TenantId,

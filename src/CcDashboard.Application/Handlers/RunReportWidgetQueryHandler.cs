@@ -29,7 +29,10 @@ public class RunReportWidgetQueryHandler(
 
     public async Task<ReportWidgetResult> Handle(RunReportWidgetQuery query, CancellationToken ct)
     {
-        var tenantId = currentUser.TenantId!.Value;
+        // Superadmin-gated tenant resolution: non-Superadmin's TenantId param IGNORED (own tenant only)
+        var tenantId = currentUser.Role == "Superadmin"
+            ? (query.TenantId ?? currentUser.TenantId!.Value)
+            : currentUser.TenantId!.Value;
 
         ReportWidgetConfig config;
         try

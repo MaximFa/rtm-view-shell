@@ -12,7 +12,8 @@ public record RunReportWidgetQuery(
     string ConfigJson,
     DateTime From,
     DateTime To,
-    int Page = 1
+    int Page = 1,
+    Guid? TenantId = null
 ) : IRequest<ReportWidgetResult>;
 
 /// <summary>

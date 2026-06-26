@@ -7,7 +7,7 @@ using MediatR;
 
 namespace CcDashboard.Application.Reports.Queries;
 
-public record GetReportScreensQuery(ReportScreenListRequest Request) : IRequest<PagedResult<ReportScreenDto>>;
+public record GetReportScreensQuery(ReportScreenListRequest Request, Guid? TenantId = null) : IRequest<PagedResult<ReportScreenDto>>;
 
 public class GetReportScreensQueryHandler(
     IReportScreenRepository repo,
@@ -21,7 +21,10 @@ public class GetReportScreensQueryHandler(
         var userId = currentUser.UserId!.Value;
         var pgId = currentUser.PermissionGroupId;
         var isSuperadmin = currentUser.Role == "Superadmin";
-        var tenantId = currentUser.TenantId!.Value;
+        // Superadmin-gated tenant resolution: non-Superadmin's TenantId param IGNORED (own tenant only)
+        var tenantId = isSuperadmin
+            ? (query.TenantId ?? currentUser.TenantId!.Value)
+            : currentUser.TenantId!.Value;
 
         var (items, total) = await repo.GetPageAsync(
             tenantId, req.Search, req.CategoryId, req.Status, req.IsPublic,
