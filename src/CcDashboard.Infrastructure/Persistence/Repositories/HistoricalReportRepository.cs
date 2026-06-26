@@ -7,8 +7,11 @@ namespace CcDashboard.Infrastructure.Persistence.Repositories;
 /// <summary>
 /// SF-BI-001: Repository with MANDATORY scope filtering.
 /// Non-FullScope queries ALWAYS filter by the provided scope - no bypass possible.
+/// Read methods use IDbContextFactory for parallel-widget isolation; write/transaction methods keep shared db.
 /// </summary>
-public class HistoricalReportRepository(AppDbContext db) : IHistoricalReportRepository
+public class HistoricalReportRepository(
+    AppDbContext db,
+    IDbContextFactory<AppDbContext> dbFactory) : IHistoricalReportRepository
 {
     public async Task<IReadOnlyList<HistQueueInterval>> GetQueueIntervalsAsync(
         Guid tenantId,
@@ -18,7 +21,8 @@ public class HistoricalReportRepository(AppDbContext db) : IHistoricalReportRepo
         IReadOnlySet<string> effectiveWorkgroups,
         CancellationToken ct)
     {
-        var query = db.HistQueueIntervals
+        await using var ctx = await dbFactory.CreateDbContextAsync(ct);
+        var query = ctx.HistQueueIntervals
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(x => x.TenantId == tenantId
@@ -51,7 +55,8 @@ public class HistoricalReportRepository(AppDbContext db) : IHistoricalReportRepo
         IReadOnlySet<string> effectiveAgentIds,
         CancellationToken ct)
     {
-        var query = db.HistAgentIntervals
+        await using var ctx = await dbFactory.CreateDbContextAsync(ct);
+        var query = ctx.HistAgentIntervals
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(x => x.TenantId == tenantId

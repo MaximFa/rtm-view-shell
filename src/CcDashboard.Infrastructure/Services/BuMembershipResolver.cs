@@ -9,9 +9,10 @@ namespace CcDashboard.Infrastructure.Services;
 /// Resolves BU membership to concrete filter sets per spec §4.
 /// All results are PG-intersected (SF-BI-001).
 /// External CC IDs only (IDENT-01/02).
+/// Uses IDbContextFactory for parallel-widget isolation.
 /// </summary>
 public class BuMembershipResolver(
-    BackendEmulationDbContext beDb,
+    IDbContextFactory<BackendEmulationDbContext> beFactory,
     ILogger<BuMembershipResolver> logger) : IBuMembershipResolver
 {
     public async Task<IReadOnlySet<string>> ResolveQueuesAsync(
@@ -26,8 +27,10 @@ public class BuMembershipResolver(
             return new HashSet<string>();
         }
 
+        await using var ctx = await beFactory.CreateDbContextAsync(ct);
+
         // BU -> queues via NGC_BusinessUnitQueueClassification (ClassificationId='ALL' per §36)
-        var queueIds = await beDb.NgcBusinessUnitQueueClassifications
+        var queueIds = await ctx.NgcBusinessUnitQueueClassifications
             .AsNoTracking()
             .Where(bq => businessUnitIds.Contains(bq.BusinessUnitId)
                       && bq.TenantId == tenantId
@@ -59,8 +62,10 @@ public class BuMembershipResolver(
             return new HashSet<string>();
         }
 
+        await using var ctx = await beFactory.CreateDbContextAsync(ct);
+
         // Step 1: BU -> Supergroups via NGC_BusinessUnitSupergroup
-        var supergroupIds = await beDb.NgcBusinessUnitSupergroups
+        var supergroupIds = await ctx.NgcBusinessUnitSupergroups
             .AsNoTracking()
             .Where(bs => businessUnitIds.Contains(bs.BusinessUnitId) && bs.TenantId == tenantId)
             .Select(bs => bs.SupergroupId)
@@ -74,7 +79,7 @@ public class BuMembershipResolver(
         }
 
         // Step 2: Get SG -> AG mapping
-        var sgAgMappings = await beDb.NgcSupergroupAgentgroups
+        var sgAgMappings = await ctx.NgcSupergroupAgentgroups
             .AsNoTracking()
             .Where(sag => sag.SupergroupId.HasValue
                        && supergroupIds.Contains(sag.SupergroupId.Value)
@@ -92,7 +97,7 @@ public class BuMembershipResolver(
         }
 
         // Step 3: AG -> agents via NGC_UserAgentgroup
-        var agMembershipList = await beDb.NgcUserAgentgroups
+        var agMembershipList = await ctx.NgcUserAgentgroups
             .AsNoTracking()
             .Where(uag => agentGroupIds.Contains(uag.AgentgroupId)
                        && uag.TenantId == tenantId

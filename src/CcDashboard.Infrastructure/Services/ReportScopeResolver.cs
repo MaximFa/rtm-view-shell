@@ -9,10 +9,11 @@ namespace CcDashboard.Infrastructure.Services;
 /// <summary>
 /// SF-BI-001: Resolves PG-based security scope for historical reports.
 /// Superadmin gets full scope; others get PG-filtered scope only.
+/// Uses IDbContextFactory for parallel-widget isolation.
 /// </summary>
 public class ReportScopeResolver(
-    AppDbContext appDb,
-    BackendEmulationDbContext beDb,
+    IDbContextFactory<AppDbContext> appDbFactory,
+    IDbContextFactory<BackendEmulationDbContext> beDbFactory,
     ICurrentUserAccessor currentUser,
     ILogger<ReportScopeResolver> logger) : IReportScopeResolver
 {
@@ -30,7 +31,10 @@ public class ReportScopeResolver(
             return ReportScope.Empty();
         }
 
-        var allowedQueueIds = await appDb.PgQueues
+        await using var appCtx = await appDbFactory.CreateDbContextAsync(ct);
+        await using var beCtx = await beDbFactory.CreateDbContextAsync(ct);
+
+        var allowedQueueIds = await appCtx.PgQueues
             .AsNoTracking()
             .Where(pq => pq.PermissionGroupId == pgId.Value && pq.TenantId == tenantId.Value)
             .Select(pq => pq.ObjectId)
@@ -42,7 +46,7 @@ public class ReportScopeResolver(
             return ReportScope.Empty();
         }
 
-        var allowedWorkgroups = await beDb.NgcQueues
+        var allowedWorkgroups = await beCtx.NgcQueues
             .AsNoTracking()
             .Where(q => allowedQueueIds.Contains(q.Id) && q.TenantId == tenantId.Value)
             .Select(q => q.ExternalId)
@@ -71,13 +75,16 @@ public class ReportScopeResolver(
             return ReportScope.Empty();
         }
 
-        var allowedSupergroupIds = await appDb.PgSupergroups
+        await using var appCtx = await appDbFactory.CreateDbContextAsync(ct);
+        await using var beCtx = await beDbFactory.CreateDbContextAsync(ct);
+
+        var allowedSupergroupIds = await appCtx.PgSupergroups
             .AsNoTracking()
             .Where(ps => ps.PermissionGroupId == pgId.Value && ps.TenantId == tenantId.Value)
             .Select(ps => ps.SupergroupId)
             .ToListAsync(ct);
 
-        var allowedBuIds = await appDb.PgBusinessUnits
+        var allowedBuIds = await appCtx.PgBusinessUnits
             .AsNoTracking()
             .Where(pb => pb.PermissionGroupId == pgId.Value && pb.TenantId == tenantId.Value)
             .Select(pb => pb.BusinessUnitId)
@@ -89,7 +96,7 @@ public class ReportScopeResolver(
             return ReportScope.Empty();
         }
 
-        var supergroupsFromBus = await beDb.NgcBusinessUnitSupergroups
+        var supergroupsFromBus = await beCtx.NgcBusinessUnitSupergroups
             .AsNoTracking()
             .Where(bus => allowedBuIds.Contains(bus.BusinessUnitId) && bus.TenantId == tenantId.Value)
             .Select(bus => bus.SupergroupId)
@@ -97,7 +104,7 @@ public class ReportScopeResolver(
 
         var allSupergroupIds = allowedSupergroupIds.Concat(supergroupsFromBus).Distinct().ToList();
 
-        var agentGroupIds = await beDb.NgcSupergroupAgentgroups
+        var agentGroupIds = await beCtx.NgcSupergroupAgentgroups
             .AsNoTracking()
             .Where(sag => sag.SupergroupId.HasValue && allSupergroupIds.Contains(sag.SupergroupId.Value) && sag.TenantId == tenantId.Value)
             .Select(sag => sag.AgentgroupId)
@@ -105,7 +112,7 @@ public class ReportScopeResolver(
             .Distinct()
             .ToListAsync(ct);
 
-        var agentExternalIds = await beDb.NgcUserAgentgroups
+        var agentExternalIds = await beCtx.NgcUserAgentgroups
             .AsNoTracking()
             .Where(uag => agentGroupIds.Contains(uag.AgentgroupId) && uag.TenantId == tenantId.Value)
             .Select(uag => uag.UserId)
