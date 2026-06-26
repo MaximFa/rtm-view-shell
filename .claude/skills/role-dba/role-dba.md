@@ -66,6 +66,8 @@ Cardinal truths (source-pinned):
 
 - 2026-06-25 · RTM chain real columns (verified schema.sql + live proof): NGC_Queues key = "ExternalId" (=Workgroup §36.4), NO "QueueId"; NGC_BusinessUnitQueueClassification."QueueId"(varchar)=NGC_Queues."ExternalId". NGC_AgentGroups = Id/ExternalId/Name (NO AgentGroupId/Name); NGC_SupergroupAgentgroup."AgentgroupId" & NGC_UserAgentgroup."AgentgroupId" (varchar) = NGC_AgentGroups."ExternalId"; NGC_UserAgentgroup."UserId"=RTSData_UserStatus."UserId" (external, §46). Verify chain joins against schema, NOT CLAUDE.md §6 (§6 names stale). · SOURCE: Seed-ProdMirror Phase-5 + manual proof 2026-06-26 (PG Administrators→Q001-Q005, 180-240 interactions) · status: active
 
+- 2026-06-25 · hist_agent_intervals aggregation reads RTSData_UserStatusLog (StartTime time-series), NOT RTSData_UserStatus (current snapshot, no usable history). Prod-mirror agent-history load MUST include RTSData_UserStatusLog (has TenantId + StartTime/EndTime); omitting it → hist_agent_intervals=0 while queue side is fine. Always cross-check the aggregation service's source tables against the load set. · SOURCE: HistoricalAggregationService.cs:153 + backfill hist_agent_intervals=0 2026-06-26 · status: active
+
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path "db/tools/Compare-ToBaseline.ps1"` — must be True
 2. `Select-String -Path "db/schema.sql" -Pattern "CREATE TABLE"` — expect count >10

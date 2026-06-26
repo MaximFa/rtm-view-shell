@@ -190,6 +190,7 @@ $ChainTables = @(
     "pg_supergroups",
     "RTSData_Interaction",
     "RTSData_UserStatus",
+    "RTSData_UserStatusLog",
     "RTSData_ChatMessage"
 )
 
@@ -211,7 +212,8 @@ $TenantIdTables = @(
     "pg_skills",
     "pg_supergroups",
     "RTSData_Interaction",
-    "RTSData_UserStatus"
+    "RTSData_UserStatus",
+    "RTSData_UserStatusLog"
 )
 # RTSData_ChatMessage has NO TenantId
 
@@ -580,7 +582,7 @@ $truncateSet = @(
     "NGC_Site", "NGC_BusinessUnit", "NGC_Supergroup", "NGC_Queues", "NGC_AgentGroups",
     "NGC_BusinessUnitQueueClassification", "NGC_BusinessUnitSupergroup",
     "NGC_SupergroupAgentgroup", "NGC_UserAgentgroup",
-    "RTSData_Interaction", "RTSData_UserStatus", "RTSData_ChatMessage"
+    "RTSData_Interaction", "RTSData_UserStatus", "RTSData_UserStatusLog", "RTSData_ChatMessage"
 )
 $toTruncate = @($tablesToLoad | Where-Object { $truncateSet -contains $_.Name } | ForEach-Object { '"' + $_.Name + '"' })
 if (@($toTruncate).Count -gt 0) {
