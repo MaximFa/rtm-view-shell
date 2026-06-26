@@ -15,6 +15,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.Extensions.Logging
 @using System.Text.Json
+@using CcDashboard.Application.Reports.Export
 @implements IDisposable
 
 <PageTitle>@(_report?.Name ?? L["Reports_Title"]) — Fullscreen</PageTitle>
@@ -54,9 +55,22 @@
                         @onclick="ToggleDarkMode" title="@(_darkMode ? L["WidgetCfg_LightMode"] : L["WidgetCfg_DarkMode"])">
                     <i class="bi @(_darkMode ? "bi-sun" : "bi-moon")"></i>
                 </button>
-                <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")" disabled title="@L["Reports_ExportStub"]">
-                    <i class="bi bi-download me-1"></i>@L["Reports_Export"]
+                <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")"
+                        disabled="@_exporting" @onclick="ExportReport" title="@L["Reports_Export"]">
+                    @if (_exporting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-download me-1"></i>
+                    }
+                    @L["Reports_Export"]
                 </button>
+                @if (!string.IsNullOrEmpty(_exportError))
+                {
+                    <span class="text-danger small ms-2">@_exportError</span>
+                }
                 <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")" disabled title="@L["Reports_ScheduleStub"]">
                     <i class="bi bi-calendar-event me-1"></i>@L["Reports_Schedule"]
                 </button>
@@ -125,6 +139,8 @@
     private DateTime _rangeTo;
 
     private readonly CancellationTokenSource _cts = new();
+    private bool _exporting;
+    private string? _exportError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -254,6 +270,33 @@
             catch { }
         }
         return widget.WidgetType.ToString();
+    }
+
+    private async Task ExportReport()
+    {
+        if (_report is null || _exporting) return;
+        _exporting = true;
+        _exportError = null;
+        StateHasChanged();
+
+        try
+        {
+            var res = await Mediator.Send(
+                new ExportReportCommand(_report.Id, _rangeFrom, _rangeTo, _report.TenantId),
+                _cts.Token);
+            var base64 = Convert.ToBase64String(res.Content);
+            await JS.InvokeVoidAsync("ccApp.downloadFile", base64, res.FileName, res.ContentType);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Report export failed for {Id}", _report.Id);
+            _exportError = L["Reports_ExportFailed"];
+        }
+        finally
+        {
+            _exporting = false;
+            StateHasChanged();
+        }
     }
 
     public void Dispose()

@@ -870,6 +870,7 @@
   <data name="Reports_Export"><value>ייצוא</value></data>
   <data name="Reports_Schedule"><value>תזמון</value></data>
   <data name="Reports_ExportStub"><value>פונקציית הייצוא תהיה זמינה בקרוב</value></data>
+  <data name="Reports_ExportFailed"><value>הייצוא נכשל. נסה שוב.</value></data>
   <data name="Reports_ScheduleStub"><value>פונקציית התזמון תהיה זמינה בקרוב</value></data>
   <data name="Reports_Description"><value>תיאור</value></data>
   <data name="Reports_CreateModal"><value>דוח חדש</value></data>

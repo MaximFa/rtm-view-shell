@@ -970,6 +970,7 @@
   <data name="Reports_Export"><value>Экспорт</value></data>
   <data name="Reports_Schedule"><value>Расписание</value></data>
   <data name="Reports_ExportStub"><value>Функция экспорта скоро будет доступна</value></data>
+  <data name="Reports_ExportFailed"><value>Ошибка экспорта. Попробуйте снова.</value></data>
   <data name="Reports_ScheduleStub"><value>Функция расписания скоро будет доступна</value></data>
   <data name="Reports_Description"><value>Описание</value></data>
   <data name="Reports_CreateModal"><value>Новый отчёт</value></data>

@@ -79,3 +79,21 @@ window.ccApp.makeModalDraggable = function (header, dialog) {
 window.ccApp.resetModalPosition = function (dialog) {
     if (dialog) dialog.style.transform = '';
 };
+
+window.ccApp.downloadFile = function (base64, fileName, contentType) {
+    var bin = atob(base64);
+    var len = bin.length;
+    var bytes = new Uint8Array(len);
+    for (var i = 0; i < len; i++) {
+        bytes[i] = bin.charCodeAt(i);
+    }
+    var blob = new Blob([bytes], { type: contentType });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
