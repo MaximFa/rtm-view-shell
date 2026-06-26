@@ -3321,10 +3321,9 @@ button.clr-swatch,
 /* ===== Reports (Ф3 scaffold) ===== */
 .report-widget-render {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     height: 100%;
-    min-height: 120px;
+    min-height: 0;
 }
 
 .report-widget-stub {
@@ -3512,14 +3511,14 @@ button.clr-swatch,
 .report-widget-table-container {
     display: flex;
     flex-direction: column;
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
 }
 
 /* Scroll area - vertical + horizontal scroll inside the fixed-height card */
 .report-widget-table-scroll {
-    flex: 1;
+    flex: 1 1 auto;
     overflow-y: auto;
     overflow-x: auto;
     min-height: 0;
@@ -3548,7 +3547,7 @@ button.clr-swatch,
     font-size: 0.85rem;
     border-top: 1px solid rgba(0,0,0,0.1);
     background-color: #f8f9fa;
-    flex-shrink: 0;
+    flex: 0 0 auto;
 }
 
 .report-widget-footer-info {
@@ -3587,11 +3586,18 @@ button.clr-swatch,
 
 /* Chart container (Distribution) - no scroll needed */
 .report-widget-chart-container {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
+}
+
+/* Non-table states centering (alerts, spinners, unconfigured) in the flex-column */
+.report-widget-render > .alert,
+.report-widget-render > .d-flex.justify-content-center,
+.report-widget-render > .report-widget-unconfigured {
+    margin: auto;
 }
 
 /* Dark mode - report config modal elements (neutral-gray palette, dashboard-identical) */
