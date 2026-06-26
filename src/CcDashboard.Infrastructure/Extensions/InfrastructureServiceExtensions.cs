@@ -1,5 +1,6 @@
 using CcDashboard.Application.HistoricalReports;
 using CcDashboard.Application.Interfaces;
+using CcDashboard.Application.Reports.Export;
 using CcDashboard.Application.Reports.Interfaces;
 using CcDashboard.Domain.Interfaces;
 using CcDashboard.Infrastructure.Audit;
@@ -11,6 +12,7 @@ using CcDashboard.Infrastructure.Persistence;
 using CcDashboard.Infrastructure.Persistence.Repositories;
 using CcDashboard.Infrastructure.Security;
 using CcDashboard.Infrastructure.Seeding;
+using CcDashboard.Infrastructure.Reports.Export;
 using CcDashboard.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -159,6 +161,9 @@ public static class InfrastructureServiceExtensions
 
         // Report screen CRUD (CC-HIST-F5a)
         services.AddScoped<IReportScreenRepository, ReportScreenRepository>();
+
+        // Report export (CC-HIST-F6)
+        services.AddScoped<IReportExporter, ClosedXmlReportExporter>();
 
         // API hook (no-op until CC-platform API is available)
         services.AddScoped<IConfigurationApiHook, RtmConfigurationApiHook>();

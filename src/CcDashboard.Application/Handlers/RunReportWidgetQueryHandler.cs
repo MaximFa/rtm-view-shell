@@ -21,6 +21,8 @@ public class RunReportWidgetQueryHandler(
     ILogger<RunReportWidgetQueryHandler> logger)
     : IRequestHandler<RunReportWidgetQuery, ReportWidgetResult>
 {
+    private const int ExportRowCap = 50000;
+
     private static readonly HashSet<ReportWidgetType> AgentWidgetTypes = new()
     {
         ReportWidgetType.AgentMonthly,
@@ -62,17 +64,17 @@ public class RunReportWidgetQueryHandler(
 
         return query.WidgetType switch
         {
-            ReportWidgetType.QueueInterval => await RunQueueIntervalAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, ct),
-            ReportWidgetType.QueueWaitTime => await RunQueueWaitTimeAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, ct),
-            ReportWidgetType.AgentMonthly => await RunAgentMonthlyAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, ct),
-            ReportWidgetType.AgentShiftDetail => await RunAgentShiftDetailAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, ct),
+            ReportWidgetType.QueueInterval => await RunQueueIntervalAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
+            ReportWidgetType.QueueWaitTime => await RunQueueWaitTimeAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
+            ReportWidgetType.AgentMonthly => await RunAgentMonthlyAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
+            ReportWidgetType.AgentShiftDetail => await RunAgentShiftDetailAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
             ReportWidgetType.Distribution => await RunDistributionAsync(tenantId, config, effectiveColumns, from, toExclusive, ct),
             _ => ReportWidgetResult.CreateError(query.WidgetType, $"Unknown widget type: {query.WidgetType}")
         };
     }
 
     private async Task<ReportWidgetResult> RunQueueIntervalAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
     {
         var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
 
@@ -108,20 +110,31 @@ public class RunReportWidgetQueryHandler(
             .OrderBy(r => r.IntervalStart)
             .ToList();
 
-        var pageSize = config.PageSize;
         var totalCount = rows.Count;
-        var pagedRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        List<QueueIntervalRow> resultRows;
+        int pageSize;
+
+        if (allRows)
+        {
+            resultRows = rows.Take(ExportRowCap).ToList();
+            pageSize = resultRows.Count;
+        }
+        else
+        {
+            pageSize = config.PageSize;
+            resultRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        }
 
         return new ReportWidgetResult
         {
             WidgetType = ReportWidgetType.QueueInterval,
             EffectiveColumns = effectiveColumns,
-            QueueInterval = new QueueIntervalReportResult(pagedRows, totalCount, page, pageSize)
+            QueueInterval = new QueueIntervalReportResult(resultRows, totalCount, page, pageSize)
         };
     }
 
     private async Task<ReportWidgetResult> RunQueueWaitTimeAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
     {
         var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
 
@@ -154,20 +167,31 @@ public class RunReportWidgetQueryHandler(
         var totalWait = rows.Sum(r => r.SumWaitAnswered);
         var overallAsa = totalAnswered == 0 ? null : (double?)totalWait / totalAnswered;
 
-        var pageSize = config.PageSize;
         var totalCount = rows.Count;
-        var pagedRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        List<QueueWaitTimeRow> resultRows;
+        int pageSize;
+
+        if (allRows)
+        {
+            resultRows = rows.Take(ExportRowCap).ToList();
+            pageSize = resultRows.Count;
+        }
+        else
+        {
+            pageSize = config.PageSize;
+            resultRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        }
 
         return new ReportWidgetResult
         {
             WidgetType = ReportWidgetType.QueueWaitTime,
             EffectiveColumns = effectiveColumns,
-            QueueWaitTime = new QueueWaitTimeReportResult(pagedRows, totalCount, page, pageSize, overallAsa)
+            QueueWaitTime = new QueueWaitTimeReportResult(resultRows, totalCount, page, pageSize, overallAsa)
         };
     }
 
     private async Task<ReportWidgetResult> RunAgentMonthlyAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
     {
         var axis = config.Scope.AgentAxis ?? AgentReportAxis.Detail;
         var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, axis, ct);
@@ -219,20 +243,31 @@ public class RunReportWidgetQueryHandler(
             .ThenBy(x => x.AgentExternalId)
             .ToList();
 
-        var pageSize = config.PageSize;
         var totalCount = rows.Count;
-        var pagedRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        List<AgentMonthlyRow> resultRows;
+        int pageSize;
+
+        if (allRows)
+        {
+            resultRows = rows.Take(ExportRowCap).ToList();
+            pageSize = resultRows.Count;
+        }
+        else
+        {
+            pageSize = config.PageSize;
+            resultRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        }
 
         return new ReportWidgetResult
         {
             WidgetType = ReportWidgetType.AgentMonthly,
             EffectiveColumns = effectiveColumns,
-            AgentMonthly = new AgentMonthlyReportResult(pagedRows, totalCount, page, pageSize)
+            AgentMonthly = new AgentMonthlyReportResult(resultRows, totalCount, page, pageSize)
         };
     }
 
     private async Task<ReportWidgetResult> RunAgentShiftDetailAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
     {
         var axis = config.Scope.AgentAxis ?? AgentReportAxis.Detail;
         var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, axis, ct);
@@ -266,15 +301,26 @@ public class RunReportWidgetQueryHandler(
                 i.SumOnphoneMs - i.SumHoldMs);
         }).ToList();
 
-        var pageSize = config.PageSize;
         var totalCount = rows.Count;
-        var pagedRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        List<AgentShiftDetailRow> resultRows;
+        int pageSize;
+
+        if (allRows)
+        {
+            resultRows = rows.Take(ExportRowCap).ToList();
+            pageSize = resultRows.Count;
+        }
+        else
+        {
+            pageSize = config.PageSize;
+            resultRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        }
 
         return new ReportWidgetResult
         {
             WidgetType = ReportWidgetType.AgentShiftDetail,
             EffectiveColumns = effectiveColumns,
-            AgentShiftDetail = new AgentShiftDetailReportResult(pagedRows, totalCount, page, pageSize)
+            AgentShiftDetail = new AgentShiftDetailReportResult(resultRows, totalCount, page, pageSize)
         };
     }
 

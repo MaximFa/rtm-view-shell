@@ -13,7 +13,8 @@ public record RunReportWidgetQuery(
     DateTime From,
     DateTime To,
     int Page = 1,
-    Guid? TenantId = null
+    Guid? TenantId = null,
+    bool AllRows = false
 ) : IRequest<ReportWidgetResult>;
 
 /// <summary>

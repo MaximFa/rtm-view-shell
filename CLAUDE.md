@@ -1006,6 +1006,10 @@ TenantSuspended, AccountLocked), `Login.Lockout`, `Logout`,
 **Dashboards:**
 `Dashboard.Created`, `Dashboard.Updated`, `Dashboard.Deleted`, `Dashboard.Viewed`
 
+**Reports:**
+`ReportScreen.Created`, `ReportScreen.Updated`, `ReportScreen.Deleted`, `ReportScreen.Cloned`,
+`ReportScreen.WidgetsSaved`, `ReportScreen.Exported`
+
 **Platform (Superadmin / system):**
 `Tenant.Created`, `Tenant.Suspended`, `Tenant.Resumed`, `Tenant.Deleted`,
 `Tenant.Switched`, `Tenant.CrossTenantAccess`,
