@@ -10,6 +10,8 @@
 @using CcDashboard.Application.Reports.DTOs
 @using CcDashboard.Application.Reports.Commands
 @using CcDashboard.Application.Queries.TenantSettings
+@using CcDashboard.Application.Queries.Tenants
+@using CcDashboard.Contracts.DTOs.Tenants
 @using CcDashboard.Contracts.Common
 @using CcDashboard.Domain.Domain.Reports
 @using CcDashboard.Domain.Interfaces
@@ -20,9 +22,28 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">@L["Reports_Title"]</h1>
-    <AuthorizeView Roles="Superadmin,Administrator,Editor">
-        <button class="btn btn-primary btn-sm" @onclick="() => OpenCreate()">@L["Reports_New"]</button>
-    </AuthorizeView>
+    <div class="d-flex align-items-center gap-3">
+        <AuthorizeView Roles="Superadmin">
+            @if (Tenants.Count > 0)
+            {
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 small text-muted">@L["PG_Tenant"]</label>
+                    <select class="form-select form-select-sm" style="width:auto"
+                            value="@SelectedTenantId"
+                            @onchange="OnTenantChanged">
+                        <option value="">@L["Audit_AllTenants"]</option>
+                        @foreach (var t in Tenants)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+        </AuthorizeView>
+        <AuthorizeView Roles="Superadmin,Administrator,Editor">
+            <button class="btn btn-primary btn-sm" @onclick="() => OpenCreate()">@L["Reports_New"]</button>
+        </AuthorizeView>
+    </div>
 </div>
 
 @if (SoftDeleteEnabled)
@@ -443,6 +464,11 @@ else if (ActiveTab == "trash")
     private PagedResult<DeletedReportScreenDto>? DeletedReports;
     private IReadOnlyList<ReportCategoryDto> _categories = [];
 
+    // Superadmin tenant selector
+    private List<TenantDto> Tenants = [];
+    private Guid? SelectedTenantId;
+    private bool IsSuperadmin => CurrentUser.Role == "Superadmin";
+
     // Tabs and soft delete
     private string ActiveTab = "reports";
     private bool SoftDeleteEnabled;
@@ -471,8 +497,26 @@ else if (ActiveTab == "trash")
 
     protected override async Task OnInitializedAsync()
     {
+        await CurrentUser.InitAsync();
+        if (IsSuperadmin)
+        {
+            try
+            {
+                Tenants = (await Mediator.Send(new GetTenantsQuery())).ToList();
+                SelectedTenantId = null;
+            }
+            catch { /* non-critical */ }
+        }
         await LoadCategoriesAsync();
         await LoadSettingsAsync();
+        await LoadAsync();
+    }
+
+    private async Task OnTenantChanged(ChangeEventArgs e)
+    {
+        SelectedTenantId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _page = 1;
+        await LoadCategoriesAsync();
         await LoadAsync();
     }
 
@@ -480,7 +524,7 @@ else if (ActiveTab == "trash")
     {
         try
         {
-            _categories = await Mediator.Send(new GetReportCategoriesQuery());
+            _categories = await Mediator.Send(new GetReportCategoriesQuery(SelectedTenantId));
         }
         catch
         {
@@ -524,7 +568,7 @@ else if (ActiveTab == "trash")
                     _page,
                     PageSize);
 
-                _reports = await Mediator.Send(new GetReportScreensQuery(request));
+                _reports = await Mediator.Send(new GetReportScreensQuery(request, SelectedTenantId));
             }
             else if (ActiveTab == "trash")
             {

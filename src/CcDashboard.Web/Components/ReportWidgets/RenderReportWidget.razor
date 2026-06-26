@@ -16,19 +16,19 @@
         @switch (WidgetType)
         {
             case ReportWidgetType.QueueInterval:
-                <QueueIntervalReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
+                <QueueIntervalReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
                 break;
             case ReportWidgetType.QueueWaitTime:
-                <QueueWaitTimeReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
+                <QueueWaitTimeReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
                 break;
             case ReportWidgetType.AgentMonthly:
-                <AgentMonthlyReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
+                <AgentMonthlyReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
                 break;
             case ReportWidgetType.AgentShiftDetail:
-                <AgentShiftDetailReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
+                <AgentShiftDetailReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
                 break;
             case ReportWidgetType.Distribution:
-                <DistributionReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" />
+                <DistributionReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
                 break;
             default:
                 <div class="report-widget-stub report-widget-unknown">
@@ -47,6 +47,7 @@
     [Parameter] public DateTime From { get; set; } = DateTime.UtcNow.Date.AddDays(-7);
     [Parameter] public DateTime To { get; set; } = DateTime.UtcNow.Date;
     [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public Guid? TenantId { get; set; }
 
     private ReportWidgetConfig? _config;
     private bool _unconfigured;

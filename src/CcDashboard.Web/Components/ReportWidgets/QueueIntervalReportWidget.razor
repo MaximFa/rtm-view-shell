@@ -85,6 +85,7 @@ else
     [Parameter, EditorRequired] public DateTime To { get; set; }
     [Parameter] public bool DarkMode { get; set; }
     [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public Guid? TenantId { get; set; }
 
     private bool _loading;
     private bool _denied;
@@ -118,7 +119,8 @@ else
                 configJson,
                 From,
                 To,
-                Page));
+                Page,
+                TenantId));
 
             if (res.Denied)
             {

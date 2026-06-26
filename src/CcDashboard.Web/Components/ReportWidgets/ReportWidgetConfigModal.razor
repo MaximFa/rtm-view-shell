@@ -353,6 +353,7 @@
     [Parameter] public ReportWidgetConfig? InitialConfig { get; set; }
     [Parameter] public ReportWidgetType WidgetType { get; set; }
     [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public Guid? TenantId { get; set; }
 
     private string _tab = "scope";
     private string? _title;
@@ -583,7 +584,7 @@
         // Load business units
         try
         {
-            _businessUnits = await Mediator.Send(new GetMyBusinessUnitsQuery());
+            _businessUnits = await Mediator.Send(new GetMyBusinessUnitsQuery(TenantId));
         }
         catch (Exception ex)
         {

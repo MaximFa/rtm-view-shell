@@ -173,7 +173,8 @@
                                 ConfigJson="@widget.ConfigJson"
                                 From="_rangeFrom"
                                 To="_rangeTo"
-                                DarkMode="_darkMode" />
+                                DarkMode="_darkMode"
+                                TenantId="Report?.TenantId" />
                         </div>
                         @* Resize handles *@
                         <div class="resize-handle resize-e"  @onmousedown="e => StartResizeE(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
@@ -198,6 +199,7 @@
     InitialConfig="_configInitial"
     WidgetType="ConfiguringWidget?.WidgetType ?? ReportWidgetType.QueueInterval"
     DarkMode="_darkMode"
+    TenantId="Report?.TenantId"
     OnSave="OnWidgetConfigSaved"
     OnClose="CloseWidgetConfig" />
 
