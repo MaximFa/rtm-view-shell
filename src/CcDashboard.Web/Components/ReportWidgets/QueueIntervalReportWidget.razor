@@ -75,11 +75,9 @@ else
     </div>
     <div class="report-widget-footer">
         <span class="report-widget-footer-pagesize">
-            <select class="form-select form-select-sm" style="width:auto" @onchange="OnPageSizeChanged">
-                <option value="25" selected="@(_pageSize == 25)">25</option>
-                <option value="50" selected="@(_pageSize == 50)">50</option>
-                <option value="100" selected="@(_pageSize == 100)">100</option>
-            </select>
+            <input type="number" class="form-control form-control-sm" style="width:70px"
+                   min="1" max="1000" step="1" value="@_pageSize" @onchange="OnPageSizeChanged" />
+            <span class="small text-muted ms-1">@L["Report_Rows"]</span>
         </span>
         <span class="report-widget-footer-info">
             @L["Report_Showing"] @_result.Rows.Count @L["Report_Of"] @_result.TotalCount
@@ -189,7 +187,7 @@ else
     {
         if (int.TryParse(e.Value?.ToString(), out var size))
         {
-            _pageSize = size;
+            _pageSize = Math.Clamp(size, 1, 1000);
             _page = 1;
             await LoadData();
         }

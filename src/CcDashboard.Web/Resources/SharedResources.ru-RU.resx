@@ -922,6 +922,7 @@
   <data name="Report_PageSize"><value>На странице</value></data>
   <data name="Report_Apply"><value>Применить</value></data>
   <data name="Report_Showing"><value>Показано</value></data>
+  <data name="Report_Rows"><value>строк</value></data>
   <data name="Report_Of"><value>из</value></data>
   <data name="Report_NoData"><value>Данные не найдены за выбранный период. Ваш доступ может быть ограничен определёнными очередями или операторами.</value></data>
   <data name="Report_Interval"><value>Интервал</value></data>

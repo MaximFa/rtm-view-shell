@@ -981,6 +981,7 @@
   <data name="Report_PageSize"><value>Page Size</value></data>
   <data name="Report_Apply"><value>Apply</value></data>
   <data name="Report_Showing"><value>Showing</value></data>
+  <data name="Report_Rows"><value>rows</value></data>
   <data name="Report_Of"><value>of</value></data>
   <data name="Report_NoData"><value>No data found for the selected period. Your access may be limited to specific queues or agents.</value></data>
   <data name="Report_Interval"><value>Interval</value></data>
