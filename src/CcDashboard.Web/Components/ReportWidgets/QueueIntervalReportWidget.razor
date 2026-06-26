@@ -35,48 +35,61 @@ else if (_result is null || _result.Rows.Count == 0)
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-sm table-hover report-table report-widget-table" aria-label="@L["Report_QueueInterval"]">
-            <caption class="visually-hidden">@L["Report_QueueInterval"]</caption>
-            <thead class="@(DarkMode ? "table-dark" : "table-light")">
-                <tr>
-                    <th scope="col">@L["Report_Interval"]</th>
-                    <th scope="col">@L["Report_Workgroup"]</th>
-                    <th scope="col" class="text-end">@L["Report_Offered"]</th>
-                    <th scope="col" class="text-end">@L["Report_Answered"]</th>
-                    <th scope="col" class="text-end">@L["Report_Abandoned"]</th>
-                    <th scope="col" class="text-end">@L["Report_AbandonPct"]</th>
-                    <th scope="col" class="text-end">@L["Report_AnsweredInSL"]</th>
-                    <th scope="col" class="text-end">@L["Report_SLPct"]</th>
-                    <th scope="col" class="text-end">@L["Report_ASA"]</th>
-                    <th scope="col" class="text-end">@L["Report_AHT"]</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var row in _result.Rows)
-                {
+    <div class="report-widget-table-container">
+        <div class="report-widget-table-scroll">
+            <table class="table table-sm table-hover report-table report-widget-table" aria-label="@L["Report_QueueInterval"]">
+                <caption class="visually-hidden">@L["Report_QueueInterval"]</caption>
+                <thead class="@(DarkMode ? "table-dark" : "table-light")">
                     <tr>
-                        <td>@row.IntervalStart.ToString("yyyy-MM-dd HH:mm")</td>
-                        <td>@row.Workgroup</td>
-                        <td class="text-end">@row.Offered</td>
-                        <td class="text-end">@row.Answered</td>
-                        <td class="text-end">@row.Abandoned</td>
-                        <td class="text-end">@FormatPct(row.AbandonPct)</td>
-                        <td class="text-end">@row.AnsweredInSl</td>
-                        <td class="text-end">@FormatPct(row.SlPct)</td>
-                        <td class="text-end">@FormatDuration(row.Asa)</td>
-                        <td class="text-end">@FormatDuration(row.QueueAht)</td>
+                        <th scope="col">@L["Report_Interval"]</th>
+                        <th scope="col">@L["Report_Workgroup"]</th>
+                        <th scope="col" class="text-end">@L["Report_Offered"]</th>
+                        <th scope="col" class="text-end">@L["Report_Answered"]</th>
+                        <th scope="col" class="text-end">@L["Report_Abandoned"]</th>
+                        <th scope="col" class="text-end">@L["Report_AbandonPct"]</th>
+                        <th scope="col" class="text-end">@L["Report_AnsweredInSL"]</th>
+                        <th scope="col" class="text-end">@L["Report_SLPct"]</th>
+                        <th scope="col" class="text-end">@L["Report_ASA"]</th>
+                        <th scope="col" class="text-end">@L["Report_AHT"]</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-    @if (_result.TotalCount > _result.Rows.Count)
-    {
-        <div class="text-muted small mt-2">
-            @L["Report_Showing"] @_result.Rows.Count @L["Report_Of"] @_result.TotalCount
+                </thead>
+                <tbody>
+                    @foreach (var row in _result.Rows)
+                    {
+                        <tr>
+                            <td>@row.IntervalStart.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.Workgroup</td>
+                            <td class="text-end">@row.Offered</td>
+                            <td class="text-end">@row.Answered</td>
+                            <td class="text-end">@row.Abandoned</td>
+                            <td class="text-end">@FormatPct(row.AbandonPct)</td>
+                            <td class="text-end">@row.AnsweredInSl</td>
+                            <td class="text-end">@FormatPct(row.SlPct)</td>
+                            <td class="text-end">@FormatDuration(row.Asa)</td>
+                            <td class="text-end">@FormatDuration(row.QueueAht)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
-    }
+    </div>
+    <div class="report-widget-footer">
+        <span class="report-widget-footer-info">
+            @L["Report_Showing"] @_result.Rows.Count @L["Report_Of"] @_result.TotalCount
+        </span>
+        @if (TotalPages > 1)
+        {
+            <span class="report-widget-footer-pager">
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <span class="mx-2">@_page / @TotalPages</span>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </span>
+        }
+    </div>
 }
 
 @code {
@@ -91,15 +104,23 @@ else
     private bool _denied;
     private string? _error;
     private QueueIntervalReportResult? _result;
+    private int _page = 1;
     private DateTime _lastFrom;
     private DateTime _lastTo;
+    private string? _lastConfigJson;
+
+    private int PageSize => Config?.PageSize ?? 25;
+    private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / PageSize);
 
     protected override async Task OnParametersSetAsync()
     {
-        if (From != _lastFrom || To != _lastTo)
+        var configJson = Config?.ToJson();
+        if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
         {
             _lastFrom = From;
             _lastTo = To;
+            _lastConfigJson = configJson;
+            _page = 1;
             await LoadData();
         }
     }
@@ -119,7 +140,7 @@ else
                 configJson,
                 From,
                 To,
-                Page,
+                _page,
                 TenantId));
 
             if (res.Denied)
@@ -146,6 +167,24 @@ else
         finally
         {
             _loading = false;
+        }
+    }
+
+    private async Task PrevPage()
+    {
+        if (_page > 1)
+        {
+            _page--;
+            await LoadData();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_page < TotalPages)
+        {
+            _page++;
+            await LoadData();
         }
     }
 

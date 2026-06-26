@@ -3507,6 +3507,92 @@ button.clr-swatch,
     background: var(--rw-table-bg, inherit);
 }
 
+/* ===== Report Widget Table Chrome (R3/R5/R8/R6/R4) ===== */
+/* Table container - fills card body, vertical scroll, NO card stretch */
+.report-widget-table-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Scroll area - vertical + horizontal scroll inside the fixed-height card */
+.report-widget-table-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    min-height: 0;
+}
+
+/* Sticky headers (R5/R8) - stay pinned on vertical scroll */
+.report-widget-render table.report-widget-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #f8f9fa;
+}
+
+/* Dark mode sticky header background (solid, no bleed-through) */
+.fullscreen-dashboard.dark-mode .report-widget-render table.report-widget-table thead th,
+.report-widget-render table.report-widget-table thead.table-dark th {
+    background-color: #212529;
+}
+
+/* Report widget footer (R6) - "Showing X of Y" + pagination */
+.report-widget-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    background-color: #f8f9fa;
+    flex-shrink: 0;
+}
+
+.report-widget-footer-info {
+    color: #6c757d;
+}
+
+.report-widget-footer-pager {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.report-widget-footer-pager .btn {
+    padding: 0.15rem 0.35rem;
+    font-size: 0.8rem;
+}
+
+/* Dark mode footer */
+.fullscreen-dashboard.dark-mode .report-widget-footer {
+    background-color: #1a1a1a;
+    border-top-color: rgba(255,255,255,0.08);
+}
+
+.fullscreen-dashboard.dark-mode .report-widget-footer-info {
+    color: #9ca3af;
+}
+
+.fullscreen-dashboard.dark-mode .report-widget-footer-pager .btn {
+    color: #e4e4e7;
+    border-color: rgba(255,255,255,0.15);
+}
+
+.fullscreen-dashboard.dark-mode .report-widget-footer-pager .btn:hover:not(:disabled) {
+    background-color: rgba(255,255,255,0.08);
+}
+
+/* Chart container (Distribution) - no scroll needed */
+.report-widget-chart-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
 
 /* Dark mode - report config modal elements (neutral-gray palette, dashboard-identical) */
 .report-config-modal.dark-mode .modal-content {

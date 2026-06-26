@@ -38,15 +38,17 @@ else if (_result is null || _result.Buckets.Count == 0)
 }
 else
 {
-    <div class="distribution-chart-container">
-        @if (_result.OverallAsa.HasValue)
-        {
-            <div class="text-center mb-2">
-                <strong>@L["Report_OverallASA"]:</strong> @FormatDuration(_result.OverallAsa)
-                <span class="text-muted">(@L["Report_Total"]: @_result.TotalCount)</span>
-            </div>
-        }
-        <canvas id="@_canvasId" class="distribution-chart"></canvas>
+    <div class="report-widget-chart-container">
+        <div class="distribution-chart-container">
+            @if (_result.OverallAsa.HasValue)
+            {
+                <div class="text-center mb-2">
+                    <strong>@L["Report_OverallASA"]:</strong> @FormatDuration(_result.OverallAsa)
+                    <span class="text-muted">(@L["Report_Total"]: @_result.TotalCount)</span>
+                </div>
+            }
+            <canvas id="@_canvasId" class="distribution-chart"></canvas>
+        </div>
     </div>
 }
 
@@ -65,14 +67,17 @@ else
     private DistributionReportResult? _result;
     private DateTime _lastFrom;
     private DateTime _lastTo;
+    private string? _lastConfigJson;
     private bool _chartRendered;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (From != _lastFrom || To != _lastTo)
+        var configJson = Config?.ToJson();
+        if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
         {
             _lastFrom = From;
             _lastTo = To;
+            _lastConfigJson = configJson;
             await LoadData();
         }
     }
