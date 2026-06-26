@@ -749,10 +749,10 @@ LIMIT 3
 
         # NGC_BusinessUnitQueueClassification -> queues
         $qQ = @"
-SELECT q."ExternalId", q."Name", (SELECT count(*) FROM "RTSData_Interaction" i WHERE i."Workgroup" = q."ExternalId") as interactions
+SELECT q."ExternalId", q."Name", (SELECT count(*) FROM "RTSData_Interaction" i WHERE i."Workgroup" = q."ExternalId" AND i."TenantId" = '$targetTenant') as interactions
 FROM "NGC_BusinessUnitQueueClassification" bqc
-JOIN "NGC_Queues" q ON q."QueueId" = bqc."QueueId" AND q."TenantId" = bqc."TenantId"
-WHERE bqc."BusinessUnitId" = $buId AND bqc."TenantId" = '$targetTenant'
+JOIN "NGC_Queues" q ON q."ExternalId" = bqc."QueueId" AND q."TenantId" = bqc."TenantId"
+WHERE bqc."BusinessUnitId" = $buId AND bqc."TenantId" = '$targetTenant' AND bqc."ClassificationId" = 'ALL'
 LIMIT 3
 "@
         $qResult = Invoke-Psql -Database $DbName -Query $qQ -TuplesOnly -NoHeaders
@@ -764,14 +764,14 @@ LIMIT 3
 
         # NGC_BusinessUnitSupergroup -> NGC_SupergroupAgentgroup -> agents
         $agQ = @"
-SELECT ag."AgentGroupId", ag."AgentGroupName",
-       (SELECT count(*) FROM "NGC_UserAgentgroup" uag WHERE uag."AgentgroupId" = ag."AgentGroupId") as agents,
+SELECT ag."ExternalId", ag."Name",
+       (SELECT count(*) FROM "NGC_UserAgentgroup" uag WHERE uag."AgentgroupId" = ag."ExternalId" AND uag."TenantId" = '$targetTenant') as agents,
        (SELECT count(*) FROM "RTSData_UserStatus" us
-        JOIN "NGC_UserAgentgroup" uag2 ON uag2."UserId" = us."UserId"
-        WHERE uag2."AgentgroupId" = ag."AgentGroupId") as statuses
+        JOIN "NGC_UserAgentgroup" uag2 ON uag2."UserId" = us."UserId" AND uag2."TenantId" = us."TenantId"
+        WHERE uag2."AgentgroupId" = ag."ExternalId" AND us."TenantId" = '$targetTenant') as statuses
 FROM "NGC_BusinessUnitSupergroup" bus
-JOIN "NGC_SupergroupAgentgroup" sag ON sag."SupergroupId" = bus."SupergroupId"
-JOIN "NGC_AgentGroups" ag ON ag."AgentGroupId" = sag."AgentgroupId" AND ag."TenantId" = bus."TenantId"
+JOIN "NGC_SupergroupAgentgroup" sag ON sag."SupergroupId" = bus."SupergroupId" AND sag."TenantId" = bus."TenantId"
+JOIN "NGC_AgentGroups" ag ON ag."ExternalId" = sag."AgentgroupId" AND ag."TenantId" = bus."TenantId"
 WHERE bus."BusinessUnitId" = $buId AND bus."TenantId" = '$targetTenant'
 LIMIT 3
 "@

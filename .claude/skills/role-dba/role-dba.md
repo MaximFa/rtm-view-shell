@@ -64,6 +64,8 @@ Cardinal truths (source-pinned):
 
 - 2026-06-25 · RTM CC tables (NGC_*/RTSData_*) have GLOBAL business-key PKs with NO TenantId (NGC_Site=SiteId, NGC_BusinessUnit=BusinessUnitId, RTSData_Interaction=(InteractionId,Segment,OnDate,ServerId,Workgroup),...). A per-tenant DELETE cannot clear cross-tenant PK collisions (our seed SiteId='IL' vs prod's). Prod-mirror load (operator A) = TRUNCATE these global-PK tables (one multi-table stmt under session_replication_role=replica, no CASCADE), DELETE-by-tenant only for uuid/PG-scoped tables (permission_groups/pg_*). · SOURCE: Mode=Load NGC_Site PK clash 2026-06-26 + schema.sql PKs · status: active
 
+- 2026-06-25 · RTM chain real columns (verified schema.sql + live proof): NGC_Queues key = "ExternalId" (=Workgroup §36.4), NO "QueueId"; NGC_BusinessUnitQueueClassification."QueueId"(varchar)=NGC_Queues."ExternalId". NGC_AgentGroups = Id/ExternalId/Name (NO AgentGroupId/Name); NGC_SupergroupAgentgroup."AgentgroupId" & NGC_UserAgentgroup."AgentgroupId" (varchar) = NGC_AgentGroups."ExternalId"; NGC_UserAgentgroup."UserId"=RTSData_UserStatus."UserId" (external, §46). Verify chain joins against schema, NOT CLAUDE.md §6 (§6 names stale). · SOURCE: Seed-ProdMirror Phase-5 + manual proof 2026-06-26 (PG Administrators→Q001-Q005, 180-240 interactions) · status: active
+
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path "db/tools/Compare-ToBaseline.ps1"` — must be True
 2. `Select-String -Path "db/schema.sql" -Pattern "CREATE TABLE"` — expect count >10
