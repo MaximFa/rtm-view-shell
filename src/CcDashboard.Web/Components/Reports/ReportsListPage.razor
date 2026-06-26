@@ -694,7 +694,7 @@ else if (ActiveTab == "trash")
                 categoryId,
                 CreateIsPublic);
 
-            await Mediator.Send(new CreateReportScreenCommand(request));
+            await Mediator.Send(new CreateReportScreenCommand(request, SelectedTenantId));
             CloseModals();
             await LoadAsync();
         }
