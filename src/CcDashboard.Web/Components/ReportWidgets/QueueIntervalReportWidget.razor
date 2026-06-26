@@ -74,6 +74,13 @@ else
         </div>
     </div>
     <div class="report-widget-footer">
+        <span class="report-widget-footer-pagesize">
+            <select class="form-select form-select-sm" style="width:auto" @onchange="OnPageSizeChanged">
+                <option value="25" selected="@(_pageSize == 25)">25</option>
+                <option value="50" selected="@(_pageSize == 50)">50</option>
+                <option value="100" selected="@(_pageSize == 100)">100</option>
+            </select>
+        </span>
         <span class="report-widget-footer-info">
             @L["Report_Showing"] @_result.Rows.Count @L["Report_Of"] @_result.TotalCount
         </span>
@@ -105,15 +112,22 @@ else
     private string? _error;
     private QueueIntervalReportResult? _result;
     private int _page = 1;
+    private int _pageSize = 25;
     private DateTime _lastFrom;
     private DateTime _lastTo;
     private string? _lastConfigJson;
+    private bool _initialized;
 
-    private int PageSize => Config?.PageSize ?? 25;
-    private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / PageSize);
+    private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!_initialized)
+        {
+            _pageSize = Config?.PageSize ?? 25;
+            _initialized = true;
+        }
+
         var configJson = Config?.ToJson();
         if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
         {
@@ -134,7 +148,8 @@ else
 
         try
         {
-            var configJson = Config?.ToJson() ?? "{}";
+            var effectiveConfig = (Config ?? new ReportWidgetConfig()) with { PageSize = _pageSize };
+            var configJson = effectiveConfig.ToJson();
             var res = await Mediator.Send(new RunReportWidgetQuery(
                 ReportWidgetType.QueueInterval,
                 configJson,
@@ -167,6 +182,16 @@ else
         finally
         {
             _loading = false;
+        }
+    }
+
+    private async Task OnPageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size))
+        {
+            _pageSize = size;
+            _page = 1;
+            await LoadData();
         }
     }
 
