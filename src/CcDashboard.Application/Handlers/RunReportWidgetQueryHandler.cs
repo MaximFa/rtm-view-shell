@@ -54,8 +54,8 @@ public class RunReportWidgetQueryHandler(
             return ReportWidgetResult.CreateError(query.WidgetType, errors);
         }
 
-        var from = query.From.Date;
-        var toExclusive = query.To.Date.AddDays(1);
+        var from = DateTime.SpecifyKind(query.From.Date, DateTimeKind.Utc);
+        var toExclusive = DateTime.SpecifyKind(query.To.Date.AddDays(1), DateTimeKind.Utc);
 
         // Compute effective columns: config.Columns if non-empty, else DefaultColumns per WidgetType
         var effectiveColumns = config.GetEffectiveColumns(query.WidgetType);
