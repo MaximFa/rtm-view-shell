@@ -901,5 +901,7 @@
   <data name="WidgetCfg_AgentAxis_Detail"><value>פירוט (לפי סוכן)</value></data>
   <data name="WidgetCfg_AgentAxis_Cumulative"><value>מצטבר (סיכומים)</value></data>
   <data name="ReportWidget_Unconfigured"><value>הגדירו את הווידג'ט — בחרו היקף (תור או יחידה עסקית).</value></data>
+  <data name="TenantSwitcher_Label"><value>החלף דייר</value></data>
+  <data name="TenantSwitcher_Exit"><value>צא ממצב צפייה</value></data>
 </root>
 

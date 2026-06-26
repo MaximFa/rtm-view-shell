@@ -35,7 +35,27 @@ public class CurrentUserAccessor(AuthenticationStateProvider authStateProvider) 
     public string? UserName => Principal.FindFirstValue(ClaimTypes.Name);
     public string? Role => Principal.FindFirstValue(ClaimTypes.Role);
     public Guid? PermissionGroupId => Guid.TryParse(Principal.FindFirstValue("permission_group_id"), out var pgId) ? pgId : null;
-    public Guid? TenantId => Guid.TryParse(Principal.FindFirstValue("tenant_id"), out var tid) ? tid : null;
+
+    /// <summary>
+    /// ARCH-02 C1: For Superadmin, return active_tenant_id (impersonated tenant); for all others, return home tenant_id.
+    /// The Role is read from the TRUSTED ClaimTypes.Role — never infer privilege from active_tenant_id.
+    /// </summary>
+    public Guid? TenantId
+    {
+        get
+        {
+            var role = Principal.FindFirstValue(ClaimTypes.Role);
+            if (role == "Superadmin")
+            {
+                var activeClaim = Principal.FindFirstValue("active_tenant_id");
+                if (Guid.TryParse(activeClaim, out var activeId))
+                    return activeId;
+            }
+            // Non-Superadmin or no active_tenant_id: use home tenant_id
+            return Guid.TryParse(Principal.FindFirstValue("tenant_id"), out var tid) ? tid : null;
+        }
+    }
+
     public string PreferredLocale => Principal.FindFirstValue("locale") ?? "en-US";
     public bool IsAuthenticated => Principal.Identity?.IsAuthenticated == true;
 }

@@ -1060,5 +1060,7 @@
   <data name="WidgetCfg_AgentAxis_Detail"><value>Detail (per agent)</value></data>
   <data name="WidgetCfg_AgentAxis_Cumulative"><value>Cumulative (totals)</value></data>
   <data name="ReportWidget_Unconfigured"><value>Configure this widget — select a scope (queue or business unit).</value></data>
+  <data name="TenantSwitcher_Label"><value>Switch tenant</value></data>
+  <data name="TenantSwitcher_Exit"><value>Exit impersonation</value></data>
 </root>
 
