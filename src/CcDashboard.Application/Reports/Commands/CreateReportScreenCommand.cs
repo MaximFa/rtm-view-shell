@@ -8,7 +8,7 @@ using UUIDNext;
 
 namespace CcDashboard.Application.Reports.Commands;
 
-public record CreateReportScreenCommand(CreateReportScreenRequest Request) : IRequest<ReportScreenDto>, ITransactional, IAuditable
+public record CreateReportScreenCommand(CreateReportScreenRequest Request, Guid? TenantId = null) : IRequest<ReportScreenDto>, ITransactional, IAuditable
 {
     public string AuditEventType => "ReportScreen.Created";
     public object? AuditDetails => new { Name = Request.Name };
@@ -24,7 +24,10 @@ public class CreateReportScreenCommandHandler(
     {
         var now = clock.UtcNow;
         var userId = currentUser.UserId!.Value;
-        var tenantId = currentUser.TenantId!.Value;
+        // Superadmin-gated tenant resolution: non-Superadmin's TenantId param IGNORED (own tenant only)
+        var tenantId = currentUser.Role == "Superadmin"
+            ? (cmd.TenantId ?? currentUser.TenantId!.Value)   // SA: page-selected tenant; null (All-Tenants) → session
+            : currentUser.TenantId!.Value;                     // non-SA: own tenant, param IGNORED
 
         var screen = new ReportScreen
         {
