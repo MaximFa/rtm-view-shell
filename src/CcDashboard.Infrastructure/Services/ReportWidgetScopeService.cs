@@ -1,7 +1,5 @@
 using CcDashboard.Application.HistoricalReports;
 using CcDashboard.Domain.Interfaces;
-using CcDashboard.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace CcDashboard.Infrastructure.Services;
@@ -13,7 +11,6 @@ namespace CcDashboard.Infrastructure.Services;
 public class ReportWidgetScopeService(
     IReportScopeResolver scopeResolver,
     IBuMembershipResolver buResolver,
-    BackendEmulationDbContext beDb,
     ICurrentUserAccessor currentUser,
     ILogger<ReportWidgetScopeService> logger) : IReportWidgetScopeService
 {
@@ -112,26 +109,14 @@ public class ReportWidgetScopeService(
         };
     }
 
+    // BU-ONLY scope (operator decision 2026-06-26): no queues branch
     private async Task<IReadOnlySet<string>> ResolveRequestedWorkgroupsAsync(
         Guid tenantId,
         ReportWidgetConfig config,
         CancellationToken ct)
     {
-        if (config.Scope.Mode.Equals("bu", StringComparison.OrdinalIgnoreCase))
-        {
-            var buIds = config.Scope.BusinessUnitIds ?? Array.Empty<int>();
-            return await buResolver.ResolveQueuesAsync(
-                tenantId, buIds.ToList(), ReportScope.Full(), ct);
-        }
-
-        var queueIds = (config.Scope.QueueIds ?? Array.Empty<Guid>()).ToList();
-        var workgroups = await beDb.NgcQueues
-            .AsNoTracking()
-            .Where(q => queueIds.Contains(q.Id) && q.TenantId == tenantId)
-            .Select(q => q.ExternalId)
-            .ToListAsync(ct);
-
-        return new HashSet<string>(workgroups);
+        var buIds = config.Scope.BusinessUnitIds ?? Array.Empty<int>();
+        return await buResolver.ResolveQueuesAsync(tenantId, buIds.ToList(), ReportScope.Full(), ct);
     }
 
     private async Task<IReadOnlySet<string>> ResolveRequestedAgentsAsync(

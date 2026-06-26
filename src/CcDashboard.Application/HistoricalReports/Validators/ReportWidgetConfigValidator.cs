@@ -6,10 +6,10 @@ namespace CcDashboard.Application.HistoricalReports.Validators;
 /// <summary>
 /// ConfigJson validation per Reports-Backend-v1-Spec §2.
 /// Invalid ConfigJson -> ValidationException -> 400 to client.
+/// BU-ONLY scope (operator decision 2026-06-26).
 /// </summary>
 public class ReportWidgetConfigValidator : AbstractValidator<ReportWidgetConfig>
 {
-    private static readonly HashSet<string> ValidModes = new(StringComparer.OrdinalIgnoreCase) { "queues", "bu" };
     private static readonly HashSet<int> ValidIntervals = new() { 30, 60 };
     private static readonly HashSet<int> ValidPageSizes = new() { 25, 50, 100 };
 
@@ -23,20 +23,9 @@ public class ReportWidgetConfigValidator : AbstractValidator<ReportWidgetConfig>
             .NotNull()
             .WithMessage("Scope is required");
 
-        RuleFor(x => x.Scope.Mode)
-            .NotEmpty()
-            .Must(m => ValidModes.Contains(m))
-            .WithMessage("Scope.Mode must be 'queues' or 'bu'");
-
         RuleFor(x => x.Scope.BusinessUnitIds)
             .NotEmpty()
-            .When(x => x.Scope.Mode.Equals("bu", StringComparison.OrdinalIgnoreCase))
-            .WithMessage("BusinessUnitIds required when Scope.Mode='bu'");
-
-        RuleFor(x => x.Scope.QueueIds)
-            .NotEmpty()
-            .When(x => x.Scope.Mode.Equals("queues", StringComparison.OrdinalIgnoreCase))
-            .WithMessage("QueueIds required when Scope.Mode='queues'");
+            .WithMessage("BusinessUnitIds required (scope is BU-only)");
 
         // Columns are OPTIONAL in v1 — server supplies DefaultColumns per WidgetType when null/empty.
         // Full Columns picker deferred to v1.1.
@@ -53,6 +42,7 @@ public class ReportWidgetConfigValidator : AbstractValidator<ReportWidgetConfig>
 
 /// <summary>
 /// Context-aware validator: validates AgentAxis requirement based on widget type.
+/// BU-ONLY scope (operator decision 2026-06-26).
 /// </summary>
 public class ReportWidgetConfigWithTypeValidator : AbstractValidator<(ReportWidgetConfig Config, ReportWidgetType WidgetType)>
 {
@@ -62,27 +52,14 @@ public class ReportWidgetConfigWithTypeValidator : AbstractValidator<(ReportWidg
         ReportWidgetType.AgentShiftDetail
     };
 
-    private static readonly HashSet<ReportWidgetType> QueueWidgetTypes = new()
-    {
-        ReportWidgetType.QueueInterval,
-        ReportWidgetType.QueueWaitTime,
-        ReportWidgetType.Distribution
-    };
-
     public ReportWidgetConfigWithTypeValidator()
     {
         RuleFor(x => x.Config).SetValidator(new ReportWidgetConfigValidator());
 
         RuleFor(x => x)
-            .Must(x => !IsAgentWidget(x.WidgetType) || !IsBuMode(x.Config) || x.Config.Scope.AgentAxis.HasValue)
-            .WithMessage("AgentAxis required for agent widgets when Scope.Mode='bu'");
-
-        RuleFor(x => x)
-            .Must(x => !IsAgentWidget(x.WidgetType) || !IsQueuesMode(x.Config))
-            .WithMessage("Agent widgets do not support Scope.Mode='queues' — use Scope.Mode='bu'");
+            .Must(x => !IsAgentWidget(x.WidgetType) || x.Config.Scope.AgentAxis.HasValue)
+            .WithMessage("AgentAxis required for agent widgets");
     }
 
     private static bool IsAgentWidget(ReportWidgetType type) => AgentWidgetTypes.Contains(type);
-    private static bool IsBuMode(ReportWidgetConfig cfg) => cfg.Scope.Mode.Equals("bu", StringComparison.OrdinalIgnoreCase);
-    private static bool IsQueuesMode(ReportWidgetConfig cfg) => cfg.Scope.Mode.Equals("queues", StringComparison.OrdinalIgnoreCase);
 }

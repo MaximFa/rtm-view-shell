@@ -19,7 +19,7 @@ public record QueueIntervalReportResult(
 
 public record QueueIntervalRow(
     DateTime IntervalStart,
-    string Workgroup,
+    string? Workgroup,  // BU-aggregated rows carry null
     Guid? QueueId,
     int Offered,
     int Answered,

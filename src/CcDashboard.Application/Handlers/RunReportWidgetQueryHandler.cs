@@ -81,21 +81,29 @@ public class RunReportWidgetQueryHandler(
             scopeResult.FullScope ? ReportScope.Full() : new ReportScope { AllowedWorkgroups = scopeResult.EffectiveWorkgroups },
             scopeResult.EffectiveWorkgroups, ct);
 
-        var rows = intervals.Select(i => new QueueIntervalRow(
-            i.IntervalStart,
-            i.Workgroup,
-            i.QueueId,
-            i.Offered,
-            i.Answered,
-            i.Abandoned,
-            i.AnsweredInSl,
-            i.SumWaitAnswered,
-            i.SumTalk,
-            i.Offered == 0 ? null : i.Abandoned * 100.0 / i.Offered,
-            i.Answered == 0 ? null : i.AnsweredInSl * 100.0 / i.Answered,
-            i.Answered == 0 ? null : (double)i.SumWaitAnswered / i.Answered,
-            i.Answered == 0 ? null : (double)i.SumTalk / i.Answered
-        )).ToList();
+        // BU-AGGREGATED: GROUP BY IntervalStart only, SUM components, recompute metrics from sums
+        var rows = intervals
+            .GroupBy(i => i.IntervalStart)
+            .Select(g =>
+            {
+                var offered      = g.Sum(i => i.Offered);
+                var answered     = g.Sum(i => i.Answered);
+                var abandoned    = g.Sum(i => i.Abandoned);
+                var answeredInSl = g.Sum(i => i.AnsweredInSl);
+                var sumWait      = g.Sum(i => i.SumWaitAnswered);
+                var sumTalk      = g.Sum(i => i.SumTalk);
+                return new QueueIntervalRow(
+                    g.Key,
+                    null,                       // Workgroup: BU-aggregated, no single queue
+                    null,                       // QueueId: aggregated
+                    offered, answered, abandoned, answeredInSl, sumWait, sumTalk,
+                    offered  == 0 ? null : abandoned * 100.0 / offered,        // AbandonPct from SUMS
+                    answered == 0 ? null : answeredInSl * 100.0 / answered,    // SlPct
+                    answered == 0 ? null : (double)sumWait / answered,         // Asa
+                    answered == 0 ? null : (double)sumTalk / answered);        // QueueAht
+            })
+            .OrderBy(r => r.IntervalStart)
+            .ToList();
 
         var pageSize = config.PageSize;
         var totalCount = rows.Count;
@@ -122,18 +130,25 @@ public class RunReportWidgetQueryHandler(
             scopeResult.FullScope ? ReportScope.Full() : new ReportScope { AllowedWorkgroups = scopeResult.EffectiveWorkgroups },
             scopeResult.EffectiveWorkgroups, ct);
 
-        var rows = intervals.Select(i => new QueueWaitTimeRow(
-            i.IntervalStart,
-            i.Workgroup,
-            i.Answered,
-            i.SumWaitAnswered,
-            i.Answered == 0 ? null : (double)i.SumWaitAnswered / i.Answered,
-            i.AnsweredInSl,
-            i.Answered == 0 ? null : i.AnsweredInSl * 100.0 / i.Answered
-        )).ToList();
+        // BU-AGGREGATED: GROUP BY IntervalStart only, SUM components, recompute metrics from sums
+        var rows = intervals
+            .GroupBy(i => i.IntervalStart)
+            .Select(g =>
+            {
+                var answered     = g.Sum(i => i.Answered);
+                var sumWait      = g.Sum(i => i.SumWaitAnswered);
+                var answeredInSl = g.Sum(i => i.AnsweredInSl);
+                return new QueueWaitTimeRow(
+                    g.Key, null, answered, sumWait,
+                    answered == 0 ? null : (double)sumWait / answered,        // Asa
+                    answeredInSl,
+                    answered == 0 ? null : answeredInSl * 100.0 / answered);  // SlPct
+            })
+            .OrderBy(r => r.IntervalStart)
+            .ToList();
 
-        var totalAnswered = intervals.Sum(x => x.Answered);
-        var totalWait = intervals.Sum(x => x.SumWaitAnswered);
+        var totalAnswered = rows.Sum(r => r.Answered);
+        var totalWait = rows.Sum(r => r.SumWaitAnswered);
         var overallAsa = totalAnswered == 0 ? null : (double?)totalWait / totalAnswered;
 
         var pageSize = config.PageSize;

@@ -20,7 +20,7 @@ public record QueueWaitTimeReportResult(
 
 public record QueueWaitTimeRow(
     DateTime IntervalStart,
-    string Workgroup,
+    string? Workgroup,  // BU-aggregated rows carry null
     int Answered,
     long SumWaitAnswered,
     double? Asa,

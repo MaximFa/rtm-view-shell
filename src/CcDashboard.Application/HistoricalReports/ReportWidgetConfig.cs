@@ -68,12 +68,12 @@ public record ReportWidgetConfig
     {
         ReportWidgetType.QueueInterval => new[]
         {
-            "IntervalStart", "Workgroup", "Offered", "Answered", "Abandoned",
+            "IntervalStart", "Offered", "Answered", "Abandoned",
             "AnsweredInSl", "AbandonPct", "SlPct", "Asa", "QueueAht"
         },
         ReportWidgetType.QueueWaitTime => new[]
         {
-            "IntervalStart", "Workgroup", "Answered", "Asa", "AnsweredInSl", "SlPct"
+            "IntervalStart", "Answered", "Asa", "AnsweredInSl", "SlPct"
         },
         ReportWidgetType.AgentMonthly => new[]
         {
@@ -93,19 +93,13 @@ public record ReportWidgetConfig
     };
 }
 
-/// <summary>Scope configuration: mode determines which filter IDs are used.</summary>
+/// <summary>Scope configuration: BU-only (operator decision 2026-06-26).</summary>
 public record ReportWidgetScope
 {
-    /// <summary>"queues" or "bu" — determines filter interpretation.</summary>
-    public required string Mode { get; init; }
-
-    /// <summary>Queue IDs (Shell's NgcQueue.Id uuid) when Mode="queues".</summary>
-    public IReadOnlyList<Guid>? QueueIds { get; init; }
-
-    /// <summary>Business Unit IDs (NGC_BusinessUnit.BusinessUnitId int) when Mode="bu".</summary>
+    /// <summary>Business Unit IDs (NGC_BusinessUnit.BusinessUnitId int) — REQUIRED (scope is BU-only).</summary>
     public IReadOnlyList<int>? BusinessUnitIds { get; init; }
 
-    /// <summary>Agent axis ("detail"|"cumulative") — required for agent widget types when Mode="bu".</summary>
+    /// <summary>Agent axis ("detail"|"cumulative") — required for agent widget types.</summary>
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public AgentReportAxis? AgentAxis { get; init; }
 }
