@@ -7,8 +7,10 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject ILogger<ScreenFullscreenPage> Logger
 @using MediatR
 @using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
 @using CcDashboard.Application.Queries.Dashboards
 @using CcDashboard.Application.Queries.Widgets
 @using CcDashboard.Contracts.DTOs.Dashboards
@@ -123,15 +125,22 @@
     private async Task ToggleScaleMode()
     {
         _scaleMode = _scaleMode == "fit" ? "actual" : "fit";
-        if (_scaleMode == "fit")
+        try
         {
-            // Re-apply scale-to-fit
-            await JS.InvokeVoidAsync("viewerScale.init", _designLayerRef, _designWidth, _designHeight);
+            if (_scaleMode == "fit")
+            {
+                // Re-apply scale-to-fit
+                await JS.InvokeVoidAsync("viewerScale.init", _designLayerRef, _designWidth, _designHeight);
+            }
+            else
+            {
+                // 1:1 mode: remove scale transform
+                await JS.InvokeVoidAsync("viewerScale.resetToActual");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            // 1:1 mode: remove scale transform
-            await JS.InvokeVoidAsync("viewerScale.resetToActual");
+            Logger.LogWarning(ex, "viewerScale interop failed in ToggleScaleMode (scaleMode={Mode})", _scaleMode);
         }
     }
 
