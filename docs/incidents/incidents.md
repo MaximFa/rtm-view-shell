@@ -4,7 +4,7 @@
 
 | ID | Date/time | Server | Symptoms (observed) | Root (FLOOR-pinned) | Resolution (+durable status) | Status |
 |---|---|---|---|---|---|---|
-| INC-2026.06.20-001 | 2026-06-20 ~14:07 +03 | 234 | dashboard VIEW does not open; EDIT opens but empty (no grid, no widgets); server log shows dashboards/widgets rendering server-side, so NOT data/code | Redis/Memurai DOWN -> SignalR Redis backplane `RedisHubLifetimeManager.OnConnectedAsync` throws on circuit connect -> WebSocket 1011 -> every interactive Blazor page blank (view AND edit). PIN: log-20260620 ~14:07 Redis errors (x7) + RedisHubLifetimeManager.OnConnectedAsync stack; aoc:1 | Immediate (DONE): restart Memurai (Redis) -> prod restored. Durable (PENDING §4): (a) shell Program.cs AbortOnConnectFail=false; (b) devops Memurai service resilience; (c) ledger detail below. Owners DISPATCHED (shell a / devops b). RCA findings A1-A5 below: outage-CHAIN root established (crash 03:55 + NO service-recovery + Shell backplane hard-dep); crash-TRIGGER cause still open (Memurai log @03:55 outstanding). H1 (Startup!=Automatic) FALSIFIED. | resolved (app) / ROOT CONFIRMED (Memurai Developer 10-day auto-shutdown, edition pinned via INFO server); durable fix (d) = production-licensed Redis + (a) shell degrade, PENDING operator decision/deploy |
+| INC-2026.06.20-001 | 2026-06-20 ~14:07 +03 | 234 | dashboard VIEW does not open; EDIT opens but empty (no grid, no widgets); server log shows dashboards/widgets rendering server-side, so NOT data/code | Redis/Memurai DOWN -> SignalR Redis backplane `RedisHubLifetimeManager.OnConnectedAsync` throws on circuit connect -> WebSocket 1011 -> every interactive Blazor page blank (view AND edit). PIN: log-20260620 ~14:07 Redis errors (x7) + RedisHubLifetimeManager.OnConnectedAsync stack; aoc:1 | Immediate (DONE): restart Memurai (Redis) -> prod restored. Durable (PENDING §4): (a) shell Program.cs AbortOnConnectFail=false; (b) devops Memurai service resilience; (c) ledger detail below. Owners DISPATCHED (shell a / devops b). RCA findings A1-A5 below: outage-CHAIN root established (crash 03:55 + NO service-recovery + Shell backplane hard-dep); crash-TRIGGER cause still open (Memurai log @03:55 outstanding). H1 (Startup!=Automatic) FALSIFIED. | resolved (app) / ROOT CONFIRMED (Memurai Developer 10-day auto-shutdown, edition pinned via INFO server); durable fix (d) = Microsoft Garnet (free/MIT, no 10-day tier limit) — VALIDATED GREEN local, operator-accepted 2026-07-01; (a) 9732eab graceful-degrade CONFIRMED; residual = prod-234 rollout + cross-instance retest |
 
 ## Notes
 - Same symptom ("editor empty") has had DIFFERENT roots historically (Redis-down vs stale-asset-cache vs ConfigJson-format) -> ALWAYS match by floor-signature (error+stack), never by symptom.
@@ -162,3 +162,19 @@ durable-PENDING(operator decision): the ROOT is known; what remains is the FIX D
 Optional extra corroboration (not required): the Memurai log line @03:55 stating the shutdown reason.
 DURABLE actions (priority): (d) production-licensed Redis on prod [ROOT] > (a) shell AbortOnConnectFail=false
 [resilience] > (b) SC auto-restart [interim stop-gap only] ; + fleet-wide edition audit (10-day time-bomb).
+
+### INC-001(d) Garnet durable-fix VALIDATED — real-app local, operator-accepted 2026-07-01
+Chosen replacement for Memurai Developer = **Microsoft Garnet** (free/MIT, native Windows, RESP; NO 10-day/
+IP/RAM tier cap). Local real-Shell validation GREEN:
+- STEP0: real Shell up in NON-Development (backplane wires; the PoC Caveat-3 dev-DB-drift blocker was gone).
+- STEP1/2: Garnet 1.1.10 on :6379 with auth; /health 200; 14-channel SignalR backplane ACTIVE
+  (RedisHubLifetimeManager Connected).
+- STEP3 (KEY): Shell SURVIVED Garnet-DOWN **gracefully** (AbortOnConnectFail=false, 9732eab) — NO WebSocket
+  1011 circuit-kill (UNLIKE Memurai-down in the original incident); auto-recovered on `garnet --recover`
+  (health 503->200). Real circuit UP (/screens list + dashboard viewer, not "Connecting...").
+- Residual (honest): validated SINGLE-instance local circuit; cross-instance fan-out on the real Shell not
+  re-tested locally (PoC harness had covered 2-instance fan-out). Accepted by operator.
+- VERDICT: Garnet-down degrades better than Memurai-down (graceful vs blank/1011) => INC-001 durable-fix (d)
+  VALIDATED. Durable status: (d) validated + operator-accepted; remaining = prod-234 rollout + cross-instance
+  retest. (a) 9732eab, (b) da4cd7e already in v3.
+
