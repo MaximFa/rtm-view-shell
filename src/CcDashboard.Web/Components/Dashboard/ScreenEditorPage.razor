@@ -273,7 +273,7 @@
                         <li class="nav-item">
                             <button class="nav-link @(ConfigActiveTab == "appearance" ? "active" : "")" @onclick='() => ConfigActiveTab = "appearance"'>@L["WidgetCfg_Appearance"]</button>
                         </li>
-                        @if (IsQueueGridWidget(ConfiguringWidget) || IsAgentGridWidget(ConfiguringWidget))
+                        @if (IsQueueGridWidget(ConfiguringWidget) || IsAgentGridWidget(ConfiguringWidget) || IsDataSlotWidget(ConfiguringWidget))
                         {
                             <li class="nav-item">
                                 <button class="nav-link @(ConfigActiveTab == "thresholds" ? "active" : "")" @onclick='() => ConfigActiveTab = "thresholds"'>@L["WidgetCfg_Thresholds"]</button>
