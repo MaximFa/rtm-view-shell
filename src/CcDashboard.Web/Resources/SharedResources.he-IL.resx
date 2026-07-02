@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -903,5 +903,8 @@
   <data name="WidgetCfg_AgentAxis_Detail"><value>פירוט (לפי סוכן)</value></data>
   <data name="WidgetCfg_AgentAxis_Cumulative"><value>מצטבר (סיכומים)</value></data>
   <data name="ReportWidget_Unconfigured"><value>הגדירו את הווידג'ט — בחרו היקף (תור או יחידה עסקית).</value></data>
+  <!-- ── View Scale Mode ── -->
+  <data name="View_ScaleMode_Fit"><value>התאמה לגודל המסך</value></data>
+  <data name="View_ScaleMode_Actual"><value>גודל אמיתי (1:1)</value></data>
 </root>
 

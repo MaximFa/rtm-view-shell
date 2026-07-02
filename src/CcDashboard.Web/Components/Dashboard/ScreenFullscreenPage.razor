@@ -1,4 +1,4 @@
-﻿@page "/screens/{Id:guid}/fullscreen"
+@page "/screens/{Id:guid}/fullscreen"
 @page "/screens/{Id:guid}/view"
 @page "/screens/{Id:guid}"
 @rendermode InteractiveServer
@@ -6,7 +6,9 @@
 @inject IMediator Mediator
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @using MediatR
+@using Microsoft.Extensions.Localization
 @using CcDashboard.Application.Queries.Dashboards
 @using CcDashboard.Application.Queries.Widgets
 @using CcDashboard.Contracts.DTOs.Dashboards
@@ -32,6 +34,9 @@
         <div class="fullscreen-header">
             <h1 class="fullscreen-title mb-0">@Dashboard.Name</h1>
             <div class="d-flex gap-2">
+                <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")" @onclick="ToggleScaleMode" title="@(_scaleMode == "fit" ? L["View_ScaleMode_Actual"] : L["View_ScaleMode_Fit"])">
+                    <i class="bi @(_scaleMode == "fit" ? "bi-arrows-fullscreen" : "bi-aspect-ratio")"></i>
+                </button>
                 <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")" @onclick="ToggleDarkMode" title="@(_darkMode ? "Light mode" : "Dark mode")">
                     <i class="bi @(_darkMode ? "bi-sun" : "bi-moon")"></i>
                 </button>
@@ -51,7 +56,7 @@
             }
             else
             {
-                <div class="fullscreen-scale-wrap">
+                <div class="fullscreen-scale-wrap" style="@(_scaleMode == "actual" ? "overflow: auto;" : "")">
                     <div class="fullscreen-design-layer" @ref="_designLayerRef"
                          style="width: @(_designWidth)px; height: @(_designHeight)px; position: relative;">
                         @foreach (var widget in PlacedWidgets)
@@ -106,6 +111,7 @@
     private bool Loading = true;
     private bool _positionsApplied;
     private bool _darkMode = false;
+    private string _scaleMode = "fit";  // "fit" = scale-to-fit (default), "actual" = 1:1 with scroll
     private readonly Dictionary<Guid, RenderWidget?> _renderWidgetRefs = new();
     private ElementReference _designLayerRef;
     private int _designWidth = 1920;
@@ -113,6 +119,21 @@
     private bool _scaleApplied;
 
     private void ToggleDarkMode() => _darkMode = !_darkMode;
+
+    private async Task ToggleScaleMode()
+    {
+        _scaleMode = _scaleMode == "fit" ? "actual" : "fit";
+        if (_scaleMode == "fit")
+        {
+            // Re-apply scale-to-fit
+            await JS.InvokeVoidAsync("viewerScale.init", _designLayerRef, _designWidth, _designHeight);
+        }
+        else
+        {
+            // 1:1 mode: remove scale transform
+            await JS.InvokeVoidAsync("viewerScale.resetToActual");
+        }
+    }
 
     private static bool IsDayTrendWidget(ScreenEditorPage.PlacedWidget w) =>
         (w.OriginalWidgetName ?? w.Name ?? "").Contains("day", StringComparison.OrdinalIgnoreCase)
@@ -191,10 +212,13 @@
             StateHasChanged();
         }
         
-        // Apply scale-to-fit after positions are applied
+        // Apply scale-to-fit after positions are applied (only if in fit mode)
         if (_positionsApplied && !_scaleApplied && PlacedWidgets.Count > 0)
         {
-            await JS.InvokeVoidAsync("viewerScale.init", _designLayerRef, _designWidth, _designHeight);
+            if (_scaleMode == "fit")
+            {
+                await JS.InvokeVoidAsync("viewerScale.init", _designLayerRef, _designWidth, _designHeight);
+            }
             _scaleApplied = true;
         }
     }

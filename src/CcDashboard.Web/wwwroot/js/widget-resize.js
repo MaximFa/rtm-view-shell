@@ -817,6 +817,20 @@ window.viewerScale = {
         };
     },
     
+    resetToActual: function () {
+        // Reset to 1:1 (actual size) - remove transform and margins
+        if (!this.designEl) return;
+        this.designEl.style.transform = '';
+        this.designEl.style.transformOrigin = '';
+        this.designEl.style.marginLeft = '';
+        this.designEl.style.marginTop = '';
+        // Stop listening for resize (no scaling needed in 1:1 mode)
+        if (this._onResize) {
+            window.removeEventListener('resize', this._onResize);
+            this._onResize = null;
+        }
+    },
+
     dispose: function () {
         if (this._onResize) {
             window.removeEventListener('resize', this._onResize);
