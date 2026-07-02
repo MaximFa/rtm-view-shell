@@ -66,6 +66,8 @@ param(
     [Alias("SkipMemurai")]
     [switch]$SkipRedis,
     [switch]$UseMemurai,
+    [switch]$GarnetNoAuth,     # Local dev: omit --auth/--password (bare Garnet, no auth)
+    [switch]$CacheOnly,        # Install only [2/6] Garnet/Memurai, skip [3/6]-[6/6]
     [string]$RedisPassword = "",
 
     [string]$GarnetInstallDir = "C:\Garnet",
@@ -207,9 +209,9 @@ if ($SkipRedis -or -not $InstallRTM) {
     # ── DEFAULT PATH: Garnet (INC-001(d) Phase 2) ────────────────────────────
     Write-Host "  Installing Garnet (MIT, native Windows)..." -ForegroundColor Cyan
 
-    # Validate RedisPassword is provided (Garnet requires auth)
-    if (-not $RedisPassword) {
-        Write-Error "RedisPassword is REQUIRED for Garnet. Pass -RedisPassword <password>."
+    # Validate RedisPassword is provided (Garnet requires auth) — unless GarnetNoAuth (local bare)
+    if (-not $RedisPassword -and -not $GarnetNoAuth) {
+        Write-Error "RedisPassword is REQUIRED for Garnet. Pass -RedisPassword <password> or -GarnetNoAuth for local dev."
     }
 
     # Check if Garnet service already exists
@@ -246,7 +248,13 @@ if ($SkipRedis -or -not $InstallRTM) {
 
         # Register Garnet as Windows Service via NSSM
         $garnetExe = Join-Path $GarnetInstallDir "GarnetServer.exe"
-        $garnetArgs = "--bind 127.0.0.1 --port 6379 --auth Password --password $RedisPassword --checkpointdir `"$checkpointDir`" --recover --checkpoint-freq 300"
+        # Build Garnet args: with auth (prod) or without (local dev via -GarnetNoAuth)
+        if ($GarnetNoAuth) {
+            $garnetArgs = "--bind 127.0.0.1 --port 6379 --checkpointdir `"$checkpointDir`" --recover --checkpoint-freq 300"
+            Write-Host "  [GarnetNoAuth] Bare Garnet (no auth) — local dev only" -ForegroundColor Yellow
+        } else {
+            $garnetArgs = "--bind 127.0.0.1 --port 6379 --auth Password --password $RedisPassword --checkpointdir `"$checkpointDir`" --recover --checkpoint-freq 300"
+        }
 
         Write-Host "  Registering $GarnetSvcName service via NSSM..." -ForegroundColor Gray
         & $nssmDest install $GarnetSvcName $garnetExe $garnetArgs | Out-Null
@@ -275,6 +283,16 @@ if ($SkipRedis -or -not $InstallRTM) {
             Write-Host "  [WARN] Could not set Garnet resilience: $($_.Exception.Message)" -ForegroundColor Yellow
         }
     }
+}
+
+# ── CacheOnly: exit early after [2/6] ─────────────────────────────────────────
+if ($CacheOnly) {
+    Write-Host ""
+    Write-Host "╔══════════════════════════════════════════════════════╗" -ForegroundColor Green
+    Write-Host "║         CACHE-ONLY INSTALLATION COMPLETE             ║" -ForegroundColor Green
+    Write-Host "╚══════════════════════════════════════════════════════╝" -ForegroundColor Green
+    Write-Host "  -CacheOnly: skipped [3/6]-[6/6]. Garnet/Memurai installed." -ForegroundColor Yellow
+    exit 0
 }
 
 # ── [3/6] Stop existing services ─────────────────────────────────────────────
