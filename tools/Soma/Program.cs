@@ -786,7 +786,7 @@ app.MapPost("/ops/build", async () =>
     var (portFreed, pathFreed) = FreeShellOrphans();
     AuditLog("OPS_BUILD", $"start|freedPort=[{string.Join(",", portFreed)}]|freedPath=[{string.Join(",", pathFreed)}]");
     var psi = new ProcessStartInfo { FileName = "dotnet", WorkingDirectory = shellWorkingDir, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
-    psi.ArgumentList.Add("build"); psi.ArgumentList.Add("CcDashboard.sln");
+    psi.ArgumentList.Add("build"); psi.ArgumentList.Add("CcDashboard.sln"); psi.ArgumentList.Add("--no-incremental");
     var output = new List<string>(); using var proc = Process.Start(psi)!;
     proc.OutputDataReceived += (_, e) => { if (e.Data != null) output.Add(e.Data); };
     proc.ErrorDataReceived += (_, e) => { if (e.Data != null) output.Add($"[ERR] {e.Data}"); };

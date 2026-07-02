@@ -40,7 +40,7 @@ Log sources: `serilog`, `soma-shell`, `soma-audit`
 ### Control Plane (Ops)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/ops/build` | POST | Run `dotnet build CcDashboard.sln` |
+| `/ops/build` | POST | Run `dotnet build CcDashboard.sln --no-incremental` |
 | `/ops/test?suite=<name>` | POST | Run test suite (whitelisted) |
 
 Test suites: `unit`, `integration`, `architecture`, `security`
@@ -53,6 +53,10 @@ fixture-initialization errors.
 **Orphan cleanup:** Both `/ops/build` and `/ops/test` automatically free any orphaned 
 CcDashboard.Web processes (by port 5239 and by path) before running. This prevents 
 MSB3026/MSB3027 "Exceeded retry count" errors when an orphan holds bin/ files open.
+
+**Full rebuild:** `/ops/build` runs `dotnet build CcDashboard.sln --no-incremental` — a FULL 
+rebuild so it reliably surfaces compile errors in EVERY project, including the 4 test projects 
+(prevents the incremental-staleness false-0 that hid 62 Tests.Unit errors, 2026-07-02).
 
 ---
 
