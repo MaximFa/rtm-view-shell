@@ -1,0 +1,24 @@
+name: CI
+on:
+  push:
+    branches: [ v3 ]
+  pull_request:
+    branches: [ v3 ]
+jobs:
+  build-test:
+    runs-on: windows-latest        # app targets win-x64 + Windows-only deps (Event Log sink); avoids ubuntu build breaks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore CcDashboard.sln
+      - name: Build solution (fails on ANY project incl the 4 test projects)
+        run: dotnet build CcDashboard.sln -c Release --no-restore --no-incremental
+      - name: Unit tests
+        run: dotnet test tests/CcDashboard.Tests.Unit -c Release --no-build
+      - name: Architecture tests
+        run: dotnet test tests/CcDashboard.Tests.Architecture -c Release --no-build
+  # Integration + Security suites use Testcontainers/Docker — gated as a follow-up
+  # (Docker-on-Windows-runner is unreliable; add a linux job with services when stabilised).
