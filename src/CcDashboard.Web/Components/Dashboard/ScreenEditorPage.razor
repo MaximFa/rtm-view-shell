@@ -6,6 +6,7 @@
 @inject IJSRuntime JS
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject ICurrentUserAccessor CurrentUser
+@inject ILogger<ScreenEditorPage> Logger
 @using MediatR
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.Extensions.Localization
@@ -4610,13 +4611,18 @@
         // Save widget to database
         try
         {
+            // PROBE PR234-1a: log outgoing config BEFORE save
+            var serializedConfig = System.Text.Json.JsonSerializer.Serialize(newConfig, _jsonOptions);
+            Logger.LogWarning("[PROBE PR234-1a] SaveWidgetConfig: widgetId={WidgetId}, outgoing ConfigJson (first 500): {Json}",
+                ConfiguringWidget.Id, serializedConfig.Length > 500 ? serializedConfig[..500] : serializedConfig);
+
             var widgetDto = new DashboardWidgetDto(
                 ConfiguringWidget.Id,
                 ConfiguringWidget.GridId,
                 Dashboard.Id,
                 ConfiguringWidget.CatalogItemId,
                 System.Text.Json.JsonSerializer.Serialize(new { ConfiguringWidget.Width, ConfiguringWidget.Height, ConfiguringWidget.X, ConfiguringWidget.Y }, _jsonOptions),
-                System.Text.Json.JsonSerializer.Serialize(newConfig, _jsonOptions)
+                serializedConfig
             );
 
             var gridId = await Mediator.Send(new SaveDashboardWidgetCommand(Dashboard.Id, widgetDto, preassignedGridId), _cts.Token);
@@ -4969,6 +4975,18 @@
                     Dashboard.CategoryId, Dashboard.Status, Dashboard.IsPublic, _darkMode, Dashboard.RowVersion)), _cts.Token);
 
             // Save widgets
+            // PROBE PR234-1a: log each widget's config before SaveLayout serialization
+            foreach (var w in PlacedWidgets)
+            {
+                var configType = w.Config?.GetType().Name ?? "NULL";
+                var hasDisplayName = !string.IsNullOrEmpty(w.Config?.DisplayName);
+                var hasBU = !string.IsNullOrEmpty(w.Config?.BusinessUnit);
+                var hasMetric = !string.IsNullOrEmpty(w.Config?.Metric);
+                var serialized = System.Text.Json.JsonSerializer.Serialize(w.Config, _jsonOptions);
+                Logger.LogWarning("[PROBE PR234-1a] SaveLayout: widgetId={WidgetId}, configType={ConfigType}, hasDisplayName={HasDN}, hasBU={HasBU}, hasMetric={HasM}, ConfigJson (first 500): {Json}",
+                    w.Id, configType, hasDisplayName, hasBU, hasMetric, serialized.Length > 500 ? serialized[..500] : serialized);
+            }
+
             var widgetDtos = PlacedWidgets.Select(w => new DashboardWidgetDto(
                 w.Id,
                 w.GridId,  // Auto-incremented by DB for new widgets (GridId = 0)
@@ -5244,14 +5262,33 @@
         PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
     };
 
-    private static WidgetConfig ParseWidgetConfig(string? configJson)
+    // PROBE PR234-1a: NON-STATIC to access Logger (temp)
+    private WidgetConfig ParseWidgetConfig(string? configJson)
     {
-        if (string.IsNullOrEmpty(configJson)) return new WidgetConfig();
+        // PROBE PR234-1a: log null/empty branch
+        if (string.IsNullOrEmpty(configJson))
+        {
+            Logger.LogWarning("[PROBE PR234-1a] ParseWidgetConfig: configJson is NULL/EMPTY — returning default WidgetConfig");
+            return new WidgetConfig();
+        }
         try
         {
-            return System.Text.Json.JsonSerializer.Deserialize<WidgetConfig>(configJson, _jsonOptions) ?? new WidgetConfig();
+            var result = System.Text.Json.JsonSerializer.Deserialize<WidgetConfig>(configJson, _jsonOptions);
+            if (result == null)
+            {
+                // PROBE PR234-1a: deserialize returned null
+                Logger.LogWarning("[PROBE PR234-1a] ParseWidgetConfig: Deserialize returned NULL for configJson (first 500): {Json}",
+                    configJson.Length > 500 ? configJson[..500] : configJson);
+            }
+            return result ?? new WidgetConfig();
         }
-        catch { return new WidgetConfig(); }
+        catch (Exception ex)
+        {
+            // PROBE PR234-1a: deserialize THREW — capture exception details + raw JSON
+            Logger.LogWarning(ex, "[PROBE PR234-1a] ParseWidgetConfig: Deserialize THREW {ExType}: {ExMsg}. Raw configJson (first 500): {Json}",
+                ex.GetType().Name, ex.Message, configJson.Length > 500 ? configJson[..500] : configJson);
+            return new WidgetConfig();
+        }
     }
 
     private readonly CancellationTokenSource _cts = new();
