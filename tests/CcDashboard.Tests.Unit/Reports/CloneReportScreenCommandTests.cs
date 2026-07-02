@@ -10,6 +10,7 @@ namespace CcDashboard.Tests.Unit.Reports;
 
 /// <summary>
 /// Tests for CloneReportScreenCommand — deep copy screen + widgets.
+/// Updated 2026-07-02: GetByIdWithWidgetsAsync signature (bool bypassTenantFilter, CancellationToken ct).
 /// </summary>
 public class CloneReportScreenCommandTests
 {
@@ -43,7 +44,7 @@ public class CloneReportScreenCommandTests
                 TenantId = TenantId,
                 WidgetType = ReportWidgetType.QueueInterval,
                 PositionJson = """{"x":0,"y":0,"w":4,"h":3}""",
-                ConfigJson = """{"scope":{"mode":"bu","businessUnitIds":[1]},"columns":["Offered"],"pageSize":25}""",
+                ConfigJson = """{"scope":{"businessUnitIds":[1]},"columns":["Offered"],"pageSize":25}""",
                 IsDeleted = false
             });
             widgets.Add(new ReportWidget
@@ -53,7 +54,7 @@ public class CloneReportScreenCommandTests
                 TenantId = TenantId,
                 WidgetType = ReportWidgetType.AgentMonthly,
                 PositionJson = """{"x":4,"y":0,"w":4,"h":3}""",
-                ConfigJson = """{"scope":{"mode":"bu","businessUnitIds":[1],"agentAxis":"detail"},"columns":["SumAvailableMs"],"pageSize":50}""",
+                ConfigJson = """{"scope":{"businessUnitIds":[1],"agentAxis":"detail"},"columns":["SumAvailableMs"],"pageSize":50}""",
                 IsDeleted = false
             });
         }
@@ -92,7 +93,7 @@ public class CloneReportScreenCommandTests
     public async Task Clone_CopiesScreenFields_WithDraftStatus()
     {
         var source = CreateSourceScreen(withWidgets: false);
-        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<CancellationToken>()).Returns(source);
+        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(source);
         _repo.GetUserAccessLevelAsync(SourceScreenId, PgId, true, false, Arg.Any<CancellationToken>())
             .Returns(1); // View
 
@@ -123,7 +124,7 @@ public class CloneReportScreenCommandTests
     public async Task Clone_CopiesNonDeletedWidgets_WithNewIds()
     {
         var source = CreateSourceScreen(withWidgets: true, withDeletedWidget: true);
-        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<CancellationToken>()).Returns(source);
+        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(source);
         _repo.GetUserAccessLevelAsync(SourceScreenId, PgId, true, false, Arg.Any<CancellationToken>())
             .Returns(1); // View
 
@@ -160,7 +161,7 @@ public class CloneReportScreenCommandTests
     public async Task Clone_PG01_ClonerPgGetsFull()
     {
         var source = CreateSourceScreen(withWidgets: false);
-        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<CancellationToken>()).Returns(source);
+        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(source);
         _repo.GetUserAccessLevelAsync(SourceScreenId, PgId, true, false, Arg.Any<CancellationToken>())
             .Returns(1); // View
 
@@ -185,7 +186,7 @@ public class CloneReportScreenCommandTests
     {
         var source = CreateSourceScreen(withWidgets: false);
         source.IsPublic = false; // Not public
-        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<CancellationToken>()).Returns(source);
+        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(source);
         _repo.GetUserAccessLevelAsync(SourceScreenId, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(0); // No access
 
@@ -205,7 +206,7 @@ public class CloneReportScreenCommandTests
 
         var source = CreateSourceScreen(withWidgets: false);
         source.IsPublic = false;
-        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<CancellationToken>()).Returns(source);
+        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(source);
 
         ReportScreen? captured = null;
         _repo.AddAsync(Arg.Do<ReportScreen>(s => captured = s), Arg.Any<CancellationToken>())
@@ -230,7 +231,7 @@ public class CloneReportScreenCommandTests
         source.TenantId = otherTenantId; // Different tenant
 
         // GQF would normally filter this out, but simulating bypass
-        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<CancellationToken>()).Returns(source);
+        _repo.GetByIdWithWidgetsAsync(SourceScreenId, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(source);
 
         var handler = new CloneReportScreenCommandHandler(_repo, _user, _clock);
         var cmd = new CloneReportScreenCommand(SourceScreenId);

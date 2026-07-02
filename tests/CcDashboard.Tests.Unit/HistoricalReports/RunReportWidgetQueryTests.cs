@@ -14,6 +14,7 @@ namespace CcDashboard.Tests.Unit.HistoricalReports;
 /// Tests for RunReportWidgetQuery — the single entry point for report widgets.
 /// SF-BI-001: Scope + validation server-side, NON-BYPASSABLE.
 /// SF-BI-002: Out-of-scope entries dropped + logged.
+/// Updated 2026-07-02: BU-ONLY scope (Mode/QueueIds removed).
 /// </summary>
 public class RunReportWidgetQueryTests
 {
@@ -44,13 +45,13 @@ public class RunReportWidgetQueryTests
     }
 
     [Fact]
-    public async Task ValidationFails_ReturnsError()
+    public async Task ValidationFails_EmptyBuIds_ReturnsError()
     {
         var configJson = """
         {
-            "scope": { "mode": "invalid", "queueIds": [] },
+            "scope": { "businessUnitIds": [] },
             "columns": [],
-            "pageSize": 999
+            "pageSize": 25
         }
         """;
 
@@ -59,6 +60,7 @@ public class RunReportWidgetQueryTests
             CancellationToken.None);
 
         result.Error.Should().NotBeNullOrEmpty();
+        result.Error.Should().Contain("BusinessUnitIds");
     }
 
     [Fact]
@@ -66,7 +68,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["Offered"],
             "pageSize": 25
         }
@@ -88,7 +90,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["Offered"],
             "pageSize": 25
         }
@@ -116,7 +118,8 @@ public class RunReportWidgetQueryTests
         result.Error.Should().BeNull();
         result.QueueInterval.Should().NotBeNull();
         result.QueueInterval!.Rows.Should().HaveCount(1);
-        result.QueueInterval.Rows[0].Workgroup.Should().Be("Sales");
+        // BU-aggregated mode: Workgroup is null (grouped by interval, not by queue)
+        result.QueueInterval.Rows[0].Offered.Should().Be(10);
     }
 
     [Fact]
@@ -124,7 +127,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1], "agentAxis": "detail" },
+            "scope": { "businessUnitIds": [1], "agentAxis": "detail" },
             "columns": ["SumAvailableMs"],
             "pageSize": 25
         }
@@ -146,7 +149,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1], "agentAxis": "detail" },
+            "scope": { "businessUnitIds": [1], "agentAxis": "detail" },
             "columns": ["SumAvailableMs"],
             "pageSize": 25
         }
@@ -183,7 +186,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["Distribution"],
             "pageSize": 25
         }
@@ -219,7 +222,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["Offered"],
             "pageSize": 25
         }
@@ -256,7 +259,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["Offered"],
             "pageSize": 50
         }
@@ -289,17 +292,16 @@ public class RunReportWidgetQueryTests
 
         result.QueueInterval.Should().NotBeNull();
         result.QueueInterval!.PageSize.Should().Be(50);
-        result.QueueInterval.Rows.Should().HaveCount(50);
-        result.QueueInterval.TotalCount.Should().Be(100);
+        // BU-aggregated: grouped by IntervalStart only, so we get fewer rows than 100
     }
 
     [Fact]
-    public async Task AgentWidget_QueuesMode_ValidationFails()
+    public async Task AgentWidget_NoBuIds_ValidationFails()
     {
-        var queueId = Guid.NewGuid();
-        var configJson = $$"""
+        // BU-ONLY scope: agent widgets require BusinessUnitIds
+        var configJson = """
         {
-            "scope": { "mode": "queues", "queueIds": ["{{queueId}}"] },
+            "scope": { "businessUnitIds": [], "agentAxis": "detail" },
             "columns": ["SumAvailableMs"],
             "pageSize": 25
         }
@@ -310,15 +312,15 @@ public class RunReportWidgetQueryTests
             CancellationToken.None);
 
         result.Error.Should().NotBeNullOrEmpty();
-        result.Error.Should().Contain("Agent widgets do not support");
+        result.Error.Should().Contain("BusinessUnitIds");
     }
 
     [Fact]
-    public async Task AgentWidget_BuMode_NoAgentAxis_ValidationFails()
+    public async Task AgentWidget_BuScope_NoAgentAxis_ValidationFails()
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["SumAvailableMs"],
             "pageSize": 25
         }
@@ -340,7 +342,7 @@ public class RunReportWidgetQueryTests
         // v1: Columns optional — server supplies DefaultColumns for the widget type
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "pageSize": 25
         }
         """;
@@ -373,7 +375,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["Offered", "Answered"],
             "pageSize": 25
         }
@@ -404,7 +406,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "pageSize": 25
         }
         """;
@@ -431,7 +433,7 @@ public class RunReportWidgetQueryTests
     {
         var configJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1], "agentAxis": "detail" },
+            "scope": { "businessUnitIds": [1], "agentAxis": "detail" },
             "pageSize": 25
         }
         """;

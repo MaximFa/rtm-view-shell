@@ -1,10 +1,7 @@
 using CcDashboard.Application.HistoricalReports;
-using CcDashboard.Domain.Domain;
-using CcDashboard.Infrastructure.Persistence;
-using CcDashboard.Infrastructure.Services;
 using CcDashboard.Domain.Interfaces;
+using CcDashboard.Infrastructure.Services;
 using FluentAssertions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -14,6 +11,7 @@ namespace CcDashboard.Tests.Unit.HistoricalReports;
 /// Tests for ReportWidgetScopeService — scope chain resolution.
 /// SF-BI-001: Server-side, NON-BYPASSABLE.
 /// SF-BI-002: Out-of-scope entries dropped + logged.
+/// Updated 2026-07-02: 4-arg ctor (no beDb), BU-ONLY scope.
 /// </summary>
 public class ReportWidgetScopeServiceTests
 {
@@ -40,16 +38,11 @@ public class ReportWidgetScopeServiceTests
         _buResolver.ResolveQueuesAsync(TenantId, Arg.Any<IReadOnlyList<int>>(), Arg.Any<ReportScope>(), Arg.Any<CancellationToken>())
             .Returns(requested);
 
-        var options = new DbContextOptionsBuilder<BackendEmulationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        using var beDb = new BackendEmulationDbContext(options);
-
-        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, beDb, _user, _logger);
+        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, _user, _logger);
 
         var config = new ReportWidgetConfig
         {
-            Scope = new ReportWidgetScope { Mode = "bu", BusinessUnitIds = new[] { 1 } },
+            Scope = new ReportWidgetScope { BusinessUnitIds = new[] { 1 } },
             Columns = new[] { "Offered" },
             PageSize = 25
         };
@@ -67,16 +60,11 @@ public class ReportWidgetScopeServiceTests
         var scope = ReportScope.Empty();
         _scopeResolver.ResolveQueueScopeAsync(Arg.Any<CancellationToken>()).Returns(scope);
 
-        var options = new DbContextOptionsBuilder<BackendEmulationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        using var beDb = new BackendEmulationDbContext(options);
-
-        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, beDb, _user, _logger);
+        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, _user, _logger);
 
         var config = new ReportWidgetConfig
         {
-            Scope = new ReportWidgetScope { Mode = "bu", BusinessUnitIds = new[] { 1 } },
+            Scope = new ReportWidgetScope { BusinessUnitIds = new[] { 1 } },
             Columns = new[] { "Offered" },
             PageSize = 25
         };
@@ -102,16 +90,11 @@ public class ReportWidgetScopeServiceTests
         _buResolver.ResolveQueuesAsync(TenantId, Arg.Any<IReadOnlyList<int>>(), Arg.Any<ReportScope>(), Arg.Any<CancellationToken>())
             .Returns(requested);
 
-        var options = new DbContextOptionsBuilder<BackendEmulationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        using var beDb = new BackendEmulationDbContext(options);
-
-        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, beDb, _user, _logger);
+        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, _user, _logger);
 
         var config = new ReportWidgetConfig
         {
-            Scope = new ReportWidgetScope { Mode = "bu", BusinessUnitIds = new[] { 1 } },
+            Scope = new ReportWidgetScope { BusinessUnitIds = new[] { 1 } },
             Columns = new[] { "Offered" },
             PageSize = 25
         };
@@ -138,18 +121,12 @@ public class ReportWidgetScopeServiceTests
         var scope = ReportScope.Empty();
         _scopeResolver.ResolveAgentScopeAsync(Arg.Any<CancellationToken>()).Returns(scope);
 
-        var options = new DbContextOptionsBuilder<BackendEmulationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        using var beDb = new BackendEmulationDbContext(options);
-
-        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, beDb, _user, _logger);
+        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, _user, _logger);
 
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1 },
                 AgentAxis = AgentReportAxis.Detail
             },
@@ -172,18 +149,12 @@ public class ReportWidgetScopeServiceTests
         _buResolver.ResolveAgentsAsync(TenantId, Arg.Any<IReadOnlyList<int>>(), AgentReportAxis.Detail, Arg.Any<ReportScope>(), Arg.Any<CancellationToken>())
             .Returns(requested);
 
-        var options = new DbContextOptionsBuilder<BackendEmulationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        using var beDb = new BackendEmulationDbContext(options);
-
-        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, beDb, _user, _logger);
+        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, _user, _logger);
 
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1 },
                 AgentAxis = AgentReportAxis.Detail
             },
@@ -195,52 +166,5 @@ public class ReportWidgetScopeServiceTests
 
         result.FullScope.Should().BeTrue();
         result.EffectiveAgentIds.Should().HaveCount(3);
-    }
-
-    [Fact]
-    public async Task QueuesModeResolve_UsesQueueIds()
-    {
-        var allowedWorkgroups = new HashSet<string> { "Sales", "Support", "Billing" };
-        var scope = new ReportScope
-        {
-            FullScope = false,
-            AllowedWorkgroups = allowedWorkgroups
-        };
-        _scopeResolver.ResolveQueueScopeAsync(Arg.Any<CancellationToken>()).Returns(scope);
-
-        var queueId1 = Guid.NewGuid();
-        var queueId2 = Guid.NewGuid();
-        var queueId3 = Guid.NewGuid();
-
-        var options = new DbContextOptionsBuilder<BackendEmulationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        using var beDb = new BackendEmulationDbContext(options);
-        beDb.NgcQueues.AddRange(
-            new CcDashboard.Domain.Domain.NgcQueue { Id = queueId1, TenantId = TenantId, Name = "Sales Queue", ExternalId = "Sales" },
-            new CcDashboard.Domain.Domain.NgcQueue { Id = queueId2, TenantId = TenantId, Name = "Support Queue", ExternalId = "Support" },
-            new CcDashboard.Domain.Domain.NgcQueue { Id = queueId3, TenantId = TenantId, Name = "VIP Queue", ExternalId = "VIP" }
-        );
-        await beDb.SaveChangesAsync();
-
-        var service = new ReportWidgetScopeService(_scopeResolver, _buResolver, beDb, _user, _logger);
-
-        var config = new ReportWidgetConfig
-        {
-            Scope = new ReportWidgetScope
-            {
-                Mode = "queues",
-                QueueIds = new[] { queueId1, queueId2, queueId3 }
-            },
-            Columns = new[] { "Offered" },
-            PageSize = 25
-        };
-
-        var result = await service.ResolveQueueScopeAsync(TenantId, config);
-
-        result.EffectiveWorkgroups.Should().Contain("Sales");
-        result.EffectiveWorkgroups.Should().Contain("Support");
-        result.EffectiveWorkgroups.Should().NotContain("VIP");
-        result.DroppedCount.Should().Be(1);
     }
 }

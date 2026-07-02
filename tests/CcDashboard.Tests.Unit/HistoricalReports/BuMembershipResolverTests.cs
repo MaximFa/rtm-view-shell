@@ -13,10 +13,12 @@ namespace CcDashboard.Tests.Unit.HistoricalReports;
 /// Tests for BuMembershipResolver per spec §4.
 /// Covers: queue resolution, agent DETAIL union, agent CUMULATIVE ∪_SG(∩_AG),
 /// PG-intersection (SF-BI-001), external-ID keying.
+/// Updated 2026-07-02: uses IDbContextFactory.
 /// </summary>
 public class BuMembershipResolverTests : IAsyncLifetime
 {
     private BackendEmulationDbContext _db = null!;
+    private TestDbContextFactory _factory = null!;
     private BuMembershipResolver _resolver = null!;
 
     private static readonly Guid TenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -32,7 +34,8 @@ public class BuMembershipResolverTests : IAsyncLifetime
             .Options;
 
         _db = new BackendEmulationDbContext(opts);
-        _resolver = new BuMembershipResolver(_db, NullLogger<BuMembershipResolver>.Instance);
+        _factory = new TestDbContextFactory(opts);
+        _resolver = new BuMembershipResolver(_factory, NullLogger<BuMembershipResolver>.Instance);
 
         await SeedTestDataAsync();
     }
@@ -87,6 +90,21 @@ public class BuMembershipResolverTests : IAsyncLifetime
         );
 
         await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Test helper: IDbContextFactory that returns contexts sharing the same InMemory database.
+    /// </summary>
+    private class TestDbContextFactory : IDbContextFactory<BackendEmulationDbContext>
+    {
+        private readonly DbContextOptions<BackendEmulationDbContext> _options;
+
+        public TestDbContextFactory(DbContextOptions<BackendEmulationDbContext> options)
+        {
+            _options = options;
+        }
+
+        public BackendEmulationDbContext CreateDbContext() => new(_options);
     }
 
     #region Queue Resolution Tests

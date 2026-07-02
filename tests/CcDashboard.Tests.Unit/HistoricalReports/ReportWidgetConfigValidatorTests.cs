@@ -8,18 +8,18 @@ namespace CcDashboard.Tests.Unit.HistoricalReports;
 /// <summary>
 /// Tests for ReportWidgetConfig parsing and validation.
 /// Per Reports-Backend-v1-Spec §2 LOCKED.
+/// Updated 2026-07-02: BU-ONLY scope (Mode/QueueIds removed), PageSize 1..1000 (ValidPageSizes removed).
 /// </summary>
 public class ReportWidgetConfigValidatorTests
 {
     [Fact]
-    public void ValidConfig_BuMode_Passes()
+    public void ValidConfig_BuScope_Passes()
     {
         var config = new ReportWidgetConfig
         {
             Title = "Test Widget",
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1, 2 }
             },
             Columns = new[] { "Offered", "Answered" },
@@ -33,54 +33,12 @@ public class ReportWidgetConfigValidatorTests
     }
 
     [Fact]
-    public void ValidConfig_QueuesMode_Passes()
+    public void BuScope_EmptyBusinessUnitIds_Fails()
     {
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "queues",
-                QueueIds = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() }
-            },
-            Columns = new[] { "Offered" },
-            PageSize = 50
-        };
-
-        var validator = new ReportWidgetConfigValidator();
-        var result = validator.Validate(config);
-
-        result.IsValid.Should().BeTrue();
-    }
-
-    [Fact]
-    public void InvalidMode_Fails()
-    {
-        var config = new ReportWidgetConfig
-        {
-            Scope = new ReportWidgetScope
-            {
-                Mode = "invalid",
-                QueueIds = new[] { Guid.NewGuid() }
-            },
-            Columns = new[] { "Offered" },
-            PageSize = 25
-        };
-
-        var validator = new ReportWidgetConfigValidator();
-        var result = validator.Validate(config);
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("queues") || e.ErrorMessage.Contains("bu"));
-    }
-
-    [Fact]
-    public void BuMode_EmptyBusinessUnitIds_Fails()
-    {
-        var config = new ReportWidgetConfig
-        {
-            Scope = new ReportWidgetScope
-            {
-                Mode = "bu",
                 BusinessUnitIds = Array.Empty<int>()
             },
             Columns = new[] { "Offered" },
@@ -95,14 +53,13 @@ public class ReportWidgetConfigValidatorTests
     }
 
     [Fact]
-    public void QueuesMode_EmptyQueueIds_Fails()
+    public void BuScope_NullBusinessUnitIds_Fails()
     {
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "queues",
-                QueueIds = Array.Empty<Guid>()
+                BusinessUnitIds = null
             },
             Columns = new[] { "Offered" },
             PageSize = 25
@@ -112,7 +69,7 @@ public class ReportWidgetConfigValidatorTests
         var result = validator.Validate(config);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("QueueIds"));
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("BusinessUnitIds"));
     }
 
     [Fact]
@@ -123,7 +80,6 @@ public class ReportWidgetConfigValidatorTests
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1 }
             },
             Columns = Array.Empty<string>(),
@@ -144,7 +100,6 @@ public class ReportWidgetConfigValidatorTests
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1 }
             },
             Columns = null,
@@ -165,7 +120,6 @@ public class ReportWidgetConfigValidatorTests
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1, 2 }
             },
             PageSize = 25
@@ -189,7 +143,6 @@ public class ReportWidgetConfigValidatorTests
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1 }
             },
             Columns = new[] { "Offered" },
@@ -204,19 +157,20 @@ public class ReportWidgetConfigValidatorTests
     }
 
     [Theory]
-    [InlineData(25, true)]
-    [InlineData(50, true)]
-    [InlineData(100, true)]
-    [InlineData(10, false)]
-    [InlineData(75, false)]
-    [InlineData(200, false)]
+    [InlineData(1, true)]      // Min valid
+    [InlineData(25, true)]     // Common page size
+    [InlineData(50, true)]     // Common page size
+    [InlineData(100, true)]    // Common page size
+    [InlineData(500, true)]    // Mid-range
+    [InlineData(1000, true)]   // Max valid
+    [InlineData(0, false)]     // Below min
+    [InlineData(1001, false)]  // Above max
     public void PageSize_ValidatesCorrectly(int pageSize, bool expectedValid)
     {
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1 }
             },
             Columns = new[] { "Offered" },
@@ -227,16 +181,19 @@ public class ReportWidgetConfigValidatorTests
         var result = validator.Validate(config);
 
         result.IsValid.Should().Be(expectedValid);
+        if (!expectedValid)
+        {
+            result.Errors.Should().Contain(e => e.ErrorMessage.Contains("PageSize must be between 1 and 1000"));
+        }
     }
 
     [Fact]
-    public void AgentWidget_BuMode_NoAgentAxis_Fails()
+    public void AgentWidget_BuScope_NoAgentAxis_Fails()
     {
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1 }
             },
             Columns = new[] { "SumAvailableMs" },
@@ -251,13 +208,12 @@ public class ReportWidgetConfigValidatorTests
     }
 
     [Fact]
-    public void AgentWidget_BuMode_WithAgentAxis_Passes()
+    public void AgentWidget_BuScope_WithAgentAxis_Passes()
     {
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1 },
                 AgentAxis = AgentReportAxis.Detail
             },
@@ -272,35 +228,13 @@ public class ReportWidgetConfigValidatorTests
     }
 
     [Fact]
-    public void AgentWidget_QueuesMode_Fails()
+    public void QueueWidget_BuScope_Passes()
     {
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "queues",
-                QueueIds = new[] { Guid.NewGuid() }
-            },
-            Columns = new[] { "SumAvailableMs" },
-            PageSize = 25
-        };
-
-        var validator = new ReportWidgetConfigWithTypeValidator();
-        var result = validator.Validate((config, ReportWidgetType.AgentMonthly));
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("Agent widgets do not support"));
-    }
-
-    [Fact]
-    public void QueueWidget_QueuesMode_Passes()
-    {
-        var config = new ReportWidgetConfig
-        {
-            Scope = new ReportWidgetScope
-            {
-                Mode = "queues",
-                QueueIds = new[] { Guid.NewGuid(), Guid.NewGuid() }
+                BusinessUnitIds = new[] { 1, 2 }
             },
             Columns = new[] { "Offered" },
             PageSize = 25
@@ -319,7 +253,6 @@ public class ReportWidgetConfigValidatorTests
         {
             "title": "My Widget",
             "scope": {
-                "mode": "bu",
                 "businessUnitIds": [1, 2, 3],
                 "agentAxis": "detail"
             },
@@ -332,7 +265,6 @@ public class ReportWidgetConfigValidatorTests
         var config = ReportWidgetConfig.Parse(json);
 
         config.Title.Should().Be("My Widget");
-        config.Scope.Mode.Should().Be("bu");
         config.Scope.BusinessUnitIds.Should().BeEquivalentTo(new[] { 1, 2, 3 });
         config.Scope.AgentAxis.Should().Be(AgentReportAxis.Detail);
         config.Columns.Should().BeEquivalentTo(new[] { "Offered", "Answered" });
@@ -358,7 +290,6 @@ public class ReportWidgetConfigValidatorTests
             Title = new string('x', 250),
             Scope = new ReportWidgetScope
             {
-                Mode = "bu",
                 BusinessUnitIds = new[] { 1 }
             },
             Columns = new[] { "Offered" },
@@ -375,8 +306,8 @@ public class ReportWidgetConfigValidatorTests
     #region DefaultColumns and GetEffectiveColumns tests
 
     [Theory]
-    [InlineData(ReportWidgetType.QueueInterval, new[] { "IntervalStart", "Workgroup", "Offered", "Answered", "Abandoned", "AnsweredInSl", "AbandonPct", "SlPct", "Asa", "QueueAht" })]
-    [InlineData(ReportWidgetType.QueueWaitTime, new[] { "IntervalStart", "Workgroup", "Answered", "Asa", "AnsweredInSl", "SlPct" })]
+    [InlineData(ReportWidgetType.QueueInterval, new[] { "IntervalStart", "Offered", "Answered", "Abandoned", "AnsweredInSl", "AbandonPct", "SlPct", "Asa", "QueueAht" })]
+    [InlineData(ReportWidgetType.QueueWaitTime, new[] { "IntervalStart", "Answered", "Asa", "AnsweredInSl", "SlPct" })]
     [InlineData(ReportWidgetType.Distribution, new[] { "Label", "Count", "Percentage" })]
     public void DefaultColumns_ReturnsCorrectColumnsPerType(ReportWidgetType widgetType, string[] expectedColumns)
     {
@@ -411,7 +342,7 @@ public class ReportWidgetConfigValidatorTests
     {
         var config = new ReportWidgetConfig
         {
-            Scope = new ReportWidgetScope { Mode = "bu", BusinessUnitIds = new[] { 1 } },
+            Scope = new ReportWidgetScope { BusinessUnitIds = new[] { 1 } },
             Columns = new[] { "Offered", "Abandoned" },
             PageSize = 25
         };
@@ -426,7 +357,7 @@ public class ReportWidgetConfigValidatorTests
     {
         var config = new ReportWidgetConfig
         {
-            Scope = new ReportWidgetScope { Mode = "bu", BusinessUnitIds = new[] { 1 } },
+            Scope = new ReportWidgetScope { BusinessUnitIds = new[] { 1 } },
             Columns = null,
             PageSize = 25
         };
@@ -441,7 +372,7 @@ public class ReportWidgetConfigValidatorTests
     {
         var config = new ReportWidgetConfig
         {
-            Scope = new ReportWidgetScope { Mode = "bu", BusinessUnitIds = new[] { 1 } },
+            Scope = new ReportWidgetScope { BusinessUnitIds = new[] { 1 } },
             Columns = Array.Empty<string>(),
             PageSize = 25
         };
@@ -456,36 +387,14 @@ public class ReportWidgetConfigValidatorTests
     #region Scope rules still enforced (SF-BI-001 intact)
 
     [Fact]
-    public void ScopeOnlyConfig_MissingMode_StillFails()
+    public void ScopeOnlyConfig_MissingBUs_StillFails()
     {
         // Scope rules STAY required even when Columns is optional
         var config = new ReportWidgetConfig
         {
             Scope = new ReportWidgetScope
             {
-                Mode = "", // Empty mode
-                BusinessUnitIds = new[] { 1 }
-            },
-            PageSize = 25
-        };
-
-        var validator = new ReportWidgetConfigValidator();
-        var result = validator.Validate(config);
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("Mode"));
-    }
-
-    [Fact]
-    public void ScopeOnlyConfig_BuModeWithoutBUs_StillFails()
-    {
-        // Scope rules STAY required even when Columns is optional
-        var config = new ReportWidgetConfig
-        {
-            Scope = new ReportWidgetScope
-            {
-                Mode = "bu",
-                BusinessUnitIds = Array.Empty<int>() // Empty BU list
+                BusinessUnitIds = Array.Empty<int>()
             },
             PageSize = 25
         };

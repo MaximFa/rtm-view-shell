@@ -14,6 +14,7 @@ namespace CcDashboard.Tests.Unit.Reports;
 
 /// <summary>
 /// Tests for ReportScreen CRUD operations — permissions, PG-01 creator-Full, PG-scoped queries.
+/// Updated 2026-07-02: repo signatures now use (bool bypassTenantFilter, CancellationToken ct).
 /// </summary>
 public class ReportScreenCrudTests
 {
@@ -89,7 +90,7 @@ public class ReportScreenCrudTests
             Name = "Old Name",
             IsPublic = false
         };
-        _repo.GetByIdAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdAsync(screen.Id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(screen.Id, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(1); // View only
 
@@ -117,7 +118,7 @@ public class ReportScreenCrudTests
             CreatedAt = _clock.UtcNow.AddDays(-1),
             UpdatedAt = _clock.UtcNow.AddDays(-1)
         };
-        _repo.GetByIdAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdAsync(screen.Id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(screen.Id, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(3); // View + Edit
 
@@ -148,7 +149,7 @@ public class ReportScreenCrudTests
             CreatedAt = _clock.UtcNow.AddDays(-1),
             UpdatedAt = _clock.UtcNow.AddDays(-1)
         };
-        _repo.GetByIdAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdAsync(screen.Id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
 
         var handler = new UpdateReportScreenCommandHandler(_repo, _user, _clock);
         var cmd = new UpdateReportScreenCommand(new UpdateReportScreenRequest(
@@ -177,7 +178,7 @@ public class ReportScreenCrudTests
             Widgets = new List<ReportWidget>(),
             Schedules = new List<ReportSchedule>()
         };
-        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(screen.Id, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(3); // View + Edit, but not Delete
 
@@ -205,7 +206,7 @@ public class ReportScreenCrudTests
             },
             Schedules = new List<ReportSchedule>()
         };
-        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(screen.Id, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(7); // Full
 
@@ -246,7 +247,7 @@ public class ReportScreenCrudTests
             Widgets = new List<ReportWidget>(),
             Schedules = new List<ReportSchedule> { schedule1, schedule2 }
         };
-        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(screen.Id, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(7);
 
@@ -292,7 +293,8 @@ public class ReportScreenCrudTests
             Widgets = new List<ReportWidget>(),
             Schedules = new List<ReportSchedule> { schedule }
         };
-        _repo.GetByIdWithWidgetsAndSchedulesAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        // RestoreReportScreenCommandHandler uses GetDeletedByIdWithSchedulesAsync, not GetByIdWithWidgetsAndSchedulesAsync
+        _repo.GetDeletedByIdWithSchedulesAsync(screen.Id, TenantId, Arg.Any<CancellationToken>()).Returns(screen);
 
         var handler = new RestoreReportScreenCommandHandler(_repo, _user, _clock);
         var cmd = new RestoreReportScreenCommand(screen.Id);
@@ -326,7 +328,7 @@ public class ReportScreenCrudTests
             Widgets = new List<ReportWidget>(),
             Permissions = new List<ReportPermission>()
         };
-        _repo.GetByIdWithWidgetsAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAsync(screen.Id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(screen.Id, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(0); // No access
 
@@ -353,7 +355,7 @@ public class ReportScreenCrudTests
             Widgets = new List<ReportWidget>(),
             Permissions = new List<ReportPermission>()
         };
-        _repo.GetByIdWithWidgetsAsync(screen.Id, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAsync(screen.Id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(screen.Id, PgId, true, false, Arg.Any<CancellationToken>())
             .Returns(1); // View via IsPublic
 
@@ -373,7 +375,7 @@ public class ReportScreenCrudTests
     [Fact]
     public async Task Get_NotFound_ThrowsNotFoundException()
     {
-        _repo.GetByIdWithWidgetsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        _repo.GetByIdWithWidgetsAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns((ReportScreen?)null);
 
         var handler = new GetReportScreenQueryHandler(_repo, _users, _user);

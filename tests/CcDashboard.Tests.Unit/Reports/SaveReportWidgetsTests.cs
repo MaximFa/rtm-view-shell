@@ -12,6 +12,7 @@ namespace CcDashboard.Tests.Unit.Reports;
 
 /// <summary>
 /// Tests for SaveReportWidgetsCommand — Edit permission, ConfigJson validation, soft-remove dropped.
+/// Updated 2026-07-02: GetByIdWithWidgetsAsync signature (bool bypassTenantFilter, CancellationToken ct).
 /// </summary>
 public class SaveReportWidgetsTests
 {
@@ -44,7 +45,7 @@ public class SaveReportWidgetsTests
             IsPublic = false,
             Widgets = new List<ReportWidget>()
         };
-        _repo.GetByIdWithWidgetsAsync(ScreenId, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAsync(ScreenId, It.IsAny<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(ScreenId, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(1); // View only
 
@@ -68,7 +69,7 @@ public class SaveReportWidgetsTests
             IsPublic = false,
             Widgets = new List<ReportWidget>()
         };
-        _repo.GetByIdWithWidgetsAsync(ScreenId, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAsync(ScreenId, It.IsAny<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(ScreenId, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(3); // View + Edit
 
@@ -95,13 +96,13 @@ public class SaveReportWidgetsTests
             IsPublic = false,
             Widgets = new List<ReportWidget>()
         };
-        _repo.GetByIdWithWidgetsAsync(ScreenId, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAsync(ScreenId, It.IsAny<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(ScreenId, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(3);
 
         var validConfigJson = """
         {
-            "scope": { "mode": "bu", "businessUnitIds": [1] },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["Offered"],
             "pageSize": 25
         }
@@ -140,7 +141,7 @@ public class SaveReportWidgetsTests
             UpdatedByUserId = UserId,
             UpdatedAt = _clock.UtcNow.AddDays(-1)
         };
-        _repo.GetByIdWithWidgetsAsync(ScreenId, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAsync(ScreenId, It.IsAny<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(ScreenId, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(7);
 
@@ -177,7 +178,7 @@ public class SaveReportWidgetsTests
             UpdatedByUserId = UserId,
             UpdatedAt = _clock.UtcNow.AddDays(-1)
         };
-        _repo.GetByIdWithWidgetsAsync(ScreenId, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAsync(ScreenId, It.IsAny<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
         _repo.GetUserAccessLevelAsync(ScreenId, PgId, false, false, Arg.Any<CancellationToken>())
             .Returns(7);
 
@@ -211,7 +212,7 @@ public class SaveReportWidgetsTests
             UpdatedByUserId = UserId,
             UpdatedAt = _clock.UtcNow.AddDays(-1)
         };
-        _repo.GetByIdWithWidgetsAsync(ScreenId, Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetByIdWithWidgetsAsync(ScreenId, It.IsAny<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
 
         var handler = new SaveReportWidgetsCommandHandler(_repo, _user, _clock);
         var cmd = new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>());
@@ -221,4 +222,10 @@ public class SaveReportWidgetsTests
         // No permission check expected
         await _repo.DidNotReceive().GetUserAccessLevelAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
+}
+
+// NSubstitute helper for It.IsAny<T>() pattern (Moq-style)
+internal static class It
+{
+    public static T IsAny<T>() => Arg.Any<T>();
 }
