@@ -1,0 +1,55 @@
+# Recommended GarnetServer.exe arguments for RTM View Shell
+# INC-2026.06.20-001 (d) — Memurai replacement
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PRODUCTION ARGUMENTS (use with NSSM or sc.exe service wrapper)
+# ══════════════════════════════════════════════════════════════════════════════
+
+--bind 127.0.0.1
+--port 6379
+--auth Password
+--password <REPLACE_WITH_PRODUCTION_PASSWORD>
+--checkpointdir C:\Garnet\data
+--checkpoint-freq 300
+--recover
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EXPLANATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+# --bind 127.0.0.1       : DEPLOY-08/09 — listen only on localhost, no external access
+# --port 6379            : Standard Redis port — no app config change needed
+# --auth Password        : auth MODE (Password/NoAuth/Aad/ACL) — NOT the password itself
+# --password <password>  : requirepass equivalent — must match ConnectionStrings:Redis in appsettings
+# --recover              : recover from checkpoint on startup (required for persistence)
+# --checkpointdir <path> : RDB-equivalent persistence directory (DEPLOY-11)
+# --checkpoint-freq 300  : Checkpoint every 5 minutes (300 seconds)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ADDITIONAL OPTIONS (optional, for tuning)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# --memory <bytes>       : Memory limit (e.g., --memory 1073741824 for 1GB)
+# --threads <n>          : Number of worker threads (default: auto)
+# --aof                  : Enable AOF persistence (in addition to checkpoints)
+# --cluster              : Enable cluster mode (not needed for single-node)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POC COMMAND (dev testing)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# C:\Garnet\GarnetServer.exe --bind 127.0.0.1 --port 6379 --auth Password --password TestPwd123 --checkpointdir C:\Garnet\data --recover
+
+# ══════════════════════════════════════════════════════════════════════════════
+# WINDOWS SERVICE REGISTRATION (production)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Option 1: NSSM (recommended)
+# nssm install Garnet "C:\Garnet\GarnetServer.exe"
+# nssm set Garnet AppParameters "--bind 127.0.0.1 --port 6379 --auth Password --password <password> --checkpointdir C:\Garnet\data --checkpoint-freq 300 --recover"
+# nssm set Garnet Start SERVICE_AUTO_START
+# nssm set Garnet AppDirectory "C:\Garnet"
+# nssm start Garnet
+
+# Option 2: sc.exe (requires wrapper or worker exe)
+# sc.exe create Garnet binPath= "C:\Garnet\Garnet.worker.exe --config-import-path garnet.conf" start= auto

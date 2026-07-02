@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Garnet Backplane Fan-out Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+  <style>body{font-family:sans-serif;margin:24px} #log li{margin:2px 0} button{padding:8px 14px;font-size:15px}</style>
+</head>
+<body>
+  <h2>Garnet Backplane Fan-out Test</h2>
+  <p>This page is served by instance: <b id="url"></b></p>
+  <p><button onclick="broadcast()">Broadcast from THIS instance</button></p>
+  <p>Open this page on BOTH :5000 and :5001, click Broadcast in one — the message must appear in BOTH (cross-instance fan-out via Garnet).</p>
+  <ul id="log"></ul>
+  <script>
+    document.getElementById('url').textContent = location.origin;
+    const conn = new signalR.HubConnectionBuilder().withUrl("/testhub").build();
+    conn.on("recv", m => add(m, 'black'));
+    conn.start().then(() => add("[client] connected to " + location.origin, 'green'))
+                .catch(e => add("[client] ERROR " + e, 'red'));
+    function add(m, c){ const li=document.createElement('li'); li.style.color=c; li.textContent=m; document.getElementById('log').prepend(li); }
+    function broadcast(){ fetch('/broadcast?msg=hello-from-' + location.port).then(r=>r.text()).then(t=>add("[http] " + t, 'gray')); }
+  </script>
+</body>
+</html>
