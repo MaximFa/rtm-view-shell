@@ -67,3 +67,6 @@ defeating the anti-rot purpose (real defect: role-backend §C#1 grep `CREATE PRO
   supersede a truth on a check you never proved correct.
 ## §A source-pin discipline (AGNOSTIC, curator-blessed 2026-06-21)
 NEVER pin a SOURCE to a § that does not literally support the claim (verify the cite exists). If the codified location is absent, mark CONVENTION/skill-provided — do not fabricate a CLAUDE § (cf. finesse-sim #6 / CODE-05 catches).
+
+## Local-validation gate (AGNOSTIC, curator-blessed 2026-07-02)
+LOCAL-VALIDATION GATE: nothing moves forward until the commit is validated by a LOCAL RUN on the REAL app — not a PoC/harness/component/object-store alone. Object-store verifies WHAT shipped; local validation verifies it WORKS (TWO floors). CODE/ship roles (backend/shell/dba/devops/qa/test) PERFORM the local validation; GATE roles (curator/coordinator/security) REQUIRE local-validation evidence BEFORE greenlight. Complements NORM-CUR-13 (object-store = truth for what's committed). · SOURCE: operator 2026-06-26; pins T1 9734252 (object-store-verified-but-broken-in-prod), Garnet INC-001d (PoC-harness-only).
