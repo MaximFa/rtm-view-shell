@@ -1,4 +1,4 @@
-# Soma — Usage Guide (All Colony Roles)
+﻿# Soma — Usage Guide (All Colony Roles)
 
 Soma is the colony's "body" on the host: it SENSES (reads DB/logs) and ACTS 
 (controls Shell, runs build/test). All operations are named and bounded — 

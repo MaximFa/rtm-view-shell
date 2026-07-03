@@ -1,4 +1,4 @@
-# role-skill standard + promotion gate (Specialist Protocol spine)
+﻿# role-skill standard + promotion gate (Specialist Protocol spine)
 > Curator-owned (NORM-CUR-11). The VERTICAL axis: how ONE role keeps + grows its expertise across its own
 > re-instantiations. Complements §42 (horizontal coordination). Source spec: .coord/specialist-protocol.md.
 > Curator OWNS this standard + audits role-skills ASYNCHRONOUSLY (NOT a per-write gate — that would stall capture).

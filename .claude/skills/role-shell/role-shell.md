@@ -1,4 +1,4 @@
----
+﻿---
 role: shell
 project: RTM View Shell
 version: 0.1
@@ -87,6 +87,7 @@ Cardinal truths (source-pinned):
 - 2026-06-26 · FIX-A had all init/startMove/startResize tokens present but ``widgetResize.init`` was guarded by ``&& Report is not null``, false at firstRender (Report still loading in OnInitAsync) -> init NEVER ran -> move/resize silent-dead. RULE: an init that attaches document listeners must run on ``firstRender`` UNCONDITIONALLY (match the working analogue), never gated on async-loaded state. A JS-interactivity fix is only 'done' after a LIVE operator move+resize, never a token-grep (object-store tokens present != functional). · SOURCE:424a5d1 + coordinator live gate 2026-06-26 · status: active
 - 2026-06-26 · Visual parity is NOT proven by object-store: FIX-C had all the Appearance fields/braces present but a double-nested grid (.rw-color-grid wrapping .color-setting-row-dual, both 3-col) collapsed the layout. When the brief says 'identical to <existing component>', mirror its EXACT container structure/classes — do NOT invent a new wrapper grid; and a layout claim is only done after a LIVE side-by-side visual. · SOURCE:8545943 + operator screenshot 2026-06-26 · status: active
 - 2026-06-26 · A modal/overlay rendered OUTSIDE the page's .dark-mode wrapper must carry the dark class ON ITSELF (self-class via a DarkMode param), like the dashboard's ``.editor-modal @(_darkMode?...)``. Ancestor-based ``.dark-mode .X`` dark rules silently never match for fixed/overlay elements outside the wrapper. RULE: pass DarkMode into every overlay component + use self-class selectors (``.X.dark-mode`` not ``.dark-mode .X``). · SOURCE:1981513 + operator 2026-06-26 · status: active
+- 2026-07-02 · PROJECT JS (js/*.js) was NEVER cache-busted in App.razor — only app.css/tokens.css carry ?v. Any JS change (e.g. viewerScale.resetToActual) ships STALE to returning browsers → a razor call to the new JS fn throws JSException → UNHANDLED in an async event handler → Blazor circuit TERMINATED ('No interop methods registered for renderer N' is the dead-circuit downstream symptom). FIX: add ?v to project JS includes (bump on every JS change) AND wrap viewer JS-interop in try/catch so a stale/missing JS fn degrades, not crashes. · RULE: JS scripts must be cache-busted like CSS; JS interop must be guarded against missing functions. · SOURCE:App.razor:37-42 + df95ff3 widget-resize.js + dee401e fix · status: active
 
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path src\CcDashboard.Web\wwwroot\js\widget-resize.js` — must be True

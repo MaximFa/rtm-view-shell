@@ -1932,6 +1932,19 @@ Use browser DevTools → Application → Cookies to verify.
 
 ### 29.8 Production testing gotchas
 
+**[VALIDATION-ENV-01] Validation env = IDENTICAL to prod, via the prod deploy tooling ONLY (no hand-runs):**
+The local/test env used to validate a release MUST reproduce the PROD topology. Every component —
+cache/backplane (Garnet), Shell, RTM Service — runs as the SAME Windows service prod uses (NSSM,
+StartupType=Automatic + sc.exe failure-recovery), installed via `Install-RTMView.ps1`/`Update-RTMView.ps1`.
+**Forbidden in a validation env:** hand-launching a dependency in a foreground PowerShell window, or
+`dotnet run` for the app under test. A hand-run component is neither stable NOR a valid test of what ships
+(a foreground process dies with its session; its behaviour differs from the prod service). QA validates the
+prod-identical topology only. Local dev may differ in secrets (Garnet bare / no --auth locally vs --auth in
+prod), but the SERVICE model is identical. SOURCE: GARNET-FLAP INC-001d + operator norm 2026-07-02.
+
+---
+
+
 **`launchSettings.json` форсирует Development:**
 `dotnet run` читает `Properties/launchSettings.json` и устанавливает `ASPNETCORE_ENVIRONMENT=Development`,
 перебивая любые внешние переменные окружения. Чтобы запустить в Production-режиме локально:
@@ -2569,6 +2582,32 @@ psql -U ccdashboard_user -d rtmviewdb -f RTM\sql\db_baseline.sql
 ```
 
 *TZ version: 1.9 | CLAUDE.md last updated: 2026-06-04 (§38 DB versioning)*
+### §38.6 [DB-INTAKE-01] Prod-DB intake — reconcile is MANDATORY, ALWAYS (no exceptions)
+
+Whenever an EXTERNAL/prod database is brought in for local or test use (restore, backup,
+`pg_restore`, prod-mirror seed), the `__EFMigrationsHistory` <-> actual-objects state is UNKNOWN
+and MUST be reconciled as part of the restore — BEFORE the DB is used as a validation baseline and
+before the Shell is started against it. This is **ALWAYS**, not "if we remember".
+
+**Why (carousel incident 2026-07-02):** a restored prod backup can have all objects PRESENT but
+`__EFMigrationsHistory` EMPTY or partial. On startup `DatabaseInitializer.MigrateAsync` then retries
+`InitialCreate` -> `relation already exists` -> app crash; OR a limited-grant role (soma_ro) reads a
+table as `permission denied` and it is MISREAD as "table absent".
+
+**Rule (mechanism, not memory) — the restore path itself performs the reconcile:**
+1. As **postgres** (owner): read `__EFMigrationsHistory` and probe each current-model migration's
+   signature object via `to_regclass`.
+2. Objects-present + history empty/partial -> baseline the applied `MigrationId`s (`ProductVersion`
+   from the Designer) `ON CONFLICT ("MigrationId") DO NOTHING`.
+3. Run `migrate` — it MUST be a no-op. If it wants to apply ANYTHING -> STOP + escalate (an object is
+   genuinely missing; do NOT force).
+4. Any "missing/absent" claim about a table is verified against the AUTHORITATIVE reader
+   (postgres / object-store), NEVER a privilege-filtered read (soma_ro false-negatives on existence).
+
+The reconcile step is WIRED INTO the restore tooling (`db/tools/Restore-All.ps1`,
+`deploy/Restore-SqlDump.ps1`, prod-mirror seed) so it runs on every prod-DB intake automatically.
+Reusable artifact: `staging/reconcile_efmig_prodmirror.sql`.
+
 ### §38.5 align.sql is advisory — verify direction
 
 The Compare-ToBaseline align.sql is a STARTING POINT, not an auto-apply script. It assumes the
