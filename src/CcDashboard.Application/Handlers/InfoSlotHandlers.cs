@@ -127,8 +127,7 @@ public class GetInfoSlotsForViewerQueryHandler(
 }
 
 public class GetActiveMessagesQueryHandler(
-    IAppDbContext db,
-    IUserRepository userRepo)
+    IAppDbContext db)
     : IRequestHandler<GetActiveMessagesQuery, IReadOnlyList<InfoSlotMessageDto>>
 {
     public async Task<IReadOnlyList<InfoSlotMessageDto>> Handle(GetActiveMessagesQuery query, CancellationToken ct)
@@ -144,7 +143,20 @@ public class GetActiveMessagesQueryHandler(
             .ToListAsync(ct);
 
         var userIds = messages.Select(m => m.CreatedByUserId).Distinct().ToList();
-        var users = await userRepo.GetDisplayNamesAsync(userIds, ct);
+        // ADR-009/EDIT-500: inline query on handler's OWN factory context (no shared-scoped UserRepository)
+        // Semantics match UserRepository.GetDisplayNamesAsync exactly: AsNoTracking + IgnoreQueryFilters + same format
+        var users = new Dictionary<Guid, string>();
+        if (userIds.Count > 0)
+        {
+            var idParams = string.Join(",", userIds.Select((_, i) => $"@p{i}"));
+            var userRows = await db.Database
+                .SqlQueryRaw<UserDisplayNameRow>(
+                    $"SELECT \"Id\", TRIM(CONCAT(\"FirstName\", ' ', \"LastName\")) AS \"DisplayName\" FROM identity.users WHERE \"Id\" IN ({idParams})",
+                    userIds.Cast<object>().ToArray())
+                .ToListAsync(ct);
+            foreach (var row in userRows)
+                users[row.Id] = row.DisplayName;
+        }
 
         return messages.Select(m => new InfoSlotMessageDto(
             m.Id,
@@ -184,9 +196,11 @@ public class GetInfoSlotsForWidgetConfigQueryHandler(
     }
 }
 
+// EDIT-500: helper record for raw SQL user display-name query (ADR-009 factory isolation)
+internal record UserDisplayNameRow(Guid Id, string DisplayName);
+
 public class GetInfoSlotWidgetDataQueryHandler(
     IAppDbContextFactory dbFactory,
-    IUserRepository userRepo,
     ICurrentUserAccessor currentUser)
     : IRequestHandler<GetInfoSlotWidgetDataQuery, InfoSlotWidgetDataDto?>
 {
@@ -215,7 +229,20 @@ public class GetInfoSlotWidgetDataQueryHandler(
             .ToListAsync(ct);
 
         var userIds = messages.Select(m => m.CreatedByUserId).Distinct().ToList();
-        var users = await userRepo.GetDisplayNamesAsync(userIds, ct);
+        // ADR-009/EDIT-500: inline query on handler's OWN factory context (no shared-scoped UserRepository)
+        // Semantics match UserRepository.GetDisplayNamesAsync exactly: AsNoTracking + IgnoreQueryFilters + same format
+        var users = new Dictionary<Guid, string>();
+        if (userIds.Count > 0)
+        {
+            var idParams = string.Join(",", userIds.Select((_, i) => $"@p{i}"));
+            var userRows = await db.Database
+                .SqlQueryRaw<UserDisplayNameRow>(
+                    $"SELECT \"Id\", TRIM(CONCAT(\"FirstName\", ' ', \"LastName\")) AS \"DisplayName\" FROM identity.users WHERE \"Id\" IN ({idParams})",
+                    userIds.Cast<object>().ToArray())
+                .ToListAsync(ct);
+            foreach (var row in userRows)
+                users[row.Id] = row.DisplayName;
+        }
 
         return new InfoSlotWidgetDataDto(
             slot.DisplayMode,
