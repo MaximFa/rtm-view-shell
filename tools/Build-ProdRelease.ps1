@@ -68,6 +68,13 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+# Helper: run native commands (git, dotnet) without stderr throwing under -Stop
+function Invoke-Native([scriptblock]$Sb) {
+    $p = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Sb } finally { $ErrorActionPreference = $p }
+}
+
 # ── Mode flags ────────────────────────────────────────────────────────────────
 $BuildShell = $Mode -in @("Full","Shell")
 $BuildRTM   = $Mode -in @("Full","RTM")
@@ -126,7 +133,7 @@ Write-Host "[ PRE-FLIGHT ]" -ForegroundColor Yellow
 
 # dotnet
 if (-not $SkipBuild) {
-    $dotnetVer = & dotnet --version 2>&1
+    $dotnetVer = Invoke-Native { & dotnet --version 2>&1 }
     if ($LASTEXITCODE -ne 0) { Write-Error "dotnet SDK not found. Install .NET 8 SDK." }
     Write-Host "  dotnet  : $dotnetVer" -ForegroundColor Gray
 }
@@ -207,14 +214,14 @@ New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 Write-Host ""
 Write-Host "[ 0/4 ] Integrity check — restoring any truncated files from HEAD..." -ForegroundColor Cyan
 
-$modified = & git diff --name-only HEAD 2>$null
+$modified = Invoke-Native { & git diff --name-only HEAD 2>$null }
 foreach ($f in $modified) {
     if (-not (Test-Path $f)) { continue }
-    $headLines = (& git show "HEAD:$f" 2>$null | Measure-Object -Line).Lines
+    $headLines = (Invoke-Native { & git show "HEAD:$f" 2>$null } | Measure-Object -Line).Lines
     $wtLines   = (Get-Content $f | Measure-Object -Line).Lines
     if ($headLines -gt 5 -and $wtLines -lt [math]::Floor($headLines * 0.90)) {
         Write-Host "  TRUNCATED: $f (HEAD=$headLines, wt=$wtLines) — restoring" -ForegroundColor Yellow
-        & git show "HEAD:$f" | Set-Content $f -Encoding UTF8
+        Invoke-Native { & git show "HEAD:$f" } | Set-Content $f -Encoding UTF8
     }
 }
 Write-Host "  Integrity check done." -ForegroundColor Green
@@ -225,7 +232,7 @@ if ($BuildShell) {
         Write-Host ""
         Write-Host "[ 1/4 ] Building CcDashboard.Web (Shell)..." -ForegroundColor Cyan
         if (Test-Path $PublishShell) { Remove-Item -Recurse -Force $PublishShell }
-        & dotnet publish $ShellProj -c Release -r win-x64 --self-contained true -o $PublishShell
+        Invoke-Native { & dotnet publish $ShellProj -c Release -r win-x64 --self-contained true -o $PublishShell }
         if ($LASTEXITCODE -ne 0) { Write-Error "Shell build failed." }
         Write-Host "  Done: $PublishShell" -ForegroundColor Green
     } else {
@@ -244,7 +251,7 @@ if ($BuildRTM) {
         Write-Host ""
         Write-Host "[ 2/4 ] Building RTM Service..." -ForegroundColor Cyan
         if (Test-Path $PublishRTM) { Remove-Item -Recurse -Force $PublishRTM }
-        & dotnet publish $RTMProj -c Release -r win-x64 --self-contained true -o $PublishRTM
+        Invoke-Native { & dotnet publish $RTMProj -c Release -r win-x64 --self-contained true -o $PublishRTM }
         if ($LASTEXITCODE -ne 0) { Write-Error "RTM build failed." }
         Write-Host "  Done: $PublishRTM" -ForegroundColor Green
     } else {
@@ -272,7 +279,7 @@ if ($DumpFile -ne "" -and (Test-Path $DumpFile)) {
     $pgDumpFile = Join-Path $PublishDB ("$DBName`_" + (Get-Date -Format "ddMMyyyy") + ".sql")
 
     $env:PGPASSWORD = $DBPassword
-    & pg_dump -h $DBHost -p $DBPort -U $DBUser -d $DBName -F c --no-password -f $pgDumpFile
+    Invoke-Native { & pg_dump -h $DBHost -p $DBPort -U $DBUser -d $DBName -F c --no-password -f $pgDumpFile }
     $env:PGPASSWORD = ""
 
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pgDumpFile)) {

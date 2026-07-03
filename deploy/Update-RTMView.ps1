@@ -351,7 +351,7 @@ if (-not $SkipCacheMigration -and $hasGarnetPackage) {
 
         # Register Garnet service via NSSM
         $garnetExe = Join-Path $GarnetInstallDir "GarnetServer.exe"
-        $garnetArgs = "--bind 127.0.0.1 --port 6379 --auth Password --password $RedisPassword --checkpointdir `"$checkpointDir`" --recover --checkpoint-freq 300"
+        $garnetArgs = "--bind 127.0.0.1 --port 6379 --auth Password --password $RedisPassword --checkpointdir `"$checkpointDir`" --recover true"
         $nssmExe = Join-Path $GarnetInstallDir "nssm.exe"
 
         Write-Host "  Registering $GarnetSvcName service via NSSM..." -ForegroundColor Gray

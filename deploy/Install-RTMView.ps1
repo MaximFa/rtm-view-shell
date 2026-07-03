@@ -74,11 +74,18 @@ param(
     [string]$GarnetSvcName = "Garnet",
 
     [string]$ShellSvcName  = "RTMViewShell",
-    [string]$RTMSvcName    = "RTMService"
+    [string]$RTMSvcName    = "RTMService",
+
+    # Kestrel HTTPS config (per-server, injected into deployed appsettings.json)
+    [string]$Fqdn          = "",
+    [string]$CertSubject   = "",
+    [int]   $ShellHttpsPort = 5239
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+$ScriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Auto-detect Mode from package contents if not explicitly overridden
 if ($Mode -eq "Full") {
@@ -92,7 +99,6 @@ if ($Mode -eq "Full") {
 $InstallShell = $Mode -in @("Full","Shell")
 $InstallRTM   = $Mode -in @("Full","RTM")
 
-$ScriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ShellDest  = Join-Path $InstallRoot "Shell"
 $RTMDest    = Join-Path $InstallRoot "RTM"
 $BackupRoot = Join-Path $InstallRoot "Backup"
@@ -250,10 +256,10 @@ if ($SkipRedis -or -not $InstallRTM) {
         $garnetExe = Join-Path $GarnetInstallDir "GarnetServer.exe"
         # Build Garnet args: with auth (prod) or without (local dev via -GarnetNoAuth)
         if ($GarnetNoAuth) {
-            $garnetArgs = "--bind 127.0.0.1 --port 6379 --checkpointdir `"$checkpointDir`" --recover --checkpoint-freq 300"
+            $garnetArgs = "--bind 127.0.0.1 --port 6379 --checkpointdir `"$checkpointDir`" --recover true"
             Write-Host "  [GarnetNoAuth] Bare Garnet (no auth) — local dev only" -ForegroundColor Yellow
         } else {
-            $garnetArgs = "--bind 127.0.0.1 --port 6379 --auth Password --password $RedisPassword --checkpointdir `"$checkpointDir`" --recover --checkpoint-freq 300"
+            $garnetArgs = "--bind 127.0.0.1 --port 6379 --auth Password --password $RedisPassword --checkpointdir `"$checkpointDir`" --recover true"
         }
 
         Write-Host "  Registering $GarnetSvcName service via NSSM..." -ForegroundColor Gray
@@ -317,6 +323,67 @@ Write-Host "[ 4/6 ] Deploying files..." -ForegroundColor Cyan
 if ($InstallShell) {
     Copy-Item -Path (Join-Path $ScriptDir "Shell\*") -Destination $ShellDest -Recurse -Force
     Write-Host "  Shell -> $ShellDest" -ForegroundColor Green
+
+    # ── [4b/6] Inject per-server config into deployed appsettings.json ────────
+    $shellAppSettings = Join-Path $ShellDest "appsettings.json"
+    if (Test-Path $shellAppSettings) {
+        $cfg = Get-Content $shellAppSettings -Raw | ConvertFrom-Json
+
+        # FIX 4: Inject ConnectionStrings:Default with -DBAppPassword
+        if ($DBAppPassword) {
+            $connStr = "Host=$DBHost;Port=$DBPort;Database=$DBName;Username=$DBAppUser;Password=$DBAppPassword;SSL Mode=Prefer"
+            $cfg.ConnectionStrings.Default = $connStr
+            Write-Host "  Injected ConnectionStrings:Default" -ForegroundColor Gray
+        } else {
+            Write-Host "  [WARN] -DBAppPassword not provided — ConnectionStrings:Default left as placeholder" -ForegroundColor Yellow
+        }
+
+        # FIX 5: Inject Kestrel HTTPS config (per-server FQDN/port/cert)
+        # Prompt if not provided (install is interactive)
+        if (-not $Fqdn) {
+            $Fqdn = Read-Host "Enter FQDN for Shell (e.g. rtmview.example.com, or 'localhost' for local dev)"
+            if (-not $Fqdn) { $Fqdn = "localhost" }
+        }
+        if (-not $CertSubject -and $Fqdn -ne "localhost") {
+            $CertSubject = Read-Host "Enter certificate Subject for HTTPS (e.g. 'CN=rtmview.example.com', or empty to skip HTTPS)"
+        }
+
+        # Ensure Kestrel section exists
+        if (-not $cfg.Kestrel) {
+            $cfg | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue @{ Endpoints = @{} }
+        }
+        if (-not $cfg.Kestrel.Endpoints) {
+            $cfg.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue @{}
+        }
+
+        # HTTP endpoint
+        $cfg.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue @{
+            Url = "http://${Fqdn}:$ShellPort"
+        } -Force
+
+        # HTTPS endpoint (if CertSubject provided)
+        if ($CertSubject) {
+            $cfg.Kestrel.Endpoints | Add-Member -NotePropertyName "Https" -NotePropertyValue @{
+                Url = "https://${Fqdn}:$ShellHttpsPort"
+                Certificate = @{
+                    Subject = $CertSubject
+                    Store = "My"
+                    Location = "LocalMachine"
+                    AllowInvalid = "true"
+                }
+            } -Force
+            Write-Host "  Injected Kestrel HTTPS (Fqdn=$Fqdn, Port=$ShellHttpsPort, Cert=$CertSubject)" -ForegroundColor Gray
+        } else {
+            Write-Host "  Kestrel HTTP only (Fqdn=$Fqdn, Port=$ShellPort)" -ForegroundColor Gray
+        }
+
+        # Write back with UTF-8 BOM (§35)
+        $cfgJson = $cfg | ConvertTo-Json -Depth 10
+        $BOM = [byte[]](0xEF, 0xBB, 0xBF)
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($cfgJson)
+        [System.IO.File]::WriteAllBytes($shellAppSettings, $BOM + $bytes)
+        Write-Host "  Updated: $shellAppSettings" -ForegroundColor Green
+    }
 }
 if ($InstallRTM) {
     Copy-Item -Path (Join-Path $ScriptDir "RTM\*") -Destination $RTMDest -Recurse -Force
@@ -371,7 +438,7 @@ Write-Host "[ 6/6 ] Registering Windows Services..." -ForegroundColor Cyan
 if ($InstallShell) {
     $exe = Join-Path $ShellDest "CcDashboard.Web.exe"
     if (Test-Path $exe) {
-        sc.exe create $ShellSvcName binPath= "`"$exe`" --urls=http://localhost:$ShellPort" start= auto | Out-Null
+        sc.exe create $ShellSvcName binPath= "`"$exe`"" start= auto | Out-Null
         sc.exe description $ShellSvcName "RTM View Shell (Blazor Server)" | Out-Null
         sc.exe failure $ShellSvcName reset= 86400 actions= restart/30000/restart/60000/restart/120000 | Out-Null
         Start-Service $ShellSvcName -ErrorAction SilentlyContinue
