@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Collections.Concurrent;
@@ -62,7 +62,7 @@ var shellConfig = config.GetSection("Shell");
 var shellWorkingDir = shellConfig["WorkingDir"] ?? Directory.GetCurrentDirectory();
 var shellExe = shellConfig["Exe"] ?? "dotnet";
 var shellArgs = shellConfig.GetSection("Args").Get<string[]>() ?? new[] { "watch", "run", "--project", "src/CcDashboard.Web" };
-var shellHealthUrl = shellConfig["HealthUrl"] ?? "http://localhost:7196/health";
+var shellHealthUrl = shellConfig["HealthUrl"] ?? "https://localhost:5239/health";
 
 // CC config
 var ccConfig = config.GetSection("Cc");
@@ -386,6 +386,14 @@ void UpdateCcRun(string runId, Action<CcRunEntry> update)
 
 var promptFileRegex = new Regex(@"^tools[/\\]cc_prompt_[A-Za-z0-9_.\-]+\.md$", RegexOptions.Compiled);
 
+// CreateHealthClient: HttpClient that accepts self-signed loopback certs for Shell health probes
+// Shell health probe is LOOPBACK-only (localhost) to our own Shell's self-signed/AllowInvalid cert.
+// Defense-in-depth: accept the self-signed cert ONLY for loopback requests (SF-SOMA-001 intact).
+static HttpClient CreateHealthClient(int seconds) =>
+    new HttpClient(new HttpClientHandler {
+        ServerCertificateCustomValidationCallback = (req, _, _, _) => req?.RequestUri?.IsLoopback == true
+    }) { Timeout = TimeSpan.FromSeconds(seconds) };
+
 bool ValidatePromptFile(string promptFile, out string? error)
 {
     error = null;
@@ -697,7 +705,7 @@ app.MapGet("/shell/status", () =>
     lock (shellLock) {
         if (trackedShellProcess is null || trackedShellProcess.HasExited) return Results.Json(new { running = false, pid = (int?)null, healthy = false });
         var healthy = false;
-        try { using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) }; var resp = http.GetAsync(shellHealthUrl).GetAwaiter().GetResult(); healthy = resp.IsSuccessStatusCode; } catch { }
+        try { using var http = CreateHealthClient(3); var resp = http.GetAsync(shellHealthUrl).GetAwaiter().GetResult(); healthy = resp.IsSuccessStatusCode; } catch { }
         return Results.Json(new { running = true, pid = trackedShellProcess.Id, healthy });
     }
 });
@@ -705,7 +713,7 @@ app.MapGet("/shell/status", () =>
 app.MapPost("/shell/start", async () =>
 {
     lock (shellLock) { if (trackedShellProcess is not null && !trackedShellProcess.HasExited) return Results.Conflict(new { error = "Shell already running (tracked)", pid = trackedShellProcess.Id }); }
-    try { using var probe = new HttpClient { Timeout = TimeSpan.FromSeconds(2) }; var probeResp = await probe.GetAsync(shellHealthUrl);
+    try { using var probe = CreateHealthClient(2); var probeResp = await probe.GetAsync(shellHealthUrl);
         if (probeResp.IsSuccessStatusCode) return Results.Json(new { running = true, tracked = false, healthy = true, note = "Shell already up (untracked)" });
     } catch { }
     // Free port 5239 before starting (F-QA-3/7: kill orphans holding the port)
@@ -720,7 +728,7 @@ app.MapPost("/shell/start", async () =>
     proc.ErrorDataReceived += (_, e) => { if (e.Data != null) lock (logFile) { logFile.WriteLine($"[ERR] {e.Data}"); } };
     proc.BeginOutputReadLine(); proc.BeginErrorReadLine();
     lock (shellLock) { trackedShellProcess = proc; }
-    var healthy = false; using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+    var healthy = false; using var http = CreateHealthClient(5);
     for (int i = 0; i < 12; i++) { await Task.Delay(5000); try { var resp = await http.GetAsync(shellHealthUrl); if (resp.IsSuccessStatusCode) { healthy = true; break; } } catch { } }
     AuditLog("SHELL_STARTED", $"pid={proc.Id}|healthy={healthy}");
     return Results.Json(new { running = true, tracked = true, pid = proc.Id, healthy });
@@ -765,7 +773,7 @@ app.MapPost("/shell/restart", async () =>
     proc.ErrorDataReceived += (_, e) => { if (e.Data != null) lock (logFile) { logFile.WriteLine($"[ERR] {e.Data}"); } };
     proc.BeginOutputReadLine(); proc.BeginErrorReadLine();
     lock (shellLock) { trackedShellProcess = proc; }
-    var healthy = false; using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+    var healthy = false; using var http = CreateHealthClient(5);
     for (int i = 0; i < 12; i++) { await Task.Delay(5000); try { var resp = await http.GetAsync(shellHealthUrl); if (resp.IsSuccessStatusCode) { healthy = true; break; } } catch { } }
     AuditLog("SHELL_RESTARTED", $"pid={proc.Id}|healthy={healthy}");
     return Results.Json(new { running = true, pid = proc.Id, healthy });
@@ -842,7 +850,7 @@ app.MapPost("/ops/test", async (string? suite) =>
 
 app.MapGet("/ops/health", async () =>
 {
-    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+    using var http = CreateHealthClient(5);
     var liveness = new { up = false, latencyMs = 0L }; var readiness = new { up = false, latencyMs = 0L };
     try { var sw = Stopwatch.StartNew(); var resp = await http.GetAsync(shellHealthUrl); sw.Stop(); liveness = new { up = resp.IsSuccessStatusCode, latencyMs = sw.ElapsedMilliseconds }; } catch { }
     try { var readyUrl = shellHealthUrl.Replace("/health", "/health/ready"); var sw = Stopwatch.StartNew(); var resp = await http.GetAsync(readyUrl); sw.Stop(); readiness = new { up = resp.IsSuccessStatusCode, latencyMs = sw.ElapsedMilliseconds }; } catch { }
