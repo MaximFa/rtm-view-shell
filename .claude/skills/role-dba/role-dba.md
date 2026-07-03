@@ -1,4 +1,4 @@
----
+﻿---
 role: dba
 project: RTM View Shell
 version: 0.1
@@ -69,6 +69,7 @@ Cardinal truths (source-pinned):
 - 2026-06-25 · hist_agent_intervals aggregation reads RTSData_UserStatusLog (StartTime time-series), NOT RTSData_UserStatus (current snapshot, no usable history). Prod-mirror agent-history load MUST include RTSData_UserStatusLog (has TenantId + StartTime/EndTime); omitting it → hist_agent_intervals=0 while queue side is fine. Always cross-check the aggregation service's source tables against the load set. · SOURCE: HistoricalAggregationService.cs:153 + backfill hist_agent_intervals=0 2026-06-26 · status: active
 
 - 2026-07-02 · Restored prod backup (234) has tables PRESENT but __EFMigrationsHistory EMPTY -> EF MigrateAsync retries InitialCreate -> 'relation already exists' -> app crash. If ALL current-model objects already exist (verify via to_regclass on each migration's signature object), BASELINE the history: INSERT all applied MigrationIds (ProductVersion from Designer, e.g. 8.0.16) ON CONFLICT DO NOTHING -> migrate no-ops -> app starts. Confirm the object-existence state FIRST; if only PARTIAL, insert only the truly-applied set + let migrate apply the rest (never insert an ID whose objects are missing -> hides drift). · SOURCE: prod-mirror EFMigrationsHistory=0 + all 6 signature objects present 2026-07-02 · status: active
+- 2026-07-03 · 234 converge: __EFMigrationsHistory had 2 junk InitialCreate rows (IDs not matching HEAD) - EF ignores unknown IDs, so leave them; insert the b58e2c2 baseline set (git ls-tree b58e2c2 App migrations) so migrate applies only the post-baseline (reports-v1) migrations. Verify reports-v1 objects ABSENT first (clean create). Update-RTMView does NOT call EF migrate - the new Shell startup MigrateAsync does; run the reconcile BEFORE first start. · SOURCE: 234 Compare 20260703 + EF-history probe · status: active
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
 1. `Test-Path "db/tools/Compare-ToBaseline.ps1"` — must be True
 2. `Select-String -Path "db/schema.sql" -Pattern "CREATE TABLE"` — expect count >10
