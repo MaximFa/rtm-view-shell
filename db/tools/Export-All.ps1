@@ -79,43 +79,9 @@ function Export-TableData([string]$table, [string]$where = "") {
 # This prevents Export-All from re-introducing carved tables.
 Write-Host "[ 1/3 ] Exporting schema (RTM-only whitelist)..." -ForegroundColor Cyan
 $schemaFile = Join-Path $DbDir "schema.sql"
-$rtmTables = @(
-    # NGC_ (9)
-    '-t', 'public."NGC_AgentGroups"',
-    '-t', 'public."NGC_BusinessUnit"',
-    '-t', 'public."NGC_BusinessUnitQueueClassification"',
-    '-t', 'public."NGC_BusinessUnitSupergroup"',
-    '-t', 'public."NGC_Queues"',
-    '-t', 'public."NGC_Site"',
-    '-t', 'public."NGC_Supergroup"',
-    '-t', 'public."NGC_SupergroupAgentgroup"',
-    '-t', 'public."NGC_UserAgentgroup"',
-    # RTSData_ (4)
-    '-t', 'public."RTSData_ChatMessage"',
-    '-t', 'public."RTSData_Interaction"',
-    '-t', 'public."RTSData_UserStatus"',
-    '-t', 'public."RTSData_UserStatusLog"',
-    # RTSGrid_ (8)
-    '-t', 'public."RTSGrid_Cell"',
-    '-t', 'public."RTSGrid_Column"',
-    '-t', 'public."RTSGrid_Grid"',
-    '-t', 'public."RTSGrid_Metric"',
-    '-t', 'public."RTSGrid_MetricTranslation"',
-    '-t', 'public."RTSGrid_Row"',
-    '-t', 'public."RTSGrid_Statistic"',
-    '-t', 'public."RTSGrid_UserStatus"',
-    # RTSUserGrid_ (3)
-    '-t', 'public."RTSUserGrid_Column"',
-    '-t', 'public."RTSUserGrid_ColumnsSet"',
-    '-t', 'public."RTSUserGrid_Grid"',
-    # DB-module (2)
-    '-t', 'public.db_patch_history',
-    '-t', 'public.metric_deploy_log'
-)
-& $pgdump -h $DBHost -p $DBPort -U $DBUser -d $Database `
-    --schema-only --no-owner --no-acl `
-    @rtmTables `
-    -f $schemaFile
+# Use RtmSchemaDump helper (single-source whitelist, version-independent full-dump+filter)
+. (Join-Path $ScriptDir 'RtmSchemaDump.ps1')
+Export-RtmSchema -PgDump $pgdump -DBHost $DBHost -DBPort $DBPort -DBUser $DBUser -Database $Database -OutFile $schemaFile
 Write-Host "  schema.sql written (26 RTM tables)." -ForegroundColor Green
 # R0d: Functions are sourced from db/functions/* (single-source §39.1), NOT from pg_dump.
 # The -t whitelist exports tables only; functions are intentionally excluded from schema.sql.

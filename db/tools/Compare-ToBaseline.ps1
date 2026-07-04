@@ -192,21 +192,9 @@ Write-Host "`n[A] SCHEMA COMPARISON" -ForegroundColor Yellow
 [void]$DeltaLines.Add("-" * 40)
 
 $ServerSchemaFile = [System.IO.Path]::GetTempFileName() + ".sql"
-# R0e: Tables-only dump matching db/schema.sql scope (RTM whitelist)
-$rtmTables = @(
-    '-t', 'public."NGC_AgentGroups"', '-t', 'public."NGC_BusinessUnit"',
-    '-t', 'public."NGC_BusinessUnitQueueClassification"', '-t', 'public."NGC_BusinessUnitSupergroup"',
-    '-t', 'public."NGC_Queues"', '-t', 'public."NGC_Site"', '-t', 'public."NGC_Supergroup"',
-    '-t', 'public."NGC_SupergroupAgentgroup"', '-t', 'public."NGC_UserAgentgroup"',
-    '-t', 'public."RTSData_ChatMessage"', '-t', 'public."RTSData_Interaction"',
-    '-t', 'public."RTSData_UserStatus"', '-t', 'public."RTSData_UserStatusLog"',
-    '-t', 'public."RTSGrid_Cell"', '-t', 'public."RTSGrid_Column"', '-t', 'public."RTSGrid_Grid"',
-    '-t', 'public."RTSGrid_Metric"', '-t', 'public."RTSGrid_MetricTranslation"',
-    '-t', 'public."RTSGrid_Row"', '-t', 'public."RTSGrid_Statistic"', '-t', 'public."RTSGrid_UserStatus"',
-    '-t', 'public."RTSUserGrid_Column"', '-t', 'public."RTSUserGrid_ColumnsSet"', '-t', 'public."RTSUserGrid_Grid"',
-    '-t', 'public.db_patch_history', '-t', 'public.metric_deploy_log'
-)
-& $pgdump -h $DBHost -p $DBPort -U $User -d $Database --schema-only --no-owner --no-acl @rtmTables -f $ServerSchemaFile 2>$null
+# Use RtmSchemaDump helper (single-source whitelist, version-independent full-dump+filter)
+. (Join-Path $ScriptDir 'RtmSchemaDump.ps1')
+Export-RtmSchema -PgDump $pgdump -DBHost $DBHost -DBPort $DBPort -DBUser $User -Database $Database -OutFile $ServerSchemaFile
 
 # R0e: Baseline = db/schema.sql (tables-only). Routines validated separately by presence check.
 $BaselineSchemaFile = Join-Path $DbDir "schema.sql"
