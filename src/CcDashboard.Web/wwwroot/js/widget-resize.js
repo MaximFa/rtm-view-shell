@@ -44,19 +44,45 @@ window.widgetResize = {
     },
 
 
-    // Handle mousedown for marquee start (real DOM event, not Blazor-routed)
+    // Handle mousedown for marquee start AND widget move/resize (real DOM event, not Blazor-routed)
+    // WIDGET-STICK FIX: start move/resize synchronously here to avoid Blazor interop race
     onMouseDown: function (e) {
         // Ignore if already in a mode (move/resize/modal)
         if (this.activeWidget || this.activeModal || this.marquee) return;
-        
-        // Find canvas grid
+
+        // Check if mousedown is on a widget — start move/resize synchronously
+        const widgetEl = e.target.closest('.dashboard-widget');
+        if (widgetEl) {
+            const widgetId = widgetEl.getAttribute('data-widget-id');
+            if (!widgetId) return;
+            // toolbar buttons / interactive content → let Blazor @onclick handle it
+            if (e.target.closest('.widget-toolbar, button, a, input, select, textarea')) return;
+            // resize handle → start resize synchronously
+            const rh = e.target.closest('.resize-handle');
+            if (rh) {
+                const dir = Array.from(rh.classList)
+                    .map(c => (c.startsWith('resize-') && c !== 'resize-handle') ? c.slice('resize-'.length) : null)
+                    .find(Boolean);
+                if (dir) {
+                    this.startResize(widgetId, dir, { clientX: e.clientX, clientY: e.clientY });
+                    e.preventDefault();
+                }
+                return;
+            }
+            // drag handle (header) OR header-hidden widget → start move synchronously
+            if (e.target.closest('.widget-drag-handle') || widgetEl.classList.contains('header-hidden')) {
+                this.startMove(widgetId, { clientX: e.clientX, clientY: e.clientY });
+                e.preventDefault();
+                return;
+            }
+            return; // mousedown on widget content → no drag; Blazor @onclick selects
+        }
+
+        // Find canvas grid for marquee
         const canvas = e.target.closest('.dashboard-canvas-grid');
         if (!canvas) return;
-        
-        // Only start marquee if click is on empty canvas, NOT on a widget
-        if (e.target.closest('.dashboard-widget')) return;
-        
-        // Start marquee with real DOM event
+
+        // Start marquee with real DOM event (empty canvas mousedown)
         this.startMarquee(e, canvas);
     },
 
