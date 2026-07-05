@@ -2403,6 +2403,18 @@
     private int? _asdStateGridId;
     private Dictionary<string, string> _asdGroupColumnMetricIds = new();
     private Dictionary<string, string> _asdStateColumnMetricIds = new();
+    // CC-009: RTS wiring for Group grid (keyed by GroupName)
+    private int? _asdGroupRtsHeaderRowId;
+    private int? _asdGroupRtsDataRowId;
+    private Dictionary<string, int?> _asdGroupRtsColumnIds = new();
+    private Dictionary<string, int?> _asdGroupRtsHeaderCellIds = new();
+    private Dictionary<string, int?> _asdGroupRtsDataCellIds = new();
+    // CC-009: RTS wiring for State grid (keyed by StateName)
+    private int? _asdStateRtsHeaderRowId;
+    private int? _asdStateRtsDataRowId;
+    private Dictionary<string, int?> _asdStateRtsColumnIds = new();
+    private Dictionary<string, int?> _asdStateRtsHeaderCellIds = new();
+    private Dictionary<string, int?> _asdStateRtsDataCellIds = new();
 
     // ASD By Group segment colors (keyed by GroupName CC code: AVAILABLE, ONPHONE, etc.)
     private Dictionary<string, string> EditingGroupSegmentColors = new();
@@ -4339,11 +4351,29 @@
         }
 
         // CC-009: For ASD widgets, save TWO grids (GroupGrid + StateGrid)
-        if (IsAgentStateDistributionWidget(ConfiguringWidget) &&
-            int.TryParse(ConfigBusinessUnit, out var asdBuId) && asdBuId > 0)
+        if (IsAgentStateDistributionWidget(ConfiguringWidget))
         {
+            // BU is required for ASD widgets - validate before RTS creation
+            if (!(int.TryParse(ConfigBusinessUnit, out var asdBuId) && asdBuId > 0))
+            {
+                Error = L["Widget_Asd_BuRequired"];
+                return;
+            }
+
             try
             {
+                // Clear RTS wiring fields
+                _asdGroupRtsHeaderRowId = null;
+                _asdGroupRtsDataRowId = null;
+                _asdGroupRtsColumnIds.Clear();
+                _asdGroupRtsHeaderCellIds.Clear();
+                _asdGroupRtsDataCellIds.Clear();
+                _asdStateRtsHeaderRowId = null;
+                _asdStateRtsDataRowId = null;
+                _asdStateRtsColumnIds.Clear();
+                _asdStateRtsHeaderCellIds.Clear();
+                _asdStateRtsDataCellIds.Clear();
+
                 // ========== GROUP GRID (By Group mode) ==========
                 // Columns: one per active AgentStateGroup, MetricFunction = UsersInStatusGroupCount
                 _asdGroupColumnMetricIds.Clear();
@@ -4378,6 +4408,18 @@
                 ), _cts.Token);
 
                 _asdGroupGridId = groupRtsResult.GridId;
+                // Capture RTS wiring from result (keyed by GroupName)
+                _asdGroupRtsHeaderRowId = groupRtsResult.HeaderRowId;
+                _asdGroupRtsDataRowId = groupRtsResult.SavedRowIds.TryGetValue("asd-gr1", out var gdr) ? gdr : (int?)null;
+                foreach (var c in groupColumns)
+                {
+                    if (groupRtsResult.SavedColumnIds.TryGetValue(c.localId, out var cid))
+                        _asdGroupRtsColumnIds[c.label] = cid;
+                    if (groupRtsResult.HeaderCellIds.TryGetValue(c.localId, out var hc))
+                        _asdGroupRtsHeaderCellIds[c.label] = hc;
+                    if (groupRtsResult.SavedCellIds.TryGetValue("asd-gr1", out var rowCells) && rowCells.TryGetValue(c.localId, out var dc))
+                        _asdGroupRtsDataCellIds[c.label] = dc;
+                }
 
                 // ========== STATE GRID (By State mode) ==========
                 // Columns: one per active AgentState, MetricFunction = UsersInStatusCount
@@ -4413,6 +4455,18 @@
                 ), _cts.Token);
 
                 _asdStateGridId = stateRtsResult.GridId;
+                // Capture RTS wiring from result (keyed by StateName)
+                _asdStateRtsHeaderRowId = stateRtsResult.HeaderRowId;
+                _asdStateRtsDataRowId = stateRtsResult.SavedRowIds.TryGetValue("asd-sr1", out var sdr) ? sdr : (int?)null;
+                foreach (var c in stateColumns)
+                {
+                    if (stateRtsResult.SavedColumnIds.TryGetValue(c.localId, out var cid))
+                        _asdStateRtsColumnIds[c.label] = cid;
+                    if (stateRtsResult.HeaderCellIds.TryGetValue(c.localId, out var hc))
+                        _asdStateRtsHeaderCellIds[c.label] = hc;
+                    if (stateRtsResult.SavedCellIds.TryGetValue("asd-sr1", out var rowCells) && rowCells.TryGetValue(c.localId, out var dc))
+                        _asdStateRtsDataCellIds[c.label] = dc;
+                }
 
                 // Legacy GridId kept null for CC-009 widgets (dual-mode)
                 queueGridId = null;
@@ -4571,6 +4625,24 @@
                 ? _asdGroupColumnMetricIds.ToDictionary(kv => kv.Key, kv => kv.Value) : null,
             StateColumnMetricIds = IsAgentStateDistributionWidget(ConfiguringWidget) && _asdStateColumnMetricIds.Count > 0
                 ? _asdStateColumnMetricIds.ToDictionary(kv => kv.Key, kv => kv.Value) : null,
+            // CC-009: Group RTS wiring
+            GroupRtsHeaderRowId = IsAgentStateDistributionWidget(ConfiguringWidget) ? _asdGroupRtsHeaderRowId : null,
+            GroupRtsDataRowId = IsAgentStateDistributionWidget(ConfiguringWidget) ? _asdGroupRtsDataRowId : null,
+            GroupRtsColumnIds = IsAgentStateDistributionWidget(ConfiguringWidget) && _asdGroupRtsColumnIds.Count > 0
+                ? new Dictionary<string, int?>(_asdGroupRtsColumnIds) : new(),
+            GroupRtsHeaderCellIds = IsAgentStateDistributionWidget(ConfiguringWidget) && _asdGroupRtsHeaderCellIds.Count > 0
+                ? new Dictionary<string, int?>(_asdGroupRtsHeaderCellIds) : new(),
+            GroupRtsDataCellIds = IsAgentStateDistributionWidget(ConfiguringWidget) && _asdGroupRtsDataCellIds.Count > 0
+                ? new Dictionary<string, int?>(_asdGroupRtsDataCellIds) : new(),
+            // CC-009: State RTS wiring
+            StateRtsHeaderRowId = IsAgentStateDistributionWidget(ConfiguringWidget) ? _asdStateRtsHeaderRowId : null,
+            StateRtsDataRowId = IsAgentStateDistributionWidget(ConfiguringWidget) ? _asdStateRtsDataRowId : null,
+            StateRtsColumnIds = IsAgentStateDistributionWidget(ConfiguringWidget) && _asdStateRtsColumnIds.Count > 0
+                ? new Dictionary<string, int?>(_asdStateRtsColumnIds) : new(),
+            StateRtsHeaderCellIds = IsAgentStateDistributionWidget(ConfiguringWidget) && _asdStateRtsHeaderCellIds.Count > 0
+                ? new Dictionary<string, int?>(_asdStateRtsHeaderCellIds) : new(),
+            StateRtsDataCellIds = IsAgentStateDistributionWidget(ConfiguringWidget) && _asdStateRtsDataCellIds.Count > 0
+                ? new Dictionary<string, int?>(_asdStateRtsDataCellIds) : new(),
             // Legacy individual color fields (backward compat)
             ColorAvailable = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorAvailable : null,
             ColorOnPhone = IsAgentStateDistributionWidget(ConfiguringWidget) ? ConfigAsdColorOnPhone : null,

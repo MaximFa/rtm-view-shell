@@ -1006,5 +1006,6 @@
   <!-- ── View Scale Mode ── -->
   <data name="View_ScaleMode_Fit"><value>По размеру экрана</value></data>
   <data name="View_ScaleMode_Actual"><value>Реальный размер (1:1)</value></data>
+  <data name="Widget_Asd_BuRequired"><value>Выберите Business Unit для виджета распределения состояний агентов.</value></data>
 </root>
 

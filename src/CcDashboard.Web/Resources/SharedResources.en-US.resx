@@ -1065,5 +1065,6 @@
   <!-- ── View Scale Mode ── -->
   <data name="View_ScaleMode_Fit"><value>Scale to fit</value></data>
   <data name="View_ScaleMode_Actual"><value>Actual size (1:1)</value></data>
+  <data name="Widget_Asd_BuRequired"><value>Select a Business Unit for the Agent State Distribution widget.</value></data>
 </root>
 
