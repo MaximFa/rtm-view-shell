@@ -197,9 +197,7 @@
                          style="@GetWidgetStyle(widget)"
                          @key="widget.Id"
                          @onclick="e => SelectWidget(widget.Id, e.CtrlKey, e.ShiftKey)"
-                         @onclick:stopPropagation="true"
-                         @onmousedown="e => { if (widget.Config?.HideHeader == true) StartMove(widget.Id, e); }"
-                         @onmousedown:stopPropagation="@(widget.Config?.HideHeader == true)">
+                         @onclick:stopPropagation="true">
                         <div class="widget-toolbar">
                             <button class="widget-toolbar-btn" title="Save as template"
                                     @onclick="() => OpenSaveAsTemplate(widget)" @onclick:stopPropagation="true">
@@ -216,9 +214,7 @@
                         </div>
                         @if (widget.Config?.HideHeader != true)
                         {
-                            <div class="widget-header widget-drag-handle d-flex align-items-center"
-                                 @onmousedown="e => StartMove(widget.Id, e)"
-                                 @onmousedown:stopPropagation="true">
+                            <div class="widget-header widget-drag-handle d-flex align-items-center">
                                 <i class="bi bi-grip-horizontal me-1"></i>
                                 <span>@widget.Name</span>
                                 @if (_widgetFilterCounts.GetValueOrDefault(widget.Id) > 0)
@@ -232,15 +228,15 @@
                         <div class="widget-content">
                             <RenderWidget Widget="widget" DarkMode="_darkMode" ActiveFilterCountChanged="count => { _widgetFilterCounts[widget.Id] = count; InvokeAsync(StateHasChanged); }" />
                         </div>
-                        @* Resize handles *@
-                        <div class="resize-handle resize-e"  @onmousedown="e => StartResizeE(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
-                        <div class="resize-handle resize-s"  @onmousedown="e => StartResizeS(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
-                        <div class="resize-handle resize-se" @onmousedown="e => StartResizeSE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
-                        <div class="resize-handle resize-n"  @onmousedown="e => StartResizeN(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
-                        <div class="resize-handle resize-w"  @onmousedown="e => StartResizeW(widget.Id, e)"  @onmousedown:stopPropagation="true"></div>
-                        <div class="resize-handle resize-nw" @onmousedown="e => StartResizeNW(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
-                        <div class="resize-handle resize-ne" @onmousedown="e => StartResizeNE(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
-                        <div class="resize-handle resize-sw" @onmousedown="e => StartResizeSW(widget.Id, e)" @onmousedown:stopPropagation="true"></div>
+                        @* Resize handles (driven by synchronous JS mousedown listener) *@
+                        <div class="resize-handle resize-e"></div>
+                        <div class="resize-handle resize-s"></div>
+                        <div class="resize-handle resize-se"></div>
+                        <div class="resize-handle resize-n"></div>
+                        <div class="resize-handle resize-w"></div>
+                        <div class="resize-handle resize-nw"></div>
+                        <div class="resize-handle resize-ne"></div>
+                        <div class="resize-handle resize-sw"></div>
                     </div>
                 }
             </div>
@@ -3146,24 +3142,7 @@
 
     private record DropPosition(int X, int Y);
 
-    private Task StartResizeE(Guid widgetId, MouseEventArgs e)  => StartResize(widgetId, "e",  e);
-    private Task StartResizeS(Guid widgetId, MouseEventArgs e)  => StartResize(widgetId, "s",  e);
-    private Task StartResizeSE(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "se", e);
-    private Task StartResizeN(Guid widgetId, MouseEventArgs e)  => StartResize(widgetId, "n",  e);
-    private Task StartResizeW(Guid widgetId, MouseEventArgs e)  => StartResize(widgetId, "w",  e);
-    private Task StartResizeNW(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "nw", e);
-    private Task StartResizeNE(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "ne", e);
-    private Task StartResizeSW(Guid widgetId, MouseEventArgs e) => StartResize(widgetId, "sw", e);
-
-    private async Task StartResize(Guid widgetId, string handle, MouseEventArgs e)
-    {
-        await JS.InvokeVoidAsync("widgetResize.startResize", widgetId.ToString(), handle, new { clientX = e.ClientX, clientY = e.ClientY });
-    }
-
-    private async Task StartMove(Guid widgetId, MouseEventArgs e)
-    {
-        await JS.InvokeVoidAsync("widgetResize.startMove", widgetId.ToString(), new { clientX = e.ClientX, clientY = e.ClientY });
-    }
+    // WIDGET-STICK FIX: StartMove/StartResize* removed - now handled by synchronous JS mousedown
 
     [JSInvokable]
     public void OnWidgetMoved(string widgetIdStr, int left, int top)
