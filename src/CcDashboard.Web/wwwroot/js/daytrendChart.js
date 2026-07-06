@@ -26,6 +26,7 @@ window.dayTrendChart = {
         const defaultOptions = {
             responsive: true,
             maintainAspectRatio: false,
+            devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
             interaction: {
                 mode: 'nearest',
                 intersect: true

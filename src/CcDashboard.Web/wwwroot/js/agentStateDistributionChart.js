@@ -39,6 +39,7 @@ window.agentStateDistributionChart = {
         const chartOptions = {
             responsive: true,
             maintainAspectRatio: false,
+            devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
             indexAxis: indexAxis,
             plugins: {
                 legend: {
