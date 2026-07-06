@@ -160,6 +160,13 @@ public class RtsRepository(BackendEmulationDbContext db) : IRtsRepository
         await db.Database.ExecuteSqlRawAsync(sql, [gridId], ct);
     }
 
+    public async Task<bool> QueueGridExistsAsync(int gridId, CancellationToken ct = default)
+    {
+        var rows = await db.Database.SqlQueryRaw<int>(
+            @"SELECT 1 AS ""Value"" FROM ""RTSGrid_Grid"" WHERE ""GridId"" = {0} LIMIT 1", gridId).ToListAsync(ct);
+        return rows.Count > 0;
+    }
+
     public async Task<int> InsertQueueGridColumnAsync(int gridId, int columnNumber, CancellationToken ct = default)
     {
         var conn = db.Database.GetDbConnection();

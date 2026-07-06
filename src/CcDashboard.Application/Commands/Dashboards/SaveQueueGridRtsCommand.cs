@@ -50,8 +50,8 @@ public class SaveQueueGridRtsCommandHandler(
         var savedRowIds = new Dictionary<string, int>();
         var savedCellIds = new Dictionary<string, Dictionary<string, int>>();
 
-        // Step 1: Handle Grid
-        if (cmd.GridId is null or 0)
+        // Step 1: Handle Grid (recreate if stale GridId points to missing grid)
+        if (cmd.GridId is null or 0 || !await rtsRepository.QueueGridExistsAsync(cmd.GridId.Value, ct))
         {
             gridId = await rtsRepository.InsertQueueGridAsync(cmd.Title, ct);
         }

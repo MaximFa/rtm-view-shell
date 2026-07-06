@@ -30,6 +30,7 @@ public interface IRtsRepository
     Task<int> InsertQueueGridAsync(string title, CancellationToken ct = default);
     Task UpdateQueueGridAsync(int gridId, string title, CancellationToken ct = default);
     Task DeleteQueueGridAsync(int gridId, CancellationToken ct = default);
+    Task<bool> QueueGridExistsAsync(int gridId, CancellationToken ct = default);
 
     // Column operations
     Task<int> InsertQueueGridColumnAsync(int gridId, int columnNumber, CancellationToken ct = default);
