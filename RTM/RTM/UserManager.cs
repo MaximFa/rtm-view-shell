@@ -160,7 +160,12 @@ namespace RTM
                 _TotalStatuses = new ConcurrentDictionary<string, UserStatusData>();
                 _calls = new ConcurrentDictionary<Call, DateTime>();
                 _userWorkgroupSumList = new UserWorkgroupSumList();
-                _userStatusStart = DateTime.MinValue;
+
+                _userStatus = "SIGNOFF";
+                _statusName = "SIGNOFF";
+                _userStatusGroup = "SIGNOFF";
+
+                _userStatusStart = DateTime.Now; //.MinValue;
                 _userStatusGroupStart = DateTime.Now;
                 TodayLog = new List<string>();
                 YesterdayLog = new List<string>();
@@ -293,8 +298,12 @@ namespace RTM
 
 
         //public bool isLastNoPhone = false;
+        private bool _isWaitForCall = false;
+        private string statusBeforeWait = string.Empty;
+        private string statusNameBeforeWait = string.Empty;
+        private string statusGroupBeforeWait = string.Empty;
 
-       
+
         // Set Status
         public void setStatus(bool isLoggedIn, string newStatus, string statusName, string statusGroup, DateTime statusChanged, string station, bool onPhone, DateTime oOnPhoneChanged, long messageId, bool isCalcStatus)
         {
@@ -364,15 +373,53 @@ namespace RTM
                   
                     if (!isCalcStatus) // Status from CallCenter
                     {
-                        LastNoPhoneStatusId = newStatus;
-                        LastNoPhoneStatusName = statusName;
-                        LastNoPhoneStatusGroup = statusGroup;
-                        AsyncLogger.Info($"LastNoPhoneStatusId = {newStatus}");
+                        if (newStatus != "בשיחה" && newStatus != "ממתין לשיחה")
+                        {
+                            LastNoPhoneStatusId = newStatus;
+                            LastNoPhoneStatusName = statusName;
+                            LastNoPhoneStatusGroup = statusGroup;
+                            AsyncLogger.Info($"LastNoPhoneStatusId = {newStatus}");
+                        }
 
                         if (OnPhone)
                         {
-                            AsyncLogger.Error("(OnPhone && !isCalcStatus");
-                            return;
+                            if (newStatus == "ממתין לשיחה")
+                            {
+                                _isWaitForCall = true;
+                                statusBeforeWait = _userStatus;
+                                statusNameBeforeWait = _statusName;
+                                statusGroupBeforeWait = _userStatusGroup;
+                            }
+                            else if (newStatus == "בשיחה")
+                            {
+                                if (_isWaitForCall)
+                                {
+                                    _isWaitForCall = false;
+                                    newStatus = statusBeforeWait;
+                                    statusGroup = statusGroupBeforeWait;
+                                    statusName = statusNameBeforeWait;
+                                }
+                                else
+                                {
+                                    AsyncLogger.Error("newStatus == \"בשיחה\" && !_isWaitForCall");
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                _isWaitForCall = false;
+                                AsyncLogger.Error("(OnPhone && !isCalcStatus");
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            _isWaitForCall = false;
+                            if (newStatus == "בשיחה")
+                            {
+                                AsyncLogger.Error("newStatus == \"בשיחה\" && !OnPhone");
+                                return;
+                            }
                         }
                     }
                     
@@ -465,7 +512,7 @@ namespace RTM
                         }
                         else
                         {
-                            _TotalStatuses.TryAdd(_userStatus, new UserStatusData(this, _userStatus, statusName, statusGroup, ts, _dbMng, userId, false, DisplayName));
+                            _TotalStatuses.TryAdd(_userStatus, new UserStatusData(this, _userStatus, _statusName, _userStatusGroup, ts, _dbMng, userId, false, DisplayName));
                         }
                     }
 
@@ -1207,7 +1254,7 @@ namespace RTM
 
                         if (metric.Parameter == UserStatusGroup)
                         {
-                            st = TimeInStatus;
+                            st1 = TimeInStatus;
                             val = "+" + st1.Subtract(statusGrpDur).ToString("dd/MM/yyyy HH:mm:ss");
                         }
                         else if (statusGrpDur != TimeSpan.Zero)
@@ -1232,11 +1279,30 @@ namespace RTM
                         val = "0";
                         if (isLoggedId)
                         {
-                            long loginDur2 = _TotalStatuses.Values.Where(x => x.StatusId != "SIGNOFF").Sum(r => r.Dur.Ticks);
-                            long statusGrpDur2 = _TotalStatuses.Values.Where(x => x.StatusGroup == metric.Parameter).Sum(r => r.Dur.Ticks);
-                            double dCalc2 = (double)statusGrpDur2 / (double)loginDur2;
-                            var fmt2 = string.IsNullOrEmpty(metric.Format) ? "##0.0%" : metric.Format;
-                            val = dCalc2.ToString(fmt2); // "#0.##%"
+                            long loginDur2 = _TotalStatuses.Values
+                                .Where(x => x.StatusId != "SIGNOFF")
+                                .Sum(r => r.Dur.Ticks);
+
+                            if (loginDur2 > 0)
+                            {
+                                long statusGrpDur2 = _TotalStatuses.Values
+                                    .Where(x => x.StatusId != "SIGNOFF" && x.StatusGroup == metric.Parameter)
+                                    .Sum(r => r.Dur.Ticks);
+
+                                double dCalc2 = (double)statusGrpDur2 / (double)loginDur2;
+
+                                if (!double.IsNaN(dCalc2) && !double.IsInfinity(dCalc2))
+                                {
+                                    if (dCalc2 < 0)
+                                        dCalc2 = 0;
+
+                                    if (dCalc2 > 1)
+                                        dCalc2 = 1;
+
+                                    var fmt2 = string.IsNullOrEmpty(metric.Format) ? "##0.0%" : metric.Format;
+                                    val = dCalc2.ToString(fmt2); // "#0.##%"
+                                }
+                            }
                         }
                         break;
 
