@@ -1,4 +1,4 @@
-﻿using RTM.Tools;
+using RTM.Tools;
 using Microsoft.AspNetCore.SignalR;
 using System.Runtime.Intrinsics.Arm;
 using Newtonsoft.Json.Linq;
@@ -152,7 +152,7 @@ namespace RTM
         {
             AsyncLogger.Info("NamedPipe Server Start");
 
-            server = new NamedPipeServer("rtmpipe");
+            server = new NamedPipeServer(AppConfig.PipeName);
 
             server.ServerStarted += (_, args) =>
               AsyncLogger.Info("SERVER => Server started.");

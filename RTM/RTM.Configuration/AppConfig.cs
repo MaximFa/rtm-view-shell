@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using System.Net;
 using System.Reflection;
 using RTM.Tools;
@@ -25,6 +25,8 @@ namespace RTM.Configuration
 
 
         public static string AdapterServiceName { get; set; }
+
+        public static string PipeName { get; private set; }
 
 
         public static string LicenseKey { get; private set; }
@@ -57,6 +59,9 @@ namespace RTM.Configuration
                 DiagPushLogging = bool.TryParse(configuration["RTM:DiagPushLogging"], out var diagPush) && diagPush;
 
                 AdapterServiceName = configuration["RTM:AdaptorServiceName"];
+
+                PipeName = string.IsNullOrWhiteSpace(configuration["RTM:PipeName"]) ? "rtmpipe" : configuration["RTM:PipeName"];
+                AsyncLogger.Info($"AppConfig.PipeName = {PipeName}");
 
 
                 // Load and decrypt sensitive values from data.sys
