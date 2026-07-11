@@ -1,0 +1,6 @@
+@RTM.Twilio_HostAddress = http://localhost:5177
+
+GET {{RTM.Twilio_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
