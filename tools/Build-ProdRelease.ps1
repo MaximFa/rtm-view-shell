@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Builds a unified Prod Release package: RTM View Shell + RTM Service + DB backup + Garnet (Redis alternative).

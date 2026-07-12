@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Canonical Design-B fresh DB provisioning: drop -> init -> migrate(shell) -> schema.sql -> functions -> data.
