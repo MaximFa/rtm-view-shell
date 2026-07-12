@@ -318,6 +318,9 @@ namespace RTM.Twilio
         private static readonly SemaphoreSlim _snapshotGate = new SemaphoreSlim(1, 1);
         private async void RTMAdapter_ServerConnectEvent(object sender, EventArgs e)
         {
+            // Extract the connected target — snapshot goes to THIS target only, not broadcast
+            var target = (e as RTMAdapter.RtmTargetConnectedEventArgs)?.Target;
+
             await _snapshotGate.WaitAsync();
             try
             {
@@ -364,7 +367,7 @@ namespace RTM.Twilio
                     }
                 }
 
-                await RTMAdapter.setSkillsAsync(skillNames);
+                await RTMAdapter.setSkillsAsync(skillNames, target);
 
 
                 // Get Queues
@@ -381,7 +384,7 @@ namespace RTM.Twilio
                     queues.Add(queueName);
                 }
 
-                await RTMAdapter.setWorkgroupsAsync(queues);
+                await RTMAdapter.setWorkgroupsAsync(queues, target);
 
 
 
@@ -464,22 +467,22 @@ namespace RTM.Twilio
 
 
                 // Set Users Status List
-                await RTMAdapter.setUsersStatusList(Agents.getList());
+                await RTMAdapter.setUsersStatusList(Agents.getList(), target);
 
 
                 foreach (var agent in Agents.getList())
                 {
                     Dictionary<string, string> attributes = new Dictionary<string, string>();
-                    await RTMAdapter.userConfigurationChangedAsync(agent.UserId, agent.DisplayName, "0", "", "", attributes);
+                    await RTMAdapter.userConfigurationChangedAsync(agent.UserId, agent.DisplayName, "0", "", "", attributes, target);
                     foreach (var workgroup in agent.Workgroups)
-                    {                                       
-                        await RTMAdapter.userWorkgroupActivationAsync(workgroup, new List<string> { agent.UserId }, new List<string>());
+                    {
+                        await RTMAdapter.userWorkgroupActivationAsync(workgroup, new List<string> { agent.UserId }, new List<string>(), target);
                         AsyncLogger.Info("userWorkgroupActivation agent.UserId=" + agent.UserId + " workgroup=" + workgroup + " DisplayName=" + agent.DisplayName);
                     }
                 }
 
 
-                await FetchAndProcessAllActiveTasksAsync(WorkspaceSid);
+                await FetchAndProcessAllActiveTasksAsync(WorkspaceSid, target);
 
 
                 StartSetInteractions = true;
@@ -496,7 +499,7 @@ namespace RTM.Twilio
 
 
         // Fetch And Process All Active Tasks Async
-        private async Task FetchAndProcessAllActiveTasksAsync(string workspaceSid)
+        private async Task FetchAndProcessAllActiveTasksAsync(string workspaceSid, RtmTarget target = null)
         {
             // Define Assignment Statuses for Active Tasks
             var activeStatuses = new List<string> { "pending", "reserved", "assigned" };
@@ -519,7 +522,7 @@ namespace RTM.Twilio
             // Iterate over all tasks (pagination is handled automatically)
             foreach (var task in tasks)
             {
-                await ProcessTaskAsync(task);
+                await ProcessTaskAsync(task, target);
 
                 taskCount++;
             }
@@ -2054,7 +2057,7 @@ namespace RTM.Twilio
 
 
         // ProcessTaskAsync
-        private async Task ProcessTaskAsync(TaskResource task)
+        private async Task ProcessTaskAsync(TaskResource task, RtmTarget target = null)
         {
             try
             {
@@ -2232,7 +2235,8 @@ namespace RTM.Twilio
                     changedAttributeNames,
                     isHeld,
                     remoteAddress, interaction.LastMessageSid,
-                    "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", customData20
+                    "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", customData20,
+                    target
                 );
             }
             catch (Exception ex)

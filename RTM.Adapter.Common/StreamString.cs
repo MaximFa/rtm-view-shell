@@ -53,6 +53,11 @@ namespace RTM.Tools
                 await ioStream.FlushAsync();
                 ioStream.WaitForPipeDrain();
             }
+            else
+            {
+                // Log when a send is silently dropped due to pipe not writable
+                AsyncLogger.Error($"StreamString.WriteString: pipe not writable, message dropped (len={messageBytes.Length})");
+            }
         }
     }
 }

@@ -78,9 +78,15 @@ namespace RTM.Twilio
         }
 
 
-        // Pipe fan-out helper
-        private static async Task SendToAllAsync(string jsonData)
+        // Pipe fan-out helper (optional single-target for connect snapshot)
+        private static async Task SendToAllAsync(string jsonData, RtmTarget only = null)
         {
+            if (only != null)
+            {
+                try { if (only.Client != null) await only.Client.Send(jsonData); }
+                catch (Exception ex) { AsyncLogger.Error($"RTMAdapter.SendToAllAsync pipe={only.Pipe}", ex); }
+                return;
+            }
             var targets = Targets;
             await Task.WhenAll(targets.Select(async t =>
             {
@@ -90,9 +96,21 @@ namespace RTM.Twilio
         }
 
 
-        // REST fan-out helper (fresh StringContent per target — HttpContent is single-use)
-        private static async Task<bool> PostToAllAsync(string endpoint, string data)
+        // REST fan-out helper (optional single-target for connect snapshot)
+        private static async Task<bool> PostToAllAsync(string endpoint, string data, RtmTarget only = null)
         {
+            if (only != null)
+            {
+                try
+                {
+                    var content = new StringContent(data);
+                    var response = await HttpClient.PostAsync(only.Url + endpoint, content);
+                    string body = await response.Content.ReadAsStringAsync();
+                    AsyncLogger.Info($"POST {endpoint} -> {only.Url} response={body}");
+                    return response.IsSuccessStatusCode;
+                }
+                catch (Exception ex) { AsyncLogger.Error($"RTMAdapter.PostToAllAsync url={only.Url}{endpoint}", ex); return false; }
+            }
             var targets = Targets;
             var results = await Task.WhenAll(targets.Select(async t =>
             {
@@ -112,13 +130,13 @@ namespace RTM.Twilio
 
 
 
-        // setUsersStatusList
-        public static async Task<bool> setUsersStatusList(List<Agent> usersStatusList)
+        // setUsersStatusList (optional single-target for connect snapshot)
+        public static async Task<bool> setUsersStatusList(List<Agent> usersStatusList, RtmTarget only = null)
         {
             try
             {
                 string data = JsonConvert.SerializeObject(usersStatusList, Formatting.Indented);
-                return await PostToAllAsync("/SetUsersStatusList", data);
+                return await PostToAllAsync("/SetUsersStatusList", data, only);
             }
             catch (Exception ex) { AsyncLogger.Error("RTMAdapter.setUsersStatusList", ex); return false; }
         }
@@ -190,8 +208,8 @@ namespace RTM.Twilio
 
 
 
-        // User Workgroup Activation
-        public static async Task userWorkgroupActivationAsync(string workgroup, List<string> activeUsersList, List<string> deactiveUsersList)
+        // User Workgroup Activation (optional single-target for connect snapshot)
+        public static async Task userWorkgroupActivationAsync(string workgroup, List<string> activeUsersList, List<string> deactiveUsersList, RtmTarget only = null)
         {
             string info = string.Empty;
             try
@@ -208,7 +226,7 @@ namespace RTM.Twilio
                 data.Add("timeStamp", timeStamp);
 
                 string jsonData = DictionarySerializer.SerializeToJson(data);
-                await SendToAllAsync(jsonData);
+                await SendToAllAsync(jsonData, only);
             }
             catch (Exception ex)
             {
@@ -219,8 +237,8 @@ namespace RTM.Twilio
 
 
 
-        // userConfigurationChanged
-        public static async Task userConfigurationChangedAsync(string userId, string displayName, string extension, string firstName, string LastName, IDictionary<string, string> customAttributes)
+        // userConfigurationChanged (optional single-target for connect snapshot)
+        public static async Task userConfigurationChangedAsync(string userId, string displayName, string extension, string firstName, string LastName, IDictionary<string, string> customAttributes, RtmTarget only = null)
         {
             AsyncLogger.Info($"userConfigurationChangedAsync userId={userId} displayName={displayName}");
 
@@ -242,7 +260,7 @@ namespace RTM.Twilio
                 data.Add("timeStamp", timeStamp);
 
                 string jsonData = DictionarySerializer.SerializeToJson(data);
-                await SendToAllAsync(jsonData);
+                await SendToAllAsync(jsonData, only);
             }
             catch (Exception ex)
             {
@@ -251,7 +269,7 @@ namespace RTM.Twilio
         }
 
 
-        // Interaction Changed
+        // Interaction Changed (optional single-target for connect snapshot)
         public static async Task interactionChangedAsync(string workgroup, bool isAdded, string interactionId, int segmentId,
            bool isDisconnect, string callType, string interactionType, string direction, string state, DateTime stateChangedTime,
            TimeSpan duration, TimeSpan timeInWorkgroupQueue, bool isConsult, string consultCallId, string applic, string classificationCode, string localUserId, string origCallId,
@@ -259,7 +277,7 @@ namespace RTM.Twilio
            string customCallData1, string customCallData2, string customCallData3, string customCallData4, string customCallData5, string customCallData6,
            string customCallData7, string customCallData8, string customCallData9, string customCallData10, string customCallData11, string customCallData12,
            string customCallData13, string customCallData14, string customCallData15, string customCallData16, string customCallData17, string customCallData18,
-           string customCallData19, string customCallData20)
+           string customCallData19, string customCallData20, RtmTarget only = null)
         {
             AsyncLogger.Info($"<<< interactionChanged >>> workgroup={workgroup} isAdded={isAdded} interactionId={interactionId} segmentId={segmentId} " +
                 $"state={state} callType={callType} direction={direction} " +
@@ -325,7 +343,7 @@ namespace RTM.Twilio
                 data.Add("timeStamp", timeStamp);
 
                 string jsonData = DictionarySerializer.SerializeToJson(data);
-                await SendToAllAsync(jsonData);
+                await SendToAllAsync(jsonData, only);
             }
             catch (Exception ex)
             {
@@ -335,9 +353,9 @@ namespace RTM.Twilio
 
 
 
-        // Interaction Removed
+        // Interaction Removed (optional single-target for connect snapshot)
         public static async Task interactionRemovedAsync(string workgroup, string interactionId, int segmentId, bool isDisconnected, string origCallId, string localUserId,
-            string state, TimeSpan timeInWorkgroupQueue, bool isCallbackRequest, DateTime? eventTime = null)
+            string state, TimeSpan timeInWorkgroupQueue, bool isCallbackRequest, DateTime? eventTime = null, RtmTarget only = null)
         {
             AsyncLogger.Info($"<<< interactionRemoved >>> workgroup={workgroup} interactionId={interactionId} segmentId={segmentId} " +
                 $"state={state} localUserId={localUserId} isCallbackRequest={isCallbackRequest}");
@@ -365,7 +383,7 @@ namespace RTM.Twilio
                 data.Add("timeStamp", timeStamp);
 
                 string jsonData = DictionarySerializer.SerializeToJson(data);
-                await SendToAllAsync(jsonData);
+                await SendToAllAsync(jsonData, only);
             }
             catch (Exception ex)
             {
@@ -375,8 +393,8 @@ namespace RTM.Twilio
 
 
 
-        // Set User
-        public static async Task setUsersAsync(List<string> users, string src)
+        // Set User (optional single-target for connect snapshot)
+        public static async Task setUsersAsync(List<string> users, string src, RtmTarget only = null)
         {
             string info = string.Empty;
             try
@@ -391,7 +409,7 @@ namespace RTM.Twilio
                 data.Add("timeStamp", timeStamp);
 
                 string jsonData = DictionarySerializer.SerializeToJson(data);
-                await SendToAllAsync(jsonData);
+                await SendToAllAsync(jsonData, only);
             }
             catch (Exception ex)
             {
@@ -402,8 +420,8 @@ namespace RTM.Twilio
 
 
 
-        // Set Skills
-        public static async Task setSkillsAsync(List<string> skills)
+        // Set Skills (optional single-target for connect snapshot)
+        public static async Task setSkillsAsync(List<string> skills, RtmTarget only = null)
         {
             string info = string.Empty;
             try
@@ -418,7 +436,7 @@ namespace RTM.Twilio
                 data.Add("timeStamp", timeStamp);
 
                 string jsonData = DictionarySerializer.SerializeToJson(data);
-                await SendToAllAsync(jsonData);
+                await SendToAllAsync(jsonData, only);
             }
             catch (Exception ex)
             {
@@ -428,8 +446,8 @@ namespace RTM.Twilio
 
 
 
-        // Set Workgroups
-        public static async Task setWorkgroupsAsync(List<string> workgroups)
+        // Set Workgroups (optional single-target for connect snapshot)
+        public static async Task setWorkgroupsAsync(List<string> workgroups, RtmTarget only = null)
         {
             string info = string.Empty;
             try
@@ -444,7 +462,7 @@ namespace RTM.Twilio
                 data.Add("timeStamp", timeStamp);
 
                 string jsonData = DictionarySerializer.SerializeToJson(data);
-                await SendToAllAsync(jsonData);
+                await SendToAllAsync(jsonData, only);
             }
             catch (Exception ex)
             {
