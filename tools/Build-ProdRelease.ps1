@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Builds a unified Prod Release package: RTM View Shell + RTM Service + DB backup + Garnet (Redis alternative).
@@ -348,11 +348,57 @@ if ($BuildRTM -and (Test-Path $PublishRTM)) {
     }
 }
 
-# DB backup
+# DB backup (dump file)
 if (-not $SkipDB -and (Test-Path $PublishDB)) {
     $stgDB = Join-Path $StagingDir "DB"
     Copy-Item -Recurse -Force $PublishDB $stgDB
-    Write-Host "  + DB/" -ForegroundColor Gray
+    Write-Host "  + DB/ (dump)" -ForegroundColor Gray
+}
+
+# DB module (schema.sql + functions + data + tools) — required for -FreshDb mode
+$dbDir = Join-Path $Root "db"
+if (Test-Path $dbDir) {
+    $stgDbModule = Join-Path $StagingDir "db"
+    New-Item -ItemType Directory -Path $stgDbModule -Force | Out-Null
+
+    # Copy schema.sql
+    $schemaFile = Join-Path $dbDir "schema.sql"
+    if (Test-Path $schemaFile) {
+        Copy-Item $schemaFile -Destination $stgDbModule -Force
+        Write-Host "  + db/schema.sql" -ForegroundColor Gray
+    }
+
+    # Copy setup/
+    $setupDir = Join-Path $dbDir "setup"
+    if (Test-Path $setupDir) {
+        $stgSetup = Join-Path $stgDbModule "setup"
+        Copy-Item -Recurse -Force $setupDir $stgSetup
+        Write-Host "  + db/setup/" -ForegroundColor Gray
+    }
+
+    # Copy functions/
+    $functionsDir = Join-Path $dbDir "functions"
+    if (Test-Path $functionsDir) {
+        $stgFunctions = Join-Path $stgDbModule "functions"
+        Copy-Item -Recurse -Force $functionsDir $stgFunctions
+        Write-Host "  + db/functions/" -ForegroundColor Gray
+    }
+
+    # Copy data/
+    $dataDir = Join-Path $dbDir "data"
+    if (Test-Path $dataDir) {
+        $stgData = Join-Path $stgDbModule "data"
+        Copy-Item -Recurse -Force $dataDir $stgData
+        Write-Host "  + db/data/" -ForegroundColor Gray
+    }
+
+    # Copy tools/ (Provision-FreshDb.ps1, etc.)
+    $toolsDir = Join-Path $dbDir "tools"
+    if (Test-Path $toolsDir) {
+        $stgTools = Join-Path $stgDbModule "tools"
+        Copy-Item -Recurse -Force $toolsDir $stgTools
+        Write-Host "  + db/tools/" -ForegroundColor Gray
+    }
 }
 
 # Cache service — Garnet (default) or Memurai (rollback) — only when RTM is included

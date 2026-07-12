@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
@@ -79,7 +79,19 @@ param(
     # Kestrel HTTPS config (per-server, injected into deployed appsettings.json)
     [string]$Fqdn          = "",
     [string]$CertSubject   = "",
-    [int]   $ShellHttpsPort = 5239
+    [int]   $ShellHttpsPort = 5239,
+
+    # Shell: Superadmin password (injected into Seed:SuperadminPassword)
+    [string]$SuperadminPassword = "",
+
+    # RTM appsettings params (for side-by-side installs)
+    [string]$RTMPipeName       = "",         # RTM:PipeName (e.g. rtmpipe_v3)
+    [string]$RTMTenantId       = "",         # RTM:TenantId (UUID)
+    [string]$AdaptorServiceName = "",        # RTM:AdaptorServiceName (e.g. RTMView.Nayax)
+
+    # Control switches
+    [switch]$NoStartServices,   # Register services but do NOT start them (DB not ready)
+    [switch]$FreshDb            # Use Provision-FreshDb.ps1 instead of dump restore
 )
 
 $ErrorActionPreference = "Stop"
@@ -338,6 +350,27 @@ if ($InstallShell) {
             Write-Host "  [WARN] -DBAppPassword not provided — ConnectionStrings:Default left as placeholder" -ForegroundColor Yellow
         }
 
+        # FIX: Inject ConnectionStrings:Redis (Garnet requires auth)
+        if ($RedisPassword) {
+            $redisConnStr = "localhost:6379,password=$RedisPassword"
+            if (-not $cfg.ConnectionStrings) {
+                $cfg | Add-Member -NotePropertyName "ConnectionStrings" -NotePropertyValue @{}
+            }
+            $cfg.ConnectionStrings | Add-Member -NotePropertyName "Redis" -NotePropertyValue $redisConnStr -Force
+            Write-Host "  Injected ConnectionStrings:Redis" -ForegroundColor Gray
+        } elseif (-not $GarnetNoAuth) {
+            Write-Host "  [WARN] -RedisPassword not provided — ConnectionStrings:Redis may fail if Garnet uses --auth" -ForegroundColor Yellow
+        }
+
+        # FIX: Inject Seed:SuperadminPassword (required for fresh DB)
+        if ($SuperadminPassword) {
+            if (-not $cfg.Seed) {
+                $cfg | Add-Member -NotePropertyName "Seed" -NotePropertyValue @{}
+            }
+            $cfg.Seed | Add-Member -NotePropertyName "SuperadminPassword" -NotePropertyValue $SuperadminPassword -Force
+            Write-Host "  Injected Seed:SuperadminPassword" -ForegroundColor Gray
+        }
+
         # FIX 5: Inject Kestrel HTTPS config (per-server FQDN/port/cert)
         # Prompt if not provided (install is interactive)
         if (-not $Fqdn) {
@@ -391,6 +424,50 @@ if ($InstallRTM) {
     if (-not (Test-Path (Join-Path $RTMDest "data.sys"))) {
         Write-Host "  [!] data.sys not found in $RTMDest — copy before starting service!" -ForegroundColor Yellow
     }
+
+    # ── [4c/6] Inject RTM appsettings (side-by-side params) ───────────────────
+    $rtmAppSettings = Join-Path $RTMDest "appsettings.json"
+    if (Test-Path $rtmAppSettings) {
+        $rtmCfg = Get-Content $rtmAppSettings -Raw -Encoding UTF8 | ConvertFrom-Json
+
+        # Inject RTM:PipeName
+        if ($RTMPipeName) {
+            if (-not $rtmCfg.RTM) { $rtmCfg | Add-Member -NotePropertyName "RTM" -NotePropertyValue @{} }
+            $rtmCfg.RTM | Add-Member -NotePropertyName "PipeName" -NotePropertyValue $RTMPipeName -Force
+            Write-Host "  Injected RTM:PipeName = $RTMPipeName" -ForegroundColor Gray
+        }
+
+        # Inject RTM:TenantId
+        if ($RTMTenantId) {
+            if (-not $rtmCfg.RTM) { $rtmCfg | Add-Member -NotePropertyName "RTM" -NotePropertyValue @{} }
+            $rtmCfg.RTM | Add-Member -NotePropertyName "TenantId" -NotePropertyValue $RTMTenantId -Force
+            Write-Host "  Injected RTM:TenantId = $RTMTenantId" -ForegroundColor Gray
+        }
+
+        # Inject RTM:AdaptorServiceName
+        if ($AdaptorServiceName) {
+            if (-not $rtmCfg.RTM) { $rtmCfg | Add-Member -NotePropertyName "RTM" -NotePropertyValue @{} }
+            $rtmCfg.RTM | Add-Member -NotePropertyName "AdaptorServiceName" -NotePropertyValue $AdaptorServiceName -Force
+            Write-Host "  Injected RTM:AdaptorServiceName = $AdaptorServiceName" -ForegroundColor Gray
+        }
+
+        # Inject Kestrel port (for side-by-side: e.g. 8089 instead of 8088)
+        if ($RTMPort -ne 8088) {
+            if (-not $rtmCfg.Kestrel) { $rtmCfg | Add-Member -NotePropertyName "Kestrel" -NotePropertyValue @{ Endpoints = @{} } }
+            if (-not $rtmCfg.Kestrel.Endpoints) { $rtmCfg.Kestrel | Add-Member -NotePropertyName "Endpoints" -NotePropertyValue @{} }
+            $rtmCfg.Kestrel.Endpoints | Add-Member -NotePropertyName "Http" -NotePropertyValue @{
+                Url = "http://127.0.0.1:$RTMPort"
+            } -Force
+            Write-Host "  Injected RTM Kestrel port = $RTMPort" -ForegroundColor Gray
+        }
+
+        # Write back with UTF-8 (preserve Hebrew AgentWGPerfixList etc.)
+        $rtmCfgJson = $rtmCfg | ConvertTo-Json -Depth 10
+        $BOM = [byte[]](0xEF, 0xBB, 0xBF)
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($rtmCfgJson)
+        [System.IO.File]::WriteAllBytes($rtmAppSettings, $BOM + $bytes)
+        Write-Host "  Updated: $rtmAppSettings" -ForegroundColor Green
+    }
 }
 
 # ── [5/6] Database ────────────────────────────────────────────────────────────
@@ -398,6 +475,28 @@ Write-Host ""
 Write-Host "[ 5/6 ] Database setup..." -ForegroundColor Cyan
 if ($SkipDB) {
     Write-Host "  Skipped (SkipDB)." -ForegroundColor Gray
+} elseif ($FreshDb) {
+    # FreshDb mode: use Provision-FreshDb.ps1 (canonical Design-B)
+    $provisionScript = Join-Path $ScriptDir "db\tools\Provision-FreshDb.ps1"
+    if (-not (Test-Path $provisionScript)) {
+        Write-Host "  [ERROR] Provision-FreshDb.ps1 not found at $provisionScript" -ForegroundColor Red
+        Write-Host "  The package must include db\tools\Provision-FreshDb.ps1 for -FreshDb mode." -ForegroundColor Yellow
+    } else {
+        $shellExe = Join-Path $ShellDest "CcDashboard.Web.exe"
+        Write-Host "  Calling Provision-FreshDb.ps1 (Design B fresh install)..." -ForegroundColor Gray
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        & powershell -ExecutionPolicy Bypass -File $provisionScript `
+            -DBHost $DBHost `
+            -DBPort $DBPort `
+            -Database $DBName `
+            -SuperUser $DBUser `
+            -SuperPassword $DBPassword `
+            -AppUser $DBAppUser `
+            -AppPassword $DBAppPassword `
+            -ShellExe $shellExe
+        $ErrorActionPreference = $prevPref
+    }
 } else {
     $psql   = Find-PGTool "psql"
     $pgdump = Find-PGTool "pg_dump"
@@ -441,8 +540,12 @@ if ($InstallShell) {
         sc.exe create $ShellSvcName binPath= "`"$exe`"" start= auto | Out-Null
         sc.exe description $ShellSvcName "RTM View Shell (Blazor Server)" | Out-Null
         sc.exe failure $ShellSvcName reset= 86400 actions= restart/30000/restart/60000/restart/120000 | Out-Null
-        Start-Service $ShellSvcName -ErrorAction SilentlyContinue
-        Write-Host "  $ShellSvcName : $((Get-Service $ShellSvcName).Status)" -ForegroundColor Green
+        if ($NoStartServices) {
+            Write-Host "  $ShellSvcName : registered (NOT started due to -NoStartServices)" -ForegroundColor Yellow
+        } else {
+            Start-Service $ShellSvcName -ErrorAction SilentlyContinue
+            Write-Host "  $ShellSvcName : $((Get-Service $ShellSvcName).Status)" -ForegroundColor Green
+        }
     }
 }
 
@@ -453,7 +556,9 @@ if ($InstallRTM) {
         sc.exe description $RTMSvcName "RTM Real-Time Monitoring Service" | Out-Null
         sc.exe failure $RTMSvcName reset= 86400 actions= restart/30000/restart/60000/restart/120000 | Out-Null
 
-        if (Test-Path (Join-Path $RTMDest "data.sys")) {
+        if ($NoStartServices) {
+            Write-Host "  $RTMSvcName : registered (NOT started due to -NoStartServices)" -ForegroundColor Yellow
+        } elseif (Test-Path (Join-Path $RTMDest "data.sys")) {
             Start-Service $RTMSvcName -ErrorAction SilentlyContinue
             Start-Sleep 6
             Write-Host "  $RTMSvcName : $((Get-Service $RTMSvcName).Status)" -ForegroundColor Green
