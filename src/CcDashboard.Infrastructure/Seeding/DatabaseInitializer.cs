@@ -115,15 +115,28 @@ public class DatabaseInitializer(
 
     private async Task<Tenant> SeedPlatformTenantAsync(CancellationToken ct)
     {
-        var tenant = await db.Tenants.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Slug == "platform", ct);
+        // Per-server slug (FQDN subdomain resolution); default "platform" (backward-compat)
+        var slug = config["Seed:PlatformTenantSlug"];
+        if (string.IsNullOrWhiteSpace(slug)) slug = "platform";
+
+        // STABLE idempotency key = Name=="Platform" (system tenant, DATA-07). NOT the slug.
+        // Name is NOT DB-unique — order by OLDEST CreatedAt (the real/original) + fail-fast log if >1.
+        var platformTenants = await db.Tenants.IgnoreQueryFilters()
+            .Where(t => t.Name == "Platform")
+            .OrderBy(t => t.CreatedAt)
+            .ToListAsync(ct);
+        if (platformTenants.Count > 1)
+            logger.LogError(
+                "Multiple tenants named 'Platform' found ({Count}): {Ids}. Using the OLDEST (CreatedAt); deployment must remove the duplicate(s).",
+                platformTenants.Count, string.Join(", ", platformTenants.Select(t => t.Id)));
+        var tenant = platformTenants.FirstOrDefault();
 
         if (tenant == null)
         {
             tenant = new Tenant
             {
                 Id = Uuid.NewSequential(),
-                Slug = "platform",
+                Slug = slug,
                 Name = "Platform",
                 Status = TenantStatus.Active,
                 CreatedAt = DateTime.UtcNow,
@@ -131,7 +144,15 @@ public class DatabaseInitializer(
             };
             db.Tenants.Add(tenant);
             await db.SaveChangesAsync(ct);
-            logger.LogInformation("Created platform tenant: {Id}", tenant.Id);
+            logger.LogInformation("Created platform tenant: {Id} (slug={Slug})", tenant.Id, slug);
+        }
+        else if (tenant.Slug != slug)
+        {
+            // config is the source of truth for the slug — sync on re-run (idempotent, no dup)
+            tenant.Slug = slug;
+            tenant.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Platform tenant slug synced to {Slug}", slug);
         }
 
         var settings = await db.TenantSettings.IgnoreQueryFilters()
