@@ -1891,6 +1891,8 @@ namespace RTM
                                         {
                                             union.Queues.Add(id);
                                             union.addWorkgroup(id, _applicList);
+                                            // Persist queue to NGC_Queues (symmetric with LoadData path Engine.cs:477) — idempotent
+                                            BusinessUnitData.getOrCreateQueue(id, id);
                                         }
                                     }
                                     else
