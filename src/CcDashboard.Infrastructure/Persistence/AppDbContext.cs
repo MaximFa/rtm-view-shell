@@ -84,6 +84,9 @@ public class AppDbContext(
         mb.Entity<ApplicationUser>(e =>
         {
             e.HasIndex(x => new { x.NormalizedEmail, x.TenantId }).IsUnique().HasFilter("\"IsActive\" = true");
+            // [H] per-tenant username uniqueness (§6.2) — replaces the global UserNameIndex unique
+            e.HasIndex(x => x.NormalizedUserName).HasDatabaseName("UserNameIndex").IsUnique(false);  // drop the cross-tenant unique (keep for lookup)
+            e.HasIndex(x => new { x.NormalizedUserName, x.TenantId }).IsUnique().HasFilter("\"IsActive\" = true"); // NEW composite unique (mirrors email)
             e.Property(x => x.FirstName).HasMaxLength(100);
             e.Property(x => x.LastName).HasMaxLength(100);
             e.Property(x => x.PreferredLocale).HasMaxLength(10).HasDefaultValue("en-US");
