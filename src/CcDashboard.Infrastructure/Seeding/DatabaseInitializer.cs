@@ -29,12 +29,23 @@ public class DatabaseInitializer(
 {
     private static readonly string[] Roles = ["Superadmin", "Administrator", "Editor", "Viewer"];
 
+    /// <summary>
+    /// Apply EF migrations (App + Audit) only — no seed, no hosted services.
+    /// Used by `Web.exe migrate` for canonical fresh-install ordering (DEPLOY-14).
+    /// </summary>
+    public virtual async Task MigrateOnlyAsync(CancellationToken ct = default)
+    {
+        logger.LogInformation("Applying EF migrations (App + Audit)...");
+        await db.Database.MigrateAsync(ct);
+        await auditDb.Database.MigrateAsync(ct);
+        logger.LogInformation("EF migrations applied (App + Audit).");
+    }
+
     public virtual async Task InitializeAsync(CancellationToken ct = default)
     {
         logger.LogInformation("Running database seed...");
 
-        await db.Database.MigrateAsync(ct);
-        await auditDb.Database.MigrateAsync(ct);
+        await MigrateOnlyAsync(ct);
 
         // Apply backend emulation migrations only in dev/test — in production these tables are backend-owned (ADR-007)
         if (env.IsDevelopment() || env.EnvironmentName == "Testing")

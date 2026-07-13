@@ -142,7 +142,18 @@ try
 
     var app = builder.Build();
 
-    // Run database seed on startup
+    // migrate-only: apply EF migrations and EXIT — no seed, no hosted services, no web host.
+    // Canonical fresh-install ordering (DEPLOY-14): `Web.exe migrate` runs BEFORE schema.sql, so backend tables don't exist yet.
+    if (args.Any(a => string.Equals(a, "migrate", StringComparison.OrdinalIgnoreCase)))
+    {
+        using var migrateScope = app.Services.CreateScope();
+        var migrator = migrateScope.ServiceProvider.GetRequiredService<IDatabaseInitializer>();
+        await migrator.MigrateOnlyAsync();
+        Log.Information("migrate-only complete — exiting (no seed, no hosted services, no web host).");
+        return;
+    }
+
+    // Run database seed on startup (backend tables exist by now in the canonical flow)
     using (var scope = app.Services.CreateScope())
     {
         var initializer = scope.ServiceProvider.GetRequiredService<IDatabaseInitializer>();

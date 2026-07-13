@@ -638,5 +638,6 @@ public class WebCollection : ICollectionFixture<WebFixture>
 /// </summary>
 internal class NoOpDatabaseInitializer : IDatabaseInitializer
 {
+    public Task MigrateOnlyAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task InitializeAsync(CancellationToken ct = default) => Task.CompletedTask;
 }

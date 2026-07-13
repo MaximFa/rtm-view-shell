@@ -6,5 +6,12 @@ namespace CcDashboard.Infrastructure.Seeding;
 /// </summary>
 public interface IDatabaseInitializer
 {
+    /// <summary>
+    /// Apply EF migrations (App + Audit) only — no seed, no hosted services.
+    /// Used by `Web.exe migrate` for canonical fresh-install ordering (DEPLOY-14):
+    /// migrate runs BEFORE schema.sql, so backend tables don't exist yet.
+    /// </summary>
+    Task MigrateOnlyAsync(CancellationToken ct = default);
+
     Task InitializeAsync(CancellationToken ct = default);
 }
