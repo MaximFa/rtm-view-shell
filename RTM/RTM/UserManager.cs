@@ -588,6 +588,10 @@ namespace RTM
                                     }
                                 }
                             }
+                            else if (wgArr != null && wgArr.Count > 0)
+                            {
+                                AsyncLogger.Info($"refreshUnions MISS user={this.userId} union={union.UnionId} need=[{string.Join(",", wgArr)}] have=[{string.Join(",", _workgroups)}]");
+                            }
                         }
                         if (!containsInUnion && union.Users.Contains(this))
                         {
@@ -661,6 +665,7 @@ namespace RTM
                     if (!isActive)
                     {
                         _workgroups.Remove(workgroup);
+                        AsyncLogger.Info($"_workgroups[{userId}] after Remove now=[{string.Join(",", _workgroups)}]");
                         refreshUnions();
                     }
                 }
@@ -669,6 +674,7 @@ namespace RTM
                     if (isActive)
                     {
                         _workgroups.Add(workgroup);
+                        AsyncLogger.Info($"_workgroups[{userId}] after Add now=[{string.Join(",", _workgroups)}]");
                         refreshUnions();
                     }
                 }

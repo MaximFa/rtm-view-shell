@@ -552,6 +552,7 @@ namespace RTM
                     if (!supergroup.Contains(usergroupId))
                     {
                         supergroup.Add(usergroupId);
+                        AsyncLogger.Info($"LoadData union={unionId} sg={supergroupId} needGroups=[{string.Join(",", supergroup)}]");
                     }
                 }
 

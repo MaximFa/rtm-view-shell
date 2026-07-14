@@ -179,7 +179,7 @@ namespace RTM
                 var dic = DictionarySerializer.DeserializeFromJson(jsnonString);
                 string method = DictionarySerializer.getString(dic["method"]);
 
-                //AsyncLogger.Info("method = " + method + " json = " +jsnonString);
+                AsyncLogger.Info($"SERVER <= method={method}");
 
                 switch(method)
                 {
@@ -275,6 +275,7 @@ namespace RTM
                 List<string> deactiveUsersList = DictionarySerializer.getList(dic["deactiveUsersList"]);
                 DateTime timeStamp = DictionarySerializer.getDateTime(dic["timeStamp"]);
                 long messageId = DictionarySerializer.getLong(dic["messageId"]);
+                AsyncLogger.Info($"RECV userWorkgroupActivation workgroup={workgroup} active=[{string.Join(",", activeUsersList)}] deactive=[{string.Join(",", deactiveUsersList)}]");
                 userWorkgroupActivation(workgroup, activeUsersList, deactiveUsersList, timeStamp, messageId);
             }
             catch (Exception ex)
@@ -486,6 +487,7 @@ namespace RTM
                 List<string> workgroups = DictionarySerializer.getList(dic["workgroups"]);
                 DateTime timeStamp = DictionarySerializer.getDateTime(dic["timeStamp"]);
                 long messageId = DictionarySerializer.getLong(dic["messageId"]);
+                AsyncLogger.Info($"RECV setWorkgroups count={workgroups.Count} names=[{string.Join(",", workgroups)}]");
                 setWorkgroups(workgroups, timeStamp, messageId);
             }
             catch (Exception ex)
