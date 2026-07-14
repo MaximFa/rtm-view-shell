@@ -21,6 +21,7 @@ public class NgcSiteRepository(BackendEmulationDbContext db) : INgcSiteRepositor
 
     public void Update(NgcSite site) => db.NgcSites.Update(site);
     public void Delete(NgcSite site) => db.NgcSites.Remove(site);
+    public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
 }
 
 public class NgcBusinessUnitRepository(BackendEmulationDbContext db) : INgcBusinessUnitRepository
@@ -45,6 +46,7 @@ public class NgcBusinessUnitRepository(BackendEmulationDbContext db) : INgcBusin
 
     public void Update(NgcBusinessUnit bu) => db.NgcBusinessUnits.Update(bu);
     public void Delete(NgcBusinessUnit bu) => db.NgcBusinessUnits.Remove(bu);
+    public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
 }
 
 public class NgcSupergroupRepository(BackendEmulationDbContext db) : INgcSupergroupRepository
@@ -66,6 +68,7 @@ public class NgcSupergroupRepository(BackendEmulationDbContext db) : INgcSupergr
 
     public void Update(NgcSupergroup sg) => db.NgcSupergroups.Update(sg);
     public void Delete(NgcSupergroup sg) => db.NgcSupergroups.Remove(sg);
+    public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
 }
 
 public class RtsGridMetricRepository(BackendEmulationDbContext db) : IRtsGridMetricRepository

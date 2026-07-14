@@ -52,6 +52,8 @@ public class SaveSiteCommandHandler(
             repo.Update(site);
         }
 
+        await repo.SaveChangesAsync(ct);
+
         // [API-HOOK] Notify CC-platform of configuration change.
         await apiHook.NotifyAsync("Site", new { req.SiteId, tenantId }, ct);
 
@@ -73,6 +75,7 @@ public class DeleteSiteCommandHandler(INgcSiteRepository repo, ICurrentUserAcces
         var site = await repo.GetByIdAsync(cmd.SiteId, user.TenantId!.Value, ct);
         if (site is null) return Result.Failure("Site not found.");
         repo.Delete(site);
+        await repo.SaveChangesAsync(ct);
         return Result.Success();
     }
 }
@@ -147,6 +150,8 @@ public class SaveBusinessUnitCommandHandler(
 
         if (req.BusinessUnitId is not null) repo.Update(bu);
 
+        await repo.SaveChangesAsync(ct);
+
         // [API-HOOK] Notify CC-platform of configuration change.
         await apiHook.NotifyAsync("BusinessUnit", new { bu.BusinessUnitId, tenantId }, ct);
 
@@ -168,6 +173,7 @@ public class DeleteBusinessUnitCommandHandler(INgcBusinessUnitRepository repo, I
         var bu = await repo.GetByIdAsync(cmd.BusinessUnitId, user.TenantId!.Value, ct);
         if (bu is null) return Result.Failure("Business Unit not found.");
         repo.Delete(bu);
+        await repo.SaveChangesAsync(ct);
         return Result.Success();
     }
 }
@@ -228,6 +234,8 @@ public class SaveSupergroupCommandHandler(
 
         if (req.SupergroupId is not null) repo.Update(sg);
 
+        await repo.SaveChangesAsync(ct);
+
         // [API-HOOK] Notify CC-platform of configuration change.
         await apiHook.NotifyAsync("Supergroup", new { sg.SupergroupId, tenantId }, ct);
 
@@ -249,6 +257,7 @@ public class DeleteSupergroupCommandHandler(INgcSupergroupRepository repo, ICurr
         var sg = await repo.GetByIdAsync(cmd.SupergroupId, user.TenantId!.Value, ct);
         if (sg is null) return Result.Failure("Supergroup not found.");
         repo.Delete(sg);
+        await repo.SaveChangesAsync(ct);
         return Result.Success();
     }
 }

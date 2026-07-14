@@ -9,6 +9,7 @@ public interface INgcSiteRepository
     Task AddAsync(NgcSite site, CancellationToken ct = default);
     void Update(NgcSite site);
     void Delete(NgcSite site);
+    Task SaveChangesAsync(CancellationToken ct = default);
 }
 
 public interface INgcBusinessUnitRepository
@@ -18,6 +19,7 @@ public interface INgcBusinessUnitRepository
     Task AddAsync(NgcBusinessUnit bu, CancellationToken ct = default);
     void Update(NgcBusinessUnit bu);
     void Delete(NgcBusinessUnit bu);
+    Task SaveChangesAsync(CancellationToken ct = default);
 }
 
 public interface INgcSupergroupRepository
@@ -27,6 +29,7 @@ public interface INgcSupergroupRepository
     Task AddAsync(NgcSupergroup sg, CancellationToken ct = default);
     void Update(NgcSupergroup sg);
     void Delete(NgcSupergroup sg);
+    Task SaveChangesAsync(CancellationToken ct = default);
 }
 
 public interface IRtsGridMetricRepository
