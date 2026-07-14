@@ -94,7 +94,7 @@ namespace RTM.Twilio
             pipe.ConnectedToServer += (_, __) => Client_ConnectedToServer(target);
             pipe.MessageReceived   += (_, a)  => AsyncLogger.Info($"CLIENT[{target.Pipe}] => msg: {(a as MessageReceivedEventArgs)?.Message}");
             pipe.Disconnected      += (_, __) => AsyncLogger.Info($"CLIENT[{target.Pipe}] => disconnected.");
-            await pipe.Connect();
+            await pipe.Connect(ct);
         }
 
 
