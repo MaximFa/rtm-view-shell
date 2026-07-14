@@ -9,6 +9,8 @@ namespace RTM.Tools
 {
     public class NamedPipeServer : NamedPipeBase<NamedPipeServerStream>, IServer
     {
+        private volatile bool _stopping;
+
         public NamedPipeServer(string name)
            : base(name)
         {
@@ -26,11 +28,17 @@ namespace RTM.Tools
             ServerStarted?.Invoke(this, EventArgs.Empty);
         }
 
+        private NamedPipeServerStream CreatePipe()
+        {
+            return new NamedPipeServerStream(_name, PipeDirection.InOut,
+                  NamedPipeServerStream.MaxAllowedServerInstances,
+                  PipeTransmissionMode.Message, PipeOptions.Asynchronous);
+        }
+
         public async Task Start()
         {
-            Initialize(new NamedPipeServerStream(_name, PipeDirection.InOut,
-                  NamedPipeServerStream.MaxAllowedServerInstances,
-                  PipeTransmissionMode.Message, PipeOptions.Asynchronous));
+            _stopping = false;
+            Initialize(CreatePipe());
 
             try
             {
@@ -46,16 +54,47 @@ namespace RTM.Tools
 
         private void WaitForConnectionCallBack(IAsyncResult result)
         {
-            Pipe.EndWaitForConnection(result);
-            OnClientConnected();
+            try
+            {
+                Pipe.EndWaitForConnection(result);
+                OnClientConnected();
+                StartReading().GetAwaiter().GetResult();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Server stopping — exit silently
+                return;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
 
-            StartReading().GetAwaiter().GetResult();
+            // RE-ACCEPT: create fresh pipe + wait for the next client (unless stopping)
+            if (_stopping) return;
+
+            try
+            {
+                // NamedPipeServerStream cannot be reused after Disconnect on .NET;
+                // create a fresh instance with the same parameters
+                Initialize(CreatePipe());
+                Pipe.BeginWaitForConnection(WaitForConnectionCallBack, null);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Server stopping — do not re-accept
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
         }
 
         public override void Dispose()
         {
-            Pipe?.Disconnect();
-            Pipe?.Dispose();
+            _stopping = true;
+            try { Pipe?.Disconnect(); } catch { }
+            try { Pipe?.Dispose(); } catch { }
         }
     }
 }
