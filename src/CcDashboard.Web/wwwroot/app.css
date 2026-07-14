@@ -659,7 +659,7 @@ a:hover {
 
 /* Internal table scroll + sticky header (admin/report list tables) */
 .table-responsive {
-    max-height: calc(100vh - 220px);
+    max-height: calc(100vh - 320px);
     overflow-y: auto;
 }
 

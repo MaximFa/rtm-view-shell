@@ -72,26 +72,28 @@
                             var hasFilter = HasActiveFilter(colDef.MetricId);
                             var isFilterOpen = _activeFilterColumn == colDef.MetricId;
                             <th scope="col" class="text-start position-relative" style="@GetTheadCellStyle()">
-                                <span style="cursor: pointer;"
-                                      @onclick="() => ToggleSort(colDef.MetricId)"
-                                      role="button"
-                                      aria-label="@L["Widget_SortBy", colDef.Name]">
-                                    @colDef.Name
-                                    @if (_sortColumn == colDef.MetricId)
-                                    {
-                                        <i class="bi @(_sortAscending ? "bi-caret-up-fill" : "bi-caret-down-fill") ms-1"
-                                           aria-label="@(_sortAscending ? L["Widget_SortedAsc"] : L["Widget_SortedDesc"])"></i>
-                                    }
-                                </span>
-                                <button class="btn btn-link btn-sm p-0 ms-1"
-                                        style="@GetFilterButtonStyle(hasFilter)"
-                                        @onclick="() => ToggleFilterDropdown(colDef.MetricId)"
-                                        @onclick:stopPropagation="true"
-                                        aria-label="@L["Widget_FilterColumn", colDef.Name]"
-                                        aria-expanded="@isFilterOpen"
-                                        title="@L["Widget_Filter"]">
-                                    <i class="bi @(hasFilter ? "bi-funnel-fill" : "bi-funnel")" aria-hidden="true"></i>
-                                </button>
+                                <div style="display: flex; align-items: flex-start; gap: 0.25rem;">
+                                    <span style="cursor: pointer; flex: 1 1 auto; min-width: 0;"
+                                          @onclick="() => ToggleSort(colDef.MetricId)"
+                                          role="button"
+                                          aria-label="@L["Widget_SortBy", colDef.Name]">
+                                        @colDef.Name
+                                        @if (_sortColumn == colDef.MetricId)
+                                        {
+                                            <i class="bi @(_sortAscending ? "bi-caret-up-fill" : "bi-caret-down-fill") ms-1"
+                                               aria-label="@(_sortAscending ? L["Widget_SortedAsc"] : L["Widget_SortedDesc"])"></i>
+                                        }
+                                    </span>
+                                    <button class="btn btn-link btn-sm p-0"
+                                            style="@GetFilterButtonStyle(hasFilter)"
+                                            @onclick="() => ToggleFilterDropdown(colDef.MetricId)"
+                                            @onclick:stopPropagation="true"
+                                            aria-label="@L["Widget_FilterColumn", colDef.Name]"
+                                            aria-expanded="@isFilterOpen"
+                                            title="@L["Widget_Filter"]">
+                                        <i class="bi @(hasFilter ? "bi-funnel-fill" : "bi-funnel")" aria-hidden="true"></i>
+                                    </button>
+                                </div>
                                 @if (isFilterOpen)
                                 {
                                     @RenderFilterDropdown(colDef)
