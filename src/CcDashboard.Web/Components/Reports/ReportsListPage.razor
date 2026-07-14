@@ -174,16 +174,8 @@
             </table>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mt-3">
-            <span class="text-muted small">@_reports.TotalCount @L["Common_Records"]</span>
-            <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(_reports.Page <= 1)"
-                        @onclick="PrevPage">@L["Common_Prev"]</button>
-                <span class="align-self-center small">@L["Common_Page"] @_reports.Page @L["Common_Of"] @_reports.TotalPages</span>
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(_reports.Page >= _reports.TotalPages)"
-                        @onclick="NextPage">@L["Common_Next"]</button>
-            </div>
-        </div>
+        <AppPagination TotalCount="_reports.TotalCount" Page="_reports.Page" PageSize="_pageSize"
+                           PageChanged="OnPageChanged" PageSizeChanged="OnPageSizeChanged" />
     }
 }
 else if (ActiveTab == "trash")
@@ -263,16 +255,8 @@ else if (ActiveTab == "trash")
                 </tbody>
             </table>
         </div>
-        <div class="d-flex justify-content-between align-items-center mt-3">
-            <span class="text-muted small">@DeletedReports.TotalCount @L["Common_Records"]</span>
-            <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(DeletedReports.Page <= 1)"
-                        @onclick="PrevTrashPage">@L["Common_Prev"]</button>
-                <span class="align-self-center small">@L["Common_Page"] @DeletedReports.Page @L["Common_Of"] @DeletedReports.TotalPages</span>
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(DeletedReports.Page >= DeletedReports.TotalPages)"
-                        @onclick="NextTrashPage">@L["Common_Next"]</button>
-            </div>
-        </div>
+        <AppPagination TotalCount="DeletedReports.TotalCount" Page="DeletedReports.Page" PageSize="_trashPageSize"
+                           PageChanged="OnTrashPageChanged" PageSizeChanged="OnTrashPageSizeChanged" />
     }
 }
 
@@ -456,7 +440,8 @@ else if (ActiveTab == "trash")
     private Guid? _categoryFilter;
     private int _page = 1;
     private int _trashPage = 1;
-    private const int PageSize = 25;
+    private int _pageSize = 25;
+    private int _trashPageSize = 25;
     private bool _saving;
     private bool _restoreSuccess;
 
@@ -566,13 +551,13 @@ else if (ActiveTab == "trash")
                     status,
                     null,
                     _page,
-                    PageSize);
+                    _pageSize);
 
                 _reports = await Mediator.Send(new GetReportScreensQuery(request, SelectedTenantId));
             }
             else if (ActiveTab == "trash")
             {
-                DeletedReports = await Mediator.Send(new GetDeletedReportScreensQuery(_search, _trashPage, PageSize));
+                DeletedReports = await Mediator.Send(new GetDeletedReportScreensQuery(_search, _trashPage, _pageSize));
             }
         }
         catch (Exception ex)
@@ -606,41 +591,10 @@ else if (ActiveTab == "trash")
         }
     }
 
-    private async Task PrevPage()
-    {
-        if (_page > 1)
-        {
-            _page--;
-            await LoadAsync();
-        }
-    }
-
-    private async Task NextPage()
-    {
-        if (_reports?.HasNextPage == true)
-        {
-            _page++;
-            await LoadAsync();
-        }
-    }
-
-    private async Task PrevTrashPage()
-    {
-        if (_trashPage > 1)
-        {
-            _trashPage--;
-            await LoadAsync();
-        }
-    }
-
-    private async Task NextTrashPage()
-    {
-        if (DeletedReports?.HasNextPage == true)
-        {
-            _trashPage++;
-            await LoadAsync();
-        }
-    }
+    private async Task OnPageChanged(int p) { _page = p; await LoadAsync(); }
+    private async Task OnPageSizeChanged(int s) { _pageSize = s; _page = 1; await LoadAsync(); }
+    private async Task OnTrashPageChanged(int p) { _trashPage = p; await LoadAsync(); }
+    private async Task OnTrashPageSizeChanged(int s) { _trashPageSize = s; _trashPage = 1; await LoadAsync(); }
 
     private void OpenCreate()
     {

@@ -1,0 +1,36 @@
+@inject Microsoft.Extensions.Localization.IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+
+@if (TotalCount > 0)
+{
+<div class="pagination-bar">
+    <span class="pagination-info">@TotalCount @L["Common_Records"]</span>
+    <div class="pagination-controls">
+        <select class="pagination-size" value="@PageSize" @onchange="OnSize">
+            @foreach (var o in PageSizeOptions)
+            {
+                <option value="@o" selected="@(o == PageSize)">@o</option>
+            }
+        </select>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(Page <= 1)" @onclick="() => PageChanged.InvokeAsync(Page - 1)">&#8249;</button>
+        <span class="pagination-counter">@Page / @TotalPages</span>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(Page >= TotalPages)" @onclick="() => PageChanged.InvokeAsync(Page + 1)">&#8250;</button>
+    </div>
+</div>
+}
+
+@code {
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public int PageSize { get; set; } = 25;
+    [Parameter] public int[] PageSizeOptions { get; set; } = [10, 25, 50, 100];
+    [Parameter] public EventCallback<int> PageChanged { get; set; }
+    [Parameter] public EventCallback<int> PageSizeChanged { get; set; }
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling((double)TotalCount / PageSize));
+
+    private async Task OnSize(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var s))
+            await PageSizeChanged.InvokeAsync(s);
+    }
+}

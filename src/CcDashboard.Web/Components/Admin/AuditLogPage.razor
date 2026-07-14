@@ -117,19 +117,8 @@ else
         </table>
     </div>
 
-    <div class="pagination-bar">
-        <span class="pagination-info">@Result.TotalCount @L["Common_Records"]</span>
-        <div class="pagination-controls">
-            <select class="pagination-size" @bind="PageSize" @bind:after="ResetAndLoad">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">&#8249;</button>
-            <span class="pagination-counter">@CurrentPage / @Result.TotalPages</span>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage >= Result.TotalPages)" @onclick="NextPage">&#8250;</button>
-        </div>
-    </div>
+    <AppPagination TotalCount="Result.TotalCount" Page="CurrentPage" PageSize="PageSize"
+                     PageChanged="OnPageChanged" PageSizeChanged="OnPageSizeChanged" />
 }
 
 @code {
@@ -209,8 +198,8 @@ else
         catch { }
     }
 
-    private async Task PrevPage() { CurrentPage--; await LoadAsync(); }
-    private async Task NextPage() { CurrentPage++; await LoadAsync(); }
+    private async Task OnPageChanged(int p) { CurrentPage = p; await LoadAsync(); }
+    private async Task OnPageSizeChanged(int s) { PageSize = s; CurrentPage = 1; await LoadAsync(); }
 
     private static string FormatDetails(string? json)
     {

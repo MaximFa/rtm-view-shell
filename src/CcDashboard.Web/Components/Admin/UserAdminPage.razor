@@ -150,20 +150,8 @@ else
         </table>
     </div>
 
-    <div class="pagination-bar">
-        <span class="pagination-info">@TotalCount @L["Common_Records"]</span>
-        <div class="pagination-controls">
-            <select class="pagination-size" @bind="PageSize" @bind:after="ResetAndLoad">
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">&#8249;</button>
-            <span class="pagination-counter">@PageLabel</span>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage >= TotalPages)" @onclick="NextPage">&#8250;</button>
-        </div>
-    </div>
+    <AppPagination TotalCount="TotalCount" Page="CurrentPage" PageSize="PageSize"
+                     PageChanged="OnPageChanged" PageSizeChanged="OnPageSizeChanged" />
 }
 
 <!-- Create Modal -->
@@ -443,8 +431,8 @@ else
     }
 
     private async Task ResetAndLoad() { CurrentPage = 1; await LoadAsync(); }
-    private async Task PrevPage() { CurrentPage--; await LoadAsync(); }
-    private async Task NextPage() { CurrentPage++; await LoadAsync(); }
+    private async Task OnPageChanged(int p) { CurrentPage = p; await LoadAsync(); }
+    private async Task OnPageSizeChanged(int s) { PageSize = s; CurrentPage = 1; await LoadAsync(); }
     private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await ResetAndLoad(); }
 
     private void OpenCreate()

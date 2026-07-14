@@ -111,20 +111,8 @@
             </table>
         </div>
 
-        <div class="pagination-bar">
-            <span class="pagination-info">@TotalFiltered @L["Common_Records"]</span>
-            <div class="pagination-controls">
-                <select class="pagination-size" @bind="PageSize" @bind:after="ResetPage">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">&#8249;</button>
-                <span class="pagination-counter">@PageLabel</span>
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(CurrentPage >= TotalPages)" @onclick="NextPage">&#8250;</button>
-            </div>
-        </div>
+        <AppPagination TotalCount="TotalFiltered" Page="CurrentPage" PageSize="PageSize"
+                         PageChanged="OnPageChanged" PageSizeChanged="OnPageSizeChanged" />
     }
 }
 else if (ActiveTab == "deploy")
@@ -292,8 +280,8 @@ else if (ActiveTab == "deploy")
     private string PageLabel => $"{CurrentPage} / {Math.Max(1, TotalPages)}";
     private IEnumerable<RtsGridMetricDto> PagedMetrics => FilteredMetrics.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
     private void ResetPage() => CurrentPage = 1;
-    private void PrevPage() { if (CurrentPage > 1) CurrentPage--; }
-    private void NextPage() { if (CurrentPage < TotalPages) CurrentPage++; }
+    private async Task OnPageChanged(int p) { CurrentPage = p; await Task.CompletedTask; }
+    private async Task OnPageSizeChanged(int s) { PageSize = s; CurrentPage = 1; await Task.CompletedTask; }
 
     private bool Loading = true;
     private string? Error;
