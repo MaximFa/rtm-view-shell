@@ -1159,14 +1159,14 @@
         var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "#ffffff";
         var headerFs = !string.IsNullOrEmpty(_headerFontSize) ? _headerFontSize : _fontSize;
         var fs = ResolveFontSizePx(headerFs);
-        return $"white-space: nowrap; color: {color}; font-size: {fs};";
+        return $"white-space: pre-line; overflow-wrap: anywhere; vertical-align: top; color: {color}; font-size: {fs};";
     }
 
     private string GetFilterButtonStyle(bool hasFilter)
     {
         var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "#ffffff";
         var opacity = hasFilter ? "1" : "0.6";
-        return $"color: {color}; opacity: {opacity};";
+        return $"color: {color}; opacity: {opacity}; vertical-align: top;";
     }
 
     private string GetRowStyle()
