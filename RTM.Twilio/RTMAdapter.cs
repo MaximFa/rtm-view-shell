@@ -3,6 +3,7 @@ using RTM.Types;
 using Newtonsoft.Json;
 using Formatting = Newtonsoft.Json.Formatting;
 using System.Text;
+using System.Threading;
 
 namespace RTM.Twilio
 {
@@ -10,6 +11,7 @@ namespace RTM.Twilio
     {
         private static HttpClient HttpClient;                                       // shared, reused across URLs
         private static IReadOnlyList<RtmTarget> Targets = Array.Empty<RtmTarget>();  // set once in connect()
+        private static CancellationTokenSource _cts;                                 // supervisor clean stop
 
 
         // Msg ID
@@ -45,34 +47,60 @@ namespace RTM.Twilio
         {
             try
             {
+                _cts?.Cancel();
+                _cts = new CancellationTokenSource();
                 Targets = targets;
                 var h = new HttpClientHandler();
                 h.ServerCertificateCustomValidationCallback = (s, c, ch, e) => true;
                 HttpClient = new HttpClient(h);
-                await Task.WhenAll(Targets.Select(ConnectTargetAsync));
+                // Launch one supervisor per target (fire-and-forget; each loops until cancelled)
+                foreach (var t in Targets)
+                    _ = SuperviseAsync(t, _cts.Token);
+                await Task.CompletedTask;
             }
             catch (Exception ex) { AsyncLogger.Error("RTMAdapter.connect", ex); }
         }
 
-
-        private static async Task ConnectTargetAsync(RtmTarget target)
+        public static void Stop()
         {
-            try
+            _cts?.Cancel();
+        }
+
+
+        private static async Task SuperviseAsync(RtmTarget target, CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
             {
-                var pipe = new NamedPipeClient(target.Pipe);
-                target.Client = pipe;
-                pipe.ClientStarted     += (_, __) => AsyncLogger.Info($"CLIENT[{target.Pipe}] => started.");
-                pipe.ConnectedToServer += (_, __) => Client_ConnectedToServer(target);
-                pipe.MessageReceived   += (_, a)  => AsyncLogger.Info($"CLIENT[{target.Pipe}] => msg: {(a as MessageReceivedEventArgs)?.Message}");
-                pipe.Disconnected      += (_, __) => AsyncLogger.Info($"CLIENT[{target.Pipe}] => disconnected.");
-                await pipe.Connect();
+                try
+                {
+                    await ConnectAndReadAsync(target, ct);
+                }
+                catch (OperationCanceledException) { break; }
+                catch (Exception ex) { AsyncLogger.Error($"RTMAdapter.SuperviseAsync pipe={target.Pipe}", ex); }
+                if (ct.IsCancellationRequested) break;
+                AsyncLogger.Info($"CLIENT[{target.Pipe}] => disconnected; reconnecting in {target.Backoff.TotalSeconds:0}s");
+                try { await Task.Delay(target.Backoff, ct); } catch (OperationCanceledException) { break; }
+                target.Backoff = TimeSpan.FromSeconds(Math.Min(target.Backoff.TotalSeconds * 2, 30));
             }
-            catch (Exception ex) { AsyncLogger.Error($"RTMAdapter.ConnectTargetAsync pipe={target.Pipe}", ex); }
+            AsyncLogger.Info($"CLIENT[{target.Pipe}] => supervisor stopped.");
+        }
+
+        private static async Task ConnectAndReadAsync(RtmTarget target, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var pipe = new NamedPipeClient(target.Pipe);
+            target.Client = pipe;
+            pipe.ClientStarted     += (_, __) => AsyncLogger.Info($"CLIENT[{target.Pipe}] => started.");
+            pipe.ConnectedToServer += (_, __) => Client_ConnectedToServer(target);
+            pipe.MessageReceived   += (_, a)  => AsyncLogger.Info($"CLIENT[{target.Pipe}] => msg: {(a as MessageReceivedEventArgs)?.Message}");
+            pipe.Disconnected      += (_, __) => AsyncLogger.Info($"CLIENT[{target.Pipe}] => disconnected.");
+            await pipe.Connect();
         }
 
 
         private static void Client_ConnectedToServer(RtmTarget target)
         {
+            target.Backoff = TimeSpan.FromSeconds(1);   // reset backoff on successful connect
             AsyncLogger.Info($"CLIENT[{target.Pipe}] => connected to server.");
             ServerConnectEvent?.Invoke(null, new RtmTargetConnectedEventArgs(target));
         }

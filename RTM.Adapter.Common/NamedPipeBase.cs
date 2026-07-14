@@ -50,7 +50,7 @@ namespace RTM.Tools
                         OnMessageReceived(message);
                     }
                 }
-                catch (InvalidOperationException)
+                catch (Exception ex) when (ex is InvalidOperationException or System.IO.IOException or ObjectDisposedException)
                 {
                     OnDisconnected();
                     Dispose();
