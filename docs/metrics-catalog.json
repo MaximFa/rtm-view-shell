@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "generated": "2026-06-05",
   "source": "db/data/02_metrics.sql (RTSGrid_Metric baseline)",
-  "metricCount": 206,
+  "metricCount": 207,
   "categories": {
     "Queue": "Queue-level (Business Unit) interaction metrics — 'QM - *'",
     "AgentGroup": "Agent-group aggregates over the BU's agents — 'Agent Group - *'",
@@ -5506,6 +5506,32 @@
       "duplicateOf": null
     },
     {
+      "metricId": "QueueNumberOfCompletedIncomingCalls",
+      "originalDescription": "QM - Number of Completed Incoming Calls",
+      "metricFunction": "InteractionsCount",
+      "metricParameter": "(InteractionType==\"Call\") && (CallType==\"External\")  && Direction == \"Incoming\" && !IsInQueue && !IsTalk",
+      "metricFormat": null,
+      "valueType": "number",
+      "metricType": "Data",
+      "dataType": "Interactions Summary",
+      "category": "Queue",
+      "family": "queue.volume.incoming_completed",
+      "channel": "calls",
+      "thresholdSec": null,
+      "displayName": "Completed Incoming Calls Today",
+      "shortDescription": "Number of incoming external voice calls that have completed the interaction today (not in queue and not currently talking = disconnected).",
+      "longDescription": "Counts incoming external voice calls that have completed the interaction today - no longer in queue and not currently talking (i.e. disconnected). Distinct from QueueNumIncomingCompletedCalls, which counts calls that finished queuing (excludes callback requests) rather than fully-disconnected calls.",
+      "comparison": "Differs from QueueNumIncomingCompletedCalls: this counts calls whose interaction finished (not in queue AND not currently talking = disconnected); QueueNumIncomingCompletedCalls excludes callback requests instead of active talk.",
+      "standardKpi": null,
+      "standardRef": null,
+      "status": "active",
+      "notes": "Client-parity addition 2026-07-13 (client gap diff).",
+      "similarMetrics": [
+        "QueueNumIncomingCompletedCalls"
+      ],
+      "duplicateOf": null
+    },
+    {
       "metricId": "QueueNumIncomingCompletedCallsAndCallbacks",
       "originalDescription": "QM - Number of Incoming Calls and Callbacks exluding Waiting",
       "metricFunction": "InteractionsCount",
@@ -6473,7 +6499,7 @@
     }
   ],
   "cleanupMigration": "db/migrations/20260605_004_metrics_dedup.sql",
-  "postCleanupMetricCount": 198,
+  "postCleanupMetricCount": 199,
   "cleanupApplied": {
     "date": "2026-06-05",
     "dbCommit": "886dfe0",
