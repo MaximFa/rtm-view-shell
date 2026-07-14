@@ -54,6 +54,22 @@
 }
 else
 {
+    <div class="row mb-3 g-2">
+        <div class="col-auto">
+            <input type="text" class="form-control form-control-sm" placeholder="@L["Common_Search"]..."
+                   @bind="_search" @bind:event="oninput" style="width: 200px;" />
+        </div>
+        <div class="col-auto">
+            <select class="form-select form-select-sm" @bind="_tzFilter" style="width: auto;">
+                <option value="">@L["Common_All"] @L["Sites_TimeZone"]</option>
+                @foreach (var tz in DistinctTimeZones)
+                {
+                    <option value="@tz">@tz</option>
+                }
+            </select>
+        </div>
+    </div>
+
     <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover align-middle">
             <thead class="table-light">
@@ -70,7 +86,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var s in Sites)
+                @foreach (var s in FilteredSites)
                 {
                     <tr @key="s.SiteId">
                         <td class="fw-mono small">@s.SiteId</td>
@@ -87,7 +103,7 @@ else
                         </td>
                     </tr>
                 }
-                @if (!Sites.Any())
+                @if (!FilteredSites.Any())
                 {
                     <tr><td colspan="@(CurrentUser.Role == "Superadmin" ? 6 : 5)" class="text-center text-muted py-3">@L["Sites_Empty"]</td></tr>
                 }
@@ -225,6 +241,22 @@ else
     private IReadOnlyList<SiteDto> Sites = [];
     private bool Loading = true;
     private string? Error;
+
+    // Client-side filters
+    private string _search = "";
+    private string? _tzFilter;
+
+    private IEnumerable<string> DistinctTimeZones => Sites
+        .Select(s => s.TimeZone)
+        .Where(tz => !string.IsNullOrEmpty(tz))
+        .Distinct()
+        .OrderBy(tz => tz);
+
+    private IEnumerable<SiteDto> FilteredSites => Sites
+        .Where(s => string.IsNullOrWhiteSpace(_search)
+            || (s.SiteId ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || (s.SiteName ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase))
+        .Where(s => string.IsNullOrEmpty(_tzFilter) || s.TimeZone == _tzFilter);
 
     private List<TenantDto> Tenants = [];
     private Guid? SelectedTenantId;

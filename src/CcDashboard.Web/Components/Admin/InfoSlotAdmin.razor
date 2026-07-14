@@ -56,6 +56,29 @@
 }
 else
 {
+    <div class="row mb-3 g-2">
+        <div class="col-auto">
+            <input type="text" class="form-control form-control-sm" placeholder="@L["Common_Search"]..."
+                   @bind="_search" @bind:event="oninput" style="width: 200px;" />
+        </div>
+        <div class="col-auto">
+            <select class="form-select form-select-sm" @bind="_displayModeFilter" style="width: auto;">
+                <option value="">@L["Common_All"] @L["InfoSlots_DisplayMode"]</option>
+                @foreach (var m in DistinctDisplayModes)
+                {
+                    <option value="@m">@(m == "Ticker" ? L["InfoSlots_ModeTicker"] : L["InfoSlots_ModeSequential"])</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <select class="form-select form-select-sm" @bind="_statusFilter" style="width: auto;">
+                <option value="">@L["Common_All"] @L["Common_Status"]</option>
+                <option value="active">@L["Common_Active"]</option>
+                <option value="inactive">@L["Common_Inactive"]</option>
+            </select>
+        </div>
+    </div>
+
     <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover align-middle">
             <thead class="table-light">
@@ -70,7 +93,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var s in InfoSlots)
+                @foreach (var s in FilteredInfoSlots)
                 {
                     <tr @key="s.Id">
                         <td class="fw-semibold">@s.Name</td>
@@ -109,7 +132,7 @@ else
                         </td>
                     </tr>
                 }
-                @if (!InfoSlots.Any())
+                @if (!FilteredInfoSlots.Any())
                 {
                     <tr><td colspan="6" class="text-center text-muted py-3">@L["InfoSlots_NoSlots"]</td></tr>
                 }
@@ -257,6 +280,24 @@ else
     private bool SaveSuccess;
 
     private bool IsSuperadmin => CurrentUser.Role == "Superadmin";
+
+    // Client-side filters
+    private string _search = "";
+    private string? _displayModeFilter;
+    private string? _statusFilter;
+
+    private IEnumerable<string> DistinctDisplayModes => InfoSlots
+        .Select(s => s.DisplayMode)
+        .Where(m => !string.IsNullOrEmpty(m))
+        .Distinct();
+
+    private IEnumerable<InfoSlotListDto> FilteredInfoSlots => InfoSlots
+        .Where(s => string.IsNullOrWhiteSpace(_search)
+            || (s.Name ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase))
+        .Where(s => string.IsNullOrEmpty(_displayModeFilter) || s.DisplayMode == _displayModeFilter)
+        .Where(s => string.IsNullOrEmpty(_statusFilter)
+            || (_statusFilter == "active" && s.IsActive)
+            || (_statusFilter == "inactive" && !s.IsActive));
 
     private bool ShowModal;
     private bool IsNew;

@@ -55,6 +55,22 @@
 }
 else
 {
+    <div class="row mb-3 g-2">
+        <div class="col-auto">
+            <input type="text" class="form-control form-control-sm" placeholder="@L["Common_Search"]..."
+                   @bind="_search" @bind:event="oninput" style="width: 200px;" />
+        </div>
+        <div class="col-auto">
+            <select class="form-select form-select-sm" @bind="_siteFilter" style="width: auto;">
+                <option value="">@L["Common_All"] @L["BU_Site"]</option>
+                @foreach (var s in Sites)
+                {
+                    <option @key="s.SiteId" value="@s.SiteId">@(s.SiteName ?? s.SiteId)</option>
+                }
+            </select>
+        </div>
+    </div>
+
     <div class="table-responsive" aria-busy="@Loading">
         <table class="table table-sm table-hover align-middle">
             <thead class="table-light">
@@ -71,7 +87,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var bu in BusinessUnits)
+                @foreach (var bu in FilteredBusinessUnits)
                 {
                     <tr @key="bu.BusinessUnitId">
                         <td>@bu.BusinessUnitName</td>
@@ -88,7 +104,7 @@ else
                         </td>
                     </tr>
                 }
-                @if (!BusinessUnits.Any())
+                @if (!FilteredBusinessUnits.Any())
                 {
                     <tr><td colspan="@(CurrentUser.Role == "Superadmin" ? 6 : 5)" class="text-center text-muted py-3">@L["BU_Empty"]</td></tr>
                 }
@@ -218,6 +234,16 @@ else
     private IReadOnlyList<SupergroupDto> AllSupergroups = [];
     private bool Loading = true;
     private string? Error;
+
+    // Client-side filters
+    private string _search = "";
+    private string? _siteFilter;
+
+    private IEnumerable<BusinessUnitDto> FilteredBusinessUnits => BusinessUnits
+        .Where(bu => string.IsNullOrWhiteSpace(_search)
+            || (bu.BusinessUnitName ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || (bu.Description ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase))
+        .Where(bu => string.IsNullOrEmpty(_siteFilter) || bu.SiteId == _siteFilter);
 
     private List<TenantDto> Tenants = [];
     private Guid? SelectedTenantId;

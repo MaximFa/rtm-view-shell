@@ -907,5 +907,7 @@
   <data name="View_ScaleMode_Fit"><value>התאמה לגודל המסך</value></data>
   <data name="View_ScaleMode_Actual"><value>גודל אמיתי (1:1)</value></data>
   <data name="Widget_Asd_BuRequired"><value>בחר יחידה עסקית עבור וידג'ט התפלגות מצבי סוכנים.</value></data>
+  <data name="Common_Status"><value>סטטוס</value></data>
+  <data name="Common_All"><value>הכל</value></data>
 </root>
 
