@@ -27,7 +27,7 @@
                 <label class="form-label mb-0 small text-muted">@L["PG_Tenant"]</label>
                 <select class="form-select form-select-sm" style="width:auto"
                         value="@SelectedTenantId"
-                        @onchange="async e => { SelectedTenantId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await LoadAsync(); }">
+                        @onchange="async e => { SelectedTenantId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _page = 1; await LoadAsync(); }">
                     <option value="">@L["Audit_AllTenants"]</option>
                     @foreach (var t in Tenants)
                     {
@@ -58,10 +58,10 @@ else
     <div class="row mb-3 g-2">
         <div class="col-auto">
             <input type="text" class="form-control form-control-sm" placeholder="@L["Common_Search"]..."
-                   @bind="_search" @bind:event="oninput" style="width: 200px;" />
+                   @bind="_search" @bind:event="oninput" @bind:after="() => _page = 1" style="width: 200px;" />
         </div>
         <div class="col-auto">
-            <select class="form-select form-select-sm" @bind="_siteFilter" style="width: auto;">
+            <select class="form-select form-select-sm" @bind="_siteFilter" @bind:after="() => _page = 1" style="width: auto;">
                 <option value="">@L["Common_All"] @L["BU_Site"]</option>
                 @foreach (var s in Sites)
                 {
@@ -87,7 +87,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var bu in FilteredBusinessUnits)
+                @foreach (var bu in PagedBusinessUnits)
                 {
                     <tr @key="bu.BusinessUnitId">
                         <td>@bu.BusinessUnitName</td>
@@ -111,6 +111,8 @@ else
             </tbody>
         </table>
     </div>
+    <AppPagination TotalCount="FilteredBusinessUnits.Count()" Page="_page" PageSize="_pageSize"
+                   PageChanged="p => { _page = p; StateHasChanged(); }" PageSizeChanged="s => { _pageSize = s; _page = 1; StateHasChanged(); }" />
 }
 
 @if (ShowModal)
@@ -239,11 +241,17 @@ else
     private string _search = "";
     private string? _siteFilter;
 
+    // Pagination
+    private int _page = 1;
+    private int _pageSize = 25;
+
     private IEnumerable<BusinessUnitDto> FilteredBusinessUnits => BusinessUnits
         .Where(bu => string.IsNullOrWhiteSpace(_search)
             || (bu.BusinessUnitName ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase)
             || (bu.Description ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase))
         .Where(bu => string.IsNullOrEmpty(_siteFilter) || bu.SiteId == _siteFilter);
+
+    private IEnumerable<BusinessUnitDto> PagedBusinessUnits => FilteredBusinessUnits.Skip((_page - 1) * _pageSize).Take(_pageSize);
 
     private List<TenantDto> Tenants = [];
     private Guid? SelectedTenantId;
