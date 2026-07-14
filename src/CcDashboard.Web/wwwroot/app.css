@@ -657,6 +657,12 @@ a:hover {
    TABLES — Enterprise Grade
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Internal table scroll + sticky header (admin/report list tables) */
+.table-responsive {
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+}
+
 .table {
     width: 100%;
     border-collapse: separate;
