@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.IO.Pipes;
@@ -40,22 +41,38 @@ namespace RTM.Tools
 
         protected async Task StartReading()
         {
-            await Task.Factory.StartNew(async () =>
+            var queue = new BlockingCollection<string>();
+            var worker = Task.Run(() =>
             {
                 try
                 {
-                    while (true)
+                    foreach (var msg in queue.GetConsumingEnumerable())
                     {
-                        var message = await _stream.ReadString();
-                        OnMessageReceived(message);
+                        try { OnMessageReceived(msg); }
+                        catch (Exception ex) { Console.WriteLine("NamedPipe handler error: " + ex); }
                     }
                 }
-                catch (InvalidOperationException)
-                {
-                    OnDisconnected();
-                    Dispose();
-                }
+                catch { }
             });
+
+            try
+            {
+                while (true)
+                {
+                    var message = await _stream.ReadString();
+                    queue.Add(message);
+                }
+            }
+            catch (Exception)
+            {
+                // pipe closed / broke — fall through to teardown
+            }
+            finally
+            {
+                queue.CompleteAdding();
+                try { await worker; } catch { }
+                OnDisconnected();
+            }
         }
 
         public async Task Send(string message)

@@ -52,42 +52,37 @@ namespace RTM.Tools
             }
         }
 
-        private void WaitForConnectionCallBack(IAsyncResult result)
+        private async void WaitForConnectionCallBack(IAsyncResult result)
         {
+            var connectedPipe = Pipe;   // capture this connection
             try
             {
-                Pipe.EndWaitForConnection(result);
+                connectedPipe.EndWaitForConnection(result);
                 OnClientConnected();
-                StartReading().GetAwaiter().GetResult();
+                await StartReading();    // returns only on disconnect (read loop drains via worker)
             }
             catch (ObjectDisposedException)
             {
-                // Server stopping — exit silently
-                return;
+                return; // server stopping
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
             }
+            finally
+            {
+                try { connectedPipe?.Dispose(); } catch { }  // close THIS connection only
+            }
 
-            // RE-ACCEPT: create fresh pipe + wait for the next client (unless stopping)
             if (_stopping) return;
 
             try
             {
-                // NamedPipeServerStream cannot be reused after Disconnect on .NET;
-                // create a fresh instance with the same parameters
-                Initialize(CreatePipe());
+                Initialize(CreatePipe());   // fresh pipe for the NEXT client — only AFTER this one ended
                 Pipe.BeginWaitForConnection(WaitForConnectionCallBack, null);
             }
-            catch (ObjectDisposedException)
-            {
-                // Server stopping — do not re-accept
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-            }
+            catch (ObjectDisposedException) { }
+            catch (Exception ex) { Console.WriteLine(ex); }
         }
 
         public override void Dispose()
