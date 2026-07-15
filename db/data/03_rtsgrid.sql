@@ -48,11 +48,11 @@ COPY "RTSUserGrid_Grid" FROM stdin;
 -- RTSUserGrid_Column
 TRUNCATE TABLE "RTSUserGrid_Column" RESTART IDENTITY CASCADE;
 COPY "RTSUserGrid_Column" FROM stdin;
-1	1	Agent	AgentName	\N	0
-2	1	State	AgentState	\N	1
-3	1	Duration	AgentStateDuration	\N	2
-4	1	OCC%	AgentOccupancy	\N	3
-5	1	ADH%	AgentAdherence	\N	4
+1	1	Agent	AgentLoginName	\N	0
+2	1	State	MonAgentState	\N	1
+3	1	Duration	MonAgentStateDuration	\N	2
+4	1	OCC%	MonAgentAvailableDurationPct	\N	3
+5	1	ADH%	MonAgentAverageCallDuration	\N	4
 \.
 
 SET session_replication_role = DEFAULT;
