@@ -3921,11 +3921,11 @@
     {
         return new List<AgentGridColumnDef>
         {
-            new() { Name = "Agent", MetricId = "AgentName" },
-            new() { Name = "State", MetricId = "AgentState" },
-            new() { Name = "Duration", MetricId = "AgentStateDuration" },
-            new() { Name = "OCC%", MetricId = "AgentOccupancy" },
-            new() { Name = "ADH%", MetricId = "AgentAdherence" }
+            new() { Name = "Agent", MetricId = "AgentLoginName" },
+            new() { Name = "State", MetricId = "MonAgentState" },
+            new() { Name = "Duration", MetricId = "MonAgentStateDuration" },
+            new() { Name = "OCC%", MetricId = "MonAgentAvailableDurationPct" },
+            new() { Name = "ADH%", MetricId = "MonAgentAverageCallDuration" }
         };
     }
 
