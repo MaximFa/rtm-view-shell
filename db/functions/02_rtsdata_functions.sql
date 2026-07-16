@@ -332,16 +332,8 @@ LANGUAGE sql AS $$
         "IsCallbackRequest", "TimeZone"::text, "ServerId"::text, "OnDate"::text
     FROM "RTSData_Interaction"
     WHERE "TenantId" = p_tenant_id
-      AND (
-            (CASE WHEN "TimeZone" ~ '^[+-][0-9]{2}:[0-9]{2}$'
-                  THEN ("UpdateTime" AT TIME ZONE (("TimeZone")::interval))
-                  ELSE ("UpdateTime" AT TIME ZONE COALESCE(NULLIF("TimeZone", ''), 'UTC'))
-             END)::date
-          = (CASE WHEN "TimeZone" ~ '^[+-][0-9]{2}:[0-9]{2}$'
-                  THEN (now()        AT TIME ZONE (("TimeZone")::interval))
-                  ELSE (now()        AT TIME ZONE COALESCE(NULLIF("TimeZone", ''), 'UTC'))
-             END)::date
-          )
+      AND ("UpdateTime" AT TIME ZONE current_setting('TimeZone'))::date
+        = (now()        AT TIME ZONE current_setting('TimeZone'))::date
     ORDER BY "Segment", "UpdateTime" DESC;
 $$;
 
