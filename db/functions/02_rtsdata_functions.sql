@@ -330,7 +330,12 @@ LANGUAGE sql AS $$
         "CustomCallData13"::text, "CustomCallData14"::text, "CustomCallData15"::text, "CustomCallData16"::text,
         "CustomCallData17"::text, "CustomCallData18"::text, "CustomCallData19"::text, "CustomCallData20"::text,
         "IsCallbackRequest", "TimeZone"::text, "ServerId"::text, "OnDate"::text
-    FROM "RTSData_Interaction" WHERE "OnDate" = p_on_date AND "TenantId" = p_tenant_id
+    FROM "RTSData_Interaction"
+    WHERE "TenantId" = p_tenant_id
+      AND (
+            ("UpdateTime" AT TIME ZONE (COALESCE(NULLIF("TimeZone", ''), '+00:00')::interval))::date
+          = (now()        AT TIME ZONE (COALESCE(NULLIF("TimeZone", ''), '+00:00')::interval))::date
+          )
     ORDER BY "Segment", "UpdateTime" DESC;
 $$;
 
