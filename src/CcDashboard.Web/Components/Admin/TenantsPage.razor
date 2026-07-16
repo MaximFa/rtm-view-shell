@@ -500,8 +500,8 @@ else
                         }
                     }
 
-                    <!-- Danger Zone (not for platform tenant) -->
-                    @if (EditTenant.Status != TenantStatus.Deleted && EditTenant.Slug != "platform")
+                    <!-- Danger Zone (not for platform tenant) — shown only on the General tab -->
+                    @if (EditTab == "general" && EditTenant.Status != TenantStatus.Deleted && EditTenant.Slug != "platform")
                     {
                         <div class="mt-4 pt-3 border-top border-danger">
                             <h6 class="text-danger mb-3">
