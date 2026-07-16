@@ -2032,7 +2032,80 @@ namespace RTM
 
 
 
-        public void AddGridConnection(string connectionId, string gridId)
+        /// <summary>
+        /// On-demand grid+cell registration for runtime-created grids.
+        /// Mirrors LoadData DataCells loop (lines 618-680) for a single gridId.
+        /// Called when a subscribe targets a data gridId not yet in _gridList.
+        /// </summary>
+        private void RegisterGridOnDemand(int gridId)
+        {
+            try
+            {
+                var dataCells = RealtimeData.getDataCells();
+                foreach (var cell in dataCells)
+                {
+                    if (Convert.ToInt32(cell["GridId"]) != gridId) continue;
+
+                    int cellId = Convert.ToInt32(cell["CellId"]);
+                    string metric = cell["Metric"];
+                    int unionId = Convert.ToInt32(cell["UnionId"]);
+
+                    if (!UnionList.ContainsKey(unionId)) continue;   // union must be built (same gate as LoadData)
+
+                    // Note-1: race-safe single-instance registration via GetOrAdd.
+                    // The dictionary keeps exactly ONE Grid; every thread uses the STORED instance.
+                    // GridEvent is wired inside the factory so the stored instance always has it wired;
+                    // any instance from a factory re-run under contention is discarded and harmless.
+                    Grid grid = _gridList.GetOrAdd(gridId, id =>
+                    {
+                        var g = new Grid(id);
+                        g.GridEvent += Grid_GridEvent;
+                        return g;
+                    });
+
+                    Cell newCell;
+                    if (!_cellList.ContainsKey(cellId))
+                    {
+                        newCell = new Cell(cellId, grid, unionId, metric);
+                        _cellList.TryAdd(cellId, newCell);
+                    }
+                    else
+                    {
+                        newCell = _cellList[cellId];
+                        if (UnionList.ContainsKey(newCell.UnionId))
+                        {
+                            Union oldUnion = UnionList[newCell.UnionId];
+                            if (oldUnion.Metrics.ContainsKey(newCell.Metric))
+                                oldUnion.Metrics[newCell.Metric].Cells.TryRemove(cellId, out _);
+                        }
+                        newCell.UnionId = unionId;
+                        newCell.Metric = metric;
+                    }
+
+                    Union union = UnionList[unionId];
+                    Metric unionMetric = union.Metrics.GetOrAdd(metric, new Metric(union));
+                    unionMetric.Cells.TryAdd(cellId, newCell);
+
+                    try
+                    {
+                        union.addDataMetric(_metrics[metric]);
+                        unionMetric.setCellValue(newCell);
+                    }
+                    catch (Exception ex)
+                    {
+                        AsyncLogger.Error("RegisterGridOnDemand union=" + union.UnionId + " Metric=" + metric, ex);
+                    }
+                }
+                AsyncLogger.Info("RegisterGridOnDemand gridId=" + gridId + " registered=" + _gridList.ContainsKey(gridId));
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("RegisterGridOnDemand gridId=" + gridId, ex);
+            }
+        }
+
+
+                public void AddGridConnection(string connectionId, string gridId)
         {
             try
             {
@@ -2065,8 +2138,12 @@ namespace RTM
                     int dataGridId = Convert.ToInt32(gridId);
                     if (!_gridList.TryGetValue(dataGridId, out var grid))
                     {
-                        AsyncLogger.Warn("AddGridConnection: data grid " + dataGridId + " not found; connection " + connectionId + " not registered");
-                        return;
+                        RegisterGridOnDemand(dataGridId);   // runtime-created grid: register its cells on demand (no restart)
+                        if (!_gridList.TryGetValue(dataGridId, out grid))
+                        {
+                            AsyncLogger.Warn("AddGridConnection: data grid " + dataGridId + " not found after on-demand register; connection " + connectionId + " not registered");
+                            return;
+                        }
                     }
                     grid.Connections.TryAdd(connectionId, 0);
                     grid.InUse = true;
