@@ -333,8 +333,8 @@ LANGUAGE sql AS $$
     FROM "RTSData_Interaction"
     WHERE "TenantId" = p_tenant_id
       AND (
-            ("UpdateTime" AT TIME ZONE (COALESCE(NULLIF("TimeZone", ''), '+00:00')::interval))::date
-          = (now()        AT TIME ZONE (COALESCE(NULLIF("TimeZone", ''), '+00:00')::interval))::date
+            ("UpdateTime" AT TIME ZONE COALESCE(NULLIF("TimeZone", ''), 'UTC'))::date
+          = (now()        AT TIME ZONE COALESCE(NULLIF("TimeZone", ''), 'UTC'))::date
           )
     ORDER BY "Segment", "UpdateTime" DESC;
 $$;
