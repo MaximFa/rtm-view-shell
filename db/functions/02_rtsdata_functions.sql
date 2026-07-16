@@ -333,8 +333,14 @@ LANGUAGE sql AS $$
     FROM "RTSData_Interaction"
     WHERE "TenantId" = p_tenant_id
       AND (
-            ("UpdateTime" AT TIME ZONE COALESCE(NULLIF("TimeZone", ''), 'UTC'))::date
-          = (now()        AT TIME ZONE COALESCE(NULLIF("TimeZone", ''), 'UTC'))::date
+            (CASE WHEN "TimeZone" ~ '^[+-][0-9]{2}:[0-9]{2}$'
+                  THEN ("UpdateTime" AT TIME ZONE (("TimeZone")::interval))
+                  ELSE ("UpdateTime" AT TIME ZONE COALESCE(NULLIF("TimeZone", ''), 'UTC'))
+             END)::date
+          = (CASE WHEN "TimeZone" ~ '^[+-][0-9]{2}:[0-9]{2}$'
+                  THEN (now()        AT TIME ZONE (("TimeZone")::interval))
+                  ELSE (now()        AT TIME ZONE COALESCE(NULLIF("TimeZone", ''), 'UTC'))
+             END)::date
           )
     ORDER BY "Segment", "UpdateTime" DESC;
 $$;
