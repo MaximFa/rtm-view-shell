@@ -28,7 +28,7 @@ param(
     [string]$SuperUser     = "postgres",
     [string]$SuperPassword = "",
     [string]$AppUser       = "ccdashboard_user",
-    [string]$AppPassword   = "!@#qweASDzxc",
+    [string]$AppPassword   = "",
     [string]$ShellExe      = "C:\RTMView\Shell\CcDashboard.Web.exe"
 )
 
