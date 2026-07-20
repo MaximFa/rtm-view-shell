@@ -1308,9 +1308,10 @@
                     System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.None, out var enqueueLocal))
             {
-                // enqueueLocal is server-local time; treat as UTC for consistent anchor
-                // (server and client should be in same timezone in typical CC deployment)
-                var enqueueUtc = DateTime.SpecifyKind(enqueueLocal, DateTimeKind.Utc);
+                // enqueueLocal is server-local time; convert to UTC so GetCellDisplay
+                // (which uses DateTime.UtcNow - StartedAt) computes the true wait.
+                // SpecifyKind(Local).ToUniversalTime() converts the server-local instant to UTC.
+                var enqueueUtc = DateTime.SpecifyKind(enqueueLocal, DateTimeKind.Local).ToUniversalTime();
                 row.TimerAnchors[metricId] = (0, enqueueUtc);
                 row.Metrics[metricId] = rawValue[1..];
             }
