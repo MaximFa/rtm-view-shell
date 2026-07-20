@@ -917,6 +917,9 @@ namespace RTM
                             DateTime signonTimeDT = DateTime.ParseExact(value, "dd/MM/yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                             TimeSpan signonTimeTS = DateTime.Now.Subtract(signonTimeDT);
                             value = firstChr + signonTimeTS.ToString(@"hh\:mm\:ss");
+                            try {
+                                AsyncLogger.Info($"MAXWAIT-STREAM grid={e.GridId} cell={cellId} base=[{cell.Value2}] emitted=[{value}]");
+                            } catch { }
                         }
                         catch
                         {
@@ -1382,6 +1385,7 @@ namespace RTM
 
         public void refreshCells(int gridId)
         {
+            try { AsyncLogger.Info($"MAXWAIT-REFRESH-ENTER grid={gridId}"); } catch { }
             ConcurrentDictionary<int, CellData> cells = new ConcurrentDictionary<int, CellData>();
 
             try
@@ -1406,6 +1410,9 @@ namespace RTM
                             DateTime signonTimeDT = DateTime.ParseExact(value, "dd/MM/yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                             TimeSpan signonTimeTS = DateTime.Now.Subtract(signonTimeDT);
                             value = firstChr + signonTimeTS.ToString(@"hh\:mm\:ss");
+                            try {
+                                AsyncLogger.Info($"MAXWAIT-REFRESH grid={gridId} cell={cellId} servedBase=[{cellValue.Value.Value2}] emitted=[{value}]");
+                            } catch { }
                         }
                         catch
                         {
