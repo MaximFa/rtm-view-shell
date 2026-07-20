@@ -487,7 +487,7 @@ public sealed class RtmRelayService : IRtmRelayService
             {
                 // Late subscriber: deliver current cell values immediately
                 var snapshot = state.CellSnapshot
-                    .Select(kvp => new GridCellUpdate(kvp.Key, kvp.Value))
+                    .Select(kvp => new GridCellUpdate(kvp.Key, kvp.Value.Value, kvp.Value.Value2))
                     .ToList();
                 _logger.LogInformation(
                     "RtmRelayService: delivering snapshot of {Count} cells to late subscriber for grid {GridId}",
@@ -684,8 +684,9 @@ public sealed class RtmRelayService : IRtmRelayService
                 if (cellIdToken == null || valueToken == null) continue;
                 var cellId = cellIdToken.Value<int>();
                 var value = valueToken.Value<string>() ?? "";
-                state.CellSnapshot[cellId] = value;
-                updates.Add(new GridCellUpdate(cellId, value));
+                var value2 = item["Value2"]?.Value<string>();
+                state.CellSnapshot[cellId] = (value, value2);
+                updates.Add(new GridCellUpdate(cellId, value, value2));
             }
 
             handlers = state.Handlers.ToList();
@@ -694,7 +695,7 @@ public sealed class RtmRelayService : IRtmRelayService
 
         if (_options.CurrentValue.DiagPushLogging)
         {
-            var cellLog = string.Join(", ", updates.Select(u => $"Cell{u.CellId}={u.Value}"));
+            var cellLog = string.Join(", ", updates.Select(u => u.Value2 != null ? $"Cell{u.CellId}={u.Value}|v2={u.Value2}" : $"Cell{u.CellId}={u.Value}"));
             _logger.LogInformation(
                 "RECV updateGridData grid {GridId}: {Count} cells [{Cells}], {HandlerCount} handlers",
                 key.GridId, updates.Count, cellLog, handlers.Count);
@@ -721,7 +722,7 @@ public sealed class RtmRelayService : IRtmRelayService
     {
         public HubConnection? Connection;
         public bool IsDisposing;
-        public readonly Dictionary<int, string> CellSnapshot = new();
+        public readonly Dictionary<int, (string Value, string? Value2)> CellSnapshot = new();
         public readonly List<Func<IReadOnlyList<GridCellUpdate>, Task>> Handlers = new();
         public int RefCount;
         public CancellationTokenSource? GraceCts;

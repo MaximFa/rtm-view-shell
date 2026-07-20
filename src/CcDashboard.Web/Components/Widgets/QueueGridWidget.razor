@@ -481,7 +481,7 @@
                     var (rowDefId, metricId) = mapping;
                     var row = _rows.FirstOrDefault(r => r.RowId == rowDefId);
                     if (row is null) continue;
-                    ApplyMetricValue(row, metricId, cell.Value ?? "");
+                    ApplyMetricValue(row, metricId, cell.Value ?? "", cell.Value2);
                 }
                 if (isFirstData) DetectColumnDataTypes();
                 await InvokeAsync(StateHasChanged);
@@ -1297,13 +1297,30 @@
         _ => value.EndsWith("px") ? value : $"{value}px"
     };
 
-    private static void ApplyMetricValue(QueueRowData row, string metricId, string rawValue)
+    private static void ApplyMetricValue(QueueRowData row, string metricId, string rawValue, string? value2)
     {
         if (rawValue.StartsWith('+'))
         {
-            var secs = ParseTimeToSeconds(rawValue[1..]);
-            row.TimerAnchors[metricId] = (secs, DateTime.UtcNow);
-            row.Metrics[metricId] = rawValue[1..];
+            // Value2 contains the enqueue datetime in server-local format: "+dd/MM/yyyy HH:mm:ss"
+            // If present and parseable, anchor to the enqueue instant for F5-proof display
+            if (!string.IsNullOrEmpty(value2) && value2.StartsWith('+') &&
+                DateTime.TryParseExact(value2[1..], "dd/MM/yyyy HH:mm:ss",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var enqueueLocal))
+            {
+                // enqueueLocal is server-local time; treat as UTC for consistent anchor
+                // (server and client should be in same timezone in typical CC deployment)
+                var enqueueUtc = DateTime.SpecifyKind(enqueueLocal, DateTimeKind.Utc);
+                row.TimerAnchors[metricId] = (0, enqueueUtc);
+                row.Metrics[metricId] = rawValue[1..];
+            }
+            else
+            {
+                // Fallback: use received elapsed + receipt anchor (pre-fix behavior)
+                var secs = ParseTimeToSeconds(rawValue[1..]);
+                row.TimerAnchors[metricId] = (secs, DateTime.UtcNow);
+                row.Metrics[metricId] = rawValue[1..];
+            }
         }
         else
         {
