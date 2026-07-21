@@ -1030,5 +1030,30 @@
   <data name="Widget_Asd_BuRequired"><value>Выберите Business Unit для виджета распределения состояний агентов.</value></data>
   <data name="Common_Status"><value>Статус</value></data>
   <data name="Common_All"><value>Все</value></data>
+
+  <!-- WFM Widget keys -->
+  <data name="Wfm_WaitingForData"><value>Ожидание данных...</value></data>
+  <data name="Wfm_StateOk"><value>ОК</value></data>
+  <data name="Wfm_StateOverloaded"><value>Перегрузка</value></data>
+  <data name="Wfm_StateNoData"><value>Нет данных</value></data>
+  <data name="Wfm_OverloadedMessage"><value>Система перегружена — агентов ≤ трафика</value></data>
+  <data name="Wfm_NoDataMessage"><value>Ожидание вызовов или агентов</value></data>
+  <data name="Wfm_Inputs"><value>Вход</value></data>
+  <data name="Wfm_Lambda"><value>Прибытия (λ)</value></data>
+  <data name="Wfm_AHT"><value>AHT</value></data>
+  <data name="Wfm_NActual"><value>Агентов на линии</value></data>
+  <data name="Wfm_WrapIncluded"><value>Обработка включена</value></data>
+  <data name="Wfm_Erlang"><value>Прогноз Erlang</value></data>
+  <data name="Wfm_TrafficA"><value>Трафик</value></data>
+  <data name="Wfm_PWait"><value>P(ожидание)</value></data>
+  <data name="Wfm_PredictedSL"><value>Прогноз SL</value></data>
+  <data name="Wfm_PredictedASA"><value>Прогноз ASA</value></data>
+  <data name="Wfm_RequiredAgents"><value>Требуется</value></data>
+  <data name="Wfm_Capped"><value>лимит</value></data>
+  <data name="Wfm_ErlangB"><value>Erlang B %</value></data>
+  <data name="Wfm_Occupancy"><value>Загрузка</value></data>
+  <data name="Wfm_Understaff"><value>Недобор</value></data>
+  <data name="Wfm_StaffVariance"><value>Отклонение</value></data>
+  <data name="Wfm_MinWindow"><value>мин окно</value></data>
 </root>
 

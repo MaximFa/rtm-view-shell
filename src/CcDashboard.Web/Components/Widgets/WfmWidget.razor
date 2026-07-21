@@ -1,0 +1,302 @@
+@using CcDashboard.Application.Interfaces
+@using CcDashboard.Application.Wfm
+@using CcDashboard.Domain.Interfaces
+@using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+@using Microsoft.Extensions.Localization
+@implements IAsyncDisposable
+
+@inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
+@inject IWfmSnapshotStore WfmStore
+@inject ICurrentUserAccessor CurrentUser
+@inject ILogger<WfmWidget> Logger
+
+<div class="wfm-widget h-100 d-flex flex-column" style="@GetWidgetStyle()">
+    @if (_queueId is null)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <i class="bi bi-gear fs-3 mb-2 opacity-50" aria-hidden="true"></i>
+            <span class="small">@L["Widget_SaveConfigFirst"]</span>
+        </div>
+    }
+    else if (_snapshot is null)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <div class="spinner-border spinner-border-sm mb-2" aria-hidden="true"></div>
+            <span class="small">@L["Wfm_WaitingForData"]</span>
+        </div>
+    }
+    else
+    {
+        <!-- State badge -->
+        <div class="wfm-state-badge mb-2" style="@GetFontColorStyle()">
+            @switch (_snapshot.State)
+            {
+                case WfmSnapshot.StateOk:
+                    <span class="badge bg-success" aria-label="@L["Wfm_StateOk"]">
+                        <i class="bi bi-check-circle me-1" aria-hidden="true"></i>@L["Wfm_StateOk"]
+                    </span>
+                    break;
+                case WfmSnapshot.StateOverloaded:
+                    <span class="badge bg-danger" aria-label="@L["Wfm_StateOverloaded"]">
+                        <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>@L["Wfm_StateOverloaded"]
+                    </span>
+                    <div class="small text-danger mt-1">@L["Wfm_OverloadedMessage"]</div>
+                    break;
+                case WfmSnapshot.StateNoData:
+                    <span class="badge bg-secondary" aria-label="@L["Wfm_StateNoData"]">
+                        <i class="bi bi-hourglass me-1" aria-hidden="true"></i>@L["Wfm_StateNoData"]
+                    </span>
+                    <div class="small text-muted mt-1">@L["Wfm_NoDataMessage"]</div>
+                    break;
+            }
+        </div>
+
+        <div class="wfm-content flex-grow-1 overflow-auto">
+            <!-- Inputs block -->
+            <div class="wfm-section mb-3">
+                <div class="wfm-section-header small text-uppercase opacity-75 mb-1" style="@GetFontColorStyle()">@L["Wfm_Inputs"]</div>
+                <div class="wfm-metrics-grid">
+                    <div class="wfm-metric" style="@GetMetricStyle("lambdaPerHour")">
+                        <span class="wfm-metric-label">@L["Wfm_Lambda"]</span>
+                        <span class="wfm-metric-value">@FormatDouble(_snapshot.Inputs.LambdaPerHour, 1) <span class="small opacity-75">/hr</span></span>
+                    </div>
+                    <div class="wfm-metric" style="@GetMetricStyle("aht")">
+                        <span class="wfm-metric-label">@L["Wfm_AHT"]</span>
+                        <span class="wfm-metric-value">@FormatDuration(_snapshot.Inputs.AhtSec)</span>
+                    </div>
+                    <div class="wfm-metric" style="@GetMetricStyle("nActual")">
+                        <span class="wfm-metric-label">@L["Wfm_NActual"]</span>
+                        <span class="wfm-metric-value">@_snapshot.Inputs.NActual</span>
+                    </div>
+                    <div class="wfm-metric">
+                        <span class="wfm-metric-label">@L["Wfm_WrapIncluded"]</span>
+                        <span class="wfm-metric-value">@(_snapshot.Inputs.WrapIncluded ? L["Common_Yes"] : L["Common_No"])</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Erlang block (only show when state is OK) -->
+            @if (_snapshot.State == WfmSnapshot.StateOk)
+            {
+                <div class="wfm-section">
+                    <div class="wfm-section-header small text-uppercase opacity-75 mb-1" style="@GetFontColorStyle()">@L["Wfm_Erlang"]</div>
+                    <div class="wfm-metrics-grid">
+                        <div class="wfm-metric" style="@GetMetricStyle("trafficA")">
+                            <span class="wfm-metric-label">@L["Wfm_TrafficA"]</span>
+                            <span class="wfm-metric-value">@FormatDouble(_snapshot.Erlang.TrafficA, 2) <span class="small opacity-75">Erl</span></span>
+                        </div>
+                        <div class="wfm-metric" style="@GetMetricStyle("pWait")">
+                            <span class="wfm-metric-label">@L["Wfm_PWait"]</span>
+                            <span class="wfm-metric-value">@FormatPWait(_snapshot.Erlang.PWaitC)</span>
+                        </div>
+                        <div class="wfm-metric" style="@GetMetricStyle("predictedSl")">
+                            <span class="wfm-metric-label">@L["Wfm_PredictedSL"]</span>
+                            <span class="wfm-metric-value">@FormatPct(_snapshot.Erlang.PredictedSlPct)</span>
+                        </div>
+                        <div class="wfm-metric" style="@GetMetricStyle("predictedAsa")">
+                            <span class="wfm-metric-label">@L["Wfm_PredictedASA"]</span>
+                            <span class="wfm-metric-value">@FormatNullableDouble(_snapshot.Erlang.PredictedAsaSec, 1, "s")</span>
+                        </div>
+                        <div class="wfm-metric" style="@GetMetricStyle("requiredAgents")">
+                            <span class="wfm-metric-label">@L["Wfm_RequiredAgents"]</span>
+                            <span class="wfm-metric-value">
+                                @_snapshot.Erlang.RequiredAgents
+                                @if (_snapshot.Erlang.RequiredCapped)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1 small" title="@L["Wfm_Capped"]">@L["Wfm_Capped"]</span>
+                                }
+                            </span>
+                        </div>
+                        <div class="wfm-metric" style="@GetMetricStyle("erlangB")">
+                            <span class="wfm-metric-label">@L["Wfm_ErlangB"]</span>
+                            <span class="wfm-metric-value">@FormatPct(_snapshot.Erlang.ErlangBPct)</span>
+                        </div>
+                        <div class="wfm-metric" style="@GetMetricStyle("occupancy")">
+                            <span class="wfm-metric-label">@L["Wfm_Occupancy"]</span>
+                            <span class="wfm-metric-value">@FormatPct(_snapshot.Erlang.OccupancyPct)</span>
+                        </div>
+                        <div class="wfm-metric" style="@GetMetricStyle("understaff")">
+                            <span class="wfm-metric-label">@L["Wfm_Understaff"]</span>
+                            <span class="wfm-metric-value">@FormatPct(_snapshot.Erlang.UnderstaffPct)</span>
+                        </div>
+                        <div class="wfm-metric" style="@GetMetricStyle("staffVariance")">
+                            <span class="wfm-metric-label">@L["Wfm_StaffVariance"]</span>
+                            <span class="wfm-metric-value">@FormatVariance(_snapshot.Erlang.StaffVariance)</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Footer -->
+        <div class="wfm-footer d-flex align-items-center justify-content-between px-2 py-1 small" style="@GetFontColorStyle()">
+            <div class="d-flex align-items-center gap-1">
+                <span class="live-dot connected" aria-hidden="true"></span>
+                <span class="small opacity-70">@L["Widget_Live"]</span>
+            </div>
+            <span class="small opacity-60">
+                @FormatTime(_snapshot.AsOfUtc) · @_snapshot.WindowMin @L["Wfm_MinWindow"]
+            </span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public WidgetConfig? Config { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public int GridId { get; set; }
+
+    private Guid _tenantId;
+    private string? _queueId;
+    private WfmSnapshot? _snapshot;
+    private DateTime _lastAsOfUtc;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource _cts = new();
+
+    // Appearance
+    private string? _backgroundColor;
+    private string? _fontColor;
+
+    protected override Task OnInitializedAsync()
+    {
+        _tenantId = CurrentUser.TenantId ?? Guid.Empty;
+        ApplyConfig();
+        if (_tenantId != Guid.Empty && _queueId is not null)
+        {
+            _ = PollLoopAsync();
+        }
+        return Task.CompletedTask;
+    }
+
+    protected override void OnParametersSet()
+    {
+        ApplyConfig();
+    }
+
+    private void ApplyConfig()
+    {
+        if (Config is null) return;
+
+        // Queue scope: use WfmQueueId if present, else fallback to BusinessUnit as queue identifier
+        _queueId = Config.WfmQueueId;
+        if (string.IsNullOrEmpty(_queueId) && Config.BusinessUnit is not null)
+        {
+            // Fallback: try to use BusinessUnit name as queue ID (legacy support)
+            _queueId = Config.BusinessUnit;
+        }
+
+        // Appearance
+        _backgroundColor = DarkMode ? Config.DarkBackgroundColor : Config.BackgroundColor;
+        _fontColor = DarkMode ? Config.DarkFontColor : Config.FontColor;
+    }
+
+    private async Task PollLoopAsync()
+    {
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        try
+        {
+            while (await _timer.WaitForNextTickAsync(_cts.Token))
+            {
+                var snapshot = WfmStore.Get(_tenantId, _queueId!);
+                if (snapshot is not null && snapshot.AsOfUtc != _lastAsOfUtc)
+                {
+                    _snapshot = snapshot;
+                    _lastAsOfUtc = snapshot.AsOfUtc;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException) { /* expected on dispose */ }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "WfmWidget poll loop error");
+        }
+    }
+
+    // Formatting helpers
+    private static string FormatDouble(double v, int decimals) => v.ToString($"F{decimals}");
+
+    private static string FormatNullableDouble(double? v, int decimals, string suffix = "")
+    {
+        if (v is null) return "—";
+        return $"{v.Value.ToString($"F{decimals}")}{suffix}";
+    }
+
+    private static string FormatPct(double? v)
+    {
+        // *Pct fields are ALREADY 0..100 scaled (pinned in WfmRealtimeLoop.cs)
+        if (v is null) return "—";
+        return $"{v.Value:F1}%";
+    }
+
+    private static string FormatPWait(double? v)
+    {
+        // PWaitC is raw fraction 0..1, need to x100 for display
+        if (v is null) return "—";
+        return $"{(v.Value * 100):F1}%";
+    }
+
+    private static string FormatDuration(double seconds)
+    {
+        if (seconds < 60) return $"{seconds:F0}s";
+        var ts = TimeSpan.FromSeconds(seconds);
+        return ts.TotalHours >= 1
+            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+
+    private static string FormatVariance(int v)
+    {
+        if (v == 0) return "0";
+        return v > 0 ? $"+{v}" : v.ToString();
+    }
+
+    private string FormatTime(DateTime utc)
+    {
+        // Convert to local for display (i18n-04)
+        var local = utc.ToLocalTime();
+        return local.ToString("HH:mm:ss");
+    }
+
+    // Style helpers
+    private string GetWidgetStyle()
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(_backgroundColor))
+            styles.Add($"background-color: {_backgroundColor}");
+        if (!string.IsNullOrEmpty(_fontColor))
+            styles.Add($"color: {_fontColor}");
+        return string.Join("; ", styles);
+    }
+
+    private string GetFontColorStyle() => !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
+
+    private string GetMetricStyle(string metricKey)
+    {
+        if (_snapshot is null) return GetFontColorStyle();
+        if (!_snapshot.Rag.TryGetValue(metricKey, out var band)) return GetFontColorStyle();
+
+        var color = band switch
+        {
+            "green" => "#22c55e",
+            "amber" => "#f59e0b",
+            "red" => "#ef4444",
+            _ => null
+        };
+
+        var styles = new List<string>();
+        if (color is not null)
+            styles.Add($"border-inline-start: 3px solid {color}; padding-inline-start: 0.5rem");
+        if (!string.IsNullOrEmpty(_fontColor))
+            styles.Add($"color: {_fontColor}");
+        return string.Join("; ", styles);
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _cts.Cancel();
+        _timer?.Dispose();
+        _cts.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

@@ -5523,6 +5523,9 @@
         // Widget size (for template save/restore, T6 6A)
         public int? Width { get; set; }
         public int? Height { get; set; }
+
+        // WFM widget specific
+        public string? WfmQueueId { get; set; }  // External queue ID for WFM snapshot lookup
     }
 
     public record DayTrendMetricConfig(string MetricId, bool Enabled, string Color, string Label, string ValueType = "number")

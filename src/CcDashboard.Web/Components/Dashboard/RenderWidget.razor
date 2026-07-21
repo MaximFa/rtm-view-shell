@@ -29,6 +29,9 @@
         case var n when n.Contains("info") && n.Contains("slot"):
             <InfoSlotWidget @key="Widget.Id" Config="Widget.Config" DarkMode="DarkMode" />
             break;
+        case var n when n.Contains("wfm") || n.Contains("workforce"):
+            <WfmWidget @key="Widget.Id" Config="Widget.Config" DarkMode="DarkMode" GridId="Widget.GridId" />
+            break;
         default:
             <div class="text-center text-muted small">
                 <i class="bi bi-puzzle fs-4 mb-2 d-block opacity-50"></i>

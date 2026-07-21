@@ -1087,5 +1087,30 @@
   <data name="View_ScaleMode_Fit"><value>Scale to fit</value></data>
   <data name="View_ScaleMode_Actual"><value>Actual size (1:1)</value></data>
   <data name="Widget_Asd_BuRequired"><value>Select a Business Unit for the Agent State Distribution widget.</value></data>
+
+  <!-- WFM Widget keys -->
+  <data name="Wfm_WaitingForData"><value>Waiting for data...</value></data>
+  <data name="Wfm_StateOk"><value>OK</value></data>
+  <data name="Wfm_StateOverloaded"><value>Overloaded</value></data>
+  <data name="Wfm_StateNoData"><value>No Data</value></data>
+  <data name="Wfm_OverloadedMessage"><value>System overloaded — serving agents ≤ traffic</value></data>
+  <data name="Wfm_NoDataMessage"><value>Waiting for calls or agents</value></data>
+  <data name="Wfm_Inputs"><value>Inputs</value></data>
+  <data name="Wfm_Lambda"><value>Arrivals (λ)</value></data>
+  <data name="Wfm_AHT"><value>AHT</value></data>
+  <data name="Wfm_NActual"><value>Serving Agents</value></data>
+  <data name="Wfm_WrapIncluded"><value>Wrap Included</value></data>
+  <data name="Wfm_Erlang"><value>Erlang Forecast</value></data>
+  <data name="Wfm_TrafficA"><value>Traffic</value></data>
+  <data name="Wfm_PWait"><value>P(wait)</value></data>
+  <data name="Wfm_PredictedSL"><value>Predicted SL</value></data>
+  <data name="Wfm_PredictedASA"><value>Predicted ASA</value></data>
+  <data name="Wfm_RequiredAgents"><value>Required</value></data>
+  <data name="Wfm_Capped"><value>capped</value></data>
+  <data name="Wfm_ErlangB"><value>Erlang B %</value></data>
+  <data name="Wfm_Occupancy"><value>Occupancy</value></data>
+  <data name="Wfm_Understaff"><value>Understaff</value></data>
+  <data name="Wfm_StaffVariance"><value>Variance</value></data>
+  <data name="Wfm_MinWindow"><value>min window</value></data>
 </root>
 
