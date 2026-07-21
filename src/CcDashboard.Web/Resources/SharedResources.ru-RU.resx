@@ -348,6 +348,27 @@
   <data name="TenantSettings_BackgroundColors"><value>Палитра фоновых цветов</value></data>
   <data name="TenantSettings_FontColors"><value>Палитра цветов шрифта</value></data>
   <data name="TenantSettings_FontSizes"><value>Размеры шрифта</value></data>
+  <!-- ── WFM Phase 1 Settings ── -->
+  <data name="Tenants_TabWfm"><value>WFM</value></data>
+  <data name="TenantSettings_WfmEnableRealtime"><value>Включить метрики WFM в реальном времени</value></data>
+  <data name="TenantSettings_WfmServingStateGroups"><value>Группы состояний обслуживания</value></data>
+  <data name="TenantSettings_WfmServingStateGroupsHelp"><value>Группы состояний агентов, учитываемые как "обслуживание" для расчёта N (Ready/Talking/Wrap).</value></data>
+  <data name="TenantSettings_WfmWindow"><value>Окно расчёта</value></data>
+  <data name="TenantSettings_WfmWindowMinutes"><value>Длина окна (минуты)</value></data>
+  <data name="TenantSettings_WfmWindowMinutesHelp"><value>Скользящее окно для расчёта λ/AHT. По умолчанию: 30 мин.</value></data>
+  <data name="TenantSettings_WfmSL"><value>Уровень сервиса</value></data>
+  <data name="TenantSettings_WfmSlTargetPct"><value>Целевой SL (%)</value></data>
+  <data name="TenantSettings_WfmSlThresholdSec"><value>Порог SL (секунды)</value></data>
+  <data name="TenantSettings_WfmCapacity"><value>Ёмкость</value></data>
+  <data name="TenantSettings_WfmTrunkCapacity"><value>Количество линий</value></data>
+  <data name="TenantSettings_WfmTrunkCapacityHelp"><value>Количество линий для расчёта Erlang B.</value></data>
+  <data name="TenantSettings_WfmShrinkage"><value>Сокращение</value></data>
+  <data name="TenantSettings_WfmDefaultShrinkage"><value>Коэфф. сокращения (0-0.95)</value></data>
+  <data name="TenantSettings_WfmDefaultShrinkageHelp"><value>Доля времени недоступности агентов (перерывы, обучение). 0.28 = 28%.</value></data>
+  <data name="TenantSettings_WfmAdvanced"><value>Расширенные (RAG-пороги)</value></data>
+  <data name="TenantSettings_WfmThresholds"><value>RAG-пороги (JSON)</value></data>
+  <data name="TenantSettings_WfmThresholdsHelp"><value>Опциональный JSON для RAG-полос по метрикам. Оставьте пустым для значений по умолчанию.</value></data>
+
 
   <!-- ── Tenants (Platform) ── -->
   <data name="Tenants_Title"><value>Управление тенантами</value></data>

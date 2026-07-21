@@ -29,7 +29,16 @@ public class GetTenantSettingsQueryHandler(
             s.SignalRConnectionUrl,
             ParseJsonList(s.BackgroundColorPalette),
             ParseJsonList(s.FontColorPalette),
-            ParseJsonList(s.FontSizes));
+            ParseJsonList(s.FontSizes),
+            // WFM Phase 1 projection
+            s.WfmServingStateGroups?.ToList(),
+            s.WfmWindowMinutes,
+            s.WfmSlTargetPct,
+            s.WfmSlThresholdSec,
+            s.WfmTrunkCapacity,
+            s.WfmDefaultShrinkage,
+            s.WfmEnableRealtime,
+            s.WfmThresholds);
     }
 
     private static List<string>? ParseJsonList(string? json)

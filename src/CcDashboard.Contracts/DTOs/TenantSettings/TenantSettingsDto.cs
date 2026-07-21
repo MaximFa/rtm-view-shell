@@ -14,7 +14,16 @@ public record TenantSettingsDto(
     string? SignalRConnectionUrl,
     List<string>? BackgroundColorPalette,
     List<string>? FontColorPalette,
-    List<string>? FontSizes);
+    List<string>? FontSizes,
+    // WFM Phase 1 config (spec §5)
+    List<string>? WfmServingStateGroups,
+    int WfmWindowMinutes,
+    double WfmSlTargetPct,
+    int WfmSlThresholdSec,
+    int WfmTrunkCapacity,
+    double WfmDefaultShrinkage,
+    bool WfmEnableRealtime,
+    string? WfmThresholds);
 
 public record UpdateTenantSettingsRequest(
     int PasswordMinLength,
@@ -29,4 +38,13 @@ public record UpdateTenantSettingsRequest(
     string? SignalRConnectionUrl,
     List<string>? BackgroundColorPalette,
     List<string>? FontColorPalette,
-    List<string>? FontSizes);
+    List<string>? FontSizes,
+    // WFM Phase 1 config (spec §5)
+    List<string>? WfmServingStateGroups,
+    int WfmWindowMinutes,
+    double WfmSlTargetPct,
+    int WfmSlThresholdSec,
+    int WfmTrunkCapacity,
+    double WfmDefaultShrinkage,
+    bool WfmEnableRealtime,
+    string? WfmThresholds);

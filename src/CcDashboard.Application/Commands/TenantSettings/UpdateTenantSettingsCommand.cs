@@ -39,6 +39,16 @@ public class UpdateTenantSettingsCommandHandler(
         settings.FontColorPalette = SerializeList(r.FontColorPalette);
         settings.FontSizes = SerializeList(r.FontSizes);
 
+        // WFM Phase 1 config (spec §5)
+        settings.WfmServingStateGroups = (r.WfmServingStateGroups is { Count: > 0 }) ? r.WfmServingStateGroups.ToArray() : settings.WfmServingStateGroups;
+        settings.WfmWindowMinutes = Math.Clamp(r.WfmWindowMinutes, 1, 1440);
+        settings.WfmSlTargetPct = Math.Clamp(r.WfmSlTargetPct, 1, 100);
+        settings.WfmSlThresholdSec = Math.Clamp(r.WfmSlThresholdSec, 1, 3600);
+        settings.WfmTrunkCapacity = Math.Clamp(r.WfmTrunkCapacity, 1, 100000);
+        settings.WfmDefaultShrinkage = Math.Clamp(r.WfmDefaultShrinkage, 0.0, 0.95);
+        settings.WfmEnableRealtime = r.WfmEnableRealtime;
+        settings.WfmThresholds = NormalizeJsonOrNull(r.WfmThresholds);
+
         await repo.UpsertAsync(settings, ct);
     }
 
@@ -46,5 +56,22 @@ public class UpdateTenantSettingsCommandHandler(
     {
         if (list is null || list.Count == 0) return null;
         return JsonSerializer.Serialize(list);
+    }
+
+    private static string? NormalizeJsonOrNull(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        var trimmed = json.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+        // Validate JSON structure
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            return trimmed;
+        }
+        catch (JsonException ex)
+        {
+            throw new FluentValidation.ValidationException($"Invalid JSON in WfmThresholds: {ex.Message}");
+        }
     }
 }

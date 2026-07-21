@@ -156,6 +156,12 @@ else
                                 @L["Tenants_TabAgentStates"]
                             </button>
                         </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(EditTab == "wfm" ? "active" : "")"
+                                    @onclick="OpenWfmTab">
+                                @L["Tenants_TabWfm"]
+                            </button>
+                        </li>
                     </ul>
 
                     @if (EditTab == "general")
@@ -499,6 +505,119 @@ else
                             </div>
                         }
                     }
+                    else if (EditTab == "wfm")
+                    {
+                        @if (EditSettingsLoading)
+                        {
+                            <div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+                        }
+                        else
+                        {
+                            <div class="row g-3">
+                                <!-- Enable WFM -->
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="editWfmEnable" @bind="EditWfmEnableRealtime" />
+                                        <label class="form-check-label" for="editWfmEnable">@L["TenantSettings_WfmEnableRealtime"]</label>
+                                    </div>
+                                </div>
+
+                                <!-- Serving State Groups -->
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_WfmServingStateGroups"]</div>
+                                        <div class="card-body">
+                                            <div class="form-text mb-2">@L["TenantSettings_WfmServingStateGroupsHelp"]</div>
+                                            @foreach (var g in AgentStateGroups.Where(g => g.IsActive))
+                                            {
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="wfmsg-@g.Id"
+                                                           checked="@EditWfmServingStateGroups.Contains(g.GroupName)"
+                                                           @onchange="e => ToggleWfmServingGroup(g.GroupName, (bool)(e.Value ?? false))" />
+                                                    <label class="form-check-label" for="wfmsg-@g.Id">@g.GroupName</label>
+                                                </div>
+                                            }
+                                            @if (!AgentStateGroups.Any(g => g.IsActive))
+                                            {
+                                                <span class="text-muted small">@L["AgentStates_NoGroups"]</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Window and SL Settings -->
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_WfmWindow"]</div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <label class="form-label small">@L["TenantSettings_WfmWindowMinutes"]</label>
+                                                <input type="number" class="form-control form-control-sm" min="1" max="1440" @bind="EditWfmWindowMinutes" />
+                                                <div class="form-text">@L["TenantSettings_WfmWindowMinutesHelp"]</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_WfmSL"]</div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <label class="form-label small">@L["TenantSettings_WfmSlTargetPct"]</label>
+                                                <input type="number" class="form-control form-control-sm" min="1" max="100" step="0.1" @bind="EditWfmSlTargetPct" />
+                                            </div>
+                                            <div class="mb-0">
+                                                <label class="form-label small">@L["TenantSettings_WfmSlThresholdSec"]</label>
+                                                <input type="number" class="form-control form-control-sm" min="1" max="3600" @bind="EditWfmSlThresholdSec" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Capacity and Shrinkage -->
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_WfmCapacity"]</div>
+                                        <div class="card-body">
+                                            <div class="mb-0">
+                                                <label class="form-label small">@L["TenantSettings_WfmTrunkCapacity"]</label>
+                                                <input type="number" class="form-control form-control-sm" min="1" max="100000" @bind="EditWfmTrunkCapacity" />
+                                                <div class="form-text">@L["TenantSettings_WfmTrunkCapacityHelp"]</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header fw-semibold small">@L["TenantSettings_WfmShrinkage"]</div>
+                                        <div class="card-body">
+                                            <div class="mb-0">
+                                                <label class="form-label small">@L["TenantSettings_WfmDefaultShrinkage"]</label>
+                                                <input type="number" class="form-control form-control-sm" min="0" max="0.95" step="0.01" @bind="EditWfmDefaultShrinkage" />
+                                                <div class="form-text">@L["TenantSettings_WfmDefaultShrinkageHelp"]</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Advanced: RAG Thresholds JSON -->
+                                <div class="col-12">
+                                    <details class="card">
+                                        <summary class="card-header fw-semibold small" style="cursor: pointer;">
+                                            @L["TenantSettings_WfmAdvanced"]
+                                        </summary>
+                                        <div class="card-body">
+                                            <label class="form-label small">@L["TenantSettings_WfmThresholds"]</label>
+                                            <textarea class="form-control form-control-sm font-monospace" rows="4"
+                                                      placeholder='{"predictedSl": {"green": 80, "amber": 70}}'
+                                                      @bind="EditWfmThresholds"></textarea>
+                                            <div class="form-text">@L["TenantSettings_WfmThresholdsHelp"]</div>
+                                        </div>
+                                    </details>
+                                </div>
+                            </div>
+                        }
+                    }
 
                     <!-- Danger Zone (not for platform tenant) — shown only on the General tab -->
                     @if (EditTab == "general" && EditTenant.Status != TenantStatus.Deleted && EditTenant.Slug != "platform")
@@ -811,6 +930,16 @@ else
     private string? DeactivateStateError;
     private bool DeactivateStateSaving;
 
+    // WFM tab
+    private List<string> EditWfmServingStateGroups = new();
+    private int EditWfmWindowMinutes = 30;
+    private double EditWfmSlTargetPct = 80;
+    private int EditWfmSlThresholdSec = 20;
+    private int EditWfmTrunkCapacity = 100;
+    private double EditWfmDefaultShrinkage = 0.28;
+    private bool EditWfmEnableRealtime = true;
+    private string? EditWfmThresholds;
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
@@ -908,6 +1037,15 @@ else
             EditBackgroundColors = s?.BackgroundColorPalette?.ToList() ?? GetDefaultBackgroundColors();
             EditFontColors = s?.FontColorPalette?.ToList() ?? GetDefaultFontColors();
             EditFontSizes = s?.FontSizes?.ToList() ?? GetDefaultFontSizes();
+            // WFM
+            EditWfmServingStateGroups = s?.WfmServingStateGroups?.ToList() ?? new List<string> { "Available", "On Phone", "Paperwork" };
+            EditWfmWindowMinutes = s?.WfmWindowMinutes ?? 30;
+            EditWfmSlTargetPct = s?.WfmSlTargetPct ?? 80;
+            EditWfmSlThresholdSec = s?.WfmSlThresholdSec ?? 20;
+            EditWfmTrunkCapacity = s?.WfmTrunkCapacity ?? 100;
+            EditWfmDefaultShrinkage = s?.WfmDefaultShrinkage ?? 0.28;
+            EditWfmEnableRealtime = s?.WfmEnableRealtime ?? true;
+            EditWfmThresholds = s?.WfmThresholds;
         }
         catch { /* use defaults */ }
         finally { EditSettingsLoading = false; }
@@ -976,7 +1114,11 @@ else
                     EditSoftDelete, EditSoftDeleteRetentionDays,
                     EditPurchasedLicences, EditMaxConcurrentConnections,
                     EditSignalRConnectionUrl,
-                    EditBackgroundColors, EditFontColors, EditFontSizes),
+                    EditBackgroundColors, EditFontColors, EditFontSizes,
+                    // WFM
+                    EditWfmServingStateGroups, EditWfmWindowMinutes, EditWfmSlTargetPct,
+                    EditWfmSlThresholdSec, EditWfmTrunkCapacity, EditWfmDefaultShrinkage,
+                    EditWfmEnableRealtime, EditWfmThresholds),
                 EditTenant.Id));
             EditSaveSuccess = true;
             await LoadAsync();
@@ -1003,6 +1145,24 @@ else
         {
             await LoadAgentStatesAsync(EditTenant.Id);
         }
+    }
+
+    private async Task OpenWfmTab()
+    {
+        EditTab = "wfm";
+        // Load agent state groups if not already loaded (needed for serving groups multiselect)
+        if (EditTenant is not null && !AgentStateGroups.Any())
+        {
+            await LoadAgentStatesAsync(EditTenant.Id);
+        }
+    }
+
+    private void ToggleWfmServingGroup(string groupName, bool selected)
+    {
+        if (selected && !EditWfmServingStateGroups.Contains(groupName))
+            EditWfmServingStateGroups.Add(groupName);
+        else if (!selected)
+            EditWfmServingStateGroups.Remove(groupName);
     }
 
     private async Task LoadAgentStatesAsync(Guid tenantId)

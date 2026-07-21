@@ -177,7 +177,9 @@ else
                     SoftDelete, SoftDeleteRetentionDays,
                     PurchasedLicences, MaxConcurrentConnections,
                     SignalRConnectionUrl,
-                    null, null, null)));
+                    null, null, null,
+                    // WFM: pass null to preserve existing values
+                    null, 30, 80, 20, 100, 0.28, true, null)));
             SaveSuccess = true;
         }
         catch (OperationCanceledException) { }

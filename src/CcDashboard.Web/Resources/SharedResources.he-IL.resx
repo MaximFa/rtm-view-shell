@@ -273,6 +273,27 @@
   <data name="TenantSettings_BackgroundColors"><value>לוח צבעי רקע</value></data>
   <data name="TenantSettings_FontColors"><value>לוח צבעי גופן</value></data>
   <data name="TenantSettings_FontSizes"><value>גדלי גופן</value></data>
+  <!-- ── WFM Phase 1 Settings ── -->
+  <data name="Tenants_TabWfm"><value>WFM</value></data>
+  <data name="TenantSettings_WfmEnableRealtime"><value>Enable WFM real-time metrics</value></data>
+  <data name="TenantSettings_WfmServingStateGroups"><value>Serving State Groups</value></data>
+  <data name="TenantSettings_WfmServingStateGroupsHelp"><value>Agent state groups counted as "serving" for N calculation (Ready/Talking/Wrap).</value></data>
+  <data name="TenantSettings_WfmWindow"><value>Rolling Window</value></data>
+  <data name="TenantSettings_WfmWindowMinutes"><value>Window length (minutes)</value></data>
+  <data name="TenantSettings_WfmWindowMinutesHelp"><value>Rolling window for λ/AHT calculation. Default: 30 min.</value></data>
+  <data name="TenantSettings_WfmSL"><value>Service Level</value></data>
+  <data name="TenantSettings_WfmSlTargetPct"><value>SL target (%)</value></data>
+  <data name="TenantSettings_WfmSlThresholdSec"><value>SL threshold (seconds)</value></data>
+  <data name="TenantSettings_WfmCapacity"><value>Capacity</value></data>
+  <data name="TenantSettings_WfmTrunkCapacity"><value>Trunk capacity</value></data>
+  <data name="TenantSettings_WfmTrunkCapacityHelp"><value>Number of trunks for Erlang B calculation.</value></data>
+  <data name="TenantSettings_WfmShrinkage"><value>Shrinkage</value></data>
+  <data name="TenantSettings_WfmDefaultShrinkage"><value>Default shrinkage (0-0.95)</value></data>
+  <data name="TenantSettings_WfmDefaultShrinkageHelp"><value>Fraction of time agents are unavailable (breaks, training). 0.28 = 28%.</value></data>
+  <data name="TenantSettings_WfmAdvanced"><value>Advanced (RAG Thresholds)</value></data>
+  <data name="TenantSettings_WfmThresholds"><value>RAG thresholds (JSON)</value></data>
+  <data name="TenantSettings_WfmThresholdsHelp"><value>Optional JSON for per-metric RAG bands. Leave empty for spec defaults.</value></data>
+
   <data name="Widgets_TableFontSize"><value>גודל גופן טבלה</value></data>
   <data name="Widgets_HeaderFontSize"><value>גודל גופן כותרת</value></data>
 
