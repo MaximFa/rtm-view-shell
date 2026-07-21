@@ -182,6 +182,12 @@ public static class InfrastructureServiceExtensions
         // WFM Phase 1: Snapshot store (Singleton, in-mem hand-off surface for loop -> widgets)
         services.AddSingleton<IWfmSnapshotStore, WfmSnapshotStore>();
 
+        // WFM Phase 1: Input query service (per-TZ frame, dba-locked)
+        services.AddScoped<IWfmInputQueryService, WfmInputQueryService>();
+
+        // WFM Phase 1: 30-second realtime loop (IHostedService)
+        services.AddHostedService<WfmRealtimeLoop>();
+
         return services;
     }
 }
