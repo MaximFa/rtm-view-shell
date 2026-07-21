@@ -234,7 +234,7 @@ public sealed class WfmInputQueryService(
             var servingGroups = servingStateGroups.ToArray();
 
             var countSql = @"
-                SELECT COUNT(DISTINCT us.""UserId"")::int AS N
+                SELECT COUNT(DISTINCT us.""UserId"")::int AS ""Value""
                 FROM public.""RTSData_UserStatus"" us
                 WHERE us.""TenantId"" = @tenant
                   AND us.""StatusGroup"" = ANY(@servingGroups)
