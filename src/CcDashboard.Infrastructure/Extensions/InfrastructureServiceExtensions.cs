@@ -14,6 +14,7 @@ using CcDashboard.Infrastructure.Security;
 using CcDashboard.Infrastructure.Seeding;
 using CcDashboard.Infrastructure.Reports.Export;
 using CcDashboard.Infrastructure.Services;
+using CcDashboard.Infrastructure.Wfm;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -174,6 +175,9 @@ public static class InfrastructureServiceExtensions
 
         // NOTE: MediatR handlers moved to Application per ADR-009 (R2).
         // Application assembly is scanned by Web/Api Program.cs, not here.
+
+        // WFM Phase 1: Erlang calculator (pure math, no I/O)
+        services.AddScoped<IErlangCalculatorService, ErlangCalculatorService>();
 
         return services;
     }
