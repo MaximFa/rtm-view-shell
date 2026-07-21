@@ -19,6 +19,10 @@ public sealed class WfmInputQueryService(
     private readonly ConcurrentDictionary<Guid, (DateTime CachedAt, Dictionary<string, string> Map)> _tzCache = new();
     private static readonly TimeSpan TzCacheTtl = TimeSpan.FromMinutes(5);
 
+    // Cached BU agent pool per tenant (§36a resolution, refresh every 5 min)
+    private readonly ConcurrentDictionary<Guid, (DateTime CachedAt, Dictionary<int, HashSet<string>> BuAgentPools)> _buAgentPoolCache = new();
+    private static readonly TimeSpan BuAgentPoolCacheTtl = TimeSpan.FromMinutes(5);
+
     /// <inheritdoc/>
     public async Task<IReadOnlyDictionary<string, (double LambdaPerHour, double AhtSec)>> GetLambdaAndAhtAsync(
         Guid tenantId,
@@ -251,6 +255,181 @@ public sealed class WfmInputQueryService(
         }
 
         return results;
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> GetBuServingAgentCountAsync(
+        Guid tenantId,
+        int businessUnitId,
+        IReadOnlyList<string> servingStateGroups,
+        CancellationToken ct = default)
+    {
+        if (servingStateGroups.Count == 0)
+            return 0;
+
+        await using var ctx = await beFactory.CreateDbContextAsync(ct);
+
+        // Get or refresh the BU agent pool cache
+        var buAgentPools = await GetOrRefreshBuAgentPoolsAsync(tenantId, ctx, ct);
+
+        if (!buAgentPools.TryGetValue(businessUnitId, out var agentPool) || agentPool.Count == 0)
+            return 0;
+
+        // Count agents in serving state groups
+        var agentList = agentPool.ToArray();
+        var servingGroups = servingStateGroups.ToArray();
+
+        var countSql = @"
+            SELECT COUNT(DISTINCT us.""UserId"")::int AS ""Value""
+            FROM public.""RTSData_UserStatus"" us
+            WHERE us.""TenantId"" = @tenant
+              AND us.""StatusGroup"" = ANY(@servingGroups)
+              AND us.""UserId"" = ANY(@agentList)";
+
+        var count = await ctx.Database
+            .SqlQueryRaw<int>(countSql,
+                new Npgsql.NpgsqlParameter("@tenant", tenantId),
+                new Npgsql.NpgsqlParameter("@servingGroups", servingGroups),
+                new Npgsql.NpgsqlParameter("@agentList", agentList))
+            .FirstOrDefaultAsync(ct);
+
+        return count;
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<BuInfo>> GetActiveBusAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        await using var ctx = await beFactory.CreateDbContextAsync(ct);
+
+        // Get all BUs for tenant
+        var bus = await ctx.NgcBusinessUnits
+            .AsNoTracking()
+            .Where(bu => bu.TenantId == tenantId)
+            .Select(bu => new { bu.BusinessUnitId, bu.BusinessUnitName })
+            .ToListAsync(ct);
+
+        if (bus.Count == 0)
+            return Array.Empty<BuInfo>();
+
+        // Get BU -> Queue mappings
+        var buQueueMappings = await ctx.NgcBusinessUnitQueueClassifications
+            .AsNoTracking()
+            .Where(bq => bq.TenantId == tenantId && bq.ClassificationId == "ALL")
+            .Select(bq => new { bq.BusinessUnitId, bq.QueueId })
+            .ToListAsync(ct);
+
+        var queuesByBu = buQueueMappings
+            .GroupBy(m => m.BusinessUnitId)
+            .ToDictionary(g => g.Key, g => g.Select(m => m.QueueId).Distinct().ToList());
+
+        return bus
+            .Select(bu => new BuInfo(
+                bu.BusinessUnitId,
+                bu.BusinessUnitName ?? $"BU-{bu.BusinessUnitId}",
+                queuesByBu.GetValueOrDefault(bu.BusinessUnitId, new List<string>()) as IReadOnlyList<string>))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Get or refresh the BU -> Agent pool mapping (§36a resolution).
+    /// Cached for 5 minutes since membership changes slowly.
+    /// </summary>
+    private async Task<Dictionary<int, HashSet<string>>> GetOrRefreshBuAgentPoolsAsync(
+        Guid tenantId,
+        BackendEmulationDbContext ctx,
+        CancellationToken ct)
+    {
+        // Check cache
+        if (_buAgentPoolCache.TryGetValue(tenantId, out var cached) &&
+            DateTime.UtcNow - cached.CachedAt < BuAgentPoolCacheTtl)
+        {
+            return cached.BuAgentPools;
+        }
+
+        // Build BU -> Agent pool using §36a resolution
+        var buAgentPools = new Dictionary<int, HashSet<string>>();
+
+        // Get all BUs for tenant
+        var allBuIds = await ctx.NgcBusinessUnits
+            .AsNoTracking()
+            .Where(bu => bu.TenantId == tenantId)
+            .Select(bu => bu.BusinessUnitId)
+            .ToListAsync(ct);
+
+        if (allBuIds.Count == 0)
+        {
+            _buAgentPoolCache[tenantId] = (DateTime.UtcNow, buAgentPools);
+            return buAgentPools;
+        }
+
+        // Get BU -> SG mappings
+        var buSgMappings = await ctx.NgcBusinessUnitSupergroups
+            .AsNoTracking()
+            .Where(bs => allBuIds.Contains(bs.BusinessUnitId) && bs.TenantId == tenantId)
+            .Select(bs => new { bs.BusinessUnitId, bs.SupergroupId })
+            .ToListAsync(ct);
+
+        var sgsByBu = buSgMappings
+            .GroupBy(m => m.BusinessUnitId)
+            .ToDictionary(g => g.Key, g => g.Select(m => m.SupergroupId).Distinct().ToList());
+
+        // Get SG -> AG mappings
+        var allSgIds = sgsByBu.Values.SelectMany(x => x).Distinct().ToList();
+        var sgAgMappings = await ctx.NgcSupergroupAgentgroups
+            .AsNoTracking()
+            .Where(sag => sag.SupergroupId.HasValue && allSgIds.Contains(sag.SupergroupId.Value) && sag.TenantId == tenantId)
+            .Select(sag => new { sag.SupergroupId, sag.AgentgroupId })
+            .ToListAsync(ct);
+
+        var agsBySg = sgAgMappings
+            .GroupBy(m => m.SupergroupId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(m => m.AgentgroupId).Where(id => id != null).Select(id => id!).Distinct().ToList());
+
+        // Get AG -> User (agent) mappings
+        var allAgIds = agsBySg.Values.SelectMany(x => x).Distinct().ToList();
+        var agUserMappings = await ctx.NgcUserAgentgroups
+            .AsNoTracking()
+            .Where(uag => uag.AgentgroupId != null && allAgIds.Contains(uag.AgentgroupId) && uag.TenantId == tenantId && uag.UserId != null)
+            .Select(uag => new { uag.AgentgroupId, uag.UserId })
+            .ToListAsync(ct);
+
+        var usersByAg = agUserMappings
+            .Where(m => m.AgentgroupId != null)
+            .GroupBy(m => m.AgentgroupId!)
+            .ToDictionary(g => g.Key, g => new HashSet<string>(g.Select(m => m.UserId!)));
+
+        // Resolve agents per BU using §36a (AGENT-RES-01: SG=AND, BU=OR)
+        foreach (var buId in allBuIds)
+        {
+            var allAgentsForBu = new HashSet<string>();
+            var sgsForBu = sgsByBu.GetValueOrDefault(buId, new List<int>());
+
+            foreach (var sgId in sgsForBu)
+            {
+                var agsForSg = agsBySg.GetValueOrDefault(sgId, new List<string>());
+                if (agsForSg.Count == 0) continue;
+
+                // SG = AND: intersect all AG members within this SG
+                HashSet<string>? sgAgents = null;
+                foreach (var agId in agsForSg)
+                {
+                    var agMembers = usersByAg.GetValueOrDefault(agId, new HashSet<string>());
+                    if (sgAgents == null)
+                        sgAgents = new HashSet<string>(agMembers);
+                    else
+                        sgAgents.IntersectWith(agMembers);
+                }
+
+                // BU = OR: union SG results
+                if (sgAgents != null)
+                    allAgentsForBu.UnionWith(sgAgents);
+            }
+
+            buAgentPools[buId] = allAgentsForBu;
+        }
+
+        _buAgentPoolCache[tenantId] = (DateTime.UtcNow, buAgentPools);
+        return buAgentPools;
     }
 
     /// <summary>
