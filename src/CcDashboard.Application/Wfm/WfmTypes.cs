@@ -15,17 +15,46 @@ public sealed record WfmMetricResult(
     WfmSentinel Sentinel = WfmSentinel.None,
     string? FormattedValue = null);
 
-/// <summary>Snapshot of all WFM metrics for a (tenant, queue) at a point in time.</summary>
+// ─── WFM Snapshot contract (spec §4) ────────────────────────────────────────
+
+/// <summary>Input values used for WFM calculations.</summary>
+public sealed record WfmInputs(
+    double LambdaPerHour,
+    double AhtSec,
+    int NActual,
+    bool WrapIncluded);
+
+/// <summary>Erlang-derived metrics from the calculator.</summary>
+public sealed record WfmErlang(
+    double TrafficA,
+    double? PWaitC,
+    double? PredictedSlPct,
+    double? PredictedAsaSec,
+    int RequiredAgents,
+    bool RequiredCapped,
+    double ErlangBPct,
+    double? OccupancyPct,
+    double? UnderstaffPct,
+    int StaffVariance);
+
+/// <summary>
+/// Snapshot of all WFM metrics for a (tenant, queue) at a point in time.
+/// Written by the WFM hosted loop (B1), read by Shell widgets.
+/// </summary>
 public sealed record WfmSnapshot(
     Guid TenantId,
     string QueueId,
-    DateTime ComputedAt,
-    WfmMetricResult TrafficIntensity,
-    WfmMetricResult ErlangPwait,
-    WfmMetricResult PredictedSl,
-    WfmMetricResult PredictedAsa,
-    WfmMetricResult RequiredAgents,
-    WfmMetricResult ErlangB,
-    WfmMetricResult StaffVariance,
-    WfmMetricResult OccupancyErl,
-    WfmMetricResult UnderstaffPct);
+    DateTime AsOfUtc,
+    int WindowMin,
+    WfmInputs Inputs,
+    WfmErlang Erlang,
+    string State,
+    IReadOnlyDictionary<string, string> Rag)
+{
+    /// <summary>Queue is operating normally.</summary>
+    public const string StateOk = "ok";
+    /// <summary>N <= A — system overloaded (Erlang C undefined).</summary>
+    public const string StateOverloaded = "overloaded";
+    /// <summary>Missing input data (no calls, no agents, AHT=0).</summary>
+    public const string StateNoData = "nodata";
+}

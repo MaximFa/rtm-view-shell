@@ -179,6 +179,9 @@ public static class InfrastructureServiceExtensions
         // WFM Phase 1: Erlang calculator (pure math, no I/O)
         services.AddScoped<IErlangCalculatorService, ErlangCalculatorService>();
 
+        // WFM Phase 1: Snapshot store (Singleton, in-mem hand-off surface for loop -> widgets)
+        services.AddSingleton<IWfmSnapshotStore, WfmSnapshotStore>();
+
         return services;
     }
 }
