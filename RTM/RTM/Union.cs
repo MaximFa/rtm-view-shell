@@ -381,9 +381,6 @@ namespace RTM
         private string getWaitDurationCurMax(MetricDef metric, bool toSetValue)
         {
             string result = metric.MetricFunction(QueueInteractions.Bag, Applics.Any());
-            try {
-                AsyncLogger.Info($"MAXWAIT-RECOMPUTE union={UnionId} metric={metric.ID} bagCount={QueueInteractions.Bag.Count} result=[{result}]");
-            } catch { }
             string retValue = string.Empty;
             string maxWaitTIme = string.Empty;
             if (toSetValue)
