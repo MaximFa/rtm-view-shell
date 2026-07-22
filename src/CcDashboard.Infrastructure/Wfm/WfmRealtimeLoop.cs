@@ -167,10 +167,14 @@ public sealed class WfmRealtimeLoop(
         {
             try
             {
-                // Collision guard: check if BU name collides with a Workgroup key
-                if (queueKeys.Contains(bu.BusinessUnitName))
+                // BU key = the ID string the widget Gets (Config.BusinessUnit = BusinessUnitId.ToString())
+                var buKey = bu.BusinessUnitId.ToString();
+
+                // Collision guard: check if BU key collides with a Workgroup key
+                // (numeric BU-id effectively never collides with Workgroup NAME — disjoint namespaces)
+                if (queueKeys.Contains(buKey))
                 {
-                    logger.LogWarning("WFM key collision: '{Key}' is both a Workgroup and a BusinessUnit", bu.BusinessUnitName);
+                    logger.LogWarning("WFM key collision: '{Key}' is both a Workgroup and a BusinessUnit", buKey);
                 }
 
                 // Pool λ and AHT from queues belonging to this BU
@@ -194,9 +198,9 @@ public sealed class WfmRealtimeLoop(
                 // Distinct N for BU (§36a resolution, cached, deduped)
                 int pooledN = await inputService.GetBuServingAgentCountAsync(tenantId, bu.BusinessUnitId, servingGroups, ct);
 
-                // Build and store BU aggregate snapshot (keyed by BusinessUnitName)
+                // Build and store BU aggregate snapshot (keyed by BusinessUnitId — matches widget Get)
                 var snapshot = BuildSnapshot(
-                    tenantId, bu.BusinessUnitName, asOfUtc, windowMin,
+                    tenantId, buKey, asOfUtc, windowMin,
                     pooledLambda, pooledAht, pooledN,
                     slTargetPct, slThresholdSec, trunkCapacity,
                     erlang);
