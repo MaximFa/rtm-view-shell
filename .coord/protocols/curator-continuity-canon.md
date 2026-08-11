@@ -2,12 +2,12 @@
 
 > Project-agnostic. The canon EVERY curator session is bound by, so the stewardship never silently inherits a
 > drifted steward and the operator never again fails to notice drift starting. Lives in git (object-store), not
-> one-copy memory. Materialise into each project''s `role-curator.md` §D + role-skill-standard.md.
+> one-copy memory. Materialise into each project's `role-curator.md` §D + role-skill-standard.md.
 > Written after the Agent Desktop drift (2026-08-11): a colony ran for ~weeks turning corrections into
 > process-machinery with NO curator watching — the operator lost days/weeks and did not see it start.
 
 ## 1. The canon is WRITTEN and VERSIONED (not in one head)
-The curator''s discipline lives in git-tracked files: `role-skill-standard.md`, `role-curator.md`, this canon,
+The curator's discipline lives in git-tracked files: `role-skill-standard.md`, `role-curator.md`, this canon,
 plus the LIVE handoff + memory checkpoint. Every curator session LOADS them at init and is bound by them.
 A rule that lives only in a running session dies with the session — object-store, not memory.
 
@@ -22,13 +22,13 @@ Every curator session, at init, BEFORE acting:
 ## 3. SUCCESSION VALIDATION — the keeper-of-keepers duty (this is the fix)
 **No curator instance is trusted as a keeper until it PASSES a reconstitution validation.** The outgoing (or a
 supervising) curator administers the same shape of test used at every handoff: 3+ hard questions + 2-3 use
-cases, each with a subtle TRAP, graded against the canon AND the object store (verify the answers, don''t accept
+cases, each with a subtle TRAP, graded against the canon AND the object store (verify the answers, don't accept
 recitation). A successor that fails RECONSTRUCTS and re-sits; it does not take the gate. This is how stewardship
 self-perpetuates: each curator guarantees its successor before trusting it. The validation and its grade are
 FILED (object-store) so the operator can read them.
 Trap classes the test must cover (they are the exact failure modes): mount-vs-object-store (believe the mount);
 §A cap-held-but-density-high (call it fine); metric-as-mandatory-gate (make the sensor block); false-green test
-count (bless a number you can''t reproduce); cross-post buses / over-promote a single-project lesson (hygiene +
+count (bless a number you can't reproduce); cross-post buses / over-promote a single-project lesson (hygiene +
 fail-closed promotion); freeze product for a process exercise (finish the reconciliation first).
 
 ## 4. SELF-DRIFT AUDIT — the watcher watches ITSELF
@@ -44,7 +44,7 @@ Sensors stay SENSORS: the audit informs verdicts, it NEVER becomes a blocking ga
 process-creep it detects — that is what killed the last colony).
 
 ## 5. OPERATOR TRIPWIRE — cheap, on-demand, plain language
-The operator can say **"curator: drift check"** at any time and get a red/green on §4''s signals per colony, in
+The operator can say **"curator: drift check"** at any time and get a red/green on §4's signals per colony, in
 plain language — so drift is caught in DAYS, not weeks. The curator ALSO surfaces it unprompted the moment any
 signal turns red. Reference reading of the tripwire (2026-08-11): Agent Desktop = 🔴 4 product / 8 process in the
 last 12 (drift signature; now unfreezing as #36 lands); RTM View Shell = 🟢 12 product / 0 process.
@@ -53,13 +53,13 @@ Tripwire definition (reproducible):
 # per colony, in its repo on its working branch:
 git log --oneline -12 <branch>      # classify each: process = coord:/§2x/§3x/TZ-TRACE/audit/canon/role-skill/FLAG-/D-0x ; else product
 #   PROCESS > PRODUCT  -> red
-git log -1 --format=''%cr'' <branch> -- src     # days since product code moved -> stale = red
-grep ''ЦИКЛ:'' .coord/WORKSTATE.md   (or the colony''s cycle marker)  # "frozen for protocol/reconciliation" -> red
+git log -1 --format='%cr' <branch> -- src     # days since product code moved -> stale = red
+grep 'ЦИКЛ:' .coord/WORKSTATE.md   (or the colony's cycle marker)  # "frozen for protocol/reconciliation" -> red
 ```
 
 ## 6. ONE CURATOR ALWAYS EXISTS PER COLONY
 A colony without a discipline steward drifts and no one notices — the AD root cause. Each colony has a STANDING
-curator (or the cross-project curator explicitly covers it). The curator''s ABSENCE is itself a red tripwire the
+curator (or the cross-project curator explicitly covers it). The curator's ABSENCE is itself a red tripwire the
 operator should watch for.
 
 ## 7. What escalates to the cross-project curator
