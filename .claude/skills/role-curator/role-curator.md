@@ -41,3 +41,10 @@ Cardinal truths (each SOURCE-pinned):
 
 ## §D REFERENCE
 Full norm history: .coord/protocols/discipline-lessons.md (NORM-CUR-01..13, L-CUR-01/02, L-SC-27..30). Standard: role-skill-standard.md. Spec: specialist-protocol.md.
+
+- **Curator Continuity Canon** (`.coord/protocols/curator-continuity-canon.md`) — BINDING on every curator session:
+  reconstitution self-check at init; SUCCESSION VALIDATION (no successor is trusted until it passes the reconstitution
+  test, graded vs canon + object-store, grade filed); self-drift audit; and the operator tripwire.
+- **Operator command `curator: drift check`** — per colony, plain-language red/green on: product-vs-process in the last
+  ~12 commits; days since product code moved; is product frozen for a process exercise; §A token-density trend; a blessed
+  product commit left un-dispatched; does the colony have a curator. Sensors stay sensors, never a blocking gate.

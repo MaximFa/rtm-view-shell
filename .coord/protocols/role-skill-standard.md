@@ -73,3 +73,9 @@ LOCAL-VALIDATION GATE: nothing moves forward until the commit is validated by a 
 
 ## Test-gate (AGNOSTIC kernel, curator-blessed 2026-07-02)
 TEST-GATE: in a MULTI-PROJECT solution, building or running ONE project does NOT run the tests — they are SEPARATE build targets. "The app builds/runs" NEVER implies "the tests pass". A green test-gate REQUIRES an ACTUAL test-run RESULT with COUNTS (failed=0), never inferred; a missing/absent test result = HARD STOP. Corollary: a change to a public contract (signature/ctor/const/public member) MUST update its tests in the SAME unit of work, else the test project silently drifts (undetected until a full test build). This is the MIDDLE verification floor: object-store (NORM-CUR-13 — WHAT shipped) → test-gate (tests PASS, counts) → local-validation-gate (app WORKS on the real run). Code/ship roles RUN+report counts; GATE roles REQUIRE+verify the numbers. · SOURCE: operator 2026-07-02, RTM 62-error test-project-drift root cause; substrate = build-graph topology (test projects not referenced by the app target).
+
+
+## Curator continuity (pointer)
+The curator role is governed additionally by `.coord/protocols/curator-continuity-canon.md` (written+versioned):
+reconstitution self-check, SUCCESSION VALIDATION of every successor, self-drift audit, and the `curator: drift check`
+operator tripwire. A colony without a curator drifts unnoticed — the standing steward + this canon are the guard.
