@@ -1,0 +1,14 @@
+{
+  "Metrics": [
+    {
+      "MetricId": "QueueNumberOfCompletedIncomingCalls",
+      "MetricType": "RT"
+    }
+  ],
+  "Migrations": [
+    {
+      "FileName": "manual-deploy",
+      "Sha256": "8dbeaf69c832bef45a065ede44404328e9e2d6b6c324271853562f86526ab041"
+    }
+  ]
+}

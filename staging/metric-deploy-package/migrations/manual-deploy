@@ -1,0 +1,15 @@
+-- Deploy-New-Metrics package (executed by CcDashboard.ApplyService via /apply-metrics).
+-- Pure SQL only (Npgsql ExecuteSqlRawAsync) — NO psql meta-commands. Idempotent (ON CONFLICT DO NOTHING).
+-- Contains the INSERTs for the currently-deployable new metric(s).
+
+INSERT INTO public."RTSGrid_Metric"
+  ("MetricId","Description","DataType","MetricFunction","MetricParameter","MetricFormat","DefaultValue",
+   "ValueType","MetricType","CatalogCategory","CatalogStatus","Channel","DisplayName","Family",
+   "LongDescription","ShortDescription","Comparison","ThresholdSec")
+VALUES ('QueueNumberOfCompletedIncomingCalls', 'QM - Number of Completed Incoming Calls', 'Interactions Summary', 'InteractionsCount',
+        '(InteractionType=="Call") && (CallType=="External")  && Direction == "Incoming" && !IsInQueue && !IsTalk', NULL, NULL, 'number', 'Data', 'Queue', 'active', 'calls',
+        'Completed Incoming Calls Today', 'queue.volume.incoming_completed',
+        'Counts incoming external voice calls that have completed the interaction today - no longer in queue and not currently talking (i.e. disconnected). Distinct from QueueNumIncomingCompletedCalls, which counts calls that finished queuing (excludes callback requests) rather than fully-disconnected calls.',
+        'Number of incoming external voice calls that have completed the interaction today (not in queue and not currently talking = disconnected).',
+        'Differs from QueueNumIncomingCompletedCalls: this counts calls whose interaction finished (not in queue AND not currently talking = disconnected); QueueNumIncomingCompletedCalls excludes callback requests instead of active talk.', NULL)
+ON CONFLICT ("MetricId") DO NOTHING;

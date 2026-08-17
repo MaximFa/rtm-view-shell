@@ -70,3 +70,7 @@ tools/__pycache__/
 # Soma local config (contains secrets)
 tools/Soma/appsettings.json
 !tools/Soma/appsettings.example.json
+
+tools/cache/
+db/data.zip
+.coord/migration/*.tar.gz

@@ -2513,6 +2513,35 @@ mappings. The Shell UI does not expose ClassificationId — always set "ALL".
 
 ---
 
+## 36a. Agent-group resolution semantics — SuperGroup = AND, BusinessUnit = OR  [AGENT-RES-01]
+
+> Operator-defined at project inception, re-confirmed 2026-07-14. FOUNDATIONAL domain rule for
+> resolving the agent set of a SuperGroup / Business Unit — used by the AgentGrid and any
+> agent-scoped metric/list. It was MISSING from both the spec AND the implementation; its absence
+> made a BU whose SuperGroups have multiple Agent Groups show an EMPTY / unpopulated agent list
+> (140: BU "DE All" → 12 blank rows, while legacy shows the agents).
+
+**[AGENT-RES-01]** Resolving the agents of a group-of-agents:
+- **Inside a SuperGroup (SG): AND / INTERSECTION between its Agent Groups.** An agent belongs to
+  the SG only if it is a member of ALL of that SG's Agent Groups.
+  Example: SG "DE Accounting" = AG Accounting AND AG DE → only agents in BOTH.
+- **Inside a Business Unit (BU) → its SuperGroups: OR / UNION between the SGs.** A BU's agent set =
+  the UNION of its SuperGroups' (already-intersected) agent sets.
+  Example: BU "DE All" = SG DE Accounting OR DE Support OR DE Retail OR DE EV.
+
+Formally: `BU agents = ⋃ over its SGs of ( ⋂ over that SG's AGs of the AG members )`.
+
+**[AGENT-RES-02]** Mapping tables: `NGC_SupergroupAgentgroup` (SG↔AG, many-to-many),
+`NGC_UserAgentgroup` (agent↔AG membership, populated at runtime from RTM `userWorkgroupActivation`).
+The single-AG SG case (SG:AG = 1:1) is the trivial intersection (== that AG's members) and MUST
+stay correct after the multi-AG fix.
+
+**[AGENT-RES-03]** Apply this wherever a BU/SG agent set is computed — the RTM engine's union
+agent-pool assembly and/or the DB resolver `RTSGrid_GetAllUnionUserGroups`, which today returns a
+FLAT `(BusinessUnitID, SupergroupID, AgentgroupID)` list WITHOUT the intersection (root cause). The
+AgentGrid + any agent-scoped metric consume the resolved set. Match LEGACY behaviour (legacy
+computes the intersection correctly). Verify per §23 (VERIFY against legacy) where reference exists.
+
 ## 37. CC Prompt rules — git push
 
 **Every CC task prompt must include this rule at the top of the commit section:**
@@ -3252,3 +3281,47 @@ Connection-refused = Soma не запущена → ФЛАГНУТЬ ОПЕРА�
 - `GET /ops/health` — ping Shell /health + /health/ready
 
 *TZ version: 3.0 | CLAUDE.md last updated: 2026-06-23 (§47 Soma ops-bridge)*
+
+
+---
+
+## 48. Adapter ↔ RTM Service WIRE CONTRACT — [WIRE-01..05] — MANDATORY validation on ANY change
+
+> Adapters (RTM.Twilio + future Genesys/NICE/Five9) live on the `adapters` branch and carry their OWN minimal copy
+> of the IPC/serializer/DTO code (`RTM.Adapter.Common`). RTM Service (v3) has `RTM.Tools`/`RTM.Types`. The CODE is
+> intentionally duplicated + decoupled (no RTM-core dependency in the adapter). **But the WIRE FORMAT is a SHARED
+> CONTRACT** — the adapter serializes, RTM Service deserializes. Code may diverge; **format may NOT**. This is our
+> standing validation obligation: ANY change to the adapter's IPC/serializer/Agent OR to RTM Service's pipe handlers/
+> Agent/serializer MUST keep all five byte-compatible AND pass the contract round-trip test (below).
+
+**[WIRE-01] Pipe JSON dict shape.** Every `data.Add("<key>", …)` in the adapter (`RTMAdapter.cs`) must match `dic["<key>"]`
+in RTM Service handlers (`RTM/RTM/RTMAdapter.cs`), case-sensitive. Includes the dispatch key `"method"` + its 10 values
+(`setStatistic, userStatusChanged, userWorkgroupActivation, userConfigurationChanged, interactionChanged,
+interactionRemoved, setUsers, setSkills, setWorkgroups, messageEventReceived`) and every field name. Load-bearing quirks
+that must be preserved: `interactionChanged` carries `customCallData1..20`; `messageEventReceived` sends BOTH `"MessageId"`
+and `"messageId"`; `messageId` is sometimes a string (`.ToString()`), sometimes a long.
+
+**[WIRE-02] DateTime format.** `DictionarySerializer` hard-codes `DateFormatString = "yyyy-MM-ddTHH:mm:ss.fffffffK"`.
+Both copies MUST keep this exact string or dates won't round-trip on the pipe.
+
+**[WIRE-03] Agent DTO JSON.** REST `/SetUsersStatusList` sends `JsonConvert.SerializeObject(List<Agent>)`; RTM does
+`DeserializeObject<List<Agent>>` with default PascalCase. `Agent`'s public property names
+(`UserId, WorkerSid, DisplayName, Extension, FirstName, LastName, CustomAttributes, LoggedIn, Station, OnPhone,
+OnPhoneChanged, StatusId, StatusName, StatusChanged, StatusGroup, Workgroups` + non-DataMember extras
+`LastStatus, LastStatusGroup, BeforeHoldStatus, BeforeHoldStatusGroup, TimeStamp`) must NOT be renamed on either side.
+
+**[WIRE-04] NamedPipe framing.** `StreamString` uses `Encoding.Unicode` (UTF-16LE); client sets
+`PipeTransmissionMode.Message`. RTM's `NamedPipeServer` must agree on encoding + message mode; pipe name must match
+(adapter `RtmTarget.Pipe` ↔ RTM `AppConfig.PipeName`).
+
+**[WIRE-05] Serializer settings parity.** The two `DictionarySerializer` copies must stay setting-identical
+(no `TypeNameHandling` / null-handling / naming-policy drift). Any drift silently breaks the pipe.
+
+**[WIRE-VALIDATION] Standing gate — NO EXCEPTIONS.** A contract round-trip test (serialize a representative message dict
+per `"method"` + a `List<Agent>` through the ADAPTER copy, deserialize through the RTM SERVICE copy, assert equality —
+and vice-versa) is MANDATORY and is a **push-barrier gate on BOTH branches**: v3 (when RTM Service pipe/Agent/serializer
+changes) AND adapters (when the adapter IPC/serializer/Agent changes). QA verifies this gate; a change touching the wire
+is not "done" until the contract test is GREEN on the changed side and the 5 items above are re-confirmed. Owner of the
+sync obligation: whoever changes either side flags the counterpart (cross-branch) so both are re-validated together.
+
+*TZ version: 3.1 | CLAUDE.md last updated: 2026-07-11 (§48 adapter↔RTM wire contract WIRE-01..05 + standing validation)*

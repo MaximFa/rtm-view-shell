@@ -1,0 +1,111 @@
+================================================================================
+BASELINE DELTA REPORT
+Target: ccdashboard_user@localhost:5432/rtmviewdb
+Generated: 2026-07-04 11:32:16
+================================================================================
+
+----------------------------------------
+DIMENSION A: SCHEMA
+----------------------------------------
+Schema drift detected:
+  Lines missing on server: 438
+  Lines extra on server:   2
+
+  --- ENUMERATED (E2) ---
+  Tables   missing-on-server: public."NGC_AgentGroups", public."NGC_BusinessUnit", public."NGC_BusinessUnitQueueClassification", public."NGC_BusinessUnitSupergroup", public."NGC_Queues", public."NGC_Site", public."NGC_Supergroup", public."NGC_SupergroupAgentgroup", public."NGC_UserAgentgroup", public."RTSData_ChatMessage", public."RTSData_Interaction", public."RTSData_UserStatus", public."RTSData_UserStatusLog", public."RTSGrid_Cell", public."RTSGrid_Column", public."RTSGrid_Grid", public."RTSGrid_Metric", public."RTSGrid_MetricTranslation", public."RTSGrid_Row", public."RTSGrid_Statistic", public."RTSGrid_UserStatus", public."RTSUserGrid_Column", public."RTSUserGrid_ColumnsSet", public."RTSUserGrid_Grid"
+  Tables   extra-on-server:   (none)
+  Indexes  missing: "IX_NGC_BusinessUnitSupergroup_SupergroupId", "IX_NGC_BusinessUnit_SiteId", "IX_NGC_SupergroupAgentgroup_SupergroupId", "IX_NGC_UserAgentgroup_TenantId_UserId_AgentgroupId", "IX_RTSData_ChatMessage_MessageId_ServerId", "IX_RTSData_Interaction_UpsertKey", "IX_RTSData_UserStatusLog_StatusGroup_Time"
+  Indexes  extra:   (none)
+  Constraints missing: PK_NGC_BusinessUnit, PK_NGC_BusinessUnitQueueClassification, PK_NGC_BusinessUnitSupergroup, PK_NGC_Site, PK_NGC_Supergroup, PK_NGC_SupergroupAgentgroup, PK_NGC_UserAgentgroup, PK_RTSData_ChatMessage, PK_RTSData_Interaction, PK_RTSData_UserStatus, PK_RTSData_UserStatusLog, PK_RTSGrid_Cell, PK_RTSGrid_Column, PK_RTSGrid_Grid, PK_RTSGrid_MetricTranslation, PK_RTSGrid_Row, PK_RTSGrid_Statistic, PK_RTSGrid_UserStatus, PK_RTSUserGrid_Column, PK_RTSUserGrid_ColumnsSet, PK_RTSUserGrid_Grid, PK_ngc_AgentGroups, PK_ngc_queues, PK_rtsgrid_metric, uq_ngc_agentgroups_external_tenant, uq_ngc_queues_external_tenant, uq_supergroup_agentgroup, FK_NGC_BusinessUnitQueueClassification_NGC_BusinessUnit_Busine, FK_NGC_BusinessUnitSupergroup_NGC_BusinessUnit_BusinessUnitId, FK_NGC_BusinessUnitSupergroup_NGC_Supergroup_SupergroupId, FK_NGC_BusinessUnit_NGC_Site_SiteId, FK_NGC_SupergroupAgentgroup_NGC_Supergroup_SupergroupId
+  Constraints extra:   (none)
+  Routines missing: (none)
+  Routines extra:   (none)
+  Sequences missing: (none)
+  Sequences extra:   (none)
+  Detail (column/clause) lines: missing 375 / extra 2
+
+----------------------------------------
+[A-R] ROUTINE PRESENCE CHECK
+----------------------------------------
+Routine presence drift:
+  Missing on server: 46
+    - NGC_GetBusinessUnitTable(uuid)
+    - NGC_GetBusinessUnitIdByName(text, uuid)
+    - NGC_GetOrCreateQueue(text, text, uuid)
+    - NGC_GetOrCreateAgentGroup(text, text, uuid)
+    - NGC_GetSupergroupIdByName(text, uuid)
+    - NGC_GetSupergroupTable(uuid)
+    - NGC_GetBusinessUnitQueueClassificationTable(uuid)
+    - NGC_GetBusinessUnitSupergroupTable(uuid)
+    - NGC_GetSupergroupAgentgroupTable(uuid)
+    - NGC_GetSiteTable(uuid)
+  Extra on server: 115
+    + NGC_CreateBusinessUnit(p_business_unit_name text, p_description text, p_site_id text, p_created_by text, p_tenant_id uuid)
+    + NGC_CreateBusinessUnit(p_business_unit_name text, p_description text, p_tenant_id uuid)
+    + NGC_CreateBusinessUnitQueueClassificationMapping(IN p_business_unit_id integer, IN p_queue_id text, IN p_classification_id text, IN p_created_by text, IN p_tenant_id uuid)
+    + NGC_CreateBusinessUnitSupergroupMapping(IN p_business_unit_id integer, IN p_supergroup_id integer, IN p_created_by text, IN p_tenant_id uuid)
+    + NGC_CreateSupergroup(IN p_supergroup_id integer, IN p_supergroup_name text, IN p_description text, IN p_created_by text, IN p_tenant_id uuid)
+    + NGC_CreateSupergroup(p_supergroup_name text, p_description text, p_created_by text, p_tenant_id uuid)
+    + NGC_CreateSupergroup(p_supergroup_name text, p_description text, p_tenant_id uuid)
+    + NGC_CreateSupergroupAgentgroupMapping(IN p_supergroup_id integer, IN p_agentgroup_id text, IN p_created_by text, IN p_tenant_id uuid)
+    + NGC_DeleteBusinessUnit(IN p_business_unit_id integer, IN p_tenant_id uuid)
+    + NGC_DeleteBusinessUnitQueueClassificationMapping(IN p_business_unit_id integer, IN p_queue_id text, IN p_classification_id text, IN p_tenant_id uuid)
+
+----------------------------------------
+DIMENSION B: ROUTINE KIND (prokind) [RTM-SEC-002]
+----------------------------------------
+All routines match expected kind (no prokind drift).
+
+----------------------------------------
+DIMENSION C: DATA (RTSGrid_Metric)
+----------------------------------------
+Extra metrics on server (not in baseline):
+  + QueueNumAbandonefCalls (not in baseline)
+  + QueueNumAbandonefCallbacks (not in baseline)
+
+----------------------------------------
+DIMENSION D: MIGRATION LEDGER
+(ledger present: 10 exact, 10 probed, 2 unknown)
+----------------------------------------
+Applied migrations (source: ledger):
+  [OK] 20260607_002_db_patch_history
+  [OK] 20260607_003_fix_curlogintimestamp
+  [OK] 20260609_010_metric_deploy_log
+  [OK] 20260613_001_backfill_metric_deploy_log
+  [OK] 20260613_011_45_table_drift_addcolumns
+  [OK] 20260613_012_drop_legacy_mapping_functions
+  [OK] 20260613_013_sgag_unique_constraint
+  [OK] 20260613_014_schema_reconcile
+  [OK] 20260613_015_ngc_createsupergroup_overloads
+  [OK] 20260622_001_arch_contour_indexes
+Applied migrations (source: probe):
+  [OK] 20260605_001_add_missing_metrics
+  [OK] 20260605_002_fix_daytrendinteractions
+  [OK] 20260605_003_add_user_widget_settings
+  [OK] 20260606_002_fix_userstatuslog_write
+  [OK] 20260606_003_catalog_backfill
+  [OK] 20260606_004_userstatuslog_statusgroup
+  [OK] 20260606_006_unavailable_rtsgrid_metrics
+  [OK] 20260606_007_ngc_useragentgroup
+  [OK] 20260606_009_ngc_useragentgroup_procedures
+  [OK] 20260607_001_add_metric_translation_table
+Unapplied migrations:
+  [MISSING] 20260604_001_add_agent_state_pct_metrics
+  [MISSING] 20260606_005_history_unavailable_metrics
+Unknown migrations (no ledger entry, no probe):
+  [???] 20260605_004_metrics_dedup
+  [???] 20260606_008_daytrend_fn_bu_scope
+
+----------------------------------------
+DIMENSION F: SEQUENCE SYNC (E3)
+----------------------------------------
+  All owned sequences ahead of their column max (no 23505 risk).
+
+================================================================================
+SUMMARY
+================================================================================
+A. Schema drift lines:     440
+B. Routine kind issues:    0
+C. Metric drift:           0
+D. Unapplied migrations:   2
+F. Sequences lagging:      0

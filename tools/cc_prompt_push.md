@@ -1,11 +1,11 @@
-# CC Task: Full push — commit pending docs/skills + export DB + push all
+﻿# CC Task: Full push ΓÇö commit pending docs/skills + export DB + push all
 
 ## Git push
 Push IS allowed in this prompt.
 
 ---
 
-## Step 0 — Mandatory integrity check (§0.6a)
+## Step 0 ΓÇö Mandatory integrity check (┬º0.6a)
 
 ```bash
 cd "D:\Claude\Projects\RTM View Shell"
@@ -13,16 +13,16 @@ for f in $(git diff --name-only HEAD 2>/dev/null); do
     H=$(git show HEAD:"$f" 2>/dev/null | wc -l)
     W=$(wc -l < "$f" 2>/dev/null)
     if [ "$H" -gt 5 ] && [ "$W" -lt $(( H * 90 / 100 )) ]; then
-        echo "TRUNCATED: $f — restoring"; git show HEAD:"$f" > "$f"
+        echo "TRUNCATED: $f ΓÇö restoring"; git show HEAD:"$f" > "$f"
     fi
 done && sync && echo "=== Integrity OK ==="
 ```
 
 ---
 
-## Step 1 — Commit pending docs/skills/tools changes
+## Step 1 ΓÇö Commit pending docs/skills/tools changes
 
-These files were modified by Cowork (documentation only — allowed per §0.7):
+These files were modified by Cowork (documentation only ΓÇö allowed per ┬º0.7):
 
 ```bash
 cp .git/index /tmp/cc-idx
@@ -51,14 +51,14 @@ GIT_INDEX_FILE=/tmp/cc-idx git add \
   tools/Build-ProdRelease.ps1 \
   2>/dev/null || true
 
-GIT_INDEX_FILE=/tmp/cc-idx git commit -m "docs: widget-planner L-36..L-38, qa-expert skill, CLAUDE.md §0.6a/§41, security overview, cc prompts, prod-release integrity check"
+GIT_INDEX_FILE=/tmp/cc-idx git commit -m "docs: widget-planner L-36..L-38, qa-expert skill, CLAUDE.md ┬º0.6a/┬º41, security overview, cc prompts, prod-release integrity check"
 cp /tmp/cc-idx .git/index
 git log --oneline -2
 ```
 
 ---
 
-## Step 1b — Add untracked files in docs/tools/db/.claude (often missed)
+## Step 1b ΓÇö Add untracked files in docs/tools/db/.claude (often missed)
 
 ```bash
 # Force-add skills (blocked by .gitignore .claude/ rule)
@@ -71,9 +71,9 @@ git add docs/ tools/cc_prompt_*.md tools/fix_*.py tools/integrity-check-block.md
 git status --short | grep "^??" | grep -v "node_modules\|Installations\|\.sync\|\.docx\|\.skill\|The\|bash\|file\|have\|in\|its\|line\|original\|user\|will\|working\|your\|endings\|directory\|build_"
 ```
 
-If any relevant `??` files remain — add them explicitly before committing.
+If any relevant `??` files remain ΓÇö add them explicitly before committing.
 
-If anything was staged — commit:
+If anything was staged ΓÇö commit:
 ```bash
 cp .git/index /tmp/cc-idx
 GIT_INDEX_FILE=/tmp/cc-idx git diff --cached --name-only
@@ -84,7 +84,7 @@ cp /tmp/cc-idx .git/index
 
 ---
 
-## Step 2 — Export DB to git (Export-All.ps1)
+## Step 2 ΓÇö Export DB to git (Export-All.ps1)
 
 ```powershell
 cd "D:\Claude\Projects\RTM View Shell"
@@ -100,7 +100,7 @@ git log --oneline -2
 
 ---
 
-## Step 3 — Post-commit integrity check
+## Step 3 ΓÇö Post-commit integrity check
 
 ```bash
 git status --short
@@ -110,7 +110,7 @@ git log --oneline -5
 
 ---
 
-## Step 4 — Push all
+## Step 4 ΓÇö Push all
 
 ```bash
 git push origin v2
@@ -120,7 +120,7 @@ If rejected: `git pull --rebase origin v2 && git push origin v2`
 
 ---
 
-## Step 5 — Re-sync (§0.6 PD-007)
+## Step 5 ΓÇö Re-sync (┬º0.6 PD-007)
 
 ```bash
 git diff --name-only HEAD~3 HEAD | while read f; do
