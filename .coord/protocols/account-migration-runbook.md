@@ -1,58 +1,65 @@
-# Account Migration Runbook — RTM View Shell (+ Agent Desktop)
+# Account Migration Runbook — RTM View Shell
 
 **Author:** curator-0611 (cross-project protocol steward)
 **Date:** 2026-08-17
 **Scope:** moving the project and all specialist sessions from the current Anthropic account to a new one.
-**Files stay in place:** `D:\Claude\Projects\RTM View Shell` and `D:\Claude\Projects\Agent Desktop`.
+**Files stay in place:** `D:\Claude\Projects\RTM View Shell`.
 
 ---
 
-## §0 — The one thing that matters
+## §0 — Status, scope, and what actually moves
 
-The project is **file-borne**. Almost everything that makes it work lives on `D:\` and in git, and a new
-account picks it up the moment you connect the folder. What does **not** travel is a short, specific list of
-account-bound state — and if it is not exported to disk *before* you switch, it is gone.
+**Scope (operator decision, 2026-08-17): RTM View Shell ONLY.** Agent Desktop STAYS on the originating
+account and is out of scope for this runbook. AD is not orphaned — its bless-gate sits with `curator-0811`.
+Consequence for the curator's own definition: see `## Scope change` in `curator-handoff.md`.
 
-### 0.1 Travels automatically (on `D:\`, in git)
+**Status as of commit `378246f` (v3 == origin/v3, 0 unpushed).** §1 and §2 are DONE and pushed. Everything
+below that is already exported is marked ✅; only the ⬜ items remain.
 
-| Asset | Location | Status |
+### 0.1 Already exported and in the object store ✅
+
+| Package | Where | Count |
 |---|---|---|
-| Product code, DB, deploy, docs | repo root | tracked on `v3` |
-| Role-skills of all specialists (37 files) | `.claude/skills/` | tracked on `v3` ✔ verified |
-| Project skill-memory | `.claude/memory/` (5 files) | tracked ✔ |
-| Protocol spine | `.coord/protocols/` (14 files, incl. `role-skill-standard.md` with both gates) | tracked ✔ |
-| Command registries | `.coord/coordinator-commands.md`, `.coord/session-commands.md` | tracked ✔ |
-| Project charter | `CLAUDE.md`, `PROJECT_STATUS.md`, `CHANGELOG.md` | tracked ✔ |
-| Local permissions + plugin list | `.claude/settings.local.json` | on disk (untracked) |
+| ✅ Project memory (the desktop-app store) | `.coord/migration/project-memory/` | 39 files, 184 722 B, byte-verified |
+| ✅ Space memory — work scope | `.coord/migration/space-memory/` | 4 files (`preferences`, both `areas/`, `topics/tools`) |
+| ✅ Custom account skills | `.coord/migration/account-skills/` | 10 skills / 28 files + `manifest-custom.json` |
+| ✅ Bus snapshot (the whole `.coord` runtime state) | `.coord/migration/bus-snapshot/` | 163 files, sha256-verified |
+| ✅ `.claude` zone (project skill-memory, role-skills, local settings) | `.claude/` | 55 of 56 files tracked |
+| ✅ Protocol spine incl. the LIVE curator handoff | `.coord/protocols/` | 12 files |
 
-### 0.2 Does NOT travel — account-bound, must be exported by hand
+Space memory NOT in git, by choice: `.coord/space-memory-personal/` — 4 personal files (`profile`, `food`,
+`reading`, `recent-work`). On disk only, deliberately outside the repo. **They are therefore unprotected —
+include this folder in the §1.4 cold copy.**
 
-| Asset | Why it is at risk |
-|---|---|
-| **Project memory** (39 files incl. `IDENTITY.md`, `our-thread.md`, `MEMORY.md`) | stored by the desktop app against the account, not in the repo |
-| **Account-level skills** (`prod-release`, `finesse-expert`, `user-doc-expert`, `doc-sync-agent`, …) | uploaded to the account; the on-disk copies are a read-only cache |
-| **Project instructions** (the "RTM View Shell" project prompt) | account-side text field |
-| **Connected folders** | granted per account/session |
-| **Plugins & MCP connectors** (`superpowers@claude-plugins-official`, GitHub auth, memory server) | installed against the account |
-| **Chat/session history** | does not migrate at all — this is exactly why `.coord/` handoffs exist |
-| **Scheduled tasks** | *verified: none exist* — nothing to move |
+### 0.2 Still to export ⬜
 
-### 0.3 At risk on disk right now (fix in §1 — do not skip)
+- ⬜ **Project instructions** — the "RTM View Shell" project prompt text. Account-side field, nowhere on disk.
+  Copy it verbatim into `.coord/migration/project-instructions.md`.
+- ⬜ **`environment.md`** — the rebuild inventory (§2.4).
 
-- **`.coord/` is largely UNTRACKED**: `inbox/*` (incl. `curator.md`, 71 KB of decision history),
-  `coordinator_handoff.md`, `protocols/curator-handoff.md`, `backlog.md`, `features.md`, `journal.md`,
-  `cc/*`, `curator-reconstitution-test.md`.
-  A `git clean` during migration deletes all of it. This is the **2026-07-03 incident** verbatim
-  (~19-doc TechWriter package lost the same way). Untracked ≠ preserved.
-  **Root cause (found 2026-08-17):** `.coord/.gitignore` line 2 is `*` — the bus is ignored *by design*,
-  so it cannot be rescued with an ordinary `git add`. See §1.2.
-- **2 unpushed commits on `v3`** (`origin/v3..v3` = 2). GitHub is account-independent and is therefore the
-  safest bridge — everything pushed is safe regardless of what happens to the Anthropic account.
-- **Stale clone**: `C:\Users\farbe\Documents\Claude\Projects\RTM View Shell` is frozen at 2026-06-09.
-  It is still connected as a folder in the current session. On the new account it must **not** be connected.
-- **Stale pointer**: `MEMORY.md` still points at the `C:\…` path for `PROJECT_STATUS.md`. Fix during §2.1.
+### 0.3 Travels by itself (already in git, nothing to do)
 
----
+Product code, DB, deploy, docs; 33 role-skills under `.claude/skills/`; `CLAUDE.md`, `PROJECT_STATUS.md`,
+`CHANGELOG.md`; the protocol spine with both verification gates.
+
+### 0.4 Traps found the hard way — read before trusting any inventory
+
+Every one of these was a wrong claim in an earlier draft of this runbook, corrected only after checking:
+
+1. **`git add` silently does nothing in two whole zones.** `.coord/.gitignore` line 2 is `*`; the root
+   `.gitignore` line 49 is `.claude/`. In both, a plain `add` is a no-op that *looks* like success — this is
+   the real mechanism behind the 2026-07-03 loss. `.coord/migration` now has a rule-based exemption;
+   `.claude` additions need `-f` (38 files were already tracked that way).
+2. **A directory existing proves nothing.** `.claude/skills/prod-release/` is an EMPTY husk — the only real
+   copy of that skill lived in the account. Count files, never trust a folder name.
+3. **Same name ≠ same thing.** `user-doc-expert` exists twice and they are DIFFERENT skills: the account one
+   is generic Enterprise-Grade (10 597 B), the repo one is RTM-specific (17 879 B, `invocation: user`).
+   Both are needed; rename one before re-uploading or the second will shadow the first.
+4. **There are THREE memory stores, not one.** Project memory (39, desktop app) · space memory (8, account) ·
+   `.claude/memory/` (11, in-repo project knowledge — 6 of which were untracked). Exporting one is not
+   exporting memory.
+5. **Read the disk AND the index, never one of them.** Every error above came from inferring the state of one
+   from the other.
 
 ## §1 — Pre-flight freeze (do this on the OLD account)
 
@@ -90,10 +97,10 @@ git push origin v3
 Also commit anything sitting untracked inside `protocols/` — that directory *is* tracked, so live artifacts
 there (e.g. `curator-handoff.md`) are committable and simply may never have been added.
 
-3. Same for Agent Desktop (`D:\Claude\Projects\Agent Desktop`, branch `main`, 21 unpushed commits) —
-   **but AD changes route through the operator**, so decide the push there explicitly, do not batch it in.
-4. Take a cold copy of both folders (external disk or a zip outside `D:\`), *including* `.git`.
-   This is the backstop if a re-clone goes wrong.
+3. Agent Desktop is OUT OF SCOPE (§0) — leave it on the originating account, do not batch its 21 unpushed
+   commits into this migration.
+4. Take a cold copy of the RTM folder (external disk or a zip outside `D:\`), *including* `.git` AND
+   `.coord/space-memory-personal/`. This is the backstop if a re-clone goes wrong.
 
 ---
 
@@ -138,7 +145,7 @@ versions on the new account.
 
 Copy the "RTM View Shell" project instruction text **verbatim** (the block starting
 *"Before writing any status document…"* through the Russian ТЗ paragraph) into
-`.coord/migration/project-instructions.md`. Do the same for the Agent Desktop project if it has its own.
+`.coord/migration/project-instructions.md`.
 
 ### 2.4 Environment inventory → disk
 
@@ -146,8 +153,9 @@ Write `.coord/migration/environment.md` recording, so the new account can be reb
 
 - Plugins: `superpowers@claude-plugins-official`
 - MCP servers in use: memory, remote-devices (device bridge), claude-in-chrome, visualize
-- Connected folders to re-grant: `D:\Claude\Projects\RTM View Shell`, `D:\Claude\Projects\Agent Desktop`
-  — **and explicitly NOT** `C:\Users\farbe\Documents\Claude\Projects\RTM View Shell`
+- Connected folder to re-grant: `D:\Claude\Projects\RTM View Shell` — that one ONLY.
+  **NOT** `C:\Users\farbe\Documents\Claude\Projects\RTM View Shell` (stale @2026-06-09) and
+  **NOT** `D:\Claude\Projects\Agent Desktop` (stays on the originating account).
 - Git remote: `https://github.com/MaximFa/rtm-view-shell.git` (GitHub account is separate from the
   Anthropic account — only the *connector authorization* needs redoing)
 - Scheduled tasks: **none** (verified 2026-08-17)
@@ -172,12 +180,12 @@ migration gate: if it is not true, do not proceed.
 Order matters; each step depends on the one before.
 
 1. **Sign in** to the new account in the Claude desktop app.
-2. **Connect folders**: `D:\Claude\Projects\RTM View Shell` and `D:\Claude\Projects\Agent Desktop`.
+2. **Connect the folder**: `D:\Claude\Projects\RTM View Shell` — that one only.
    Do **not** connect the `C:\…\Documents\…` clone — it is stale and has caused false "broken spine" alarms.
 3. **Re-install plugins** (`superpowers`) and **re-authorize connectors** (GitHub, and any others from
    `environment.md`). Confirm the device bridge and memory server are live.
 4. **Create the project** "RTM View Shell" and paste the project instructions from
-   `.coord/migration/project-instructions.md` verbatim. Repeat for Agent Desktop.
+   `.coord/migration/project-instructions.md` verbatim.
 5. **Re-upload the account skills** from `.coord/migration/account-skills/`.
 6. **Restore project memory**: in a session on the new account, write each file from
    `.coord/migration/project-memory/` back via project memory, **`MEMORY.md` last** (it is the index and
@@ -204,9 +212,8 @@ object store → report bus-summary and go idle.* Never let a specialist start w
 
 | # | Specialist | Anchor to read first |
 |---|---|---|
-| 1 | **Curator** (protocol steward, both colonies) | `curator_checkpoint_0620.md` + `.coord/protocols/curator-handoff.md` + `curator-charter.md` |
+| 1 | **Curator** (protocol steward — RTM only, post-migration) | `curator_checkpoint_0620.md` + `.coord/protocols/curator-handoff.md` + `curator-charter.md` |
 | 2 | **Coordinator** (RTM) | `.coord/coordinator_handoff.md` + `.coord/coordinator-commands.md` + `init-coordinator.md` |
-| 3 | AD coordinator `ad-coordinator-0811` + AD curator `curator-0811` | `Agent Desktop/.coord/sessions/*.md` |
 | 4 | Working roles: shell, backend, dba, devops, bi, test, incident, metrics | `.claude/skills/role-<name>/` + `.coord/inbox/<name>.md` |
 | 5 | Tech writer / doc roles | `.claude/skills/technical-writer/`, `user-doc-expert/` + doc governance rules from memory |
 
@@ -226,11 +233,10 @@ git show v3:.coord/protocols/role-skill-standard.md | grep -c 'Local-validation 
 git show v3:.coord/protocols/role-skill-standard.md | grep -c '## Test-gate'            # expect: 1
 git rev-list --count origin/v3..v3                                  # expect: 0 after §2.5
 ls .coord/migration/project-memory/ | wc -l                         # expect: 39
+ls .coord/migration/bus-snapshot/ -R | wc -l                        # expect: 163 files
+ls .coord/migration/account-skills/ | wc -l                         # expect: 11 (10 skills + manifest)
 
-# AD — D:\Claude\Projects\Agent Desktop, branch main
-git rev-parse --abbrev-ref HEAD                                     # expect: main
-ls .coord/sessions/ad-coordinator-0811.md .coord/sessions/curator-0811.md
-ls tools/36-legacy-login-body-and-ports.md
+# No Agent Desktop checks — out of scope (§0). A missing AD clone is EXPECTED, not a failure.
 ```
 
 Plus, per specialist: **a reconstitution interview.** The pattern already exists —
@@ -262,7 +268,8 @@ Only after §5 is fully green, and not before:
 | Account skills diverge from their `.claude/skills/` twins | §2.2 — pick the canonical copy before re-upload |
 | Specialists "resume" off memory and act on stale state | §4 + §5 — anchor read, mechanical self-check, reconstitution interview |
 | **PowerShell corrupts `.coord` files** — `Set-Content -Encoding utf8` on PS 5.1 writes a UTF-8 **BOM** (hit on `.coord/.gitignore`, 2026-08-17); a cp1252 round-trip mojibakes `—`/`§`/`→` (hit on `curator-continuity-canon.md`) | Write `.coord` files with **Python + `os.fsync`** only, then verify bytes/BOM/NUL. Never a PS pipe. BOM is a known-critical landmine here (`feedback_prod_release_bugs.md`). A `git diff` full of `â€"`/`Â§` is corruption, **not** an edit — restore with `git show v3:<file> > <file>`, do not commit it |
-| AD work batched into the RTM migration | AD changes route through the operator; keep the two tracks separate (RTM↔AD hygiene: parity of decisions, not shared buses) |
+| Curator boots on the new account, fails its AD self-check pins and declares itself un-live | `curator-handoff.md` now splits the pins: RTM pins mandatory, AD pins RETIRED post-migration. A missing AD clone is the expected state |
+| Exported memory still defines the curator as a cross-project steward | Faithful exports were not rewritten; `curator-handoff.md` §Scope change explicitly overrides them |
 
 ---
 
