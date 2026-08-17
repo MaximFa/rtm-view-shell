@@ -31,11 +31,21 @@ Space memory NOT in git, by choice: `.coord/space-memory-personal/` — 4 person
 `reading`, `recent-work`). On disk only, deliberately outside the repo. **They are therefore unprotected —
 include this folder in the §1.4 cold copy.**
 
-### 0.2 Still to export ⬜
+### 0.2 Export status — §2 is CLOSED ✅
 
-- ⬜ **Project instructions** — the "RTM View Shell" project prompt text. Account-side field, nowhere on disk.
-  Copy it verbatim into `.coord/migration/project-instructions.md`.
-- ⬜ **`environment.md`** — the rebuild inventory (§2.4).
+Nothing account-side remains to extract. Both former ⬜ items are done and pushed:
+
+- ✅ **Project instructions** → `.coord/migration/project-instructions.md` (3 209 B).
+  **Status: UNVERIFIED.** Reconstructed from the system prompt with HTML entities decoded, not a
+  byte-faithful copy. Compare it against the settings field on the originating account before re-pasting.
+- ✅ **`environment.md`** → `.coord/migration/environment.md` (5 827 B) — the rebuild sheet.
+
+**Remaining before cutover (all operator actions, none of them exports):**
+
+1. Eyeball `project-instructions.md` against the live settings field and correct it if it differs.
+2. Cold copy of the whole RTM folder — including `.git`, `10072026/` and `.coord/space-memory-personal/`
+   (§0.1 / §1.4). Those three are NOT protected by GitHub.
+3. Resolve the `user-doc-expert` name collision before re-uploading the skills (§0.4 item 3).
 
 ### 0.3 Travels by itself (already in git, nothing to do)
 
