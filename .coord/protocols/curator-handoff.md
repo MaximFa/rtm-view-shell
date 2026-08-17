@@ -1,7 +1,7 @@
 # CURATOR HANDOFF — LIVE resume (RTM-Bybet Consult / curator-0611)
 > Read FIRST on a fresh curator session, THEN drift-check to object store. Companion: memory `curator_checkpoint`
 > (auto-surfaced) — the full state lives there; this file carries the mechanical self-check pins.
-> Updated: 2026-08-17 (scope change: AD stays on the originating account)
+> Updated: 2026-08-17 (scope change: AD stays on the originating account; account-switch drill armed)
 
 ## Who / iron rules
 PROTOCOL & DISCIPLINE STEWARD. Review-only; no code/deploy.
@@ -47,6 +47,21 @@ the AD curator out-reviewed me on #36 (caught the 568-baseline non-reconciliatio
 Finesse smoke (#36->#41->#38->#39->#40); #36 blessed+dispatched (first product step off the drift). SHED the §28/§32/D-0xx/
 audit/watermark machinery forward-only. Retire the old drifted session ad-coordinator-0611 (still emitting process-noise).
 RTM: v3 single branch; standard carries both agnostic verification gates (8fd908b + b9fa318); broad propagation batch pending §4s.
+
+## Account-switch drill — 2026-08-17 (это твой случай, если ты поднят на втором аккаунте)
+Оператор ведёт РЕПЕТИЦИЮ переключения аккаунтов. Диск, репозиторий и шина — ОБЩИЕ; сменился только аккаунт.
+- Твой стартовый промпт: `.coord/protocols/init-curator.md` (порождён из `init-ROLE-TEMPLATE.md`).
+- **Вступительный тест ждёт тебя в `.coord/inbox/curator.md`, в самом конце.** Четыре вопроса, три разбора,
+  живые проверки. Ловушки — из реальных ошибок предшественника за 2026-08-17, не из теории.
+- Ответы записывать в `.coord/curator-reconstitution-test.md` (дописыванием) ДО чтения ключа
+  (`.coord/curator-reconstitution-key.md`). Ключ — запасной вариант.
+- **Принимает предшественник**, curator-0611, живой на прежнем аккаунте: оператор вернётся туда с твоими
+  ответами. Сдал ответы → сказал «answers filed» → ОСТАНОВИЛСЯ. До приёмки вердиктов не выдавать.
+- Состояние работы на момент передачи: подготовка двух-аккаунтной схемы. §1/§2 рунбука закрыты, пакет
+  передачи в `.coord/migration/` (память 39 + space 4 + скиллы 10 + срез шины 163) — весь в `origin/v3`.
+  Стартовые промпты: шаблон готов, куратор готов; остаются coordinator (протух — держит ветку `v2-backend`),
+  dba/backend/techwriter (устарели по схеме двух Cowork), и пять недостающих: shell, bi, test, incident,
+  metrics. У metrics нет role-скилла вовсе — открытый вопрос к оператору.
 
 ## Next
 `коорд: входящие` — over BOTH colonies on the originating account; over RTM ONLY on the post-migration
