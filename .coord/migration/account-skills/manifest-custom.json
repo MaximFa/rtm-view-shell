@@ -1,0 +1,75 @@
+{
+  "lastUpdated": 1786957756701,
+  "skills": [
+    {
+      "skillId": "skill_012gx4Zei9jUCWVJ1LYhiVNK",
+      "name": "doc-sync-agent",
+      "description": "Documentation sync agent — detects what changed in the codebase since the last documentation update and produces a targeted impact report showing exactly which documents need updating and why. Use this skill whenever the user says: \"update the docs\", \"sync documentation\", \"we added a feature\", \"new widget was added\", \"what docs need updating\", \"refresh the doc package\", \"doc update after sprint\", or any variation of \"something changed, docs need to catch up\". The agent first shows a report and waits for confirmation before touching any files. Always use this skill after any sprint or feature delivery — it prevents documentation drift.",
+      "source": "custom",
+      "updatedAt": "2026-05-29T13:54:00.931655Z"
+    },
+    {
+      "skillId": "skill_0152cfjQvsFRaQntPfaBRDnW",
+      "name": "finesse-expert",
+      "description": "Deep expert knowledge of Cisco Finesse architecture, REST API, XMPP Notification Service, agent state machine, call/dialog model, and integration patterns for UCCE and UCCX. Trigger whenever the user asks anything about Finesse API endpoints, XMPP events, dialog/participant states, agent state transitions, CTI event mappings, Finesse authentication, BOSH/WebSocket connection, FinesseRestClient, FinesseEventListener, FinesseStatePump, supervisor call control (silent monitor, barge, whisper), call transfer/conference flows, Finesse 12.x specifics, UCCE vs UCCX behavioral differences, Finesse error codes, wrap-up reasons, reason codes, phonebooks, queue statistics, Finesse gadget migration, or any integration issue involving Cisco Finesse. Also trigger for questions about why Finesse sends a particular event, how hold works in Finesse, what state the agent enters after transfer, or how to subscribe to XMPP notifications.",
+      "source": "custom",
+      "updatedAt": "2026-06-01T14:19:08.368342Z"
+    },
+    {
+      "skillId": "skill_013QBQB72R6pnyjrxZvKQvUZ",
+      "name": "storydream-docsync",
+      "description": "Post-sprint documentation sync for StoryDream. Detects code changes via git, maps them to ТЗ/PLAN sections (safety pipeline and data model are CRITICAL priority), shows an impact report, waits for confirmation, then drafts patches. Trigger when user says: \"sync docs\", \"doc sync\", \"обнови доки после спринта\", \"синхронизировать документацию\", or at the end of any sprint.",
+      "source": "custom",
+      "updatedAt": "2026-05-30T18:38:07.915955Z"
+    },
+    {
+      "skillId": "skill_01VeNGwx72oRMaeFtrmf88t7",
+      "name": "ds-b-rolls",
+      "description": "Finds ready-to-use B-roll / stock video clips that will later be edited into advertising videos (Meta / TikTok / Instagram / YouTube ads). Use this skill whenever the user wants footage, B-roll, stock video, \"קטעי וידאו\", \"בי רול\", \"פוטג'\", clips for an ad, visuals for a video, or describes a scene they need on screen (\"I need a clip of someone unboxing a product\", \"תמצא לי בי רול של ריצה בחוף\", \"footage of pouring coffee\", \"צריך וידאו של אישה מורחת קרם\"). It searches across multiple free stock-video sources, defaults to vertical phone format (9:16) for ads, presents the candidate clips with preview links FIRST for the user to approve, and only AFTER approval downloads and saves them to files with the names the user dictates. Trigger it even when the user doesn't say the words \"B-roll\" or \"stock\" — any request to find existing video footage for an ad, reel, or short qualifies.",
+      "source": "custom",
+      "updatedAt": "2026-06-04T12:37:42.377232Z"
+    },
+    {
+      "skillId": "skill_01DFmnQjJKf7JQisM3g45eTk",
+      "name": "ds-copy-write",
+      "description": "Expert direct-response copywriter for e-commerce and dropshipping. Writes high-converting ad scripts (video/UGC, long and short), hooks, Facebook/Instagram/TikTok ad copy, product-page copy, and email/SMS — built on the course principles: Direct Response, the Value Equation, the 8 life forces (LF8), awareness stages, hook anatomy, the 6 headline strategies, and Cialdini. Use whenever the user wants to write or improve a video ad script, תסריט, a hook, ad creative, a product description, a headline, or any persuasive sales copy for a store or product — even if they just say \"write me copy\", \"I need a script\", or \"כתוב לי תסריט\". Always interviews first (product, avatar, angle, awareness stage, offer), then writes copy that sells the RESULT, not the product. Defaults to the user's language (Hebrew for Israeli stores).",
+      "source": "custom",
+      "updatedAt": "2026-05-29T12:39:29.768044Z"
+    },
+    {
+      "skillId": "skill_011CxBwYosJwdY3cFZDu2AAY",
+      "name": "storydream-sprint",
+      "description": "StoryDream end-of-sprint workflow — automatically generates a sprint report, updates the Excel sprint tracker, and flags which project docs need syncing. ALWAYS trigger this skill when the user says anything like: \"sprint done\", \"end of sprint\", \"sprint N finished\", \"generate sprint report\", \"sprint report\", \"закончили спринт\", \"отчёт по спринту\", \"обнови трекер спринта\", \"синхронизируй доки после спринта\", or any phrase about wrapping up a StoryDream sprint. Also trigger if the user mentions updating the StoryDream sprint tracker or syncing docs after building something.",
+      "source": "custom",
+      "updatedAt": "2026-05-30T18:11:09.147862Z"
+    },
+    {
+      "skillId": "skill_01PqXV5NvacCLeVVcyiWGM6f",
+      "name": "ds-expert",
+      "description": "Acts as an expert dropshipping consultant for Shopify stores selling into the Israeli market, covering store setup, niche and product selection, supplier sourcing and fulfillment, pricing and unit economics, paid advertising (Meta, TikTok, Google), customer service, and Israeli legal/tax/payment requirements. Use this skill whenever the user mentions dropshipping, drop-ship, dropship, \"open an online store\", finding winning products, choosing suppliers (AliExpress, CJ, Zendrop, etc.), running Facebook/TikTok/Instagram ads for a store, store profit margins, or scaling an e-commerce store — even if they don't say the word \"dropshipping\" explicitly. The skill ALWAYS starts by interviewing the user to understand their situation, then presents concrete options to choose from and recommends best practices with specific named apps and platforms. Trigger it for any question about building, running, advertising, or troubleshooting a dropshipping business.",
+      "source": "custom",
+      "updatedAt": "2026-05-29T10:45:07.108477Z"
+    },
+    {
+      "skillId": "skill_01LUtwVddX4gCaiyxa4eA14M",
+      "name": "storydream-monitor",
+      "description": "StoryDream project monitoring skill — generates AI API cost reports, reviews moderation incidents, and runs the monthly safety audit checklist. ALWAYS trigger when the user says: \"cost report\", \"сколько потратили на AI\", \"отчёт по стоимости\", \"moderation incidents\", \"инциденты модерации\", \"safety audit\", \"аудит безопасности\", \"monthly audit\", \"мониторинг\", \"что с расходами\", \"проверь инциденты\", or asks about AI API spending, content flags, or child safety status for StoryDream. Also trigger when a scheduled task runs with mode daily-cost, moderation-check, or safety-audit.",
+      "source": "custom",
+      "updatedAt": "2026-05-30T18:22:55.683707Z"
+    },
+    {
+      "skillId": "skill_012shvfcxFyFxoY7vxVFJfWQ",
+      "name": "prod-release",
+      "description": "Генерирует CC-промпт для сборки пакета RTM View Shell по требованию и выдаёт готовую команду для установки на сервере. Триггеры: \"нужна установка RTM+DB\", \"собери RTM\", \"сделай пакет Shell\", \"нужна сборка\", \"build release\", \"create release\", \"package release\", \"собери релиз\", \"сделай пакет\", \"упакуй релиз\".",
+      "source": "custom",
+      "updatedAt": "2026-06-01T12:42:32.181554Z"
+    },
+    {
+      "skillId": "skill_019aYhcYGmJdRBRJQk2T4tZA",
+      "name": "user-doc-expert",
+      "description": "Expert documentation manager for Enterprise-Grade products. Use this skill whenever the user wants to: create, update, review, or plan documentation for administrators or end users; generate user manuals, admin guides, quick start guides, training decks (PPT), FAQ, installation guides, security guides, release notes, or any other user-facing or ops-facing document. Also trigger for: \"what docs do we need\", \"write a user guide\", \"create training materials\", \"document this feature\", \"update the manual\", \"create a doc package\", \"what's missing in our documentation\", or any request to produce professional documentation for a software product. Always use this skill for any documentation work — it maintains the full Enterprise Grade doc catalog, reads existing project materials, and produces polished deliverables.",
+      "source": "custom",
+      "updatedAt": "2026-05-29T13:53:55.750526Z"
+    }
+  ]
+}
