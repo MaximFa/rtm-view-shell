@@ -1,9 +1,13 @@
 # Coordinator HANDOFF — LIVE resume state  (read FIRST on resume)
 > RESUME CHECK — this marker satisfies role-coordinator §C VERIFY #3. Do not remove it.
-> Rewritten 2026-08-17T~14:3xZ by **coordinator-0817**, raised on the SECOND Anthropic account
-> (account-switch drill; disk/repo/bus shared). Supersedes the 2026-07-03 handoff by coordinator-0703,
+> Rewritten 2026-08-17 by **coordinator-0817**. Supersedes the 2026-07-03 handoff by coordinator-0703,
 > which had rotted: it pinned v3 HEAD=6945fc0 / origin=1b5778a / unpushed=1 — none of that resolves now.
 > Truth = object store + bus, not chat (NORM-CUR-13).
+
+> **Norm you inherit (init §3, revision aa16664):** the Anthropic-account topology is the CURATOR's beat,
+> exclusively. Do not reason about it, do not record it in your session file, do not mention it in reports.
+> And never infer your ENVIRONMENT from the documents you are reading — there is no object-store pin for it.
+> This handoff's first version violated both halves; the lines were removed, not rephrased.
 
 ## GIT STATE — pins that resolve RIGHT NOW (verified 2026-08-17)
 - Branch = **v3** (single working branch since the v2-backend consolidation 9bf7c11, 2026-06-26).
@@ -34,7 +38,7 @@
 Nothing in §A was found superseded by the code. §A is in force as written, **including the ⛔ ЧП /
 EMERGENCY MODE flag (declared 2026-06-25, never lifted — the operator has never answered on lifting it).**
 
-## ⚠ TOOLING CONSTRAINT ON THIS ACCOUNT — read before you believe you cannot verify anything
+## ⚠ TOOLING CONSTRAINT SEEN THIS SESSION — read before you believe you cannot verify anything
 `device_bash` (the Linux VM on the operator's machine) **failed to start for this session**: every call
 returns "Workspace unavailable". No `git` binary is reachable over the bridge. This looks like
 "object store unreachable" and it is NOT.
