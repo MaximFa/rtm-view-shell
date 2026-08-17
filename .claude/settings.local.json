@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(head *)",
+      "PowerShell(netstat *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-Service *)",
+      "PowerShell(Stop-Process *)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:5239/health\" -TimeoutSec 5 -UseBasicParsing; \"Status: $\\($r.StatusCode\\) — $\\($r.Content\\)\" } catch { \"Error: $_\" })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:5239/\" -TimeoutSec 8 -UseBasicParsing -MaximumRedirection 0 -ErrorAction SilentlyContinue; \"Status: $\\($r.StatusCode\\)\" } catch [System.Net.WebException] { \"HTTP status: $\\([int]$_.Exception.Response.StatusCode\\) $\\($_.Exception.Response.StatusDescription\\)\" } catch { \"Error: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:5239/login\" -TimeoutSec 8 -UseBasicParsing; \"Status: $\\($r.StatusCode\\) Content-Length: $\\($r.Content.Length\\)\" } catch [System.Net.WebException] { \"HTTP $\\([int]$_.Exception.Response.StatusCode\\)\" } catch { \"Error: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"https://localhost:7196/health\" -TimeoutSec 8 -UseBasicParsing -SkipCertificateCheck; \"Status: $\\($r.StatusCode\\) Body: $\\($r.Content\\)\" } catch { \"Error: $\\($_.Exception.Message\\)\" })",
+      "PowerShell([System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }; try { $r = Invoke-WebRequest -Uri \"https://localhost:7196/health\" -TimeoutSec 8 -UseBasicParsing; \"Status: $\\($r.StatusCode\\) Body: $\\($r.Content\\)\" } catch { \"Error: $\\($_.Exception.Message\\)\" })"
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  }
+}

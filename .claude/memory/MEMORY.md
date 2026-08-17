@@ -1,0 +1,1 @@
+- [RTM Prod Tests2 (2026-06-05)](rtm_prod_tests2_session.md) — DataSlot 3 баги, Connection race, Calc 0%, refreshCells timer, Header Font Size, skills autoload
