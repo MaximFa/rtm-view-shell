@@ -8,3 +8,10 @@
 # migration artifacts = durable handover package, NOT runtime state (curator 2026-08-17)
 !migration/
 !migration/**
+# boot-critical STATE — инит велит читать это при подъёме, значит обязано быть пришпиливаемым
+# (куратор 2026-08-17; независимо найдено координатором 2026-07-03 и обеими инкарнациями куратора)
+# поток (inbox/, cc/, journal.md) сюда НЕ входит намеренно: доставка идёт диском, git — сохранность
+!coordinator_handoff.md
+!rejects.md
+!features.md
+!backlog.md
