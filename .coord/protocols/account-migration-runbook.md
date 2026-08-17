@@ -44,6 +44,8 @@ account-bound state — and if it is not exported to disk *before* you switch, i
   `cc/*`, `curator-reconstitution-test.md`.
   A `git clean` during migration deletes all of it. This is the **2026-07-03 incident** verbatim
   (~19-doc TechWriter package lost the same way). Untracked ≠ preserved.
+  **Root cause (found 2026-08-17):** `.coord/.gitignore` line 2 is `*` — the bus is ignored *by design*,
+  so it cannot be rescued with an ordinary `git add`. See §1.2.
 - **2 unpushed commits on `v3`** (`origin/v3..v3` = 2). GitHub is account-independent and is therefore the
   safest bridge — everything pushed is safe regardless of what happens to the Anthropic account.
 - **Stale clone**: `C:\Users\farbe\Documents\Claude\Projects\RTM View Shell` is frozen at 2026-06-09.
@@ -60,13 +62,33 @@ flight loses whatever those sessions were holding in context.
 1. Close out or checkpoint every open specialist session. Each writes its handoff to `.coord/` and stops.
 2. Get everything onto disk *and* into git:
 
+⚠ **`git add -A .coord` DOES NOT WORK** — corrected 2026-08-17 after it silently added nothing.
+`.coord/.gitignore` ignores the whole directory by design (§42.7, "the bus is runtime state"), exempting
+only `README.md`, `.gitignore` and `protocols/**`. A plain `add` against the bus is a no-op that *looks*
+like success. This is also the mechanism behind the 2026-07-03 loss: the package could not be committed,
+not merely was not.
+
+Two moves, in this order:
+
 ```powershell
 cd "D:\Claude\Projects\RTM View Shell"
-git status --porcelain          # review EVERY untracked line before deciding
-git add -A .coord CLAUDE.md PROJECT_STATUS.md .claude
-git commit -m "migration: freeze — track the full .coord bus, handoffs and inboxes before account switch"
-git push origin v3              # this also clears the 2 unpushed commits
+
+# (a) exempt the handover package from the runtime-state ignore — by RULE, not by `add -f`
+#     append to .coord/.gitignore:
+#       # migration artifacts = durable handover package, NOT runtime state (curator 2026-08-17)
+#       !migration/
+#       !migration/**
+#     Write it with Python+fsync, NOT with a PowerShell pipe (see §7 — PS 5.1 injects a UTF-8 BOM).
+
+# (b) snapshot the runtime bus into the (now trackable) package, then commit
+git add .coord/.gitignore .coord/migration
+git status --short .coord/migration | Measure-Object -Line   # confirm the file count by eye
+git commit -m "migration: handover package + bus snapshot"
+git push origin v3
 ```
+
+Also commit anything sitting untracked inside `protocols/` — that directory *is* tracked, so live artifacts
+there (e.g. `curator-handoff.md`) are committable and simply may never have been added.
 
 3. Same for Agent Desktop (`D:\Claude\Projects\Agent Desktop`, branch `main`, 21 unpushed commits) —
    **but AD changes route through the operator**, so decide the push there explicitly, do not batch it in.
@@ -239,6 +261,7 @@ Only after §5 is fully green, and not before:
 | New account connects the stale `C:\` clone | §3.2 — connect `D:\` only; §6 — archive the stale clone |
 | Account skills diverge from their `.claude/skills/` twins | §2.2 — pick the canonical copy before re-upload |
 | Specialists "resume" off memory and act on stale state | §4 + §5 — anchor read, mechanical self-check, reconstitution interview |
+| **PowerShell corrupts `.coord` files** — `Set-Content -Encoding utf8` on PS 5.1 writes a UTF-8 **BOM** (hit on `.coord/.gitignore`, 2026-08-17); a cp1252 round-trip mojibakes `—`/`§`/`→` (hit on `curator-continuity-canon.md`) | Write `.coord` files with **Python + `os.fsync`** only, then verify bytes/BOM/NUL. Never a PS pipe. BOM is a known-critical landmine here (`feedback_prod_release_bugs.md`). A `git diff` full of `â€"`/`Â§` is corruption, **not** an edit — restore with `git show v3:<file> > <file>`, do not commit it |
 | AD work batched into the RTM migration | AD changes route through the operator; keep the two tracks separate (RTM↔AD hygiene: parity of decisions, not shared buses) |
 
 ---
