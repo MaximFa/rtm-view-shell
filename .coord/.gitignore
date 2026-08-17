@@ -1,7 +1,10 @@
-# Everything in .coord/ is runtime state except the protocol docs
+﻿# Everything in .coord/ is runtime state except the protocol docs
 *
 !README.md
 !.gitignore
 # protocol docs = norm source-of-truth (curator steward), MUST be tracked (§42.7 flag 2026-06-13)
 !protocols/
 !protocols/**
+# migration artifacts = durable handover package, NOT runtime state (curator 2026-08-17)
+!migration/
+!migration/**
