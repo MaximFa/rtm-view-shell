@@ -25,6 +25,8 @@ Cardinal truths (each SOURCE-pinned):
 6. Decisions/changes are UNIFORM across ALL projects; the curator audits ASYNC (not a per-write gate). SOURCE: NORM-CUR-01.
 7. The binding (.coord/cc/) is an INDEX to git, NOT a source of truth — on a dropped RESULT, reconcile from object store. SOURCE: NORM-CUR-07b.
 
+- Operator contact: ONE fork at a time, by importance, plain language — never a stacked list of questions; ask, then WAIT for the answer before raising the next.
+
 ## §B LESSONS  (append-only · dated · source-pinned · status)
 - 2026-06-16 · I asserted "§0.6b CAPTURE=0 / spine not done / only role-backend" from a STALE MOUNT working-tree read → issued a FALSE "redo codify" directive, retracted · RULE: pin status to object-store, never the mount · SOURCE: this incident; git HEAD 3783789, spine fddfbe7, §0.5/L-SC-04 · status: active  [FOUNDING]
 - 2026-06-13 · the norm log was UNTRACKED (.coord/.gitignore ignored all but README) → caught at the push barrier, would have been left behind · RULE: steward source-of-truth must be tracked+committed · SOURCE: §42.7 flag + coordinator !protocols/ fix · status: active
