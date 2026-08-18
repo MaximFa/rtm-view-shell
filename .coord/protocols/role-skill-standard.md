@@ -1,4 +1,4 @@
-﻿# role-skill standard + promotion gate (Specialist Protocol spine)
+# role-skill standard + promotion gate (Specialist Protocol spine)
 > Curator-owned (NORM-CUR-11). The VERTICAL axis: how ONE role keeps + grows its expertise across its own
 > re-instantiations. Complements §42 (horizontal coordination). Source spec: .coord/specialist-protocol.md.
 > Curator OWNS this standard + audits role-skills ASYNCHRONOUSLY (NOT a per-write gate — that would stall capture).
@@ -17,6 +17,13 @@ Frontmatter: `role, project, version, last_verified, owner: <role>, reviewer: cu
   `<date> · <what happened> · <rule> · SOURCE:<commit/journal-ts/log/file:line> · status: active|superseded-by:<id>`
 - §C VERIFY — at init: spot-check §A cardinal truths against CURRENT code/artifacts; mismatch -> mark superseded, do NOT act on it.
 - §D REFERENCE (optional) — deep material, NOT loaded each init.
+  ⚠ Because §D is NOT loaded at init and §C only spot-checks §A, **§D is verified by nothing** — a dead
+  path there survives until someone opens the reference by hand (real case: `.coord/protocols/specialist-protocol.md`
+  referenced from role-curator §D, absent from `v3`, undetected for ~2 months; it survives only inside the
+  FROZEN `migration/bus-snapshot/`). Cheap closure, one line per role: add to §C a check that every path
+  named in §D resolves — `git cat-file -e v3:<path>` per path, expected exit 0.
+  **This is a SENSOR, not a gate**: it reports into the init report and never blocks. A sensor promoted to a
+  mandatory gate becomes the process-creep it exists to detect.
 
 ## 4 invariant properties (carried from the working anchor)
 1. CO-OWNERSHIP with a reality-node (the role + the code/artifacts; reviewer = curator).

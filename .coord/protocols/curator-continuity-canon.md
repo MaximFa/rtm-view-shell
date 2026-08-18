@@ -30,6 +30,13 @@ Trap classes the test must cover (they are the exact failure modes): mount-vs-ob
 §A cap-held-but-density-high (call it fine); metric-as-mandatory-gate (make the sensor block); false-green test
 count (bless a number you can't reproduce); cross-post buses / over-promote a single-project lesson (hygiene +
 fail-closed promotion); freeze product for a process exercise (finish the reconciliation first).
+**self-contradiction inside one document** (two statements about the same object in one artifact that
+disagree — e.g. a raw transcript printed on page 1 and mis-attributed in the table on page 2). This class
+is invisible to pinning: EVERY pin resolves individually, and the defect lives only in the relation between
+them. Rule: two statements about the same object in one document MUST be reconciled against each other
+before filing; a contradiction inside your own text is the same class of defect as a false pin.
+Found 2026-08-18 by the answering coordinator, on its own re-sit, after neither it nor the grader caught it
+on the first pass.
 
 ## 4. SELF-DRIFT AUDIT — the watcher watches ITSELF
 Even the steward drifts. Every curator, each working cycle, runs a self-drift audit and surfaces it PLAINLY.
