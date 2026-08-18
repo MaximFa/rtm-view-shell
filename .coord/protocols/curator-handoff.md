@@ -1,7 +1,7 @@
 # CURATOR HANDOFF — LIVE resume (RTM-Bybet Consult / curator-0611)
 > Read FIRST on a fresh curator session, THEN drift-check to object store. Companion: memory `curator_checkpoint`
 > (auto-surfaced) — the full state lives there; this file carries the mechanical self-check pins.
-> Updated: 2026-08-17 (scope change: AD stays on the originating account; account-switch drill armed)
+> Updated: 2026-08-18 — слой подъёма закрыт, комплект аттестации готов, этап: верификация команды на резерве.
 
 ## Who / iron rules
 PROTOCOL & DISCIPLINE STEWARD. Review-only; no code/deploy.
@@ -40,28 +40,55 @@ RTM View Shell moves to a NEW Anthropic account; **Agent Desktop STAYS on the or
   rewritten. **This section overrides them.** A curator booting on the new account that reads a cross-project scope
   from memory is reading pre-migration history, not its own mandate.
 
-## Live task (2026-08-11)
-AD RE-FOUNDING succeeding: new coordinator ad-coordinator-0811 + new AD curator curator-0811 both cold-start-blessed;
-the AD curator out-reviewed me on #36 (caught the 568-baseline non-reconciliation + unnamed local-validation floor) and
-**I handed it the bless-gate FULLY** — it is AD's steward now; escalates only hard/cross calls to me. Product goal = M1
-Finesse smoke (#36->#41->#38->#39->#40); #36 blessed+dispatched (first product step off the drift). SHED the §28/§32/D-0xx/
-audit/watermark machinery forward-only. Retire the old drifted session ad-coordinator-0611 (still emitting process-noise).
-RTM: v3 single branch; standard carries both agnostic verification gates (8fd908b + b9fa318); broad propagation batch pending §4s.
+## Состояние на 2026-08-18 (заменяет прежние Live task и drill-блок)
 
-## Account-switch drill — 2026-08-17 (это твой случай, если ты поднят на втором аккаунте)
-Оператор ведёт РЕПЕТИЦИЮ переключения аккаунтов. Диск, репозиторий и шина — ОБЩИЕ; сменился только аккаунт.
-- Твой стартовый промпт: `.coord/protocols/init-curator.md` (порождён из `init-ROLE-TEMPLATE.md`).
-- **Вступительный тест ждёт тебя в `.coord/inbox/curator.md`, в самом конце.** Четыре вопроса, три разбора,
-  живые проверки. Ловушки — из реальных ошибок предшественника за 2026-08-17, не из теории.
-- Ответы записывать в `.coord/curator-reconstitution-test.md` (дописыванием) ДО чтения ключа
-  (`.coord/curator-reconstitution-key.md`). Ключ — запасной вариант.
-- **Принимает предшественник**, curator-0611, живой на прежнем аккаунте: оператор вернётся туда с твоими
-  ответами. Сдал ответы → сказал «answers filed» → ОСТАНОВИЛСЯ. До приёмки вердиктов не выдавать.
-- Состояние работы на момент передачи: подготовка двух-аккаунтной схемы. §1/§2 рунбука закрыты, пакет
-  передачи в `.coord/migration/` (память 39 + space 4 + скиллы 10 + срез шины 163) — весь в `origin/v3`.
-  Стартовые промпты: шаблон готов, куратор готов; остаются coordinator (протух — держит ветку `v2-backend`),
-  dba/backend/techwriter (устарели по схеме двух Cowork), и пять недостающих: shell, bi, test, incident,
-  metrics. У metrics нет role-скилла вовсе — открытый вопрос к оператору.
+**Пины, снятые при написании:** `v3 = 0c9926e`, `origin/v3 = f6d5c58`, **непушенных 17** — все протокольные.
+Гейты стандарта 1/1. Роль-скиллов **12**, инитов **13**, вступительных тестов **12**.
+Последний ПРОДУКТОВЫЙ коммит — `d1982de`, **2026-07-22**. Продукт не двигался 27 дней: это красный сигнал
+самопроверки на дрейф, объявлен вслух оператору, следующее движение обязано быть продуктовым.
+
+**Режим работы, поставленный оператором 2026-08-18.** Два аккаунта: `profit` — рабочая сторона,
+`gmail` — холодный резерв, включаемый когда лимит `profit` подходит к концу. Диск, репозиторий и шина —
+общие; параллельной работы одной роли не бывает. Протокол — `.coord/protocols/switch-protocol.md`.
+Межаккаунтный канал куратора — `.coord/protocols/curator-crossaccount.md`, **в git и потому пришпиливаемый,
+в отличие от инбокса**. Слаги: `profit` / `gmail`, слаг за аккаунтом, не за личностью.
+
+**ТЕКУЩИЙ ЭТАП, и дальше него не двигаться:** `gmail` поднимает и аттестует у себя **полную команду**
+(10 ролей помимо себя и координатора) и убеждается, что они подхватят работу. Барьер, 17 непушенных и
+возврат мяча — СЛЕДУЮЩИЙ этап. Я уже сбился на него один раз (запрос `16:40Z`, отозван записью `17:20Z`):
+увидел блокер и переключился на его расшивку вместо назначенного порядка. Не повторять.
+
+**Что построено за 2026-08-17/18 — всё в `.coord/protocols/`:**
+- `switch-protocol.md` — передача мяча: инит постоянен и без состояния, хендоф это груз, гейт готовности
+  МАРКИРУЕТ а не блокирует, манифест переключения — первое, что читает принимающая сторона.
+- `init-ROLE-TEMPLATE.md` + `init-<роль>.md` на все роли. Правки вносить в ШАБЛОН, потом порождать.
+- `entrance-test-COMMON.md` + `entrance-key-COMMON.md` — сквозная дисциплина; `entrance-{test,key}-<роль>.md`
+  — тонкая роль-специфичная часть. Куратору тест НЕ заготавливается: его пишет уходящий предшественник.
+- Заведены `role-security`, `role-techwriter`, `role-metrics` — их не существовало, у трёх ролей не было
+  постоянного слоя вовсе.
+
+**Нормы, принятые за эти двое суток (все в загрузчиках, наследуются всеми ролями):**
+оператору по одному вопросу за раз, и **код-бокс это тоже обращение** — очередь одна и общая ·
+аккаунты ведёт только куратор, роль про них не рассуждает · **среду не выводить из читаемых документов** ·
+**пробуждение после паузы = инит**, критерий «проверял ли я это в текущем пробуждении» · singleton-проверка
+роли · тест преемнику пишет куратор, роль пишет уроки в `§B` · **ПОСТАВКА ≠ ЗАКРЫТИЕ** (`DELIVERED` пишет
+автор по object store, `CLOSED` — только оператор) · доставка идёт диском, git — сохранность, коммит на
+каждую реплику это process creep.
+
+**Открыто и ждёт:**
+1. Ответ `gmail` на разделение труда (тесты пишу я, поднимает и принимает он) — запись `17:20Z`.
+2. **17 непушенных коммитов на одном диске.** Барьер §37 проводит координатор; действующего координатора
+   на рабочей стороне НЕТ — он на резерве. Это и есть блокер следующего этапа.
+3. Продуктовый пункт — оператор ещё не назвал, вопрос висит.
+4. Режим ЧП формально снят, но сохраняется намеренно как дисциплина (решение оператора). **Не прибираться**
+   — вопрос в `.coord/backlog.md`.
+5. `§C VERIFY` восьми ролей написаны против рабочего дерева, а не object store. Чинит владелец роли;
+   вопрос заложен в их вступительные тесты.
+6. Дайджест журнала (`journal-digest`) — решено «вперёд, в момент, тем кто узнал», файла ещё нет.
+
+**Чего НЕ делать:** не лезть в барьер и пуш · не править чужие `§C` и роль-скиллы · не трогать ЧП ·
+не начинать новый протокол при неподвижном продукте · не писать в `.claude` через инструмент доставки
+(запрещено; только `device_bash`).
 
 ## Next
 `коорд: входящие` — over BOTH colonies on the originating account; over RTM ONLY on the post-migration
