@@ -82,6 +82,42 @@ LOCAL-VALIDATION GATE: nothing moves forward until the commit is validated by a 
 TEST-GATE: in a MULTI-PROJECT solution, building or running ONE project does NOT run the tests — they are SEPARATE build targets. "The app builds/runs" NEVER implies "the tests pass". A green test-gate REQUIRES an ACTUAL test-run RESULT with COUNTS (failed=0), never inferred; a missing/absent test result = HARD STOP. Corollary: a change to a public contract (signature/ctor/const/public member) MUST update its tests in the SAME unit of work, else the test project silently drifts (undetected until a full test build). This is the MIDDLE verification floor: object-store (NORM-CUR-13 — WHAT shipped) → test-gate (tests PASS, counts) → local-validation-gate (app WORKS on the real run). Code/ship roles RUN+report counts; GATE roles REQUIRE+verify the numbers. · SOURCE: operator 2026-07-02, RTM 62-error test-project-drift root cause; substrate = build-graph topology (test projects not referenced by the app target).
 
 
+## BODY INTEGRITY — норма 2026-08-29 (Н-6…Н-9, куратор + координатор)
+
+Роль-скилл — единственный ПОСТОЯННЫЙ слой роли и грузится при каждом ините. До сегодня правило проверки
+байтов после записи существовало только для `.coord/`; `.claude/skills/` под него не попадал никогда.
+Цена: `role-coordinator.md` нёс **1913 нулевых байт** с 2026-07-03 (блоб `1b5778a`, последний чистый —
+`c1b7fba`), 57 дней и три коммита поверх, включая аттестацию владельца. Содержимое дыры текстом не
+существовало никогда и из стора не восстанавливается.
+
+**Н-6. После ЛЮБОЙ записи в роль-скилл — проверка по БАЙТАМ, до коммита.**
+`NUL == 0` · первые 3 байта ≠ `EF BB BF` · `CR == 0` · прирост размера сходится с дописанным.
+**Счёт строк доказательством не является:** дыра в 1913 байт не меняет счёт строк вообще — потому её и
+не видели 57 дней.
+
+**Н-7 (объединена с Н-8 по поправке координатора). Сенсор целостности — при ините, ПО ОБОИМ ТЕЛАМ.**
+Стора мало: дыра сначала ложится НА ДИСК и лишь потом уезжает в объект — то есть в момент, когда её
+ещё можно поймать дёшево, стор ещё чист. Три строки, ожидание `0 / 0 / равны`:
+```
+python3 -c "d=open('<скилл>','rb').read();print(d.count(b'\x00'))"        -> 0   (диск)
+git show v3:<скилл> | tr -d -c '\000' | wc -c                              -> 0   (стор)
+git hash-object <скилл>  ==  git rev-parse v3:<скилл>                      -> равны
+```
+**Это СЕНСОР, а не гейт.** Красный не блокирует подъём — идёт в отчёт инита и оператору. Расхождение
+диск↔стор объявляется вслух с причиной; молча грузиться с дрейфующего тела нельзя.
+
+**Н-9. Новый роль-скилл не заведён, пока не прогнана Н-6 и не назван sha.** «Я добавил» — не поставка;
+поставка — `DELIVERED <sha>`.
+
+**Третий симптом, который делает это опасным вдвойне: файл с NUL классифицируется как БИНАРНЫЙ.**
+Измерено на `role-coordinator.md`: `grep -c 'status: active'` даёт **54**, а `grep -n` по тому же
+маркеру печатает `binary file matches` и НИ ОДНОЙ строки. То есть счётные проверки остаются зелёными, а
+показывающие строку немеют — проверка выглядит пройденной и не показывает ничего. Любой `§C`,
+сформулированный через показ строки, по повреждённому телу молчит вместо того, чтобы упасть.
+
+**Формулировка нормы едина и живёт ЗДЕСЬ.** Роль, у которой уже стоит свой вариант этой проверки,
+приводит его к этой формулировке: расхождение формулировок одной нормы хуже, чем чужая формулировка.
+
 ## Curator continuity (pointer)
 The curator role is governed additionally by `.coord/protocols/curator-continuity-canon.md` (written+versioned):
 reconstitution self-check, SUCCESSION VALIDATION of every successor, self-drift audit, and the `curator: drift check`
