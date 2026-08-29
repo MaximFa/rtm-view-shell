@@ -1,7 +1,9 @@
 # CURATOR HANDOFF — LIVE resume (RTM-Bybet Consult / curator-0611)
 > Read FIRST on a fresh curator session, THEN drift-check to object store. Companion: memory `curator_checkpoint`
 > (auto-surfaced) — the full state lives there; this file carries the mechanical self-check pins.
-> Updated: 2026-08-18 — слой подъёма закрыт, комплект аттестации готов, этап: верификация команды на резерве.
+> Updated: 2026-08-29 — слой подъёма закрыт, комплект аттестации готов, этап: верификация команды на резерве.
+> ⚠ ДАТА: часть артефактов 2026-08-2x помечена автором как «2026-08-18» — сессия куратора шла по дате
+> из своего окружения и не сверила её с часами устройства. Пины (sha) верны, ошибочны только подписи дат.
 
 ## Who / iron rules
 PROTOCOL & DISCIPLINE STEWARD. Review-only; no code/deploy.
@@ -40,14 +42,14 @@ RTM View Shell moves to a NEW Anthropic account; **Agent Desktop STAYS on the or
   rewritten. **This section overrides them.** A curator booting on the new account that reads a cross-project scope
   from memory is reading pre-migration history, not its own mandate.
 
-## Состояние на 2026-08-18 (заменяет прежние Live task и drill-блок)
+## Состояние на 2026-08-29 (заменяет прежние Live task и drill-блок)
 
 **Пины, снятые при написании:** `v3 = 0c9926e`, `origin/v3 = f6d5c58`, **непушенных 17** — все протокольные.
 Гейты стандарта 1/1. Роль-скиллов **12**, инитов **13**, вступительных тестов **12**.
-Последний ПРОДУКТОВЫЙ коммит — `d1982de`, **2026-07-22**. Продукт не двигался 27 дней: это красный сигнал
+Последний ПРОДУКТОВЫЙ коммит — `d1982de`, **2026-07-22**. Продукт не двигался **38 дней**: это красный сигнал
 самопроверки на дрейф, объявлен вслух оператору, следующее движение обязано быть продуктовым.
 
-**Режим работы, поставленный оператором 2026-08-18.** Два аккаунта: `profit` — рабочая сторона,
+**Режим работы, поставленный оператором 2026-08-29.** Два аккаунта: `profit` — рабочая сторона,
 `gmail` — холодный резерв, включаемый когда лимит `profit` подходит к концу. Диск, репозиторий и шина —
 общие; параллельной работы одной роли не бывает. Протокол — `.coord/protocols/switch-protocol.md`.
 Межаккаунтный канал куратора — `.coord/protocols/curator-crossaccount.md`, **в git и потому пришпиливаемый,
