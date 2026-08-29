@@ -1,3 +1,23 @@
+> # ▶ ROLE BOOT — WHERE THE START PROMPTS LIVE (added 2026-08-30)
+> `MEMORY.md` points here as the entry point on resume, so the boot paths are recorded HERE, by path,
+> not by memory. They were previously written down nowhere at all.
+>
+> | role | start prompt (the operator runs this) | live state, read second |
+> |---|---|---|
+> | **Coordinator** | `.coord/protocols/init-coordinator.md` | `.coord/coordinator_handoff.md` |
+> | **Curator** | `.coord/protocols/init-curator.md` | `.coord/protocols/curator-handoff.md` |
+> | any role | generated from `.coord/protocols/init-ROLE-TEMPLATE.md` | `.coord/inbox/<role>.md` + `.coord/cc/<role>.md` |
+>
+> **The same init file is ALSO the recovery prompt after a sudden auto-compaction mid-work** — the
+> coordinator's carries **§5a** for exactly that case (treat yourself as context-lost, re-run §1 in full,
+> check for an unfinished `BINDING status: open` before doing anything).
+> **Clone: `D:\Claude\Projects\RTM View Shell` only.** The `C:\Users\...\Documents\...` clone is STALE
+> (frozen 2026-06-09) and has already caused false alarms.
+>
+> ⚠ The body of this document below is a **2026-05-27 snapshot with later checkpoints appended** — it does
+> NOT describe the current state. Current coordinator state = `.coord/coordinator_handoff.md`;
+> current registers = `.coord/rejects.md`, `.coord/features.md`, `.coord/backlog.md` (all now tracked in git).
+
 # RTM View Shell — Project Status (session snapshot 2026-05-27)
 
 **Purpose:** quick orientation for any contributor (human or agent)

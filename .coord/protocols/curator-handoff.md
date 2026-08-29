@@ -1,4 +1,13 @@
 # CURATOR HANDOFF — LIVE resume (RTM-Bybet Consult / curator-0611)
+
+## ▶ BOOT BLOCK — как поднять читателя этого файла (норма 2026-08-29, Н-1)
+- start prompt (оператор запускает ЭТО): `.coord/protocols/init-curator.md`
+- этот хендоф: `.coord/protocols/curator-handoff.md`
+- шаблон, из которого порождены иниты ролей: `.coord/protocols/init-ROLE-TEMPLATE.md`
+- канал с другим аккаунтом: `.coord/protocols/curator-crossaccount.md`
+- входящие: `.coord/inbox/curator.md` · шина: `.coord/` · клон: `D:\Claude\Projects\RTM View Shell`
+- **Тот же инит-файл — промпт ВОЗОБНОВЛЕНИЯ после внезапной автокомпакции**, не только холодного старта.
+
 > Read FIRST on a fresh curator session, THEN drift-check to object store. Companion: memory `curator_checkpoint`
 > (auto-surfaced) — the full state lives there; this file carries the mechanical self-check pins.
 > Updated: 2026-08-29 — слой подъёма закрыт, комплект аттестации готов, этап: верификация команды на резерве.

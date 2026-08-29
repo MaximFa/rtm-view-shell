@@ -1,146 +1,134 @@
 # Coordinator HANDOFF — LIVE resume state  (read FIRST on resume)
+
+> ## ▶ КАК ПОДНЯТЬ КООРДИНАТОРА — ПУТИ, А НЕ ПАМЯТЬ
+> **Стартовый промпт (его запускает оператор):**
+> `D:\Claude\Projects\RTM View Shell\.coord\protocols\init-coordinator.md`
+> **Этот хендоф (живое состояние, читается вторым):**
+> `D:\Claude\Projects\RTM View Shell\.coord\coordinator_handoff.md`
+> **Роль-скилл:** `.claude/skills/role-coordinator/role-coordinator.md` · **шина:** `.coord/`
+> **Клон — только `D:\`.** Клон в `C:\Users\...\Documents\...` СТЕЙЛ (заморожен на 2026-06-09), не трогать.
+> Тот же файл инита запускается и после ВНЕЗАПНОЙ АВТОКОМПАКЦИИ посреди работы — см. в нём **§5a**.
+> *(Записано 2026-08-30 после вопроса оператора: путь к иниту не был зафиксирован НИГДЕ — ни здесь, ни в
+> `MEMORY.md`, ни в `CLAUDE.md`, ни в `PROJECT_STATUS.md`. Он жил только в голове оператора. Не удаляй этот блок.)*
+
 > RESUME CHECK — this marker satisfies role-coordinator §C VERIFY #3. Do not remove it.
-> Rewritten 2026-08-17 by **coordinator-0817**; **refreshed 2026-08-18 by coordinator-0818** (attested
-> that day; every pin below re-resolved from the object store on 2026-08-18, none inherited on trust).
-> Supersedes the 2026-07-03 handoff by coordinator-0703, which had rotted: it pinned v3 HEAD=6945fc0 /
-> origin=1b5778a / unpushed=1 — none of that resolved by 2026-08-17.
-> Truth = object store + bus, not chat (NORM-CUR-13). A pin ages: state the date you resolved it.
+> Line: 0817 -> 0818 -> **refreshed 2026-08-30 by coordinator-0818** (same incarnation, mid-operation).
+> Truth = object store + bus, not chat (NORM-CUR-13). **A pin ages: state the date you resolved it.**
 
-> **Norm you inherit (init §3, revision aa16664):** the Anthropic-account topology is the CURATOR's beat,
-> exclusively. Do not reason about it, do not record it in your session file, do not mention it in reports.
-> And never infer your ENVIRONMENT from the documents you are reading — there is no object-store pin for it.
-> This handoff's first version violated both halves; the lines were removed, not rephrased.
+> **Norms you inherit.** (1) Anthropic-account topology is the CURATOR's beat — do not reason about it,
+> do not record it, do not mention it in reports (init §3). (2) Never infer your ENVIRONMENT from the
+> documents you read — there is no object-store pin for it. (3) **Run-boxes are issued by SPECIALISTS,
+> not by the coordinator** (operator 2026-08-29). The coordinator blesses by §4 and accepts results.
+> (4) Every report to the operator ENDS with a poke table + "who is working now" (operator 2026-08-29).
 
-## GIT STATE — pins that resolve RIGHT NOW (re-verified 2026-08-18 by coordinator-0818)
-- Branch = **v3** (single working branch since the v2-backend consolidation 9bf7c11, 2026-06-26).
-  `.git/HEAD` -> `ref: refs/heads/v3`.
-- **v3 = `9953e60c5db5367ae3c53331d482b314f3e5e18b`**, **origin/v3 = `f6d5c58b71ffd98aea5b762142c185c27eb96fd5`**
-  -> **unpushed = 2** (`git rev-list --count origin/v3..v3` = 2). Both are curator attestation commits:
-  `896214d` (coordinator-0818 entrance FAIL verdict) and `9953e60` (re-sit PASS). No product code.
-  No barrier is open; a push needs the §37 quorum and is the operator's call, not mine.
-- **Last PRODUCT commit = `d1982de`** (2026-07-22, WFM per-BU snapshot keyed by BusinessUnitId) —
-  re-verified 2026-08-18: `git rev-list --count d1982de..v3` = **39**, and
-  `git log d1982de..v3 -- src CcDashboard.Web tools/Soma db deploy infra` = **EMPTY**.
-  So all 39 are curator / migration / protocol work. **No product code has moved since 2026-07-22.**
-  (Read that as: the whole account-migration + attestation cycle cost zero product motion. The one live
-  product thread — Queue Grid Max Wait / F5 — has been parked since 2026-07-16.)
-- Last push barrier: `.coord/push/request.md` = **PUSHED (CLOSED)**, `cd0e39a..d1982de`, 9 commits
-  (WFM Phase 1), quorum 6/6, closed 2026-07-22T18:05Z. FREEZE lifted. `push/acks/` left in place
-  (mount cannot delete); superseded by the next barrier.
-- The 2026-07-03 "UNCOMMITTED role-coordinator.md" warning is **resolved**: the pre-migration freeze
-  commit landed it; the §A+§B constitution is in v3 as blob `abf6b96`.
+## GIT STATE — re-resolved 2026-08-30 from `.git/refs` + `.git/logs/HEAD`
+- Branch **v3**. **v3 = `dae095dd546db23a1a753696e88aff0092b76bb4`**,
+  **origin/v3 = `f6d5c58b71ffd98aea5b762142c185c27eb96fd5`** -> **unpushed = 20**, all curator/protocol.
+- **Last PRODUCT commit = `d1982de`** (2026-07-22). Product code has NOT moved since.
+- Push barrier: none open. `push/request.md` = PUSHED (CLOSED) since 2026-07-22.
+- ⚠ **§C VERIFY was NOT re-run in this wake** — last full 5/5 PASS was 2026-08-18 (see the 0818 table in
+  git history of this file). Refs above ARE re-resolved today. Do not claim §C as fresh; re-run it.
+- ⛔ **ЧП / EMERGENCY MODE still ACTIVE** (declared 2026-06-25, never lifted).
 
-## §C VERIFY of role-coordinator (re-run 2026-08-18 against v3 objects — ALL FIVE PASS)
-| # | check | result |
-|---|---|---|
-| 1 | `session-coord.md` `L-SC-` occurrences | 59 matches on 48 lines — **PASS** (expect >20) |
-| 2 | `CLAUDE.md` `## 42. Multi-session coordination` | 1 — **PASS** |
-| 3 | `coordinator_handoff.md` contains `RESUME CHECK` | 2 — **PASS**. (Was FAIL at the 0817 init: the 0703 rewrite had dropped the marker — the CHECK was stale, not the code — and 0817 restored it. Do not remove it.) |
-| 4 | `CLAUDE.md` `CC<->spec binding` | 3 — **PASS** |
-| 5 | `.coord/protocols/init-coordinator.md` present in v3 | blob `4ed6510` — **PASS** (was `fd55acb` at the 0817 init; the file changed in `aa16664`, the check did not) |
-| + | RTM standard pin `role-skill-standard.md` (blob `6cc4c2c`): `Local-validation gate`=1, `## Test-gate`=1, `DEFAULT-DENY`=1 | **PASS** |
-| + | skill/CLAUDE.md/init disk-vs-blob sha256 round-trip (`abf6b96`, `da55021`, `4b9d79e`, `4ed6510`) | all **IDENTICAL** — booted on the bytes that are in the branch, not on a drifted mount copy |
+## WHERE THE WORK IS — CONVERGE 234, mid-operation. READ THIS BEFORE TOUCHING ANYTHING.
+**Goal (operator 2026-08-29):** upgrade 234 to `d1982de` FIRST, then look at bugs — "часть из них уже
+закрыта актуальной версией". Bug review is QUEUED BEHIND the converge, deliberately.
 
-Nothing in §A was found superseded by the code. §A is in force as written, **including the ⛔ ЧП /
-EMERGENCY MODE flag (declared 2026-06-25, never lifted — the operator has never answered on lifting it).**
+**State of 234 as of 2026-08-30: the production database is UNCHANGED. Zero writes. Backup pair intact**
+(`C:\RTMView-Ops\backup\rtmviewdb_20260829_1129.dump` 19 949 183 B,
+SHA256 `EEA7B798F801DB13E887822885235D8FAF500BB16556A837E4681A672679F468`, +
+`C:\RTMView\Backup\20260829_1129`). Package `Installations\29082026.1119.zip` (BUILD=0, unit 283/0,
+tree == `d1982de`) built and unused.
 
-## ⚠ TOOLING — `device_bash` IS FLAKY AT BOOT, NOT ABSENT (read before you believe you cannot verify)
-`device_bash` (the Linux VM on the operator's machine) **failed for the whole 0817 session** and again
-for the first ~40 minutes of 2026-08-18 ("Workspace still starting" / "Workspace unavailable", 5 calls),
-then **came up mid-session and worked normally**. So: it is a slow, unreliable boot — retry it
-periodically instead of writing the session off. Until it answers, this looks like
-"object store unreachable" and it is NOT.
-**The workaround, verified working today:** `.git/objects/pack/` is **EMPTY** — the whole object store is
-LOOSE objects. So: stage `.git/refs/**`, `.git/HEAD`, `.git/logs/HEAD` and the loose object files with
-`device_stage_files`, copy them into a scratch `git init` repo in the cloud container, and run
-`git cat-file -p` / `git show` there. Walk commit -> tree -> subtree -> blob, staging each object as you
-learn its sha. Every pin in this handoff was resolved that way — real object store, not the mount.
-Cost is ~1 stage call per tree level, so pin deliberately, not decoratively.
-**Consequence for writes:** Python+`os.fsync` cannot run ON the device either. Writes go: compose in the
-container (Python + `os.fsync` + byte/BOM/NUL check) -> `SendUserFile` -> `device_commit_files` with
-`expectedMtimeMs` -> **re-stage and compare sha256 round-trip**. That is a stronger witness than a local
-byte-count, but it is a DEVIATION from the literal §3 rule — say so when you use it.
+**Why it is not a simple deploy:** 234 sits on the **2026-06-24** schema
+(`20260624093015_AddReportEntities`). Three App migrations pending; the first,
+`DropAppOwnedBackendTables`, CASCADE-drops 26 tables holding the customer's LIVE NGC topology
+(BU 59 / Queues 61 / SG 41 / AG 43 / UserAG 566 / mappings) + RTSGrid user widgets + 202 917 rows of
+`RTSData_UserStatusLog`. `db/data` seeds only Site+metrics+grids — **no repo path restores that data**,
+and 140 passed these migrations on an EMPTY DB, so no proven transfer path existed. Hence: converge WITH
+an explicit data transfer, procedure `tools/cc_prompt_converge234_transfer.md` (Rev 11+, §4-blessed).
 
-## ✅ THIS HANDOFF **IS** IN GIT (was not, until 2026-08-17 — do not re-fix this)
-Closed by **`ee8633c`** ("boot-critical .coord state exempted from the runtime ignore by RULE").
-`.coord/.gitignore` still opens with `*`, but now carries explicit negations for
-`!coordinator_handoff.md`, `!rejects.md`, `!features.md`, `!backlog.md` alongside `!protocols/**`
-and `!migration/**`. Proof, not inference:
-`git rev-parse 0c4c214:.coord/coordinator_handoff.md` -> `fatal: … but not in '0c4c214'`;
-`git rev-parse ee8633c:.coord/coordinator_handoff.md` -> blob `708024f`. Current content = blob `0f6beaa`.
-**STILL untracked, deliberately:** `.coord/inbox/*`, `.coord/cc/*`, `.coord/sessions/*`, `journal.md` —
-the FLOW. Delivery rides the disk, git carries preservation. Consequence you must plan around: an inbox
-does **not** survive an account switch, which is why entrance tests and keys live in `protocols/`.
-The 2026-07-03 data-loss shape (a `git clean` took the whole HELD TechWriter package) still applies to
-those paths. `git add` on them is a silent no-op — untracked = not saved.
+**The rehearsal (on a restored copy of the real 234 DB, DEV) found TEN defects, each of which would have
+hit 234 — most of them AFTER the drop, i.e. at the most expensive moment:**
+1. `pg_restore --data-only` is all-or-nothing per table; `NGC_Queues`/`NGC_AgentGroups` carry a June
+   `CreatedDatetime` the target lacks -> both would have loaded ZERO rows. Fixed: §STRUCT-DIFF + column-list copy.
+2. Silent type drift `RTSData_UserStatusLog."Duration"` integer -> bigint. Widening, approved,
+   MAX measured = 604 821 887 vs int4 ceiling 2 147 483 647.
+3+4. TWO independent defects in the shipped `Provision-FreshDb` resync block: `deptype='a'` misses
+   `GENERATED ALWAYS AS IDENTITY` (all 15 are `'i'`), and no `quote_ident` (fails on PascalCase).
+   **Suspected root cause of the server-45 `23505` incident.** Own resync used instead.
+5. Metric check queried `RTSGrid_Cell.MetricId` — a column that DOES NOT EXIST. Redirected to
+   `RTSUserGrid_Column.MetricId`; the `Cell."Value"` half declared UNDECIDABLE, demoted to information.
+6. Integrity gate expected 0 where the SOURCE already carries 21 dangling `RTSGrid_Cell` + 81 dangling
+   `NGC_UserAgentgroup`. Fixed: **compare against the SOURCE BASELINE, not against zero** — more = we
+   broke it, LESS = we silently "repaired" customer data, both STOP.
+7. Probe (b) was defined to fire on OPEN; it fires on **SAVE**, on `/screens/{id}/edit`. Probe (a) needs a
+   **UTF-16LE** search (text grep gives a false 0 on managed assemblies).
+8. `DefaultTenantSlug` — tenant unresolved, nobody can log in while every DB number is green.
+   Made a STEP (measure slugs+host on 234 BEFORE, write key AFTER swap BEFORE service start), not a check.
+9. Parked since 2026-07-03: "local HTTPS impossible" — was a bad certificate. Fixed on DEV.
+10. **PostgreSQL VERSION MISMATCH — the one that also indicts the coordinator.** The rehearsal ran on
+    PG **18**; 234 production runs **15.5**. The dump preamble carries `transaction_timeout` (a 17+ GUC);
+    with `ON_ERROR_STOP=1` the schema step would have aborted **after the 26-table drop**.
+    `CLAUDE.md:370` claims "PostgreSQL 18 (production)" — documentation defect, contradicted by the server.
 
-## REGISTERS — open items (CONSTITUTION: never closed by my inference, only by the operator's word)
-`.coord/rejects.md` (untracked, 35 KB) — open at last write 2026-07-16/17:
-- 🔴 **R7** Export -> .xlsx: runtime error on click (bi owns post-push fix).
-- 🔴 **REP-MENU-PG** `menu.reports` does not exist as a permission key (grep=0 in src) — Reports cannot be
-  granted to a PG at all. owner shell+bi.
-- 🔴 **ASD-BAR-BLUR** (declared 2026-07-06). 🔴 **GARNET-FLAP / INC-001d** (2026-07-02).
-- 🟡 **PR234-1a** config saves null — ROOT `ParseWidgetConfig` silent-catch; strategy = diagnose on 234,
-  probe `c23ec1f` RETAINED in the 234 build.
-- 🟡 awaiting operator CONFIRM: R1, R2, R9, REP-DATA-RANGE (backfill done), ASD-NORENDER (fixed+durable
-  `9648c09`), WIDGET-STICK (live-verified 2026-07-06, `adbf5d7` pushed).
-- 🟠 **REPORTS-PG-GAPS** — known-open, operator-accepted, ships.
-- **Queue Grid Max Wait resets on F5** — owner PINNED = RTM/backend; widget cleared as faithful; backend
-  dispatched to emit `+`-duration as now-enqueue. **This was the last live product thread (2026-07-16T23:27Z)
-  and its FIX push # is still `<pending>`.** US-Queue-Grid inflation/empty tracks: RESOLVED (`01dbc2c`
-  server-local date-guard, operator confirmed) + `961a979` grid on-demand SEALED, awaiting CONFIRM.
+**OPEN DECISION, WITH THE OPERATOR (asked 2026-08-30, unanswered):** PG **18.4 is already installed and
+running on 234**, port 5433, EMPTY. devops proposes restoring the pinned dump there, running the WHOLE
+converge on 18.4 (the version the rehearsal actually validated), and at the end switching both
+`appsettings` from `Port=5432` to `5433` + restart. Consequences: the live PG15 DB is never modified;
+version mismatch disappears; outage shrinks to "switch port + restart"; rollback becomes "restore
+Port=5432 + restart" with the untouched live DB still there (stronger than the dump pair, which remains).
+**Coordinator's recommendation: YES.** But it is a STRATEGY change (prod-mirror migrates PG major as a
+side effect), so it is the operator's call under §A, not a procedure tweak.
+Read-only facts requested before the decision, NOT yet in: exact `version()` on all three instances;
+**provenance of the empty 18 instance** (who/when/maintained — we already lost half a day to
+`rtmviewdb_prodstg`, an orphan object of unknown history); **who else connects to `rtmviewdb` on 5432**
+(legacy, Soma, backup jobs — after the switch they would silently keep using the OLD database);
+`pg_hba.conf` of 18; `ccdashboard_user` password read on-box.
 
-`.coord/features.md` (untracked, 21 KB):
-- 🟡 **F-SCALE-TOGGLE** delivered-pushed, visual A/B not taken.
-- WFM Phase 1: C2 live gate **PASSED** 2026-07-22; sub-BU "No Data" was a CONFIG gap, not a bug.
-- WFM Phase 2 candidates (B2/B4 decoupled into two widgets, graph series-selection + tooltip) — all
-  "рассмотрение": design/analysis only, **not approved for build**.
-- Backlog: Site TimeZone wrong + not DST-aware (ITEM A, operator-deferred); DayTrend ~4h lag; broad
-  BU/SG hot-reload epic.
+**Gate order agreed for Phase P** (each with a STOP to the coordinator): integrity+identity `tip==d1982de`
+-> §DB-INTAKE-01 App+Audit -> §STRUCT-DIFF full pass, ALL drifts in ONE report -> BE §DB-INTAKE -> schema.sql
++ ownership AND privileges -> functions + data(`02`,`05` only — `03`/`04` TRUNCATE the transfer set!) +
+3 named migrations -> RELOAD -> IDENTITY resync -> integrity vs SOURCE BASELINE -> slug step -> binary swap
+-> **services started LAST** -> post-checks (feed-dependent only after §FEED-READY; never across local midnight).
 
-## INBOX — what is actually waiting
-`.coord/inbox/coordinator.md` (634 KB, 4269 lines). Product traffic ends 2026-07-22 (WFM). Only ONE item
-is live, at the tail:
-- **2026-08-17T13:55Z | from: curator (gmail, curator-0817)** — a standing OPERATIONAL constraint exists
-  ONLY in the frozen bus-snapshot. Verified by me today, independently:
-  `CLAUDE.md` grep `NEVER restart legacy` = **0**, `self-reconnect` = **0**, `RTMService` = **0**.
-  The constraint's pins DO resolve: `bus-snapshot/inbox/coordinator.md:2292` = the
-  `⛔ CORRECTION 2 (operator directive) — NEVER restart legacy; the adapter must self-reconnect` header
-  (count 1), and `bus-snapshot/inbox/backend.md:917` = the wording verbatim (count 1).
-  The bus-snapshot is a ONE-SHOT migration freeze, not a live mirror -> a role booted from the init prompt
-  reads CLAUDE.md and the skills and never learns this. Recurrence already happened once
-  (2026-07-14 adapter warm-swap `6ebd39f`, rolled back).
-  **MINE to word and to §4.** Proposed home: `CLAUDE.md §48` as `[WIRE-06]` (the adapter↔RTM wire-contract
-  section, which already carries the standing-validation gate). Wording drafted and PRESENTED to the
-  operator 2026-08-17; **not written until the operator says go** — CLAUDE.md is a norm surface.
-- Second, same class, no task attached: the curators established `journal-digest.md` in `protocols/`,
-  forward-only, for "negative knowledge" (why the workaround, recurrence counter, retracted hypothesis) —
-  the class git cannot hold, because a commit records what IS. Most of it is born in coordinator work.
-  Write it in the moment you learn it.
+**Left deliberately:** `rtmviewdb_reh` on DEV (rehearsal evidence, drop on coordinator's word),
+`rtmviewdb_src` staging on PG15/234 (keep until the PG path is decided), new DEV cert `DF556BEF`.
 
-`.coord/cc/*.md` — no fresh RESULT to consume (newest is `curator.md`, 2026-08-11).
+## MY OWN MISSES TODAY — read these, they are the cheapest lesson in this file
+Three times I asserted from plausibility instead of reading the source, and I hold the §4 gate that exists
+to catch exactly that:
+1. I accepted the predecessor's metric predicate on `RTSGrid_Cell.MetricId` at §4 — the column does not exist.
+2. I attributed the login defect to `a261840`; devops opened the file — that commit introduces a different,
+   seed-time key. `DefaultTenantSlug` is read per-request by `TenantResolutionMiddleware`.
+3. I accepted a rehearsal without asking the PostgreSQL version of the target.
+**My ruling survived in case 2, my argument did not — say that distinction out loud when it happens to you.**
 
-## QUEUE (no parallelism; the operator sets the order)
-1. **Legacy-restart norm into CLAUDE.md §48 [WIRE-06]** — wording presented, awaiting operator go.
-2. **Queue Grid Max Wait / F5 re-anchor** — the one open product thread; backend owns; FIX push # pending.
-3. Resume the reject sweep: R7, REP-MENU-PG, ASD-BAR-BLUR, GARNET-FLAP; collect operator CONFIRM on the
-   six 🟡 items so they stop occupying the register.
-4. `journal-digest.md` — start it forward-only.
-5. Deferred, unchanged: `__EFMigrationsHistory` relic (DROP?) · typo-metric baseline-add · SF-SEC-001
-   rotation (+ the Garnet password, same compromised secret) · db/tools vs devops/tools compare-sync ·
-   QA BU∩PG live-verify · TW doc-debt (A-01/B-07/§16) · **the ЧП flag has never been lifted.**
+## REGISTERS — open (CONSTITUTION: closed ONLY by the operator's explicit word)
+`.coord/rejects.md` (now tracked): 🔴 R7 Export .xlsx runtime error · 🔴 REP-MENU-PG (`menu.reports` key
+absent, grep=0) · 🔴 ASD-BAR-BLUR · 🔴 GARNET-FLAP · 🟡 PR234-1a (probe `c23ec1f` present in d1982de,
+11 markers — diagnosis depends on the converge) · 🟡 awaiting CONFIRM: R1, R2, R9, REP-DATA-RANGE,
+ASD-NORENDER, WIDGET-STICK · 🟠 REPORTS-PG-GAPS.
+**Queue Grid Max Wait / F5 — SHIPPED `89feb34`+`16c6011` (2026-07-20), the register never recorded it.**
+`.coord/features.md`: F-SCALE-TOGGLE 🟡 · **AI-виджет: КНОПКА на Agent Grid ПЕРВОЙ, чат вторым**
+(operator 2026-08-29); product invariant — **our math computes, the model only narrates**; any number in
+the answer must exist in the input contract before the API call. Open: ИБ-gate §8-14, conflict with
+`avoid-paid-components`, hole #1 "what is a good recommendation".
 
-## HARD REMINDERS (standing)
-- NO `git push` except `tools/cc_prompt_push.md` after the QA+Security+TW quorum (§37). Narrow explicit
-  `add` only — never `-A`, never by folder (and `add -A` is a **no-op** against the `.coord` ignore).
-- All `.coord/` and `CLAUDE.md` writes: Python + `os.fsync`, Edit-tool BANNED, verify bytes/BOM/NUL —
-  never line counts. Never through a PowerShell pipe (`Set-Content -Encoding utf8` injects a BOM).
-- Never run an index-touching git command over the mount (`status`/`add`/`diff`) — the orphaned
-  `index.lock` cannot be removed by the bridge and the operator's repo wedges.
-- Tool success ≠ delivery. And verify the PREDICATE, not just the exit code: "matched" on a wrong grep is
-  worse than "did not match".
-- §4 gate: every specialist prompt gets my bless BEFORE it runs, by checklist, not by eye.
-- ONE question to the operator at a time, by importance, plain language. A code box IS a request, not an
-  attachment — the operator queue is ONE queue; hand out a run, then WAIT for its result.
-- I am a router, not a courier and not an implementer. Content travels on the bus.
-- Untracked = not saved (lesson 2026-07-03).
+## QUEUE
+1. **Operator's decision on the PG path** — everything else waits on it.
+2. Converge 234 -> then the operator shows bugs on the fresh version.
+3. `[WIRE-06]` into `CLAUDE.md`: "legacy is NEVER restarted; the adapter self-reconnects" exists ONLY in the
+   frozen bus-snapshot (`migration/bus-snapshot/inbox/coordinator.md:2292`, `backend.md:917`);
+   `grep` in CLAUDE.md = 0. Wording + §4 are mine. Also fix `CLAUDE.md:370` PG version.
+4. Five red rejects need the operator's word. 20 unpushed commits; `tools/cc_prompt_push.md` is STALE
+   (pushes to `v2`) — fix before any barrier.
+5. `db/tools` change: both resync defects. Pre-existing data drift 21+81 on 234: recorded, NOT repaired.
+
+## HARD REMINDERS
+Object store, not mount, not memory · no index-touching git over the mount · Python+`os.fsync` for
+`.coord/`, verify bytes/BOM/NUL, never line counts · **specialists issue run-boxes, I bless and accept** ·
+ONE question to the operator at a time, and every report ends with the poke table · I am a router, not a
+courier and not an implementer · untracked = not saved (`.coord/` now tracks handoff/rejects/features/
+backlog; inbox and sessions are still NOT) · tool success != delivery, and verify the PREDICATE ·
+NO push outside `tools/cc_prompt_push.md` after the §37 quorum.
