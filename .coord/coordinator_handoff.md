@@ -132,3 +132,43 @@ ONE question to the operator at a time, and every report ends with the poke tabl
 courier and not an implementer · untracked = not saved (`.coord/` now tracks handoff/rejects/features/
 backlog; inbox and sessions are still NOT) · tool success != delivery, and verify the PREDICATE ·
 NO push outside `tools/cc_prompt_push.md` after the §37 quorum.
+
+
+---
+
+## ВОССТАНОВЛЕНО КУРАТОРОМ 2026-08-29 — два раздела, снесённых переписыванием
+
+Хендоф был не ОБНОВЛЁН, а ПЕРЕПИСАН (`c46666c` 12123 B -> `984fb19` 11352 B; старое тело в новом не
+содержится). Часть замен по делу. Но эти два раздела исчезли без замены, и оба — НЕГАТИВНОЕ ЗНАНИЕ:
+класс, который git не хранит и который следующая сессия оплачивает заново. Возвращены дословно из
+блоба `c46666c`. **Норма: хендоф ОБНОВЛЯЕТСЯ, а не переписывается; изъятие делается явно и с причиной.**
+
+## ⚠ TOOLING — `device_bash` IS FLAKY AT BOOT, NOT ABSENT (read before you believe you cannot verify)
+`device_bash` (the Linux VM on the operator's machine) **failed for the whole 0817 session** and again
+for the first ~40 minutes of 2026-08-18 ("Workspace still starting" / "Workspace unavailable", 5 calls),
+then **came up mid-session and worked normally**. So: it is a slow, unreliable boot — retry it
+periodically instead of writing the session off. Until it answers, this looks like
+"object store unreachable" and it is NOT.
+**The workaround, verified working today:** `.git/objects/pack/` is **EMPTY** — the whole object store is
+LOOSE objects. So: stage `.git/refs/**`, `.git/HEAD`, `.git/logs/HEAD` and the loose object files with
+`device_stage_files`, copy them into a scratch `git init` repo in the cloud container, and run
+`git cat-file -p` / `git show` there. Walk commit -> tree -> subtree -> blob, staging each object as you
+learn its sha. Every pin in this handoff was resolved that way — real object store, not the mount.
+Cost is ~1 stage call per tree level, so pin deliberately, not decoratively.
+**Consequence for writes:** Python+`os.fsync` cannot run ON the device either. Writes go: compose in the
+container (Python + `os.fsync` + byte/BOM/NUL check) -> `SendUserFile` -> `device_commit_files` with
+`expectedMtimeMs` -> **re-stage and compare sha256 round-trip**. That is a stronger witness than a local
+byte-count, but it is a DEVIATION from the literal §3 rule — say so when you use it.
+
+## ✅ THIS HANDOFF **IS** IN GIT (was not, until 2026-08-17 — do not re-fix this)
+Closed by **`ee8633c`** ("boot-critical .coord state exempted from the runtime ignore by RULE").
+`.coord/.gitignore` still opens with `*`, but now carries explicit negations for
+`!coordinator_handoff.md`, `!rejects.md`, `!features.md`, `!backlog.md` alongside `!protocols/**`
+and `!migration/**`. Proof, not inference:
+`git rev-parse 0c4c214:.coord/coordinator_handoff.md` -> `fatal: … but not in '0c4c214'`;
+`git rev-parse ee8633c:.coord/coordinator_handoff.md` -> blob `708024f`. Current content = blob `0f6beaa`.
+**STILL untracked, deliberately:** `.coord/inbox/*`, `.coord/cc/*`, `.coord/sessions/*`, `journal.md` —
+the FLOW. Delivery rides the disk, git carries preservation. Consequence you must plan around: an inbox
+does **not** survive an account switch, which is why entrance tests and keys live in `protocols/`.
+The 2026-07-03 data-loss shape (a `git clean` took the whole HELD TechWriter package) still applies to
+those paths. `git add` on them is a silent no-op — untracked = not saved.
