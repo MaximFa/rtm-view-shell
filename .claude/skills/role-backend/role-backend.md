@@ -1,8 +1,8 @@
 ---
 role: backend
 project: RTM View Shell
-version: 0.1
-last_verified: 2026-06-16T06:15:00Z
+version: 0.2
+last_verified: 2026-08-31T07:55:00Z
 owner: backend
 reviewer: curator
 ---
@@ -71,12 +71,77 @@ Cardinal truths (source-pinned):
 - 2026-07-15 · AgentGrid rows present but ALL per-agent cells blank (name/state/duration/OCC/ADH) · ROOT = user-grid METRICS not defined in RTSGrid_Metric → union.UserGridMetrics empty → UserManager.UserData stays roster-only (AgentLoginName+USERID) → updateUserGrid ships no cells (CollectData LongestAction=0). NOT widget, NOT assembly (Union.getUnionUserData ships userMng.UserData fine). Diagnostic ladder: Shell `RECV updateUserGrid union N` fields=[..] (DiagPushLogging) → RTSUserGrid_Grid/Column config → RTSGrid_Metric has the 5 agent metrics (AgentName/AgentState/AgentStateDuration/AgentOccupancy/AgentAdherence). Fix = seed the metrics; MUST export to git db baseline (Export-All → db/data/02_metrics.sql) or it regresses on fresh install. · SOURCE: Engine.cs Union_UserGridEvent/getUnionUserData, UserManager.cs:43 UserData, 140 fix 2026-07-15 · status: active
 - 2026-07-16 · Postgres `AT TIME ZONE '<numeric-offset-text>'` (e.g. '+02:00') INVERTS the sign (POSIX) → a +02:00 timestamptz maps to the PREVIOUS local day; broke the RTSData_GetInteractions TZ-guard (undercount) · For a TimeZone column holding OFFSET strings use `AT TIME ZONE ((tz)::interval)` (interval does NOT invert); reserve bare `AT TIME ZONE 'name'` for NAMED zones ('Israel'/'UTC'). Mixed column → CASE on `^[+-]\d{2}:\d{2}$` · SOURCE: 0b07651 bug + fix tools/cc_prompt_tzguard_signfix.md, 140 data 2026-07-16 · status: active
 
-## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
-1. `grep -c 'CREATE PROCEDURE' db/functions/01_ngc_functions.sql` — must be >10 (RTM-SEC-002)
-2. `grep 'p_tenant_id uuid' db/functions/*.sql | grep -v 'p_tenant_id uuid)' | wc -l` — expect 0 (TenantId last)
-3. `grep 'TenantId' RTM/RTM/appsettings.json` — must exist
-4. `grep 'SubscribeUnionAsync\|SubscribeGridAsync' src/CcDashboard.Infrastructure/RtmRelay/RtmRelayService.cs` — relay methods exist
-5. `grep 'JsonElement' src/CcDashboard.Infrastructure/RtmRelay/RtmRelayService.cs | wc -l` — multiple hits (typed params avoided)
+- 2026-08-31 · My own §C VERIFY failed 2 of 5 items and BOTH failures were defective PREDICATES, not code drift: #1 grepped the literal `CREATE PROCEDURE` while 13 of 15 procedures read `CREATE OR REPLACE PROCEDURE` (2 vs 15); #2 grepped lines `p_tenant_id uuid` not ending in `)` while signatures are written multi-line (25 false "violations"; a signature parse gives 42 routines, 0 not-last) · RULE: **a failing check must first prove ITSELF sound** (negative control + read the predicate against how the file is actually written) before it is allowed to accuse the code. "Reality wins — update me" hands authority to the CODE, never to a grep: marking §A#1/#2 superseded here would have deleted two live norms (RTM-SEC-002 and tenant-last) because of a broken regex. Also: a COUNT of procedures cannot prove RTM-SEC-002 — the routine files keep an authoritative overload set per name (Shell FUNCTION arities + the RTM PROCEDURE arity); check the arity RTM CALLs. · SOURCE: role-backend §C rewrite 2026-08-31, curator brief `.coord/protocols/backend-handoff.md`, answers in `.coord/backend-reconstitution-test.md` · status: active
+- 2026-08-31 · Asserted a MECHANISM from memory and got it backwards: claimed a `git add` warning "paths are ignored by .gitignore" on `.claude/` means the work is LOST. It does not — ignore rules apply only to UNTRACKED paths; a tracked file under an ignored directory commits with a plain `add`, and `-f` is needed only to INTRODUCE a new path. Pins: `.gitignore:49 = .claude/` while `git ls-tree -r --name-only v3 .claude | wc -l` = 58, `check-ignore -v` on the tracked skill prints nothing (rc=1), `ls-files --error-unmatch` rc=0. The refutation was a pin I had taken MYSELF an hour earlier (`v3:.claude/skills/role-backend/role-backend.md` = `5981015` == disk) and walked past · RULE: **a claim about a MECHANISM needs a pin exactly as much as a claim about STATE** — "I know how git behaves" is a memory, subject to the same test as any other memory (did I run it in THIS awakening?); and when a pin already taken contradicts what you are about to say, reconciling it is the speaker's job, not the reader's. Corollary: a defective ANALYSIS costs more than a defective fact — it makes a routine commit read as data loss and invites "restoring" a file over someone's newer edit. · SOURCE: curator verdict + resit in `.coord/backend-reconstitution-test.md` 2026-08-31, `CLAUDE.md:3043` read in full · status: active
+
+## §C VERIFY  (run at init — OBJECT STORE ONLY, NORM-CUR-13; mismatch -> superseded, don't act)
+> Rewritten 2026-08-31 (backend-0831, condition of attestation): the previous form was `grep` over the
+> WORKING TREE — the surface §0.3 says lies (buffer cache shows a whole file while the mount holds a
+> truncated one), and the surface that cannot tell "committed" from "edited but never staged".
+> Two of its five predicates were also DEFECTIVE, and the defect read as code drift (see §B 2026-08-31).
+> Rules for this section: every item names its REF, states its EXPECTED count BEFORE the run, and item 0
+> proves the harness can return 0. A differing count is a FAILURE to investigate, not a judgement call —
+> and the first suspect is the PREDICATE, not the code.
+> `<ref>` = the branch from the handoff (today `v3`) — never a bare path, never `HEAD` by assumption.
+
+0. **Negative control** (proves the predicate can fail):
+   `git show v3:db/functions/01_ngc_functions.sql | grep -c 'ThisMarkerMustNotExist'` — MUST be `0`.
+   Anything else (or an error instead of `0`) = the harness is broken; fix it before trusting 1-8.
+1. **RTM-SEC-002, count** (§A#1): `git show v3:db/functions/01_ngc_functions.sql | grep -cE 'CREATE (OR REPLACE )?PROCEDURE'` — expect **15**;
+   same on `02_rtsdata_functions.sql` — expect **3**.
+   ⚠ The old predicate searched the literal `CREATE PROCEDURE` and returned **2**, because 13 of the 15 are
+   written `CREATE OR REPLACE PROCEDURE`. Count changed and the delta is explained by new routines -> re-pin
+   the number and the date here; unexplained -> investigate before acting.
+2. **RTM-SEC-002, the part that actually matters** — the RTM-CALLed write routines are PROCEDURE:
+   `git show v3:db/functions/01_ngc_functions.sql | grep -cE 'CREATE (OR REPLACE )?FUNCTION "NGC_(Set|Delete)[A-Za-z]*"'` — expect **1**,
+   and that one is KNOWN and intentional: `NGC_DeleteBusinessUnitQueueClassificationMapping` **arity-3**
+   (`RETURNS void`, Shell-called); the arity-4 RTM overload IS a PROCEDURE (file comment: "Arity-4 … PROCEDURE — RTM").
+   `git show v3:db/functions/02_rtsdata_functions.sql | grep -cE 'CREATE (OR REPLACE )?FUNCTION "RTSData_Set'` — expect **0**.
+   A COUNT of procedures can never prove RTM-SEC-002 on its own: the file deliberately keeps an
+   authoritative OVERLOAD SET per name (Shell FUNCTION arities + the RTM PROCEDURE arity). What must hold is
+   that the arity RTM `CALL`s is PROCEDURE — check the arity, not the name.
+3. **Kind-agnostic DROP guard** (§B 2026-06-07: a signature-specific DROP fails when the server has a
+   different arity, and a re-created FUNCTION then shadows the PROCEDURE):
+   `git show v3:db/functions/01_ngc_functions.sql | grep -c 'FROM pg_proc WHERE proname='` — expect **14**.
+4. **`p_tenant_id` LAST** (§A#2) — parse SIGNATURES, never grep lines. A line-wise grep cannot see a
+   multi-line signature, and a non-greedy regex silently EATS the next declaration (§B 2026-08-31):
+   ```
+   for f in $(git ls-tree --name-only v3 db/functions/); do git show v3:$f; done | python3 -c '
+   import sys,re
+   t=sys.stdin.read(); tot=bad=0
+   for m in re.finditer(r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+\"?[\w.]+\"?\s*\(",t,re.I):
+       i=m.end()-1; d=0
+       for j in range(i,len(t)):
+           if t[j]=="(": d+=1
+           elif t[j]==")":
+               d-=1
+               if d==0: break
+       a=t[i+1:j]
+       if "p_tenant_id" not in a: continue
+       tot+=1; out=[]; dd=0; cur=""
+       for ch in a:
+           if ch=="(": dd+=1
+           elif ch==")": dd-=1
+           if ch=="," and dd==0: out.append(cur); cur=""
+           else: cur+=ch
+       out.append(cur)
+       if "p_tenant_id" not in out[-1]: bad+=1
+   print("routines:",tot," not-last:",bad)'
+   ```
+   expect **`routines: 42  not-last: 0`**. The old predicate reported 25 "violations" — all false, it
+   assumed a one-line signature.
+5. `git show v3:RTM/RTM/appsettings.json | grep -c '"TenantId"'` — expect **1** (§A#3, one instance = one tenant).
+6. `git show v3:src/CcDashboard.Infrastructure/RtmRelay/RtmRelayService.cs | grep -cE 'SubscribeUnionAsync|SubscribeGridAsync'` — expect **2** (§A#4 relay).
+7. `git show v3:src/CcDashboard.Infrastructure/RtmRelay/RtmRelayService.cs | grep -c 'JsonElement'` — expect **3** (§A#6, typed hub params drop silently).
+8. **Store vs mount — the reason this whole section was rewritten:**
+   `git rev-parse v3:.claude/skills/role-backend/role-backend.md` == `git hash-object .claude/skills/role-backend/role-backend.md`.
+   Differ -> this skill on disk is NOT the one in the branch: say so and pin which is which before acting.
+   Same check for any `db/functions/*.sql` or `RTM/*.cs` you are about to reason about.
+
+**If an item fails, the order of suspicion is fixed:** (1) is the PREDICATE right — can it return 0, does it
+match how the file is actually written, does it read signatures rather than lines? (2) is the REF right?
+(3) only then the code. "Reality wins — update me" transfers authority from §A to the CODE, never to a
+grep: marking a §A truth superseded because a defective predicate failed deletes a live norm.
 
 ## §D REFERENCE  (optional · NOT loaded each init)
 Full reference: `.claude/skills/rtm-service-expert/rtm-service-expert.md` (engine architecture, SQL routine catalogue, data flows).
