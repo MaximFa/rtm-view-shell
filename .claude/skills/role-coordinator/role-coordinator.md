@@ -129,12 +129,33 @@ Cardinal truths (source-pinned):
 - 2026-08-18 · ENTRANCE TEST FAILED on a fabricated-looking raw quote. Reconstructing recent history I read `.git/logs/HEAD` and took the FIRST column as "the commit this message describes". A reflog line is `<sha-BEFORE> <sha-AFTER> <who> <when>\t<op>: <message>` — the message belongs to the SECOND column. Every one of six attributions was off by exactly one, and the conclusion I drew from them was false: I reported the handoff became git-pinnable at `0c4c214` when `git rev-parse 0c4c214:.coord/coordinator_handoff.md` says `fatal: … but not in '0c4c214'` and the real commit is `ee8633c` (blob `708024f`). RULES, three: (1) **sha and commit message must come from ONE source** — `git log --oneline -1 <sha>` — never spliced from two outputs, and never from a reflog column picked by eye; (2) **a raw paste is the most trusted genre in our artefacts and therefore the most dangerous** — nobody re-checks a block that looks like terminal output, so a mis-built predicate inside one propagates unchallenged; (3) **cross-check your own conclusions against EACH OTHER, not only against the source** — the refutation was three paragraphs above the table in the same document: I had printed `git cat-file -p f6d5c58` with the correct message and then attributed that same message to `afa92c9`. Two of my own outputs contradicted each other on one page and I did not compare them; the curator caught it by walking the tree, not by reading my page. Applies directly to the job: "which commit delivered what" is coordinator currency, spoken in every dispatch and every report to the operator — an off-by-one there is a report of movement that never happened. · SOURCE: entrance test 2026-08-18, curator verdicts `896214d` (FAIL) + `9953e60` (re-sit PASS); `.coord/coordinator-reconstitution-test.md` · status: active
 - 2026-08-18 · `device_bash` (the operator-side Linux VM) failed for the entire 0817 session and for the first ~40 min of 0818, then CAME UP mid-session. Do not write a session off as "no object store": `.git/objects/pack/` is empty on this clone, so the whole store is LOOSE — stage `.git/HEAD`, `.git/refs/**`, `.git/logs/HEAD` and loose objects with `device_stage_files`, replay them into a scratch `git init` in the cloud container, and run real `cat-file`/`rev-parse` there (walk commit->tree->subtree->blob, ~1 stage call per level, so pin deliberately). Declare the deviation BEFORE the first check, not after. And retry `device_bash` periodically — it is flaky at boot, not absent. · SOURCE: coordinator_handoff.md 0817 tooling note, independently re-run and then superseded 2026-08-18 · status: active
 
+- 2026-08-30 · ОТЧЁТ БЕЗ ТАБЛИЦЫ ПОКОВ — НЕ ОТЧЁТ. Оператор видит только мой текст, не шину: без таблицы он не знает, чей ход и кто сейчас работает. ФОРМА ЖЁСТКАЯ — см. §D «ТАБЛИЦА ПОКОВ». Каждым ответом оператору, без исключений. · SOURCE: директива оператора 2026-08-30 · status: active
+
+- 2026-08-30 · ПРИНЯЛ ЗАХОД ПО ГЕЙТУ, КОТОРЫЙ НИЧЕГО НЕ ЗАКРЫВАЕТ: `/health` 200 доказывает жизнь процесса, а не работу продукта. Спец нашёл это раньше меня и сам назвал свой замер ложноположительным. Правило: гейт обязан быть привязан к КОДУ, который он проверяет, — иначе это ритуал. · SOURCE: 234 license-blocker 2026-08-30 · status: active
+
+- 2026-08-30 · ФАЙЛ ЧИТАЕТСЯ ≠ ФАЙЛ ЦЕЛ. 58 дней мой роль-скилл вёз дыру 1913 нулевых байт в середине §B (утрачены уроки 26.06-02.07); ещё 3 файла побиты так же. sha после записи доказывает успех ОДНОЙ записи, а не целостность хозяйства. Нашёл случайно. · SOURCE: 1b5778a, §C VERIFY п.8 · status: active
+- 2026-08-30 · ДИРЕКТИВА «СДЕЛАЙ X ДО Y» БЕЗ ТРЕБОВАНИЯ ПРЕДЪЯВИТЬ X — НЕ ГЕЙТ, А ПОЖЕЛАНИЕ. Правка конфига молча не состоялась, между правкой и проверкой встал перезапуск службы — наш сервис запустил БОЕВОЙ адаптер. Гейт обязан называть ПРЕДЪЯВЛЕНИЕ значения с диска, а не действие. · SOURCE: 234 AdaptorServiceName 2026-08-30 · status: active
+- 2026-08-30 · ПАМЯТЬ ВМЕСТО ЗАМЕРА, ВНУТРИ САМОЙ ПРОВЕРКИ: сверяя хендоф, вписал ожидаемый sha по памяти и промахнулся; файл был цел. Ожидаемое берётся из артефакта, иначе проверка проверяет память. · SOURCE: self 2026-08-30 · status: active
+
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
+0. **BODY INTEGRITY (сенсор, прогонять ПЕРВЫМ — пп.1-7 недостоверны, пока тело не признано целым).**
+   Норма живёт в `.coord/protocols/role-skill-standard.md`, раздел BODY INTEGRITY (Н-6…Н-9). Здесь — ссылка, не копия.
+   Три замера ПО ОБОИМ ТЕЛАМ, ожидание `0 / 0 / равны`:
+   - диск: `python3 -c "d=open('.claude/skills/role-coordinator/role-coordinator.md','rb').read();print(d.count(b'\x00'))"` -> 0
+   - стор: `git show v3:.claude/skills/role-coordinator/role-coordinator.md | tr -d -c '\000' | wc -c` -> 0
+   - дрейф: `git hash-object <скилл>` == `git rev-parse v3:<скилл>` -> равны
+   Красный НЕ блокирует подъём — идёт в отчёт инита и оператору; расхождение диск<->стор объявляется вслух с причиной.
+   ⚠ **Пп.1-7 сформулированы через ПОКАЗ строки, а файл с NUL классифицируется как бинарный:** `grep -c` даёт 54,
+   `grep -n` по тому же маркеру печатает `binary file matches` и ни одной строки. Проверка немеет вместо того, чтобы
+   упасть. Поэтому целостность — первым, и её красный обесценивает результаты остальных пунктов.
+   ⚠ СОСТОЯНИЕ НА 2026-08-30: этот файл НЕ ЦЕЛ — 1913 нулевых байт, дыра в §B (см. надгробие). Сенсор красный ОСОЗНАННО.
 1. `Select-String -Path ".claude/skills/session-coord/session-coord.md" -Pattern "L-SC-" | Measure-Object` — expect count >20
 2. `Select-String -Path "CLAUDE.md" -Pattern "## 42. Multi-session coordination"` — must exist
 3. `Select-String -Path ".coord/coordinator_handoff.md" -Pattern "RESUME CHECK"` — must exist
 4. `Select-String -Path "CLAUDE.md" -Pattern "CC<->spec binding"` — expect >0
 5. `Test-Path ".coord/protocols/init-coordinator.md"` — must be True
+6. `Select-String -Path ".claude/skills/role-coordinator/role-coordinator.md" -Pattern "ТАБЛИЦА ПОКОВ"` — must exist. Нет — форма утеряна, восстановить до первого отчёта.
+7. `/health` 200 НЕ ЯВЛЯЕТСЯ доказательством работы RTMService. `RTMAdapter.cs:52-56` (@d1982de): при `License.NotValid` стоит `return` ДО `new Engine(...)` и `serverStartAsync()`, а HTTP-хост поднят независимо — процесс жив, движка и pipe нет. Гейт = `/health` 200 **И** pipe-сервер с именем из `AppConfig.PipeName` в `[IO.Directory]::GetFiles("\\.\pipe\")`. · SOURCE: devops-0829 2026-08-30, 234 · мой ложный гейт в заходе 3
 
 ## §D REFERENCE
 Full protocol: .claude/skills/session-coord/session-coord.md (§10 command registry, lessons L-SC-01..30).
@@ -166,3 +187,26 @@ Procedure: (1) coordinator drafts the role-skill (CC prompt embedding §A/B/C/D,
 - 2026-07-11 · OPERATING MODE (operator-approved): heavy ANALYSIS/spec/pre-review → run as SUBAGENTS in my sandbox (isolate diffs, produce exact old→new specs, object-store cross-check, preliminary security/arch review); then hand the specialist a TIGHT CC prompt = execute-verified-spec + build/test + report ONLY (specialist does NOT re-derive). Native execution (dotnet build/test, native git commit/push, host PowerShell, deploy) + accountable outputs (quorum acks, commits, CAPTURE) STAY with the specialist CC sessions — subagents (Linux mount sandbox) can't run the native toolchain and must never impersonate a specialist's accountable output. Effect: fewer pokes, thinner context (mine + specialists'), lower token/time cost. · SOURCE: operator 2026-07-11 · status: active
 
 - 2026-07-12 · Multi-target adapter spec I authored chose GLOBAL-BROADCAST connect-snapshot (re-sync all targets on any connect) over PER-TARGET for 'minimal churn' — that WAS the bug: broadcasting the one-shot workgroup-registration on target A's connect fans it to target B whose pipe isn't yet writable; StreamString silently drops (!CanWrite) → B (legacy) never registers agents → its queues show 0 (empty-TZ getLocalDateTime = downstream symptom, NOT cause). Lesson: for independently-connecting targets, connect-time initial-state MUST be scoped to the connected target (use the event's Target), never broadcast; and a silent no-op send path is a debugging trap (log it). Also: when a subagent offers a 'safe alternative' and I pick the cheaper one, weigh the failure mode — the 'minimal churn' choice cost a full prod debug cycle. · SOURCE: legacy-empty-queues diagnosis 2026-07-12, RTMAdapter_ServerConnectEvent broadcast · status: active
+
+### ТАБЛИЦА ПОКОВ — ОБЯЗАТЕЛЬНАЯ ФОРМА КОНЦОВКИ ЛЮБОГО ОТВЕТА ОПЕРАТОРУ
+> ЖЁСТКО. Задано оператором 2026-08-30. Не «когда уместно» — ВСЕГДА, последним блоком.
+
+**Колонки ровно эти и в этом порядке:**
+
+| # | роль | один следующий шаг | момент | статус |
+|---|---|---|---|---|
+| 1 | backend-0818 | 🔴 раздел 9 по замеру + раздел 8 до 85 · слаг зафиксирован | 2026-08-29T23:0xZ | ▶ ТЕКУЩИЙ — критпуть |
+| 2 | frontend-0815 | `#129` отменена, контракт втянут в `#128` | 2026-08-29T21:0xZ | 🟡 ждёт |
+| 3 | devops-0815 | `BINDING #116` open, выкат после `#128` | 2026-08-29T20:2xZ | 🟡 HOLD |
+| 4 | dba-0812 | вход пуст | 2026-08-28T06:06Z | ✅ свободен |
+| 5 | curator-0815 | профиль `audit.sh` по секциям + гейт §31.8 на шине | 2026-08-29T20:2xZ | ⏳ параллельно |
+| — | security · techwriter · qa · finesse-sim | вне этапа | — | 🔒 |
+
+**Правила заполнения (нарушение = таблица не сдана):**
+1. **Строка на КАЖДУЮ живую роль**, со слагом сессии (`devops-0829`), не «девопс». Неактивные роли — одной свёрнутой строкой «вне этапа».
+2. **ОДИН следующий шаг**, не список и не пересказ истории. Если шагов несколько — ближайший.
+3. **Момент — факт с диска** (время последней записи на шине по этой роли), не «недавно» и не по памяти.
+4. **Статус — только из набора:** `▶ ТЕКУЩИЙ` · `🟡 ждёт` · `🟡 HOLD` · `✅ свободен` · `⏳ параллельно` · `🔒 вне этапа` · `🔴 СТОП`. Своё не выдумывать.
+5. **Незакрытый `BINDING ... status: open` обязан быть виден в таблице** — это операция в ходу.
+6. Сразу под таблицей — одна строка **«Сейчас работает: …»** и чего ждёт лично оператор.
+7. Нечего сказать по роли — пишется «вход пуст» с моментом. Пропуск строки запрещён: тишина читается как «всё хорошо».
