@@ -1,6 +1,7 @@
 # Shell role — migration handoff & resume anchor
 
 **Author:** shell-0609 · **Date:** 2026-08-31 · **Branch:** v3 · **For:** the incoming Shell on the NEW account
+**Amended:** shell-0831, 2026-08-31 — §4 resume point re-pinned (see the warning there); attested by the curator this day.
 **Read alongside:** `.claude/skills/role-shell/role-shell.md` (§A CORE every boot + §B LESSONS + §C VERIFY) ·
 `CLAUDE.md` (§0 discipline, §21 screens, §34 relay, §41 localStorage, §42/§26 coordination) ·
 `.coord/protocols/account-migration-runbook.md` (§4/§5 reconstitution + gate) ·
@@ -45,9 +46,16 @@
 - Build/unit via **Soma** (§47) over host-Chrome (mount sandbox can't reach host loopback); token from
   `tools/Soma/appsettings.json` (never print/commit). No `build0` claim without evidence; if Soma down, route to devops.
 
-## 4. CURRENT RESUME POINT (verified vs the object store, 2026-08-31)
-- **HEAD = 26ecfcb, branch v3. origin/v3 = f6d5c58. 24 commits unpushed — NONE are shell/web** (they are DB / docs /
-  curator / coordinator work). Do not touch or push them.
+## 4. CURRENT RESUME POINT (re-pinned by shell-0831, 2026-08-31T11:xxZ)
+- **Branch v3.** Pin taken THIS awakening: `HEAD = 9628551`, `origin/v3 = 79e3905`,
+  `git rev-list --count origin/v3..v3` = **3** — none are shell/web (curator/coordinator work).
+  Do not touch or push them (§0.6/§37).
+  **⚠ THE UNPUSHED COUNT IS THE ONE FACT IN THIS FILE THAT ROTS FASTEST — RE-PIN IT, DO NOT READ IT.**
+  History of this very line: shell-0609 wrote "HEAD = 26ecfcb, origin/v3 = f6d5c58, 24 unpushed" and it was
+  true when written; the operator pushed everything at ~09:0xZ (`f6d5c58` -> `79e3905`, 27 commits), so the
+  incoming shell-0831 measured **0**; by 11:xxZ it was **3** again. Three different true values in one day.
+  A mismatch here is NOT an alarm and NOT a reason to stop — it is work done between the write and your boot.
+  What is invariant and IS load-bearing: **none of the unpushed commits are ever yours to push.**
 - **THE SHELL ROLE IS IDLE.** No open CC task, no open ack, no push obligation.
 - **Last shell delivery = WFM Phase 1 UI — PUSHED + CLOSED** (barrier cd0e39a..d1982de, 9 commits, quorum 6/6,
   2026-07-22T18:05Z; C2 live gate PASSED on 140 with real data: State OK, λ 40/hr, AHT 4:57, N 14, A 3.30 Erl,

@@ -1,8 +1,8 @@
 ﻿---
 role: shell
 project: RTM View Shell
-version: 0.1
-last_verified: 2026-06-24T16:50:00Z
+version: 0.2
+last_verified: 2026-08-31T11:30:00Z
 owner: shell
 reviewer: curator
 ---
@@ -29,9 +29,14 @@ Claim: src/CcDashboard.Web/ (Components, Pages, wwwroot/js, wwwroot/app.css, Res
 
 Cardinal truths (source-pinned):
 
-1. **Widget rendering lives in `Components/Widgets/*.razor`.**
-   ScreenEditorPage dispatches to AgentGridWidget, QueueGridWidget, DataSlotWidget, DayTrendWidget, etc.
-   · SOURCE: git log, 39 widget dispatches in ScreenEditorPage.razor
+1. **Widget rendering lives in `Components/Widgets/*.razor`; the DISPATCH lives in
+   `Components/Dashboard/RenderWidget.razor`** — 7 widget tags (AgentGrid, AgentStateDistribution,
+   DataSlot, DayTrend, InfoSlot, QueueGrid, Wfm). ScreenEditorPage/ScreenFullscreenPage/ReportEditorPage
+   render `<PlacedWidget>`/`<RenderWidget>`, they do NOT dispatch widget types themselves.
+   · SOURCE: §C-4 2026-08-31 (`git show v3:...RenderWidget.razor | grep -cE '<[A-Za-z]+Widget\b'` = 7)
+   · SUPERSEDED 2026-08-31: the old line "ScreenEditorPage dispatches ... 39 widget dispatches in
+     ScreenEditorPage.razor" is WRONG — the store shows 2 `<PlacedWidget` + 1 `<RenderWidget` there and
+     zero widget-type tags. Found by the rewritten §C; the CODE wins (§A rule "Reality wins — update me").
 
 2. **Drag-and-drop layout via `wwwroot/js/widget-resize.js`.**
    8-way resize handles + draggable modals by header.
@@ -88,13 +93,55 @@ Cardinal truths (source-pinned):
 - 2026-06-26 · Visual parity is NOT proven by object-store: FIX-C had all the Appearance fields/braces present but a double-nested grid (.rw-color-grid wrapping .color-setting-row-dual, both 3-col) collapsed the layout. When the brief says 'identical to <existing component>', mirror its EXACT container structure/classes — do NOT invent a new wrapper grid; and a layout claim is only done after a LIVE side-by-side visual. · SOURCE:8545943 + operator screenshot 2026-06-26 · status: active
 - 2026-06-26 · A modal/overlay rendered OUTSIDE the page's .dark-mode wrapper must carry the dark class ON ITSELF (self-class via a DarkMode param), like the dashboard's ``.editor-modal @(_darkMode?...)``. Ancestor-based ``.dark-mode .X`` dark rules silently never match for fixed/overlay elements outside the wrapper. RULE: pass DarkMode into every overlay component + use self-class selectors (``.X.dark-mode`` not ``.dark-mode .X``). · SOURCE:1981513 + operator 2026-06-26 · status: active
 - 2026-07-02 · PROJECT JS (js/*.js) was NEVER cache-busted in App.razor — only app.css/tokens.css carry ?v. Any JS change (e.g. viewerScale.resetToActual) ships STALE to returning browsers → a razor call to the new JS fn throws JSException → UNHANDLED in an async event handler → Blazor circuit TERMINATED ('No interop methods registered for renderer N' is the dead-circuit downstream symptom). FIX: add ?v to project JS includes (bump on every JS change) AND wrap viewer JS-interop in try/catch so a stale/missing JS fn degrades, not crashes. · RULE: JS scripts must be cache-busted like CSS; JS interop must be guarded against missing functions. · SOURCE:App.razor:37-42 + df95ff3 widget-resize.js + dee401e fix · status: active
+- 2026-08-31 · ENTRANCE TEST Q2(б) FAIL: I asserted "`git add` warned `paths are ignored by .gitignore` -> the work is DEFINITELY lost; the N committed files are OTHER, non-ignored files". Both halves wrong. `.gitignore` filters only UNTRACKED paths: a path already in the index is exempt, plain `add` takes its changes, no `-f`. So the warning is a positive fact about the LISTED paths only — never about the directory, the tracked files under it, or the commit that followed. Verified in one line, which I had not run: `grep -n '\.claude' .gitignore` -> `49:.claude/` AND `git ls-tree -r --name-only v3 .claude | wc -l` -> `58`; both true at once, neither derivable from the other. Split it: b-1 new path under an ignored dir = dropped, work lost; b-2 tracked path = committed, nothing lost. Cost of the INVERSE error (mine) is worse and counter-intuitive: "lost" leads to restore, and restore WRITES (`git show HEAD:<f> > <f>`) — over someone else's newer edit, irreversibly and traceless — whereas a missed loss leaves the work on disk. · RULE: a claim about a MECHANISM must be pinned by a command exactly like a claim about STATE; "I know how git works" is a memory, not knowledge, until a prong is run. Predicate for "did it reach the repo": `git ls-files --error-unmatch -- <path>` then `git hash-object -- <path>` vs `git rev-parse <branch>:<path>` — never the wording of a warning. NB: `CLAUDE.md:3043` states the b-1 special case as general ("anything under `.claude/` requires `git add -f`") — 3 of 4 roles fell for it; verifying the predicate is my duty regardless of what the norm says. · SOURCE: curator verdict 2026-08-31 (FAIL + re-sit PASS), `.coord/shell-reconstitution-test.md` · status: active
+- 2026-08-31 · `git check-ignore` CONSULTS THE INDEX by default: on a TRACKED path it prints nothing and exits 1 ("not ignored"), while `--no-index` prints the matching rule for the same path. Raw, git 2.34.1: `git check-ignore -v -- .claude/skills/role-shell/role-shell.md` -> silence, exit 1; the same on a non-existent sibling path -> `.gitignore:49:.claude/`, exit 0; `--no-index` on the tracked one -> `.gitignore:49:.claude/`, exit 0. Three true answers to three DIFFERENT questions about one directory. `--no-index` shows what the RULE WOULD SAY, not what will happen to the file — as a "is it lost?" criterion it raises a false alarm on every tracked file (and false alarm -> restore -> overwrite, see the lesson above). Same class as the curator's own four-line `check-ignore` misread: the volume/appearance of output taken for its meaning. · RULE: never read ignore-status as commit-status; ask `git ls-files --error-unmatch` / `git rev-parse <branch>:<path>` instead, and if `check-ignore` is used at all, read the printed RULE and the exit code, not the fact that it printed. · SOURCE: my own runs 2026-08-31 (re-sit); curator took it into the canon with attribution. · status: active
 
 ## §C VERIFY  (run at init — spot-check §A vs CURRENT code; mismatch -> superseded, don't act)
-1. `Test-Path src\CcDashboard.Web\wwwroot\js\widget-resize.js` — must be True
-2. `(Select-String -Path src\CcDashboard.Web\wwwroot\app.css -Pattern '\.dark-mode').Count` — must be >50
-3. `(Select-String -Path 'src\CcDashboard.Web\Components\Widgets\*.razor' -Pattern '@inject.*IRtmRelayService').Count` — must be >=3
-4. `Test-Path src\CcDashboard.Web\Components\Dashboard\ScreenEditorPage.razor` — must be True
-5. `(Get-ChildItem src\CcDashboard.Web\Resources\*.resx).Count` — must be >=3
+> **v0.2 2026-08-31 — rewritten to OBJECT-STORE form (NORM-CUR-13).** v0.1 used `Test-Path` /
+> `Select-String` against the WORKING TREE — a surface the norm does not trust (PD-007 can hand back a
+> truncated file = false FAIL; an uncommitted edit = false PASS) and PowerShell does not exist in the
+> Cowork env, so the checks were unrunnable and degraded into a declaration. Fixed here: store as the
+> subject, EXPECTED COUNTS (not mere non-emptiness), CONTENT markers instead of `Test-Path`, an explicit
+> negative control, a store-vs-mount item, and a reachability item.
+> Substitute the branch you are on for `v3`. All items are read-only — never run index-touching git on the mount.
+
+1. **resize/move JS present AND reachable** (`Test-Path` replaced by content markers; §B 2026-06-17: a file
+   can exist while the feature is dead)
+   `git show v3:src/CcDashboard.Web/wwwroot/js/widget-resize.js | grep -cE 'startResize|startMove'` — expect **>=4** (2026-08-31: 4)
+   `git show v3:src/CcDashboard.Web/wwwroot/js/widget-resize.js | grep -c 'dashboard-widget'` — expect **>=1** (2026-08-31: 4)
+   The second is the reachability guard: the RENDERED class is `.dashboard-widget`, not `.widget`; a wrong
+   selector silently no-ops and the feature is dead with every token present.
+
+2. **dark-mode rules in app.css**
+   `git show v3:src/CcDashboard.Web/wwwroot/app.css | grep -c '\.dark-mode'` — expect **>50** (2026-08-31: 147)
+
+3. **RTM relay injected into widgets** (unit = FILES, stated explicitly; v0.1 was ambiguous between lines and files)
+   `git grep -l '@inject.*IRtmRelayService' v3 -- 'src/CcDashboard.Web/Components/Widgets/*.razor' | wc -l` — expect **>=3**
+   (2026-08-31: 4 — AgentGrid, AgentStateDistribution, DataSlot, QueueGrid)
+
+4. **Widget DISPATCH surface** (this item is what caught §A-1 in 2026-08-31)
+   `git show v3:src/CcDashboard.Web/Components/Dashboard/RenderWidget.razor | grep -cE '<[A-Za-z]+Widget\b'` — expect **>=6** (2026-08-31: 7)
+   `git cat-file -e v3:src/CcDashboard.Web/Components/Dashboard/ScreenEditorPage.razor && echo EXISTS` — expect **EXISTS**
+   `git show v3:src/CcDashboard.Web/Components/Dashboard/ScreenEditorPage.razor | grep -c 'dashboard-widget'` — expect **>=1** (2026-08-31: 1)
+
+5. **i18n resources — the three locales BY NAME** (a bare count cannot tell which locale went missing)
+   `git ls-tree --name-only v3 src/CcDashboard.Web/Resources/ | grep '\.resx$'` — expect exactly
+   `SharedResources.en-US.resx`, `SharedResources.he-IL.resx`, `SharedResources.ru-RU.resx` (2026-08-31: all 3)
+
+6. **Project JS is cache-busted** (§B 2026-07-02: stale JS -> JSException -> terminated Blazor circuit)
+   `git show v3:src/CcDashboard.Web/Components/App.razor | grep -cE 'js/.*\?v='` — expect **>=5** (2026-08-31: 5;
+   `chart.umd.min.js` is a vendor bundle and is deliberately not versioned)
+
+7. **NEGATIVE CONTROL — the checks must be able to FAIL.** A check that cannot return 0 measures itself.
+   `git show v3:src/CcDashboard.Web/wwwroot/app.css | grep -c 'ZZZ-marker-that-must-not-exist'` — expect **0** (exit 1)
+   Non-zero here means the grep/pipeline is broken and EVERY count above is uninterpretable — stop and fix the tooling first.
+
+8. **STORE vs MOUNT — PD-007 sensor.** Compare both bodies; never derive one from the other.
+   `git hash-object .claude/skills/role-shell/role-shell.md` vs `git rev-parse v3:.claude/skills/role-shell/role-shell.md`
+   `git hash-object .coord/protocols/shell-handoff.md` vs `git rev-parse v3:.coord/protocols/shell-handoff.md`
+   Equal = the mount copy is the committed one. Differ = say WHICH surface is stale; do not declare
+   "corruption" from a mount read alone. A path missing from the tree (`git ls-tree` -> 0) is NOT a
+   hash mismatch — it is an uncommitted file, and `hash-object` on it is not a pin at all (nothing to compare against).
 
 ## §D REFERENCE  (optional · NOT loaded each init)
 Widget implementation patterns: `.claude/skills/widget-creator/widget-creator.md`.
