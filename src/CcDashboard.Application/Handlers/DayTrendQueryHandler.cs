@@ -1,3 +1,4 @@
+using System.Globalization;
 using CcDashboard.Application.Interfaces;
 using CcDashboard.Application.Queries.Widgets;
 using CcDashboard.Domain.Interfaces;
@@ -38,7 +39,7 @@ public sealed class DayTrendQueryHandler(
         }
 
         var onDate = (query.OnDate ?? DateOnly.FromDateTime(DateTime.UtcNow))
-            .ToString("dd/MM/yyyy");
+            .ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
         var queueArray = queues.ToArray();
         var interval = query.IntervalMinutes;
 

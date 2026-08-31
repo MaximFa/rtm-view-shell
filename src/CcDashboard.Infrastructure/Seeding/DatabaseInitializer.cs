@@ -1,3 +1,4 @@
+using System.Globalization;
 using CcDashboard.Domain.Domain;
 using CcDashboard.Domain.Enums;
 using CcDashboard.Domain.Interfaces;
@@ -733,7 +734,7 @@ public class DatabaseInitializer(
 
     private async Task SeedDevRtsInteractionsAsync(Guid tenantId, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("dd/MM/yyyy");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
         if (await beDb.RtsDataInteractions.AnyAsync(r => r.TenantId == tenantId && r.OnDate == today, ct))
             return;
 
@@ -785,7 +786,7 @@ public class DatabaseInitializer(
 
     private async Task SeedDevRtsUserStatusLogAsync(Guid tenantId, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("dd/MM/yyyy");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
         if (await beDb.RtsDataUserStatusLogs.AnyAsync(r => r.TenantId == tenantId && r.OnDate == today, ct))
             return;
 
