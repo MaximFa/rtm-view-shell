@@ -1,4 +1,4 @@
-﻿---
+---
 role: shell
 project: RTM View Shell
 version: 0.2
