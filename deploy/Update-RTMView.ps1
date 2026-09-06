@@ -248,7 +248,7 @@ if (-not $SkipShell) {
         $preserved = @{}
         foreach ($pf in $preserveFiles) {
             $existing = Join-Path $ShellDest $pf
-            if (Test-Path $existing) { $preserved[$pf] = Get-Content $existing -Raw }
+            if (Test-Path $existing) { $preserved[$pf] = [System.IO.File]::ReadAllBytes($existing) }
         }
 
         if (-not (Test-Path $ShellDest)) { New-Item -ItemType Directory -Path $ShellDest -Force | Out-Null }
@@ -256,8 +256,8 @@ if (-not $SkipShell) {
 
         foreach ($kv in $preserved.GetEnumerator()) {
             $dst = Join-Path $ShellDest $kv.Key
-            Set-Content $dst $kv.Value -Encoding UTF8
-            Write-Host "  Preserved: $($kv.Key)" -ForegroundColor Gray
+            [System.IO.File]::WriteAllBytes($dst, $kv.Value)
+            Write-Host "  Preserved: $($kv.Key) (package version ignored)" -ForegroundColor Gray
         }
         Write-Host "  Shell updated -> $ShellDest" -ForegroundColor Green
     } else {

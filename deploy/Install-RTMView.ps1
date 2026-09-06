@@ -333,7 +333,20 @@ foreach ($svcName in $svcsToStop) {
 Write-Host ""
 Write-Host "[ 4/6 ] Deploying files..." -ForegroundColor Cyan
 if ($InstallShell) {
+    # Preserve machine configuration before the package overwrites it.
+    # Idiom taken verbatim from Update-RTMView.ps1 (RTM branch), not invented here.
+    # Byte-exact on purpose: a text round-trip via Set-Content -Encoding UTF8 adds a BOM on PS 5.1.
+    $preserveShell = @("appsettings.json","appsettings.Production.json","nlog.config")
+    $preservedShell = @{}
+    foreach ($pf in $preserveShell) {
+        $existing = Join-Path $ShellDest $pf
+        if (Test-Path $existing) { $preservedShell[$pf] = [System.IO.File]::ReadAllBytes($existing) }
+    }
     Copy-Item -Path (Join-Path $ScriptDir "Shell\*") -Destination $ShellDest -Recurse -Force
+    foreach ($kv in $preservedShell.GetEnumerator()) {
+        [System.IO.File]::WriteAllBytes((Join-Path $ShellDest $kv.Key), $kv.Value)
+        Write-Host "  Preserved: $($kv.Key) (package version ignored)" -ForegroundColor Gray
+    }
     Write-Host "  Shell -> $ShellDest" -ForegroundColor Green
 
     # ── [4b/6] Inject per-server config into deployed appsettings.json ────────
@@ -419,7 +432,17 @@ if ($InstallShell) {
     }
 }
 if ($InstallRTM) {
+    $preserveRTM = @("data.sys","appsettings.json")
+    $preservedRTM = @{}
+    foreach ($pf in $preserveRTM) {
+        $existing = Join-Path $RTMDest $pf
+        if (Test-Path $existing) { $preservedRTM[$pf] = [System.IO.File]::ReadAllBytes($existing) }
+    }
     Copy-Item -Path (Join-Path $ScriptDir "RTM\*") -Destination $RTMDest -Recurse -Force
+    foreach ($kv in $preservedRTM.GetEnumerator()) {
+        [System.IO.File]::WriteAllBytes((Join-Path $RTMDest $kv.Key), $kv.Value)
+        Write-Host "  Preserved: $($kv.Key) (package version ignored)" -ForegroundColor Gray
+    }
     Write-Host "  RTM   -> $RTMDest" -ForegroundColor Green
     if (-not (Test-Path (Join-Path $RTMDest "data.sys"))) {
         Write-Host "  [!] data.sys not found in $RTMDest — copy before starting service!" -ForegroundColor Yellow
@@ -459,6 +482,18 @@ if ($InstallRTM) {
                 Url = "http://127.0.0.1:$RTMPort"
             } -Force
             Write-Host "  Injected RTM Kestrel port = $RTMPort" -ForegroundColor Gray
+        }
+
+        # The Shell connection string is built from parameters; RTM's never was, so a
+        # side-by-side install on a non-default port left RTM pointing at 5432.
+        # Key name comes from the code that reads it: AppConfig.cs:51 -> "ConnectionStrings:RTMConnectionString".
+        if ($DBAppPassword) {
+            $rtmConn = "Host=$DBHost;Port=$DBPort;Database=$DBName;Username=$DBAppUser;Password=$DBAppPassword;Pooling=true;Maximum Pool Size=5000;"
+            if (-not $rtmCfg.ConnectionStrings) { $rtmCfg | Add-Member -NotePropertyName "ConnectionStrings" -NotePropertyValue @{} }
+            $rtmCfg.ConnectionStrings | Add-Member -NotePropertyName "RTMConnectionString" -NotePropertyValue $rtmConn -Force
+            Write-Host "  Injected ConnectionStrings:RTMConnectionString (Port=$DBPort)" -ForegroundColor Gray
+        } else {
+            Write-Host "  [WARN] -DBAppPassword not provided - RTM connection string left as-is" -ForegroundColor Yellow
         }
 
         # Write back with UTF-8 (preserve Hebrew AgentWGPerfixList etc.)
