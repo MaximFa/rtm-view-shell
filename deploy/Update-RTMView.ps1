@@ -281,7 +281,7 @@ if (-not $SkipRTM) {
         foreach ($kv in $preservedRTM.GetEnumerator()) {
             $dst = Join-Path $RTMDest $kv.Key
             [System.IO.File]::WriteAllBytes($dst, $kv.Value)
-            Write-Host "  Preserved: $($kv.Key)" -ForegroundColor Gray
+            Write-Host "  Preserved: $($kv.Key) (package version ignored)" -ForegroundColor Gray
         }
         Write-Host "  RTM updated -> $RTMDest" -ForegroundColor Green
     } else {
