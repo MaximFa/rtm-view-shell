@@ -139,25 +139,46 @@ foreach ($f in (Get-ChildItem $DataDir -Filter "*.sql" | Sort-Object Name)) {
 Write-Host "" ; Write-Host "[ 5/5 ] Resyncing sequences to column max (E3)..." -ForegroundColor Cyan
 $seqResyncSql = @'
 DO $$
-DECLARE r record;
+DECLARE r record; seq_count int := 0;
 BEGIN
   FOR r IN
     SELECT n.nspname AS sch, s.relname AS seq, t.relname AS tbl, a.attname AS col
     FROM pg_class s
-    JOIN pg_depend d ON d.objid=s.oid AND d.deptype='a'
+    JOIN pg_depend d ON d.objid=s.oid AND d.deptype IN ('a','i')
     JOIN pg_class t ON t.oid=d.refobjid
     JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=d.refobjsubid
     JOIN pg_namespace n ON n.oid=t.relnamespace
     WHERE s.relkind='S' AND n.nspname IN ('public','identity','audit')
   LOOP
     EXECUTE format('SELECT setval(%L, (SELECT COALESCE(MAX(%I),1) FROM %I.%I), true)',
-                   r.sch||'.'||r.seq, r.col, r.sch, r.tbl);
+                   quote_ident(r.sch)||'.'||quote_ident(r.seq), r.col, r.sch, r.tbl);
+    seq_count := seq_count + 1;
   END LOOP;
+  RAISE NOTICE 'RESYNC count=%', seq_count;
 END $$;
 '@
 [System.IO.File]::WriteAllText($TmpSql, $seqResyncSql, (New-Object System.Text.UTF8Encoding($false)))
-& $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -f $TmpSql -q
-Write-Host "  [E3] sequences resynced." -ForegroundColor Green
+# RAISE NOTICE goes to stderr, so the combined stream is captured.
+$resyncOut  = & $psql -h $DBHost -p $DBPort -U $SuperUser -d $Database -v ON_ERROR_STOP=1 -f $TmpSql 2>&1
+$resyncRc   = $LASTEXITCODE
+$resyncText = ($resyncOut | Out-String)
+if ($resyncRc -ne 0) {
+    Write-Host "  [FATAL] E3: psql exit code $resyncRc - sequences were NOT resynced" -ForegroundColor Red
+    Write-Host $resyncText
+    exit 1
+}
+$resyncMatch = [regex]::Match($resyncText, 'RESYNC count=(\d+)')
+if (-not $resyncMatch.Success) {
+    Write-Host "  [FATAL] E3 did not report a count: the output was not parsed" -ForegroundColor Red
+    Write-Host $resyncText
+    exit 1
+}
+$resyncN = [int]$resyncMatch.Groups[1].Value
+if ($resyncN -eq 0) {
+    Write-Host "  [FATAL] E3 processed 0 sequences; the schema uses IDENTITY (deptype 'i') and the filter did not match - the database would collide on first insert" -ForegroundColor Red
+    exit 1
+}
+Write-Host "  [E3] sequences resynced: $resyncN" -ForegroundColor Green
 
 # ── Grant app user access ────────────────────────────────────────────────
 Write-Host "" ; Write-Host "[  +  ] Granting access to $AppUser..." -ForegroundColor Cyan
