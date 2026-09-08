@@ -1,150 +1,116 @@
-# Shell role — migration handoff & resume anchor
+# Shell role — handoff & resume anchor
 
-## ▶ BOOT BLOCK — как поднять читателя этого файла (норма Н-1, 2026-08-29; здесь исполнена 2026-09-05)
-- start prompt (оператор запускает ЭТО): `.coord/protocols/init-shell.md`
-- этот хендоф: `.coord/protocols/shell-handoff.md`
-- роль-скилл: `.claude/skills/role-shell/role-shell.md` (v0.2)
-- шина: `.coord/` · входящие: `.coord/inbox/shell.md` · CC-канал: `.coord/cc/shell.md`
-- клон — ТОЛЬКО `D:\Claude\Projects\RTM View Shell`
-- **Тот же инит — промпт ВОЗОБНОВЛЕНИЯ после внезапной автокомпакции, не только холодного старта.**
-- ⚠ **Дефект твоего роль-скилла, снят куратором 2026-09-05:** файл начинается с BOM (`EF BB BF`),
-  поэтому YAML-шапка НЕ читается как frontmatter. Тело цело (NUL=0, диск==стор), но шапка мертва.
-  Скилл — твоя территория, чинишь ты: снять BOM, записать байтами (Python+fsync), проверить
-  первые три байта и NUL по обоим телам. Благословения координатора на правку своего скилла не нужно.
+> Переписан целиком инкарнацией `shell-0905` при выходе по §4, 2026-09-06.
+> Предыдущая редакция (blob `acc8ea45`, автор shell-0609/0831 + вход куратора 2026-09-05) исполнила свою
+> задачу: PR234-VIEWEDIT-01 замерен, предмет назван, правка благословлена. Её текст сюда не тащу — ниже
+> состояние на СЕЙЧАС, а история на шине.
 
----
+## ▶ 1. БЛОК ПОДЪЁМА
+- **Инит-промпт (оператор запускает ЭТО):** `.coord/protocols/init-shell.md` — выполнить целиком.
+  Пробуждение после паузы и после сжатия контекста приравнивается к иниту.
+- **Этот хендоф:** `.coord/protocols/shell-handoff.md`
+- **Роль-скилл:** `.claude/skills/role-shell/role-shell.md` (v0.2) — `§A CORE` каждый инит,
+  `§B LESSONS` active, `§C VERIFY` прогнать целиком по object store. `§D` при ините не грузить.
+- **Шина:** `.coord/` · входящие: `.coord/inbox/shell.md` · исходящие: `.coord/inbox/coordinator.md`
+  · CC-канал: `.coord/cc/shell.md` · сессии: `.coord/sessions/`
+- **Клон — ТОЛЬКО `D:\Claude\Projects\RTM View Shell`.** Клон в `C:\Users\...\Documents\...` СТЕЙЛ.
+- Ветка `v3`. **Вступительный тест не сдаёшь** — роль аттестована 2026-08-31, подтверждена curator-0611
+  2026-09-05. Тест преемнику пишет КУРАТОР, не ты и не я.
 
-## ВХОД ДЛЯ ИНКАРНАЦИИ 2026-09-05 — записано куратором
+## ▶ 2. ПИНЫ, СНЯТЫЕ В ЭТОМ ПРОБУЖДЕНИИ (2026-09-06, при выходе)
+- `v3` = `3d3014688e6f554cba116fc78e09fca8e31aa169`
+- `origin/v3` = `79e3905f806532f54ee2e272108a213162669e7b`
+- `git rev-list --count origin/v3..v3` = **17** — ни один не мой, push не мой (§0.6/§37).
+  **Это самое быстро протухающее число в файле: ПЕРЕСНИМИ, не читай.** Расхождение — не тревога.
+- Роль-скилл: стор `v3:` = `e52ad93cbc6dcbbc22b948dfe156516a1e3ab516` (это УЖЕ версия без BOM — правку
+  закоммитили), диск = `d1f3d40889b2e6dbe839863e6dfe05cf8ea4df13` — расхождение ровно на четыре урока `§B`, дописанных мной при
+  выходе, НЕ закоммичено (мне коммитить запрещено). NUL=0, CR=0, первые байты `2D 2D 2D`.
+- Хендоф (предыдущая редакция на момент замера): диск == стор == `acc8ea45...`; ЭТОТ файл ты читаешь
+  уже переписанным и НЕ закоммиченным — сверь его хеш сам.
 
-**Пины на момент записи (пере-сними сам, чужие пины не наследуются):** `v3 = 18c61a0`,
-`origin/v3 = 79e3905`, непушенных 7. Версия продукта на 234: Shell/RTM `d1982de`, адаптер `8abd19a`.
-БД на 5433 (PG18), старая на 5432 не тронута.
+## ▶ 3. ЧТО В РАБОТЕ ПРЯМО СЕЙЧАС И ЧЕЙ ХОД
+**Предмет: `PR234-VIEWEDIT-01`** — расхождение раскладки view/edit экрана
+`01a04c39-caac-7107-8d59-d40fb48a94fa`.
 
-### ПРЕДМЕТ: `PR234-VIEWEDIT-01` (реестр реджектов, OPEN)
-Экран `01a04c39-caac-7107-8d59-d40fb48a94fa` («בזק - ניהול משמרת פרטי»), `platform.insightense.com:8444`.
-Заявлен оператором, **проверен координатором лично**, оба режима подряд, одно окно:
-- **view** (`/screens/{id}`): содержимое вписано целиком, ничего не обрезано.
-- **edit** (`/screens/{id}/edit`): слева пустое поле разметки в клетку, содержимое сдвинуто,
-  **правый край обрезан** — крайняя правая плитка срезана. Есть обе прокрутки холста.
-- **Данные в обоих режимах ИДЕНТИЧНЫ** — те же строки, те же значения. Расходится только раскладка.
+**Сделано и закрыто:**
+- Замер раскладки в обоих режимах, оба снимка годны → **ветка 1 предиката координатора принята:**
+  просмотр вписывает содержимое масштабом (`.fullscreen-design-layer` = `matrix(0.437268,…)`),
+  редактор не имеет вписывания вовсе (`transform: none` по всей цепочке). RTL исключён ИЗМЕРЕНИЕМ.
+- Проект правки: три варианта с ценой каждого — `.coord/measure/viewedit-0905/design-options.md`.
+- **Решение оператора: ВАРИАНТ 2** — оставляем 1:1, чиним только недостижимость содержимого.
+  Варианты 1 и 3 не отклонены, а ОТЛОЖЕНЫ (в них главная ценность — разбор арифметики мыши).
+- Промпт правки авторён и **§4-благословлён по диффу**: `tools/cc_prompt_shell_editor_canvas_design_size.md`.
 
-### ⛔ ЧТО ТЕБЕ ЗАПРЕЩЕНО ПРИНИМАТЬ КАК ФАКТ
-Координатор назвал это сам, и я передаю дословно, потому что вход пишет он и может отравить его
-собственной догадкой. Известно: экран правосторонний (RTL, иврит), и в продукте есть переключатель
-масштаба просмотра (`viewerScale`, «Actual size 1:1», заведён в PR234-1c). Напрашивается, что
-просмотр вписывает содержимое масштабированием, а редактор — нет, и в RTL обрезается начало строки.
-**Это НЕ предикат и НЕ версия координатора. Это контекст, который может оказаться ни при чём.**
-Твой первый замер — измерение ФАКТИЧЕСКОЙ раскладки в обоих режимах: какой контейнер, какие ширины,
-есть ли трансформация масштаба, где именно происходит обрезка. Не проверка чужой догадки.
-Предикат координатор зафиксирует ДО прогона, после того как ты назовёшь, что собираешься мерить.
+**ХОД НЕ ТВОЙ И НЕ КООРДИНАТОРА — ЖДЁМ ОПЕРАТОРА.**
+Блокер: на локальной среде **не проходит вход администратором** («неверные данные»; приложение живо).
+Координатор отправил вопрос ОПЕРАТОРУ (не security, не devops): нужна учётка, которой хватит открыть
+этот экран на локальной **в обоих режимах, на чтение**. `.coord/inbox/shell.md` ~10:1xZ.
 
-### ГРАНИЦЫ
-Только чтение. На 234 ничего не менять. Не трогать: боевую `RTM.Twilio`, legacy `RTM`, `C:\IceDash\`,
-виджет 78. `QGRID-78` ведёт `devops-0905` — туда не лезть. NO push.
+**Что ждёт §4:** ничего. Правка уже благословлена.
+**Что ждёт оператора:** (1) учётка на локальной; (2) после неё — базовый снимок «до» на локальной;
+(3) затем ран-бокс правки. Незакрытых BINDING в `.coord/cc/shell.md` по моей роли нет —
+ни один CC-прогон в этом цикле не запускался, кода я не менял.
 
-### ГЕЙТ ГОДНОСТИ ЗАМЕРОВ (куплен дорого, применяется без исключений)
-`stderr` условием, а не напечатанной величиной · маркер завершения при `ON_ERROR_STOP=1` ·
-негативный контроль, **подобранный под ту ошибку, которую предикат реально может совершить**, а не
-формальный · вывод замера ФАЙЛОМ, в консоль только путь (норма оператора 2026-09-05).
+**Порядок после разблокировки — не переставлять:**
+1. Базовый снимок v2 на ЛОКАЛЬНОЙ, ДО правки, оба режима, одно окно
+   (`tools/measure_viewedit_layout_v2.js`, вставка в консоль DevTools; файлы кладутся в
+   `.coord/measure/viewedit-0905/`).
+2. **Проверить, что локальная «до» ВОСПРОИЗВЕЛА дефект** (`scrollWidth == clientWidth` у `.editor-canvas`
+   или иной измеренный признак недостижимости). **Не воспроизвёлся — СТОП, а не «ну похоже же».**
+3. Только тогда — ран-бокс правки оператору, затем снимок «после» и гейт по паре локальная-до/после.
 
-### КТО ЧТО ВЕДЁТ
-`§4` ведёт координатор, не куратор. Ран-бокс авторства специалиста, благословение координатора,
-оператору бокс несёшь ты сам. Вступительный тест не сдаёшь — роль аттестована 2026-08-31.
+**Гейт приёмки (сформулирован ДО правки, сборкой не подменяется):** `scrollWidth >= contentBBox.width + padding`
+у `.editor-canvas`; ни один предок не даёт `clipsRightmost: true`; **то же самое по ВЕРТИКАЛИ**
+(`clipsBottommost`); число плиток и их проектные координаты не изменились ни на единицу; **в режиме
+просмотра снимок не изменился вовсе**; плюс две ветки спора `min-height`/`height` (длинный экран и любой
+короткий) и габарит фоновой сетки против габарита холста. Зелёная сборка — НЕ гейт.
 
+## ▶ 4. НЕПРОЧИТАННОЕ В ИНБОКСЕ
+`grep -c '2026-09-0[78]' .coord/inbox/shell.md` = **0**. Записей за 07 и 08 сентября НЕТ.
+Последняя запись — `2026-09-06T~10:1xZ` (маршрутизация блокера), **прочитана и разобрана**.
+Непрочитанного у меня не осталось.
 
-**Author:** shell-0609 · **Date:** 2026-08-31 · **Branch:** v3 · **For:** the incoming Shell on the NEW account
-**Amended:** shell-0831, 2026-08-31 — §4 resume point re-pinned (see the warning there); attested by the curator this day.
-**Read alongside:** `.claude/skills/role-shell/role-shell.md` (§A CORE every boot + §B LESSONS + §C VERIFY) ·
-`CLAUDE.md` (§0 discipline, §21 screens, §34 relay, §41 localStorage, §42/§26 coordination) ·
-`.coord/protocols/account-migration-runbook.md` (§4/§5 reconstitution + gate) ·
-`.coord/inbox/shell.md` (your mailbox — the step-by-step resume is appended there).
+## ▶ 5. НЕГАТИВНОЕ ЗНАНИЕ — то, чего нет в git
+- **Ложный след, названный вслух:** RTL/`viewerScale` как причина. `direction: rtl` ОДИНАКОВ в обоих
+  режимах, `dir="rtl"` на `html` в обоих — правосторонний макет ни при чём. Версия умерла от измерения,
+  а не от спора; не воскрешай её.
+- **Сломанный роль-скилл, починен:** файл начинался с BOM (`EF BB BF`) → YAML-шапка не читалась как
+  frontmatter. Снял три байта Python+fsync, доказал ХАРАКТЕР правки (`store[3:] == disk`, дельта ровно 3),
+  правка закоммичена в `v3`. Из четырёх побитых скиллов (`coordinator`, `dba`, `incident`, `shell`)
+  наш закрыт владельцем — остальные, вероятно, ещё нет.
+- **Врущий предикат №1: слово «готово».** Оператор дважды прогнал снимок и сказал «готово», второй раз —
+  снова на БОЕВОЙ, хотя требовалась локальная. Поймано полем `url` ВНУТРИ файла. Файлы в правильной
+  папке ничего не доказывают.
+- **Врущий предикат №2: одна ось вместо двух.** По горизонтали прокрутки нет вовсе
+  (`scrollWidth == clientWidth == 972`), по вертикали она есть, но её не хватает (`scrollH 1036 > clientH 956`).
+  Критерий только по ширине дал бы зелёное при живом дефекте вниз.
+- **Врущий предикат №3: ноль без позитивного контроля.** «Масштаба нет» и «я не нашёл узел» дают
+  одинаковые нули. Отсюда зонд с заранее известным `transform` (`matrix(1.5,0,0,1.5,37,11)`, ширина 150
+  при заданных 100) — рядом с ним ноль становится измерением. Зонд снимается в `finally`, факт снятия
+  пере-запрашивается из DOM и служит УСЛОВИЕМ годности, а не полем в отчёте.
+- **Мой собственный промах цикла:** отправив отчёт координатору, на следующий поке я доложил о НЁМ ЖЕ —
+  ответ и новое задание уже лежали в инбоксе ниже помнимой записи. Инбокс перечитывается ДО ХВОСТА
+  ФАЙЛА, и именно ПОСЛЕ отправки своего отчёта. Предикат: `grep -n '^## ' <inbox> | tail`.
+- **Почему `app.css` в правке не трогается:** инлайновый `width` перебивает `app.css:1447 width: 100%`
+  по специфичности. Раз версионируемый файл не участвует — `?v=` не меняется, и весенний `PR234-2`
+  (правка есть, браузер показывает старое) здесь не наступает ПО ПРИЧИНЕ, а не по забывчивости.
+  Если у тебя окажется, что без CSS не выходит — это СТОП к координатору, а не «я аккуратно».
 
----
+## ▶ 6. ЧЕГО ТЕБЕ НЕ ДЕЛАТЬ
+- **Не лезь в аутентификацию.** Вход на локальной — не твоя территория и не твой предмет; тебе нужна
+  рабочая учётка, а не доступ к механизму входа. Не проверяй пользователей, не сбрасывай пароли.
+- **Не трогай `wwwroot/js/widget-resize.js`** в этой правке ни в какой части, не вводи масштаб,
+  не касайся `_scaleMode`/`viewerScale`, не меняй проектные координаты плиток и путь сохранения.
+- **Не расширяй границы правки молча.** Не выходит в заданных — СТОП к координатору ДО, а не объяснение ПОСЛЕ.
+- **Не чини по дороге и не «поправь на пробу».** Экран `01a04c39-…` на бою — улика: не сохранять,
+  не публиковать, плитки не двигать.
+- **Не заменяй боевые файлы «до»** в `.coord/measure/viewedit-0905/` новыми «эталонами» — они улика.
+- **Не начинай гейт со сборки.** Build/unit зелёные — это DoD исполнителя, а не приёмка дефекта.
+- **Не выдавай оператору больше одной задачи за раз** и не смешивай вопрос с ран-боксом.
+- **NO push, ветку не двигать, на 234 и боевую ничего не выкатывать** без отдельного слова оператора.
 
-## 1. Who you are
-- **Role:** Shell — the Blazor Server UI/UX specialist for RTM View Shell (CcDashboard). Old-account slug was
-  `shell-0609`; pick a fresh MMDD slug on boot (e.g. `shell-0901`) and write `.coord/sessions/<slug>.md`.
-- **Territory (`web` claim):** `src/CcDashboard.Web/**` + the Contracts/Application/Infrastructure DTO/command/query
-  surface you touch for a UI feature (use file-mode claims where you overlap backend). You render/configure widgets
-  and admin screens. You do NOT own the RTM engine, DB functions, or deploy.
-- **You NEVER edit code directly.** Every code change is authored as a CC prompt in `tools/<name>.md`, self-§4-reviewed,
-  submitted to the coordinator for §4-bless, then run by native CC / the operator. You (Cowork) analyse, author,
-  review, verify, reconcile, and flush to the bus.
-
-## 2. Iron rules (load-bearing — each was learned from a real loss or false alarm)
-- **§0.3 WRITES:** the Edit tool is BANNED on this mount. All writes via **Python + `os.fsync`**, then verify `tail`+`wc`.
-  `tools/*.md` and `.coord/**` are Cowork-allowed direct writes (still Python+fsync). **NEVER a PowerShell pipe** for
-  `.coord` files (PS 5.1 injects a UTF-8 BOM / mojibakes — § → — runbook §7).
-- **§0.5 VERIFY BY OBJECT STORE, not the mount.** `git status` / line-counts LIE here (false `M`). Prove state with
-  `git hash-object` vs `git rev-parse HEAD:<f>`, `git cat-file -e`, `git show`. Do NOT escalate "corruption" from a mount read.
-- **PD-007:** after any commit the Cowork cache can re-truncate committed files. Hash-verify claimed files `==HEAD`;
-  restore with `git show HEAD:<f> > <f>`.
-- **L-SC-04:** the mount drops journal/binding lines. If a CC RESULT is missing but the commit exists, RECONCILE from
-  the object store and write the reconciled RESULT to `.coord/cc/shell.md` yourself.
-- **§0.6 / §37 — NO PUSH, EVER, by you.** Push runs only via the dedicated push prompt after a full push-barrier
-  quorum, operator-executed. From the mount you cannot push reliably anyway (L-SC-20).
-- **§26.8 §4-GATE:** self-§4-review every prompt, then submit to the coordinator for §4-bless. Do NOT run before bless.
-  Fold any §4 condition INTO the prompt before it runs (pin facts by reading code — never defer to "verify later").
-- **§22 CC-only:** no inline code; the canonical run form is exactly `Выполни задачу из файла tools/<name>.md`.
-
-## 3. Operator working style (from memory)
-- `.` = process your inbox (`.coord/inbox/shell.md`) + act on coordinator directives now.
-- `..` (or `.` / `,`) = VERIFY the last CC result NOW by object store, reconcile, report — NOT "I am waiting".
-- Give the operator/devops steps as **complete copy-paste commands** (full paths, real service names), never prose.
-  140/prod layout: InstallRoot `C:\RTMView`; Shell dir `C:\RTMView\Shell`; appsettings `C:\RTMView\Shell\appsettings.json`;
-  Windows service `RTMViewShell`; Serilog `C:\RTMView\Shell\logs\log-<date>.txt`; Kestrel orphan-exe (not IIS); server UTC+3.
-  Per §43 CC has no external-server access → the OPERATOR runs them.
-- Ask clarifying questions as **TEXT ONLY** (the AskUserQuestion tool hangs). Concise answers; dialog RU, docs/code EN.
-- Build/unit via **Soma** (§47) over host-Chrome (mount sandbox can't reach host loopback); token from
-  `tools/Soma/appsettings.json` (never print/commit). No `build0` claim without evidence; if Soma down, route to devops.
-
-## 4. CURRENT RESUME POINT (re-pinned by shell-0831, 2026-08-31T11:xxZ)
-- **Branch v3.** Pin taken THIS awakening: `HEAD = 9628551`, `origin/v3 = 79e3905`,
-  `git rev-list --count origin/v3..v3` = **3** — none are shell/web (curator/coordinator work).
-  Do not touch or push them (§0.6/§37).
-  **⚠ THE UNPUSHED COUNT IS THE ONE FACT IN THIS FILE THAT ROTS FASTEST — RE-PIN IT, DO NOT READ IT.**
-  History of this very line: shell-0609 wrote "HEAD = 26ecfcb, origin/v3 = f6d5c58, 24 unpushed" and it was
-  true when written; the operator pushed everything at ~09:0xZ (`f6d5c58` -> `79e3905`, 27 commits), so the
-  incoming shell-0831 measured **0**; by 11:xxZ it was **3** again. Three different true values in one day.
-  A mismatch here is NOT an alarm and NOT a reason to stop — it is work done between the write and your boot.
-  What is invariant and IS load-bearing: **none of the unpushed commits are ever yours to push.**
-- **THE SHELL ROLE IS IDLE.** No open CC task, no open ack, no push obligation.
-- **Last shell delivery = WFM Phase 1 UI — PUSHED + CLOSED** (barrier cd0e39a..d1982de, 9 commits, quorum 6/6,
-  2026-07-22T18:05Z; C2 live gate PASSED on 140 with real data: State OK, λ 40/hr, AHT 4:57, N 14, A 3.30 Erl,
-  SL 100%, Occ 23.6% — percents NOT double-scaled). Commits: `e84e654` (3c-config: 8 Wfm* fields end-to-end + Tenant
-  modal WFM tab) + `30225d6` (3c-widget: WfmWidget reads Singleton `IWfmSnapshotStore` on a 5s PeriodicTimer per
-  §34.7 — no hub, no localStorage; renders the §4 contract). Both in origin.
-  - **Percentage-scaling pin (permanent):** WfmWidget `FormatPct` renders `*Pct` AS-IS (already 0..100 from the loop);
-    `FormatPWait` ×100 the 0..1 `PWaitC`. Never double-scale (the 80%→8000% bug).
-  - **Sub-BU "No Data" in WFM = customer CONFIG gap** (BUs without SuperGroups), NOT a shell defect — do not chase.
-- The stale `.coord/push/request.md` on disk is the CLOSED WFM barrier (acks left in place — the mount forbids delete).
-  Not an open obligation.
-
-## 5. HELD / BACKLOG register (shell) — resume ONLY when the coordinator/operator re-prioritises
-1. **TZ Edit-Site IANA UI** — operator BACKLOGGED (stand-down 2026-07-20T16:12Z). Draft preserved; design in
-   `docs/design/RTM-Timezone-Coherence-Design.md` + decisions in `.coord/features.md` ITEM A. Do NOT resume unless re-opened.
-2. **Agent States Activate/Delete UI** (`tools/cc_prompt_shell_agentstates_activate_delete.md`) — HELD: needs backend to
-   add 4 commands (Activate/Delete for State + Group) first.
-3. **AgentGrid Duration F5-reset** — separate follow-up: AgentGrid duration comes via the AgentSnapshot path (no
-   Value2/enqueue instant); relay/AgentSnapshot must carry the enqueue instant before the QueueGrid-style anchor fix applies.
-4. **EDIT-500 InfoSlot concurrent-context co-review** — bi-led; pending.
-5. **T3 AUDIT matrix** — enumerate every UI config-change action vs RTM live-pickup (does a saved config change reflect
-   live without a restart). In progress / interleaved.
-
-## 6. Boot sequence on the new account (in order — mirrors runbook §4/§5)
-1. Read THIS file + `.claude/skills/role-shell/role-shell.md` (§A every boot; run §C VERIFY against current code/CLAUDE.md
-   by object store — the artifact wins on mismatch).
-2. Mechanical self-check (object store only):
-   `git rev-parse --abbrev-ref HEAD` (expect `v3`) ·
-   `git merge-base --is-ancestor 30225d6 origin/v3 && echo WFM-in-origin` (expect it) ·
-   `git rev-list --count origin/v3..v3` (note the number; none are yours).
-3. Write `.coord/sessions/<your-slug>.md` (status active, cc_task none, claims [] — you are idle).
-4. Read `.coord/inbox/shell.md` fully; there is NO open shell task as of this handoff.
-5. Report a one-line bus summary to the operator and GO IDLE. Wait for a `.` poke. Never start work off memory.
-
-## 7. Anchors
-- role-skill: `.claude/skills/role-shell/role-shell.md`
-- widget conventions: `.claude/skills/widget-creator/` + `widget-planner/`
-- coordination: `.claude/skills/session-coord/` (§10 command registry), `CLAUDE.md` §42/§26
-- your mailbox: `.coord/inbox/shell.md` · your CC binding channel: `.coord/cc/shell.md`
-- migration: `.coord/protocols/account-migration-runbook.md`
+## ▶ 7. ЯКОРЯ
+- роль-скилл: `.claude/skills/role-shell/role-shell.md` · виджеты: `.claude/skills/widget-creator/`, `widget-planner/`
+- координация: `CLAUDE.md` §0/§42/§26/§45 · экраны §21 · relay §34 · localStorage §41
+- материалы предмета: `.coord/measure/viewedit-0905/` (снимки, `design-options.md`),
+  `tools/measure_viewedit_layout_v2.js`, `tools/cc_prompt_shell_editor_canvas_design_size.md`
