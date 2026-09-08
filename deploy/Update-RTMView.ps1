@@ -268,7 +268,7 @@ if (-not $SkipShell) {
 if (-not $SkipRTM) {
     $srcRTM = Join-Path $ScriptDir "RTM"
     if (Test-Path $srcRTM) {
-        $preserveRTM = @("data.sys", "appsettings.json")
+        $preserveRTM = @("data.sys", "appsettings.json", "log4net.config")
         $preservedRTM = @{}
         foreach ($pf in $preserveRTM) {
             $existing = Join-Path $RTMDest $pf
