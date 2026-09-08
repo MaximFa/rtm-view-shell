@@ -2,7 +2,7 @@
 role: devops
 project: RTM View Shell
 version: 1.9
-last_verified: 2026-09-08T21:00:00Z
+last_verified: 2026-09-08T22:10:00Z
 owner: devops
 reviewer: curator
 ---
@@ -244,6 +244,8 @@ Cardinal truths (source-pinned):
 - 2026-09-08 · **Шаг, который печатает успех, не сделав ни одной итерации, хуже немой проверки.** `Provision-FreshDb.ps1` шаг 7 выбирает последовательности по `pg_depend.deptype='a'` (связь старого `serial`), а схема давно на `GENERATED ALWAYS AS IDENTITY` — связь `'i'`. Измерено на 234: `deptype='a'` → **0**, `deptype='i'` → **16**. Цикл не сделал ни одной итерации ни для одной таблицы во всей базе и напечатал `Sequences resynced.` Следствие — `23505` при первом же сохранении (`PR234-QGRID-79`). Закономерность: ломаются ТОЛЬКО таблицы, наполненные сидом с явными Id; наполняемые живым потоком идут через `nextval` и стоят верно сами — потому дефект невидим на поработавшей машине и бьёт лишь по свежей установке. РУЛЬ для всех моих боксов: шаг-исправитель обязан печатать ЧИСЛО обработанных объектов и падать при нуле. · SOURCE: `234_20260908_130205_sequences.txt`, `234_20260908_130842_seq-resync.txt`; `23cdbd6:db/tools/Provision-FreshDb.ps1:205-230` · status: active
 
 - 2026-09-08 · **«Чисто» не равно «пусто»: приёмка чистой установки считает СИД, а ноль гридов есть дефект.** §8 п.10 отработал делом: `RTSGrid_Metric 203`, `MetricTranslation 402`, `Grid/Row/Column/Cell 1/1/5/5`, `RTSUserGrid 1/1/5`, `NGC_Site 3` — десять чисел из десяти. И там же подтвердилось, почему в п.11 запрещён `grep`: `QueueNumberOfLoggedAgents` найден в каталоге ОДИН раз — внутри текста комментария другой метрики (`"Comparison": "... is its (deprecated) duplicate"`). Спрашивать надо строки целиком; `grep` ответил бы «есть» на вопрос «определена ли». · SOURCE: `234_20260908_123548_acceptance8.txt` · status: active
+
+- 2026-09-08 · **Игнорируемый, но ТРЕКАЕМЫЙ путь: `git add` отказывает, а `git commit` молча берёт ИНДЕКС — и `--stat` этого не показывает.** `.claude/**` стоит в `.gitignore`, при этом `role-devops.md` трекается. `git add .claude/skills/role-devops/role-devops.md` вернул `The following paths are ignored...`, а следующий `git commit -m` прошёл и показал «1 file changed, 43 insertions» — потому что файл лежал в индексе с ПРОШЛОГО раза. Значит закоммититься мог снимок недельной давности, а сообщение и `--stat` выглядели бы точно так же. Сверил: blob в коммите `506c6d19` == `git hash-object` файла на диске, в блобе `version: 1.9` и 12 уроков — совпало, но защиты не было. РУЛЬ: после любого коммита роль-скилла (и любого файла под игнорируемым каталогом) сверять `git rev-parse HEAD:<путь>` с `git hash-object <путь>`; `--stat` доказывает, ЧТО файл в коммите, но не КАКОЙ его версии. Смежное: `.coord/.gitignore` строка 2 = `*` — тот же механизм, из-за которого 2026-07-03 потеряли HELD-пакет. · SOURCE: коммит `dc32f4e`, 2026-09-08 · status: active
 
 ## §C VERIFY  (run at init — OBJECT STORE ONLY, NORM-CUR-13; mismatch -> superseded, don't act)
 > Rewritten 2026-08-29 (curator acceptance): was `Select-String` over the mount = untrusted surface.
