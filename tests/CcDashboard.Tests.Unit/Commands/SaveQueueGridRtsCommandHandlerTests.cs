@@ -54,4 +54,30 @@ public class SaveQueueGridRtsCommandHandlerTests
         await _repo.DidNotReceive().InsertQueueGridAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         result.GridId.Should().Be(33);
     }
+
+    [Fact]
+    public async Task Handle_RowRemoved_DeletesCellsBeforeRow()
+    {
+        _repo.QueueGridExistsAsync(33, Arg.Any<CancellationToken>()).Returns(true);
+        _repo.GetQueueGridColumnIdsAsync(33, Arg.Any<CancellationToken>())
+            .Returns(new List<int> { 5 });
+        _repo.GetQueueGridRowIdsAsync(33, Arg.Any<CancellationToken>())
+            .Returns(new List<int> { 1, 7 });
+
+        var cmd = new SaveQueueGridRtsCommand(
+            33, 1, "Grid X",
+            new List<QueueGridColumnInput> { new("c1", 5, "Calls", "m1", 1) },
+            new List<QueueGridRowInput>(),
+            new Dictionary<string, int?> { ["c1"] = 90 });
+
+        await _handler.Handle(cmd, CancellationToken.None);
+
+        await _repo.Received(1).DeleteQueueGridCellsByRowIdAsync(7, Arg.Any<CancellationToken>());
+        await _repo.Received(1).DeleteQueueGridRowAsync(7, Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _repo.DeleteQueueGridCellsByRowIdAsync(7, Arg.Any<CancellationToken>());
+            _repo.DeleteQueueGridRowAsync(7, Arg.Any<CancellationToken>());
+        });
+    }
 }
