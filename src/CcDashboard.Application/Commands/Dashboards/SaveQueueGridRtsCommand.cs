@@ -148,7 +148,9 @@ public class SaveQueueGridRtsCommandHandler(
         var rowsToDelete = existingRowIds.Except(incomingRowIds).ToList();
         foreach (var rowId in rowsToDelete)
         {
-            // Cascade will delete cells
+            // No FK between RTSGrid_Row and RTSGrid_Cell: cells must be deleted explicitly,
+            // same order as DeleteQueueGridAsync and as the column branch above (line 76).
+            await rtsRepository.DeleteQueueGridCellsByRowIdAsync(rowId, ct);
             await rtsRepository.DeleteQueueGridRowAsync(rowId, ct);
         }
 
