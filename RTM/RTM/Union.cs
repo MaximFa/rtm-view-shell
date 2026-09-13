@@ -972,7 +972,13 @@ namespace RTM
             {
                 TimeSpan stsDur = new TimeSpan(Users.Sum(t => t.TotalStatuses.Values.Where(x => x.StatusId == metric.Parameter).Sum(r => r.Dur.Ticks)));
                 TimeSpan loginDur = new TimeSpan(Users.Sum(t => t.TotalStatuses.Values.Where(x => x.StatusId != "SIGNOFF").Sum(r => r.Dur.Ticks)));
-                dCalc = stsDur.TotalSeconds / loginDur.TotalSeconds;
+                // Divide only when the denominator is non-zero: with every agent in SIGNOFF both
+                // sums are 0 and 0.0/0.0 yields NaN, which renders as a dash instead of a value.
+                // Same guard as getUsersInStatusPercent / getUsersInStatusGroupPercent; dCalc stays 0 -> "0%".
+                if (loginDur.TotalSeconds > 0)
+                {
+                    dCalc = stsDur.TotalSeconds / loginDur.TotalSeconds;
+                }
             }
             return dCalc.ToString(metric.Format); // "#0.##%"
         }
@@ -987,7 +993,13 @@ namespace RTM
             {
                 TimeSpan stsDur = new TimeSpan(Users.Sum(t => t.TotalStatuses.Values.Where(x => x.StatusGroup == metric.Parameter).Sum(r => r.Dur.Ticks)));
                 TimeSpan loginDur = new TimeSpan(Users.Sum(t => t.TotalStatuses.Values.Where(x => x.StatusId != "SIGNOFF").Sum(r => r.Dur.Ticks)));
-                dCalc = stsDur.TotalSeconds / loginDur.TotalSeconds;
+                // Divide only when the denominator is non-zero: with every agent in SIGNOFF both
+                // sums are 0 and 0.0/0.0 yields NaN, which renders as a dash instead of a value.
+                // Same guard as getUsersInStatusPercent / getUsersInStatusGroupPercent; dCalc stays 0 -> "0%".
+                if (loginDur.TotalSeconds > 0)
+                {
+                    dCalc = stsDur.TotalSeconds / loginDur.TotalSeconds;
+                }
             }
             return dCalc.ToString(metric.Format); // "#0.##%"   
         }
