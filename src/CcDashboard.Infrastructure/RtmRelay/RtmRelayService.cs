@@ -107,6 +107,27 @@ public sealed class RtmRelayService : IRtmRelayService
             state.Handlers.Add(handler);
             state.RefCount++;
 
+            // A connection object can survive its channel (engine restart, exhausted reconnect loop).
+            // Reusing a Disconnected one is what leaves the grid empty with the widget "subscribed".
+            // DisposeAsync is I/O and must not run under state.Lock — same idiom as RunUnionGraceTimerAsync:
+            // take it into a local, release the lock, dispose, take the lock back.
+            HubConnection? staleToDispose = null;
+            if (!state.ReconnectInFlight && state.Connection is { State: HubConnectionState.Disconnected } stale)
+            {
+                staleToDispose = stale;
+                state.Connection = null;
+                _logger.LogInformation(
+                    "RtmRelayService: tenant {TenantId} union {UnionId} — replacing a disconnected connection on subscribe",
+                    tenantId, unionId);
+            }
+
+            if (staleToDispose != null)
+            {
+                state.Lock.Release();
+                try { await staleToDispose.DisposeAsync(); }
+                finally { await state.Lock.WaitAsync(CancellationToken.None); }
+            }
+
             if (state.Connection == null)
             {
                 var conn = BuildUnionConnection(key, state, hubUrl);
@@ -224,63 +245,95 @@ public sealed class RtmRelayService : IRtmRelayService
         var delay = TimeSpan.FromSeconds(5);
         var maxDelay = TimeSpan.FromSeconds(60);
 
-        while (true)
+        await state.Lock.WaitAsync();
+        state.ReconnectInFlight = true;
+        state.Lock.Release();
+
+        try
         {
-            if (state.IsDisposing) return;
-
-            await state.Lock.WaitAsync();
-            var refCount = state.RefCount;
-            var unionAlive = _unions.ContainsKey(key);
-            state.Lock.Release();
-            if (!unionAlive || refCount == 0) return;
-
-            _logger.LogInformation(
-                "RtmRelayService: reconnecting tenant {TenantId} union {UnionId} in {Delay:F0} s",
-                key.TenantId, key.UnionId, delay.TotalSeconds);
-
-            await Task.Delay(delay);
-
-            if (state.IsDisposing || !_unions.ContainsKey(key)) return;
-
-            try
+            while (true)
             {
-                var hubUrl = await GetHubUrlAsync(key.TenantId, default);
+                if (state.IsDisposing) return;
 
-                state.IsDisposing = true;
-                var old = state.Connection;
-                state.Connection = BuildUnionConnection(key, state, hubUrl);
-                if (old != null) await old.DisposeAsync();
-                state.IsDisposing = false;
-
-                await state.Connection.StartAsync();
-                _logger.LogInformation(
-                    "RtmRelayService: reconnected tenant {TenantId} union {UnionId}",
-                    key.TenantId, key.UnionId);
-
-                await InitUnionAsync(state, key.UnionId, default);
-
-                List<Func<UnionStateChange, Task>> handlers;
-                IReadOnlyDictionary<string, AgentSnapshot> snap;
+                // Give up ONLY after making sure we do not leave a dead HubConnection behind:
+                // SubscribeUnionAsync rebuilds only when state.Connection is null, so a stranded
+                // dead object would be reused forever and the union would never be re-asked.
+                HubConnection? abandoned = null;
                 await state.Lock.WaitAsync();
+                var refCount = state.RefCount;
+                var unionAlive = _unions.ContainsKey(key);
+                if (unionAlive && refCount == 0 && !state.IsDisposing)
+                {
+                    abandoned = state.Connection;
+                    state.Connection = null;
+                }
+                state.Lock.Release();
+
+                if (abandoned != null)
+                {
+                    await abandoned.DisposeAsync();
+                    _logger.LogInformation(
+                        "RtmRelayService: tenant {TenantId} union {UnionId} — no subscribers, dead connection released "
+                        + "(next subscribe will build a fresh one)",
+                        key.TenantId, key.UnionId);
+                }
+
+                if (!unionAlive || refCount == 0) return;
+
+                _logger.LogInformation(
+                    "RtmRelayService: reconnecting tenant {TenantId} union {UnionId} in {Delay:F0} s",
+                    key.TenantId, key.UnionId, delay.TotalSeconds);
+
+                await Task.Delay(delay);
+
+                if (state.IsDisposing || !_unions.ContainsKey(key)) return;
+
                 try
                 {
-                    handlers = state.Handlers.ToList();
-                    snap = new Dictionary<string, AgentSnapshot>(state.Snapshot);
-                }
-                finally { state.Lock.Release(); }
+                    var hubUrl = await GetHubUrlAsync(key.TenantId, default);
 
-                await FanOutAsync(handlers, new UnionStateChange.InitialSnapshot(snap, state.ServerTimeOffset));
-                return;
+                    state.IsDisposing = true;
+                    var old = state.Connection;
+                    state.Connection = BuildUnionConnection(key, state, hubUrl);
+                    if (old != null) await old.DisposeAsync();
+                    state.IsDisposing = false;
+
+                    await state.Connection.StartAsync();
+                    _logger.LogInformation(
+                        "RtmRelayService: reconnected tenant {TenantId} union {UnionId}",
+                        key.TenantId, key.UnionId);
+
+                    await InitUnionAsync(state, key.UnionId, default);
+
+                    List<Func<UnionStateChange, Task>> handlers;
+                    IReadOnlyDictionary<string, AgentSnapshot> snap;
+                    await state.Lock.WaitAsync();
+                    try
+                    {
+                        handlers = state.Handlers.ToList();
+                        snap = new Dictionary<string, AgentSnapshot>(state.Snapshot);
+                    }
+                    finally { state.Lock.Release(); }
+
+                    await FanOutAsync(handlers, new UnionStateChange.InitialSnapshot(snap, state.ServerTimeOffset));
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    state.IsDisposing = false;
+                    _logger.LogWarning(ex,
+                        "RtmRelayService: reconnect attempt failed for tenant {TenantId} union {UnionId}",
+                        key.TenantId, key.UnionId);
+                    var next = delay * 2;
+                    delay = next > maxDelay ? maxDelay : next;
+                }
             }
-            catch (Exception ex)
-            {
-                state.IsDisposing = false;
-                _logger.LogWarning(ex,
-                    "RtmRelayService: reconnect attempt failed for tenant {TenantId} union {UnionId}",
-                    key.TenantId, key.UnionId);
-                var next = delay * 2;
-                delay = next > maxDelay ? maxDelay : next;
-            }
+        }
+        finally
+        {
+            await state.Lock.WaitAsync();
+            state.ReconnectInFlight = false;
+            state.Lock.Release();
         }
     }
 
@@ -424,6 +477,7 @@ public sealed class RtmRelayService : IRtmRelayService
         public HubConnection? Connection;
         public TimeSpan ServerTimeOffset;
         public bool IsDisposing;
+        public bool ReconnectInFlight;
         public bool HasLoggedRemovePayload;
         public readonly Dictionary<string, AgentSnapshot> Snapshot = new();
         public readonly List<Func<UnionStateChange, Task>> Handlers = new();
@@ -455,6 +509,27 @@ public sealed class RtmRelayService : IRtmRelayService
 
             state.Handlers.Add(handler);
             state.RefCount++;
+
+            // A connection object can survive its channel (engine restart, exhausted reconnect loop).
+            // Reusing a Disconnected one is what leaves the grid empty with the widget "subscribed".
+            // DisposeAsync is I/O and must not run under state.Lock — same idiom as RunUnionGraceTimerAsync:
+            // take it into a local, release the lock, dispose, take the lock back.
+            HubConnection? staleToDispose = null;
+            if (!state.ReconnectInFlight && state.Connection is { State: HubConnectionState.Disconnected } stale)
+            {
+                staleToDispose = stale;
+                state.Connection = null;
+                _logger.LogInformation(
+                    "RtmRelayService: tenant {TenantId} grid {GridId} — replacing a disconnected connection on subscribe",
+                    tenantId, gridId);
+            }
+
+            if (staleToDispose != null)
+            {
+                state.Lock.Release();
+                try { await staleToDispose.DisposeAsync(); }
+                finally { await state.Lock.WaitAsync(CancellationToken.None); }
+            }
 
             if (state.Connection == null)
             {
@@ -581,56 +656,88 @@ public sealed class RtmRelayService : IRtmRelayService
         var delay = TimeSpan.FromSeconds(5);
         var maxDelay = TimeSpan.FromSeconds(60);
 
-        while (true)
+        await state.Lock.WaitAsync();
+        state.ReconnectInFlight = true;
+        state.Lock.Release();
+
+        try
         {
-            if (state.IsDisposing) return;
-
-            await state.Lock.WaitAsync();
-            var refCount = state.RefCount;
-            var gridAlive = _grids.ContainsKey(key);
-            state.Lock.Release();
-            if (!gridAlive || refCount == 0) return;
-
-            _logger.LogInformation(
-                "RtmRelayService: reconnecting tenant {TenantId} grid {GridId} in {Delay:F0} s",
-                key.TenantId, key.GridId, delay.TotalSeconds);
-
-            await Task.Delay(delay);
-
-            if (state.IsDisposing || !_grids.ContainsKey(key)) return;
-
-            try
+            while (true)
             {
-                var hubUrl = await GetHubUrlAsync(key.TenantId, default);
+                if (state.IsDisposing) return;
 
-                state.IsDisposing = true;
-                var old = state.Connection;
-                state.Connection = BuildGridConnection(key, state, hubUrl);
-                if (old != null) await old.DisposeAsync();
-                state.IsDisposing = false;
-
-                await state.Connection.StartAsync();
-                _logger.LogInformation("RtmRelayService: reconnected tenant {TenantId} grid {GridId}",
-                    key.TenantId, key.GridId);
-
-                await GridInitAsync(state, key.GridId, default);
-                return;
-            }
-            catch (Exception ex)
-            {
-                // Dispose connection that was started but failed init
-                if (state.Connection != null)
+                // Give up ONLY after making sure we do not leave a dead HubConnection behind:
+                // SubscribeGridAsync rebuilds only when state.Connection is null, so a stranded
+                // dead object would be reused forever and the grid would never be re-asked.
+                HubConnection? abandoned = null;
+                await state.Lock.WaitAsync();
+                var refCount = state.RefCount;
+                var gridAlive = _grids.ContainsKey(key);
+                if (gridAlive && refCount == 0 && !state.IsDisposing)
                 {
-                    try { await state.Connection.DisposeAsync(); } catch { }
+                    abandoned = state.Connection;
                     state.Connection = null;
                 }
-                state.IsDisposing = false;
-                _logger.LogWarning(ex,
-                    "RtmRelayService: reconnect attempt failed for tenant {TenantId} grid {GridId}",
-                    key.TenantId, key.GridId);
-                var next = delay * 2;
-                delay = next > maxDelay ? maxDelay : next;
+                state.Lock.Release();
+
+                if (abandoned != null)
+                {
+                    await abandoned.DisposeAsync();
+                    _logger.LogInformation(
+                        "RtmRelayService: tenant {TenantId} grid {GridId} — no subscribers, dead connection released "
+                        + "(next subscribe will build a fresh one)",
+                        key.TenantId, key.GridId);
+                }
+
+                if (!gridAlive || refCount == 0) return;
+
+                _logger.LogInformation(
+                    "RtmRelayService: reconnecting tenant {TenantId} grid {GridId} in {Delay:F0} s",
+                    key.TenantId, key.GridId, delay.TotalSeconds);
+
+                await Task.Delay(delay);
+
+                if (state.IsDisposing || !_grids.ContainsKey(key)) return;
+
+                try
+                {
+                    var hubUrl = await GetHubUrlAsync(key.TenantId, default);
+
+                    state.IsDisposing = true;
+                    var old = state.Connection;
+                    state.Connection = BuildGridConnection(key, state, hubUrl);
+                    if (old != null) await old.DisposeAsync();
+                    state.IsDisposing = false;
+
+                    await state.Connection.StartAsync();
+                    _logger.LogInformation("RtmRelayService: reconnected tenant {TenantId} grid {GridId}",
+                        key.TenantId, key.GridId);
+
+                    await GridInitAsync(state, key.GridId, default);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    // Dispose connection that was started but failed init
+                    if (state.Connection != null)
+                    {
+                        try { await state.Connection.DisposeAsync(); } catch { }
+                        state.Connection = null;
+                    }
+                    state.IsDisposing = false;
+                    _logger.LogWarning(ex,
+                        "RtmRelayService: reconnect attempt failed for tenant {TenantId} grid {GridId}",
+                        key.TenantId, key.GridId);
+                    var next = delay * 2;
+                    delay = next > maxDelay ? maxDelay : next;
+                }
             }
+        }
+        finally
+        {
+            await state.Lock.WaitAsync();
+            state.ReconnectInFlight = false;
+            state.Lock.Release();
         }
     }
 
@@ -722,6 +829,7 @@ public sealed class RtmRelayService : IRtmRelayService
     {
         public HubConnection? Connection;
         public bool IsDisposing;
+        public bool ReconnectInFlight;
         public readonly Dictionary<int, (string Value, string? Value2)> CellSnapshot = new();
         public readonly List<Func<IReadOnlyList<GridCellUpdate>, Task>> Handlers = new();
         public int RefCount;
