@@ -749,11 +749,15 @@ namespace RTM
                     }                  
                 }
 
-                // Force all existing UserManagers to pick up newly added column metrics.
-                // Without this, new metrics only appear after an agent's next workgroup event.
-                AsyncLogger.Info("LoadData: ForceRefreshMetrics for all UserManagers");
+                // Re-evaluate union membership as well: the mapping (union.UserGroups) may have been
+                // loaded AFTER an agent's activation arrived, and refreshUnions() is otherwise called
+                // only from workgroupActivation() - so such an agent would stay out of the union until
+                // his next activation. Membership first, metrics second: refreshUnions() rebuilds
+                // userUniuns, and ForceRefreshMetrics() then marks the manager changed.
+                AsyncLogger.Info("LoadData: refreshUnions + ForceRefreshMetrics for all UserManagers");
                 foreach (var userMng in _userManagerList.Values)
                 {
+                    userMng.refreshUnions();
                     userMng.ForceRefreshMetrics();
                 }
 
