@@ -273,7 +273,8 @@ Cardinal truths (source-pinned):
 1. `git show v3:deploy/Update-RTMView.ps1 | grep -c '@(Get-ChildItem'` — expect **1** (StrictMode @() wrap)
 2. `git show v3:deploy/Update-RTMView.ps1 | grep -c 'appsettings\.json'` — expect **2** (operator-config preserve)
 3. `git show v3:deploy/Update-RTMView.ps1 | grep -c 'pg_dump'` — expect **4** (pre-apply DB backup)
-4. `git show v3:deploy/Update-RTMView.ps1 | grep -c 'Compare-ToBaseline'` — expect **4** (E1 drift gate)
+4. `git show v3:deploy/Update-RTMView.ps1 | grep -c 'Compare-ToBaseline'` — expect **5** (E1 drift gate;
+   was 4 before PR234-INST-12 was fixed 2026-09-13 — the fix added the resolved-path line)
 5. **Store vs mount** (the reason the rule exists):
    `git rev-parse v3:deploy/Update-RTMView.ps1` == `git hash-object deploy/Update-RTMView.ps1`.
    Differ -> the working tree is NOT what ships; verify against the store and say so.
@@ -281,11 +282,20 @@ Cardinal truths (source-pinned):
    "identical environment" claim) must carry the DB engine version of BOTH sides, as the exact `SELECT version()`
    string. A gate cannot ask about what the report omits: the 2026-08-30 PG18-vs-15.5 miss was possible because my
    own rehearsal artifact had no version line, so the coordinator could not demand one.
-7. **Gate REACHABILITY, not just presence** (item 4 alone is a false green):
-   `git show v3:deploy/Update-RTMView.ps1 | grep -c 'skipping drift gate'` — expect **1**, and treat it as a
-   STANDING DEFECT: a missing `db\tools\Compare-ToBaseline.ps1` makes the §A.1 mandatory gate WARN-skip
-   instead of stopping the deploy. Before ANY deploy, confirm the gate actually resolves in the PACKAGE
-   being deployed — presence of the string in the script is not evidence that the gate ran.
+7. **Gate REACHABILITY, not just presence** (item 4 alone is a false green). PR234-INST-12 is FIXED
+   (2026-09-13), so this item changed from documenting a defect to asserting the fix — three counts, all
+   against the store:
+   - `grep -c 'skipping drift gate'` — expect **0**. Non-zero means the WARN-skip came back and the
+     §A.1 mandatory gate can silently go green again.
+   - `grep -c 'not found in either layout'` — expect **1**: a missing tool now THROWS. The operator's
+     explicit way past the gate is `-SkipDrift` / `-ForceDeploy`, which is recorded; silence is not.
+   - lines containing `db\tools\Compare-ToBaseline.ps1` — expect **2**: BOTH layouts are searched,
+     `$ScriptDir\db\tools\` (package: Build-ProdRelease.ps1:361,396,438 put the deploy scripts in the
+     staging ROOT with `db\` beside them) and the parent of `$ScriptDir` (repo: `deploy\` + root `db\`).
+     The old code searched the parent ONLY, so in every package layout the path never resolved — which is
+     why the gate had never actually run on a deployed server.
+   Still true, and not replaced by the fix: presence of the strings is not evidence the gate RAN. The
+   run-time proof is the `[E1] drift tool resolved:` line in the deploy output.
 
 ## §D REFERENCE
 Scripts: deploy/Update-RTMView.ps1, deploy/Install-RTMView.ps1, tools/Build-ProdRelease.ps1.

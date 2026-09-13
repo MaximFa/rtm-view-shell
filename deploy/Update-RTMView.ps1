@@ -161,11 +161,34 @@ Write-Host ""
 $skipGate = $ForceDeploy -or $SkipDrift
 if (-not $skipGate) {
     Write-Host "[E1] Pre-deploy drift gate: running Compare-ToBaseline..." -ForegroundColor Cyan
-    $RepoRoot = Split-Path -Parent $ScriptDir
-    $ComparePath = Join-Path $RepoRoot "db\tools\Compare-ToBaseline.ps1"
-    if (-not (Test-Path $ComparePath)) {
-        Write-Host "  [WARN] Compare-ToBaseline.ps1 not found at $ComparePath - skipping drift gate." -ForegroundColor Yellow
-    } else {
+    # PR234-INST-12. The tool sits in DIFFERENT places in the two layouts this script runs from, and the
+    # old code searched only one of them:
+    #   package  - Update-RTMView.ps1 at the archive root with db\tools\ beside it, so $ScriptDir\db\tools\
+    #              (tools\Build-ProdRelease.ps1:361 stages db\ , :396 stages db\tools\ , :438 copies the
+    #              deploy scripts to the staging ROOT)
+    #   repo     - deploy\Update-RTMView.ps1 with db\tools\ at the repo root, so the PARENT of $ScriptDir
+    # Searching the parent alone meant the path never resolved in ANY package layout, and the MANDATORY
+    # gate (role-devops A.1) degraded to a WARN-skip: a check that went silently green exactly when it
+    # was not in force. Both candidates are searched now, in package-first order, and every path tried is
+    # printed so a future miss is visible instead of implied.
+    $compareCandidates = @(
+        (Join-Path $ScriptDir "db\tools\Compare-ToBaseline.ps1"),
+        (Join-Path (Split-Path -Parent $ScriptDir) "db\tools\Compare-ToBaseline.ps1")
+    )
+    $ComparePath = $null
+    foreach ($candidate in $compareCandidates) {
+        Write-Host "  [E1] drift tool candidate: $candidate" -ForegroundColor Gray
+        if (Test-Path $candidate) { $ComparePath = $candidate; break }
+    }
+    if (-not $ComparePath) {
+        # A missing tool STOPS the deploy instead of skipping the gate. The operator already has an
+        # explicit, recorded way past it - -SkipDrift / -ForceDeploy - so silence is never the right
+        # answer here: the Compare IS the gate, it yields this server's -MigrationList and it catches
+        # runtime-critical drift.
+        throw "[E1] Compare-ToBaseline.ps1 not found in either layout. Searched: $($compareCandidates -join ' ; '). The drift gate is MANDATORY - fix the package so db\tools\ ships, or re-run with -SkipDrift / -ForceDeploy to proceed on record."
+    }
+    Write-Host "  [E1] drift tool resolved: $ComparePath" -ForegroundColor Gray
+    if ($true) {
         $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
         & $ComparePath -DBHost $DBHost -DBPort $DBPort -Database $Database -User $DBUser -Password $DBPassword
         $driftExit = $LASTEXITCODE
