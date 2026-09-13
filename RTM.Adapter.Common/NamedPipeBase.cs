@@ -40,22 +40,19 @@ namespace RTM.Tools
 
         protected async Task StartReading()
         {
-            await Task.Factory.StartNew(async () =>
+            try
             {
-                try
+                while (true)
                 {
-                    while (true)
-                    {
-                        var message = await _stream.ReadString();
-                        OnMessageReceived(message);
-                    }
+                    var message = await _stream.ReadString();
+                    OnMessageReceived(message);
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or System.IO.IOException or ObjectDisposedException)
-                {
-                    OnDisconnected();
-                    Dispose();
-                }
-            });
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or System.IO.IOException or ObjectDisposedException)
+            {
+                OnDisconnected();
+                Dispose();
+            }
         }
 
         public async Task Send(string message)
