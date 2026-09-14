@@ -1,8 +1,8 @@
 ---
 role: devops
 project: RTM View Shell
-version: 1.13
-last_verified: 2026-09-13T16:4xZ
+version: 1.15
+last_verified: 2026-09-14T02:4xZ
 owner: devops
 reviewer: curator
 ---
@@ -270,6 +270,9 @@ Cardinal truths (source-pinned):
 - 2026-09-13 · **БОКС ВЫДАЁТСЯ ВМЕСТЕ С ФАЙЛОМ — не терять ход.** Директива оператора 2026-09-13: «ранбокс выдавай вместе с файлом, теряем ход». Прежнее «одна задача — один ответ» (2026-08-30) остаётся в силе там, где оно и родилось: когда Я выдаю «скопируй, потом запусти» и запуск может уйти раньше копирования. Когда оба шага делает оператор подряд сам, разделение стоит лишнего круга и ничего не защищает. Форма: в одном сообщении путь файла, куда положить, и бокс запуска; шапка «ГДЕ БЕЖИМ» и предупреждение о записи на бою — обязательны по-прежнему. · SOURCE: директива оператора 2026-09-13 · status: active
 - 2026-09-13 · **ПРОВЕРЯЮЩИЙ СКРИПТ САМ ОБЯЗАН ПОНИМАТЬ СИНТАКСИС, КОТОРЫЙ ПРОВЕРЯЕТ.** Мой счётчик баланса скобок дал ложную тревогу (15/15 вместо 85/85), потому что не знал про блочный комментарий `<# #>` и проглотил половину файла, упёршись в апостроф внутри английского текста; и в другой раз дал ложное расхождение 293/294 из-за фигурных скобок внутри строки-регекспа. Оба раза предмет был в приборе проверки, а не в проверяемом. Рабочая форма: перед подсчётом вырезать блочные комментарии, затем строковые литералы обеих кавычек, затем строчные комментарии — и только потом считать; расхождение после этого означает настоящий дисбаланс. · SOURCE: сборка `engine-predicate` и `resub-v6`, 2026-09-13 · status: active
 - 2026-09-13 · **СПИСОК ФАЙЛОВ ДЛЯ ЗАМЕРА БЕРЁТСЯ ТОЛЬКО ИЗ ОБЪЯВЛЕНИЙ ПУТИ ЛОГА В КОНФИГАХ НАШИХ СЛУЖБ. Ни по имени каталога, ни по догадке, ни по «похоже на лог».** Директива оператора 2026-09-13, и она сильнее моего же урока того же дня: «каталог не включается, пока не доказано, чей он» ловит ошибку ПОСЛЕ того, как она сделана, а это правило делает её невозможной — чужой каталог в корпус просто не попадает. Цепочка, и каждое звено измеряется, а не предполагается: имя НАШЕЙ службы -> `Win32_Service.PathName` -> каталог бинаря -> **его собственный конфиг логирования** (`log4net.config`, элемент `<file value=...>` — движок и адаптер; секция `Serilog`, `WriteTo[].Args.path` — Shell) -> относительный путь разрешается от РАБОЧЕГО каталога процесса (у службы Windows это `%SystemRoot%\System32`, если в определении службы не задан иной), абсолютный берётся как есть. Что читаем — только то, что вышло из этой цепочки. Хуже всего в моём промахе не то, что я не знал метода, а что я его **уже применял непоследовательно**: путь лога адаптера в тот же день брал из его `log4net.config`, путь Shell — из секции `Serilog` его конфига, а для движка подставил два каталога руками, и один из них (`C:\Logs\RTM`) не объявлен НИ ОДНОЙ нашей службой — он принадлежит легаси `C:\IceDash\RTM`. Правило применяется ко всем службам одинаково или не работает вовсе. Остаточные проверки не отменяются, они становятся второй линией: каждая строка несёт свой файл, счётчики печатаются по файлам, владелец каталога подтверждается форматом отметки времени и корнем компиляции в кадрах стека — на случай, когда объявленный путь ведёт в каталог, где лежит и чужое. · SOURCE: директива оператора 2026-09-13 («замер логов производится ТОЛЬКО из определений пути логов из НАШИХ сервисов»); `234_20260913_133240_whose-log.txt`; собственное непоследовательное применение в `resub-v6`/`engine-predicate` · status: active
+- 2026-09-14 · **ЖИЗНЕННЫМ ЦИКЛОМ АДАПТЕРА УПРАВЛЯЕТ ДВИЖОК, А НЕ Я. Ручной старт/стоп `RTMTwilio_1` — вмешательство, а не подстраховка.** Движок читает `RTM:AdaptorServiceName` (на 234 = `RTMTwilio_1`) и сам поднимает адаптер, когда дошёл до готовности принимать подключение по трубе, и сам его останавливает. Мой прежний «инвариант» — «рестарт движка ВСЕГДА сопровождать ручным рестартом адаптера» — **ОТМЕНЁН словом оператора 2026-09-14**: он родился из верного наблюдения (на `8abd19a` адаптер не переподключается сам) и был обобщён в неверное действие. Ручной `Restart-Service RTMTwilio_1` через фиксированную паузу после старта движка может попасть РАНЬШЕ готовности и сломать то, что движок сделал бы сам. Рабочая форма: в процедуре ОДИН рестарт — `RTMService`; состояние адаптера ПРОВЕРЯЕТСЯ, а не назначается. · SOURCE: слово оператора 2026-09-14; `RTM:AdaptorServiceName` в `C:\RTMView\RTM\appsettings.json`; переезд 8088->8089 `.measurements/234_20260914_011937_d1-port-config.txt` · status: active
+- 2026-09-14 · **ГОТОВНОСТЬ СЛУЖБЫ ИЗМЕРЯЕТСЯ ПРИЗНАКОМ В ЦИКЛЕ, А НЕ ФИКСИРОВАННОЙ ПАУЗОЙ.** После рестарта движка я подождал 16 секунд, увидел «на 8089 никто не слушает, трубы `rtmpipe_v3` нет» и объявил отказ. Движок в этот момент ещё поднимался: через минуту слушатель и труба были на месте. Фиксированная пауза измеряет МОИ ОЖИДАНИЯ, а не систему, и даёт ложно-красное ровно там, где система здорова, но медленнее меня. Рабочая форма: опрашивать ПРИЗНАК готовности (слушатель на порту + труба из `AppConfig.PipeName`) в цикле до появления или до явного тайм-аута, и в отчёте печатать, СКОЛЬКО ждали и чем кончилось; «не дождались за N секунд» — это честный результат, а «нет через 16 секунд» — нет. · SOURCE: собственный ложный вывод 2026-09-14 01:20:53 против состояния в 01:21:4x · status: active
+- 2026-09-14 · **ПРАВИЛО, СОБЛЮДАЕМОЕ В ПРИБОРАХ, НАРУШАЕТСЯ В НАСПЕХ НАБРАННОМ БОКСЕ — И ЭТО ТОТ ЖЕ ДЕФЕКТ.** `Set-Content -Encoding UTF8` пишет BOM, `psql -f` падает на `syntax error at or near "ï»¿"` — урок записан у меня с 2026-08-30 и дословно исполняется во всех `.probes`. В ad-hoc боксе D3 я собрал SQL именно `Set-Content`, и первый `SELECT` («значение ДО») не выполнился: транзакция осталась без собственного «до», пришлось ссылаться на чужой замер часовой давности. Вывод шире BOM: **бокс в чате — такой же артефакт, как прибор, и на него распространяются ВСЕ правила приборов**; «это же одноразовая команда» — та самая мысль, после которой правило перестаёт работать. Рабочая форма: любой SQL пишется `[IO.File]::WriteAllText(..., New-Object Text.UTF8Encoding($false))`, и предъявляется первый байт. · SOURCE: `psql` ошибка в D3 2026-09-14 01:25; урок 2026-08-30 в этом же §B · status: active
 
 ## §C VERIFY  (run at init — OBJECT STORE ONLY, NORM-CUR-13; mismatch -> superseded, don't act)
 > Rewritten 2026-08-29 (curator acceptance): was `Select-String` over the mount = untrusted surface.
@@ -306,7 +309,35 @@ Cardinal truths (source-pinned):
    Still true, and not replaced by the fix: presence of the strings is not evidence the gate RAN. The
    run-time proof is the `[E1] drift tool resolved:` line in the deploy output.
 
+8. **Every path named in §D resolves** (SENSOR, not a gate - it reports into the init report and never
+   blocks; a sensor promoted to a mandatory gate becomes the process-creep it exists to detect).
+   **Two kinds of path, two predicates - and the reason is written here so nobody has to guess it:**
+   - TRACKED paths live in the object store, so they are checked THERE, not on the mount:
+     `git cat-file -e v3:deploy/RUNBOOK-Install-Upgrade.md` · `...:deploy/Update-RTMView.ps1` ·
+     `...:deploy/Install-RTMView.ps1` · `...:tools/Build-ProdRelease.ps1` - each expected exit `0`.
+   - UNTRACKED paths (`.coord/inbox/*`, `.coord/cc/*`) are NOT in git by design (only `.coord/protocols/`
+     is tracked), so `cat-file` on them returns non-zero for a file that is present and correct. They are
+     checked by EXISTENCE ON DISK: `test -f .coord/inbox/devops.md` · `test -f .coord/cc/devops.md`.
+     Using the store predicate on an untracked path produces a false red every single init - the failure
+     mode this item exists to prevent, applied to itself.
+   Run each line AT AUTHORING TIME and confirm the expected result before shipping this skill: a §C check
+   that has never been run is a claim, and today a `grep -c 'binding:'` run before delivery caught a zero
+   in my own prompt that read as correct.
 ## §D REFERENCE
+**`deploy/RUNBOOK-Install-Upgrade.md` - THE deployment and upgrade runbook. Read it BEFORE touching a
+live server, every time, not only on a first install.** Written 2026-09-13 from the 234 upgrade, on
+operator directive: every incarnation was re-buying the same mistakes with the operator's time. It
+carries, measured rather than remembered: the build rules (clean clone, own-artifact freshness
+threshold, test-gate as `failed=0` + moved timestamp with the COUNT as an expectation only), the
+transfer + C0 sha verification, the traps inside `Update-RTMView.ps1` (`-DBPort` defaults to the OLD
+PG15; `-Skip*` bounces BOTH services; masked `-DBPassword` or `pg_dump` kills the run after the stop;
+the E1 gate stands AFTER the services are stopped - `PR234-INST-13`; the skip line names the wrong flag
+- `PR234-INST-14`), what the drift gate's red actually measured (`PR234-CMP-01`), the adapter replaced
+by hand with its gates in the right order, provenance as THREE lines per binary read from the .dll,
+content anchors searched at BOTH byte alignments with a POSITIVE control, health checked by reading the
+service's declared endpoint FIRST and the port's owner SECOND, logs taken only from service
+declarations, and T1 vs T2 - the distinction that decides whether the acceptance measurement means
+anything.
 Scripts: deploy/Update-RTMView.ps1, deploy/Install-RTMView.ps1, tools/Build-ProdRelease.ps1.
 Ops layout: CLAUDE.md §43 (external-server ops), §35 (prod release encoding).
 
