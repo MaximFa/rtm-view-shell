@@ -4756,11 +4756,22 @@
     // Column threshold management
     private bool IsNumericMetric(string metricId)
     {
-        // Check ValueType from the metric definition in database
+        // The column definition already carries the type for Queue Grid columns
+        // (QueueGridColumnDef.ValueType, filled in SelectQueueMetric :2709 / :2734 and on load :3413).
+        // Prefer it: it is the value the editor itself stored for THIS column, no catalogue lookup.
+        var colType = ConfigQueueGridColumnDefs
+            .FirstOrDefault(c => c.MetricId == metricId)?.ValueType;
+        if (!string.IsNullOrEmpty(colType))
+        {
+            return IsNumericValueType(colType);
+        }
+        // Otherwise the catalogue. NOTE: the seeded catalogue stores "number"/"time"/"text" in LOWER
+        // case while older rows use "Number"/"Time" — the comparison must be case-insensitive, or the
+        // type check silently never fires and the name-based fallback below decides everything.
         var metric = Metrics.FirstOrDefault(m => m.MetricId == metricId);
         if (metric != null && !string.IsNullOrEmpty(metric.ValueType))
         {
-            return metric.ValueType == "Number" || metric.ValueType == "Time";
+            return IsNumericValueType(metric.ValueType);
         }
         // Fallback to pattern matching if metric not found
         if (string.IsNullOrEmpty(metricId)) return false;
@@ -4769,6 +4780,10 @@
                id.Contains("calls") || id.Contains("aht") || id.Contains("time") || id.Contains("percent") ||
                id.Contains("pct") || id.Contains("total") || id.Contains("avg") || id.Contains("count");
     }
+
+    private static bool IsNumericValueType(string? valueType) =>
+        string.Equals(valueType, "Number", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(valueType, "Time", StringComparison.OrdinalIgnoreCase);
 
     private List<ColumnThreshold> GetColumnThresholds(string column)
     {
