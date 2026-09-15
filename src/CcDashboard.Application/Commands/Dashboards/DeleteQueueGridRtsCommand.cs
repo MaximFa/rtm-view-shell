@@ -14,7 +14,8 @@ public class DeleteQueueGridRtsCommandHandler(
     {
         if (cmd.GridId == 0) return false;
 
-        // CASCADE DELETE handles columns, rows, and cells automatically
+        // No FK between the RTSGrid_* tables: nothing cascades here. DeleteQueueGridAsync
+        // removes cells, then columns, then rows, then the grid - explicitly, in that order.
         await rtsRepository.DeleteQueueGridAsync(cmd.GridId, ct);
 
         // API hook placeholder

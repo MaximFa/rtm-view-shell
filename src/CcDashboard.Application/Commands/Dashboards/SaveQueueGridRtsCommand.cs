@@ -72,7 +72,8 @@ public class SaveQueueGridRtsCommandHandler(
         var columnsToDelete = existingColumnIds.Except(incomingColumnIds).ToList();
         foreach (var columnId in columnsToDelete)
         {
-            // Cascade will delete cells, but delete explicitly for clarity
+            // No FK between RTSGrid_Column and RTSGrid_Cell: cells must be deleted explicitly,
+            // same order as the row branch below (cells before their owner).
             await rtsRepository.DeleteQueueGridCellsByColumnIdAsync(columnId, ct);
             await rtsRepository.DeleteQueueGridColumnAsync(columnId, ct);
         }
@@ -149,7 +150,7 @@ public class SaveQueueGridRtsCommandHandler(
         foreach (var rowId in rowsToDelete)
         {
             // No FK between RTSGrid_Row and RTSGrid_Cell: cells must be deleted explicitly,
-            // same order as DeleteQueueGridAsync and as the column branch above (line 76).
+            // same order as DeleteQueueGridAsync and as the column branch above.
             await rtsRepository.DeleteQueueGridCellsByRowIdAsync(rowId, ct);
             await rtsRepository.DeleteQueueGridRowAsync(rowId, ct);
         }
