@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
@@ -32,6 +32,8 @@
     Installation directory for Garnet (default: C:\Garnet)
 .PARAMETER SkipCacheMigration
     Skip Memurai->Garnet migration (keep existing cache service)
+.PARAMETER NoAutoRestart
+    On failure before DB changes, leave services stopped instead of auto-recovering.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File Update-RTMView.ps1
@@ -62,7 +64,8 @@ param(
     [string]$RedisPassword = "",
     [string]$GarnetInstallDir = "C:\Garnet",
     [string]$GarnetSvcName = "Garnet",
-    [switch]$SkipCacheMigration
+    [switch]$SkipCacheMigration,
+    [switch]$NoAutoRestart
 )
 
 $ErrorActionPreference = "Stop"
@@ -100,9 +103,152 @@ Write-Host ""
 
 $principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Error "Run as Administrator."
+    throw "Run as Administrator."
 }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# PREFLIGHT CHECKS — all reads, no writes. Failures here cost zero downtime.
+# ══════════════════════════════════════════════════════════════════════════════
+Write-Host "[PREFLIGHT] Verifying prerequisites..." -ForegroundColor Cyan
+
+$preflightFailed = $false
+
+# 1. pg_dump present (always needed for backup)
+$pgDumpTool = Find-PGTool "pg_dump"
+if ($pgDumpTool) {
+    Write-Host "  [OK] pg_dump: $pgDumpTool" -ForegroundColor Green
+} else {
+    Write-Host "  [FAIL] pg_dump not found" -ForegroundColor Red
+    $preflightFailed = $true
+}
+
+# 2. psql present (if migrations specified)
+$psqlTool = Find-PGTool "psql"
+$hasMigrations = $MigrationList -and $MigrationList.Trim()
+if ($hasMigrations) {
+    if ($psqlTool) {
+        Write-Host "  [OK] psql: $psqlTool" -ForegroundColor Green
+    } else {
+        Write-Host "  [FAIL] psql not found (required for migrations)" -ForegroundColor Red
+        $preflightFailed = $true
+    }
+} else {
+    Write-Host "  [--] psql: not checked (no migrations)" -ForegroundColor Gray
+}
+
+# 3. Migration files exist
+if ($hasMigrations) {
+    $migrationsDir = Join-Path $ScriptDir "db\migrations"
+    $migrations = @($MigrationList.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $missingMigs = @()
+    foreach ($mig in $migrations) {
+        $migPath = Join-Path $migrationsDir ($mig + ".sql")
+        if (-not (Test-Path $migPath)) {
+            $missingMigs += $mig
+        }
+    }
+    if ($missingMigs.Count -eq 0) {
+        Write-Host "  [OK] migration files: $($migrations.Count) found" -ForegroundColor Green
+    } else {
+        Write-Host "  [FAIL] missing migrations: $($missingMigs -join ', ')" -ForegroundColor Red
+        $preflightFailed = $true
+    }
+} else {
+    Write-Host "  [--] migration files: not checked (no migrations)" -ForegroundColor Gray
+}
+
+# 4. Compare-ToBaseline.ps1 path (if drift gate not skipped)
+$skipGate = $ForceDeploy -or $SkipDrift
+$ComparePath = $null
+if (-not $skipGate) {
+    $compareCandidates = @(
+        (Join-Path $ScriptDir "db\tools\Compare-ToBaseline.ps1"),
+        (Join-Path (Split-Path -Parent $ScriptDir) "db\tools\Compare-ToBaseline.ps1")
+    )
+    foreach ($candidate in $compareCandidates) {
+        if (Test-Path $candidate) { $ComparePath = $candidate; break }
+    }
+    if ($ComparePath) {
+        Write-Host "  [OK] drift tool: $ComparePath" -ForegroundColor Green
+    } else {
+        Write-Host "  [FAIL] Compare-ToBaseline.ps1 not found in: $($compareCandidates -join ' ; ')" -ForegroundColor Red
+        $preflightFailed = $true
+    }
+} else {
+    Write-Host "  [--] drift tool: not checked (drift gate skipped)" -ForegroundColor Gray
+}
+
+# 5. Disk space check
+$installVolume = Get-Item $InstallRoot -ErrorAction SilentlyContinue
+if (-not $installVolume) { $installVolume = Get-Item "C:\" }
+$driveLetter = $installVolume.PSDrive.Name
+if (-not $driveLetter) { $driveLetter = "C" }
+$drive = Get-PSDrive $driveLetter -ErrorAction SilentlyContinue
+$freeGB = [math]::Round($drive.Free / 1GB, 2)
+$requiredGB = 2.0  # Safety margin for backups
+if ($freeGB -ge $requiredGB) {
+    Write-Host "  [OK] disk space: ${freeGB}GB free on ${driveLetter}:" -ForegroundColor Green
+} else {
+    Write-Host "  [FAIL] insufficient disk space: ${freeGB}GB free, need ${requiredGB}GB" -ForegroundColor Red
+    $preflightFailed = $true
+}
+
+# 6. RedisPassword if Garnet migration needed
+$garnetSrc = Join-Path $ScriptDir "Extras\Garnet"
+$hasGarnetPackage = Test-Path $garnetSrc
+if (-not $SkipCacheMigration -and $hasGarnetPackage) {
+    $memuraiSvc = Get-Service -Name "Memurai" -ErrorAction SilentlyContinue
+    $garnetSvc = Get-Service -Name $GarnetSvcName -ErrorAction SilentlyContinue
+    if ($memuraiSvc -and -not $garnetSvc) {
+        if ($RedisPassword) {
+            Write-Host "  [OK] RedisPassword: provided (Memurai->Garnet migration)" -ForegroundColor Green
+        } else {
+            Write-Host "  [FAIL] RedisPassword required for Memurai->Garnet migration" -ForegroundColor Red
+            $preflightFailed = $true
+        }
+    } else {
+        Write-Host "  [--] RedisPassword: not required (no cache migration)" -ForegroundColor Gray
+    }
+} else {
+    Write-Host "  [--] RedisPassword: not checked (no Garnet package or skipped)" -ForegroundColor Gray
+}
+
+if ($preflightFailed) {
+    throw "[PREFLIGHT] One or more prerequisites failed. Fix the issues above and re-run."
+}
+Write-Host "[PREFLIGHT] All checks passed." -ForegroundColor Green
+
+# ══════════════════════════════════════════════════════════════════════════════
+# E1 DRIFT GATE — runs BEFORE services stop (reading only)
+# ══════════════════════════════════════════════════════════════════════════════
+Write-Host ""
+if (-not $skipGate) {
+    Write-Host "[E1] Pre-deploy drift gate: running Compare-ToBaseline..." -ForegroundColor Cyan
+    Write-Host "  [E1] drift tool resolved: $ComparePath" -ForegroundColor Gray
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    & $ComparePath -DBHost $DBHost -DBPort $DBPort -Database $Database -User $DBUser -Password $DBPassword
+    $driftExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
+    if ($driftExit -eq 2) {
+        throw "[E1] REAL schema drift detected vs baseline - review the baseline_delta report before deploying. Re-run with -ForceDeploy to override."
+    } elseif ($driftExit -ne 0) {
+        throw "[E1] Compare-ToBaseline failed to run (exit $driftExit) - cannot verify drift. Fix tooling or pass -ForceDeploy."
+    }
+    Write-Host "[E1] Drift gate PASSED (no real drift)." -ForegroundColor Green
+} else {
+    Write-Host "[E1] Drift gate SKIPPED (-ForceDeploy/-SkipDrift)." -ForegroundColor Yellow
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DEPLOY REGION — services stopped here. Wrapped in try/finally for recovery.
+# ══════════════════════════════════════════════════════════════════════════════
+$script:dbMutated = $false   # Set $true when first DB change is applied
+$script:started = $false     # Set $true by normal [5/5] start
+$dbBackupPath = $null        # Will be set if backup succeeds
+
+try {
+
+Write-Host ""
 Write-Host "[ 1/5 ] Stopping services..." -ForegroundColor Cyan
 foreach ($svcName in @($ShellSvcName, $RTMSvcName)) {
     $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
@@ -132,10 +278,6 @@ if (-not $SkipRTM -and (Test-Path $RTMDest)) {
 
 Write-Host ""
 Write-Host "[ 2b/5 ] Backing up database (pg_dump)..." -ForegroundColor Cyan
-$pgDumpTool = Find-PGTool "pg_dump"
-if (-not $pgDumpTool) {
-    throw "[DB Backup] pg_dump not found. Install PostgreSQL or add bin to PATH."
-}
 $dbBackupPath = Join-Path $BackupDir ("db_" + $Database + "_" + $Timestamp + ".dump")
 $env:PGPASSWORD = $DBPassword
 try {
@@ -158,59 +300,8 @@ if ($allBackups.Count -gt $KeepBackups) {
 }
 
 Write-Host ""
-$skipGate = $ForceDeploy -or $SkipDrift
-if (-not $skipGate) {
-    Write-Host "[E1] Pre-deploy drift gate: running Compare-ToBaseline..." -ForegroundColor Cyan
-    # PR234-INST-12. The tool sits in DIFFERENT places in the two layouts this script runs from, and the
-    # old code searched only one of them:
-    #   package  - Update-RTMView.ps1 at the archive root with db\tools\ beside it, so $ScriptDir\db\tools\
-    #              (tools\Build-ProdRelease.ps1:361 stages db\ , :396 stages db\tools\ , :438 copies the
-    #              deploy scripts to the staging ROOT)
-    #   repo     - deploy\Update-RTMView.ps1 with db\tools\ at the repo root, so the PARENT of $ScriptDir
-    # Searching the parent alone meant the path never resolved in ANY package layout, and the MANDATORY
-    # gate (role-devops A.1) degraded to a WARN-skip: a check that went silently green exactly when it
-    # was not in force. Both candidates are searched now, in package-first order, and every path tried is
-    # printed so a future miss is visible instead of implied.
-    $compareCandidates = @(
-        (Join-Path $ScriptDir "db\tools\Compare-ToBaseline.ps1"),
-        (Join-Path (Split-Path -Parent $ScriptDir) "db\tools\Compare-ToBaseline.ps1")
-    )
-    $ComparePath = $null
-    foreach ($candidate in $compareCandidates) {
-        Write-Host "  [E1] drift tool candidate: $candidate" -ForegroundColor Gray
-        if (Test-Path $candidate) { $ComparePath = $candidate; break }
-    }
-    if (-not $ComparePath) {
-        # A missing tool STOPS the deploy instead of skipping the gate. The operator already has an
-        # explicit, recorded way past it - -SkipDrift / -ForceDeploy - so silence is never the right
-        # answer here: the Compare IS the gate, it yields this server's -MigrationList and it catches
-        # runtime-critical drift.
-        throw "[E1] Compare-ToBaseline.ps1 not found in either layout. Searched: $($compareCandidates -join ' ; '). The drift gate is MANDATORY - fix the package so db\tools\ ships, or re-run with -SkipDrift / -ForceDeploy to proceed on record."
-    }
-    Write-Host "  [E1] drift tool resolved: $ComparePath" -ForegroundColor Gray
-    if ($true) {
-        $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-        & $ComparePath -DBHost $DBHost -DBPort $DBPort -Database $Database -User $DBUser -Password $DBPassword
-        $driftExit = $LASTEXITCODE
-        $ErrorActionPreference = $prevEAP
-        if ($driftExit -eq 2) {
-            throw "[E1] REAL schema drift detected vs baseline - review the baseline_delta report before deploying. Re-run with -ForceDeploy to override."
-        } elseif ($driftExit -ne 0) {
-            throw "[E1] Compare-ToBaseline failed to run (exit $driftExit) - cannot verify drift. Fix tooling or pass -ForceDeploy."
-        }
-        Write-Host "[E1] Drift gate PASSED (no real drift)." -ForegroundColor Green
-    }
-} else {
-    Write-Host "[E1] Drift gate SKIPPED (-ForceDeploy)." -ForegroundColor Yellow
-}
-
-Write-Host ""
-if ($MigrationList -and $MigrationList.Trim()) {
+if ($hasMigrations) {
     Write-Host "[ 3/5 ] Applying DB changes (functions + migrations)..." -ForegroundColor Cyan
-    $psqlTool = Find-PGTool "psql"
-    if (-not $psqlTool) {
-        throw "[DB Apply] psql not found. Install PostgreSQL or add bin to PATH."
-    }
 
     $applyUser = if ($DBApplyUser) { $DBApplyUser } else { $DBUser }
     $applyPass = if ($DBApplyPassword) { $DBApplyPassword } else { $DBPassword }
@@ -232,6 +323,7 @@ if ($MigrationList -and $MigrationList.Trim()) {
                 if ($LASTEXITCODE -ne 0) {
                     throw "[DB Apply] Function file $fn failed (exit $LASTEXITCODE). Aborting."
                 }
+                $script:dbMutated = $true
             } else {
                 Write-Host "  [WARN] Function file not found: $fnPath" -ForegroundColor Yellow
             }
@@ -241,10 +333,8 @@ if ($MigrationList -and $MigrationList.Trim()) {
         $migrations = @($MigrationList.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
         foreach ($mig in $migrations) {
             $migPath = Join-Path $migrationsDir ($mig + ".sql")
-            if (-not (Test-Path $migPath)) {
-                throw "[DB Apply] Migration file not found: $migPath"
-            }
             Write-Host "  Applying migration: $mig" -ForegroundColor Gray
+            $script:dbMutated = $true
             & $psqlTool -h $DBHost -p $DBPort -U $applyUser -d $Database -f $migPath -v ON_ERROR_STOP=1
             if ($LASTEXITCODE -ne 0) {
                 throw "[DB Apply] Migration $mig failed (exit $LASTEXITCODE). Aborting. DB state may be partial - review and restore from backup if needed."
@@ -314,9 +404,6 @@ if (-not $SkipRTM) {
 
 # ── [4b/5] Memurai -> Garnet migration (INC-001(d) Phase 2) ──────────────────
 Write-Host ""
-$garnetSrc = Join-Path $ScriptDir "Extras\Garnet"
-$hasGarnetPackage = Test-Path $garnetSrc
-
 if (-not $SkipCacheMigration -and $hasGarnetPackage) {
     Write-Host "[ 4b/5 ] Cache service migration (Memurai -> Garnet)..." -ForegroundColor Cyan
 
@@ -336,13 +423,6 @@ if (-not $SkipCacheMigration -and $hasGarnetPackage) {
     } elseif ($memuraiSvc) {
         # Memurai exists, Garnet doesn't — migrate
         Write-Host "  Detected Memurai — migrating to Garnet..." -ForegroundColor Yellow
-
-        # Validate RedisPassword
-        if (-not $RedisPassword) {
-            Write-Host "  [ERROR] RedisPassword is REQUIRED to migrate from Memurai to Garnet." -ForegroundColor Red
-            Write-Host "          Re-run with -RedisPassword <password>, or -SkipCacheMigration to keep Memurai." -ForegroundColor Red
-            throw "RedisPassword required for Memurai->Garnet migration"
-        }
 
         # Stop and disable Memurai (but do NOT uninstall — rollback safety)
         Write-Host "  Stopping and disabling Memurai (retained for rollback)..." -ForegroundColor Gray
@@ -369,7 +449,7 @@ if (-not $SkipCacheMigration -and $hasGarnetPackage) {
             $nssmDest = Join-Path $GarnetInstallDir "nssm.exe"
             Copy-Item $nssmSrc -Destination $nssmDest -Force
         } else {
-            Write-Error "NSSM not found at $nssmSrc. Cannot register Garnet service."
+            throw "NSSM not found at $nssmSrc. Cannot register Garnet service."
         }
 
         # Register Garnet service via NSSM
@@ -424,6 +504,7 @@ foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
 }
 
 Start-Sleep -Seconds 8
+$script:started = $true
 Write-Host ""
 foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
     $s = Get-Service -Name $svcName -ErrorAction SilentlyContinue
@@ -433,12 +514,84 @@ foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
     }
 }
 
+} finally {
+    if (-not $script:started) {
+        Write-Host ""
+        if ($script:dbMutated) {
+            # DB was partially modified — DO NOT auto-start, manual recovery needed
+            Write-Host "========================================================================" -ForegroundColor Red
+            Write-Host "  DEPLOY FAILED AFTER DB CHANGES — MANUAL RECOVERY REQUIRED            " -ForegroundColor Red
+            Write-Host "========================================================================" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "  The deploy failed AFTER database modifications were applied." -ForegroundColor Red
+            Write-Host "  Services are intentionally LEFT STOPPED to prevent app/schema mismatch." -ForegroundColor Red
+            Write-Host ""
+            Write-Host "  Backup directory : $BackupDir" -ForegroundColor Yellow
+            if ($dbBackupPath) {
+                Write-Host "  DB dump file     : $dbBackupPath" -ForegroundColor Yellow
+                Write-Host ""
+                Write-Host "  To restore the database:" -ForegroundColor Cyan
+                $pgRestoreTool = Find-PGTool "pg_restore"
+                if ($pgRestoreTool) {
+                    Write-Host "    `$env:PGPASSWORD = '<password>'" -ForegroundColor White
+                    Write-Host "    & '$pgRestoreTool' -h $DBHost -p $DBPort -U $DBUser -d $Database -c '$dbBackupPath'" -ForegroundColor White
+                }
+            }
+            Write-Host ""
+            Write-Host "  After restoring, manually start services:" -ForegroundColor Cyan
+            Write-Host "    Start-Service $RTMSvcName" -ForegroundColor White
+            Write-Host "    Start-Service $ShellSvcName" -ForegroundColor White
+            Write-Host ""
+        } else {
+            # No DB changes — safe to auto-restart
+            if ($NoAutoRestart) {
+                Write-Host "[RECOVERY] Deploy failed before DB changes. -NoAutoRestart: services left stopped." -ForegroundColor Yellow
+            } else {
+                Write-Host "[RECOVERY] Deploy failed before DB changes. Restarting services..." -ForegroundColor Yellow
+
+                # Start RTMService first (adapter depends on engine)
+                try {
+                    $rtmSvc = Get-Service -Name $RTMSvcName -ErrorAction SilentlyContinue
+                    if ($rtmSvc) {
+                        Start-Service -Name $RTMSvcName -ErrorAction Stop
+                        Write-Host "  [RECOVERY] Started: $RTMSvcName" -ForegroundColor Green
+                    }
+                } catch {
+                    Write-Host "  [RECOVERY] FAILED to start $RTMSvcName : $_" -ForegroundColor Red
+                }
+
+                # Then Shell
+                try {
+                    $shellSvc = Get-Service -Name $ShellSvcName -ErrorAction SilentlyContinue
+                    if ($shellSvc) {
+                        Start-Service -Name $ShellSvcName -ErrorAction Stop
+                        Write-Host "  [RECOVERY] Started: $ShellSvcName" -ForegroundColor Green
+                    }
+                } catch {
+                    Write-Host "  [RECOVERY] FAILED to start $ShellSvcName : $_" -ForegroundColor Red
+                }
+
+                Start-Sleep -Seconds 3
+                Write-Host ""
+                Write-Host "[RECOVERY] Service status after recovery:" -ForegroundColor Cyan
+                foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
+                    $s = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+                    if ($s) {
+                        $color = if ($s.Status -eq "Running") { "Green" } else { "Red" }
+                        Write-Host "  $svcName : $($s.Status)" -ForegroundColor $color
+                    }
+                }
+            }
+        }
+    }
+}
+
 Write-Host ""
 Write-Host "======================================================" -ForegroundColor Green
 Write-Host "                UPDATE COMPLETE                       " -ForegroundColor Green
 Write-Host "======================================================" -ForegroundColor Green
 Write-Host "  Backup : $BackupDir"
-if ($MigrationList -and $MigrationList.Trim()) {
+if ($hasMigrations) {
     Write-Host "  DB backup : $dbBackupPath"
     Write-Host "  Migrations: $MigrationList"
 }
