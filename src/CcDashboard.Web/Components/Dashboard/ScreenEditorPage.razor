@@ -4923,11 +4923,15 @@
     private bool IsNumericMetricForFilter(string metricId)
     {
         if (string.IsNullOrEmpty(metricId)) return false;
+        // Каталог хранит "number"/"time"/"text" СТРОЧНЫМИ (DatabaseInitializer: number 133, time 48,
+        // text 14), и лишь 29 старых записей — "Number"/"Time". Сравнение обязано быть
+        // регистронезависимым, иначе isNumeric ниже уходит и в список сравнителей, и в кавычки
+        // BuildFilterExpression:5009 — числовое поле сравнивается со строковым литералом.
         // Check ValueType from database
         var metric = Metrics.FirstOrDefault(m => m.MetricId == metricId);
         if (metric != null && !string.IsNullOrEmpty(metric.ValueType))
         {
-            return metric.ValueType == "Number" || metric.ValueType == "Time";
+            return IsNumericValueType(metric.ValueType);
         }
         // Fallback to pattern matching if metric not found in database
         if (metricId.Contains("Name", StringComparison.OrdinalIgnoreCase)) return false;
