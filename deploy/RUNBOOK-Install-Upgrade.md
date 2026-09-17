@@ -80,12 +80,15 @@ arrives different. So:
 5. **`-FreshDb` is never spoken** on a live server. No migrations in a binary-only batch:
    `-MigrationList` stays empty, and the run must print `No migrations specified`.
 6. **`.ps1` from another machine carries mark-of-the-web** — `Unblock-File` is step 0, always.
-7. **The E1 drift gate runs AFTER the services are stopped** (`PR234-INST-13`). A throw there leaves the
-   production system DOWN — it did, for ~8 minutes on 13.09. Until that is fixed, know the recovery line
-   before you start (§6).
+7. **The E1 drift gate runs BEFORE the services are stopped** (fixed by `PR234-INST-13`, commit `8b3da25`).
+   A gate failure now throws with the system still up. Note: on 13.09, before this fix, the gate ran AFTER
+   the stop and a throw left the production system down for ~8 minutes — servers deployed before `8b3da25`
+   carry this risk. For recovery steps see (§6).
 8. **The skip message names the wrong flag** (`PR234-INST-14`): passing `-SkipDrift` prints
    `Drift gate SKIPPED (-ForceDeploy)`. Behaviour is identical (`:161`), but the history gets a name that
    was never typed.
+   **Fixed by the commit that introduced this line**: the line now prints the switch actually passed; servers
+   deployed before it keep `(-ForceDeploy)` in their history for runs that used `-SkipDrift` (evidence: blob `f8398203`).
 
 ### The drift gate, and what its red actually means
 

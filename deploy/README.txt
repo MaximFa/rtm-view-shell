@@ -72,7 +72,8 @@ UPDATE (existing installation)
      Optional parameters:
        -SkipShell              # Update RTM Service only
        -SkipRTM                # Update Shell only
-       -ForceDeploy            # Skip drift gate (E1) if you understand the drift
+       -ForceDeploy            # Skip drift gate (E1): deploy over drift you have reviewed
+       -SkipDrift              # Skip drift gate (E1): the drift instrument is broken/not applicable - record why
        -MigrationList "m1,m2"  # Apply DB migrations (comma-separated, in order)
        -DBApplyUser "user"     # Privileged user for migrations (if different)
        -DBApplyPassword "pwd"  # Password for privileged user

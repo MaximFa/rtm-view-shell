@@ -230,13 +230,16 @@ if (-not $skipGate) {
     $driftExit = $LASTEXITCODE
     $ErrorActionPreference = $prevEAP
     if ($driftExit -eq 2) {
-        throw "[E1] REAL schema drift detected vs baseline - review the baseline_delta report before deploying. Re-run with -ForceDeploy to override."
+        throw "[E1] REAL schema drift detected vs baseline - review the baseline_delta report before deploying. To deploy over KNOWN drift re-run with -ForceDeploy; if the drift instrument itself is wrong, -SkipDrift with the measured reason on record."
     } elseif ($driftExit -ne 0) {
-        throw "[E1] Compare-ToBaseline failed to run (exit $driftExit) - cannot verify drift. Fix tooling or pass -ForceDeploy."
+        throw "[E1] Compare-ToBaseline failed to run (exit $driftExit) - cannot verify drift. Fix tooling, or pass -SkipDrift (instrument not usable) - not -ForceDeploy, which means deploying over known drift."
     }
     Write-Host "[E1] Drift gate PASSED (no real drift)." -ForegroundColor Green
 } else {
-    Write-Host "[E1] Drift gate SKIPPED (-ForceDeploy/-SkipDrift)." -ForegroundColor Yellow
+    $skipBy = @()
+    if ($PSBoundParameters.ContainsKey('ForceDeploy') -and $ForceDeploy) { $skipBy += '-ForceDeploy' }
+    if ($PSBoundParameters.ContainsKey('SkipDrift')   -and $SkipDrift)   { $skipBy += '-SkipDrift' }
+    Write-Host ("[E1] Drift gate SKIPPED (" + ($skipBy -join ' ') + ")." ) -ForegroundColor Yellow
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
