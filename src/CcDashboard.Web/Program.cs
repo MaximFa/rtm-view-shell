@@ -127,6 +127,7 @@ try
         .AddRedis(config.GetConnectionString("Redis") ?? "localhost:6379");
 
     services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
+    services.AddScoped<IFilterPopupCoordinator, FilterPopupCoordinator>();
 
     // Blazor circuit handler: resolves tenant context for SignalR circuits [ARCH-03]
     services.AddScoped<CircuitHandler, TenantCircuitHandler>();

@@ -2,6 +2,7 @@
 @using CcDashboard.Application.Queries.TenantSettings
 @using CcDashboard.Domain.Domain.Rtm
 @using CcDashboard.Application.Interfaces
+@using CcDashboard.Web.Services
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using Microsoft.Extensions.Localization
@@ -10,6 +11,7 @@
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject IJSRuntime JS
 @inject IRtmRelayService RtmRelay
+@inject IFilterPopupCoordinator FilterPopups
 
 @* Queue Grid Widget - connects to external SignalR simulator for real-time data *@
 
@@ -336,8 +338,17 @@
     protected override Task OnInitializedAsync()
     {
         ApplyConfig();
+        FilterPopups.PopupOpened += OnOtherPopupOpened;
         // NOTE: ConnectAsync moved to OnAfterRenderAsync to avoid SSR pre-render subscribe cycling
         return Task.CompletedTask;
+    }
+
+    private void OnOtherPopupOpened(object owner)
+    {
+        if (ReferenceEquals(owner, this)) return;
+        if (_activeFilterColumn is null) return;
+        CloseFilterDropdown();
+        InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -689,6 +700,7 @@
                 TextValue = live.TextValue,
                 SelectedValues = new HashSet<string>(live.SelectedValues)
             };
+            FilterPopups.NotifyOpened(this);
         }
     }
 
@@ -1430,6 +1442,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        FilterPopups.PopupOpened -= OnOtherPopupOpened;
         _cts.Cancel();
         _tickTimer?.Dispose();
         if (_gridHandler != null && _rtsGridId > 0 && _tenantId != Guid.Empty)
