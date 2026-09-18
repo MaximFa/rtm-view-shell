@@ -286,6 +286,12 @@
 
     // Filters
     private string? _activeFilterColumn;
+    // Черновик правки фильтра. Живёт ровно столько же, сколько _activeFilterColumn: попап правит
+    // КОПИЮ, а в _columnFilters она уходит только по Apply. Поле экземпляра выбрано намеренно —
+    // любое событие, убивающее _activeFilterColumn (закрытие, пересоздание компонента), убивает и
+    // черновик, поэтому «закрытие откатывает» выполняется ПО ПОСТРОЕНИЮ, а не по живучести поля.
+    // НЕ заменять на локальную переменную рендера.
+    private ColumnFilter? _draftFilter;
     private string? _listDropdownOpen;
     private Dictionary<string, ColumnFilter> _columnFilters = new();
 
@@ -641,6 +647,7 @@
     {
         _activeFilterColumn = null;
         _listDropdownOpen = null;
+        _draftFilter = null;
     }
 
     private void HandleKeyDown(KeyboardEventArgs e)
@@ -678,15 +685,20 @@
         {
             _activeFilterColumn = null;
             _listDropdownOpen = null;
+            _draftFilter = null;
         }
         else
         {
             _activeFilterColumn = metricId;
             _listDropdownOpen = null;
-            if (!_columnFilters.ContainsKey(metricId))
+            var live = _columnFilters.TryGetValue(metricId, out var f) ? f : new ColumnFilter();
+            _draftFilter = new ColumnFilter
             {
-                _columnFilters[metricId] = new ColumnFilter();
-            }
+                Mode = live.Mode,
+                Operator = live.Operator,
+                TextValue = live.TextValue,
+                SelectedValues = new HashSet<string>(live.SelectedValues)
+            };
         }
     }
 
@@ -698,43 +710,54 @@
         }
         _activeFilterColumn = null;
         _listDropdownOpen = null;
+        _draftFilter = null;
         _currentPage = 1;
         await SaveWidgetStateAsync();
     }
 
     private void UpdateFilterOperator(string metricId, ChangeEventArgs e)
     {
-        var filter = GetOrCreateFilter(metricId);
-        filter.Operator = e.Value?.ToString() ?? "contains";
+        if (_draftFilter is not null)
+            _draftFilter.Operator = e.Value?.ToString() ?? "contains";
     }
 
     private async Task ApplyValueFilter(string metricId)
     {
-        var filter = GetOrCreateFilter(metricId);
-        if (!string.IsNullOrEmpty(filter.TextValue))
+        if (_draftFilter is not null)
         {
-            filter.Mode = "value";
-            filter.SelectedValues.Clear();
+            // Set mode based on content
+            if (!string.IsNullOrEmpty(_draftFilter.TextValue))
+            {
+                _draftFilter.Mode = "value";
+                _draftFilter.SelectedValues.Clear();
+            }
+            // Copy draft to live
+            _columnFilters[metricId] = new ColumnFilter
+            {
+                Mode = _draftFilter.Mode,
+                Operator = _draftFilter.Operator,
+                TextValue = _draftFilter.TextValue,
+                SelectedValues = new HashSet<string>(_draftFilter.SelectedValues)
+            };
         }
         _activeFilterColumn = null;
         _listDropdownOpen = null;
+        _draftFilter = null;
         _currentPage = 1;
         await SaveWidgetStateAsync();
     }
 
-    private async Task ToggleListValue(string metricId, string value)
+    private void ToggleListValue(string metricId, string value)
     {
-        var filter = GetOrCreateFilter(metricId);
-        filter.TextValue = "";
+        if (_draftFilter is null) return;
+        _draftFilter.TextValue = "";
 
-        if (filter.SelectedValues.Contains(value))
-            filter.SelectedValues.Remove(value);
+        if (_draftFilter.SelectedValues.Contains(value))
+            _draftFilter.SelectedValues.Remove(value);
         else
-            filter.SelectedValues.Add(value);
+            _draftFilter.SelectedValues.Add(value);
 
-        filter.Mode = filter.SelectedValues.Count > 0 ? "list" : "";
-        _currentPage = 1;
-        await SaveWidgetStateAsync();
+        _draftFilter.Mode = _draftFilter.SelectedValues.Count > 0 ? "list" : "";
     }
 
     private static string GetListButtonLabel(ColumnFilter filter)
@@ -751,16 +774,16 @@
 
     private void OnValueInput(string metricId)
     {
-        var filter = GetOrCreateFilter(metricId);
-        if (string.IsNullOrEmpty(filter.TextValue))
+        if (_draftFilter is null) return;
+        if (string.IsNullOrEmpty(_draftFilter.TextValue))
         {
-            filter.Mode = "";
+            _draftFilter.Mode = "";
         }
     }
 
     private RenderFragment RenderFilterDropdown(QueueGridColumnDef colDef) => __builder =>
     {
-        var filter = GetOrCreateFilter(colDef.MetricId);
+        var filter = _draftFilter!;
         var isNumeric = IsNumericColumn(colDef.MetricId);
         var distinctValues = isNumeric ? new List<string>() : GetDistinctValues(colDef.MetricId);
 
@@ -852,7 +875,7 @@
 
     private RenderFragment RenderQueueNameFilterDropdown() => __builder =>
     {
-        var filter = GetOrCreateFilter("_queueName");
+        var filter = _draftFilter!;
         var distinctValues = GetDistinctQueueNames();
 
         <div class="filter-dropdown position-absolute rounded shadow-lg p-2"
