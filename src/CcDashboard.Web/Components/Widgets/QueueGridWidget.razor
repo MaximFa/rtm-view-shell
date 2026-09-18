@@ -669,16 +669,6 @@
             .ToList();
     }
 
-    private ColumnFilter GetOrCreateFilter(string metricId)
-    {
-        if (!_columnFilters.TryGetValue(metricId, out var filter))
-        {
-            filter = new ColumnFilter();
-            _columnFilters[metricId] = filter;
-        }
-        return filter;
-    }
-
     private void ToggleFilterDropdown(string metricId)
     {
         if (_activeFilterColumn == metricId)
