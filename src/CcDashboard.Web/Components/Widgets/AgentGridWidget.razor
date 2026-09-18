@@ -1362,7 +1362,11 @@
             ? tableBg
             : "#1e3a5f";
         var fgColor = !string.IsNullOrEmpty(fg) ? fg : "#ffffff";
-        return $"background: {bg}; color: {fgColor}; border: 1px solid {fgColor}33;";
+        // Попап рендерится внутри заголовочной ячейки, которой GetTheadCellStyle() задаёт режим
+        // переносов ради многострочного названия колонки. Наследование превращает переводы строк
+        // разметки в строчные боксы и раздувает попап. Сбрасываем режим для самого попапа;
+        // заголовку его оставляем. Та же правка, что 41c54f5 в QueueGridWidget.
+        return $"white-space: normal; background: {bg}; color: {fgColor}; border: 1px solid {fgColor}33;";
     }
 
     private string GetFilterInputStyle()
