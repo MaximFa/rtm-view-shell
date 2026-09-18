@@ -84,20 +84,22 @@
                                                aria-label="@(_sortAscending ? L["Widget_SortedAsc"] : L["Widget_SortedDesc"])"></i>
                                         }
                                     </span>
-                                    <button class="btn btn-link btn-sm p-0"
-                                            style="@GetFilterButtonStyle(hasFilter)"
-                                            @onclick="() => ToggleFilterDropdown(colDef.MetricId)"
-                                            @onclick:stopPropagation="true"
-                                            aria-label="@L["Widget_FilterColumn", colDef.Name]"
-                                            aria-expanded="@isFilterOpen"
-                                            title="@L["Widget_Filter"]">
-                                        <i class="bi @(hasFilter ? "bi-funnel-fill" : "bi-funnel")" aria-hidden="true"></i>
-                                    </button>
+                                    <span class="popup-anchor position-relative d-inline-flex">
+                                        <button class="btn btn-link btn-sm p-0"
+                                                style="@GetFilterButtonStyle(hasFilter)"
+                                                @onclick="() => ToggleFilterDropdown(colDef.MetricId)"
+                                                @onclick:stopPropagation="true"
+                                                aria-label="@L["Widget_FilterColumn", colDef.Name]"
+                                                aria-expanded="@isFilterOpen"
+                                                title="@L["Widget_Filter"]">
+                                            <i class="bi @(hasFilter ? "bi-funnel-fill" : "bi-funnel")" aria-hidden="true"></i>
+                                        </button>
+                                        @if (isFilterOpen)
+                                        {
+                                            @RenderFilterDropdown(colDef)
+                                        }
+                                    </span>
                                 </div>
-                                @if (isFilterOpen)
-                                {
-                                    @RenderFilterDropdown(colDef)
-                                }
                             </th>
                         }
                     </tr>
