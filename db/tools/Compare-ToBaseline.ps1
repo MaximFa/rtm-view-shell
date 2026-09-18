@@ -313,7 +313,16 @@ Write-Host "[A-R] ROUTINE PRESENCE (name+signature)" -ForegroundColor Yellow
 [void]$DeltaLines.Add("-" * 40)
 
 # Server routines: name + identity args
-$serverRoutineSql = "SELECT p.proname, pg_get_function_identity_arguments(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' ORDER BY 1,2;"
+$serverRoutineSql = @"
+SELECT p.proname,
+       COALESCE((SELECT string_agg(format_type(t.oid, NULL), ', ' ORDER BY x.ord)
+                 FROM unnest(p.proargtypes) WITH ORDINALITY AS x(oid, ord)
+                 JOIN pg_type t ON t.oid = x.oid), '')
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+ORDER BY 1, 2;
+"@
 $serverRoutineRows = Run-SQL $serverRoutineSql
 $ServerRoutineSet = [System.Collections.Generic.HashSet[string]]::new()
 foreach ($row in $serverRoutineRows) {
@@ -325,28 +334,193 @@ foreach ($row in $serverRoutineRows) {
 }
 
 # Baseline routines: parse db/functions/*.sql for CREATE FUNCTION/PROCEDURE
+# Uses balanced parenthesis parser and type canonicalization to match server format
 $BaselineRoutineSet = [System.Collections.Generic.HashSet[string]]::new()
 $fnDir = Join-Path $DbDir "functions"
+
+# Type canonicalization map (SQL shorthand -> PostgreSQL canonical name from format_type)
+$TypeCanon = @{
+    "varchar"     = "character varying"
+    "char"        = "character"
+    "int"         = "integer"
+    "int4"        = "integer"
+    "int8"        = "bigint"
+    "int2"        = "smallint"
+    "bool"        = "boolean"
+    "float8"      = "double precision"
+    "float4"      = "real"
+    "timestamptz" = "timestamp with time zone"
+    "timetz"      = "time with time zone"
+}
+
+# Multi-word types that must survive name-dropping (matched as whole phrases)
+$MultiWordTypes = @(
+    "character varying"
+    "double precision"
+    "timestamp with time zone"
+    "timestamp without time zone"
+    "time with time zone"
+    "time without time zone"
+    "bit varying"
+)
+
+function Parse-BalancedArgs([string]$text, [int]$startPos) {
+    # Find the balanced closing ) starting from $startPos (which should be at the opening ()
+    $depth = 0
+    $inQuote = $false
+    $quoteChar = ''
+    $argStart = $startPos + 1
+    $args = @()
+    $currentArg = ""
+
+    for ($i = $startPos; $i -lt $text.Length; $i++) {
+        $c = $text[$i]
+
+        if ($inQuote) {
+            $currentArg += $c
+            if ($c -eq $quoteChar) { $inQuote = $false }
+            continue
+        }
+
+        if ($c -eq "'" -or $c -eq '"') {
+            $inQuote = $true
+            $quoteChar = $c
+            $currentArg += $c
+            continue
+        }
+
+        if ($c -eq '(') {
+            if ($depth -gt 0) { $currentArg += $c }
+            $depth++
+        }
+        elseif ($c -eq ')') {
+            $depth--
+            if ($depth -eq 0) {
+                # End of arguments
+                if ($currentArg.Trim()) { $args += $currentArg.Trim() }
+                return @{ Args = $args; EndPos = $i }
+            }
+            $currentArg += $c
+        }
+        elseif ($c -eq ',' -and $depth -eq 1) {
+            # Argument separator at depth 1 (inside the main parens)
+            if ($currentArg.Trim()) { $args += $currentArg.Trim() }
+            $currentArg = ""
+        }
+        elseif ($depth -gt 0) {
+            $currentArg += $c
+        }
+    }
+    return @{ Args = @(); EndPos = -1 }  # Unbalanced
+}
+
+function Canonicalize-Type([string]$typeStr) {
+    $t = $typeStr.Trim()
+
+    # Preserve array suffix
+    $arraySuffix = ""
+    if ($t -match '\[\]$') {
+        $arraySuffix = "[]"
+        $t = $t -replace '\[\]$', ''
+    }
+
+    # Strip length/precision like (50), (10,2) - format_type with NULL typmod omits these
+    $t = $t -replace '\([^)]+\)$', ''
+    $t = $t.Trim()
+
+    # Check multi-word types first (lowercase comparison)
+    $tLower = $t.ToLower()
+    foreach ($mw in $script:MultiWordTypes) {
+        if ($tLower -eq $mw) {
+            return $mw + $arraySuffix
+        }
+    }
+
+    # Apply canonicalization
+    if ($TypeCanon.ContainsKey($tLower)) {
+        return $TypeCanon[$tLower] + $arraySuffix
+    }
+
+    # Return as-is (lowercase for consistency)
+    return $tLower + $arraySuffix
+}
+
+function Parse-SingleArg([string]$argStr) {
+    # Parse one argument: drop mode, drop DEFAULT, extract type
+    $s = $argStr.Trim() -replace '\s+', ' '
+
+    # Drop leading mode (IN, OUT, INOUT, VARIADIC)
+    $s = $s -replace '^(?:IN|OUT|INOUT|VARIADIC)\s+', ''
+
+    # Drop DEFAULT ... or = ... to end
+    $s = $s -replace '\s+DEFAULT\s+.*$', '' -replace '\s*=\s*.*$', ''
+    $s = $s.Trim()
+
+    if (-not $s) { return $null }
+
+    # Preserve and strip array suffix first
+    $arraySuffix = ""
+    if ($s -match '\[\]$') {
+        $arraySuffix = "[]"
+        $s = $s -replace '\[\]$', ''
+    }
+
+    # Strip length/precision like (50), (10,2) BEFORE multi-word type check
+    $s = $s -replace '\([^)]+\)$', ''
+    $s = $s.Trim()
+
+    # Check for multi-word types (must test before splitting by space)
+    $sLower = $s.ToLower()
+    foreach ($mw in $script:MultiWordTypes) {
+        # Pattern: [optional name] multi-word-type at end
+        $mwPattern = '(?:^|\s)' + [regex]::Escape($mw) + '$'
+        if ($sLower -match $mwPattern) {
+            return $mw + $arraySuffix
+        }
+    }
+
+    # Split into words
+    $words = $s -split '\s+'
+
+    if ($words.Count -eq 1) {
+        # Just a type (no name)
+        return (Canonicalize-Type $words[0]) + $arraySuffix
+    }
+    elseif ($words.Count -ge 2) {
+        # First word could be name, rest is type
+        # Multi-word types already handled above, so just take the last word
+        return (Canonicalize-Type $words[-1]) + $arraySuffix
+    }
+    return $null
+}
+
 if (Test-Path $fnDir) {
     foreach ($f in (Get-ChildItem $fnDir -Filter "*.sql")) {
         $fnContent = Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue
-        # Match: CREATE [OR REPLACE] FUNCTION|PROCEDURE [public.]"?name"?(args)
-        $pattern = 'CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+(?:public\.)?"?(\w+)"?\s*\(([^)]*)\)'
-        $fnMatches = [regex]::Matches($fnContent, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-        foreach ($m in $fnMatches) {
-            $name = $m.Groups[1].Value
-            $rawArgs = $m.Groups[2].Value -replace '\s+', ' '
-            # Normalize: extract just type names for comparison
-            $argTypes = @()
-            foreach ($arg in ($rawArgs -split ',')) {
-                $arg = $arg.Trim()
-                if ($arg -match '(\w+)\s*$') {
-                    $argTypes += $Matches[1]
-                } elseif ($arg -match '^\s*(\w+)') {
-                    $argTypes += $Matches[1]
-                }
+        if (-not $fnContent) { continue }
+
+        # Find all CREATE [OR REPLACE] FUNCTION|PROCEDURE name( patterns
+        $headerPattern = 'CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+(?:public\.)?"?(\w+)"?\s*\('
+        $headerMatches = [regex]::Matches($fnContent, $headerPattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+
+        foreach ($hm in $headerMatches) {
+            $name = $hm.Groups[1].Value
+            $parenPos = $hm.Index + $hm.Length - 1  # Position of opening (
+
+            # Parse balanced arguments
+            $parseResult = Parse-BalancedArgs $fnContent $parenPos
+            if ($parseResult.EndPos -lt 0) { continue }  # Unbalanced, skip
+
+            $inputTypes = @()
+            foreach ($argStr in $parseResult.Args) {
+                # Skip OUT parameters (they're not input args, proargtypes doesn't include them)
+                if ($argStr.Trim() -match '^OUT\s+') { continue }
+
+                $typeVal = Parse-SingleArg $argStr
+                if ($typeVal) { $inputTypes += $typeVal }
             }
-            $sig = "$name($($argTypes -join ', '))"
+
+            $sig = "$name($($inputTypes -join ', '))"
             [void]$BaselineRoutineSet.Add($sig)
         }
     }
