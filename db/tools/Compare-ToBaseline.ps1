@@ -351,6 +351,8 @@ $TypeCanon = @{
     "float4"      = "real"
     "timestamptz" = "timestamp with time zone"
     "timetz"      = "time with time zone"
+    "timestamp"   = "timestamp without time zone"
+    "time"        = "time without time zone"
 }
 
 # Multi-word types that must survive name-dropping (matched as whole phrases)
