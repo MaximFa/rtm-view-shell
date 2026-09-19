@@ -58,6 +58,7 @@
   <data name="TwoFactor_TooManyAttempts"><value>יותר מדי ניסיונות. יש לבקש קוד חדש.</value></data>
   <data name="TwoFactor_Failed"><value>האימות נכשל. נסה שנית.</value></data>
   <data name="TwoFactor_Footer"><value>בתוקף 10 דקות · 3 ניסיונות · HMAC-SHA256 + מלח [2FA-02..03]</value></data>
+  <data name="TwoFactor_ValidFor"><value>בתוקף 10 דקות · 3 ניסיונות מותרים</value></data>
   <data name="TwoFactor_InvalidCode"><value>הקוד שגוי או פג תוקפו.</value></data>
 
   <!-- ── Change Password ── -->
@@ -79,6 +80,7 @@
   <data name="Password_Rule_Digit"><value>ספרה (0-9)</value></data>
   <data name="Password_Rule_Special"><value>תו מיוחד (!@#$...)</value></data>
   <data name="Password_Rule_History"><value>לא יכולה להיות זהה ל-10 הסיסמאות האחרונות [PWD-04]</value></data>
+  <data name="Password_Rule_Match"><value>הסיסמאות תואמות</value></data>
   <data name="Password_Hint"><value>לפחות 12 תווים · A-Z · a-z · 0-9 · תו מיוחד</value></data>
 
   <!-- ── Forgot / Reset Password ── -->
@@ -138,6 +140,12 @@
   <data name="Screens_CreateModal"><value>מסך חדש</value></data>
   <data name="Screens_EditModal"><value>הגדרות מסך</value></data>
   <data name="Screens_Clone"><value>שכפל מסך</value></data>
+  <data name="Screens_Edit"><value>עריכת מסך</value></data>
+  <data name="Screens_Preview"><value>תצוגה מקדימה</value></data>
+  <data name="Screens_DeletedAt"><value>נמחק</value></data>
+  <data name="Screens_DeletedBy"><value>נמחק על ידי</value></data>
+  <data name="Screens_Restore"><value>שחזר</value></data>
+  <data name="Common_Days"><value>ימים</value></data>
   <data name="Screens_CreateButton"><value>צור מסך ←</value></data>
   <data name="Screens_DangerZone"><value>אזור מסוכן</value></data>
   <data name="Screens_DeleteScreen"><value>מחק מסך</value></data>
@@ -150,10 +158,17 @@
   <data name="Screens_Pause"><value>השהה</value></data>
   <data name="Screens_Resume"><value>המשך</value></data>
   <data name="Screens_Back"><value>→ חזרה</value></data>
+  <data name="Screens_Settings"><value>הגדרות</value></data>
 
   <!-- ── Widget Catalogue ── -->
   <data name="WidgetCatalogue_Title"><value>קטלוג ווידג'טים</value></data>
   <data name="WidgetCatalogue_Inactive"><value>לא פעיל</value></data>
+  <data name="Widget_QueueLoad"><value>תרשים עומס תורים</value></data>
+  <data name="Widget_AgentStatus"><value>סטטוס סוכן</value></data>
+  <data name="Widget_CallsWaiting"><value>שיחות ממתינות</value></data>
+  <data name="Widget_Available"><value>זמין</value></data>
+  <data name="Widget_OnCall"><value>בשיחה</value></data>
+  <data name="Widget_KpiDefault"><value>ערך KPI</value></data>
 
   <!-- ── Users Admin ── -->
   <data name="Users_Title"><value>ניהול משתמשים</value></data>
@@ -296,6 +311,8 @@
 
   <data name="Widgets_TableFontSize"><value>גודל גופן טבלה</value></data>
   <data name="Widgets_HeaderFontSize"><value>גודל גופן כותרת</value></data>
+  <data name="Widgets_BackgroundColor"><value>רקע</value></data>
+  <data name="Widgets_FontColor"><value>צבע טקסט</value></data>
 
   <!-- ── Tenants (Platform) ── -->
   <data name="Tenants_Title"><value>ניהול ארגונים</value></data>
@@ -355,6 +372,8 @@
   <data name="AgentStates_GroupNameRequired"><value>שם קבוצה נדרש.</value></data>
   <data name="AgentStates_StateNameRequired"><value>שם מצב נדרש.</value></data>
   <data name="AgentStates_GroupRequired"><value>אנא בחר קבוצה.</value></data>
+  <data name="Common_Widgets"><value>ווידג'טים</value></data>
+  <data name="Common_CreatedBy"><value>נוצר על ידי</value></data>
 
   <!-- ── Common ── -->
   <data name="Common_Save"><value>שמור ←</value></data>
@@ -389,6 +408,15 @@
   <data name="Error_Forbidden"><value>אין לך הרשאה לבצע פעולה זו.</value></data>
   <data name="Error_Concurrency"><value>הרשומה שונתה על ידי משתמש אחר. רענן ונסה שנית.</value></data>
   <data name="Error_Generic"><value>אירעה שגיאה בלתי צפויה. נסה שנית.</value></data>
+  <data name="InfoSlots_Name"><value>שם</value></data>
+  <data name="InfoSlots_Description"><value>תיאור</value></data>
+  <data name="InfoSlots_DisplayMode"><value>מצב תצוגה</value></data>
+  <data name="InfoSlots_TabGeneral"><value>כללי</value></data>
+  <data name="InfoSlots_TabAccess"><value>גישה</value></data>
+  <data name="InfoSlots_Deactivate"><value>השבת</value></data>
+  <data name="InfoSlot_DisplayMode"><value>מצב תצוגה</value></data>
+  <data name="InfoSlot_LeftToRight"><value>משמאל לימין</value></data>
+  <data name="InfoSlot_RightToLeft"><value>מימין לשמאל</value></data>
 
   <!-- ── Common shorthand aliases ── -->
   <data name="Cancel"><value>ביטול</value></data>
@@ -508,6 +536,7 @@
   <data name="Widget_Queue"><value>תור</value></data>
   <data name="Widget_Occupancy"><value>תפוסה%</value></data>
   <data name="Widget_Adherence"><value>עמידה%</value></data>
+  <data name="Widget_AgentsTotal"><value>סוכנים</value></data>
   <data name="Widget_Agents"><value>סוכנים</value></data>
   <data name="Widget_RowsPerPage"><value>שורות בעמוד</value></data>
   <data name="Widget_CustomRowCount"><value>מספר שורות מותאם</value></data>
@@ -532,6 +561,8 @@
   <data name="Widget_PreviousPage"><value>עמוד קודם</value></data>
   <data name="Widget_NextPage"><value>עמוד הבא</value></data>
   <data name="Widget_LiveDataUpdating"><value>נתונים מתעדכנים כל 5 שניות</value></data>
+  <data name="Widget_DeleteConfirm"><value>מחק ווידג'ט</value></data>
+  <data name="Widget_DeleteMessage"><value>האם אתה בטוח שברצונך למחוק את "{0}"?</value></data>
   <data name="Widget_ConfigureDataSlot"><value>הגדר מדד להצגה</value></data>
   <data name="Widget_ToTarget"><value>מול יעד</value></data>
   <data name="Widget_OnTarget"><value>ביעד</value></data>
@@ -547,6 +578,7 @@
   <data name="Widget_DataSlotTargetLabelHint"><value>תווית מתחת לערך</value></data>
   <data name="Widget_InvalidNumber"><value>הזן מספר תקין</value></data>
   <data name="Widget_InvalidFormat"><value>הזן מספר או זמן (MM:SS, HH:MM:SS)</value></data>
+  <data name="Widgets_DisplayOptions"><value>אפשרויות תצוגה</value></data>
   <data name="State_Ready"><value>מוכן</value></data>
   <data name="State_Talking"><value>משוחח</value></data>
   <data name="State_Hold"><value>המתנה</value></data>
@@ -554,6 +586,26 @@
   <data name="State_ACW"><value>סיכום</value></data>
   <data name="State_NotReady"><value>לא מוכן</value></data>
   <data name="State_LoggedOut"><value>מנותק</value></data>
+  <data name="Widget_NoQueuesForBU"><value>לא הוקצו תורים ליחידה עסקית זו</value></data>
+  <data name="Widget_SelectBusinessUnit"><value>אנא בחר יחידה עסקית</value></data>
+  <data name="Widget_DayTrend_Title"><value>כותרת</value></data>
+  <data name="Widget_DayTrend_BusinessUnit"><value>יחידה עסקית</value></data>
+  <data name="Widget_DayTrend_Interval"><value>מרווח זמן</value></data>
+  <data name="Widget_DayTrend_Interval15"><value>15 דקות</value></data>
+  <data name="Widget_DayTrend_Interval30"><value>30 דקות</value></data>
+  <data name="Widget_DayTrend_Interval60"><value>60 דקות</value></data>
+  <data name="Widget_DayTrend_Refresh"><value>רענון אוטומטי</value></data>
+  <data name="Widget_DayTrend_Refresh5"><value>כל 5 דקות</value></data>
+  <data name="Widget_DayTrend_Refresh10"><value>כל 10 דקות</value></data>
+  <data name="Widget_DayTrend_ShowDataLabels"><value>הצג תוויות נתונים</value></data>
+  <data name="Widget_DayTrend_ShowLegend"><value>הצג מקרא</value></data>
+  <data name="Widget_DayTrend_TabGeneral"><value>כללי</value></data>
+  <data name="Widget_DayTrend_TabAppearance"><value>מראה</value></data>
+  <data name="Widget_DayTrend_TabCallMetrics"><value>מדדי שיחות</value></data>
+  <data name="Widget_DayTrend_TabAgentMetrics"><value>מדדי סוכנים</value></data>
+  <data name="Widget_DayTrend_MetricEnabled"><value>מופעל</value></data>
+  <data name="Widget_DayTrend_MetricColor"><value>צבע</value></data>
+  <data name="Widget_DayTrend_MetricLabel"><value>תווית מותאמת</value></data>
 
   <!-- ── Agent Grid Config ── -->
   <data name="Widgets_AgentGrid_Filters"><value>מסננים</value></data>
@@ -584,6 +636,7 @@
   <data name="Widgets_Align_Center"><value>מרכז</value></data>
   <data name="Widgets_Align_Right"><value>ימין</value></data>
   <data name="Widgets_ShowTargetLabel"><value>הצג תווית יעד</value></data>
+  <data name="Widgets_ShowDeltaArrow"><value>הצג חץ דלתא</value></data>
   <data name="Widgets_ShowArrow"><value>הצג חץ דלתא</value></data>
   <data name="Widgets_AgentGrid_ScoreStarColor"><value>צבע כוכבים</value></data>
   <data name="Widgets_AgentGrid_ScoreFormula"><value>נוסחת ניקוד</value></data>
@@ -609,6 +662,8 @@
   <data name="Widgets_BadgeBg"><value>רקע תג</value></data>
   <data name="Widgets_BadgeFont"><value>גופן תג</value></data>
   <data name="Widgets_TableBackground"><value>רקע טבלה</value></data>
+  <data name="Widgets_Thresholds"><value>כללי סף</value></data>
+  <data name="Widgets_AddThreshold"><value>הוסף כלל סף</value></data>
   <data name="Widgets_MatchValue_Placeholder"><value>הזן טקסט להתאמה</value></data>
   <data name="Widgets_MatchValue_Required"><value>ערך נדרש</value></data>
 
@@ -637,6 +692,17 @@
   <data name="Widget_ASD_Segment_Training"><value>הדרכה</value></data>
   <data name="Widget_ASD_Segment_Other"><value>אחר</value></data>
   <data name="Widget_ASD_NoAgentsLoggedIn"><value>אין סוכנים מחוברים</value></data>
+  <data name="Widgets_Name"><value>שם הווידג'ט</value></data>
+  <data name="Widgets_Palette"><value>ווידג'טים</value></data>
+  <data name="Widgets_NoWidgets"><value>אין ווידג'טים זמינים</value></data>
+  <data name="Widgets_Configure"><value>הגדר</value></data>
+  <data name="Widgets_Resize"><value>שנה גודל</value></data>
+  <data name="Widgets_BusinessUnit"><value>יחידה עסקית</value></data>
+  <data name="Widgets_Metric"><value>מדד</value></data>
+  <data name="Widgets_Threshold"><value>ספים</value></data>
+  <data name="Widgets_ThresholdWarning"><value>אזהרה</value></data>
+  <data name="Widgets_Appearance"><value>מראה</value></data>
+  <data name="Widgets_FontSize"><value>גודל גופן</value></data>
   <data name="Loading" xml:space="preserve">
     <value>טוען...</value>
   </data>
@@ -930,6 +996,9 @@
   <data name="Widget_Asd_BuRequired"><value>בחר יחידה עסקית עבור וידג'ט התפלגות מצבי סוכנים.</value></data>
   <data name="Common_Status"><value>סטטוס</value></data>
   <data name="Common_All"><value>הכל</value></data>
+  <data name="Common_Select"><value>בחר</value></data>
+  <data name="Common_Selected"><value>נבחר</value></data>
+  <data name="Common_NoResults"><value>לא נמצאו תוצאות</value></data>
 
   <!-- WFM Widget keys -->
   <data name="Wfm_WaitingForData"><value>Waiting for data...</value></data>
@@ -955,5 +1024,91 @@
   <data name="Wfm_Understaff"><value>Understaff</value></data>
   <data name="Wfm_StaffVariance"><value>Variance</value></data>
   <data name="Wfm_MinWindow"><value>min window</value></data>
+  <data name="Widget_DayTrend_Line"><value>קו</value></data>
+  <data name="Widget_DayTrend_Bar"><value>עמודות</value></data>
+  <data name="Widget_DayTrend_Area"><value>שטח</value></data>
+  <data name="Widget_DayTrend_Step"><value>מדרגות</value></data>
+  <data name="InfoSlot_BottomToTop"><value>מלמטה למעלה</value></data>
+  <data name="InfoSlot_NoMessages"><value>אין הודעות להצגה.</value></data>
+  <data name="InfoSlot_PriorityHighBackground"><value>רקע עדיפות גבוהה</value></data>
+  <data name="InfoSlot_PriorityHighText"><value>טקסט עדיפות גבוהה</value></data>
+  <data name="InfoSlot_ScrollBehaviour"><value>אופן גלילה</value></data>
+  <data name="InfoSlot_ScrollDirection"><value>כיוון גלילה</value></data>
+  <data name="InfoSlot_ScrollSpeed"><value>מהירות גלילה</value></data>
+  <data name="InfoSlot_SecondsPerMessage"><value>שניות להודעה</value></data>
+  <data name="InfoSlot_Sequential"><value>ברצף</value></data>
+  <data name="InfoSlot_ShowAuthor"><value>הצג מחבר</value></data>
+  <data name="InfoSlot_ShowTimestamp"><value>הצג חותמת זמן</value></data>
+  <data name="InfoSlot_SpeedFast"><value>מהירה</value></data>
+  <data name="InfoSlot_SpeedMedium"><value>בינונית</value></data>
+  <data name="InfoSlot_SpeedSlow"><value>איטית</value></data>
+  <data name="InfoSlot_Ticker"><value>סרט נע</value></data>
+  <data name="InfoSlot_TopToBottom"><value>מלמעלה למטה</value></data>
+  <data name="InfoSlots_AccessNote"><value>בחר קבוצות הרשאות שחבריהן רשאים לכתוב הודעות ללוח מידע זה.</value></data>
+  <data name="InfoSlots_ActiveMessages"><value>הודעות פעילות</value></data>
+  <data name="InfoSlots_AddMessage"><value>הוסף הודעה</value></data>
+  <data name="InfoSlots_AddMessageBtn"><value>הוסף הודעה</value></data>
+  <data name="InfoSlots_DeleteSlot"><value>מחק לוח מידע</value></data>
+  <data name="InfoSlots_EditSlot"><value>ערוך לוח מידע</value></data>
+  <data name="InfoSlots_ExpiresAt"><value>תפוגה</value></data>
+  <data name="InfoSlots_ManageMessages"><value>נהל הודעות</value></data>
+  <data name="InfoSlots_Messages"><value>הודעות</value></data>
+  <data name="InfoSlots_ModeSequential"><value>ברצף</value></data>
+  <data name="InfoSlots_ModeTicker"><value>סרט נע</value></data>
+  <data name="InfoSlots_MsgContent"><value>תוכן ההודעה</value></data>
+  <data name="InfoSlots_NeverExpires"><value>ללא תפוגה</value></data>
+  <data name="InfoSlots_NewSlot"><value>+ לוח מידע חדש</value></data>
+  <data name="InfoSlots_NoSlots"><value>לא הוגדרו לוחות מידע.</value></data>
+  <data name="InfoSlots_NoSlotsViewer"><value>אין לוחות מידע זמינים.</value></data>
+  <data name="InfoSlots_PgCount"><value>קבוצות הרשאות</value></data>
+  <data name="InfoSlots_PlacedOn"><value>ממוקם ב</value></data>
+  <data name="InfoSlots_Priority"><value>עדיפות</value></data>
+  <data name="InfoSlots_PriorityHigh"><value>גבוהה</value></data>
+  <data name="InfoSlots_PriorityNormal"><value>רגילה</value></data>
+  <data name="InfoSlots_SecondsHelp"><value>משך הצגת כל הודעה (5-120 שניות)</value></data>
+  <data name="InfoSlots_SecondsPerMessage"><value>שניות להודעה</value></data>
+  <data name="InfoSlots_Title"><value>לוחות מידע</value></data>
+  <data name="InfoSlots_ViewerTitle"><value>לוחות מידע</value></data>
+  <data name="Screens_Connected"><value>Blazor Server · SignalR מחובר</value></data>
+  <data name="Screens_DaysRemaining"><value>ימים שנותרו</value></data>
+  <data name="Screens_ExitFullscreen"><value>יציאה ממסך מלא</value></data>
+  <data name="Screens_FullScreen"><value>מסך מלא</value></data>
+  <data name="Screens_Publish"><value>פרסם</value></data>
+  <data name="Screens_Trash"><value>סל מיחזור</value></data>
+  <data name="Screens_TrashEmpty"><value>סל המיחזור ריק</value></data>
+  <data name="Screens_TrashInfo"><value>מסכים שנמחקו יוסרו לצמיתות לאחר {0} ימים.</value></data>
+  <data name="Screens_Unpublish"><value>בטל פרסום</value></data>
+  <data name="Widget_AvgWait"><value>המתנה ממוצעת</value></data>
+  <data name="Widget_Away"><value>נעדר</value></data>
+  <data name="Widget_ComingSoon"><value>יהיה זמין בגרסה הבאה</value></data>
+  <data name="Widget_DayTrend_AgentMetricsHelp"><value>אפשר מדדי סטטוס סוכנים. מוצגים כקווים מקווקווים.</value></data>
+  <data name="Widget_DayTrend_AgentMetricsNote"><value>אם לא הופעלו מדדי סוכנים, שאילתת סטטוס הסוכנים מדולגת לשיפור הביצועים.</value></data>
+  <data name="Widget_DayTrend_AgentNote"><value>מדדי סוכנים מוצגים כקווים מקווקווים</value></data>
+  <data name="Widget_DayTrend_CallMetricsHelp"><value>אפשר מדדים להצגה בתרשים. גרור לשינוי הסדר.</value></data>
+  <data name="Widget_DayTrend_Manual"><value>ידני בלבד</value></data>
+  <data name="Widget_DayTrend_Refresh1"><value>כל דקה</value></data>
+  <data name="Widget_DayTrend_RefreshManual"><value>ידני בלבד</value></data>
+  <data name="Widget_DeleteRtsWarning"><value>פעולה זו תמחק גם את תצורת הטבלה המשויכת.</value></data>
+  <data name="Widget_EventTicker"><value>סרט אירועים</value></data>
+  <data name="Widget_LastUpdated"><value>עודכן לאחרונה</value></data>
+  <data name="Widget_NoDataToday"><value>לא נרשמו אינטראקציות היום</value></data>
+  <data name="Widget_SlaGauge"><value>מד SLA</value></data>
+  <data name="Widgets_DragHere"><value>גרור ווידג'טים לכאן כדי לבנות את המסך</value></data>
+  <data name="Widgets_FontSize_Large"><value>גדול</value></data>
+  <data name="Widgets_FontSize_Normal"><value>רגיל</value></data>
+  <data name="Widgets_FontSize_Small"><value>קטן</value></data>
+  <data name="Widgets_FontSize_XLarge"><value>גדול מאוד</value></data>
+  <data name="Widgets_FontSize_XXLarge"><value>ענק</value></data>
+  <data name="Widgets_From"><value>מ-</value></data>
+  <data name="Widgets_NoWidgetsPlaced"><value>לא הוצבו ווידג'טים במסך זה</value></data>
+  <data name="Widgets_ThresholdCritical"><value>קריטי</value></data>
+  <data name="Widgets_To"><value>עד</value></data>
+  <data name="Common_Updated"><value>עודכן</value></data>
+  <data name="Common_UpdatedBy"><value>עודכן על ידי</value></data>
+  <data name="Login_OrCredentials"><value>או התחברות עם שם משתמש וסיסמה</value></data>
+  <data name="Nav_InfoSlots"><value>לוחות מידע</value></data>
+  <data name="Nav_InfoSlotsAdmin"><value>לוחות מידע</value></data>
+  <data name="PG_InfoSlotsNote"><value>בחר לוחות מידע שקבוצת הרשאות זו רשאית לכתוב אליהם הודעות.</value></data>
+  <data name="PG_TabInfoSlots"><value>לוחות מידע</value></data>
 </root>
 
