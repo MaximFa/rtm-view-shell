@@ -1122,5 +1122,9 @@
   <data name="Widgets_Filter_ValuePlaceholder"><value>Filter value...</value></data>
   <data name="Widgets_Filter_TimePlaceholder"><value>e.g. 30:00</value></data>
   <data name="Widgets_Filter_NSelected"><value>{0} selected</value></data>
+  <data name="Common_View"><value>View</value></data>
+  <data name="Reports_Edit"><value>Edit Report</value></data>
+  <data name="UnknownWidget"><value>Unknown widget</value></data>
+  <data name="View"><value>View</value></data>
 </root>
 

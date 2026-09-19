@@ -1120,5 +1120,9 @@
   <data name="Widgets_Filter_ValuePlaceholder"><value>ערך לסינון...</value></data>
   <data name="Widgets_Filter_TimePlaceholder"><value>לדוגמה 30:00</value></data>
   <data name="Widgets_Filter_NSelected"><value>נבחרו: {0}</value></data>
+  <data name="Common_View"><value>צפייה</value></data>
+  <data name="Reports_Edit"><value>עריכת דוח</value></data>
+  <data name="UnknownWidget"><value>ווידג'ט לא מוכר</value></data>
+  <data name="View"><value>צפייה</value></data>
 </root>
 

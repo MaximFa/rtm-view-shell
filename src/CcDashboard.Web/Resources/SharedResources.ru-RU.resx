@@ -1125,5 +1125,9 @@
   <data name="Widgets_Filter_ValuePlaceholder"><value>Значение фильтра...</value></data>
   <data name="Widgets_Filter_TimePlaceholder"><value>напр. 30:00</value></data>
   <data name="Widgets_Filter_NSelected"><value>выбрано: {0}</value></data>
+  <data name="Common_View"><value>Просмотр</value></data>
+  <data name="Reports_Edit"><value>Редактирование отчёта</value></data>
+  <data name="UnknownWidget"><value>Неизвестный виджет</value></data>
+  <data name="View"><value>Просмотр</value></data>
 </root>
 
