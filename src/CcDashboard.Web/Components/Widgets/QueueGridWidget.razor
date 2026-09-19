@@ -1239,13 +1239,13 @@
         var fg = EffectiveFontColor;
         var bg = !string.IsNullOrEmpty(tableBg) && tableBg != "transparent"
             ? tableBg
-            : "#1e3a5f";
-        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "#ffffff";
+            : "var(--clr-surface)";
+        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "var(--clr-text)";
         // Попап рендерится внутри <th>, которому GetTheadCellStyle() ставит white-space: pre-line
         // ради переноса названия колонки. Наследование превращает переводы строк РАЗМЕТКИ в строчные
         // боксы: замерено 85 px и 27 px пустоты при line-height 27, высота попапа 374 вместо ~190.
         // Сбрасываем режим переносов для самого попапа; заголовку pre-line оставляем.
-        return $"white-space: normal; background: {bg}; color: {fgColor}; border: 1px solid {fgColor}33;";
+        return $"white-space: normal; background: {bg}; color: {fgColor}; border: 1px solid color-mix(in srgb, {fgColor} 20%, transparent);";
     }
 
     private string GetFilterInputStyle()
@@ -1254,9 +1254,9 @@
         var fg = EffectiveFontColor;
         var bg = !string.IsNullOrEmpty(tableBg) && tableBg != "transparent"
             ? tableBg
-            : "#1e3a5f";
-        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "#ffffff";
-        return $"background: {bg}; color: {fgColor}; border: 1px solid {fgColor}66;";
+            : "var(--clr-surface)";
+        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "var(--clr-text)";
+        return $"background: {bg}; color: {fgColor}; border: 1px solid color-mix(in srgb, {fgColor} 40%, transparent);";
     }
 
     // State persistence

@@ -1391,13 +1391,13 @@
         var fg = EffectiveFontColor;
         var bg = !string.IsNullOrEmpty(tableBg) && tableBg != "transparent"
             ? tableBg
-            : "#1e3a5f";
-        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "#ffffff";
+            : "var(--clr-surface)";
+        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "var(--clr-text)";
         // Попап рендерится внутри заголовочной ячейки, которой GetTheadCellStyle() задаёт режим
         // переносов ради многострочного названия колонки. Наследование превращает переводы строк
         // разметки в строчные боксы и раздувает попап. Сбрасываем режим для самого попапа;
         // заголовку его оставляем. Та же правка, что 41c54f5 в QueueGridWidget.
-        return $"white-space: normal; background: {bg}; color: {fgColor}; border: 1px solid {fgColor}33;";
+        return $"white-space: normal; background: {bg}; color: {fgColor}; border: 1px solid color-mix(in srgb, {fgColor} 20%, transparent);";
     }
 
     private string GetFilterInputStyle()
@@ -1406,9 +1406,9 @@
         var fg = EffectiveFontColor;
         var bg = !string.IsNullOrEmpty(tableBg) && tableBg != "transparent"
             ? tableBg
-            : "#1e3a5f";
-        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "#ffffff";
-        return $"background: {bg}; color: {fgColor}; border: 1px solid {fgColor}66;";
+            : "var(--clr-surface)";
+        var fgColor = !string.IsNullOrEmpty(fg) ? fg : "var(--clr-text)";
+        return $"background: {bg}; color: {fgColor}; border: 1px solid color-mix(in srgb, {fgColor} 40%, transparent);";
     }
 
     private string GetStorageKey() => $"agentGrid_{GridId}_state";
