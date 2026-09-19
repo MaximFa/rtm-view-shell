@@ -388,6 +388,10 @@
             }
             await ActiveFilterCountChanged.InvokeAsync(GetActiveFilterCount());
         }
+        if (_activeFilterColumn is not null)
+        {
+            await JS.InvokeVoidAsync("ccPopupFit.fit");
+        }
     }
 
     private int _previousGridId;

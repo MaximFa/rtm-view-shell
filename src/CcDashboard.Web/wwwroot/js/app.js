@@ -97,3 +97,37 @@ window.ccApp.downloadFile = function (base64, fileName, contentType) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 };
+
+// Filter popup edge fit (PR234-FILTER-POPUP-EDGE-01, path (a)).
+// Measures the open popup on render and shifts it back inside the grid using the LOGICAL
+// margin-inline-start. No physical left/right is ever assigned.
+window.ccPopupFit = {
+    fit: function () {
+        var pop = document.querySelector('.filter-dropdown');
+        if (!pop) return 0;
+        // Always re-measure from a clean state: a stale margin would be measured as if it were layout.
+        pop.style.marginInlineStart = '';
+        var box = pop.parentElement;
+        while (box && box !== document.body) {
+            var ox = getComputedStyle(box).overflowX;
+            if (ox === 'auto' || ox === 'scroll') break;
+            box = box.parentElement;
+        }
+        if (!box || box === document.body) return 0;
+        var br = box.getBoundingClientRect();
+        var vw = document.documentElement.clientWidth;
+        var refL = Math.max(br.left, 0);
+        var refR = Math.min(br.right, vw);
+        var pr = pop.getBoundingClientRect();
+        // dx is PHYSICAL: positive means "move right".
+        var dx = 0;
+        if (pr.left < refL) dx = refL - pr.left;
+        else if (pr.right > refR) dx = refR - pr.right;
+        if (dx === 0) return 0;
+        // Convert the physical delta into the logical axis. This single direction read is a UNIT
+        // CONVERSION, not CSS branching by direction: the property written stays logical.
+        var rtl = getComputedStyle(pop).direction === 'rtl';
+        pop.style.marginInlineStart = (rtl ? -dx : dx) + 'px';
+        return dx;
+    }
+};
