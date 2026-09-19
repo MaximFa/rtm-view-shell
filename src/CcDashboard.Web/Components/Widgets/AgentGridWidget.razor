@@ -96,12 +96,12 @@
                                                 title="@L["Widget_Filter"]">
                                             <i class="bi @(hasFilter ? "bi-funnel-fill" : "bi-funnel")" aria-hidden="true"></i>
                                         </button>
-                                        @if (isFilterOpen)
-                                        {
-                                            @RenderFilterDropdown(colDef)
-                                        }
                                     </span>
                                 </div>
+                                @if (isFilterOpen)
+                                {
+                                    @RenderFilterDropdown(colDef)
+                                }
                             </th>
                         }
                     </tr>

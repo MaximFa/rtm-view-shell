@@ -95,12 +95,12 @@
                                             aria-label="@L["Widget_FilterColumn", L["Widget_QueueName"]]">
                                         <i class="bi bi-funnel@(queueNameHasFilter ? "-fill" : "")"></i>
                                     </button>
-                                    @if (queueNameFilterOpen)
-                                    {
-                                        @RenderQueueNameFilterDropdown()
-                                    }
                                 </span>
                             </div>
+                            @if (queueNameFilterOpen)
+                            {
+                                @RenderQueueNameFilterDropdown()
+                            }
                         </th>
                         @foreach (var colDef in _columnDefs)
                         {
@@ -128,12 +128,12 @@
                                                 aria-label="@L["Widget_FilterColumn", colDef.Name]">
                                             <i class="bi bi-funnel@(hasFilter ? "-fill" : "")"></i>
                                         </button>
-                                        @if (isFilterOpen)
-                                        {
-                                            @RenderFilterDropdown(colDef)
-                                        }
                                     </span>
                                 </div>
+                                @if (isFilterOpen)
+                                {
+                                    @RenderFilterDropdown(colDef)
+                                }
                             </th>
                         }
                     </tr>
