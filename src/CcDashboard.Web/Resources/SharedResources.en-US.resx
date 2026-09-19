@@ -1121,5 +1121,6 @@
   <data name="Widgets_Filter_SelectValues"><value>Select values...</value></data>
   <data name="Widgets_Filter_ValuePlaceholder"><value>Filter value...</value></data>
   <data name="Widgets_Filter_TimePlaceholder"><value>e.g. 30:00</value></data>
+  <data name="Widgets_Filter_NSelected"><value>{0} selected</value></data>
 </root>
 

@@ -1124,5 +1124,6 @@
   <data name="Widgets_Filter_SelectValues"><value>Выберите значения...</value></data>
   <data name="Widgets_Filter_ValuePlaceholder"><value>Значение фильтра...</value></data>
   <data name="Widgets_Filter_TimePlaceholder"><value>напр. 30:00</value></data>
+  <data name="Widgets_Filter_NSelected"><value>выбрано: {0}</value></data>
 </root>
 

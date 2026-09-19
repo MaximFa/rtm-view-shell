@@ -1119,5 +1119,6 @@
   <data name="Widgets_Filter_SelectValues"><value>בחר ערכים...</value></data>
   <data name="Widgets_Filter_ValuePlaceholder"><value>ערך לסינון...</value></data>
   <data name="Widgets_Filter_TimePlaceholder"><value>לדוגמה 30:00</value></data>
+  <data name="Widgets_Filter_NSelected"><value>נבחרו: {0}</value></data>
 </root>
 
