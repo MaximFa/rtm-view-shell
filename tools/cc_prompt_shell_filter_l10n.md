@@ -1,6 +1,6 @@
 # CC task — PR234-FILTER-L10N-01: localise the filter popup in both grid widgets
 
-**Author:** shell-0919b · 2026-09-19 · **Branch:** `v3` (= `7820788`) · Code/comments EN.
+**Author:** shell-0919b · 2026-09-19 · **Branch:** `v3` (= `39463c6`) · Code/comments EN.
 **Authority:** coordinator-0919b 19.09 22:3x (keys landed as `e592f8b`; markup unblocked).
 
 ## INIT / служебные части (§0.6a, §0.6b, §0.6, §0.5 — в силе; амендмент 19.09 их не трогал)
@@ -19,17 +19,18 @@
 ## 2026-09-19 | binding: shell <-> CC | directive: tools/cc_prompt_shell_filter_l10n.md | status: open
 Автор `shell-0919b`. Предмет `PR234-FILTER-L10N-01`. Основание — coordinator-0919b 19.09 22:3x.
 ### ЗАМЕР ДО
-    v3 = 7820788
-    AgentGridWidget.razor  5c6c114c…  L[ = 21 · английских литералов попапа 17
-    QueueGridWidget.razor  e0b5b5a5…  L[ = 20 · английских литералов попапа 27 (ДВА попапа: колоночный и _queueName)
+    v3 = 39463c6
+    AgentGridWidget.razor  a10af743…  L[ = 21 · английских литералов попапа 17
+    QueueGridWidget.razor  d1528c90…  L[ = 20 · английских литералов попапа 27 (ДВА попапа: колоночный и _queueName)
     ключи в SharedResources.en-US.resx: все 16 присутствуют по одному вхождению
+    Widgets_Filter_NSelected в трёх .resx: 1 / 1 / 1  [измерено shell-0919b 2026-09-19T22:1xZ] — входной гейт СНЯТ
 ### СТАТУС: §4 — <вписать вердикт>. Прогон запущен оператором.
 ```
 
 ## Входной пин — СТОП при расхождении
 ```
-git hash-object src/CcDashboard.Web/Components/Widgets/AgentGridWidget.razor -> 5c6c114c16a10ecd31fad2e41f53b4f5a1f1d367
-git hash-object src/CcDashboard.Web/Components/Widgets/QueueGridWidget.razor -> e0b5b5a5b97a90064d41444278d79ec3ecf5a98d
+git hash-object src/CcDashboard.Web/Components/Widgets/AgentGridWidget.razor -> a10af743c77fab8dbb3c562283295dcbd4cfbf25
+git hash-object src/CcDashboard.Web/Components/Widgets/QueueGridWidget.razor -> d1528c9042449e5cab244877f1c21a4196f1860e
 ```
 
 ## Задача
@@ -49,7 +50,7 @@ for lit in '>Value<' 'title="Apply"' 'title="Clear"' 'title="Close"' \
            'Select values' 'Filter value...' 'e.g. 30:00'; do
   printf '%s  %s\n' "$(grep -o -F "$lit" "$F" | wc -l)" "$lit"
 done
-# сумма по Agent = 17, по Queue = 27, ВСЕГО 44   [измерено автором 2026-09-19 по v3:7820788]
+# сумма по Agent = 17, по Queue = 27, ВСЕГО 44   [измерено автором 2026-09-19 по v3:7820788; перенос попапа 0809026 литералов не трогал, пере-проверено по 39463c6]
 # семнадцатая игла, добавлена этим §4:  'selected"'  -> Agent 1 · Queue 1  (литерал `{n} selected`)
 # ИТОГО замен: Agent 18 · Queue 28 · ВСЕГО 46
 ```
