@@ -1,0 +1,111 @@
+# CC task — PR234-FILTER-POPUP-HDR-OVERLAP-01: anchor the filter popup to the header cell (variant A)
+
+**Author:** shell-0919b · 2026-09-19 · **Branch:** `v3` (= `c286879`) · Code/comments EN.
+**Authority:** coordinator-0919b 19.09 20:37Z — **ВАРИАНТ A выбран**, B отвергнут (подобранное число
+13.5 px — мина с отложенным сроком), C отвергнут запретом на правку `span`, а не измерением.
+
+## Дефект
+Попап фильтра позиционируется от `span.popup-anchor`, который обёрнут вокруг КНОПКИ, а не вокруг
+ячейки. `top: 100%` отсчитывается от низа кнопки, а кнопка сидит выше низа `th` — попап наезжает на
+заголовок. **[измерено shell-0919b 2026-09-19, Chrome, одиночный попап]** перекрытие `9.52 px`.
+
+## Решение (A) — инвариант, а не число
+`@RenderFilterDropdown(colDef)` / `@RenderQueueNameFilterDropdown()` переезжает из `span.popup-anchor`
+на уровень `th` — сразу ПОСЛЕ закрывающего `</div>` обёртки-флекса, внутри `<th>`.
+`th` уже несёт `position-relative`, поэтому `top: 100%` становится ИНВАРИАНТОМ «под ячейкой» при любом
+шрифте, любом числе строк заголовка и любом отступе. **Ни одного подобранного числа в правке нет.**
+
+**⛔ `span.popup-anchor` не меняется:** его открывающий тег, классы, атрибуты, кнопка внутри и
+закрывающий тег остаются символ в символ. Переезжает ТОЛЬКО блок `@if (…) { @Render…(…) }`.
+Ни `.css`, ни `app.css`, ни `app.js` в этой задаче НЕ трогаются.
+
+## Входной пин — СТОП при расхождении
+```
+git hash-object src/CcDashboard.Web/Components/Widgets/AgentGridWidget.razor -> 5c6c114c16a10ecd31fad2e41f53b4f5a1f1d367
+git hash-object src/CcDashboard.Web/Components/Widgets/QueueGridWidget.razor -> e0b5b5a5b97a90064d41444278d79ec3ecf5a98d
+```
+Если к моменту прогона зайдёт L10N-коммит — хеши разойдутся: **СТОП, не коммитить, доложить.**
+
+## Три места — все, и ровно они
+| файл | что переезжает | из | куда |
+|---|---|---|---|
+| `AgentGridWidget.razor` (~:99-102) | `@if (isFilterOpen) { @RenderFilterDropdown(colDef) }` | из `span.popup-anchor` | в `<th>`, после `</div>` |
+| `QueueGridWidget.razor` (~:98-101) | `@if (queueNameFilterOpen) { @RenderQueueNameFilterDropdown() }` | из `span.popup-anchor` | в `<th>`, после `</div>` |
+| `QueueGridWidget.razor` (~:131-134) | `@if (isFilterOpen) { @RenderFilterDropdown(colDef) }` | из `span.popup-anchor` | в `<th>`, после `</div>` |
+Переменные `isFilterOpen` / `queueNameFilterOpen` объявлены ВЫШЕ `<th>` — в новой позиции они в области
+видимости. Ничего переобъявлять не нужно; если понадобилось — это признак промаха местом, СТОП.
+
+## Осознанное следствие, НЕ дефект — горизонтальный якорь
+`inset-inline-start: 0` на попапе теперь отсчитывается от начала `th`, а не от кнопки: попап
+сдвинется к началу ячейки. Это ЦЕНА варианта A, названная и принятая координатором.
+**`ccPopupFit.fit()` не трогаем** — он правит только вылет за край скролл-контейнера и продолжает
+работать на новой геометрии.
+**Базу `EDGE-01` пере-снимать НЕ НАДО** (решение coordinator-0919b 19.09 20:37Z): её пара `169 -> 0`
+доказывает правку на уровне кода в той геометрии, в которой делалась; живая половина снимется после
+выката на новой геометрии и с этими числами не сравнивается.
+
+## ИГЛЫ — печатать фактическое рядом с ожидаемым
+```bash
+A=src/CcDashboard.Web/Components/Widgets/AgentGridWidget.razor
+Q=src/CcDashboard.Web/Components/Widgets/QueueGridWidget.razor
+grep -c 'popup-anchor'                  $A $Q   # сторож: 1 / 2 ДО и 1 / 2 ПОСЛЕ — span НЕ тронут
+grep -c 'RenderFilterDropdown(colDef)'  $A $Q   # 1 / 1 ДО и 1 / 1 ПОСЛЕ — переезд, не дубль
+grep -c 'RenderQueueNameFilterDropdown' $Q      # 2 / 2 ДО и 2 / 2 ПОСЛЕ (вызов + определение)
+grep -c 'position-relative'             $A $Q   # неизменно ДО/ПОСЛЕ
+```
+| предикат | ожидание ДО | ожидание ПОСЛЕ |
+|---|---|---|
+| `popup-anchor` Agent / Queue | 1 / 2 | **1 / 2** (не вырос и не упал — иначе правили span) |
+| `RenderFilterDropdown(colDef)` Agent / Queue | 1 / 1 | **1 / 1** (вырос — значит скопировали, а не перенесли) |
+| `RenderQueueNameFilterDropdown` Queue | 2 | **2** |
+| `dotnet build` Release | — | **0 errors** |
+| object-store: изменённых файлов | — | **ровно 2**, удалений 0 |
+
+**Отрицательная половина (обязательна, иначе результат не засчитан):** та же игла
+`grep -c 'RenderFilterDropdown(colDef)'` по `Components/Widgets/KpiWidget.razor` обязана вернуть **0**.
+Вернула не ноль — игла ловит не то, что заявлено, СТОП.
+
+**Положительный контроль структуры:** после правки в каждом из трёх мест строка `@if (…)` обязана
+стоять НИЖЕ строки `</div>` и ВЫШЕ строки `</th>`. Предъявить `grep -n` по трём местам с номерами
+строк `</div>`, `@if`, `</th>` — порядок номеров и есть доказательство переезда.
+
+## Не в этой задаче
+Локализация попапа (`L10N-01`), идентичность колонок (`DUP-01`), вылет за край (`EDGE-01`),
+`ccPopupFit`, любые CSS-файлы, любое число в пикселях.
+
+## БИНДИНГ — преамбула (ОТКРЫТЬ в `.coord/cc/shell.md` ДО первой правки, Python + os.fsync, не затирая)
+```
+## 2026-09-19 | binding: shell <-> CC | directive: tools/cc_prompt_shell_popup_hdr_overlap.md | status: open
+Автор `shell-0919b`. Предмет `PR234-FILTER-POPUP-HDR-OVERLAP-01`. Основание — coordinator-0919b 19.09 20:37Z (вариант A).
+### ЗАМЕР ДО
+    v3 = c286879
+    AgentGridWidget.razor  5c6c114c…  popup-anchor 1 · RenderFilterDropdown(colDef) 1
+    QueueGridWidget.razor  e0b5b5a5…  popup-anchor 2 · RenderFilterDropdown(colDef) 1 · RenderQueueNameFilterDropdown 2
+    перекрытие заголовка попапом: 9.52 px [измерено shell-0919b, Chrome, одиночный попап]
+### СТАТУС: §4 — <вписать вердикт>. Прогон запущен оператором.
+```
+
+## БИНДИНГ — постамбула (ДОПИСАТЬ после прогона, в том числе если он сорвался)
+```
+### RESULT (CC, <дата UTC>)
+- коммит: <sha> | файлы: <перечислить>
+- предикаты факт/ожидание: <все строки таблицы выше>
+- отрицательная половина: KpiWidget RenderFilterDropdown(colDef) = <0 | иначе STOP>
+- порядок строк в трёх местах: <`</div>` n · `@if` n · `</th>` n — по каждому месту>
+- сборка: <errors> errors
+- отклонения от промпта: <нет | перечислить>
+### СТАТУС: <delivered | stopped: причина>
+```
+
+## Коммит
+Один коммит, узкими явными путями, без `-A`. **NO push**, на боевую не выкатывать.
+Сообщение: `fix(shell): anchor filter popup to header cell so it no longer overlaps the header [shell]`
+
+**`commit.lock` (§42.4) — обязателен, им гейтим.** Порядок:
+1. Взять замок атомарно: Python `open(".coord/locks/commit.lock", "x")`, внутрь — роль, sha сессии, `acquired` (UTC).
+   Файл существует — ретрай 5 x 60 c; не взял — **коммит не делать**, напечатать владельца замка и СТОП.
+2. `acquired` старше 15 минут — напечатать содержимое и ЖДАТЬ решения оператора. **Не удалять самому.**
+3. Под замком: `git add` (только два заявленных пути) -> `git commit` -> §0.6 пост-коммит-сверка.
+4. Отпустить: удалить `commit.lock`, `sync`. Коммит сорвался — замок всё равно отпустить.
+Замок покрывает и plumbing-путь (§0.4): прямая запись в `refs/heads/v3` git-блокировок не имеет,
+две записи молча уничтожают один коммит. Обойти замок нельзя ни при каком объёме правки.
