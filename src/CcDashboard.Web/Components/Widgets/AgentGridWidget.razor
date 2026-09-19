@@ -1129,13 +1129,13 @@
         _listDropdownOpen = _listDropdownOpen == metricId ? null : metricId;
     }
 
-    private static string GetListButtonLabel(ColumnFilter filter)
+    private string GetListButtonLabel(ColumnFilter filter)
     {
         if (filter.SelectedValues.Count == 0)
-            return "Select values...";
+            return L["Widgets_Filter_SelectValues"];
         if (filter.SelectedValues.Count == 1)
             return filter.SelectedValues.First();
-        return $"{filter.SelectedValues.Count} selected";
+        return L["Widgets_Filter_NSelected", filter.SelectedValues.Count];
     }
 
     private List<string> GetDistinctValues(string metricId)
@@ -1160,15 +1160,15 @@
 
             <!-- Header with label and icons -->
             <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="small opacity-75">Value</span>
+                <span class="small opacity-75">@L["Common_Value"]</span>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-success, #198754);" title="Apply" @onclick="() => ApplyValueFilter(colDef.MetricId)">
+                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-success, #198754);" title="@L["Common_Apply"]" @onclick="() => ApplyValueFilter(colDef.MetricId)">
                         <i class="bi bi-check-lg"></i>
                     </button>
-                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-danger, #dc3545);" title="Clear" @onclick="() => ClearFilter(colDef.MetricId)">
+                    <button class="btn btn-link btn-sm p-0" style="color: var(--clr-danger, #dc3545);" title="@L["Common_Clear"]" @onclick="() => ClearFilter(colDef.MetricId)">
                         <i class="bi bi-trash"></i>
                     </button>
-                    <button class="btn btn-link btn-sm p-0" style="@GetFontColorStyle()" title="Close" @onclick="CloseFilterDropdown">
+                    <button class="btn btn-link btn-sm p-0" style="@GetFontColorStyle()" title="@L["Common_Close"]" @onclick="CloseFilterDropdown">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
@@ -1182,18 +1182,18 @@
                         @onchange="e => UpdateFilterOperator(colDef.MetricId, e)">
                     @if (isNumeric)
                     {
-                        <option value="less">Less than</option>
-                        <option value="lessOrEqual">Less or equal</option>
-                        <option value="greater">Greater than</option>
-                        <option value="greaterOrEqual">Greater or equal</option>
-                        <option value="equal">Equal</option>
+                        <option value="less">@L["Widgets_MatchType_LessThan"]</option>
+                        <option value="lessOrEqual">@L["Widgets_MatchType_LessOrEqual"]</option>
+                        <option value="greater">@L["Widgets_MatchType_GreaterThan"]</option>
+                        <option value="greaterOrEqual">@L["Widgets_MatchType_GreaterOrEqual"]</option>
+                        <option value="equal">@L["Widgets_MatchType_Equal"]</option>
                     }
                     else
                     {
-                        <option value="contains">Contains</option>
-                        <option value="equal">Equal</option>
-                        <option value="startsWith">Starts with</option>
-                        <option value="endsWith">Ends with</option>
+                        <option value="contains">@L["Widgets_MatchType_Contains"]</option>
+                        <option value="equal">@L["Widgets_MatchType_Equal"]</option>
+                        <option value="startsWith">@L["Widgets_MatchType_StartsWith"]</option>
+                        <option value="endsWith">@L["Widgets_MatchType_EndsWith"]</option>
                     }
                 </select>
                 <input type="text" class="form-control form-control-sm"
@@ -1201,7 +1201,7 @@
                        @bind="filter.TextValue"
                        @bind:event="oninput"
                        @bind:after="() => OnValueInput(colDef.MetricId)"
-                       placeholder="@(isNumeric ? "e.g. 30:00" : "Filter value...")" />
+                       placeholder="@(isNumeric ? L["Widgets_Filter_TimePlaceholder"] : L["Widgets_Filter_ValuePlaceholder"])" />
             </div>
 
             @if (!isNumeric && distinctValues.Count > 0)
@@ -1210,7 +1210,7 @@
                 <div class="border-top pt-3 mt-3" style="border-color: currentColor; opacity: 0.3;">
                 </div>
                 <div style="opacity: 1;">
-                    <div class="small mb-2 opacity-75">List</div>
+                    <div class="small mb-2 opacity-75">@L["Widgets_Filter_List"]</div>
                     <div class="position-relative">
                         <button class="btn btn-sm w-100 d-flex justify-content-between align-items-center"
                                 style="@GetFilterInputStyle()"
