@@ -27,7 +27,18 @@ Cardinal truths (each SOURCE-pinned):
 
 - Operator contact: ONE fork at a time, by importance, plain language — never a stacked list of questions; ask, then WAIT for the answer before raising the next.
 
+**ВОПРОС ОПЕРАТОРУ ЗАДАЁТСЯ ПО-ЧЕЛОВЕЧЕСКИ — ЭТО ОБЯЗАННОСТЬ, А НЕ ВЕЖЛИВОСТЬ.**
+Оператор 2026-09-19: «все вопросы ко мне — по-человечески, мы теряем на этом шаги».
+Вопрос, завёрнутый в наши термины (номера норм, имена гейтов, `§`-ссылки, внутренние сокращения),
+заставляет его СНАЧАЛА расшифровать, и только потом решать. Расшифровка — моя работа, не его.
+Форма вопроса: **что происходит · почему это его решение, а не моё · что изменится от каждого ответа.**
+Обычными словами, без номеров. Технический пин — только если он меняет суть ответа, и тогда одной
+строкой после сути, а не вместо неё.
+Проверка перед отправкой: **поймёт ли это человек, не читавший наших протоколов?** Нет — переписать.
+Цена нарушения измерима: лишний ход на уточнение, и он всегда мой, потому что спрашивал я.
+
 ## §B LESSONS  (append-only · dated · source-pinned · status)
+- 2026-09-19 · Спросил оператора «CLAUDE.md требует четыре блока MANDATORY, в благословлённом промпте их ноль — правило снимать или промпты чинить?» — вопрос верный по существу и НЕЧИТАЕМЫЙ по форме: чтобы ответить, оператор должен сперва расшифровать наши термины. Его поправка: «все вопросы ко мне — по-человечески, мы теряем на этом шаги». · RULE: §A — вопрос оператору формулируется как «что происходит / почему решать ему / что изменится от каждого ответа», без номеров и §-ссылок; проверка «поймёт ли не читавший протоколов» · SOURCE: прямое указание оператора 2026-09-19 · status: **active**
 - 2026-06-16 · I asserted "§0.6b CAPTURE=0 / spine not done / only role-backend" from a STALE MOUNT working-tree read → issued a FALSE "redo codify" directive, retracted · RULE: pin status to object-store, never the mount · SOURCE: this incident; git HEAD 3783789, spine fddfbe7, §0.5/L-SC-04 · status: active  [FOUNDING]
 - 2026-06-13 · the norm log was UNTRACKED (.coord/.gitignore ignored all but README) → caught at the push barrier, would have been left behind · RULE: steward source-of-truth must be tracked+committed · SOURCE: §42.7 flag + coordinator !protocols/ fix · status: active
 - 2026-06-13 · inbox auto-archival whole-file rewrite was L-SC-09-unsafe (concurrent-append clobber) → hardened v3 (re-read + atomic os.replace + commit.lock) · SOURCE: NORM-CUR-06b · status: active
