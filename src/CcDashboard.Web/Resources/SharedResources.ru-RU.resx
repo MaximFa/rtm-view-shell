@@ -58,6 +58,7 @@
   <data name="TwoFactor_TooManyAttempts"><value>Слишком много попыток. Запросите новый код.</value></data>
   <data name="TwoFactor_Failed"><value>Ошибка подтверждения. Попробуйте ещё раз.</value></data>
   <data name="TwoFactor_Footer"><value>Действует 10 мин · 3 попытки · HMAC-SHA256 + соль [2FA-02..03]</value></data>
+  <data name="TwoFactor_ValidFor"><value>Действует 10 минут · 3 попытки</value></data>
   <data name="TwoFactor_InvalidCode"><value>Неверный или истёкший код.</value></data>
 
   <!-- ── Change Password ── -->
@@ -79,6 +80,7 @@
   <data name="Password_Rule_Digit"><value>Цифра (0-9)</value></data>
   <data name="Password_Rule_Special"><value>Специальный символ (!@#$...)</value></data>
   <data name="Password_Rule_History"><value>Не должен совпадать с последними 10 паролями [PWD-04]</value></data>
+  <data name="Password_Rule_Match"><value>Пароли совпадают</value></data>
   <data name="Password_Hint"><value>Мин. 12 символов · A-Z · a-z · 0-9 · спец. символ</value></data>
 
   <!-- ── Forgot / Reset Password ── -->
@@ -145,6 +147,8 @@
   <data name="Screens_CreateModal"><value>Новый дашборд</value></data>
   <data name="Screens_EditModal"><value>Настройки дашборда</value></data>
   <data name="Screens_Clone"><value>Клонировать дашборд</value></data>
+  <data name="Screens_Edit"><value>Редактировать дашборд</value></data>
+  <data name="Screens_Preview"><value>Предпросмотр</value></data>
   <data name="Screens_CreateButton"><value>Создать дашборд →</value></data>
   <data name="Screens_DangerZone"><value>Опасная зона</value></data>
   <data name="Screens_DeleteScreen"><value>Удалить дашборд</value></data>
@@ -157,6 +161,7 @@
   <data name="Screens_Pause"><value>Пауза</value></data>
   <data name="Screens_Resume"><value>Возобновить</value></data>
   <data name="Screens_Back"><value>← Назад</value></data>
+  <data name="Screens_Settings"><value>Настройки</value></data>
   <data name="Screens_Trash"><value>Корзина</value></data>
   <data name="Screens_TrashEmpty"><value>Корзина пуста</value></data>
   <data name="Screens_TrashInfo"><value>Удалённые дашборды будут окончательно удалены через {0} дней.</value></data>
@@ -169,6 +174,13 @@
   <!-- ── Widget Catalogue ── -->
   <data name="WidgetCatalogue_Title"><value>Каталог виджетов</value></data>
   <data name="WidgetCatalogue_Inactive"><value>Неактивен</value></data>
+  <data name="Widget_QueueLoad"><value>График нагрузки очередей</value></data>
+  <data name="Widget_AgentStatus"><value>Статус агента</value></data>
+  <data name="Widget_EventTicker"><value>Бегущая строка событий</value></data>
+  <data name="Widget_CallsWaiting"><value>Вызовы в очереди</value></data>
+  <data name="Widget_Available"><value>Доступно</value></data>
+  <data name="Widget_OnCall"><value>В разговоре</value></data>
+  <data name="Widget_KpiDefault"><value>Значение KPI</value></data>
 
   <!-- ── Widget Editor ── -->
   <data name="Widgets_Name"><value>Название виджета</value></data>
@@ -272,6 +284,8 @@
   <data name="PG_TabAgentGroups"><value>Группы агентов</value></data>
   <data name="PG_TabBu"><value>Бизнес-единицы</value></data>
   <data name="PG_TabSg"><value>Супергруппы</value></data>
+  <data name="PG_TabInfoSlots"><value>Информационные слоты</value></data>
+  <data name="PG_InfoSlotsNote"><value>Выберите информационные слоты, в которые эта группа прав может писать сообщения.</value></data>
   <data name="PG_ColMenuItem"><value>Пункт меню</value></data>
   <data name="PG_ColPermissionKey"><value>Ключ доступа</value></data>
   <data name="PG_ColAllowedRoles"><value>Допустимые роли</value></data>
@@ -608,6 +622,27 @@
   <data name="State_ACW"><value>Постобработка</value></data>
   <data name="State_NotReady"><value>Не готов</value></data>
   <data name="State_LoggedOut"><value>Выход</value></data>
+  <data name="Widget_NoQueuesForBU"><value>Для этого подразделения не назначены очереди</value></data>
+  <data name="Widget_SelectBusinessUnit"><value>Выберите подразделение</value></data>
+  <data name="Widget_LastUpdated"><value>Обновлено</value></data>
+  <data name="Widget_DayTrend_Title"><value>Заголовок</value></data>
+  <data name="Widget_DayTrend_BusinessUnit"><value>Подразделение</value></data>
+  <data name="Widget_DayTrend_Interval"><value>Интервал</value></data>
+  <data name="Widget_DayTrend_Interval15"><value>15 минут</value></data>
+  <data name="Widget_DayTrend_Interval30"><value>30 минут</value></data>
+  <data name="Widget_DayTrend_Interval60"><value>60 минут</value></data>
+  <data name="Widget_DayTrend_Refresh"><value>Автообновление</value></data>
+  <data name="Widget_DayTrend_Refresh5"><value>Каждые 5 минут</value></data>
+  <data name="Widget_DayTrend_Refresh10"><value>Каждые 10 минут</value></data>
+  <data name="Widget_DayTrend_ShowDataLabels"><value>Показывать подписи данных</value></data>
+  <data name="Widget_DayTrend_ShowLegend"><value>Показать легенду</value></data>
+  <data name="Widget_DayTrend_TabGeneral"><value>Общие</value></data>
+  <data name="Widget_DayTrend_TabAppearance"><value>Внешний вид</value></data>
+  <data name="Widget_DayTrend_TabCallMetrics"><value>Метрики звонков</value></data>
+  <data name="Widget_DayTrend_TabAgentMetrics"><value>Метрики агентов</value></data>
+  <data name="Widget_DayTrend_MetricEnabled"><value>Включено</value></data>
+  <data name="Widget_DayTrend_MetricColor"><value>Цвет</value></data>
+  <data name="Widget_DayTrend_MetricLabel"><value>Своя подпись</value></data>
 
   <!-- ── Agent Grid Config ── -->
   <data name="Widgets_AgentGrid_Filters"><value>Фильтры</value></data>
@@ -684,6 +719,8 @@
   <data name="Error_Forbidden"><value>У вас нет прав для выполнения этого действия.</value></data>
   <data name="Error_Concurrency"><value>Запись была изменена другим пользователем. Обновите страницу и повторите попытку.</value></data>
   <data name="Error_Generic"><value>Произошла непредвиденная ошибка. Попробуйте ещё раз.</value></data>
+  <data name="Nav_InfoSlots"><value>Информационные слоты</value></data>
+  <data name="Nav_InfoSlotsAdmin"><value>Информационные слоты</value></data>
 
   <!-- ── Info Slots ── -->
   <data name="InfoSlots_Title"><value>Информационные слоты</value></data>
@@ -1030,6 +1067,9 @@
   <data name="Widget_Asd_BuRequired"><value>Выберите Business Unit для виджета распределения состояний агентов.</value></data>
   <data name="Common_Status"><value>Статус</value></data>
   <data name="Common_All"><value>Все</value></data>
+  <data name="Common_Select"><value>Выбрать</value></data>
+  <data name="Common_Selected"><value>Выбрано</value></data>
+  <data name="Common_NoResults"><value>Ничего не найдено</value></data>
 
   <!-- WFM Widget keys -->
   <data name="Wfm_WaitingForData"><value>Ожидание данных...</value></data>
@@ -1055,5 +1095,25 @@
   <data name="Wfm_Understaff"><value>Недобор</value></data>
   <data name="Wfm_StaffVariance"><value>Отклонение</value></data>
   <data name="Wfm_MinWindow"><value>мин окно</value></data>
+  <data name="Widget_DayTrend_Line"><value>Линия</value></data>
+  <data name="Widget_DayTrend_Bar"><value>Бар</value></data>
+  <data name="Widget_DayTrend_Area"><value>Область</value></data>
+  <data name="Widget_DayTrend_Step"><value>Ступенчатый</value></data>
+  <data name="Login_OrCredentials"><value>или войдите с логином и паролем</value></data>
+  <data name="Screens_Connected"><value>Blazor Server · SignalR подключён</value></data>
+  <data name="Screens_ExitFullscreen"><value>Выйти из полноэкранного режима</value></data>
+  <data name="Screens_FullScreen"><value>Полноэкранный режим</value></data>
+  <data name="Widget_AvgWait"><value>Среднее ожидание</value></data>
+  <data name="Widget_Away"><value>Отошёл</value></data>
+  <data name="Widget_ComingSoon"><value>Будет доступно в следующей версии</value></data>
+  <data name="Widget_DayTrend_AgentMetricsHelp"><value>Включите метрики статусов агентов. Отображаются пунктирными линиями.</value></data>
+  <data name="Widget_DayTrend_AgentMetricsNote"><value>Если ни одна метрика агентов не включена, запрос статусов агентов пропускается для повышения производительности.</value></data>
+  <data name="Widget_DayTrend_AgentNote"><value>Метрики агентов отображаются пунктирными линиями</value></data>
+  <data name="Widget_DayTrend_CallMetricsHelp"><value>Включите метрики для отображения на графике. Перетащите, чтобы изменить порядок.</value></data>
+  <data name="Widget_DayTrend_Manual"><value>Только вручную</value></data>
+  <data name="Widget_DayTrend_Refresh1"><value>Каждую минуту</value></data>
+  <data name="Widget_DayTrend_RefreshManual"><value>Только вручную</value></data>
+  <data name="Widget_NoDataToday"><value>Сегодня обращений не зафиксировано</value></data>
+  <data name="Widget_SlaGauge"><value>Индикатор SLA</value></data>
 </root>
 
