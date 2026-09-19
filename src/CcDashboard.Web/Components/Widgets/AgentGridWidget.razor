@@ -72,15 +72,15 @@
                         @foreach (var colDef in _columnDefs)
                         {
                             var hasFilter = HasActiveFilter(colDef.MetricId);
-                            var isFilterOpen = _activeFilterColumn == colDef.MetricId;
+                            var isFilterOpen = _activeFilterColumn == colDef.Id;
                             <th scope="col" class="text-start position-relative" style="@GetTheadCellStyle()">
                                 <div style="display: flex; align-items: flex-start; gap: 0.25rem;">
                                     <span style="cursor: pointer; flex: 1 1 auto; min-width: 0;"
-                                          @onclick="() => ToggleSort(colDef.MetricId)"
+                                          @onclick="() => ToggleSort(colDef.Id)"
                                           role="button"
                                           aria-label="@L["Widget_SortBy", colDef.Name]">
                                         @colDef.Name
-                                        @if (_sortColumn == colDef.MetricId)
+                                        @if (_sortColumn == colDef.Id)
                                         {
                                             <i class="bi @(_sortAscending ? "bi-caret-up-fill" : "bi-caret-down-fill") ms-1"
                                                aria-label="@(_sortAscending ? L["Widget_SortedAsc"] : L["Widget_SortedDesc"])"></i>
@@ -89,7 +89,7 @@
                                     <span class="popup-anchor position-relative d-inline-flex">
                                         <button class="btn btn-link btn-sm p-0"
                                                 style="@GetFilterButtonStyle(hasFilter)"
-                                                @onclick="() => ToggleFilterDropdown(colDef.MetricId)"
+                                                @onclick="() => ToggleFilterDropdown(colDef.Id)"
                                                 @onclick:stopPropagation="true"
                                                 aria-label="@L["Widget_FilterColumn", colDef.Name]"
                                                 aria-expanded="@isFilterOpen"
@@ -266,6 +266,9 @@
     private List<AgentGridColumnDef> _columnDefs = new();
     private int _pageSize = 20;
     private int _currentPage = 1;
+    // UI-state key only: valid for the duration of one component load. colDef.Id may be
+    // absent from saved JSON (older configs), yielding a fresh Guid each load — never
+    // persist or transmit state keyed on Id.
     private string? _sortColumn;
     private bool _sortAscending = true;
 
@@ -310,6 +313,9 @@
     }
 
     // Column filters
+    // UI-state key only: valid for the duration of one component load. colDef.Id may be
+    // absent from saved JSON (older configs), yielding a fresh Guid each load — never
+    // persist or transmit state keyed on Id.
     private string? _activeFilterColumn;
     // Черновик правки фильтра. Живёт ровно столько же, сколько _activeFilterColumn: попап правит
     // КОПИЮ, а в _columnFilters она уходит только по Apply. Поле экземпляра выбрано намеренно —
@@ -667,17 +673,18 @@
 
         if (!string.IsNullOrEmpty(_sortColumn))
         {
-            if (IsNumericColumn(_sortColumn))
+            var sortMetricId = _columnDefs.FirstOrDefault(c => c.Id == _sortColumn)?.MetricId ?? _sortColumn;
+            if (IsNumericColumn(sortMetricId))
             {
                 sorted = _sortAscending
-                    ? sorted.OrderBy(r => ParseNumericValue(GetMetricValue(r.Metrics, _sortColumn)))
-                    : sorted.OrderByDescending(r => ParseNumericValue(GetMetricValue(r.Metrics, _sortColumn)));
+                    ? sorted.OrderBy(r => ParseNumericValue(GetMetricValue(r.Metrics, sortMetricId)))
+                    : sorted.OrderByDescending(r => ParseNumericValue(GetMetricValue(r.Metrics, sortMetricId)));
             }
             else
             {
                 sorted = _sortAscending
-                    ? sorted.OrderBy(r => GetMetricValue(r.Metrics, _sortColumn))
-                    : sorted.OrderByDescending(r => GetMetricValue(r.Metrics, _sortColumn));
+                    ? sorted.OrderBy(r => GetMetricValue(r.Metrics, sortMetricId))
+                    : sorted.OrderByDescending(r => GetMetricValue(r.Metrics, sortMetricId));
             }
         }
 
@@ -1017,9 +1024,11 @@
         return (int)Math.Round(percentage * 5);
     }
 
-    private void ToggleFilterDropdown(string metricId)
+    private void ToggleFilterDropdown(string columnId)
     {
-        if (_activeFilterColumn == metricId)
+        // Resolve column->metric: for live filter reads we need the MetricId.
+        var metricId = _columnDefs.FirstOrDefault(c => c.Id == columnId)?.MetricId ?? columnId;
+        if (_activeFilterColumn == columnId)
         {
             _activeFilterColumn = null;
             _listDropdownOpen = null;
@@ -1027,7 +1036,7 @@
         }
         else
         {
-            _activeFilterColumn = metricId;
+            _activeFilterColumn = columnId;
             _listDropdownOpen = null;
             var live = _columnFilters.TryGetValue(metricId, out var f) ? f : new ColumnFilter();
             _draftFilter = new ColumnFilter
@@ -1232,15 +1241,15 @@
         </div>
     };
 
-    private void ToggleSort(string column)
+    private void ToggleSort(string columnId)
     {
-        if (_sortColumn == column)
+        if (_sortColumn == columnId)
         {
             _sortAscending = !_sortAscending;
         }
         else
         {
-            _sortColumn = column;
+            _sortColumn = columnId;
             _sortAscending = true;
         }
     }
