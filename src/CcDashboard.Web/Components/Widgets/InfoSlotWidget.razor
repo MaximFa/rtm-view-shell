@@ -54,7 +54,7 @@
                 <div class="is-msg-meta">
                     @if (ShowAuthor) { <span>@msg.AuthorName</span> }
                     @if (ShowTimestamp) { <span>@(ShowAuthor ? "· " : "")@msg.CreatedAt.ToString("HH:mm")</span> }
-                    @if (msg.ExpiresAt.HasValue) { <span>· @L["InfoSlot_ExpiresAt"]: @msg.ExpiresAt.Value.ToString("HH:mm")</span> }
+                    @if (msg.ExpiresAt.HasValue) { <span>· @L["InfoSlots_ExpiresAt"]: @msg.ExpiresAt.Value.ToString("HH:mm")</span> }
                 </div>
             }
         </div>
