@@ -1115,5 +1115,14 @@
   <data name="Widget_DayTrend_RefreshManual"><value>Только вручную</value></data>
   <data name="Widget_NoDataToday"><value>Сегодня обращений не зафиксировано</value></data>
   <data name="Widget_SlaGauge"><value>Индикатор SLA</value></data>
+  <data name="Widgets_MatchType_LessThan"><value>Меньше</value></data>
+  <data name="Widgets_MatchType_LessOrEqual"><value>Меньше или равно</value></data>
+  <data name="Widgets_MatchType_GreaterThan"><value>Больше</value></data>
+  <data name="Widgets_MatchType_GreaterOrEqual"><value>Больше или равно</value></data>
+  <data name="Common_Apply"><value>Применить</value></data>
+  <data name="Widgets_Filter_List"><value>Список</value></data>
+  <data name="Widgets_Filter_SelectValues"><value>Выберите значения...</value></data>
+  <data name="Widgets_Filter_ValuePlaceholder"><value>Значение фильтра...</value></data>
+  <data name="Widgets_Filter_TimePlaceholder"><value>напр. 30:00</value></data>
 </root>
 

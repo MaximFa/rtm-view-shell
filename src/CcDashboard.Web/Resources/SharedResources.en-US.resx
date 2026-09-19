@@ -1112,5 +1112,14 @@
   <data name="Wfm_Understaff"><value>Understaff</value></data>
   <data name="Wfm_StaffVariance"><value>Variance</value></data>
   <data name="Wfm_MinWindow"><value>min window</value></data>
+  <data name="Widgets_MatchType_LessThan"><value>Less Than</value></data>
+  <data name="Widgets_MatchType_LessOrEqual"><value>Less Or Equal</value></data>
+  <data name="Widgets_MatchType_GreaterThan"><value>Greater Than</value></data>
+  <data name="Widgets_MatchType_GreaterOrEqual"><value>Greater Or Equal</value></data>
+  <data name="Common_Apply"><value>Apply</value></data>
+  <data name="Widgets_Filter_List"><value>List</value></data>
+  <data name="Widgets_Filter_SelectValues"><value>Select values...</value></data>
+  <data name="Widgets_Filter_ValuePlaceholder"><value>Filter value...</value></data>
+  <data name="Widgets_Filter_TimePlaceholder"><value>e.g. 30:00</value></data>
 </root>
 

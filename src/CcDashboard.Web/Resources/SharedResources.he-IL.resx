@@ -1110,5 +1110,14 @@
   <data name="Nav_InfoSlotsAdmin"><value>לוחות מידע</value></data>
   <data name="PG_InfoSlotsNote"><value>בחר לוחות מידע שקבוצת הרשאות זו רשאית לכתוב אליהם הודעות.</value></data>
   <data name="PG_TabInfoSlots"><value>לוחות מידע</value></data>
+  <data name="Widgets_MatchType_LessThan"><value>קטן מ</value></data>
+  <data name="Widgets_MatchType_LessOrEqual"><value>קטן או שווה</value></data>
+  <data name="Widgets_MatchType_GreaterThan"><value>גדול מ</value></data>
+  <data name="Widgets_MatchType_GreaterOrEqual"><value>גדול או שווה</value></data>
+  <data name="Common_Apply"><value>החל</value></data>
+  <data name="Widgets_Filter_List"><value>רשימה</value></data>
+  <data name="Widgets_Filter_SelectValues"><value>בחר ערכים...</value></data>
+  <data name="Widgets_Filter_ValuePlaceholder"><value>ערך לסינון...</value></data>
+  <data name="Widgets_Filter_TimePlaceholder"><value>לדוגמה 30:00</value></data>
 </root>
 
