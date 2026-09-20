@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Single-source RTM table whitelist and version-independent schema dump helper.
@@ -45,6 +45,70 @@ $script:RtmTableNames = @(
     'public.metric_deploy_log'
 )
 
+function Select-RtmSchemaBlocks {
+    <#
+    .SYNOPSIS
+        PURE filter: splits pg_dump output into blocks and returns only those belonging to
+        whitelisted TABLES (and their indexes/constraints/sequences/defaults/etc.).
+        Excludes routine OBJECTS (FUNCTION/PROCEDURE) entirely, even when their body
+        references a whitelisted table name.
+    .DESCRIPTION
+        pg_dump writes a header '-- Name: ...; Type: <X>; ...' before each object, then a
+        blank line, then the DDL. A blank-line split puts header and DDL in DIFFERENT blocks.
+        A blank line INSIDE a routine body splits it further - the tail has neither header
+        nor CREATE statement. Neither a header-match filter nor a first-statement filter
+        survives this layout. We therefore track the OBJECT type from header to header:
+        while current object is FUNCTION or PROCEDURE, all blocks are skipped.
+        See PR234-CMP-01 §2 for measured trap demonstration.
+    .PARAMETER Raw
+        Full pg_dump --schema-only output as a single string.
+    .OUTPUTS
+        [string[]] Array of kept blocks (trimmed, no trailing whitespace).
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Raw
+    )
+
+    # Split on blank lines (one or more empty lines)
+    $blocks = $Raw -split "(?m)\r?\n\r?\n"
+    $keep = New-Object System.Collections.Generic.List[string]
+
+    # Track current object type from pg_dump headers
+    # Header pattern: -- Name: <name>; Type: <TYPE>; Schema: <schema>; Owner: -
+    $currentObjectType = $null
+
+    foreach ($b in $blocks) {
+        # Check if this block is a pg_dump object header
+        if ($b -match '--\s*Name:\s*[^;]+;\s*Type:\s*([^;]+);') {
+            $currentObjectType = $Matches[1].Trim()
+            # Header blocks are never kept (they carry unquoted names, current filter never kept them)
+            continue
+        }
+
+        # While inside a FUNCTION or PROCEDURE object, skip all blocks
+        if ($currentObjectType -eq 'FUNCTION' -or $currentObjectType -eq 'PROCEDURE') {
+            continue
+        }
+
+        # Standard whitelist match for non-routine blocks
+        foreach ($name in $script:RtmTableNames) {
+            # Extract the quoted part (e.g., "NGC_Site" or db_patch_history)
+            if ($name -match '^public\.(.+)$') {
+                $quotedPart = $Matches[1]
+            } else {
+                $quotedPart = $name
+            }
+            # Check if block contains this exact table reference
+            if ($b.Contains($quotedPart)) {
+                [void]$keep.Add($b.TrimEnd())
+                break
+            }
+        }
+    }
+
+    return @($keep)
+}
+
 function Export-RtmSchema {
     <#
     .SYNOPSIS
@@ -90,27 +154,8 @@ function Export-RtmSchema {
     $raw = Get-Content -LiteralPath $tmp -Raw -Encoding UTF8
     Remove-Item $tmp -ErrorAction SilentlyContinue
 
-    # pg_dump separates each object with blank lines and "-- Name: ...; Type: ...;" headers.
-    # Split on double newline boundary; KEEP a block iff it contains a full-quoted whitelist name.
-    # Full-quoted match prevents "NGC_BusinessUnit" from substring-matching "NGC_BusinessUnitSupergroup".
-    $blocks = $raw -split "(?m)\r?\n\r?\n"
-    $keep = New-Object System.Collections.Generic.List[string]
-
-    foreach ($b in $blocks) {
-        foreach ($name in $script:RtmTableNames) {
-            # Extract the quoted part (e.g., "NGC_Site" or db_patch_history)
-            if ($name -match '^public\.(.+)$') {
-                $quotedPart = $Matches[1]
-            } else {
-                $quotedPart = $name
-            }
-            # Check if block contains this exact table reference
-            if ($b.Contains($quotedPart)) {
-                [void]$keep.Add($b.TrimEnd())
-                break
-            }
-        }
-    }
+    # Use the pure filter function
+    $keep = Select-RtmSchemaBlocks -Raw $raw
 
     # Write without BOM for SQL baseline file
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
