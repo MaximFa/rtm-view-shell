@@ -92,7 +92,15 @@ def check(path):
 
     # --- formatting ------------------------------------------------------------
     for line_no, line in enumerate(txt.splitlines(), 1):
-        if '-f ' in line and re.search(r'[\'"]\s*\+\s*\$', line) and not line.strip().startswith('#'):
+        # `-f` is the format OPERATOR only when a string/paren ends right before it. As a parameter of
+        # an external program (pg_dump -f <file>, git commit -F <file>) it is not, and flagging those
+        # makes the gate noisy - a noisy gate gets switched off within a week. 2026-09-20, measured on
+        # probe_234_20260920_cmp01-live-filter.ps1, which was refused for `pg_dump ... -f $dumpFile`.
+        # Telling the format OPERATOR from a program's -f PARAMETER by what precedes it does not work:
+        # the operator accepts any expression on its left. What the operator always has is a PLACEHOLDER
+        # in the format string. pg_dump -f <file> has none, ('a {0}' + $x -f $y) has one.
+        is_format_operator = re.search(r'\{\d+\}', line) is not None
+        if is_format_operator and re.search(r'[\'"]\s*\+\s*\$', line) and not line.strip().startswith('#'):
             notes.append("line %d: string concatenation next to -f ; the operator binds ONLY to the last "
                          "fragment, so earlier {0} stay unsubstituted" % line_no)
 
@@ -172,6 +180,22 @@ def check(path):
                           "cmdlet: an empty result reaches the sentinel and a genuine ZERO is printed as "
                           "NOT MEASURED. Wrap the call in @(...) first, and reserve -999 for a call that "
                           "actually threw")
+
+
+    # --- C-style escaping inside a PowerShell string -----------------------------
+    # PowerShell escapes a double quote with a BACKTICK, never with a backslash. A \" inside a
+    # double-quoted string ends the string and the rest of the line becomes garbage the parser
+    # refuses. Cost, 2026-09-20: probe_234_20260920_cmp01-live-filter.ps1 died at ParserError on the
+    # operator's machine, one line before the measurement it existed for. The gate below is cheap;
+    # the round trip through the operator is not.
+    for line_no, line in enumerate(txt.splitlines(), 1):
+        if line.strip().startswith('#'):
+            continue
+        if re.search(r'\\"', line):
+            faults.append("line %d: a double quote escaped with a BACKSLASH inside a PowerShell "
+                          "string - the escape character is a backtick. As written, the string ends "
+                          "early and the line is a parse error" % line_no)
+            break
 
     return faults, notes
 
