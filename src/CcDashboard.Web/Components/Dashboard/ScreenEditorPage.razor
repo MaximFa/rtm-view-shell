@@ -164,7 +164,7 @@
                                 <button class="btn btn-link btn-sm p-0 text-danger ms-1"
                                         @onclick="() => ConfirmDeleteTemplate(template)"
                                         @onclick:stopPropagation
-                                        title="Delete template">
+                                        title="@L["Screens_DeleteTemplate"]">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             </div>
@@ -199,7 +199,7 @@
                          @onclick="e => SelectWidget(widget.Id, e.CtrlKey, e.ShiftKey)"
                          @onclick:stopPropagation="true">
                         <div class="widget-toolbar">
-                            <button class="widget-toolbar-btn" title="Save as template"
+                            <button class="widget-toolbar-btn" title="@L["Screens_SaveAsTemplate"]"
                                     @onclick="() => OpenSaveAsTemplate(widget)" @onclick:stopPropagation="true">
                                 <i class="bi bi-bookmark-plus"></i>
                             </button>
@@ -458,7 +458,7 @@
                                             }
                                             @if (!BusinessUnits.Any())
                                             {
-                                                <div class="dropdown-item text-muted">No Business Units available</div>
+                                                <div class="dropdown-item text-muted">@L["Screens_NoBusinessUnits"]</div>
                                             }
                                         </div>
                                     }
@@ -860,7 +860,7 @@
                                                      @onclick="CloseColorPalette"></div>
                                                 <div class="color-palette-dropdown">
                                                     <span class="clr-swatch @(ConfigPriorityHighBgColor == "auto" ? "selected" : "")"
-                                                          title="Auto"
+                                                          title="@L["Common_Auto"]"
                                                           style="background: linear-gradient(135deg, #ffc107 50%, #fff3cd 50%); cursor: pointer;"
                                                           @onclick="@(() => { ConfigPriorityHighBgColor = "auto"; CloseColorPalette(); })"
                                                           @onclick:stopPropagation></span>
@@ -887,7 +887,7 @@
                                                      @onclick="CloseColorPalette"></div>
                                                 <div class="color-palette-dropdown">
                                                     <span class="clr-swatch @(ConfigDarkPriorityHighBgColor == "auto" ? "selected" : "")"
-                                                          title="Auto"
+                                                          title="@L["Common_Auto"]"
                                                           style="background: linear-gradient(135deg, #ffc107 50%, #664d03 50%); cursor: pointer;"
                                                           @onclick="@(() => { ConfigDarkPriorityHighBgColor = "auto"; CloseColorPalette(); })"
                                                           @onclick:stopPropagation></span>
@@ -919,7 +919,7 @@
                                                      @onclick="CloseColorPalette"></div>
                                                 <div class="color-palette-dropdown">
                                                     <span class="clr-swatch @(ConfigPriorityHighTextColor == "auto" ? "selected" : "")"
-                                                          title="Auto"
+                                                          title="@L["Common_Auto"]"
                                                           style="background: linear-gradient(135deg, #664d03 50%, #997404 50%); cursor: pointer;"
                                                           @onclick="@(() => { ConfigPriorityHighTextColor = "auto"; CloseColorPalette(); })"
                                                           @onclick:stopPropagation></span>
@@ -946,7 +946,7 @@
                                                      @onclick="CloseColorPalette"></div>
                                                 <div class="color-palette-dropdown">
                                                     <span class="clr-swatch @(ConfigDarkPriorityHighTextColor == "auto" ? "selected" : "")"
-                                                          title="Auto"
+                                                          title="@L["Common_Auto"]"
                                                           style="background: linear-gradient(135deg, #ffc107 50%, #ffda6a 50%); cursor: pointer;"
                                                           @onclick="@(() => { ConfigDarkPriorityHighTextColor = "auto"; CloseColorPalette(); })"
                                                           @onclick:stopPropagation></span>
@@ -1477,8 +1477,8 @@
                             {
                                 <div class="text-center text-muted py-4">
                                     <i class="bi bi-funnel fs-3 mb-2 d-block opacity-50"></i>
-                                    <p class="small mb-0">No filter conditions defined.</p>
-                                    <p class="small text-muted">Add conditions to filter rows before display.</p>
+                                    <p class="small mb-0">@L["Screens_NoFilterConditions"]</p>
+                                    <p class="small text-muted">@L["Screens_NoFilterConditionsHint"]</p>
                                 </div>
                             }
                             else
@@ -1527,7 +1527,7 @@
                                         @if (rule.Operator != "empty" && rule.Operator != "notempty")
                                         {
                                             <input type="text" class="form-control form-control-sm" style="flex: 1;"
-                                                   placeholder="Value..."
+                                                   placeholder="@L["Screens_ValuePlaceholder"]"
                                                    value="@rule.Value"
                                                    @onchange="e => UpdateTableFilterValue(idx, e.Value?.ToString() ?? string.Empty)" />
                                         }
@@ -1584,13 +1584,13 @@
                                                     <button type="button" class="btn btn-link btn-sm p-0 text-muted"
                                                             disabled="@isFirst"
                                                             @onclick="() => MoveColumnDef(colId, -1)"
-                                                            title="Move up">
+                                                            title="@L["Common_MoveUp"]">
                                                         <i class="bi bi-chevron-up"></i>
                                                     </button>
                                                     <button type="button" class="btn btn-link btn-sm p-0 text-muted"
                                                             disabled="@isLast"
                                                             @onclick="() => MoveColumnDef(colId, 1)"
-                                                            title="Move down">
+                                                            title="@L["Common_MoveDown"]">
                                                         <i class="bi bi-chevron-down"></i>
                                                     </button>
                                                 </div>
@@ -1617,7 +1617,7 @@
                                             <div class="col-auto" style="width: 40px;">
                                                 <button type="button" class="btn btn-link btn-sm p-0 text-danger"
                                                         @onclick="() => RemoveColumnDef(colId)"
-                                                        title="Remove column">
+                                                        title="@L["Screens_RemoveColumn"]">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </div>
@@ -1629,7 +1629,7 @@
                             {
                                 <div class="text-center text-muted py-5">
                                     <i class="bi bi-columns-gap fs-1 mb-3 d-block opacity-50"></i>
-                                    <p class="mb-3">No columns defined yet.</p>
+                                    <p class="mb-3">@L["Screens_NoColumnsYet"]</p>
                                     <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddColumnDef">
                                         <i class="bi bi-plus"></i> Add first column
                                     </button>
@@ -1786,9 +1786,9 @@
                             {
                                 <div class="row row-header mb-1 small text-muted fw-medium">
                                     <div class="col-auto" style="width: 50px;"></div>
-                                    <div class="col">Business Unit</div>
-                                    <div class="col">Queue Name</div>
-                                    <div class="col-auto" style="width: 120px;">Colors</div>
+                                    <div class="col">@L["Widgets_BusinessUnit"]</div>
+                                    <div class="col">@L["Screens_ColumnQueueName"]</div>
+                                    <div class="col-auto" style="width: 120px;">@L["WidgetCfg_Colors"]</div>
                                     <div class="col-auto" style="width: 40px;"></div>
                                 </div>
 
@@ -1806,13 +1806,13 @@
                                                     <button type="button" class="btn btn-link btn-sm p-0 text-muted"
                                                             disabled="@isFirst"
                                                             @onclick="() => MoveQueueGridRow(rowId, -1)"
-                                                            title="Move up">
+                                                            title="@L["Common_MoveUp"]">
                                                         <i class="bi bi-chevron-up"></i>
                                                     </button>
                                                     <button type="button" class="btn btn-link btn-sm p-0 text-muted"
                                                             disabled="@isLast"
                                                             @onclick="() => MoveQueueGridRow(rowId, 1)"
-                                                            title="Move down">
+                                                            title="@L["Common_MoveDown"]">
                                                         <i class="bi bi-chevron-down"></i>
                                                     </button>
                                                 </div>
@@ -1820,7 +1820,7 @@
                                             <div class="col">
                                                 <div class="position-relative">
                                                     <input type="text" class="form-control form-control-sm"
-                                                           placeholder="Select Business Unit..."
+                                                           placeholder="@L["Screens_SelectBusinessUnitPlaceholder"]"
                                                            data-dropdown-id="queuerowbu-@rowIdx"
                                                            value="@(_queueRowBuDropdownOpenFor == rowIdx ? _queueRowBuSearchText : row.BusinessUnitName ?? "")"
                                                            @onclick="e => OpenQueueRowBuDropdown(rowIdx, e)"
@@ -1841,7 +1841,7 @@
                                                             }
                                                             @if (!GetFilteredQueueRowBus().Any())
                                                             {
-                                                                <span class="dropdown-item-text text-muted small">No matches</span>
+                                                                <span class="dropdown-item-text text-muted small">@L["Common_NoMatches"]</span>
                                                             }
                                                         </div>
                                                     }
@@ -1869,7 +1869,7 @@
                                                                 <div class="color-palette-grid">
                                                                     <div class="color-palette-swatch @(string.IsNullOrEmpty(row.BackgroundColor) ? "selected" : "")"
                                                                          style="background: transparent; border: 1px dashed #ccc;"
-                                                                         title="Default"
+                                                                         title="@L["Common_Default"]"
                                                                          @onclick="() => SelectQueueRowBgColor(rowId, null)">
                                                                         <span class="small text-muted">D</span>
                                                                     </div>
@@ -1898,7 +1898,7 @@
                                                                 <div class="color-palette-grid">
                                                                     <div class="color-palette-swatch @(string.IsNullOrEmpty(row.FontColor) ? "selected" : "")"
                                                                          style="background: #333; border: 1px dashed #ccc;"
-                                                                         title="Default"
+                                                                         title="@L["Common_Default"]"
                                                                          @onclick="() => SelectQueueRowFontColor(rowId, null)">
                                                                         <span class="small text-white">D</span>
                                                                     </div>
@@ -1918,7 +1918,7 @@
                                             <div class="col-auto" style="width: 40px;">
                                                 <button type="button" class="btn btn-link btn-sm p-0 text-danger"
                                                         @onclick="() => RemoveQueueGridRow(rowId)"
-                                                        title="Remove row">
+                                                        title="@L["Screens_RemoveRow"]">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </div>
@@ -1930,7 +1930,7 @@
                             {
                                 <div class="text-center text-muted py-5">
                                     <i class="bi bi-list-ul fs-1 mb-3 d-block opacity-50"></i>
-                                    <p class="mb-3">No rows defined yet.</p>
+                                    <p class="mb-3">@L["Screens_NoRowsYet"]</p>
                                     <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddQueueGridRow">
                                         <i class="bi bi-plus"></i> Add first row
                                     </button>
@@ -1973,13 +1973,13 @@
                                                     <button type="button" class="btn btn-link btn-sm p-0 text-muted"
                                                             disabled="@isFirst"
                                                             @onclick="() => MoveQueueGridColumnDef(colId, -1)"
-                                                            title="Move up">
+                                                            title="@L["Common_MoveUp"]">
                                                         <i class="bi bi-chevron-up"></i>
                                                     </button>
                                                     <button type="button" class="btn btn-link btn-sm p-0 text-muted"
                                                             disabled="@isLast"
                                                             @onclick="() => MoveQueueGridColumnDef(colId, 1)"
-                                                            title="Move down">
+                                                            title="@L["Common_MoveDown"]">
                                                         <i class="bi bi-chevron-down"></i>
                                                     </button>
                                                 </div>
@@ -2006,7 +2006,7 @@
                                             <div class="col-auto" style="width: 40px;">
                                                 <button type="button" class="btn btn-link btn-sm p-0 text-danger"
                                                         @onclick="() => RemoveQueueGridColumnDef(colId)"
-                                                        title="Remove column">
+                                                        title="@L["Screens_RemoveColumn"]">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </div>
@@ -2018,7 +2018,7 @@
                             {
                                 <div class="text-center text-muted py-5">
                                     <i class="bi bi-columns-gap fs-1 mb-3 d-block opacity-50"></i>
-                                    <p class="mb-3">No columns defined yet.</p>
+                                    <p class="mb-3">@L["Screens_NoColumnsYet"]</p>
                                     <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddQueueGridColumnDef">
                                         <i class="bi bi-plus"></i> Add first column
                                     </button>
@@ -2173,7 +2173,7 @@
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="save-template-title">Save as Template</h5>
+                    <h5 class="modal-title" id="save-template-title">@L["Screens_SaveAsTemplate"]</h5>
                     <button type="button" class="btn-close" @onclick="CancelSaveAsTemplate" aria-label="@L["Common_Close"]"></button>
                 </div>
                 <div class="modal-body">
@@ -2181,13 +2181,13 @@
                         Save "<strong>@WidgetToSaveAsTemplate.Name</strong>" as a reusable template with all its configuration.
                     </p>
                     <div class="mb-3">
-                        <label class="form-label">Template Name</label>
+                        <label class="form-label">@L["Screens_TemplateName"]</label>
                         <input type="text" class="form-control" @bind="TemplateName" maxlength="200"
-                               placeholder="Enter template name..." />
+                               placeholder="@L["Screens_TemplateNamePlaceholder"]" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary btn-sm" @onclick="CancelSaveAsTemplate">Cancel</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="CancelSaveAsTemplate">@L["Common_Cancel"]</button>
                     <button class="btn btn-primary btn-sm" @onclick="SaveAsTemplate" disabled="@(SavingTemplate || string.IsNullOrWhiteSpace(TemplateName))">
                         @if (SavingTemplate)
                         {
@@ -2209,15 +2209,15 @@
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="delete-template-title">Delete Template</h5>
+                    <h5 class="modal-title" id="delete-template-title">@L["Screens_DeleteTemplate"]</h5>
                     <button type="button" class="btn-close" @onclick="CancelDeleteTemplate" aria-label="@L["Common_Close"]"></button>
                 </div>
                 <div class="modal-body">
                     <p>Are you sure you want to delete the template "<strong>@TemplateToDelete.Name</strong>"?</p>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary btn-sm" @onclick="CancelDeleteTemplate">Cancel</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DeleteTemplate">Delete</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="CancelDeleteTemplate">@L["Common_Cancel"]</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DeleteTemplate">@L["Common_Delete"]</button>
                 </div>
             </div>
         </div>
