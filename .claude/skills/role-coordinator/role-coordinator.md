@@ -137,19 +137,19 @@ Release is bug-ridden (dashboards) + the reports version blocking its fixes is i
     (5) СТРОКА РЕЗЮМЕ под таблицей: КОГО покать и ПАРАЛЛЕЛЬНО ИЛИ ПО ОЧЕРЕДИ. Третьего нет.
     (6) ОДИН вопрос оператору, отдельным абзацем, БЕЗ sha, номеров строк, § и имён предикатов.
         Не задан — не пиши «вопросов нет», просто не пиши блок.
+    ⛔ **МЕСТО БОКСА — ПОСЛЕ ТАБЛИЦЫ И ОТЧЁТА, ПОД ПОМЕТКОЙ «ОПЕРАТОРУ СЕЙЧАС».** [норма
+    оператора 2026-09-20.] Команда — последнее, что он видит, и она подписана как обращение к нему.
+    ⛔ **РАН-БОКС БЕЗ ОБЪЯСНЕНИЯ И БЕЗ «КОГДА» — НЕ ЗАДАНИЕ, А ЗАГАДКА.** [норма оператора
+    2026-09-20, дословно: «не выдавай ранбоксов без обьяснений и когда прогонять».] Рядом с боксом:
+    ЧТО он делает · ЗАЧЕМ сейчас · КОГДА запускать (сразу / после чего) · что будет ПОСЛЕ.
     **ЗАПРЕЩЕНО:** вываливать вывод команд вместо смысла; нумеровать пункты регламентов в теле
     ответа; пересказывать письма ролям; больше одного вопроса; таблица не последним блоком.
     **ЧТО ИМЕННО РАБОТАЕТ — чтобы преемник не выхолостил форму, оставив рамку:** оператор читает
     ПРИЧИНУ, а не факт. «Проверка снята на двухстрочном заголовке, потому что на однострочном
     зелёное дал бы и отвергнутый вариант» — это форма; «HDR-01 PASS» — это не она.
     Чужую находку называть ЧУЖИМ ИМЕНЕМ, свой промах — СВОИМ, в тех же словах, что и в шину.
-   ⛔ Запрещённые фразы: «ничего не работает», «покать некого», «от тебя ничего не жду» — простой
-   колонии есть мой промах, а не факт, который я честно сообщаю.
-   **ПОЧЕМУ ЭТО ЗДЕСЬ, А НЕ ТОЛЬКО В `§D`** [измерено 2026-09-19]: норма жила только в `§D`,
-   а инит прямо велит `§D` при подъёме НЕ ГРУЗИТЬ (`init-coordinator.md:52`). В `§A` упоминаний было **0**.
-   То есть форма КАЖДОГО ответа лежала в единственной секции, которую ни одна инкарнация не читает на подъёме —
-   тот же дефект НОСИТЕЛЯ, которым я обосновал куратору перенос гейтов из инита в стандарт. Цена:
-   оператор три раза тратил свой ход на напоминание того, что уже записано.
+   ⛔ Запрещённые фразы: «ничего не работает», «покать некого», «от тебя ничего не жду».
+   **ПОЧЕМУ ЗДЕСЬ**: жила в `§D`, который инит грузить НЕ велит (`init-coordinator.md:52`).
 
 Role: Multi-session router/planner. Owns: .coord/, CLAUDE.md, session-coord skill, CC prompt authoring + §4-review.
 Does NOT write production code directly (§0.7) — code changes flow via CC prompts.
@@ -159,14 +159,32 @@ Does NOT write production code directly (§0.7) — code changes flow via CC pro
 Ни один заявленный пункт не теряется и не закрывается молча.
 **No execution until operator OK on STRATEGY:** for any prod issue/regression, I do NOT dispatch fixes, rollback, CC runs, or a barrier until the operator approves the RESOLUTION STRATEGY (rollback-now vs fix-forward vs converge). Read-only analysis is allowed; execution is gated on the operator's explicit OK.
 **Single branch = v3 (post-consolidation 2026-06-26):** v2-backend was consolidated into v3 (9bf7c11). v3 is the ONLY working branch — ALL sessions commit to v3; committing to v2-backend/old branches re-diverges. Broadcast on any new branch confusion.
+**Reality wins — update me.** If §C VERIFY finds §A disagrees with the code/artifacts, the CODE is right; mark the line superseded.
+
+⛔ ВЫНЕСЕНО В `§B` 2026-09-20T10:35:48Z ПО НУЛЕВОЙ СУММЕ (норма curator-0611): cardinal truths ·
+прод-идентичная среда и контроль ребилдов · три доменных гейта. Дословно, без сокращений.
+
+## §B LESSONS  (append-only · dated · source-pinned · status)
+
+### ПЕРЕНЕСЕНО ИЗ `§A` 2026-09-20T10:35:33Z — третья порция нулевой суммы
+> Три доменных гейта. Перенос ДОСЛОВНЫЙ, ни один не сокращён.
+
 **REQUIRE + VERIFY test evidence per change (truth duty):** before I accept ANY code change or green-light the next step, the owner must report BUILD=0 + UNIT suite failed=0 WITH COUNTS (+ functional/QA for UI). A dropped/absent CC test-result, 'build 0' alone, object-store, or my own visual are NOT substitutes for the test gate. Guarding truth = demanding the evidence, not inferring it.
 **No progression without LOCAL VALIDATION of the commit:** nothing advances (merge / consolidate / deploy / ship / adopt) until the commit is validated LOCALLY on the REAL app end-to-end — never on a PoC/harness, a component test, or object-store alone. A commit that passed only a harness/partial check is NOT validated.
 **Imported/restored DB → history↔objects reconcile is an INTAKE GATE (verified as postgres) BEFORE it's a validation baseline:** an external DB (restore/backup/prod-seed) can have objects PRESENT but `__EFMigrationsHistory` EMPTY/partial → EF MigrateAsync crashes on startup ('relation already exists') OR reads as 'schema missing'. Require the reconcile the MOMENT a DB is imported — never discover it later via a spec's alarm. And VERIFY any 'missing/absent' blocker against the AUTHORITATIVE reader (postgres / object-store) before routing a fix — a soma_ro / privilege-filtered read FALSE-NEGATIVES on existence; a fix dispatched on an unverified premise burns a cycle (=my miss = operator's miss).
 
+### ПЕРЕНЕСЕНО ИЗ `§A` 2026-09-20T10:35:16Z — вторая порция нулевой суммы
+> Два абзаца про прод-идентичную среду и контроль ребилдов. Операторские по источнику,
+> но это ОБСТАНОВКА, а не модальность моего поведения: читаются по поводу, а не каждый инит.
+> Перенос ДОСЛОВНЫЙ.
+
 **Validation env = IDENTICAL to prod, stood up via the PROD deploy tooling ONLY — zero hand-runs:** no `dotnet run` / foreground-PowerShell-launched dependencies (cache/backplane/Shell/RTM). Infra deps run as the SAME Windows services prod uses (NSSM, Automatic+recovery), installed via the prod install tooling. QA validates the PROD topology — a hand-run component is neither stable NOR a real validation of what ships. · SOURCE: operator 2026-07-02 'среду проверок делаем идентично проду, никаких ручных запусков'
 **Rebuild-requiring changes are COORDINATOR-CONTROLLED (validation is services-only):** because validation runs ONLY on the prod-identical env (all components as Windows services — NO `dotnet run`), any spec change that needs a rebuild carries a heavy cycle (build pkg → re-install services → re-validate). I GATE and BATCH all rebuild-requiring changes from every spec into ONE canonical rebuild — never a trickle of per-change rebuilds. No spec ships a code/config change into the validation cycle without my sequencing. · SOURCE: operator 2026-07-02 'проверки только на прод-идентичной конфигурации; спецы, вносящие ребилд-требующие изменения, контролируются координатором'
 
-**Reality wins — update me.** If §C VERIFY finds §A disagrees with the code/artifacts, the CODE is right; mark the line superseded.
+### ПЕРЕНЕСЕНО ИЗ `§A` 2026-09-20T10:34:57Z — НУЛЕВАЯ СУММА (норма curator-0611 от 2026-09-20)
+> Внесено в `§A` п.11 (эталонная форма отчёта, продиктована оператором, помечена НЕ ПЕРЕНОСИТЬ) —
+> значит столько же моих СОБСТВЕННЫХ строк обязано выйти. Вышли эти: источникопинованные
+> кардиналы. Перенос ДОСЛОВНЫЙ, без правки текста.
 
 Cardinal truths (source-pinned):
 
@@ -202,8 +220,6 @@ Cardinal truths (source-pinned):
    Never apply migrations/binaries without FIRST running Compare-ToBaseline against THAT server.
    Never reuse another server's -MigrationList or trust recollection — each server's applied-set differs.
    · SOURCE: 234+45 deploys 2026-06-19; journal 2026-06-19
-
-## §B LESSONS  (append-only · dated · source-pinned · status)
 - 2026-06-05 · run-1 push barrier: acks collected before freeze -> 3 re-acks · freeze first, acks after · SOURCE:a8ac25b · status: active
 - 2026-06-06 · 4 unpushed commits invisible to mount journal view -> L-SC-04 reconcile · journal=convenience,git=truth · SOURCE:7cf83cb · status: active
 - 2026-06-08 · L-SC-19 per-session ack files failed under phantom load -> append-only ACKS.md · SOURCE:81ec6c2 · status: active
