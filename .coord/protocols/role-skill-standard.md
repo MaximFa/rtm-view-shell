@@ -13,6 +13,17 @@ the incarnation ends, or it is lost by design.
 Frontmatter: `role, project, version, last_verified, owner: <role>, reviewer: curator`.
 - §A CORE — invariant, HARD CAP ~40 lines, loaded EVERY init. Role rules + the caveat "reality wins — update me" +
   3-7 cardinal truths, EACH source-pinned. If §A can't be read in one breath, weed §B.
+  **§A — МЕСТО С НУЛЕВОЙ СУММОЙ (норма 2026-09-20, куратор).** Кап — не пожелание: `§A` грузится
+  при КАЖДОМ ините КАЖДОЙ роли, то есть его строки оплачиваются чаще всех прочих в колонии.
+  Поэтому **внесение в `§A` обязано сопровождаться прополкой `§A` не меньшего объёма**: вошло N
+  строк — вышло N. Возведение урока в `§A` есть ЗАМЕНА, а не дописывание; вытесненное уходит в `§B`
+  целиком, без сокращения. Предъявляется парой «до/после» в строках и байтах.
+  **Без этого кап становится украшением:** [измерено 2026-09-20] `role-coordinator` 177 строк
+  при капе ~40, `role-devops` 115, `role-shell` 52, `role-curator` 44 — то есть нарушен и у автора
+  этой нормы. Восемь тел из двенадцати в капе, четыре вне.
+  **Пункт, продиктованный оператором дословно, помечается `НЕ ПЕРЕНОСИТЬ` и прополке не подлежит** —
+  иначе следующая инкарнация «наведёт порядок» и вынесет в `§B` ровно то, что туда попадать не должно.
+  Прополка не отменяется и для него: место под него освобождается за счёт других строк.
 - §B LESSONS — append-only, dated, with status. One line each:
   `<date> · <what happened> · <rule> · SOURCE:<commit/journal-ts/log/file:line> · status: active|superseded-by:<id>`
 - §C VERIFY — at init: spot-check §A cardinal truths against CURRENT code/artifacts; mismatch -> mark superseded, do NOT act on it.
@@ -40,6 +51,17 @@ Frontmatter: `role, project, version, last_verified, owner: <role>, reviewer: cu
   how the role ACTS at init / high recurrence / high blast-radius. Default = §B; §A is RESERVED for critical amplifiers and stays
   within the ~40-line cap (elevate deliberately; weed §A when it overflows). Capture EVERYTHING in §B; promote ONLY amplifiers.
 - Periodically weed §B so §A stays loadable. Writes are native-CC only (mount truncates), via §4-review.
+- **ПРОЧИТАННАЯ НОРМА НЕ ЕСТЬ ИСПОЛНЯЕМАЯ (норма 2026-09-20, кандидат `coordinator-0919b`, принят).**
+  Форма, чьё исполнение не проверяется, живёт до первой спешки. Предикат ставится ОДИН раз за
+  инкарнацию и не превращается в ритуал: **ПЕРВЫЙ отчёт роли после инита разбирается ею самой
+  по блокам объявленной формы** — есть ли обязательный блок последним, одна ли строка резюме,
+  один ли вопрос. Проверяется то, что роль и так производит; дополнительной работы это не создаёт.
+  Повторять на каждом отчёте ЗАПРЕЩЕНО: датчик, возведённый в обряд, сам становится машинерией.
+  Оплаченный случай: Н-12 лежала в стандарте, роль привела её в отчёте и нарушила через ход.
+- **ГРАНИЦА ЧЕСТНОСТИ — ОТДЕЛЬНЫМ БЛОКОМ, НЕ ОГОВОРКОЙ В ПРОЗЕ (агностическая половина формы
+  отчёта, 2026-09-20).** В любом отчёте кому бы то ни было: (а) «что НЕ проверено» стоит отдельным
+  блоком, а не растворяется в тексте; (б) **чужая находка называется чужим именем, свой промах —
+  своим.** Порядок остальных блоков — дело роли и её оператора; эти две вещи не зависят от роли.
 
 ## Lifecycle (vertical, brother of the §42 horizontal lifecycle)
 INIT/HANDOFF (wake ritual): (1) §0.2 integrity-check; (2) read role-<role>.md §A CORE — expert from line 1;
