@@ -1126,5 +1126,24 @@
   <data name="Reports_Edit"><value>Edit Report</value></data>
   <data name="UnknownWidget"><value>Unknown widget</value></data>
   <data name="View"><value>View</value></data>
+  <data name="Common_Auto"><value>Auto</value></data>
+  <data name="Common_MoveUp"><value>Move up</value></data>
+  <data name="Common_MoveDown"><value>Move down</value></data>
+  <data name="Common_Default"><value>Default</value></data>
+  <data name="Common_NoMatches"><value>No matches</value></data>
+  <data name="Screens_SaveAsTemplate"><value>Save as Template</value></data>
+  <data name="Screens_DeleteTemplate"><value>Delete Template</value></data>
+  <data name="Screens_TemplateName"><value>Template Name</value></data>
+  <data name="Screens_TemplateNamePlaceholder"><value>Enter template name...</value></data>
+  <data name="Screens_NoBusinessUnits"><value>No Business Units available</value></data>
+  <data name="Screens_SelectBusinessUnitPlaceholder"><value>Select Business Unit...</value></data>
+  <data name="Screens_ValuePlaceholder"><value>Value...</value></data>
+  <data name="Screens_ColumnQueueName"><value>Queue Name</value></data>
+  <data name="Screens_RemoveColumn"><value>Remove column</value></data>
+  <data name="Screens_RemoveRow"><value>Remove row</value></data>
+  <data name="Screens_NoColumnsYet"><value>No columns defined yet.</value></data>
+  <data name="Screens_NoRowsYet"><value>No rows defined yet.</value></data>
+  <data name="Screens_NoFilterConditions"><value>No filter conditions defined.</value></data>
+  <data name="Screens_NoFilterConditionsHint"><value>Add conditions to filter rows before display.</value></data>
 </root>
 

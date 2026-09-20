@@ -1128,5 +1128,24 @@
   <data name="Reports_Edit"><value>Редактирование отчёта</value></data>
   <data name="UnknownWidget"><value>Неизвестный виджет</value></data>
   <data name="View"><value>Просмотр</value></data>
+  <data name="Common_Auto"><value>Авто</value></data>
+  <data name="Common_MoveUp"><value>Переместить вверх</value></data>
+  <data name="Common_MoveDown"><value>Переместить вниз</value></data>
+  <data name="Common_Default"><value>По умолчанию</value></data>
+  <data name="Common_NoMatches"><value>Нет совпадений</value></data>
+  <data name="Screens_SaveAsTemplate"><value>Сохранить как шаблон</value></data>
+  <data name="Screens_DeleteTemplate"><value>Удалить шаблон</value></data>
+  <data name="Screens_TemplateName"><value>Название шаблона</value></data>
+  <data name="Screens_TemplateNamePlaceholder"><value>Введите название шаблона...</value></data>
+  <data name="Screens_NoBusinessUnits"><value>Нет доступных подразделений</value></data>
+  <data name="Screens_SelectBusinessUnitPlaceholder"><value>Выберите подразделение...</value></data>
+  <data name="Screens_ValuePlaceholder"><value>Значение...</value></data>
+  <data name="Screens_ColumnQueueName"><value>Название очереди</value></data>
+  <data name="Screens_RemoveColumn"><value>Удалить столбец</value></data>
+  <data name="Screens_RemoveRow"><value>Удалить строку</value></data>
+  <data name="Screens_NoColumnsYet"><value>Столбцы ещё не заданы.</value></data>
+  <data name="Screens_NoRowsYet"><value>Строки ещё не заданы.</value></data>
+  <data name="Screens_NoFilterConditions"><value>Условия фильтра не заданы.</value></data>
+  <data name="Screens_NoFilterConditionsHint"><value>Добавьте условия, чтобы отфильтровать строки перед показом.</value></data>
 </root>
 

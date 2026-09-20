@@ -1124,5 +1124,24 @@
   <data name="Reports_Edit"><value>עריכת דוח</value></data>
   <data name="UnknownWidget"><value>ווידג'ט לא מוכר</value></data>
   <data name="View"><value>צפייה</value></data>
+  <data name="Common_Auto"><value>אוטומטי</value></data>
+  <data name="Common_MoveUp"><value>הזז למעלה</value></data>
+  <data name="Common_MoveDown"><value>הזז למטה</value></data>
+  <data name="Common_Default"><value>ברירת מחדל</value></data>
+  <data name="Common_NoMatches"><value>אין התאמות</value></data>
+  <data name="Screens_SaveAsTemplate"><value>שמור כתבנית</value></data>
+  <data name="Screens_DeleteTemplate"><value>מחק תבנית</value></data>
+  <data name="Screens_TemplateName"><value>שם התבנית</value></data>
+  <data name="Screens_TemplateNamePlaceholder"><value>הזן שם תבנית...</value></data>
+  <data name="Screens_NoBusinessUnits"><value>אין יחידות עסקיות זמינות</value></data>
+  <data name="Screens_SelectBusinessUnitPlaceholder"><value>בחר יחידה עסקית...</value></data>
+  <data name="Screens_ValuePlaceholder"><value>ערך...</value></data>
+  <data name="Screens_ColumnQueueName"><value>שם התור</value></data>
+  <data name="Screens_RemoveColumn"><value>הסר עמודה</value></data>
+  <data name="Screens_RemoveRow"><value>הסר שורה</value></data>
+  <data name="Screens_NoColumnsYet"><value>לא הוגדרו עמודות עדיין.</value></data>
+  <data name="Screens_NoRowsYet"><value>לא הוגדרו שורות עדיין.</value></data>
+  <data name="Screens_NoFilterConditions"><value>לא הוגדרו תנאי סינון.</value></data>
+  <data name="Screens_NoFilterConditionsHint"><value>הוסף תנאים לסינון שורות לפני התצוגה.</value></data>
 </root>
 
