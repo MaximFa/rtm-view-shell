@@ -139,6 +139,40 @@ def check(path):
         notes.append("the report is written in ONE place while the probe runs an external program: if that "
                      "run breaks the operator is left with an empty file. Flush before and after")
 
+
+    # --- inherited expectations -------------------------------------------------
+    # A probe is usually born by copying its predecessor. The BODY survives the copy correctly; the
+    # EXPECTATIONS do not - they are parameters of one flight. Measured cost, 2026-09-20: a probe named
+    # ...install-0f969d8 printed "expected ProductVersion carries 0ae2102", a value two flights old,
+    # and a probe reused last flight's satellite sizes, which would have made its check unable to fail.
+    # a 7-char token made only of digits is a date (20260920), not a commit - exclude it in BOTH
+    # directions, or every probe named with a date reports a false fault
+    def _commitish(tok): return bool(re.search(r'[a-f]', tok))
+    stem_commits = set(t for t in re.findall(r'[0-9a-f]{7}', os.path.basename(path)) if _commitish(t))
+    # LIMIT, stated rather than hidden: this check only works for probes whose NAME carries the
+    # commit they are for. A probe named only by date gets no check here - its expectations are
+    # unverifiable from the filename, and a green from this gate says nothing about them.
+    if stem_commits:
+        for m in re.finditer(r'(?i)expect\w*[^\n]{0,80}?\b([0-9a-f]{7})\b', code):
+            if _commitish(m.group(1)) and m.group(1) not in stem_commits:
+                faults.append("an EXPECTATION names commit %s while this probe is named for %s: an "
+                              "expectation inherited from the probe this one was copied from. "
+                              "Expectations are per-flight parameters - re-measure them, never carry "
+                              "them over" % (m.group(1), '/'.join(sorted(stem_commits))))
+                break
+
+    # --- a genuine zero printed as NOT MEASURED ---------------------------------
+    # SafeCount-style helpers return a sentinel (-999) when the call failed. Passing a bare
+    # Get-ChildItem to them makes an EMPTY result indistinguishable from a failed one, and the report
+    # says NOT MEASURED where the truth is zero. Found 2026-09-19, still shipping on 2026-09-20.
+    if re.search(r'-999', code):
+        bare = re.findall(r'SafeCount\s*\(\s*Get-(?:ChildItem|Process|Service)', code)
+        if bare:
+            faults.append("a -999 'not measured' sentinel is combined with SafeCount(Get-...) on a bare "
+                          "cmdlet: an empty result reaches the sentinel and a genuine ZERO is printed as "
+                          "NOT MEASURED. Wrap the call in @(...) first, and reserve -999 for a call that "
+                          "actually threw")
+
     return faults, notes
 
 
