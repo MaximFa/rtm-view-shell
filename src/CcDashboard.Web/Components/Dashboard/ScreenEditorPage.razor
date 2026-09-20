@@ -7,6 +7,7 @@
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject ICurrentUserAccessor CurrentUser
 @inject ILogger<ScreenEditorPage> Logger
+@inject IFilterPopupCoordinator FilterPopups
 @using MediatR
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.Extensions.Localization
@@ -25,11 +26,12 @@
 @using CcDashboard.Application.Queries.InfoSlots
 @using CcDashboard.Contracts.DTOs.InfoSlots
 @using Microsoft.AspNetCore.Authorization
+@using CcDashboard.Web.Services
 @implements IDisposable
 
 <PageTitle>@L["Screens_Edit"] — @(Dashboard?.Name ?? "...") — RTM View Shell</PageTitle>
 
-<div class="editor-fullscreen @(_darkMode ? "dark-mode" : "")">
+<div class="editor-fullscreen @(_darkMode ? "dark-mode" : "")" @onclick="FilterPopups.NotifyCloseAll">
     @if (Loading)
     {
         <div class="text-center py-5" aria-busy="true">

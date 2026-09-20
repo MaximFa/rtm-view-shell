@@ -8,10 +8,12 @@ public interface IFilterPopupCoordinator
 {
     event Action<object>? PopupOpened;
     void NotifyOpened(object owner);
+    void NotifyCloseAll();
 }
 
 public sealed class FilterPopupCoordinator : IFilterPopupCoordinator
 {
     public event Action<object>? PopupOpened;
     public void NotifyOpened(object owner) => PopupOpened?.Invoke(owner);
+    public void NotifyCloseAll() => PopupOpened?.Invoke(null!);
 }
