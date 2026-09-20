@@ -184,17 +184,55 @@ def check(path):
 
     # --- C-style escaping inside a PowerShell string -----------------------------
     # PowerShell escapes a double quote with a BACKTICK, never with a backslash. A \" inside a
-    # double-quoted string ends the string and the rest of the line becomes garbage the parser
-    # refuses. Cost, 2026-09-20: probe_234_20260920_cmp01-live-filter.ps1 died at ParserError on the
-    # operator's machine, one line before the measurement it existed for. The gate below is cheap;
-    # the round trip through the operator is not.
+    # double-quoted string ENDS THE STRING there.
+    # The consequence is NOT always a parse error, and saying so was a defect of this gate's own
+    # message. Measured 2026-09-20 with pwsh 7.4.6 ParseFile on both shapes:
+    #   probe_234_20260920_cmp01-live-filter.ps1  -> ParserError on the operator's machine, one line
+    #       before the measurement it existed for. The loud case.
+    #   Say "  ...[string]$MigrationList = \"\" as its"  -> errors 0. It PARSES, runs, and prints
+    #       "  ...[string] = \" - the variable name swallowed, the rest of the sentence gone. The
+    #       quiet case, and it rode through a live install on 234 unnoticed because the run was green.
+    # A message that promises a crash teaches the reader to dismiss this fault when nothing crashed -
+    # which is exactly how the quiet case survived. So the message names BOTH outcomes.
     for line_no, line in enumerate(txt.splitlines(), 1):
         if line.strip().startswith('#'):
             continue
         if re.search(r'\\"', line):
             faults.append("line %d: a double quote escaped with a BACKSLASH inside a PowerShell "
-                          "string - the escape character is a backtick. As written, the string ends "
-                          "early and the line is a parse error" % line_no)
+                          "string - the escape character is a backtick. The string ENDS at that "
+                          "quote. Sometimes that is a parse error; sometimes it parses cleanly and "
+                          "the line silently PRINTS THE WRONG TEXT, which is worse because the run "
+                          "stays green. Do not dismiss this because nothing crashed - read what the "
+                          "line actually prints" % line_no)
+            break
+
+    # --- a document that lies about ITSELF ---------------------------------------
+    # Twice in two days a probe carried its predecessor's identity in PRINTED text while doing the
+    # new flight's work: "END-OF-RUN MARKER: INSTALL-0F969D8-COMPLETE" inside install-251ca40, and
+    # "ACCEPTANCE OF 934a1c5" in a report about another commit. Nothing breaks - which is why it
+    # keeps happening: it is caught by eye, and the eye, when a probe is copied, reads the
+    # PARAMETERS and skips the print statements.
+    # The rule: if the FILENAME carries a commit, no printed marker, banner or report title may
+    # carry a different one. Provenance lines are exempt and say so in words ("BASED ON", "copied
+    # from", "previous"): naming the ancestor is the honest case this gate must not punish.
+    if stem_commits:
+        for line_no, line in enumerate(txt.splitlines(), 1):
+            if not re.search(r'(?i)(END-OF-RUN MARKER|ACCEPTANCE OF|INSTALL(ATION)? OF|REPORT TITLE|'
+                             r'MARKER\s*:)', line):
+                continue
+            if re.search(r'(?i)\b(BASED\s+ON|copied\s+from|previous|predecessor|ancestor)\b', line):
+                continue
+            for tok in re.findall(r'[0-9a-fA-F]{7}', line):
+                low = tok.lower()
+                if _commitish(low) and low not in stem_commits:
+                    faults.append("line %d: a PRINTED marker or title names commit %s while the file "
+                                  "is named for %s - the document lies about itself. A reader will "
+                                  "match the marker against the filename and spend a move on it. "
+                                  "Rename the printed text, not the file" % (line_no, tok,
+                                  '/'.join(sorted(stem_commits))))
+                    break
+            else:
+                continue
             break
 
     return faults, notes
