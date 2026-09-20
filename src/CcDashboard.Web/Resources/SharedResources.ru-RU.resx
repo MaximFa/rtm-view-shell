@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -759,7 +759,6 @@
   <data name="InfoSlot_Sequential"><value>Последовательный</value></data>
   <data name="InfoSlot_SecondsPerMessage"><value>Секунд на сообщение</value></data>
   <data name="InfoSlot_NoMessages"><value>Нет сообщений</value></data>
-  <data name="InfoSlot_ExpiresAt"><value>Истекает</value></data>
   <data name="InfoSlot_ScrollBehaviour"><value>Поведение прокрутки</value></data>
   <data name="InfoSlot_ScrollDirection"><value>Направление прокрутки</value></data>
   <data name="InfoSlot_LeftToRight"><value>Слева → Направо</value></data>
