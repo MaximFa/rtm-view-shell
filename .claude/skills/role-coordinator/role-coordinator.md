@@ -105,7 +105,44 @@ Release is bug-ridden (dashboards) + the reports version blocking its fixes is i
    [норма оператора 2026-08-30, подтверждена 18.09 и 19.09]. Не «когда уместно» — ВСЕГДА: короткий ответ,
    отчёт, поправка, да/нет — всё равно с таблицей. Строка на КАЖДУЮ живую роль со слагом; один шаг, не список;
    момент — факт с диска; статус только из набора; у лежащего задания — `🔔 нужен поке` и ГОТОВАЯ команда;
-   под таблицей одна строка «Покать сейчас: …» — КОГО, и параллельно ли. Форма колонок — `§D` п.8.
+   ПОД ТАБЛИЦЕЙ — РОВНО ОДНА СТРОКА РЕЗЮМЕ, и она важнее самой таблицы.
+   Форма таблицы НЕ МЕНЯЕТСЯ (пять колонок, см. ниже в этой же секции) — менять её под случай запрещено:
+   оператор читает её глазами каждый раз и привык к месту колонок.
+   Строка резюме отвечает НА ДВА ВОПРОСА СРАЗУ и без двусмысленности:
+   **КОГО покать сейчас** и **ПАРАЛЛЕЛЬНО ИЛИ ПО ОЧЕРЕДИ**. Третьего в ней нет.
+   ⛔ ЗАПРЕЩЕНО в одной фразе говорить «сначала X» и «остальные параллельно с ним» — оператор
+   не может из этого понять, ждёт кто-то или нет [поправка оператора 2026-09-19T20:44:41Z, дословно:
+   «есть зависимость или нет? один за другим или параллельно?»].
+   Зависимость внутри ОЧЕРЕДИ ОДНОЙ роли — НЕ зависимость между ролями и в резюме не упоминается
+   вовсе: роль покается, если ей есть что делать ПЕРВЫМ шагом. Оператор покает и разбирает
+   параллельно — это его слова, экономить его ходы урезанием числа поков НЕ надо.
+   Форма колонок — ниже в этой же секции.
+   ⛔ **ФОРМА КОЛОНОК ЖИВЁТ В `§B` (заголовок `### ТАБЛИЦА ПОКОВ`), НО ВОТ ОНА, ЧТОБЫ НЕ ИСКАТЬ:**
+   `| # | роль | один следующий шаг | момент | статус |` — строка на каждую живую роль СО СЛАГОМ
+   (`shell-0919b`, не «шелл»); момент — факт с диска; статус только из набора
+   `▶ ТЕКУЩИЙ` · `🔔 нужен поке` + ГОТОВАЯ команда · `🟡 ждёт` · `🟡 HOLD` · `✅ свободен` ·
+   `⏳ параллельно` · `🔒 вне этапа` · `🔴 СТОП`; неактивные — одной свёрнутой строкой.
+
+11. ⛔ **ЭТАЛОННАЯ ФОРМА ОТЧЁТА ОПЕРАТОРУ. [норма оператора 2026-09-20, дословно: «запиши эту
+    форму подачи отчёта как эталонную для будущих инкарнаций».] ЭТО НЕ СТИЛЬ, А УСТРОЙСТВО ОТВЕТА.**
+    Проверено рейсом выката 20.09: оператор ни разу не переспросил по существу.
+    **Порядок блоков строго такой:**
+    (1) ЧТО ПРОИЗОШЛО — 2-5 абзацев ОБЫЧНЫМ ЯЗЫКОМ. Не пересказ переписки, а суть: что сделано,
+        что нашли, почему это важно. Технические числа — только те, что меняют смысл.
+    (2) ГЛАВНАЯ НАХОДКА ЗАХОДА выделена отдельно и объяснена ПО-ЧЕЛОВЕЧЕСКИ: почему это дефект,
+        чем он грозил, как поймали. Одна-две штуки, не список.
+    (3) ЧЕСТНАЯ ГРАНИЦА — что НЕ проверено и почему («пакет на его станции, моими командами
+        не проверяется»), названная СРАЗУ, а не в конце.
+    (4) ТАБЛИЦА ПОКОВ (п.10) — последним блоком, форма неизменна.
+    (5) СТРОКА РЕЗЮМЕ под таблицей: КОГО покать и ПАРАЛЛЕЛЬНО ИЛИ ПО ОЧЕРЕДИ. Третьего нет.
+    (6) ОДИН вопрос оператору, отдельным абзацем, БЕЗ sha, номеров строк, § и имён предикатов.
+        Не задан — не пиши «вопросов нет», просто не пиши блок.
+    **ЗАПРЕЩЕНО:** вываливать вывод команд вместо смысла; нумеровать пункты регламентов в теле
+    ответа; пересказывать письма ролям; больше одного вопроса; таблица не последним блоком.
+    **ЧТО ИМЕННО РАБОТАЕТ — чтобы преемник не выхолостил форму, оставив рамку:** оператор читает
+    ПРИЧИНУ, а не факт. «Проверка снята на двухстрочном заголовке, потому что на однострочном
+    зелёное дал бы и отвергнутый вариант» — это форма; «HDR-01 PASS» — это не она.
+    Чужую находку называть ЧУЖИМ ИМЕНЕМ, свой промах — СВОИМ, в тех же словах, что и в шину.
    ⛔ Запрещённые фразы: «ничего не работает», «покать некого», «от тебя ничего не жду» — простой
    колонии есть мой промах, а не факт, который я честно сообщаю.
    **ПОЧЕМУ ЭТО ЗДЕСЬ, А НЕ ТОЛЬКО В `§D`** [измерено 2026-09-19]: норма жила только в `§D`,
@@ -340,6 +377,113 @@ Cardinal truths (source-pinned):
 2026-09-19 · Раздал `shell` и `backend` постановку с названной заранее приёмкой, но НЕ назвал, какие обязательные блоки обязан нести CC-промпт. Оба принесли РАЗНЫЕ подмножества (у backend биндинг и sync-блок есть, у shell нет ни одного) — два независимых промаха одного класса. · ПРАВИЛО: список обязательных блоков уходит ВМЕСТЕ с постановкой, а не проверяется задним числом на §4; §4 — это проверка, а не место, где роль впервые узнаёт требования. Два независимых промаха одного класса у разных ролей — всегда дефект раздачи, а не ролей. · SOURCE: .coord/inbox/{shell,backend}.md 2026-09-19T20:0xZ · status: active
 2026-09-19 · Собрался гейтить оба промпта по CLAUDE.md §0.5/§0.6/§40/§42.6 (pre-commit-check, journal, commit.lock, чтение скиллов) и проверил предикат против ПРАКТИКИ: в `tools/cc_prompt_cmp01_part1_corpus_symmetry.md`, получившем §4 PASS, их тоже ноль. · ПРАВИЛО: перед отклонением по норме — сверить её с блгословлённой практикой на эталоне; норма, которой практика не держит, даёт СЕРИЙНЫЙ ложно-красный, а расхождение нормы и практики передаётся владельцу нормы, а не чинится гейтящим и не обходится молча. · SOURCE: измерено 2026-09-19, три промпта · status: active
 
+2026-09-19 · ВСЕ шапки моих писем за день несли ВЫДУМАННОЕ время: писал `22:3xZ`, фактический mtime записи `19:35:22Z` — расхождение около трёх часов. Продолжал ряд отметок из хендофа рукой, ни разу не спросив `date -u`. Повод вскрытия: оператор сказал «шелл не видит директивы»; записи оказались на месте, а сломаны были мои отметки. · ПРАВИЛО: время в шапке — ТАКОЙ ЖЕ ПИН, как sha или счёт: берётся `date -u` в тот же ход, что и запись, и вставляется из вывода. По памяти, по ряду соседних писем или «примерно сейчас» — НИКОГДА. Шапки прошлых писем НЕ править задним числом: исправленная отметка становится неотличимой от измеренной. · Это тот же класс, что выдуманный блоб у `curator-0611` в тот же день: пин, который выглядит как измерение и им не является. У него — одна строка, у меня — каждое письмо за смену. · SOURCE: `date -u` против mtime `.coord/inbox/shell.md` (2026-09-19T20:00:58Z) · status: active
+
+
+### ПЕРЕНЕСЕНО ИЗ `§D` 2026-09-19T20:22:20Z — обязанности не живут в несгружаемой секции
+> [измерено] моей иглой в `§D` было **14** модальностей, и за ними стояли ДЕСЯТЬ датированных
+> уроков и вся форма `ТАБЛИЦА ПОКОВ` — то есть форма КАЖДОГО моего ответа оператору лежала там,
+> куда инит велит не заглядывать. Механизм тот же, что нашли `backend-0919` (17 уроков в `§D`)
+> и `shell-0919b` (19): урок дописывается В КОНЕЦ ФАЙЛА, а конец файла — это `§D`. Секцию никто
+> не выбирал, в неё попадали по умолчанию. Перенесено ДОСЛОВНО, без правки текста: переписывать
+> модальность было бы лечением симптома, а не переносом обязанности туда, где её прочтут.
+
+### Role-creation procedure (RARE — joint act, not solo) [norm 2026-06-19, curator-ratified]
+Raising a new specialist role is a JOINT act, NOT solo: coordinator GENERATES (domain content, schema-grounding, claims/territory); curator POLISHES (discipline: role-skill-standard conformance — §A ~40-line cap, source-pins, actionable §C-verify, cold-start-from-artifacts framing, §B append-format). Curator polish is a MANDATORY step BEFORE the role is materialized (before the create CC prompt runs).
+Procedure: (1) coordinator drafts the role-skill (CC prompt embedding §A/B/C/D, schema-grounded) + claims; (2) route to curator (inbox/curator.md) for the discipline pass; (3) curator polishes/blesses; (4) only then materialize (run the create prompt) + commit (native-CC, no push). Canonical standard: .coord/protocols/role-skill-standard.md (curator domain). SOURCE: operator norm 2026-06-19 (role-bi = first run)
+- 2026-06-26 · Live editor VISUAL gate caught G-MOVE+G-RESIZE FAILING in the running build despite FIX-A (a963d73) object-store 'VERIFIED COMPLETE' (init/startMove/startResize/JSInvokable tokens all present) + build currency confirmed (FIX-B placeholder renders). Silent no-op, no JS console error. ROOT-pattern: JS-driven interactions (widget-resize.js) depend on DOM-selector contract match; tokens-present ≠ handlers-fire. RULE: editor/JS-interaction gaps are sealed ONLY by a LIVE operator-verified action (move/resize done by hand, repeatable), NEVER by object-store token greps; require the spec's DoD to be a live functional pass, reject 'object-store COMPLETE' as a seal. Also: do NOT call a move ✓ from one screenshot showing the widget elsewhere (that was incoherent re-placement) — demand a clean repeatable grab→drag→lands→stays. SOURCE: live Chrome gate + operator mouse 2026-06-26, reports editor New Report · status: active
+
+- 2026-06-26 · OPERATOR DIRECTIVE (hard boundary): the coordinator does NOT rule DOMAIN / DATA-SEMANTICS decisions — escalate to the operator BEFORE deciding. Coordinator MAY rule coordination/plumbing/mechanics (commit.lock, narrow-add, file discipline, build/test gates, §4 process-review, PS/EF mechanics, session routing). MUST escalate: what a data value MEANS, which column anchors a metric, how to treat real production values (sentinels, open/unfinished records), tenant/scope semantics affecting data correctness, any transform of real prod data (e.g. TenantId re-stamp, merge across tenants). Trigger that I crossed the line: I unilaterally 'ruled' the year-10000 sentinel as a backfill cap (data-semantics dressed as 'technical') — wrong; the real answer (anchor=UpdateTime) only surfaced because the operator asked. RULE: if a decision changes WHAT the data means or HOW a metric is computed → operator's call, present options, do not self-rule. SOURCE: operator 2026-06-26 'не принимайте таких решений без меня' (sentinel/anchor thread) · status: active
+
+- 2026-06-26 · A spec reporting 'inbox empty / nothing new' almost always means the BALL IS WITH ME — an authored fix prompt sitting at status:open awaiting my §4-bless that I skipped while deep in other threads (happened 3×: dba native-stderr re-§4, dba StrictMode fix; the spec is BLOCKED, not idle). RULE: every inbox-process cycle, scan `.coord/cc/<role>.md` + `tools/cc_prompt_*` for prompts in 'status: open / awaiting §4' across ALL active specs and clear them — do NOT only read the newest chat blocks. A pending §4 is a hard blocker on the critical path. SOURCE: operator 'dba говорит у него пусто' 2026-06-26 (StrictMode fix awaiting §4) · status: active
+
+- 2026-06-26 · OVER-BUILD from a misread requirement: operator said 'no tenant selector on the Reports page' — I scoped it as 'build the ARCH-02 Superadmin tenant-switch feature' (global claim + SwitchTenantCommand + TopBar switcher + security gate). The real need was the EXISTING per-page tenant dropdown (already on Users/PG/Categories/Audit) simply ADDED to the Reports page. The over-build didn't work AND broke 3 admin pages (concurrent GetTenantsQuery on the scoped DbContext). RULE: when the operator says 'X is missing from page Y', first CHECK whether X already exists elsewhere (grep) and the ask is to replicate it — do NOT escalate a missing-UI-on-one-page into a new cross-cutting feature. Confirm scope ('add the existing selector to Reports' vs 'build a switch') before dispatching a feature epic + a security gate. SOURCE: operator 'куда вы прикрутили тенант селектор' + NpgsqlOperationInProgress on BU/Sites/SuperGroups 2026-06-26 · status: active
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+
+- 2026-07-02 · CAROUSEL from an EXTERNALLY-IMPORTED DB (restored 234 b58e2c2 backup onto local prod-mirror): backup had all report_*/hist_*/arch_* objects PRESENT but __EFMigrationsHistory EMPTY (0) → (a) EF MigrateAsync would retry InitialCreate → 'relation already exists' → app-startup crash risk; (b) QA read report_screens via Soma **soma_ro** (read-only, no SELECT grant) → 'permission denied' + information_schema privilege-filtered → MISREAD as 'table absent' → I routed a 'provision reports schema' fix on that FALSE premise. DOUBLE MISS: dispatched remediation before verifying the blocker against the authoritative reader (dba to_regclass as postgres), AND had not gated the imported DB on a history↔objects reconcile. RULE: (1) when ANY external DB enters (restore/backup/prod-seed) → REQUIRE a __EFMigrationsHistory↔objects reconcile (as postgres) as an INTAKE GATE before it's a validation baseline; objects-present + history-empty/partial → baseline applied MigrationIds ON CONFLICT DO NOTHING so MigrateAsync no-ops (dba pattern; guard: escalate if migrate is NOT a no-op → an object truly missing). (2) VERIFY every 'missing/absent' blocker against the authoritative reader (postgres/object-store) before routing a fix — account for the reader's PRIVILEGE (soma_ro false-negatives existence). SOURCE: prod-mirror __EFMigrationsHistory=0 + all objects present + QA soma_ro retraction + dba f7a24af reconcile 2026-07-02 · status: active
+
+- 2026-07-02 · LOCAL TEST ENV MUST MIRROR PROD TOPOLOGY (services, not hand-run scripts). Garnet (Memurai replacement under validation, INC-001d) was hand-launched in a foreground PowerShell session locally → fragile → flapped /health 200→503→503 → QA regression blocked; coordinator live-verified 503 via Chrome. Prod runs Garnet as a Windows service (NSSM, Automatic+recovery, Install-RTMView.ps1). RULE: validate on the PROD topology — run infra deps (cache/backplane) as the SAME services prod uses, via the SAME deploy tooling; a manually-run dependency is neither stable NOR a real validation of what ships. When an env dep flaps, first ask 'is it run the way prod runs it?' before treating it as noise. SOURCE: GARNET-FLAP live 503 + operator 'сделаем вин сервис, воспроизводим прод локально' 2026-07-02 · status: active
+
+- 2026-07-02 · TRUTH-DUTY SLIP (self): I stated 'ROOT of GARNET-FLAP = hand-launched foreground PS process' as FACT to the operator. It was an UNVERIFIED HYPOTHESIS. Operator: 'не факт, не верифицировано.' Only VERIFIED fact = /health 503 (I live-checked). RULE: a proposed cause is a HYPOTHESIS until proven — label it as such; never present an unverified root cause as established. Separate the FIX-forward decision (rebuild env to prod parity — valid regardless of cause) from the ROOT-CAUSE (still open, devops to find, do NOT assume). SOURCE: operator correction on GARNET-FLAP root 2026-07-02 · status: active
+
+- 2026-07-02 · VALIDATION IS SERVICES-ONLY (prod-identical) → coordinator must CONTROL rebuild cadence. Once the validation env moved to prod-parity Windows services (Garnet+Shell+RTM via Install-RTMView), a code/config change is no longer a cheap `dotnet run` restart — it needs: rebuild the Full pkg → re-install services → re-validate. So changes that require a rebuild must be GATED + BATCHED by the coordinator into ONE canonical rebuild, not applied piecemeal (each piecemeal change = a full rebuild+redeploy+reverify cycle = wasted time + drift). Practically: collect all pending source fixes from all specs (e.g. the 6-item deploy bundle) → one §4 → one rebuild → one re-deploy → one re-validate. Ties to the operator's 'no parallel' — don't let specs trickle rebuild-requiring edits. SOURCE: operator 2026-07-02 'проверки только на прод-идентичной конфигурации, спецы с ребилд-требующими изменениями контролируются тобой' · status: active
+
+- 2026-07-06 · Dispatched barrier directives to slug inboxes (techwriter-0610.md/dba-0625.md); TW+DBA read the PERMANENT inbox/<role>.md and saw nothing. Sessions are MIXED: QA/Security read slug, TW/DBA read permanent. Rule: dispatch to BOTH inbox/<role>.md AND inbox/<slug>.md so delivery is convention-independent. · SOURCE: barrier adbf5d7 dispatch miss 2026-07-06 · status: active
+
+- 2026-07-11 · OPERATING MODE (operator-approved): heavy ANALYSIS/spec/pre-review → run as SUBAGENTS in my sandbox (isolate diffs, produce exact old→new specs, object-store cross-check, preliminary security/arch review); then hand the specialist a TIGHT CC prompt = execute-verified-spec + build/test + report ONLY (specialist does NOT re-derive). Native execution (dotnet build/test, native git commit/push, host PowerShell, deploy) + accountable outputs (quorum acks, commits, CAPTURE) STAY with the specialist CC sessions — subagents (Linux mount sandbox) can't run the native toolchain and must never impersonate a specialist's accountable output. Effect: fewer pokes, thinner context (mine + specialists'), lower token/time cost. · SOURCE: operator 2026-07-11 · status: active
+
+- 2026-07-12 · Multi-target adapter spec I authored chose GLOBAL-BROADCAST connect-snapshot (re-sync all targets on any connect) over PER-TARGET for 'minimal churn' — that WAS the bug: broadcasting the one-shot workgroup-registration on target A's connect fans it to target B whose pipe isn't yet writable; StreamString silently drops (!CanWrite) → B (legacy) never registers agents → its queues show 0 (empty-TZ getLocalDateTime = downstream symptom, NOT cause). Lesson: for independently-connecting targets, connect-time initial-state MUST be scoped to the connected target (use the event's Target), never broadcast; and a silent no-op send path is a debugging trap (log it). Also: when a subagent offers a 'safe alternative' and I pick the cheaper one, weigh the failure mode — the 'minimal churn' choice cost a full prod debug cycle. · SOURCE: legacy-empty-queues diagnosis 2026-07-12, RTMAdapter_ServerConnectEvent broadcast · status: active
+
+### ТАБЛИЦА ПОКОВ — ОБЯЗАТЕЛЬНАЯ ФОРМА КОНЦОВКИ ЛЮБОГО ОТВЕТА ОПЕРАТОРУ
+> ЖЁСТКО. Задано оператором 2026-08-30. Не «когда уместно» — ВСЕГДА, последним блоком.
+
+**Колонки ровно эти и в этом порядке:**
+
+| # | роль | один следующий шаг | момент | статус |
+|---|---|---|---|---|
+| 1 | backend-0818 | 🔴 раздел 9 по замеру + раздел 8 до 85 · слаг зафиксирован | 2026-08-29T23:0xZ | ▶ ТЕКУЩИЙ — критпуть |
+| 2 | frontend-0815 | `#129` отменена, контракт втянут в `#128` | 2026-08-29T21:0xZ | 🟡 ждёт |
+| 3 | devops-0815 | `BINDING #116` open, выкат после `#128` | 2026-08-29T20:2xZ | 🟡 HOLD |
+| 4 | dba-0812 | вход пуст | 2026-08-28T06:06Z | ✅ свободен |
+| 5 | curator-0815 | профиль `audit.sh` по секциям + гейт §31.8 на шине | 2026-08-29T20:2xZ | ⏳ параллельно |
+| — | security · techwriter · qa · finesse-sim | вне этапа | — | 🔒 |
+
+**Правила заполнения (нарушение = таблица не сдана):**
+1. **Строка на КАЖДУЮ живую роль**, со слагом сессии (`devops-0829`), не «девопс». Неактивные роли — одной свёрнутой строкой «вне этапа».
+2. **ОДИН следующий шаг**, не список и не пересказ истории. Если шагов несколько — ближайший.
+3. **Момент — факт с диска** (время последней записи на шине по этой роли), не «недавно» и не по памяти.
+4. **Статус — только из набора:** `▶ ТЕКУЩИЙ` · `🟡 ждёт` · `🟡 HOLD` · `✅ свободен` · `⏳ параллельно` · `🔒 вне этапа` · `🔴 СТОП`. Своё не выдумывать.
+5. **Незакрытый `BINDING ... status: open` обязан быть виден в таблице** — это операция в ходу.
+6. Сразу под таблицей — одна строка **«Сейчас работает: …»** и чего ждёт лично оператор.
+7. Нечего сказать по роли — пишется «вход пуст» с моментом. Пропуск строки запрещён: тишина читается как «всё хорошо».
+8. **СТАТУС ОТВЕЧАЕТ НА ВОПРОС «КОГО ПОКАТЬ», А НЕ «ЧТО ЛЕЖИТ В ФАЙЛЕ».** [норма оператора 2026-09-18]
+   Таблица называется таблицей ПОКОВ. Роль не работает оттого, что ей написали: она работает, когда
+   оператор открыл ей ход. Поэтому `▶ ТЕКУЩИЙ` у роли означает «идёт ПРЯМО СЕЙЧАС в её окне», а не
+   «у неё на столе лежит задание». Лежащее задание — это **🔔 нужен поке**, и рядом печатается
+   ГОТОВАЯ КОМАНДА, которую оператору остаётся скопировать (`коорд: входящие`, `.`), чтобы он не
+   пересказывал моё письмо своими словами.
+   Строка «Сейчас работает: …» называет только то, что запущено.
+   ⛔ **«НИЧЕГО НЕ ЗАПУЩЕНО» — НЕ СОСТОЯНИЕ КОЛОНИИ, А ПРИГОВОР КООРДИНАТОРУ.** [норма оператора
+   2026-09-18, дословно: «если ничего не работает, значит ты плохо координируешь; резюме должно
+   содержать информацию, кого покать сейчас, чтобы всё работало»]. Простой колонии — это МОЙ
+   промах, а не факт, который я честно сообщаю. Честность тут не оправдание: я не наблюдатель
+   очереди, я её строю.
+   **Значит концовка обязана нести не диагноз, а НАРЯД:** кого покать ПРЯМО СЕЙЧАС и в каком
+   порядке, чтобы после этих поков работали ВСЕ роли, у которых есть чем заняться. Ролей без
+   работы быть не должно: если роль свободна, это я не выдал ей единицу работы. Нет единицы —
+   назвать вслух, почему её нет и что её создаст.
+   ⛔ **СТАТУС СНИМАЕТСЯ ПОСЛЕДНИМ ДЕЙСТВИЕМ ПЕРЕД ПЕЧАТЬЮ ТАБЛИЦЫ, А НЕ В ХОДЕ РАЗБОРА.**
+   [три случая за одно пробуждение 2026-09-19, первый назвал оператор]. Между началом хода и
+   печаткой таблицы лежит моя собственная работа и чужие ходы: роль успевает прочитать письмо,
+   ответить и НАЧАТЬ ПРАВИТЬ ФАЙЛ. Случаи: `devops-0916` — ноль непрочитанных, а я четыре ответа
+   подряд просил его покнуть; `shell-0912` — его письмо лежало непрочитанным в МОЁМ ящике, пока я
+   печатал «ему нужен поке»; `backend-0912` — файл изменён через минуты после письма, 842 ключа
+   против 769 в ветке, а в таблице стоял поке.
+   **Предикат непрочитанного РАЗНЫЙ У РАЗНЫХ РОЛЕЙ, и это тоже измеряется, а не предполагается:**
+   `devops` ставит отметки `handled` регулярно — для него годно «заголовки ниже последней отметки».
+   `shell` последний раз отмечался 15.09, `backend` — 31.08 и ПРЕДЫДУЩЕЙ инкарнацией; для них тот
+   же предикат даёт ложно-КРАСНОЕ, они читают и отвечают письмом. Годный предикат для них: пришло
+   ли от роли письмо в МОЙ ящик после моего последнего письма ей — плюс `mtime` файлов её заявки.
+   **Цель, выданная роли ЧИСЛОМ, стареет.** «Недостаёт 155» протухло за час до 82, потому что роль
+   работала. Роли выдаётся СПОСОБ пере-снять цель, а число — как ориентир с датой.
+   **Форма строки:** вместо «сейчас работает: ничего» печатается «ПОКНУТЬ СЕЙЧАС: <роль> (<команда>),
+   затем <роль> (<команда>)» — по одному кандидату на каждую роль, которой есть что делать.
+   **Повод нормы:** координатор напечатал «Сейчас работает: ничего не запущено» как нейтральный
+   факт, имея на руках две роли с непрочитанными письмами и третью со свободным входом.
+   **Повод нормы:** координатор весь день печатал «сейчас работает: devops», пока в окне devops
+   лежало семь непрочитанных директив и не шло ничего.
+9. **ВОПРОС ОПЕРАТОРУ ИДЁТ ПОСЛЕ ТАБЛИЦЫ И ПО-ЧЕЛОВЕЧЕСКИ.** [норма оператора 2026-09-18]
+   Порядок концовки: сперва таблица (кого покать), затем — отдельным блоком внизу — **вопрос, ради
+   которого я его отвлекаю**. Не в середине разбора, не в прозе между абзацами: он читает сверху
+   вниз и решает в конце.
+   **По-человечески означает:** что именно я прошу решить, какие есть варианты и чем они отличаются
+   ДЛЯ НЕГО — без sha, без номеров строк, без § и без имён предикатов. Техническое основание уже
+   лежит выше и в реестре; внизу — только развилка и её цена.
+   Вопрос ОДИН (норма `§A`: по одному за раз). Остальные ждут в очереди и не упоминаются, чтобы не
+   выглядеть вторым вопросом.
+
+2026-09-19 · Писал письма через heredoc БЕЗ кавычек (чтобы подставить $NOW) — оболочка ИСПОЛНИЛА текст в обратных кавычках и подставила пустоту: из заголовка письма пропало слово. Обход всех моих блоков: испорчено 1 место из 66. · ГЛАВНОЕ НЕ В УЩЕРБЕ, А В ТОМ, ЧТО МОЯ ПРОВЕРКА ЭТОГО НЕ ЛОВИТ ПО ПОСТРОЕНИЮ: round-trip сравнивает то, что python ЗАПИСАЛ, с тем, что он ПРОЧИТАЛ — а порча происходит ДО python, в оболочке. «abc сошлось» было истинным и бессмысленным весь день. · ПРАВИЛО: heredoc ВСЕГДА в кавычках (<<'EOF'); переменные вроде времени передаются аргументом в python, а не подстановкой оболочки. И шире: проверка записи обязана стоять на ТЕКСТЕ, КОТОРЫЙ Я ЗАДУМАЛ (пробы по ключевым словам в записанном блоке), а не на равенстве буферов. · SOURCE: заголовок раздела 2 в .coord/inbox/shell.md, 2026-09-19T22:35:34Z · status: active
+
 ## §C VERIFY  (прогнать при ините — сверить §A с ТЕКУЩИМ кодом; расхождение -> superseded, по нему не действовать)
 > Переписан `coordinator-0917` 2026-09-17 по собственному разбору, засчитанному куратором при аттестации.
 > Что было не так у прежней редакции (пп.1-6): все шесть стояли на ДИСКЕ (`Select-String -Path`,
@@ -454,99 +598,3 @@ Cardinal truths (source-pinned):
 Full protocol: .claude/skills/session-coord/session-coord.md (§10 command registry, lessons L-SC-01..30).
 Normative spec: CLAUDE.md §42 (horizontal) + §45 (vertical).
 Live state: .coord/coordinator_handoff.md (resume checkpoint, always read FIRST on boot).
-
-### Role-creation procedure (RARE — joint act, not solo) [norm 2026-06-19, curator-ratified]
-Raising a new specialist role is a JOINT act, NOT solo: coordinator GENERATES (domain content, schema-grounding, claims/territory); curator POLISHES (discipline: role-skill-standard conformance — §A ~40-line cap, source-pins, actionable §C-verify, cold-start-from-artifacts framing, §B append-format). Curator polish is a MANDATORY step BEFORE the role is materialized (before the create CC prompt runs).
-Procedure: (1) coordinator drafts the role-skill (CC prompt embedding §A/B/C/D, schema-grounded) + claims; (2) route to curator (inbox/curator.md) for the discipline pass; (3) curator polishes/blesses; (4) only then materialize (run the create prompt) + commit (native-CC, no push). Canonical standard: .coord/protocols/role-skill-standard.md (curator domain). SOURCE: operator norm 2026-06-19 (role-bi = first run)
-- 2026-06-26 · Live editor VISUAL gate caught G-MOVE+G-RESIZE FAILING in the running build despite FIX-A (a963d73) object-store 'VERIFIED COMPLETE' (init/startMove/startResize/JSInvokable tokens all present) + build currency confirmed (FIX-B placeholder renders). Silent no-op, no JS console error. ROOT-pattern: JS-driven interactions (widget-resize.js) depend on DOM-selector contract match; tokens-present ≠ handlers-fire. RULE: editor/JS-interaction gaps are sealed ONLY by a LIVE operator-verified action (move/resize done by hand, repeatable), NEVER by object-store token greps; require the spec's DoD to be a live functional pass, reject 'object-store COMPLETE' as a seal. Also: do NOT call a move ✓ from one screenshot showing the widget elsewhere (that was incoherent re-placement) — demand a clean repeatable grab→drag→lands→stays. SOURCE: live Chrome gate + operator mouse 2026-06-26, reports editor New Report · status: active
-
-- 2026-06-26 · OPERATOR DIRECTIVE (hard boundary): the coordinator does NOT rule DOMAIN / DATA-SEMANTICS decisions — escalate to the operator BEFORE deciding. Coordinator MAY rule coordination/plumbing/mechanics (commit.lock, narrow-add, file discipline, build/test gates, §4 process-review, PS/EF mechanics, session routing). MUST escalate: what a data value MEANS, which column anchors a metric, how to treat real production values (sentinels, open/unfinished records), tenant/scope semantics affecting data correctness, any transform of real prod data (e.g. TenantId re-stamp, merge across tenants). Trigger that I crossed the line: I unilaterally 'ruled' the year-10000 sentinel as a backfill cap (data-semantics dressed as 'technical') — wrong; the real answer (anchor=UpdateTime) only surfaced because the operator asked. RULE: if a decision changes WHAT the data means or HOW a metric is computed → operator's call, present options, do not self-rule. SOURCE: operator 2026-06-26 'не принимайте таких решений без меня' (sentinel/anchor thread) · status: active
-
-- 2026-06-26 · A spec reporting 'inbox empty / nothing new' almost always means the BALL IS WITH ME — an authored fix prompt sitting at status:open awaiting my §4-bless that I skipped while deep in other threads (happened 3×: dba native-stderr re-§4, dba StrictMode fix; the spec is BLOCKED, not idle). RULE: every inbox-process cycle, scan `.coord/cc/<role>.md` + `tools/cc_prompt_*` for prompts in 'status: open / awaiting §4' across ALL active specs and clear them — do NOT only read the newest chat blocks. A pending §4 is a hard blocker on the critical path. SOURCE: operator 'dba говорит у него пусто' 2026-06-26 (StrictMode fix awaiting §4) · status: active
-
-- 2026-06-26 · OVER-BUILD from a misread requirement: operator said 'no tenant selector on the Reports page' — I scoped it as 'build the ARCH-02 Superadmin tenant-switch feature' (global claim + SwitchTenantCommand + TopBar switcher + security gate). The real need was the EXISTING per-page tenant dropdown (already on Users/PG/Categories/Audit) simply ADDED to the Reports page. The over-build didn't work AND broke 3 admin pages (concurrent GetTenantsQuery on the scoped DbContext). RULE: when the operator says 'X is missing from page Y', first CHECK whether X already exists elsewhere (grep) and the ask is to replicate it — do NOT escalate a missing-UI-on-one-page into a new cross-cutting feature. Confirm scope ('add the existing selector to Reports' vs 'build a switch') before dispatching a feature epic + a security gate. SOURCE: operator 'куда вы прикрутили тенант селектор' + NpgsqlOperationInProgress on BU/Sites/SuperGroups 2026-06-26 · status: active
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-
-- 2026-07-02 · CAROUSEL from an EXTERNALLY-IMPORTED DB (restored 234 b58e2c2 backup onto local prod-mirror): backup had all report_*/hist_*/arch_* objects PRESENT but __EFMigrationsHistory EMPTY (0) → (a) EF MigrateAsync would retry InitialCreate → 'relation already exists' → app-startup crash risk; (b) QA read report_screens via Soma **soma_ro** (read-only, no SELECT grant) → 'permission denied' + information_schema privilege-filtered → MISREAD as 'table absent' → I routed a 'provision reports schema' fix on that FALSE premise. DOUBLE MISS: dispatched remediation before verifying the blocker against the authoritative reader (dba to_regclass as postgres), AND had not gated the imported DB on a history↔objects reconcile. RULE: (1) when ANY external DB enters (restore/backup/prod-seed) → REQUIRE a __EFMigrationsHistory↔objects reconcile (as postgres) as an INTAKE GATE before it's a validation baseline; objects-present + history-empty/partial → baseline applied MigrationIds ON CONFLICT DO NOTHING so MigrateAsync no-ops (dba pattern; guard: escalate if migrate is NOT a no-op → an object truly missing). (2) VERIFY every 'missing/absent' blocker against the authoritative reader (postgres/object-store) before routing a fix — account for the reader's PRIVILEGE (soma_ro false-negatives existence). SOURCE: prod-mirror __EFMigrationsHistory=0 + all objects present + QA soma_ro retraction + dba f7a24af reconcile 2026-07-02 · status: active
-
-- 2026-07-02 · LOCAL TEST ENV MUST MIRROR PROD TOPOLOGY (services, not hand-run scripts). Garnet (Memurai replacement under validation, INC-001d) was hand-launched in a foreground PowerShell session locally → fragile → flapped /health 200→503→503 → QA regression blocked; coordinator live-verified 503 via Chrome. Prod runs Garnet as a Windows service (NSSM, Automatic+recovery, Install-RTMView.ps1). RULE: validate on the PROD topology — run infra deps (cache/backplane) as the SAME services prod uses, via the SAME deploy tooling; a manually-run dependency is neither stable NOR a real validation of what ships. When an env dep flaps, first ask 'is it run the way prod runs it?' before treating it as noise. SOURCE: GARNET-FLAP live 503 + operator 'сделаем вин сервис, воспроизводим прод локально' 2026-07-02 · status: active
-
-- 2026-07-02 · TRUTH-DUTY SLIP (self): I stated 'ROOT of GARNET-FLAP = hand-launched foreground PS process' as FACT to the operator. It was an UNVERIFIED HYPOTHESIS. Operator: 'не факт, не верифицировано.' Only VERIFIED fact = /health 503 (I live-checked). RULE: a proposed cause is a HYPOTHESIS until proven — label it as such; never present an unverified root cause as established. Separate the FIX-forward decision (rebuild env to prod parity — valid regardless of cause) from the ROOT-CAUSE (still open, devops to find, do NOT assume). SOURCE: operator correction on GARNET-FLAP root 2026-07-02 · status: active
-
-- 2026-07-02 · VALIDATION IS SERVICES-ONLY (prod-identical) → coordinator must CONTROL rebuild cadence. Once the validation env moved to prod-parity Windows services (Garnet+Shell+RTM via Install-RTMView), a code/config change is no longer a cheap `dotnet run` restart — it needs: rebuild the Full pkg → re-install services → re-validate. So changes that require a rebuild must be GATED + BATCHED by the coordinator into ONE canonical rebuild, not applied piecemeal (each piecemeal change = a full rebuild+redeploy+reverify cycle = wasted time + drift). Practically: collect all pending source fixes from all specs (e.g. the 6-item deploy bundle) → one §4 → one rebuild → one re-deploy → one re-validate. Ties to the operator's 'no parallel' — don't let specs trickle rebuild-requiring edits. SOURCE: operator 2026-07-02 'проверки только на прод-идентичной конфигурации, спецы с ребилд-требующими изменениями контролируются тобой' · status: active
-
-- 2026-07-06 · Dispatched barrier directives to slug inboxes (techwriter-0610.md/dba-0625.md); TW+DBA read the PERMANENT inbox/<role>.md and saw nothing. Sessions are MIXED: QA/Security read slug, TW/DBA read permanent. Rule: dispatch to BOTH inbox/<role>.md AND inbox/<slug>.md so delivery is convention-independent. · SOURCE: barrier adbf5d7 dispatch miss 2026-07-06 · status: active
-
-- 2026-07-11 · OPERATING MODE (operator-approved): heavy ANALYSIS/spec/pre-review → run as SUBAGENTS in my sandbox (isolate diffs, produce exact old→new specs, object-store cross-check, preliminary security/arch review); then hand the specialist a TIGHT CC prompt = execute-verified-spec + build/test + report ONLY (specialist does NOT re-derive). Native execution (dotnet build/test, native git commit/push, host PowerShell, deploy) + accountable outputs (quorum acks, commits, CAPTURE) STAY with the specialist CC sessions — subagents (Linux mount sandbox) can't run the native toolchain and must never impersonate a specialist's accountable output. Effect: fewer pokes, thinner context (mine + specialists'), lower token/time cost. · SOURCE: operator 2026-07-11 · status: active
-
-- 2026-07-12 · Multi-target adapter spec I authored chose GLOBAL-BROADCAST connect-snapshot (re-sync all targets on any connect) over PER-TARGET for 'minimal churn' — that WAS the bug: broadcasting the one-shot workgroup-registration on target A's connect fans it to target B whose pipe isn't yet writable; StreamString silently drops (!CanWrite) → B (legacy) never registers agents → its queues show 0 (empty-TZ getLocalDateTime = downstream symptom, NOT cause). Lesson: for independently-connecting targets, connect-time initial-state MUST be scoped to the connected target (use the event's Target), never broadcast; and a silent no-op send path is a debugging trap (log it). Also: when a subagent offers a 'safe alternative' and I pick the cheaper one, weigh the failure mode — the 'minimal churn' choice cost a full prod debug cycle. · SOURCE: legacy-empty-queues diagnosis 2026-07-12, RTMAdapter_ServerConnectEvent broadcast · status: active
-
-### ТАБЛИЦА ПОКОВ — ОБЯЗАТЕЛЬНАЯ ФОРМА КОНЦОВКИ ЛЮБОГО ОТВЕТА ОПЕРАТОРУ
-> ЖЁСТКО. Задано оператором 2026-08-30. Не «когда уместно» — ВСЕГДА, последним блоком.
-
-**Колонки ровно эти и в этом порядке:**
-
-| # | роль | один следующий шаг | момент | статус |
-|---|---|---|---|---|
-| 1 | backend-0818 | 🔴 раздел 9 по замеру + раздел 8 до 85 · слаг зафиксирован | 2026-08-29T23:0xZ | ▶ ТЕКУЩИЙ — критпуть |
-| 2 | frontend-0815 | `#129` отменена, контракт втянут в `#128` | 2026-08-29T21:0xZ | 🟡 ждёт |
-| 3 | devops-0815 | `BINDING #116` open, выкат после `#128` | 2026-08-29T20:2xZ | 🟡 HOLD |
-| 4 | dba-0812 | вход пуст | 2026-08-28T06:06Z | ✅ свободен |
-| 5 | curator-0815 | профиль `audit.sh` по секциям + гейт §31.8 на шине | 2026-08-29T20:2xZ | ⏳ параллельно |
-| — | security · techwriter · qa · finesse-sim | вне этапа | — | 🔒 |
-
-**Правила заполнения (нарушение = таблица не сдана):**
-1. **Строка на КАЖДУЮ живую роль**, со слагом сессии (`devops-0829`), не «девопс». Неактивные роли — одной свёрнутой строкой «вне этапа».
-2. **ОДИН следующий шаг**, не список и не пересказ истории. Если шагов несколько — ближайший.
-3. **Момент — факт с диска** (время последней записи на шине по этой роли), не «недавно» и не по памяти.
-4. **Статус — только из набора:** `▶ ТЕКУЩИЙ` · `🟡 ждёт` · `🟡 HOLD` · `✅ свободен` · `⏳ параллельно` · `🔒 вне этапа` · `🔴 СТОП`. Своё не выдумывать.
-5. **Незакрытый `BINDING ... status: open` обязан быть виден в таблице** — это операция в ходу.
-6. Сразу под таблицей — одна строка **«Сейчас работает: …»** и чего ждёт лично оператор.
-7. Нечего сказать по роли — пишется «вход пуст» с моментом. Пропуск строки запрещён: тишина читается как «всё хорошо».
-8. **СТАТУС ОТВЕЧАЕТ НА ВОПРОС «КОГО ПОКАТЬ», А НЕ «ЧТО ЛЕЖИТ В ФАЙЛЕ».** [норма оператора 2026-09-18]
-   Таблица называется таблицей ПОКОВ. Роль не работает оттого, что ей написали: она работает, когда
-   оператор открыл ей ход. Поэтому `▶ ТЕКУЩИЙ` у роли означает «идёт ПРЯМО СЕЙЧАС в её окне», а не
-   «у неё на столе лежит задание». Лежащее задание — это **🔔 нужен поке**, и рядом печатается
-   ГОТОВАЯ КОМАНДА, которую оператору остаётся скопировать (`коорд: входящие`, `.`), чтобы он не
-   пересказывал моё письмо своими словами.
-   Строка «Сейчас работает: …» называет только то, что запущено.
-   ⛔ **«НИЧЕГО НЕ ЗАПУЩЕНО» — НЕ СОСТОЯНИЕ КОЛОНИИ, А ПРИГОВОР КООРДИНАТОРУ.** [норма оператора
-   2026-09-18, дословно: «если ничего не работает, значит ты плохо координируешь; резюме должно
-   содержать информацию, кого покать сейчас, чтобы всё работало»]. Простой колонии — это МОЙ
-   промах, а не факт, который я честно сообщаю. Честность тут не оправдание: я не наблюдатель
-   очереди, я её строю.
-   **Значит концовка обязана нести не диагноз, а НАРЯД:** кого покать ПРЯМО СЕЙЧАС и в каком
-   порядке, чтобы после этих поков работали ВСЕ роли, у которых есть чем заняться. Ролей без
-   работы быть не должно: если роль свободна, это я не выдал ей единицу работы. Нет единицы —
-   назвать вслух, почему её нет и что её создаст.
-   ⛔ **СТАТУС СНИМАЕТСЯ ПОСЛЕДНИМ ДЕЙСТВИЕМ ПЕРЕД ПЕЧАТЬЮ ТАБЛИЦЫ, А НЕ В ХОДЕ РАЗБОРА.**
-   [три случая за одно пробуждение 2026-09-19, первый назвал оператор]. Между началом хода и
-   печаткой таблицы лежит моя собственная работа и чужие ходы: роль успевает прочитать письмо,
-   ответить и НАЧАТЬ ПРАВИТЬ ФАЙЛ. Случаи: `devops-0916` — ноль непрочитанных, а я четыре ответа
-   подряд просил его покнуть; `shell-0912` — его письмо лежало непрочитанным в МОЁМ ящике, пока я
-   печатал «ему нужен поке»; `backend-0912` — файл изменён через минуты после письма, 842 ключа
-   против 769 в ветке, а в таблице стоял поке.
-   **Предикат непрочитанного РАЗНЫЙ У РАЗНЫХ РОЛЕЙ, и это тоже измеряется, а не предполагается:**
-   `devops` ставит отметки `handled` регулярно — для него годно «заголовки ниже последней отметки».
-   `shell` последний раз отмечался 15.09, `backend` — 31.08 и ПРЕДЫДУЩЕЙ инкарнацией; для них тот
-   же предикат даёт ложно-КРАСНОЕ, они читают и отвечают письмом. Годный предикат для них: пришло
-   ли от роли письмо в МОЙ ящик после моего последнего письма ей — плюс `mtime` файлов её заявки.
-   **Цель, выданная роли ЧИСЛОМ, стареет.** «Недостаёт 155» протухло за час до 82, потому что роль
-   работала. Роли выдаётся СПОСОБ пере-снять цель, а число — как ориентир с датой.
-   **Форма строки:** вместо «сейчас работает: ничего» печатается «ПОКНУТЬ СЕЙЧАС: <роль> (<команда>),
-   затем <роль> (<команда>)» — по одному кандидату на каждую роль, которой есть что делать.
-   **Повод нормы:** координатор напечатал «Сейчас работает: ничего не запущено» как нейтральный
-   факт, имея на руках две роли с непрочитанными письмами и третью со свободным входом.
-   **Повод нормы:** координатор весь день печатал «сейчас работает: devops», пока в окне devops
-   лежало семь непрочитанных директив и не шло ничего.
-9. **ВОПРОС ОПЕРАТОРУ ИДЁТ ПОСЛЕ ТАБЛИЦЫ И ПО-ЧЕЛОВЕЧЕСКИ.** [норма оператора 2026-09-18]
-   Порядок концовки: сперва таблица (кого покать), затем — отдельным блоком внизу — **вопрос, ради
-   которого я его отвлекаю**. Не в середине разбора, не в прозе между абзацами: он читает сверху
-   вниз и решает в конце.
-   **По-человечески означает:** что именно я прошу решить, какие есть варианты и чем они отличаются
-   ДЛЯ НЕГО — без sha, без номеров строк, без § и без имён предикатов. Техническое основание уже
-   лежит выше и в реестре; внизу — только развилка и её цена.
-   Вопрос ОДИН (норма `§A`: по одному за раз). Остальные ждут в очереди и не упоминаются, чтобы не
-   выглядеть вторым вопросом.
-
-
