@@ -1,0 +1,183 @@
+/* =============================================================================
+   Wallboard Skin Layer — 17 reference design tokens + utility classes
+   Scoped to .wb-skin (NOT global scope) to avoid affecting shell/admin UI.
+   Reference: .claude/skills/rtm-wallboard/assets/wallboard.css
+   ============================================================================= */
+
+.wb-skin {
+  /* ---- Backgrounds ---- */
+  --wb-bg:       #eef1f6;
+  --wb-card:     #ffffff;
+
+  /* ---- Lines / Borders ---- */
+  --wb-line:     #dfe4ec;
+  --wb-line2:    #eef1f6;
+
+  /* ---- Typography ---- */
+  --wb-ink:      #16202e;
+  --wb-muted:    #7a869a;
+  --wb-faint:    #9aa5b5;
+
+  /* ---- Semantic: OK / Success ---- */
+  --wb-ok:       #0f9d58;
+  --wb-okbg:     #e8f6ee;
+
+  /* ---- Semantic: Warning ---- */
+  --wb-warn:     #c77700;
+  --wb-warnbg:   #fdf3e2;
+
+  /* ---- Semantic: Bad / Danger ---- */
+  --wb-bad:      #d32f2f;
+  --wb-badbg:    #fdeaea;
+
+  /* ---- Brand ---- */
+  --wb-brand:    #1b3a6b;
+  --wb-brand2:   #2f6fd0;
+  --wb-brandbg:  #eaf1fb;
+
+  /* ---- Geometry ---- */
+  --wb-radius:   7px;
+}
+
+/* =============================================================================
+   Utility Classes — Widget Panel Components
+   ============================================================================= */
+
+/* Panel card */
+.wb-panel {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Panel header */
+.wb-phead {
+  flex: 0 0 30px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 11px;
+  border-bottom: 1px solid var(--wb-line2);
+  background: #fafbfd;
+}
+
+.wb-phead h3 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  margin: 0;
+}
+
+/* Panel body */
+.wb-pbody {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* =============================================================================
+   Tables
+   ============================================================================= */
+
+.wb-skin table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.wb-skin th,
+.wb-skin td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-skin th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wb-muted);
+  text-align: right;
+  padding: 6px 7px;
+  background: #f7f9fc;
+  border-bottom: 1px solid var(--wb-line);
+  position: sticky;
+  top: 0;
+  line-height: 1.2;
+}
+
+.wb-skin td {
+  font-size: 13.8px;
+  padding: 6px 7px;
+  border-bottom: 1px solid var(--wb-line2);
+}
+
+.wb-skin tbody tr:nth-child(even) {
+  background: #fcfdff;
+}
+
+/* =============================================================================
+   Numeric Display — tabular-nums for aligned columns
+   IMPORTANT: display:inline-block ONLY on span/b, NOT on td (breaks table row)
+   ============================================================================= */
+
+.wb-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+span.wb-num,
+b.wb-num {
+  display: inline-block;
+}
+
+/* =============================================================================
+   Pills / Badges
+   ============================================================================= */
+
+.wb-pill {
+  display: inline-block;
+  min-width: 44px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.wb-pill.ok {
+  background: var(--wb-okbg);
+  color: var(--wb-ok);
+}
+
+.wb-pill.warn {
+  background: var(--wb-warnbg);
+  color: var(--wb-warn);
+}
+
+.wb-pill.bad {
+  background: var(--wb-badbg);
+  color: var(--wb-bad);
+}
+
+/* =============================================================================
+   Alert / Highlight Rows
+   ============================================================================= */
+
+.wb-skin tbody tr.alert {
+  background: var(--wb-badbg) !important;
+}
+
+.wb-skin tbody tr.alert td {
+  border-bottom-color: #f7d4d4;
+}
+
+.wb-skin tbody tr.warnrow {
+  background: #fefaf1 !important;
+}
