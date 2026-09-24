@@ -14,7 +14,7 @@
 
 @* Agent Grid Widget - connects to external SignalR simulator for real-time data *@
 
-<div class="agent-grid-widget" style="@GetWidgetStyle()" @onkeydown="HandleKeyDown" tabindex="0">
+<div class="agent-grid-widget wb-skin" style="@GetWidgetStyle()" @onkeydown="HandleKeyDown" tabindex="0">
     @* Reconnecting banner - P0 *@
     @if (_connectionState == ConnectionState.Reconnecting)
     {
@@ -180,20 +180,7 @@
 
         @* Footer with pagination and connection status - P1 *@
         <div class="agent-grid-footer d-flex align-items-center justify-content-between px-2 py-1 border-top small">
-            @* Live indicator *@
             <div class="d-flex align-items-center gap-1" aria-label="@L["Widget_LiveDataUpdating"]">
-                <span class="live-dot @(_connectionState == ConnectionState.Connected ? "connected" : "disconnected")"
-                      aria-hidden="true"></span>
-                <span class="text-muted small">
-                    @if (_connectionState == ConnectionState.Connected)
-                    {
-                        @L["Widget_Live"]
-                    }
-                    else
-                    {
-                        @L["Widget_Disconnected"]
-                    }
-                </span>
             </div>
 
             @if (_showPagination)
@@ -1354,7 +1341,7 @@
 
     private string GetTheadCellStyle()
     {
-        var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "#ffffff";
+        var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "var(--wb-muted)";
         var headerFs = !string.IsNullOrEmpty(_headerFontSize) ? _headerFontSize : _fontSize;
         var fs = ResolveFontSizePx(headerFs);
         return $"white-space: pre-line; overflow-wrap: normal; vertical-align: top; text-transform: none; color: {color}; font-size: {fs};";
@@ -1362,7 +1349,7 @@
 
     private string GetFilterButtonStyle(bool hasFilter)
     {
-        var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "#ffffff";
+        var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "var(--wb-ink)";
         var opacity = hasFilter ? "1" : "0.6";
         return $"color: {color}; opacity: {opacity}; vertical-align: top;";
     }
