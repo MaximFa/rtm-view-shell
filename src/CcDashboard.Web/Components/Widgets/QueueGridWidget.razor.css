@@ -36,30 +36,55 @@
 .pagination-btn:disabled {
     opacity: 0.4;
 }
-
-.live-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
+/* --- Wallboard skin layer --- */
+.queue-grid-widget.wb-skin {
+    background: var(--wb-card);
+    border: 1px solid var(--wb-line);
+    border-radius: var(--wb-radius);
 }
 
-.live-dot.connected {
-    background-color: #198754;
-    animation: pulse-green 2s infinite;
+.queue-grid-widget.wb-skin .queue-grid-table {
+    table-layout: fixed;
 }
 
-.live-dot.disconnected {
-    background-color: #dc3545;
+.queue-grid-widget.wb-skin .queue-grid-thead {
+    background: #f7f9fc;
 }
 
-@keyframes pulse-green {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4); }
-    50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(25, 135, 84, 0); }
+.queue-grid-widget.wb-skin .queue-grid-thead th {
+    color: var(--wb-muted);
+    font-size: 0.72rem;
+    border-bottom: 1px solid var(--wb-line);
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .live-dot.connected {
-        animation: none;
-    }
+.queue-grid-widget.wb-skin .queue-grid-table tbody tr {
+    border-bottom: 1px solid var(--wb-line2);
+}
+
+.queue-grid-widget.wb-skin .queue-grid-table tbody tr:nth-child(even) {
+    background: #fcfdff;
+}
+
+.queue-grid-widget.wb-skin .threshold-badge {
+    font-size: 0.82rem;
+}
+
+/* Threshold badge semantic colors via --wb-* vars */
+.queue-grid-widget.wb-skin .threshold-badge.thr-ok {
+    background-color: var(--wb-okbg);
+    color: var(--wb-ok);
+}
+
+.queue-grid-widget.wb-skin .threshold-badge.thr-warn {
+    background-color: var(--wb-warnbg);
+    color: var(--wb-warn);
+}
+
+.queue-grid-widget.wb-skin .threshold-badge.thr-bad {
+    background-color: var(--wb-badbg);
+    color: var(--wb-bad);
+}
+
+.queue-grid-widget.wb-skin .queue-grid-footer {
+    border-top: 1px solid var(--wb-line);
 }
