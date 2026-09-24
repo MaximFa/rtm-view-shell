@@ -62,7 +62,7 @@
                 </span>
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-light" @onclick="ToggleDarkMode" title="@(_darkMode ? "Light mode" : "Dark mode")">
+                <button class="btn btn-sm btn-outline-light" @onclick="ToggleDarkMode" title="@(_darkMode ? L["WidgetCfg_LightMode"] : L["WidgetCfg_DarkMode"])">
                     <i class="bi @(_darkMode ? "bi-sun" : "bi-moon")"></i>
                 </button>
                 @if (ConfiguringWidget is not null)
@@ -1859,7 +1859,7 @@
                                                 <div class="d-flex gap-1 align-items-center">
                                                     <div class="position-relative">
                                                         <span class="clr-swatch clr-swatch-sm"
-                                                              title="@(string.IsNullOrEmpty(row.BackgroundColor) ? "Default" : row.BackgroundColor)"
+                                                              title="@(string.IsNullOrEmpty(row.BackgroundColor) ? L["Common_Default"] : row.BackgroundColor)"
                                                               style="@GetColorStyle(row.BackgroundColor ?? "transparent"); cursor: pointer;"
                                                               @onclick="() => ToggleQueueRowBgPalette(rowIdx)"
                                                               @onclick:stopPropagation></span>
@@ -1888,7 +1888,7 @@
                                                     </div>
                                                     <div class="position-relative">
                                                         <span class="clr-swatch clr-swatch-sm"
-                                                              title="@(string.IsNullOrEmpty(row.FontColor) ? "Default" : row.FontColor)"
+                                                              title="@(string.IsNullOrEmpty(row.FontColor) ? L["Common_Default"] : row.FontColor)"
                                                               style="@GetColorStyle(row.FontColor ?? "#333"); cursor: pointer;"
                                                               @onclick="() => ToggleQueueRowFontPalette(rowIdx)"
                                                               @onclick:stopPropagation></span>
