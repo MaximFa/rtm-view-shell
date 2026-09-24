@@ -54,10 +54,17 @@ param(
 $ErrorActionPreference = "Stop"
 
 # -- Derive paths (robust: handles standalone script or -BaselineDir override) --
+# The script's OWN directory has nothing to do with where the baseline lives, and the dot-source of
+# RtmSchemaDump.ps1 further down needs it in BOTH branches. Deriving it only inside the else branch
+# was PR234-CMP-BASEDIR-01: with -BaselineDir the variable stayed unset, and under
+# $ErrorActionPreference='Stop' the dot-source died with
+#   Cannot bind argument to parameter 'Path' because it is null.
+# one line into DIMENSION A - so every run that passed -BaselineDir was impossible, and the
+# mandatory drift gate had to be skipped instead. Measured 2026-09-24 on a copy of this file.
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ($BaselineDir) {
     $DbDir = (Resolve-Path $BaselineDir -ErrorAction Stop).Path
 } else {
-    $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     if ($ScriptDir) {
         $RepoRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
         if ($RepoRoot) {
@@ -193,6 +200,9 @@ Write-Host "`n[A] SCHEMA COMPARISON" -ForegroundColor Yellow
 
 $ServerSchemaFile = [System.IO.Path]::GetTempFileName() + ".sql"
 # Use RtmSchemaDump helper (single-source whitelist, version-independent full-dump+filter)
+if (-not $ScriptDir) {
+    throw "Cannot locate RtmSchemaDump.ps1: the script directory could not be derived. This script must be run as a file, not piped into powershell."
+}
 . (Join-Path $ScriptDir 'RtmSchemaDump.ps1')
 Export-RtmSchema -PgDump $pgdump -DBHost $DBHost -DBPort $DBPort -DBUser $User -Database $Database -OutFile $ServerSchemaFile
 
