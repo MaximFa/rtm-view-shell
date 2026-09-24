@@ -100,3 +100,19 @@ NEGATIVE HALF: scratch-shaped copy of the tool tree whose db/schema.sql lacks ON
 WATCH: triggers are Type TRIGGER and stay in dimension A. 18.09 measured 0 non-routine extras, so none today.
 ```
 Until that passes, part 1 is DELIVERED, not CLOSED: the fixture is pg_dump 16, the server is 18.
+
+## 8. cc-binding (NORM-CUR-07, zero item of the coordinator's §4) -> append RESULT to .coord/cc/devops.md
+
+This block was MISSING from REV 2 and is added by devops-0919 on 2026-09-20 without touching a single
+line of the unit above: the zero item is checked as `binding:` >= 1 AND `commit.lock|cc_prompt_sync_block`
+>= 1, and both were 0. A prompt that commits and leaves no trace in the bus is how two RESULTs were lost
+on 13.09.
+
+Write the binding header BEFORE the work, the RESULT after it - and the RESULT goes in even if the run
+breaks off midway:
+```
+## <UTC> | binding: devops <-> CC | directive: tools/cc_prompt_cmp01_part1_corpus_symmetry.md | status: open
+### RESULT (by CC): commit <hash> ; C1..C4 and N1..N4 as measured ; parse 0 errors ; NO push.
+```
+Before committing, check that no lock is held: `commit.lock` / `cc_prompt_sync_block` absent in the repo
+root. If either exists, STOP and report - another line is mid-commit.
