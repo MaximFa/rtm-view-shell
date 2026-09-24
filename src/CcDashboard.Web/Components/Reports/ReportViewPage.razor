@@ -18,7 +18,7 @@
 @using CcDashboard.Application.Reports.Export
 @implements IDisposable
 
-<PageTitle>@(_report?.Name ?? L["Reports_Title"]) — Fullscreen</PageTitle>
+<PageTitle>@(_report?.Name ?? L["Reports_Title"]) — @L["Common_Fullscreen"]</PageTitle>
 
 <div class="fullscreen-dashboard @(_darkMode ? "dark-mode" : "")">
     @if (_loading)

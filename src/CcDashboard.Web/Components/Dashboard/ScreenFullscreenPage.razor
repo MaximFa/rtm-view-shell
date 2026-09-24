@@ -20,7 +20,7 @@
 @using CcDashboard.Web.Services
 @implements IDisposable
 
-<PageTitle>@(Dashboard?.Name ?? "Dashboard") — Fullscreen</PageTitle>
+<PageTitle>@(Dashboard?.Name ?? L["Common_Dashboard"]) — @L["Common_Fullscreen"]</PageTitle>
 
 <div class="fullscreen-dashboard @(_darkMode ? "dark-mode" : "")" @onclick="FilterPopups.NotifyCloseAll">
     @if (Loading)
