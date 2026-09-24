@@ -106,7 +106,8 @@ git commit -m "measure(v4): palette map, 223 shell tokens vs 17 reference names 
 Числа доказательства — В СООБЩЕНИЕ КОММИТА (каталог замеров не отслеживается на уборке):
 223 vars · 122 hex occ · 35 rgba occ · 157 total · 81 uniq hex · 17 reference names
 (pos.control --ok=56) · dark-theme 0/0/0 in skill · DarkMode 143 occ / 62 files in src.
-Авторство роли и сессии — строкой в сообщении коммита. `NO push`.
+Авторство роли — строкой в сообщении коммита. Строк `Co-Authored-By` и `Claude-Session`
+в сообщении коммита быть НЕ должно [со слов оператора 2026-09-24]. `NO push`.
 
 ## RESULT — обязательная форма, ОБЛАСТЬ и ЕДИНИЦА у каждого числа
 ```
