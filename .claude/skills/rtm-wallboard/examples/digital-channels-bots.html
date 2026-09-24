@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RTM — Digital Channels &amp; Bots · Bank Demo</title>
+<style>
+:root{
+  --bg:#eef1f6; --card:#ffffff; --line:#dfe4ec; --line2:#eef1f6;
+  --ink:#16202e; --muted:#7a869a; --faint:#9aa5b5;
+  --ok:#0f9d58; --okbg:#e8f6ee;
+  --warn:#c77700; --warnbg:#fdf3e2;
+  --bad:#d32f2f; --badbg:#fdeaea;
+  --brand:#1b3a6b; --brand2:#2f6fd0; --brandbg:#eaf1fb;
+  --radius:7px;
+  font-synthesis:none;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#dde3ec;display:flex;justify-content:center;align-items:flex-start;
+  color:var(--ink);
+  font-family:'Heebo','Assistant','Arial Hebrew','Noto Sans Hebrew','DejaVu Sans',Arial,sans-serif;
+  font-size:13px;
+  -webkit-font-smoothing:antialiased;
+}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";direction:ltr;unicode-bidi:isolate}
+span.num,b.num{display:inline-block}
+
+/* ---------- shell ---------- */
+.shell{width:1920px;height:1080px;display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+
+.topbar{
+  height:52px;flex:0 0 52px;background:var(--brand);color:#fff;
+  display:flex;align-items:center;gap:18px;padding:0 20px;
+}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.3px;font-size:15px}
+.logo .mark{width:22px;height:22px;border-radius:5px;background:linear-gradient(135deg,#4d8ff0,#8fc0ff);
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:#0d2246;font-weight:800}
+.screen-name{font-size:13px;opacity:.72;border-right:1px solid rgba(255,255,255,.22);padding-right:18px}
+.topbar .spacer{flex:1}
+.livebadge{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);
+  padding:5px 11px;border-radius:20px;font-size:11.5px;letter-spacing:.8px;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:#48e08b;box-shadow:0 0 0 0 rgba(72,224,139,.7);animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(72,224,139,.65)}70%{box-shadow:0 0 0 9px rgba(72,224,139,0)}100%{box-shadow:0 0 0 0 rgba(72,224,139,0)}}
+.clock{font-size:20px;font-weight:700;letter-spacing:.5px}
+.topmeta{font-size:11px;opacity:.65;line-height:1.35;text-align:left}
+
+.body{flex:1;display:flex;flex-direction:column;gap:10px;padding:10px 12px 0 12px;min-height:0}
+
+/* ---------- KPI row ---------- */
+.kpirow{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;flex:0 0 112px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:9px 12px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;inset-inline-start:0;top:0;bottom:0;width:3px;background:var(--brand2)}
+.kpi.ok::before{background:var(--ok)} .kpi.warn::before{background:var(--warn)} .kpi.bad::before{background:var(--bad)}
+.kpi .lbl{font-size:14.5px;color:var(--ink);font-weight:600;line-height:1.2;opacity:.82}
+.kpi .val{font-size:32px;font-weight:700;line-height:1;letter-spacing:-.5px}
+.kpi.ok .val{color:var(--ok)} .kpi.warn .val{color:var(--warn)} .kpi.bad .val{color:var(--bad)}
+.kpi .sub{font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:5px}
+.chip{font-size:11px;font-weight:700;padding:1.5px 6px;border-radius:9px}
+.chip.ok{background:var(--okbg);color:var(--ok)} .chip.warn{background:var(--warnbg);color:var(--warn)} .chip.bad{background:var(--badbg);color:var(--bad)}
+.spark{position:absolute;inset-inline-end:8px;bottom:6px;opacity:.5}
+
+/* ---------- panels ---------- */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.phead{flex:0 0 30px;display:flex;align-items:center;gap:9px;padding:0 11px;border-bottom:1px solid var(--line2);background:#fafbfd}
+.phead h3{font-size:12px;font-weight:700;letter-spacing:.2px}
+.phead .tag{font-size:9.5px;font-weight:700;letter-spacing:.7px;color:var(--ok);background:var(--okbg);padding:1.5px 6px;border-radius:9px}
+.phead .upd{margin-inline-start:auto;font-size:10px;color:var(--faint)}
+.pbody{flex:1;min-height:0;overflow:hidden;position:relative}
+
+.row2{display:grid;grid-template-columns:216px 1fr 302px;gap:10px;flex:1 1 auto;min-height:0}
+.row3{display:grid;grid-template-columns:1fr 690px;gap:10px;flex:0 0 352px;min-height:0}
+
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+td,th{overflow:hidden;text-overflow:ellipsis}
+.agt col.a{width:10.5%}.agt col.b{width:7%}.agt col.c{width:8%}.agt col.d{width:6.5%}.agt col.e{width:6%}
+.agt col.f{width:10%}.agt col.g{width:4.6%}.agt col.h{width:5.2%}.agt col.i{width:5%}.agt col.j{width:7%}
+.agt col.k{width:6.4%}.agt col.l{width:6.4%}.agt col.m{width:6.4%}.agt col.n{width:6.6%}.agt col.o{width:7.4%}
+.agt td:not(:first-child):not(:nth-child(2)),.agt th:not(:first-child):not(:nth-child(2)){text-align:center}
+.agt td{font-size:12.6px;padding:4px 3px}
+.agt th{font-size:11px;padding:6px 2px}
+.qt col.q1{width:19%}.qt col.q2{width:8.5%}.qt col.q3{width:9.5%}.qt col.q4{width:10%}.qt col.q5{width:9%}
+.qt col.q6{width:11%}.qt col.q7{width:8%}.qt col.q8{width:8%}.qt col.q9{width:8%}.qt col.q10{width:9%}
+.qt th:not(:first-child),.qt td:not(:first-child){text-align:center}
+th{font-size:12px;font-weight:600;color:var(--muted);text-align:right;padding:6px 7px;
+  background:#f7f9fc;border-bottom:1px solid var(--line);position:sticky;top:0;white-space:nowrap;line-height:1.2}
+td{font-size:13.8px;padding:6px 7px;border-bottom:1px solid var(--line2);white-space:nowrap}
+tbody tr:nth-child(even){background:#fcfdff}
+tbody tr.alert{background:var(--badbg)!important}
+tbody tr.alert td{border-bottom-color:#f7d4d4}
+tbody tr.warnrow{background:#fefaf1!important}
+tfoot td{font-size:13.8px;font-weight:700;background:#f4f7fb;border-top:2px solid var(--line);padding:6px 7px}
+.cellnum{text-align:center}
+.pill{display:inline-block;min-width:44px;text-align:center;padding:2px 6px;border-radius:4px;font-weight:700;font-size:13px}
+.pill.ok{background:var(--okbg);color:var(--ok)} .pill.warn{background:var(--warnbg);color:var(--warn)} .pill.bad{background:var(--badbg);color:var(--bad)}
+.qname{font-weight:600}
+.qname .qsub{display:block;font-size:11.4px;color:var(--faint);font-weight:400}
+
+/* agent state cells */
+.st{display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:13px}
+.st i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.st-call i{background:#0f9d58} .st-call{color:#0f9d58}
+.st-acw i{background:#2f6fd0} .st-acw{color:#2f6fd0}
+.st-idle i{background:#7a869a} .st-idle{color:#7a869a}
+.st-break i{background:#c77700} .st-break{color:#c77700}
+.st-train i{background:#7b4bd1} .st-train{color:#7b4bd1}
+.st-na i{background:#d32f2f} .st-na{color:#d32f2f}
+
+/* ---------- donut ---------- */
+.donutwrap{display:flex;flex-direction:column;height:100%;padding:8px 10px 10px}
+.donutbox{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 132px}
+.donutctr{position:absolute;text-align:center}
+.donutctr b{display:block;font-size:26px;font-weight:700;line-height:1}
+.donutctr span{font-size:10px;color:var(--muted)}
+.legend{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+.lg{display:flex;align-items:center;gap:7px;font-size:11.5px}
+.lg i{width:9px;height:9px;border-radius:2px;flex:0 0 9px}
+.lg .n{margin-inline-start:auto;font-weight:700}
+.lg .p{width:38px;text-align:left;color:var(--faint);font-size:10.5px}
+
+/* ---------- thresholds ---------- */
+.thr{padding:7px 10px;display:flex;flex-direction:column;gap:5px;height:100%;overflow:hidden}
+.thrrow{border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+.thrtop{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+.thrtop .m{font-size:11.5px;font-weight:600}
+.thrtop .v{margin-inline-start:auto;font-size:14px;font-weight:700}
+.thrtop .v.ok{color:var(--ok)} .thrtop .v.warn{color:var(--warn)} .thrtop .v.bad{color:var(--bad)}
+.bar{height:7px;border-radius:4px;display:flex;overflow:hidden;position:relative;background:#eef1f6}
+.bar span{display:block;height:100%}
+.bar .g{background:#bfe6cf} .bar .a{background:#f8dfae} .bar .r{background:#f4c0c0}
+.mark{position:absolute;top:-3px;width:3px;height:13px;background:#16202e;border-radius:2px;transform:translateX(50%)}
+.thrscale{display:flex;justify-content:space-between;font-size:8.5px;color:var(--faint);margin-top:2px}
+
+/* ---------- wfm ---------- */
+.wfm{padding:8px 10px;display:flex;flex-direction:column;gap:6px;height:100%}
+.wfmgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.wfmcell{background:#f7f9fc;border:1px solid var(--line2);border-radius:6px;padding:6px 8px}
+.wfmcell .k{font-size:10px;color:var(--muted)}
+.wfmcell .v{font-size:17px;font-weight:700;line-height:1.15}
+.wfmcell.bad{background:var(--badbg);border-color:#f3cfcf}
+.wfmcell.bad .v{color:var(--bad)}
+.wfmcell.ok .v{color:var(--ok)}
+.wfmnote{font-size:10px;color:var(--muted);line-height:1.32;border-top:1px dashed var(--line);padding-top:6px}
+
+/* ---------- ticker ---------- */
+.ticker{flex:0 0 38px;margin:0 0 10px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  display:flex;align-items:center;overflow:hidden}
+.ticker .tl{flex:0 0 auto;background:var(--brand);color:#fff;height:100%;display:flex;align-items:center;
+  padding:0 14px;font-size:11px;font-weight:700;letter-spacing:.6px}
+.tkwrap{flex:1;overflow:hidden;position:relative;height:100%}
+.tkmove{position:absolute;white-space:nowrap;top:50%;transform:translateY(-50%);animation:slide 34s linear infinite;font-size:13px}
+body.static .tkmove{position:static;transform:none;animation:none;padding:0 16px;line-height:36px}
+body.static .dot{animation:none}
+/* message ticker scrolls left → right */
+@keyframes slide{0%{right:100%}100%{right:-100%}}
+.tkmove b{color:var(--brand2)}
+.tkmove .sep{color:var(--faint);padding:0 16px}
+.tkmove .hot{color:var(--bad);font-weight:700}
+
+
+@keyframes flash{0%{background:#fff6cc}100%{background:transparent}}
+.fl{animation:flash .9s ease-out}
+@keyframes flashbad{0%{background:#ffd9d9}100%{background:transparent}}
+.flb{animation:flashbad 1.1s ease-out}
+@keyframes flashok{0%{background:#d5f5e3}100%{background:transparent}}
+.flo{animation:flashok 1.1s ease-out}
+.kpi .val{transition:color .35s}
+.bar .mark{transition:right .6s ease}
+tbody tr{transition:background .4s}
+.newcall{position:absolute;inset-inline-start:11px;top:7px;font-size:11px;font-weight:700;color:var(--ok);opacity:0}
+@keyframes rise{0%{opacity:0;transform:translateY(6px)}25%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
+.newcall.go{animation:rise 1.6s ease-out}
+
+/* ---------- agent score (stars under the name) ---------- */
+.scorewrap{display:flex;align-items:center;gap:5px;margin-top:1px;line-height:1}
+.stars{position:relative;display:inline-block;direction:ltr;font-size:10.5px;line-height:1;
+  letter-spacing:.6px;color:#d7dee9;white-space:nowrap}
+.stars .fill{position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:#f5a623;
+  transition:width .5s ease}
+.sc{font-size:9.5px;font-weight:700}
+.sc.ok{color:var(--ok)} .sc.warn{color:var(--warn)} .sc.bad{color:var(--bad)}
+
+/* footer strip */
+.foot{flex:0 0 22px;display:flex;align-items:center;gap:16px;padding:0 14px 0 14px;font-size:10px;color:var(--faint)}
+.foot .sp{margin-inline-start:auto}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div class="logo"><span class="mark">R</span> RTM</div>
+    <div class="screen-name">מוקד דיגיטלי — ערוצים, בוטים ותורים</div>
+    <div class="livebadge"><span class="dot"></span> LIVE</div>
+    <div class="spacer"></div>
+    <div class="topmeta">רענון אחרון<br><span id="lastupd" class="num">11:42:07</span></div>
+    <div class="clock num" id="clock">11:42:09</div>
+    <div class="topmeta">יום ג׳<br>17.11.2026</div>
+  </div>
+
+  <div class="body">
+
+    <!-- ===== KPI ROW ===== -->
+    <div class="kpirow" id="kpirow"></div>
+
+    <!-- ===== ROW 2 ===== -->
+    <div class="row2">
+
+      <!-- donut -->
+      <div class="panel">
+        <div class="phead"><h3>מצבי נציגים</h3><span class="tag">LIVE</span><span class="upd num" id="u1">11:42:07</span></div>
+        <div class="pbody">
+          <div class="donutwrap">
+            <div class="donutbox">
+              <svg width="132" height="132" viewBox="0 0 42 42" id="donut">
+                <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f1f4f8" stroke-width="5.2"></circle>
+              </svg>
+              <div class="donutctr"><b class="num" id="dtotal">41</b><span>נציגים מחוברים</span></div>
+            </div>
+            <div class="legend" id="legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- agent grid -->
+      <div class="panel">
+        <div class="phead"><h3>ערוצים דיגיטליים</h3><span class="tag">LIVE</span>
+          <span class="upd">כל 9 נציגי הדיגיטל · ממוין לפי ציון · ממוין לפי זמן בטיפול · <span class="num" id="u2">11:42:07</span></span></div>
+        <div class="pbody"><table class="agt">
+          <colgroup><col style="width:8.4%"><col style="width:6.6%"><col style="width:5.2%"><col style="width:6.4%"><col style="width:6.0%"><col style="width:4.4%"><col style="width:6.0%"><col style="width:6.0%"><col style="width:5.0%"><col style="width:7.0%"><col style="width:5.0%"><col style="width:5.0%"><col style="width:5.0%"><col style="width:4.6%"><col style="width:4.6%"><col style="width:4.6%"><col style="width:4.6%"><col style="width:5.6%"></colgroup>
+          <thead><tr>
+            <th>שם נציג</th><th>מצב</th><th>זמן במצב</th><th>ערוץ</th><th>מזהה שיח</th><th>פניות</th>
+            <th>זמן להודעה<br>ראשונה</th><th>זמן בין<br>הודעות</th><th>משך ממוצע</th>
+            <th>זמן בטיפול</th><th>הפסקה</th><th>סיכום</th><th>פנוי</th>
+            <th>% בטיפול</th><th>% הפסקה</th><th>% סיכום</th><th>% פנוי</th><th>לוגין</th>
+          </tr></thead>
+          <tbody id="agents"></tbody>
+        </table></div>
+      </div>
+
+      <!-- thresholds + wfm -->
+      <div style="display:flex;flex-direction:column;gap:10px;min-height:0">
+        <div class="panel" style="flex:1 1 auto">
+          <div class="phead"><h3>ספי התראה — ערוצים דיגיטליים</h3><span class="upd">יעדי רבעון Q4</span></div>
+          <div class="pbody"><div class="thr" id="thr"></div></div>
+        </div>
+        <div class="panel" style="flex:0 0 184px">
+          <div class="phead"><h3>WFM דיגיטל — 30 דקות</h3><span class="tag" style="color:var(--bad);background:var(--badbg)">חוסר איוש</span></div>
+          <div class="pbody"><div class="wfm">
+            <div class="wfmgrid">
+              <div class="wfmcell"><div class="k">פניות לשעה (λ)</div><div class="v num"><span id="wl">386</span> <span style="font-size:10px;color:var(--muted)">/שעה</span></div></div>
+              <div class="wfmcell"><div class="k">AHT שיח</div><div class="v num" id="waht">06:30</div></div>
+              <div class="wfmcell ok"><div class="k">נציגי דיגיטל</div><div class="v num" id="wserv">41</div></div>
+              <div class="wfmcell bad" id="wreqbox"><div class="k">נדרש (Erlang C)</div><div class="v num" id="wreq">47</div></div>
+            </div>
+            <div class="wfmnote" id="wnote"></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ROW 3 ===== -->
+    <div class="row3">
+
+      <div class="panel">
+        <div class="phead"><h3>תורים דיגיטליים בזמן אמת</h3><span class="tag">LIVE</span><span class="upd num" id="u3">11:42:07</span></div>
+        <div class="pbody"><span class="newcall" id="ncall">↗ פנייה חדשה</span><table class="qt">
+          <colgroup><col class="q1"><col class="q2"><col class="q3"><col class="q4"><col class="q5"><col class="q6"><col class="q7"><col class="q8"><col class="q9"><col class="q10"></colgroup>
+          <thead><tr>
+            <th>ערוץ</th><th class="cellnum">ממתינים כעת</th><th class="cellnum">המתנה של הראשון</th>
+            <th class="cellnum">זמן המתנה ממוצע<br><span style="font-weight:400;color:var(--faint)">יעד ≤ 00:30</span></th>
+            <th class="cellnum">אחוז נטישה<br><span style="font-weight:400;color:var(--faint)">יעד ≤ 3%</span></th>
+            <th class="cellnum">מענה עד 120 שנ׳<br><span style="font-weight:400;color:var(--faint)">יעד ≥ 90%</span></th>
+            <th class="cellnum">סה״כ פניות</th><th class="cellnum">נענו</th><th class="cellnum">ננטשו</th><th class="cellnum">נציגים</th>
+          </tr></thead>
+          <tbody id="queues"></tbody>
+          <tfoot><tr>
+            <td>סה״כ דיגיטל</td><td class="cellnum num" id="tq">24</td><td class="cellnum num">02:07</td>
+            <td class="cellnum"><span class="pill ok num">00:27</span></td>
+            <td class="cellnum"><span class="pill ok num">2.9%</span></td>
+            <td class="cellnum"><span class="pill warn num">89.5%</span></td>
+            <td class="cellnum num">1,090</td><td class="cellnum num">1,058</td><td class="cellnum num">32</td><td class="cellnum num">41</td>
+          </tr></tfoot>
+        </table></div>
+      </div>
+
+      <div class="panel">
+        <div class="phead"><h3>מגמה יומית — פניות דיגיטליות מול SLA</h3><span class="upd">08:00 – 11:30 · מרווח 30 דק׳</span></div>
+        <div class="pbody" id="chartbox"></div>
+      </div>
+    </div>
+
+    <div class="ticker">
+      <div class="tl">הודעות מוקד</div>
+      <div class="tkwrap"><div class="tkmove">
+        <span class="hot">⚠ ערוץ ״מייל״ — מענה עד 120 שניות 79.5%, חריגה מיעד 90%</span>
+        <span class="sep">•••</span>
+        <b>מנהל המוקד 11:31</b> — כל הנציגים הפנויים לעבור לערוץ מייל עד 12:15
+        <span class="sep">•••</span>
+        <b>מנהל המוקד 09:04</b> — היעדים שלנו היום: הודעה ראשונה ≤ 30 שניות, זמן בין הודעות ≤ 01:00, נטישה ≤ 3%
+        <span class="sep">•••</span>
+        <b>הדרכה 10:20</b> — תסריט הבוט לחסימת כרטיס עודכן — נא לרענן
+        <span class="sep">•••</span>
+        <span style="color:var(--ok);font-weight:700">✔ שיעור הכלה בבוט 56.9% — מעל היעד!</span>
+        <span class="sep">•••</span>
+      </div></div>
+    </div>
+
+    <div class="foot">
+      <span>RTM · Real-Time Monitoring</span>
+      <span>Tenant: BANK-DEMO · Screen: Digital Channels &amp; Bots</span>
+      <span>מקור נתונים: פלטפורמת ערוצים + בוט קולי + צ׳אטבוט · חיווי כל 5 שניות</span>
+      <span class="sp">כל הנתונים במסך זה הינם נתוני הדגמה סינתטיים</span>
+    </div>
+  </div>
+</div>
+
+<script>
+
+
+/* ================= LIVE SIMULATION — DIGITAL CHANNELS & BOTS ================= */
+const STATIC = location.search.indexOf('static') > -1;
+if (STATIC) document.body.classList.add('static');
+
+const ST={call:['בטיפול','st-call'],acw:['סיכום','st-acw'],idle:['פנוי','st-idle'],
+          break:['הפסקה','st-break'],train:['הדרכה','st-train'],na:['לא זמין','st-na']};
+const DCOL={call:'#0f9d58',acw:'#2f6fd0',idle:'#7a869a',break:'#c77700',train:'#7b4bd1',na:'#d32f2f'};
+const DNAME={call:'בטיפול',acw:'סיכום',idle:'פנוי',break:'הפסקה',train:'הדרכה',na:'לא זמין'};
+
+const Q=[
+ {n:'WhatsApp Business', c:'WhatsApp',        w:5, fw:58, asa:22, sla:91.5, tot:187, ans:183, aban:4, ag:3, load:.34},
+ {n:'צ׳אט באתר',          c:'Web Chat',        w:4, fw:46, asa:31, sla:85.2, tot:142, ans:136, aban:6, ag:2, load:.26},
+ {n:'אפליקציה בנקאית',    c:'Mobile App',      w:2, fw:23, asa:18, sla:95.1, tot:96,  ans:95,  aban:1, ag:2, load:.17},
+ {n:'מייל',               c:'Email',           w:1, fw:12, asa:52, sla:79.5, tot:61,  ans:61,  aban:0, ag:1, load:.11},
+ {n:'מסנג׳ר',             c:'FB Messenger',    w:1, fw:12, asa:45, sla:90.0, tot:38,  ans:37,  aban:1, ag:1, load:.07},
+ {n:'הסלמות מבוט קולי',   c:'Voice-bot escal.',w:0, fw:0,  asa:12, sla:97.0, tot:29,  ans:29,  aban:0, ag:0, load:.05},
+];
+const CHS=['WhatsApp','צ׳אט באתר','אפליקציה','מייל','מסנג׳ר'];
+const CIDP={'WhatsApp':'WA','צ׳אט באתר':'CH','אפליקציה':'AP','מייל':'EM','מסנג׳ר':'FB'};
+
+const A=[
+ {n:'ליאת נווה',  s:'call', ss:58,  ch:'WhatsApp',  cid:'WA-48231', frt:14, ibm:38,  avg:372, inb:62, talk:10240, br:827,  acw:602,  idle:1531, log:13200},
+ {n:'אופיר מזרחי',s:'call', ss:168, ch:'צ׳אט באתר', cid:'CH-77104', frt:19, ibm:44,  avg:401, inb:58, talk:9980,  br:982,  acw:554,  idle:1684, log:13200},
+ {n:'נועה אבירם', s:'call', ss:114, ch:'אפליקציה',  cid:'AP-12055', frt:17, ibm:35,  avg:318, inb:57, talk:9412,  br:1116, acw:1027, idle:1645, log:13200},
+ {n:'יעל בר-און', s:'call', ss:252, ch:'צ׳אט באתר', cid:'CH-77188', frt:26, ibm:63,  avg:388, inb:51, talk:9081,  br:1087, acw:720,  idle:2312, log:13200},
+ {n:'אמיר דהן',   s:'call', ss:688, ch:'מייל',      cid:'EM-30914', frt:71, ibm:148, avg:642, inb:24, talk:8760,  br:1533, acw:781,  idle:2126, log:13200},
+ {n:'מיכל עוזרי', s:'acw',  ss:135, ch:'WhatsApp',  cid:'—',        frt:33, ibm:72,  avg:344, inb:52, talk:8390,  br:1721, acw:1331, idle:1758, log:13200},
+ {n:'דנה שלו',    s:'call', ss:577, ch:'מסנג׳ר',    cid:'FB-90233', frt:41, ibm:96,  avg:470, inb:36, talk:8102,  br:1187, acw:922,  idle:2989, log:13200},
+ {n:'רועי פרץ',   s:'idle', ss:22,  ch:'—',         cid:'—',        frt:20, ibm:47,  avg:302, inb:54, talk:7845,  br:892,  acw:755,  idle:3708, log:13200},
+ {n:'שירה כץ',    s:'break',ss:461, ch:'—',         cid:'—',        frt:24, ibm:55,  avg:330, inb:56, talk:6980,  br:2261, acw:857,  idle:3102, log:13200},
+];
+
+let KPI={contained:731, botAht:72, tw:13, lam:196, conc:3};
+let t=new Date(2026,10,17,11,42,9);
+let step=0;
+
+const two=n=>String(n).padStart(2,'0');
+const mmss=s=>two(Math.floor(s/60))+':'+two(Math.round(s)%60);
+const hms=s=>two(Math.floor(s/3600))+':'+two(Math.floor(s%3600/60))+':'+two(Math.round(s)%60);
+const cls=(v,ok,warn)=>v<=ok?'ok':(v<=warn?'warn':'bad');
+const clsUp=(v,ok,warn)=>v>=ok?'ok':(v>=warn?'warn':'bad');
+const flash=(el,k)=>{if(!el)return;el.classList.remove('fl','flb','flo');void el.offsetWidth;el.classList.add(k||'fl');};
+const avgFRT=()=>Math.round(A.reduce((s,a)=>s+a.frt,0)/A.length);
+const avgIBM=()=>Math.round(A.reduce((s,a)=>s+a.ibm,0)/A.length);
+
+
+/* ---------- agent score: 60% speed + 40% discipline, rendered as 5 stars ---------- */
+const clampS=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+function discScore(pb,pi){ return clampS(5-(pb-7)/2.2-Math.max(0,pi-15)/8, 1, 5); }
+function stars(v){
+  return `<span class="stars">★★★★★<span class="fill" style="width:${(v/5*100).toFixed(1)}%">★★★★★</span></span>`;
+}
+function scoreCell(name,sc,speed,disc){
+  const c = sc>=4 ? 'ok' : (sc>=3 ? 'warn' : 'bad');
+  return `<td title="ציון נציג ${sc.toFixed(1)} · מהירות ${speed.toFixed(1)} · משמעת ${disc.toFixed(1)}">
+    <div style="font-weight:600">${name}</div>
+    <div class="scorewrap">${stars(sc)}<span class="sc ${c}">${sc.toFixed(1)}</span></div></td>`;
+}
+
+/* ---------- KPI: bot block ---------- */
+function renderKPI(){
+  const esc=KPI.esc, botIn=KPI.contained+esc, cont=KPI.contained/botIn*100;
+  const voice=Math.round(botIn*0.703), chat=botIn-voice;
+  const frt=avgFRT(), contC=clsUp(cont,50,40), frtC=cls(frt,30,60);
+  const tiles=[
+   ['סה״כ פניות לבוט',botIn.toLocaleString('en-US'),'','מתחילת היום · 08:00'],
+   ['טופלו במלואן בבוט',KPI.contained.toLocaleString('en-US'),contC,
+     `<span class="chip ${contC}">${cont.toFixed(1)}%</span> שיעור הכלה · יעד ≥ 50%`],
+   ['הועברו לנציג',esc.toLocaleString('en-US'),'',
+     `<span class="chip warn">${(100-cont).toFixed(1)}%</span> מתוך פניות הבוט`],
+   ['זמן טיפול ממוצע בבוט',mmss(KPI.botAht),cls(KPI.botAht,90,120),
+     `<span class="chip ${cls(KPI.botAht,90,120)}">${KPI.botAht<=90?'▼':'▲'} ${mmss(Math.abs(KPI.botAht-90))}</span> מול יעד 01:30`],
+   ['פניות בבוט קולי',voice.toLocaleString('en-US'),'','70.3% מפניות הבוט'],
+   ['פניות בצ׳אטבוט',chat.toLocaleString('en-US'),'','29.7% מפניות הבוט'],
+   ['ממתינים בערוצים',KPI.tw,cls(KPI.tw,10,20),
+     `<span class="chip ${cls(KPI.tw,10,20)}">המתנה ארוכה: ${mmss(KPI.maxw)}</span>`],
+   ['זמן להודעה ראשונה',mmss(frt),frtC,
+     `<span class="chip ${frtC}">${frt<=30?'▼':'▲'} ${mmss(Math.abs(frt-30))}</span> מול יעד 00:30`],
+  ];
+  document.getElementById('kpirow').innerHTML=tiles.map(x=>
+    `<div class="kpi ${x[2]}"><div class="lbl">${x[0]}</div><div class="val num">${x[1]}</div>
+     <div class="sub">${x[3]}</div></div>`).join('');
+}
+
+/* ---------- queues ---------- */
+function renderQueues(){
+  let tw=0,tt=0,ta=0,tab=0,tag=0,maxw=0;
+  document.getElementById('queues').innerHTML=Q.map(q=>{
+    const ab=q.aban/q.tot*100||0, sla=q.sla;
+    const asaC=cls(q.asa,30,60), abC=cls(ab,3,5), slaC=clsUp(sla,90,80);
+    const rowC=(asaC=='bad'||abC=='bad'||slaC=='bad')?'alert':((asaC=='warn'||abC=='warn'||slaC=='warn')?'warnrow':'');
+    tw+=q.w;tt+=q.tot;ta+=q.ans;tab+=q.aban;tag+=q.ag;maxw=Math.max(maxw,q.fw);
+    return `<tr class="${rowC}">
+     <td class="qname">${q.n}<span class="qsub">${q.c}</span></td>
+     <td class="num" style="font-weight:700;font-size:16px">${q.w}</td>
+     <td class="num">${mmss(q.fw)}</td>
+     <td><span class="pill ${asaC} num">${mmss(q.asa)}</span></td>
+     <td><span class="pill ${abC} num">${ab.toFixed(1)}%</span></td>
+     <td><span class="pill ${slaC} num">${sla.toFixed(1)}%</span></td>
+     <td class="num">${q.tot}</td><td class="num">${q.ans}</td><td class="num">${q.aban}</td><td class="num">${q.ag}</td></tr>`;
+  }).join('');
+  KPI.esc=tt;KPI.tw=tw;KPI.maxw=maxw;KPI.aban=tab;
+  const wasa=Q.reduce((s,q)=>s+q.asa*q.tot,0)/tt, wsla=Q.reduce((s,q)=>s+q.sla*q.tot,0)/tt;
+  KPI.asa=Math.round(wasa);KPI.sla=+wsla.toFixed(1);
+  document.getElementById('tq').textContent=tw;
+  const f=document.querySelectorAll('tfoot td');
+  f[2].textContent=mmss(maxw);
+  f[3].innerHTML=`<span class="pill ${cls(KPI.asa,30,60)} num">${mmss(KPI.asa)}</span>`;
+  f[4].innerHTML=`<span class="pill ${cls(tab/tt*100,3,5)} num">${(tab/tt*100).toFixed(1)}%</span>`;
+  f[5].innerHTML=`<span class="pill ${clsUp(wsla,90,80)} num">${wsla.toFixed(1)}%</span>`;
+  f[6].textContent=tt.toLocaleString('en-US');f[7].textContent=ta.toLocaleString('en-US');
+  f[8].textContent=tab;f[9].textContent=tag;
+}
+
+/* ---------- agents ---------- */
+function agentScore(a){
+  const tot=a.talk+a.br+a.acw+a.idle;
+  const pb=Math.round(a.br/tot*100), pi=100-Math.round(a.talk/tot*100)-pb-Math.round(a.acw/tot*100);
+  const speed=(clampS(5-(a.frt-15)/13,1,5)+clampS(5-(a.ibm-30)/25,1,5))/2;   /* FRT + between-messages */
+  const disc=discScore(pb,pi);                                              /* breaks + idle */
+  return {v:clampS(0.6*speed+0.4*disc,1,5), speed, disc};
+}
+function renderAgents(){
+  A.forEach(a=>a._s=agentScore(a));
+  A.sort((x,y)=>y._s.v-x._s.v);
+  document.getElementById('agents').innerHTML=A.map(a=>{
+    const st=ST[a.s], tot=a.talk+a.br+a.acw+a.idle;
+    const pt=Math.round(a.talk/tot*100), pb=Math.round(a.br/tot*100),
+          pa=Math.round(a.acw/tot*100), pi=100-pt-pb-pa;
+    const live=a.s=='call';
+    return `<tr>${scoreCell(a.n,a._s.v,a._s.speed,a._s.disc)}
+     <td><span class="st ${st[1]}"><i></i>${st[0]}</span></td>
+     <td class="num">${mmss(a.ss)}</td>
+     <td>${live?a.ch:'—'}</td>
+     <td class="num" style="color:var(--muted)">${live?a.cid:'—'}</td>
+     <td class="num">${a.inb}</td>
+     <td><span class="pill ${cls(a.frt,30,60)} num">${mmss(a.frt)}</span></td>
+     <td><span class="pill ${cls(a.ibm,60,120)} num">${mmss(a.ibm)}</span></td>
+     <td class="num">${mmss(a.avg)}</td>
+     <td><span class="pill ${clsUp(a.talk,9000,7200)} num">${hms(a.talk)}</span></td>
+     <td class="num">${mmss(a.br)}</td><td class="num">${mmss(a.acw)}</td><td class="num">${mmss(a.idle)}</td>
+     <td><span class="pill ${clsUp(pt,70,55)} num">${pt}%</span></td>
+     <td><span class="pill ${cls(pb,10,15)} num">${pb}%</span></td>
+     <td><span class="pill ${cls(pa,8,12)} num">${pa}%</span></td>
+     <td><span class="pill ${cls(pi,15,25)} num">${pi}%</span></td>
+     <td class="num">${hms(a.log)}</td></tr>`;
+  }).join('');
+}
+
+/* ---------- donut ---------- */
+function renderDonut(){
+  const c={};A.forEach(a=>c[a.s]=(c[a.s]||0)+1);
+  const d=Object.keys(c).map(k=>[DNAME[k],c[k],DCOL[k]]);
+  const tot=A.length, svg=document.getElementById('donut');
+  svg.innerHTML='<circle cx="21" cy="21" r="15.915" fill="none" stroke="#f1f4f8" stroke-width="5.2"></circle>';
+  let off=25;
+  d.forEach(x=>{const pct=x[1]/tot*100;
+    const el=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    el.setAttribute('cx',21);el.setAttribute('cy',21);el.setAttribute('r',15.915);
+    el.setAttribute('fill','none');el.setAttribute('stroke',x[2]);el.setAttribute('stroke-width',5.2);
+    el.setAttribute('stroke-dasharray',pct.toFixed(2)+' '+(100-pct).toFixed(2));
+    el.setAttribute('stroke-dashoffset',off.toFixed(2));svg.appendChild(el);off-=pct;});
+  document.getElementById('dtotal').textContent=tot;
+  document.getElementById('legend').innerHTML=d.map(x=>
+    `<div class="lg"><i style="background:${x[2]}"></i>${x[0]}<span class="n num">${x[1]}</span>
+     <span class="p num">${(x[1]/tot*100).toFixed(0)}%</span></div>`).join('');
+}
+
+/* ---------- thresholds ---------- */
+function renderThr(){
+  const frt=avgFRT(), ibm=avgIBM(), abp=KPI.aban/KPI.esc*100;
+  const botIn=KPI.contained+KPI.esc, cont=KPI.contained/botIn*100;
+  const rows=[
+   {m:'זמן להודעה ראשונה',v:mmss(frt),s:cls(frt,30,60),pos:Math.min(96,frt/90*100),g:'≤ 00:30',a:'00:30–01:00',r:'> 01:00',gp:50,ap:25},
+   {m:'זמן בין הודעות',v:mmss(ibm),s:cls(ibm,60,120),pos:Math.min(96,ibm/180*100),g:'≤ 01:00',a:'01:00–02:00',r:'> 02:00',gp:47,ap:26},
+   {m:'אחוז נטישה',v:abp.toFixed(1)+'%',s:cls(abp,3,5),pos:Math.min(96,abp/6*100),g:'≤ 3%',a:'3–5%',r:'> 5%',gp:50,ap:22},
+   {m:'שיעור הכלה בבוט',v:cont.toFixed(1)+'%',s:clsUp(cont,50,40),pos:Math.min(96,Math.max(4,(70-cont)/40*100)),g:'≥ 50%',a:'40–50%',r:'< 40%',gp:44,ap:28},
+  ];
+  document.getElementById('thr').innerHTML=rows.map(x=>`
+   <div class="thrrow"><div class="thrtop"><span class="m">${x.m}</span><span class="v ${x.s} num">${x.v}</span></div>
+   <div class="bar"><span class="g" style="width:${x.gp}%"></span><span class="a" style="width:${x.ap}%"></span>
+    <span class="r" style="width:${100-x.gp-x.ap}%"></span><span class="mark" style="right:${x.pos.toFixed(1)}%"></span></div>
+   <div class="thrscale"><span>${x.g}</span><span>${x.a}</span><span>${x.r}</span></div></div>`).join('');
+}
+
+/* ---------- WFM ---------- */
+function renderWFM(){
+  const aht=Math.round(A.reduce((s,a)=>s+a.avg,0)/A.length);
+  const req=Math.max(1,Math.ceil(KPI.lam*aht/3600/KPI.conc/0.85));
+  const serving=A.filter(a=>a.s!=='break'&&a.s!=='na'&&a.s!=='train').length;
+  const gap=serving-req;
+  document.getElementById('wl').textContent=KPI.lam;
+  document.getElementById('waht').textContent=mmss(aht);
+  document.getElementById('wserv').textContent=serving;
+  document.getElementById('wreq').textContent=req;
+  document.getElementById('wreqbox').className='wfmcell '+(gap<0?'bad':'ok');
+  const fs=Math.max(58,Math.min(98,Math.round(KPI.sla+gap*2.2)));
+  document.getElementById('wnote').innerHTML=
+    `מקביליות ${KPI.conc} שיחים לנציג · פער איוש <b style="color:${gap<0?'var(--bad)':'var(--ok)'}">${gap>=0?'+':''}${gap}</b> ·
+     תחזית SLA <b style="color:${fs>=90?'var(--ok)':'var(--bad)'}">${fs}%</b> מול יעד 90%.<br>
+     <b>המלצה:</b> ${gap<0?'הוספת '+Math.abs(gap)+' נציגים לערוץ מייל.':'להסיט קיבולת פנויה לערוץ מייל.'}`;
+}
+
+/* ---------- chart ---------- */
+const CH={t:['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30'],
+          inc:[22,38,56,74,92,104,118,112], ans:[21,37,54,70,86,96,108,104],
+          abn:[1,1,2,4,6,8,10,8], sla:[97,96,94,92,90,88,86,89]};
+function drawChart(){
+  const W=678,H=212,L=44,R=40,T=14,B=30,maxV=130,pw=W-L-R,ph=H-T-B,n=CH.t.length;
+  const X=i=>L+pw-(i*(pw/(n-1))), Y=v=>T+ph-(v/maxV)*ph, Y2=v=>T+ph-(v/100)*ph;
+  const path=(a,f)=>a.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+f(v).toFixed(1)).join(' ');
+  let g='';for(let v=0;v<=maxV;v+=Math.round(maxV/4)){g+=`<line x1="${L}" y1="${Y(v)}" x2="${W-R}" y2="${Y(v)}" stroke="#eef1f6"/>
+    <text x="${W-R+6}" y="${Y(v)+3.5}" font-size="10" fill="#9aa5b5">${v}</text>`;}
+  for(let p=0;p<=100;p+=25){g+=`<text x="${L-8}" y="${Y2(p)+3.5}" font-size="10" fill="#c77700" text-anchor="end">${p}%</text>`;}
+  let x='';CH.t.forEach((v,i)=>{x+=`<text x="${X(i)}" y="${H-10}" font-size="10" fill="#7a869a" text-anchor="middle">${v}</text>`;});
+  const dots=(a,f,c)=>a.map((v,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${f(v).toFixed(1)}" r="${i==n-1?4.4:2.6}" fill="${i==n-1?c:'#fff'}" stroke="${c}" stroke-width="1.6"/>`).join('');
+  document.getElementById('chartbox').innerHTML=`
+  <svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" style="direction:ltr">${g}${x}
+    <line x1="${L}" y1="${T}" x2="${L}" y2="${T+ph}" stroke="#dfe4ec"/>
+    <line x1="${L}" y1="${T+ph}" x2="${W-R}" y2="${T+ph}" stroke="#dfe4ec"/>
+    <rect x="${X(n-1)-14}" y="${T}" width="30" height="${ph}" fill="#2f6fd0" opacity="0.07"/>
+    <path d="${path(CH.sla,Y2)}" fill="none" stroke="#c77700" stroke-width="1.8" stroke-dasharray="5 3"/>
+    <path d="${path(CH.inc,Y)}" fill="none" stroke="#2f6fd0" stroke-width="2.4"/>
+    <path d="${path(CH.ans,Y)}" fill="none" stroke="#0f9d58" stroke-width="2"/>
+    <path d="${path(CH.abn,Y)}" fill="none" stroke="#d32f2f" stroke-width="2"/>
+    ${dots(CH.inc,Y,'#2f6fd0')}${dots(CH.ans,Y,'#0f9d58')}${dots(CH.abn,Y,'#d32f2f')}
+    <text x="${X(n-1)+34}" y="${T+11}" font-size="10" fill="#2f6fd0">עכשיו</text>
+  </svg>
+  <div style="position:absolute;top:6px;left:52px;display:flex;gap:12px;font-size:11px;direction:rtl">
+    <span style="color:#2f6fd0">■ פניות</span><span style="color:#0f9d58">■ נענו</span>
+    <span style="color:#d32f2f">■ ננטשו</span><span style="color:#c77700">▬ SLA %</span></div>`;
+}
+
+/* ================= 20-SECOND SCENARIO ================= */
+function tick(){
+  step++; const k=step%20;
+  t=new Date(t.getTime()+1000);
+  const ts=`${two(t.getHours())}:${two(t.getMinutes())}:${two(t.getSeconds())}`;
+  document.getElementById('clock').textContent=ts;
+  ['lastupd','u1','u2','u3'].forEach(id=>document.getElementById(id).textContent=ts);
+
+  /* agents */
+  A.forEach((a,i)=>{
+    a.ss++; a.log++;
+    /* conversation quality reacts to load, so the score visibly moves and reranks */
+    const q = k<7 ? 1 : (k<16 ? -1 : -0.2);
+    a.frt = Math.max(7,  Math.min(190, a.frt + q*3.2 + (Math.random()*3-1.5)));
+    a.ibm = Math.max(12, Math.min(210, a.ibm + q*4.5 + (Math.random()*5-2.5)));
+    if(a.s=='call'){a.talk++;}
+    else if(a.s=='acw'){a.acw++;}
+    else if(a.s=='break'){a.br++;}
+    else{a.idle++;}
+    if((step+i*3)%11===0){
+      if(a.s=='call'&&Math.random()<.5){a.s='acw';a.ss=0;}
+      else if(a.s=='acw'){a.s=Math.random()<.75?'call':'idle';a.ss=0;
+        if(a.s=='call'){a.inb++;a.ch=CHS[Math.floor(Math.random()*CHS.length)];
+          a.cid=CIDP[a.ch]+'-'+(10000+Math.floor(Math.random()*89999));a.frt=8+Math.floor(Math.random()*26);}}
+      else if(a.s=='idle'&&Math.random()<.7){a.s='call';a.ss=0;a.inb++;
+        a.ch=CHS[Math.floor(Math.random()*CHS.length)];
+        a.cid=CIDP[a.ch]+'-'+(10000+Math.floor(Math.random()*89999));a.frt=8+Math.floor(Math.random()*26);}
+      else if(a.s=='break'&&k>8){a.s='idle';a.ss=0;}
+    }
+  });
+
+  /* channels: surge → relief → calm */
+  Q.forEach((q,i)=>{
+    const drift = k<7 ? 1.0 : (k<16 ? -1.0 : -0.25);
+    const arrivals = Math.random()< (q.load*1.5) ? 1 : 0;
+    const handled  = Math.random()< (q.load*1.3 + (k>=7?.42:0)) ? 1 : 0;
+    const push = Math.random()<Math.abs(drift)/3 ? Math.sign(drift)*(i===3?2:1) : 0;
+    q.w=Math.max(0,q.w+arrivals-handled+push);
+    q.fw=Math.max(0,Math.round(q.fw+(q.w*11.5-q.fw)*0.28));
+    q.asa=Math.max(4,Math.round(q.asa+(q.w>4?0.9:-0.7)));
+    q.sla=Math.max(55,Math.min(99.6,+(q.sla+(q.w>4?-0.6:0.55)).toFixed(1)));
+    if(arrivals){q.tot++; if(Math.random()<0.975||q.w<5){q.ans++;}else{q.aban++;}}
+  });
+  if(step%2===0) KPI.contained++;
+  KPI.botAht=Math.max(45,Math.min(150,KPI.botAht+((Math.random()*5-2.5)|0)));
+  KPI.lam=Math.round(150+Q.reduce((s,q)=>s+q.w,0)*4.4);
+
+  renderQueues();renderAgents();renderKPI();renderDonut();renderThr();renderWFM();
+
+  const L8=CH.t.length-1;
+  CH.inc[L8]=Math.max(70,Math.min(128,CH.inc[L8]+((Math.random()*7-3)|0)));
+  CH.ans[L8]=Math.round(CH.inc[L8]*(KPI.sla/100+0.06));
+  CH.abn[L8]=Math.max(1,CH.inc[L8]-CH.ans[L8]);
+  CH.sla[L8]=Math.round(KPI.sla);
+  if(step%5===0){
+    CH.t.push(`${two(t.getHours())}:${two(t.getMinutes())}`);CH.t.shift();
+    ['inc','ans','abn','sla'].forEach(z=>{CH[z].push(CH[z][CH[z].length-1]);CH[z].shift();});
+  }
+  drawChart();
+
+  const rows=document.querySelectorAll('#queues tr');
+  if(rows[3]) flash(rows[3], k<7?'flb':(k<16?'flo':'fl'));
+  if(k%3===0){const nc=document.getElementById('ncall');nc.classList.remove('go');void nc.offsetWidth;nc.classList.add('go');}
+}
+
+renderQueues();renderAgents();renderKPI();renderDonut();renderThr();renderWFM();drawChart();
+if(!STATIC) setInterval(tick,1000);
+
+
+function fit(){const sh=document.querySelector('.shell');
+  const k=Math.min(window.innerWidth/1920, window.innerHeight/1080);
+  sh.style.zoom = k<1 ? k : 1;}
+fit(); window.addEventListener('resize',fit);
+
+</script>
+</body>
+</html>

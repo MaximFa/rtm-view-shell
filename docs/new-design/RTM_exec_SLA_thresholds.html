@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RTM — ספי התראה SLA · מסך הנהלה</title>
+<style>
+:root{
+  --bg:#eef1f6; --card:#ffffff; --line:#dfe4ec; --line2:#eef1f6;
+  --ink:#16202e; --muted:#7a869a; --faint:#9aa5b5;
+  --ok:#0f9d58; --okbg:#e8f6ee; --okband:#bfe6cf;
+  --warn:#c77700; --warnbg:#fdf3e2; --warnband:#f8dfae;
+  --bad:#d32f2f; --badbg:#fdeaea; --badband:#f4c0c0;
+  --brand:#1b3a6b; --brand2:#2f6fd0;
+  --radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:#dde3ec;display:flex;justify-content:center;align-items:flex-start;
+  color:var(--ink);font-family:'Heebo','Assistant','Arial Hebrew','Noto Sans Hebrew','DejaVu Sans',Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";direction:ltr;unicode-bidi:isolate}
+span.num,b.num{display:inline-block}
+
+.shell{width:1920px;height:1080px;display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+
+/* ---------- top bar ---------- */
+.topbar{height:58px;flex:0 0 58px;background:var(--brand);color:#fff;display:flex;align-items:center;gap:18px;padding:0 22px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;letter-spacing:.3px}
+.logo .mark{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#4d8ff0,#8fc0ff);
+  display:flex;align-items:center;justify-content:center;font-size:12px;color:#0d2246;font-weight:800}
+.screen-name{font-size:14.5px;opacity:.78;border-right:1px solid rgba(255,255,255,.22);padding-right:18px}
+.livebadge{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);padding:5px 12px;border-radius:20px;
+  font-size:12px;letter-spacing:.8px;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:#48e08b;animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(72,224,139,.65)}70%{box-shadow:0 0 0 9px rgba(72,224,139,0)}100%{box-shadow:0 0 0 0 rgba(72,224,139,0)}}
+.topbar .spacer{flex:1}
+.hstat{display:flex;flex-direction:column;align-items:flex-end;gap:1px;padding-inline-start:18px;
+  border-inline-start:1px solid rgba(255,255,255,.18)}
+.hstat .k{font-size:10.5px;opacity:.62;letter-spacing:.3px}
+.hstat .v{font-size:17px;font-weight:700}
+.clock{font-size:23px;font-weight:700;letter-spacing:.5px}
+.topmeta{font-size:11.5px;opacity:.65;line-height:1.35;text-align:left}
+
+.body{flex:1;display:flex;flex-direction:column;gap:10px;padding:10px 12px 0;min-height:0}
+.grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;min-height:0}
+
+/* ---------- department panel ---------- */
+.dept{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative}
+.dept::before{content:'';position:absolute;top:0;inset-inline-start:0;inset-inline-end:0;height:3px;background:var(--brand2)}
+.dept.ok::before{background:var(--ok)} .dept.warn::before{background:var(--warn)} .dept.bad::before{background:var(--bad)}
+.dept.total{border-color:#c6d2e6;box-shadow:0 0 0 2px #e6edf8 inset}
+
+.dhead{flex:0 0 52px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--line2);background:#fafbfd}
+.dept.total .dhead{background:#f2f6fc}
+.dhead h2{font-size:20px;font-weight:700;letter-spacing:-.2px}
+.dhead .en{font-size:11px;color:var(--faint);align-self:flex-end;padding-bottom:6px}
+.badge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;letter-spacing:.2px}
+.badge.ok{background:var(--okbg);color:var(--ok)} .badge.warn{background:var(--warnbg);color:var(--warn)}
+.badge.bad{background:var(--badbg);color:var(--bad)}
+.dstats{margin-inline-start:auto;display:flex;gap:18px}
+.dstats div{text-align:center}
+.dstats .k{font-size:10.5px;color:var(--muted);line-height:1.1}
+.dstats .v{font-size:17px;font-weight:700;line-height:1.25}
+
+.dbody{flex:1;min-height:0;padding:8px 14px 10px;display:flex;flex-direction:column;justify-content:space-between}
+
+/* ---------- metric row ---------- */
+.mrow{padding:3px 0}
+.mtop{display:flex;align-items:baseline;gap:10px;margin-bottom:5px}
+.mtop .m{font-size:15.5px;font-weight:600}
+.mtop .trend{font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:9px}
+.mtop .trend.up{background:var(--okbg);color:var(--ok)}
+.mtop .trend.down{background:var(--badbg);color:var(--bad)}
+.mtop .trend.flat{background:#eef1f6;color:var(--muted)}
+.mtop .v{margin-inline-start:auto;font-size:24px;font-weight:700;line-height:1;transition:color .35s}
+.mtop .v.ok{color:var(--ok)} .mtop .v.warn{color:var(--warn)} .mtop .v.bad{color:var(--bad)}
+
+.bar{height:10px;border-radius:5px;display:flex;overflow:hidden;position:relative;background:#eef1f6}
+.bar span{display:block;height:100%}
+.bar .g{background:var(--okband)} .bar .a{background:var(--warnband)} .bar .r{background:var(--badband)}
+.mark{position:absolute;top:-4px;width:4px;height:18px;background:#16202e;border-radius:2px;
+  transform:translateX(50%);transition:right .7s cubic-bezier(.4,0,.2,1);box-shadow:0 0 0 2px #fff}
+.mscale{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-top:3px}
+.mscale b{font-weight:600;color:var(--muted)}
+
+/* ---------- ticker + footer ---------- */
+.ticker{flex:0 0 50px;margin-bottom:10px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  display:flex;align-items:center;overflow:hidden}
+.ticker .tl{flex:0 0 auto;background:var(--brand);color:#fff;height:100%;display:flex;align-items:center;
+  padding:0 20px;font-size:15px;font-weight:700;letter-spacing:.6px}
+.tkwrap{flex:1;overflow:hidden;position:relative;height:100%}
+.tkmove{position:absolute;white-space:nowrap;top:50%;transform:translateY(-50%);animation:slide 36s linear infinite;font-size:18px}
+/* התראות הנהלה scrolls left → right */
+@keyframes slide{0%{right:100%}100%{right:-100%}}
+.tkmove b{color:var(--brand2)} .tkmove .sep{color:var(--faint);padding:0 16px}
+.tkmove .hot{color:var(--bad);font-weight:700}
+body.static .tkmove{position:static;transform:none;animation:none;padding:0 18px;line-height:48px}
+body.static .dot{animation:none}
+
+.foot{flex:0 0 24px;display:flex;align-items:center;gap:18px;padding:0 16px;font-size:11px;color:var(--faint)}
+.foot .sp{margin-inline-start:auto}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div class="logo"><span class="mark">R</span> RTM</div>
+    <div class="screen-name">ספי התראה SLA — מסך הנהלה · תמונת מוקד לפי מחלקות</div>
+    <div class="livebadge"><span class="dot"></span> LIVE</div>
+    <div class="spacer"></div>
+    <div class="hstat"><span class="k">סה״כ פניות היום</span><span class="v num" id="hvol">1,292</span></div>
+    <div class="hstat"><span class="k">נציגים מחוברים</span><span class="v num" id="hag">58</span></div>
+    <div class="hstat"><span class="k">ממתינים כעת</span><span class="v num" id="hwait">27</span></div>
+    <div class="hstat"><span class="k">מחלקות בחריגה</span><span class="v num" id="hbreach">2</span></div>
+    <div class="hstat" style="border:0"><span class="k">רענון אחרון</span><span class="v num" id="lastupd" style="font-size:13px">11:42:07</span></div>
+    <div class="clock num" id="clock">11:42:09</div>
+    <div class="topmeta">יום ג׳<br>17.11.2026</div>
+  </div>
+
+  <div class="body">
+    <div class="ticker">
+      <div class="tl">התראות הנהלה</div>
+      <div class="tkwrap"><div class="tkmove">
+        <span class="hot">⚠ זמן המתנה ומענה עד 120 שניות בחריגה בכל המוקד — 01:03 מול יעד 00:30, 79.4% מול 90%</span>
+        <span class="sep">•••</span>
+        <b>סמנכ״ל שירות 11:28</b> — נפתח אירוע המתנה: 5 נציגים ממכירות עוברים לשירות לקוחות עד 13:00
+        <span class="sep">•••</span>
+        <b>יעדי Q4</b> — המתנה ≤ 00:30 · נטישה ≤ 3% · מענה עד 120 שניות ≥ 90% · תפוסה ≤ 85% · שביעות רצון ≥ 4.0
+        <span class="sep">•••</span>
+        <span style="color:var(--ok);font-weight:700">✔ נטישה ושביעות רצון בכל המחלקות בתוך היעד — 2.2% ו-4.3</span>
+        <span class="sep">•••</span>
+      </div></div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+
+    <div class="foot">
+      <span>RTM · Real-Time Monitoring</span>
+      <span>Tenant: BANK-DEMO · Screen: Executive SLA Thresholds</span>
+      <span>סה״כ מוקד מחושב כממוצע משוקלל לפי נפח פניות (תפוסה — לפי מספר נציגים)</span>
+      <span class="sp">כל הנתונים במסך זה הינם נתוני הדגמה סינתטיים</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const STATIC = location.search.indexOf('static') > -1;
+if (STATIC) document.body.classList.add('static');
+
+const two=n=>String(n).padStart(2,'0');
+const mmss=s=>two(Math.floor(s/60))+':'+two(Math.round(s)%60);
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const cls  =(v,ok,warn)=>v<=ok?'ok':(v<=warn?'warn':'bad');
+const clsUp=(v,ok,warn)=>v>=ok?'ok':(v>=warn?'warn':'bad');
+const RANK={ok:0,warn:1,bad:2}, WORST=['ok','warn','bad'];
+
+/* ---- metric definitions: identical set across all four panels ---- */
+const METRICS=[
+ {key:'asa',  m:'זמן המתנה ממוצע', fmt:v=>mmss(v), dir:'low',
+  ok:30, warn:60, pos:v=>clamp(v/90*100,3,97),          gp:33.3, ap:33.3,
+  g:'≤ 00:30', a:'00:30–01:00', r:'> 01:00'},
+ {key:'aban', m:'אחוז נטישה', fmt:v=>v.toFixed(1)+'%', dir:'low',
+  ok:3, warn:5, pos:v=>clamp(v/8*100,3,97),             gp:37.5, ap:25,
+  g:'≤ 3%', a:'3–5%', r:'> 5%'},
+ {key:'sla',  m:'מענה עד 120 שניות', fmt:v=>v.toFixed(1)+'%', dir:'high',
+  ok:90, warn:80, pos:v=>clamp((100-v)/30*100,3,97),    gp:33.3, ap:33.3,
+  g:'≥ 90%', a:'80–90%', r:'< 80%'},
+ {key:'occ',  m:'תפוסת נציגים', fmt:v=>Math.round(v)+'%', dir:'low',
+  ok:85, warn:92, pos:v=>clamp((v-60)/40*100,3,97),     gp:62.5, ap:17.5,
+  g:'≤ 85%', a:'85–92%', r:'> 92%'},
+ {key:'aht',  m:'זמן טיפול ממוצע (AHT)', fmt:v=>mmss(v), dir:'low',
+  ok:360, warn:480, pos:v=>clamp(v/600*100,3,97),       gp:60, ap:20,
+  g:'≤ 06:00', a:'06:00–08:00', r:'> 08:00'},
+ {key:'csat', m:'שביעות רצון לקוחות', fmt:v=>v.toFixed(1)+' / 5', dir:'high',
+  ok:4.0, warn:3.5, pos:v=>clamp((5-v)/2.5*100,3,97),   gp:40, ap:20,
+  g:'≥ 4.0', a:'3.5–4.0', r:'< 3.5'},
+];
+const state=(d,v)=> d.dir==='low' ? cls(v,d.ok,d.warn) : clsUp(v,d.ok,d.warn);
+
+/* ---- departments ---- */
+const D=[
+ {id:'sales', n:'מכירות', en:'Sales', vol:412, ag:18, wait:6, load:.32,
+  v:{asa:34, aban:1.8, sla:88.0, occ:82, aht:300, csat:4.5},
+  y:{asa:29, aban:2.1, sla:86.5, occ:84, aht:312, csat:4.4}},
+ {id:'service', n:'שירות לקוחות', en:'Customer Service', vol:596, ag:26, wait:13, load:.46,
+  v:{asa:68, aban:2.2, sla:78.0, occ:88, aht:390, csat:4.2},
+  y:{asa:52, aban:2.6, sla:82.4, occ:86, aht:372, csat:4.1}},
+ {id:'tech', n:'תמיכה טכנית', en:'Technical Support', vol:284, ag:14, wait:8, load:.22,
+  v:{asa:95, aban:2.6, sla:70.0, occ:90, aht:450, csat:4.1},
+  y:{asa:74, aban:3.1, sla:75.8, occ:92, aht:486, csat:3.8}},
+];
+/* the fourth panel is never authored by hand — it is derived, so it can never
+   contradict the three above */
+function rollup(){
+  const vol=D.reduce((s,d)=>s+d.vol,0), ag=D.reduce((s,d)=>s+d.ag,0);
+  const wv=k=>D.reduce((s,d)=>s+d.v[k]*d.vol,0)/vol;
+  const wa=k=>D.reduce((s,d)=>s+d.v[k]*d.ag,0)/ag;
+  const wvY=k=>D.reduce((s,d)=>s+d.y[k]*d.vol,0)/vol;
+  const waY=k=>D.reduce((s,d)=>s+d.y[k]*d.ag,0)/ag;
+  return {id:'total', n:'סה״כ מוקד', en:'Contact Center — Total', total:true,
+    vol, ag, wait:D.reduce((s,d)=>s+d.wait,0),
+    v:{asa:wv('asa'),aban:wv('aban'),sla:wv('sla'),occ:wa('occ'),aht:wv('aht'),csat:wv('csat')},
+    y:{asa:wvY('asa'),aban:wvY('aban'),sla:wvY('sla'),occ:waY('occ'),aht:wvY('aht'),csat:wvY('csat')}};
+}
+
+function deptState(d){
+  return WORST[Math.max(...METRICS.map(x=>RANK[state(x,d.v[x.key])]))];
+}
+const BADGE={ok:'תקין',warn:'דורש תשומת לב',bad:'חריגה'};
+
+function trendChip(def,cur,prev){
+  const better = def.dir==='low' ? cur<prev : cur>prev;
+  const diff=Math.abs(cur-prev);
+  const same = def.key==='csat' ? diff<0.05 : (def.key==='aht'||def.key==='asa' ? diff<1 : diff<0.15);
+  const txt = def.key==='asa'||def.key==='aht' ? mmss(diff)
+            : def.key==='csat' ? diff.toFixed(1) : diff.toFixed(1)+(def.key==='occ'?'%':'%');
+  if(same) return `<span class="trend flat">— ללא שינוי</span>`;
+  return `<span class="trend ${better?'up':'down'}">${better?'▲':'▼'} ${txt} מול אתמול</span>`;
+}
+
+function renderPanel(d){
+  const st=deptState(d);
+  const rows=METRICS.map(x=>{
+    const val=d.v[x.key], s=state(x,val);
+    return `<div class="mrow">
+      <div class="mtop"><span class="m">${x.m}</span>${trendChip(x,val,d.y[x.key])}
+        <span class="v ${s} num">${x.fmt(val)}</span></div>
+      <div class="bar"><span class="g" style="width:${x.gp}%"></span><span class="a" style="width:${x.ap}%"></span>
+        <span class="r" style="width:${(100-x.gp-x.ap).toFixed(1)}%"></span>
+        <span class="mark" style="right:${x.pos(val).toFixed(1)}%"></span></div>
+      <div class="mscale"><span><b>${x.g}</b></span><span>${x.a}</span><span>${x.r}</span></div>
+    </div>`;
+  }).join('');
+  return `<div class="dept ${st}${d.total?' total':''}">
+    <div class="dhead">
+      <h2>${d.n}</h2><span class="en">${d.en}</span>
+      <span class="badge ${st}">${BADGE[st]}</span>
+      <div class="dstats">
+        <div><div class="k">פניות היום</div><div class="v num">${d.vol.toLocaleString('en-US')}</div></div>
+        <div><div class="k">נציגים</div><div class="v num">${d.ag}</div></div>
+        <div><div class="k">ממתינים</div><div class="v num">${d.wait}</div></div>
+      </div>
+    </div>
+    <div class="dbody">${rows}</div></div>`;
+}
+
+function renderAll(){
+  const all=[...D, rollup()];
+  document.getElementById('grid').innerHTML=all.map(renderPanel).join('');
+  const t=all[3];
+  document.getElementById('hvol').textContent=t.vol.toLocaleString('en-US');
+  document.getElementById('hag').textContent=t.ag;
+  document.getElementById('hwait').textContent=t.wait;
+  document.getElementById('hbreach').textContent=D.filter(d=>deptState(d)==='bad').length;
+}
+
+/* ---- 20-second scenario: tech support deteriorates, then gets reinforced ---- */
+let t=new Date(2026,10,17,11,42,9), step=0;
+function tick(){
+  step++; const k=step%20;
+  t=new Date(t.getTime()+1000);
+  const ts=`${two(t.getHours())}:${two(t.getMinutes())}:${two(t.getSeconds())}`;
+  document.getElementById('clock').textContent=ts;
+  document.getElementById('lastupd').textContent=ts;
+
+  const phase = k<7 ? 1 : (k<16 ? -1 : -0.25);          // surge → relief → calm
+  D.forEach(d=>{
+    const pull = (d.id==='tech' ? 2.2 : d.id==='service' ? 1.0 : 0.4) * phase;
+    d.wait = Math.max(0, d.wait + (Math.random()<Math.abs(pull)/3 ? Math.sign(pull) : 0));
+    d.v.asa  = clamp(d.v.asa  + pull*0.9 + (Math.random()*2-1), 8, 150);
+    d.v.aban = clamp(d.v.aban + pull*0.06 + (Math.random()*.1-.05), 0.4, 11);
+    d.v.sla  = clamp(d.v.sla  - pull*0.55 + (Math.random()*.4-.2), 55, 99.5);
+    d.v.occ  = clamp(d.v.occ  + pull*0.35 + (Math.random()*.6-.3), 62, 99);
+    d.v.aht  = clamp(d.v.aht  + pull*1.6 + (Math.random()*4-2), 150, 720);
+    d.v.csat = clamp(d.v.csat - pull*0.012, 2.8, 4.9);
+    if(Math.random() < d.load) d.vol++;
+  });
+  if(k===9){ D[1].ag=Math.max(20,D[1].ag-1); D[2].ag=Math.min(20,D[2].ag+1); }  // reinforcement lands
+  renderAll();
+}
+
+renderAll();
+if(!STATIC) setInterval(tick,1000);
+
+function fit(){const sh=document.querySelector('.shell');
+  const z=Math.min(window.innerWidth/1920, window.innerHeight/1080);
+  sh.style.zoom = z<1 ? z : 1;}
+fit(); window.addEventListener('resize',fit);
+</script>
+</body>
+</html>

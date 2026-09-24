@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RTM Wallboard</title>
+<style>
+/* paste assets/wallboard.css here — the page must be self-contained */
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div class="logo"><span class="mark">R</span> RTM</div>
+    <div class="screen-name">מוקד שירות לקוחות — מסך תפעול נציגים ותורים</div>
+    <div class="livebadge"><span class="dot"></span> LIVE</div>
+    <div class="spacer"></div>
+    <div class="topmeta">רענון אחרון<br><span id="lastupd" class="num">11:42:07</span></div>
+    <div class="clock num" id="clock">11:42:09</div>
+    <div class="topmeta">יום ג׳<br>17.11.2026</div>
+  </div>
+
+  <div class="body">
+
+    <!-- ===== KPI ROW ===== -->
+    <div class="kpirow" id="kpirow"></div>
+
+    <!-- ===== ROW 2 ===== -->
+    <div class="row2">
+
+      <!-- donut -->
+      <div class="panel">
+        <div class="phead"><h3>מצבי נציגים</h3><span class="tag">LIVE</span><span class="upd num" id="u1">11:42:07</span></div>
+        <div class="pbody">
+          <div class="donutwrap">
+            <div class="donutbox">
+              <svg width="132" height="132" viewBox="0 0 42 42" id="donut">
+                <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f1f4f8" stroke-width="5.2"></circle>
+              </svg>
+              <div class="donutctr"><b class="num" id="dtotal">41</b><span>נציגים מחוברים</span></div>
+            </div>
+            <div class="legend" id="legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- agent grid -->
+      <div class="panel">
+        <div class="phead"><h3>מצב נציגים בזמן אמת</h3><span class="tag">LIVE</span>
+          <span class="upd">מוצגים 11 מתוך 41 · ממוין לפי % בשיחה · <span class="num" id="u2">11:42:07</span></span></div>
+        <div class="pbody"><table class="agt">
+          <colgroup><col style="width:8.8%"><col style="width:7.2%"><col style="width:5.0%"><col style="width:4.8%"><col style="width:8.0%"><col style="width:5.2%"><col style="width:4.0%"><col style="width:4.0%"><col style="width:7.4%"><col style="width:5.2%"><col style="width:5.2%"><col style="width:4.8%"><col style="width:5.2%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:6.0%"></colgroup>
+          <thead><tr>
+            <th>שם נציג</th><th>מצב</th><th>זמן במצב</th><th>סוג</th><th>טלפון</th>
+            <th>משך ממוצע</th><th>נכנ׳</th><th>יוצ׳</th>
+            <th>זמן בשיחה</th><th>הפסקה</th><th>ניירת</th><th>Wrap</th><th>פנוי</th>
+            <th>% שיחה</th><th>% הפסקה</th><th>% ניירת</th><th>% פנוי</th><th>לוגין</th>
+          </tr></thead>
+          <tbody id="agents"></tbody>
+        </table></div>
+      </div>
+
+      <!-- thresholds + wfm -->
+      <div style="display:flex;flex-direction:column;gap:10px;min-height:0">
+        <div class="panel" style="flex:1 1 auto">
+          <div class="phead"><h3>ספי התראה — SLA מוקד</h3><span class="upd">יעדי רבעון Q4</span></div>
+          <div class="pbody"><div class="thr" id="thr"></div></div>
+        </div>
+        <div class="panel" style="flex:0 0 184px">
+          <div class="phead"><h3>WFM — תחזית 30 דקות</h3><span class="tag" style="color:var(--bad);background:var(--badbg)">חוסר איוש</span></div>
+          <div class="pbody"><div class="wfm">
+            <div class="wfmgrid">
+              <div class="wfmcell"><div class="k">קצב הגעה (λ)</div><div class="v num"><span id="wl">386</span> <span style="font-size:10px;color:var(--muted)">/שעה</span></div></div>
+              <div class="wfmcell"><div class="k">AHT</div><div class="v num">04:06</div></div>
+              <div class="wfmcell ok"><div class="k">נציגים במענה</div><div class="v num" id="wserv">41</div></div>
+              <div class="wfmcell bad" id="wreqbox"><div class="k">נדרש (Erlang C)</div><div class="v num" id="wreq">47</div></div>
+            </div>
+            <div class="wfmnote" id="wnote"></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ROW 3 ===== -->
+    <div class="row3">
+
+      <div class="panel">
+        <div class="phead"><h3>תמונת תורים בזמן אמת</h3><span class="tag">LIVE</span><span class="upd num" id="u3">11:42:07</span></div>
+        <div class="pbody"><span class="newcall" id="ncall">↗ שיחה חדשה</span><table class="qt">
+          <colgroup><col class="q1"><col class="q2"><col class="q3"><col class="q4"><col class="q5"><col class="q6"><col class="q7"><col class="q8"><col class="q9"><col class="q10"></colgroup>
+          <thead><tr>
+            <th>תור</th><th class="cellnum">ממתינים כעת</th><th class="cellnum">המתנה של הראשון</th>
+            <th class="cellnum">זמן המתנה ממוצע<br><span style="font-weight:400;color:var(--faint)">יעד ≤ 00:30</span></th>
+            <th class="cellnum">אחוז נטישה<br><span style="font-weight:400;color:var(--faint)">יעד ≤ 3%</span></th>
+            <th class="cellnum">מענה עד 120 שנ׳<br><span style="font-weight:400;color:var(--faint)">יעד ≥ 90%</span></th>
+            <th class="cellnum">סה״כ נכנסות</th><th class="cellnum">נענו</th><th class="cellnum">ננטשו</th><th class="cellnum">נציגים מחוברים</th>
+          </tr></thead>
+          <tbody id="queues"></tbody>
+          <tfoot><tr>
+            <td>סה״כ מוקד</td><td class="cellnum num" id="tq">24</td><td class="cellnum num">02:07</td>
+            <td class="cellnum"><span class="pill ok num">00:27</span></td>
+            <td class="cellnum"><span class="pill ok num">2.9%</span></td>
+            <td class="cellnum"><span class="pill warn num">89.5%</span></td>
+            <td class="cellnum num">1,090</td><td class="cellnum num">1,058</td><td class="cellnum num">32</td><td class="cellnum num">41</td>
+          </tr></tfoot>
+        </table></div>
+      </div>
+
+      <div class="panel">
+        <div class="phead"><h3>מגמה יומית — נפח מול SLA</h3><span class="upd">08:00 – 11:30 · מרווח 30 דק׳</span></div>
+        <div class="pbody" id="chartbox"></div>
+      </div>
+    </div>
+
+    <div class="ticker">
+      <div class="tl">הודעות מוקד</div>
+      <div class="tkwrap"><div class="tkmove">
+        <span class="hot">⚠ המתנה מקסימלית 02:07 בתור ״אשראי והלוואות״ — חריגה מיעד 01:30</span>
+        <span class="sep">•••</span>
+        <b>מנהל המוקד 11:31</b> — כל הנציגים הפנויים לעבור לתור אשראי עד 12:15
+        <span class="sep">•••</span>
+        <b>מנהל המוקד 09:04</b> — היעדים שלנו היום: זמן המתנה ≤ 30 שניות, אחוז נטישה ≤ 3%, מענה עד 120 שניות ≥ 90%
+        <span class="sep">•••</span>
+        <b>הדרכה 10:20</b> — מסלול משכנתא ירוק עודכן בבסיס הידע
+        <span class="sep">•••</span>
+        <span style="color:var(--ok);font-weight:700">✔ תור ״הונאות וחסימות״ — 99.1% מענה, מצוין!</span>
+        <span class="sep">•••</span>
+      </div></div>
+    </div>
+
+    <div class="foot">
+      <span>RTM · Real-Time Monitoring</span>
+      <span>Tenant: BANK-DEMO · Screen: Contact Center Ops</span>
+      <span>מקור נתונים: מרכזייה + בוט קולי + WFM · חיווי כל 5 שניות</span>
+      <span class="sp">כל הנתונים במסך זה הינם נתוני הדגמה סינתטיים</span>
+    </div>
+  </div>
+</div>
+<script>
+/* paste scripts/engine.js here, then the screen-specific model + render functions */
+</script>
+</body>
+</html>
