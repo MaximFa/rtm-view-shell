@@ -146,8 +146,3 @@
     z-index: 1050 !important;
 }
 
-/* Filter overlay - transparent click catcher */
-.filter-overlay {
-    background: transparent;
-    cursor: default;
-}
