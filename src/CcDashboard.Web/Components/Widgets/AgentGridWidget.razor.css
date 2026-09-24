@@ -27,10 +27,6 @@
     border-bottom: 1px solid var(--wb-line2);
 }
 
-.agent-grid-widget.wb-skin .agent-grid-row:nth-child(even) {
-    background: #fcfdff;
-}
-
 .agent-grid-widget.wb-skin .agent-grid-footer {
     border-top: 1px solid var(--wb-line);
 }

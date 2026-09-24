@@ -52,10 +52,6 @@
     width: 19%;
 }
 
-.queue-grid-widget.wb-skin .queue-grid-thead {
-    background: #f7f9fc;
-}
-
 .queue-grid-widget.wb-skin .queue-grid-thead th {
     border-bottom: 1px solid var(--wb-line);
 }
@@ -63,15 +59,6 @@
 .queue-grid-widget.wb-skin .queue-grid-table tbody tr {
     border-bottom: 1px solid var(--wb-line2);
 }
-
-.queue-grid-widget.wb-skin .queue-grid-table tbody tr:nth-child(even) {
-    background: #fcfdff;
-}
-
-.queue-grid-widget.wb-skin .threshold-badge {
-    font-size: 0.82rem;
-}
-
 
 .queue-grid-widget.wb-skin .queue-grid-footer {
     border-top: 1px solid var(--wb-line);
