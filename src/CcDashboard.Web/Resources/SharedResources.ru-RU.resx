@@ -1147,5 +1147,9 @@
   <data name="Screens_NoRowsYet"><value>Строки ещё не заданы.</value></data>
   <data name="Screens_NoFilterConditions"><value>Условия фильтра не заданы.</value></data>
   <data name="Screens_NoFilterConditionsHint"><value>Добавьте условия, чтобы отфильтровать строки перед показом.</value></data>
+  <data name="Login_SsoTitle"><value>Вход через SSO</value></data>
+  <data name="Error_PageTitle"><value>Ошибка</value></data>
+  <data name="Common_Dashboard"><value>Дашборд</value></data>
+  <data name="Common_Fullscreen"><value>Полноэкранный режим</value></data>
 </root>
 

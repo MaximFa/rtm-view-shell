@@ -1145,5 +1145,9 @@
   <data name="Screens_NoRowsYet"><value>No rows defined yet.</value></data>
   <data name="Screens_NoFilterConditions"><value>No filter conditions defined.</value></data>
   <data name="Screens_NoFilterConditionsHint"><value>Add conditions to filter rows before display.</value></data>
+  <data name="Login_SsoTitle"><value>SSO Sign In</value></data>
+  <data name="Error_PageTitle"><value>Error</value></data>
+  <data name="Common_Dashboard"><value>Dashboard</value></data>
+  <data name="Common_Fullscreen"><value>Fullscreen</value></data>
 </root>
 

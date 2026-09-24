@@ -1143,5 +1143,9 @@
   <data name="Screens_NoRowsYet"><value>לא הוגדרו שורות עדיין.</value></data>
   <data name="Screens_NoFilterConditions"><value>לא הוגדרו תנאי סינון.</value></data>
   <data name="Screens_NoFilterConditionsHint"><value>הוסף תנאים לסינון שורות לפני התצוגה.</value></data>
+  <data name="Login_SsoTitle"><value>כניסה עם SSO</value></data>
+  <data name="Error_PageTitle"><value>שגיאה</value></data>
+  <data name="Common_Dashboard"><value>לוח מחוונים</value></data>
+  <data name="Common_Fullscreen"><value>מסך מלא</value></data>
 </root>
 
