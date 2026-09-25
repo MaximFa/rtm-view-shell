@@ -546,7 +546,6 @@
   <data name="Widget_Queues"><value>תורים</value></data>
   <data name="Widget_QueueName"><value>תור</value></data>
   <data name="Widget_Retry"><value>נסה שוב</value></data>
-  <data name="Widget_Live"><value>חי</value></data>
   <data name="Widget_Reconnecting"><value>מתחבר מחדש...</value></data>
   <data name="Widget_ReloadPage"><value>רענן דף</value></data>
   <data name="Widget_ActiveFilters"><value>מסננים פעילים</value></data>

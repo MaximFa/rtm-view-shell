@@ -129,11 +129,7 @@
         </div>
 
         <!-- Footer -->
-        <div class="wfm-footer d-flex align-items-center justify-content-between px-2 py-1 small" style="@GetFontColorStyle()">
-            <div class="d-flex align-items-center gap-1">
-                <span class="live-dot connected" aria-hidden="true"></span>
-                <span class="small opacity-70">@L["Widget_Live"]</span>
-            </div>
+        <div class="wfm-footer d-flex align-items-center justify-content-end px-2 py-1 small" style="@GetFontColorStyle()">
             <span class="small opacity-60">
                 @FormatTime(_snapshot.AsOfUtc) · @_snapshot.WindowMin @L["Wfm_MinWindow"]
             </span>

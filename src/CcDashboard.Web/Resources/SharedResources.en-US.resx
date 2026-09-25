@@ -210,7 +210,6 @@
   <data name="Widget_Queues"><value>queues</value></data>
   <data name="Widget_QueueName"><value>Queue</value></data>
   <data name="Widget_Retry"><value>Retry</value></data>
-  <data name="Widget_Live"><value>Live</value></data>
   <data name="Widget_Reconnecting"><value>Reconnecting...</value></data>
   <data name="Widget_ReloadPage"><value>Reload page</value></data>
   <data name="Widget_ActiveFilters"><value>active filters</value></data>

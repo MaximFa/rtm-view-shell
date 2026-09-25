@@ -582,7 +582,6 @@
   <data name="Widget_Queues"><value>очередей</value></data>
   <data name="Widget_QueueName"><value>Очередь</value></data>
   <data name="Widget_Retry"><value>Повторить</value></data>
-  <data name="Widget_Live"><value>Live</value></data>
   <data name="Widget_Reconnecting"><value>Переподключение...</value></data>
   <data name="Widget_ReloadPage"><value>Обновить страницу</value></data>
   <data name="Widget_ActiveFilters"><value>активных фильтров</value></data>
