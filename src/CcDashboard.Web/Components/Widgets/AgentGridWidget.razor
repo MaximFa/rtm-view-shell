@@ -180,7 +180,18 @@
 
         @* Footer with pagination and connection status - P1 *@
         <div class="agent-grid-footer d-flex align-items-center justify-content-between px-2 py-1 border-top small">
-            <div class="d-flex align-items-center gap-1" aria-label="@L["Widget_LiveDataUpdating"]">
+            <div class="d-flex align-items-center gap-2" style="@GetFontColorStyle()" aria-label="@L["Widget_LiveDataUpdating"]">
+                @{
+                    var sortColDef = _sortColumn != null ? _columnDefs.FirstOrDefault(c => c.Id == _sortColumn) : null;
+                }
+                @if (sortColDef != null)
+                {
+                    <span class="small opacity-70">@L["Widget_SortedByColumn", sortColDef.Name]</span>
+                }
+                @if (FilteredRowCount > 0)
+                {
+                    <span class="small opacity-70">@((MarkupString)string.Format(L["Widget_ShowingNofM"], $"<bdi>{pagedRows.Count}</bdi>", $"<bdi>{FilteredRowCount}</bdi>"))</span>
+                }
             </div>
 
             @if (_showPagination)

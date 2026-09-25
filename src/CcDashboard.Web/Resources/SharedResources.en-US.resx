@@ -1148,5 +1148,7 @@
   <data name="Error_PageTitle"><value>Error</value></data>
   <data name="Common_Dashboard"><value>Dashboard</value></data>
   <data name="Common_Fullscreen"><value>Fullscreen</value></data>
+  <data name="Widget_SortedByColumn"><value>Sorted by: {0}</value></data>
+  <data name="Widget_ShowingNofM"><value>Showing {0} of {1}</value></data>
 </root>
 

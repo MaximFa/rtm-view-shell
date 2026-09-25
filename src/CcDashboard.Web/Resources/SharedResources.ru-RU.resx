@@ -1150,5 +1150,7 @@
   <data name="Error_PageTitle"><value>Ошибка</value></data>
   <data name="Common_Dashboard"><value>Дашборд</value></data>
   <data name="Common_Fullscreen"><value>Полноэкранный режим</value></data>
+  <data name="Widget_SortedByColumn"><value>Сортировка: {0}</value></data>
+  <data name="Widget_ShowingNofM"><value>Показано {0} из {1}</value></data>
 </root>
 

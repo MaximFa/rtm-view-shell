@@ -1146,5 +1146,7 @@
   <data name="Error_PageTitle"><value>שגיאה</value></data>
   <data name="Common_Dashboard"><value>לוח מחוונים</value></data>
   <data name="Common_Fullscreen"><value>מסך מלא</value></data>
+  <data name="Widget_SortedByColumn"><value>ממוין לפי: {0}</value></data>
+  <data name="Widget_ShowingNofM"><value>מוצגים {0} מתוך {1}</value></data>
 </root>
 
