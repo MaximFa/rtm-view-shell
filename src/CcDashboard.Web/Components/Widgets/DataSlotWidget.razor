@@ -521,10 +521,8 @@
 
     private string GetDeltaStyle()
     {
-        // Delta uses the same color as the rest of the widget (EffectiveFontColor)
-        var fg = EffectiveFontColor;
-        var result = !string.IsNullOrEmpty(fg) ? $"color: {fg}; " : "";
-        return result + GetPartAlignStyle(_targetAlign);
+        var color = _isWorseThanTarget ? "#ff6b6b" : "#51cf66";
+        return $"color: {color}; " + GetPartAlignStyle(_targetAlign);
     }
 
     private static string ResolveFontSizePx(string? value) => value switch
