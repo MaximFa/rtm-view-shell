@@ -6,6 +6,7 @@
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using Microsoft.Extensions.Localization
+@using CcDashboard.Contracts.Common
 @implements IAsyncDisposable
 
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
@@ -187,13 +188,19 @@
                 @if (sortColDef != null)
                 {
                     <span class="small opacity-70">
-                        @{
-                            var sortTpl = L["Widget_SortedByColumn"].Value;
-                            var sortParts = sortTpl.Split(new[] { "{0}" }, StringSplitOptions.None);
-                        }
-                        @if (sortParts.Length == 2)
+                        @if (TemplateParts.HasPlaceholders(L["Widget_SortedByColumn"].Value))
                         {
-                            @sortParts[0]<bdi>@sortColDef.Name</bdi>@sortParts[1]
+                            @foreach (var part in TemplateParts.Parse(L["Widget_SortedByColumn"].Value, sortColDef.Name))
+                            {
+                                if (part.IsPlaceholder)
+                                {
+                                    <bdi>@part.Text</bdi>
+                                }
+                                else
+                                {
+                                    @part.Text
+                                }
+                            }
                         }
                         else
                         {
@@ -204,13 +211,19 @@
                 @if (FilteredRowCount > 0)
                 {
                     <span class="small opacity-70">
-                        @{
-                            var showTpl = L["Widget_ShowingNofM"].Value;
-                            var showParts = showTpl.Split(new[] { "{0}", "{1}" }, StringSplitOptions.None);
-                        }
-                        @if (showParts.Length == 3)
+                        @if (TemplateParts.HasPlaceholders(L["Widget_ShowingNofM"].Value))
                         {
-                            @showParts[0]<bdi>@pagedRows.Count</bdi>@showParts[1]<bdi>@FilteredRowCount</bdi>@showParts[2]
+                            @foreach (var part in TemplateParts.Parse(L["Widget_ShowingNofM"].Value, pagedRows.Count, FilteredRowCount))
+                            {
+                                if (part.IsPlaceholder)
+                                {
+                                    <bdi>@part.Text</bdi>
+                                }
+                                else
+                                {
+                                    @part.Text
+                                }
+                            }
                         }
                         else
                         {
