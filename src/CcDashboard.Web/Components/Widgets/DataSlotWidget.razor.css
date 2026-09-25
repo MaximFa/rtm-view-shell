@@ -1,12 +1,25 @@
 .data-slot-widget {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     justify-content: flex-start;
     height: 100%;
     min-height: 120px;
     padding: var(--sp-2) var(--sp-4) 0;
     border-radius: var(--r-md);
+    position: relative;
+}
+
+/* Accent stripe at the start edge (RTL-safe via inset-inline-start) */
+.data-slot-with-stripe::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    top: var(--sp-2);
+    bottom: var(--sp-2);
+    width: 3px;
+    border-radius: 2px;
+    background-color: var(--accent-stripe-color, currentColor);
 }
 
 .data-slot-empty,

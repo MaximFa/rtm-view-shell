@@ -244,6 +244,9 @@
   <data name="Widget_InvalidFormat"><value>Enter a number or time (MM:SS, HH:MM:SS)</value></data>
   <data name="Widgets_DisplayOptions"><value>Display Options</value></data>
   <data name="Widgets_Alignment"><value>Alignment</value></data>
+  <data name="Widgets_TitleAlignment"><value>Title Alignment</value></data>
+  <data name="Widgets_ValueAlignment"><value>Value Alignment</value></data>
+  <data name="Widgets_TargetAlignment"><value>Target Alignment</value></data>
   <data name="Widgets_Bold"><value>Bold</value></data>
   <data name="Widgets_ShowTargetLabel"><value>Show Target Label</value></data>
   <data name="Widgets_ShowDeltaArrow"><value>Show Delta Arrow</value></data>

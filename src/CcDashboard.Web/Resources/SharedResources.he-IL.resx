@@ -631,6 +631,9 @@
   <data name="Widgets_HideHeaderHint"><value>סרגל הכלים מופיע בריחוף, גרירה מכל מקום</value></data>
   <data name="Widgets_Bold"><value>מודגש</value></data>
   <data name="Widgets_Alignment"><value>יישור</value></data>
+  <data name="Widgets_TitleAlignment"><value>יישור כותרת</value></data>
+  <data name="Widgets_ValueAlignment"><value>יישור ערך</value></data>
+  <data name="Widgets_TargetAlignment"><value>יישור יעד</value></data>
   <data name="Widgets_Align_Left"><value>שמאל</value></data>
   <data name="Widgets_Align_Center"><value>מרכז</value></data>
   <data name="Widgets_Align_Right"><value>ימין</value></data>

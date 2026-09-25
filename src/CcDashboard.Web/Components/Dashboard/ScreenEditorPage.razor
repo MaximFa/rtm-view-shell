@@ -575,9 +575,25 @@
                             <div class="appearance-section mb-4">
                                 <h6 class="section-label">@L["Widgets_DisplayOptions"]</h6>
                                 <div class="row mb-2">
-                                    <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-1">@L["Widgets_Alignment"]</label>
-                                        <select class="form-select form-select-sm" @bind="ConfigDataSlotAlign">
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-1">@L["Widgets_TitleAlignment"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigDataSlotTitleAlign">
+                                            <option value="left">@L["Common_Left"]</option>
+                                            <option value="center">@L["Common_Center"]</option>
+                                            <option value="right">@L["Common_Right"]</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-1">@L["Widgets_ValueAlignment"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigDataSlotValueAlign">
+                                            <option value="left">@L["Common_Left"]</option>
+                                            <option value="center">@L["Common_Center"]</option>
+                                            <option value="right">@L["Common_Right"]</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-1">@L["Widgets_TargetAlignment"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigDataSlotTargetAlign">
                                             <option value="left">@L["Common_Left"]</option>
                                             <option value="center">@L["Common_Center"]</option>
                                             <option value="right">@L["Common_Right"]</option>
@@ -2347,6 +2363,9 @@
     private string ConfigDataSlotTargetLabel = "";
     private bool ConfigDataSlotBold = false;
     private string ConfigDataSlotAlign = "center";
+    private string ConfigDataSlotTitleAlign = "center";
+    private string ConfigDataSlotValueAlign = "center";
+    private string ConfigDataSlotTargetAlign = "center";
     private bool ConfigDataSlotShowTargetLabel = true;
     private bool ConfigDataSlotShowArrow = true;
     private bool ConfigHideHeader = false;
@@ -3432,7 +3451,13 @@
         ConfigDataSlotTargetMode = widget.Config.DataSlotTargetMode ?? "less";
         ConfigDataSlotTargetLabel = widget.Config.DataSlotTargetLabel ?? "";
         ConfigDataSlotBold = widget.Config.DataSlotBold;
-        ConfigDataSlotAlign = widget.Config.DataSlotAlign ?? "center";
+        // Per-part alignment: new field -> old DataSlotAlign -> "center"
+        var legacyAlign = widget.Config.DataSlotAlign ?? "center";
+        ConfigDataSlotTitleAlign = widget.Config.DataSlotTitleAlign ?? legacyAlign;
+        ConfigDataSlotValueAlign = widget.Config.DataSlotValueAlign ?? legacyAlign;
+        ConfigDataSlotTargetAlign = widget.Config.DataSlotTargetAlign ?? legacyAlign;
+        // ConfigDataSlotAlign mirrors value alignment for backward compat
+        ConfigDataSlotAlign = ConfigDataSlotValueAlign;
         ConfigDataSlotShowTargetLabel = widget.Config.DataSlotShowTargetLabel;
         ConfigDataSlotShowArrow = widget.Config.DataSlotShowArrow;
         ConfigHideHeader = widget.Config.HideHeader;
@@ -4490,6 +4515,9 @@
             }
         }
 
+        // Sync legacy align field with value alignment for backward compat
+        ConfigDataSlotAlign = ConfigDataSlotValueAlign;
+
         var newConfig = new WidgetConfig
         {
             DisplayName = ConfigDisplayName,
@@ -4575,7 +4603,10 @@
             DataSlotTargetMode = ConfigDataSlotTargetMode,
             DataSlotTargetLabel = !string.IsNullOrEmpty(ConfigDataSlotTargetLabel) ? ConfigDataSlotTargetLabel : null,
             DataSlotBold = ConfigDataSlotBold,
-            DataSlotAlign = ConfigDataSlotAlign,
+            DataSlotAlign = ConfigDataSlotAlign,  // Synced from value align for backward compat
+            DataSlotTitleAlign = ConfigDataSlotTitleAlign,
+            DataSlotValueAlign = ConfigDataSlotValueAlign,
+            DataSlotTargetAlign = ConfigDataSlotTargetAlign,
             DataSlotShowTargetLabel = ConfigDataSlotShowTargetLabel,
             DataSlotShowArrow = ConfigDataSlotShowArrow,
             HideHeader = ConfigHideHeader,
@@ -5461,6 +5492,9 @@
         public string? DataSlotTargetLabel { get; set; }
         public bool DataSlotBold { get; set; }
         public string? DataSlotAlign { get; set; }
+        public string? DataSlotTitleAlign { get; set; }
+        public string? DataSlotValueAlign { get; set; }
+        public string? DataSlotTargetAlign { get; set; }
         public bool DataSlotShowTargetLabel { get; set; } = true;
         public bool DataSlotShowArrow { get; set; } = true;
         public int? DataSlotGridId { get; set; }  // RTSGrid_Grid.GridId (Data Slot)

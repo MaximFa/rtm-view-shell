@@ -12,7 +12,7 @@
 @inject IRtmRelayService RtmRelay
 @inject ILogger<DataSlotWidget> Logger
 
-<div class="data-slot-widget" style="@GetWidgetStyle()">
+<div class="data-slot-widget data-slot-with-stripe" style="@GetWidgetStyle()">
     @if (GridId == 0)
     {
         <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
@@ -39,17 +39,17 @@
     }
     else
     {
-        <div class="data-slot-content" style="@GetContentAlignStyle()">
+        <div class="data-slot-content">
             @if (!string.IsNullOrEmpty(_title))
             {
-                <div class="data-slot-title" style="@GetFontColorStyle()">@_title</div>
+                <div class="data-slot-title" style="@GetTitleStyle()">@_title</div>
             }
 
             <div class="data-slot-value" style="@GetValueStyle()">@_displayValue</div>
 
             @if (_showTargetLabel && !string.IsNullOrEmpty(_targetLabel))
             {
-                <div class="data-slot-target" style="@GetMutedFontColorStyle()">@_targetLabel</div>
+                <div class="data-slot-target" style="@GetTargetLabelStyle()">@_targetLabel</div>
             }
 
             @if (_showArrow && _showDelta && _target.HasValue)
@@ -88,7 +88,10 @@
 
     // Display options
     private bool _bold = false;
-    private string _align = "center";
+    // Per-part alignment (falls back to legacy DataSlotAlign)
+    private string _titleAlign = "center";
+    private string _valueAlign = "center";
+    private string _targetAlign = "center";
     private bool _showTargetLabel = true;
     private bool _showArrow = true;
     private string _fontSize = "normal";
@@ -173,7 +176,11 @@
 
         // Display options
         _bold = Config.DataSlotBold;
-        _align = Config.DataSlotAlign ?? "center";
+        // Per-part alignment: new field -> legacy DataSlotAlign -> "center"
+        var legacyAlign = Config.DataSlotAlign ?? "center";
+        _titleAlign = Config.DataSlotTitleAlign ?? legacyAlign;
+        _valueAlign = Config.DataSlotValueAlign ?? legacyAlign;
+        _targetAlign = Config.DataSlotTargetAlign ?? legacyAlign;
         _showTargetLabel = Config.DataSlotShowTargetLabel;
         _showArrow = Config.DataSlotShowArrow;
         if (Config?.DataSlotGridId is > 0)
@@ -469,28 +476,23 @@
         var bg = EffectiveBackgroundColor;
         var styles = new List<string>();
         if (!string.IsNullOrEmpty(bg)) styles.Add($"background-color: {bg}");
+        // Accent stripe takes EffectiveFontColor (includes threshold)
+        var stripe = EffectiveFontColor;
+        if (!string.IsNullOrEmpty(stripe)) styles.Add($"--accent-stripe-color: {stripe}");
         return string.Join("; ", styles);
     }
 
-    private string GetContentAlignStyle()
-    {
-        var align = _align switch
-        {
-            "left" => "start",
-            "right" => "end",
-            _ => "center"
-        };
-        return $"align-items: {align}; text-align: {_align};";
-    }
+    private static string GetPartAlignStyle(string align) => $"text-align: {align};";
 
-    private string GetFontColorStyle()
+    private string GetTitleStyle()
     {
         // Title uses base font color (not affected by thresholds)
         var fg = BaseFontColor;
         var fs = ResolveFontSizePx(_headerFontSize);
         var result = new System.Text.StringBuilder();
         if (!string.IsNullOrEmpty(fg)) result.Append($"color: {fg}; ");
-        result.Append($"font-size: {fs};");
+        result.Append($"font-size: {fs}; ");
+        result.Append(GetPartAlignStyle(_titleAlign));
         return result.ToString();
     }
 
@@ -505,26 +507,24 @@
         // Apply font size
         styles.Add($"font-size: {ResolveFontSizePx(_fontSize)}");
 
+        styles.Add(GetPartAlignStyle(_valueAlign));
         return string.Join("; ", styles) + ";";
     }
 
-    private string GetMutedFontColorStyle()
+    private string GetTargetLabelStyle()
     {
         // Target label uses base font color (not affected by thresholds)
         var fg = BaseFontColor;
-        return !string.IsNullOrEmpty(fg) ? $"color: {fg}; opacity: 0.6;" : "opacity: 0.6;";
+        var result = !string.IsNullOrEmpty(fg) ? $"color: {fg}; opacity: 0.6; " : "opacity: 0.6; ";
+        return result + GetPartAlignStyle(_targetAlign);
     }
 
     private string GetDeltaStyle()
     {
-        if (_isWorseThanTarget)
-        {
-            return "color: #ff6b6b;";  // Red for worse
-        }
-        else
-        {
-            return "color: #51cf66;";  // Green for better/on target
-        }
+        // Delta uses the same color as the rest of the widget (EffectiveFontColor)
+        var fg = EffectiveFontColor;
+        var result = !string.IsNullOrEmpty(fg) ? $"color: {fg}; " : "";
+        return result + GetPartAlignStyle(_targetAlign);
     }
 
     private static string ResolveFontSizePx(string? value) => value switch

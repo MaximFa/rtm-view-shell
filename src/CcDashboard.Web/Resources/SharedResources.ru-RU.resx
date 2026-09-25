@@ -669,6 +669,9 @@
   <data name="Widgets_DisplayOptions"><value>Опции отображения</value></data>
   <data name="Widgets_Bold"><value>Жирный</value></data>
   <data name="Widgets_Alignment"><value>Выравнивание</value></data>
+  <data name="Widgets_TitleAlignment"><value>Выравнивание заголовка</value></data>
+  <data name="Widgets_ValueAlignment"><value>Выравнивание значения</value></data>
+  <data name="Widgets_TargetAlignment"><value>Выравнивание цели</value></data>
   <data name="Widgets_Align_Left"><value>Слева</value></data>
   <data name="Widgets_Align_Center"><value>По центру</value></data>
   <data name="Widgets_Align_Right"><value>Справа</value></data>
