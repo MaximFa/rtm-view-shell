@@ -267,12 +267,16 @@
     // Column thresholds
     private Dictionary<string, List<ColumnThreshold>> _columnThresholds = new(StringComparer.OrdinalIgnoreCase);
 
+    // Anomaly tracking: (RowId, MetricId) pairs currently showing anomalous values
+    private HashSet<(string RowId, string MetricId)> _anomalousCells = new();
+
     private record ColumnThreshold(
         string? MatchType,
         string? From,
         string? To,
         string? TextMatch,
         string? TextTo,
+        string? TextMatchType,
         string? BackgroundColor,
         string? FontColor
     );
@@ -425,6 +429,7 @@
                         t.To,
                         t.TextMatch,
                         t.TextTo,
+                        t.TextMatchType,
                         t.BackgroundColor,
                         t.FontColor
                     )).ToList(),
@@ -672,7 +677,7 @@
     {
         return _rows
             .Select(r => GetMetricValue(r.Metrics, metricId))
-            .Where(v => v != "-")
+            .Where(v => !CcDashboard.Contracts.Common.ThresholdTextMatch.IsEmpty(v))
             .Distinct()
             .OrderBy(v => v)
             .Take(50)
@@ -1006,7 +1011,7 @@
     // Helpers
     private static string GetMetricValue(Dictionary<string, string> metrics, string metricId)
     {
-        return metrics.TryGetValue(metricId, out var value) ? value : "-";
+        return metrics.TryGetValue(metricId, out var value) ? value : "";
     }
 
     private bool IsNumericColumn(string metricId)
@@ -1026,7 +1031,7 @@
 
     private static string DetectDataType(string? value)
     {
-        if (string.IsNullOrEmpty(value) || value == "-") return "text";
+        if (CcDashboard.Contracts.Common.ThresholdTextMatch.IsEmpty(value)) return "text";
 
         // Check for time format: MM:SS or HH:MM:SS
         var parts = value.Split(':');
@@ -1094,7 +1099,7 @@
         {
             if (t.MatchType == "text")
             {
-                if (string.Equals(cellValue, t.TextMatch, StringComparison.OrdinalIgnoreCase))
+                if (CcDashboard.Contracts.Common.ThresholdTextMatch.IsMatch(t.TextMatchType, cellValue, t.TextMatch))
                     return (t.BackgroundColor, t.FontColor);
             }
             else // numeric
@@ -1373,7 +1378,29 @@
             return FormatSeconds(anchor.BaseSecs + elapsed);
         }
         var raw = GetMetricValue(row.Metrics, metricId);
-        return FormatTimeString(raw);
+        
+        // Track anomalies (NaN/Infinity) with transition logging
+        var cellKey = (row.RowId, metricId);
+        var isAnomaly = raw == "NaN" || raw == "Infinity" || raw == "-Infinity";
+        var wasAnomaly = _anomalousCells.Contains(cellKey);
+        
+        if (isAnomaly && !wasAnomaly)
+        {
+            _anomalousCells.Add(cellKey);
+            Logger.LogWarning("QueueGrid anomaly: GridId={GridId} RowId={RowId} MetricId={MetricId} RawValue={RawValue}",
+                _rtsGridId, row.RowId, metricId, raw);
+        }
+        else if (!isAnomaly && wasAnomaly)
+        {
+            _anomalousCells.Remove(cellKey);
+            Logger.LogWarning("QueueGrid anomaly cleared: GridId={GridId} RowId={RowId} MetricId={MetricId}",
+                _rtsGridId, row.RowId, metricId);
+        }
+        
+        var result = FormatTimeString(raw);
+        // RTM Service uses &nbsp; as placeholder for empty fields (legacy HTML client)
+        if (result == "&nbsp;") return string.Empty;
+        return result;
     }
 
     private static int ParseTimeToSeconds(string time)
@@ -1404,7 +1431,7 @@
     private static string FormatTimeString(string value)
     {
         if (string.IsNullOrEmpty(value)) return value;
-        if (value == "NaN" || value == "Infinity" || value == "-Infinity") return "-";
+        if (value == "NaN" || value == "Infinity" || value == "-Infinity") return "";
         var parts = value.Split(':');
         if (parts.Length == 3
             && int.TryParse(parts[0], out var h)

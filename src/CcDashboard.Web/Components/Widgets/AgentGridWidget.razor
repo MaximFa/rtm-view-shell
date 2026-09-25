@@ -290,6 +290,9 @@
         string? FontColor
     );
 
+    // Anomaly tracking: (RowId, MetricId) pairs currently showing anomalous values
+    private HashSet<(string RowId, string MetricId)> _anomalousCells = new();
+
     // RTM protocol models
     private class RtmUsersResult
     {
@@ -734,7 +737,7 @@
 
     private static double? ParseNumericValue(string? value)
     {
-        if (string.IsNullOrEmpty(value) || value == "-") return null;
+        if (CcDashboard.Contracts.Common.ThresholdTextMatch.IsEmpty(value)) return null;
 
         // Remove % and try parse
         if (double.TryParse(value.Replace("%", "").Trim(), out var result))
@@ -767,7 +770,7 @@
 
     private static string DetectDataType(string? value)
     {
-        if (string.IsNullOrEmpty(value) || value == "-") return "text";
+        if (CcDashboard.Contracts.Common.ThresholdTextMatch.IsEmpty(value)) return "text";
 
         // Check for time format: MM:SS or HH:MM:SS
         var parts = value.Split(':');
@@ -946,15 +949,7 @@
             }
             else // text match
             {
-                var matchValue = t.TextMatch ?? "";
-                matches = t.TextMatchType switch
-                {
-                    "equal" => cellValue.Equals(matchValue, StringComparison.OrdinalIgnoreCase),
-                    "contains" => cellValue.Contains(matchValue, StringComparison.OrdinalIgnoreCase),
-                    "startswith" => cellValue.StartsWith(matchValue, StringComparison.OrdinalIgnoreCase),
-                    "endswith" => cellValue.EndsWith(matchValue, StringComparison.OrdinalIgnoreCase),
-                    _ => cellValue.Equals(matchValue, StringComparison.OrdinalIgnoreCase)
-                };
+                matches = CcDashboard.Contracts.Common.ThresholdTextMatch.IsMatch(t.TextMatchType, cellValue, t.TextMatch);
             }
 
             if (matches)
@@ -1129,7 +1124,7 @@
     {
         return _rows
             .Select(r => GetMetricValue(r.Metrics, metricId))
-            .Where(v => v != "-")
+            .Where(v => !CcDashboard.Contracts.Common.ThresholdTextMatch.IsEmpty(v))
             .Distinct()
             .OrderBy(v => v)
             .ToList();
@@ -1263,7 +1258,7 @@
 
     private static string GetMetricValue(Dictionary<string, string> metrics, string metricId)
     {
-        return metrics.TryGetValue(metricId, out var value) ? value : "-";
+        return metrics.TryGetValue(metricId, out var value) ? value : "";
     }
 
     private string GetCellDisplay(AgentRowData row, string metricId)
@@ -1274,6 +1269,25 @@
             return FormatSeconds(anchor.BaseSecs + elapsed);
         }
         var raw = GetMetricValue(row.Metrics, metricId);
+        
+        // Track anomalies (NaN/Infinity) with transition logging
+        var cellKey = (row.RowId, metricId);
+        var isAnomaly = raw == "NaN" || raw == "Infinity" || raw == "-Infinity";
+        var wasAnomaly = _anomalousCells.Contains(cellKey);
+        
+        if (isAnomaly && !wasAnomaly)
+        {
+            _anomalousCells.Add(cellKey);
+            Logger.LogWarning("AgentGrid anomaly: GridId={GridId} RowId={RowId} MetricId={MetricId} RawValue={RawValue}",
+                _rtsGridId, row.RowId, metricId, raw);
+        }
+        else if (!isAnomaly && wasAnomaly)
+        {
+            _anomalousCells.Remove(cellKey);
+            Logger.LogWarning("AgentGrid anomaly cleared: GridId={GridId} RowId={RowId} MetricId={MetricId}",
+                _rtsGridId, row.RowId, metricId);
+        }
+        
         var result = FormatTimeString(raw);
         // RTM Service uses &nbsp; as placeholder for empty fields (legacy HTML client)
         if (result == "&nbsp;") return string.Empty;
@@ -1524,7 +1538,7 @@
     private static string FormatTimeString(string value)
     {
         if (string.IsNullOrEmpty(value)) return value;
-        if (value == "NaN" || value == "Infinity" || value == "-Infinity") return "-";
+        if (value == "NaN" || value == "Infinity" || value == "-Infinity") return "";
         var parts = value.Split(':');
         if (parts.Length == 3
             && int.TryParse(parts[0], out var h)
