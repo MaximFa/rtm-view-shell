@@ -17,7 +17,15 @@ public static class ThresholdTextMatch
     public static bool IsMatch(string? matchType, string? cellValue, string? pattern)
     {
         var value = cellValue ?? string.Empty;
-        var pat = pattern ?? string.Empty;
+        
+        // Handle empty/notempty first - they don't use pattern
+        if (matchType == "empty") return IsEmpty(value);
+        if (matchType == "notempty") return !IsEmpty(value);
+        
+        // For all other match types, an empty pattern never matches
+        if (IsEmpty(pattern)) return false;
+        
+        var pat = pattern!; // non-null after IsEmpty check
         
         return matchType switch
         {
@@ -25,8 +33,6 @@ public static class ThresholdTextMatch
             "contains" => value.Contains(pat, StringComparison.OrdinalIgnoreCase),
             "startswith" => value.StartsWith(pat, StringComparison.OrdinalIgnoreCase),
             "endswith" => value.EndsWith(pat, StringComparison.OrdinalIgnoreCase),
-            "empty" => IsEmpty(value),
-            "notempty" => !IsEmpty(value),
             // "equal" and unknown/null default to equality (backward compatibility)
             _ => value.Equals(pat, StringComparison.OrdinalIgnoreCase)
         };

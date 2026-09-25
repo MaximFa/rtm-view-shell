@@ -5,7 +5,7 @@ namespace CcDashboard.Tests.Unit;
 
 /// <summary>
 /// Tests for <see cref="ThresholdTextMatch"/> — covers the full truth table from the spec.
-/// 7 match types × 9 cell values = 63 core cases, plus edge cases.
+/// 7 match types × 9 cell values = 63 core cases, plus edge cases and empty pattern matrix.
 /// </summary>
 public class ThresholdTextMatchTests
 {
@@ -87,8 +87,6 @@ public class ThresholdTextMatchTests
     [Fact] public void NullValue_NotEmpty_DoesNotMatch() => ThresholdTextMatch.IsMatch("notempty", null, Pattern).Should().BeFalse();
 
     // Row 9: anomaly values (NaN/Infinity rendered as empty string after fix)
-    // These are handled by the widget (FormatTimeString returns ""), so the value reaching IsMatch is ""
-    // Tests confirm the empty-string behavior is consistent
     [Fact] public void Anomaly_Equal_DoesNotMatch() => ThresholdTextMatch.IsMatch("equal", "", Pattern).Should().BeFalse();
     [Fact] public void Anomaly_NotEqual_Matches() => ThresholdTextMatch.IsMatch("notequal", "", Pattern).Should().BeTrue();
     [Fact] public void Anomaly_Contains_DoesNotMatch() => ThresholdTextMatch.IsMatch("contains", "", Pattern).Should().BeFalse();
@@ -99,23 +97,95 @@ public class ThresholdTextMatchTests
 
     #endregion
 
-    #region Edge cases
+    #region Edge cases — empty pattern (existing tests, 4 changed)
 
-    // EDGE: Empty pattern — .NET Contains/StartsWith/EndsWith return true for empty pattern
-    [Fact] public void EmptyPattern_Contains_ReturnsTrue() => ThresholdTextMatch.IsMatch("contains", "anything", "").Should().BeTrue();
-    [Fact] public void EmptyPattern_StartsWith_ReturnsTrue() => ThresholdTextMatch.IsMatch("startswith", "anything", "").Should().BeTrue();
-    [Fact] public void EmptyPattern_EndsWith_ReturnsTrue() => ThresholdTextMatch.IsMatch("endswith", "anything", "").Should().BeTrue();
-    [Fact] public void EmptyPattern_Equal_OnlyMatchesEmpty() => ThresholdTextMatch.IsMatch("equal", "", "").Should().BeTrue();
+    // CHANGED: these 4 tests previously expected true, now false (renamed for clarity)
+    [Fact] public void EmptyPattern_Contains_NeverMatches() => ThresholdTextMatch.IsMatch("contains", "anything", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_StartsWith_NeverMatches() => ThresholdTextMatch.IsMatch("startswith", "anything", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_EndsWith_NeverMatches() => ThresholdTextMatch.IsMatch("endswith", "anything", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_Equal_NeverMatches() => ThresholdTextMatch.IsMatch("equal", "", "").Should().BeFalse();
+    // UNCHANGED: this test already expected false
     [Fact] public void EmptyPattern_Equal_DoesNotMatchNonEmpty() => ThresholdTextMatch.IsMatch("equal", "anything", "").Should().BeFalse();
+
+    #endregion
+
+    #region Empty pattern full matrix — 45 new tests (5 types × 3 patterns × 3 cells)
+
+    // All must return false: an empty pattern never matches
+
+    // === equal with null pattern ===
+    [Fact] public void EmptyPattern_Null_Equal_Text_False() => ThresholdTextMatch.IsMatch("equal", "text", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_Equal_Empty_False() => ThresholdTextMatch.IsMatch("equal", "", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_Equal_Whitespace_False() => ThresholdTextMatch.IsMatch("equal", "   ", null).Should().BeFalse();
+    // === equal with "" pattern ===
+    [Fact] public void EmptyPattern_String_Equal_Text_False() => ThresholdTextMatch.IsMatch("equal", "text", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_Equal_Empty_False() => ThresholdTextMatch.IsMatch("equal", "", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_Equal_Whitespace_False() => ThresholdTextMatch.IsMatch("equal", "   ", "").Should().BeFalse();
+    // === equal with "   " pattern ===
+    [Fact] public void EmptyPattern_Ws_Equal_Text_False() => ThresholdTextMatch.IsMatch("equal", "text", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_Equal_Empty_False() => ThresholdTextMatch.IsMatch("equal", "", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_Equal_Whitespace_False() => ThresholdTextMatch.IsMatch("equal", "   ", "   ").Should().BeFalse();
+
+    // === notequal with null pattern ===
+    [Fact] public void EmptyPattern_Null_NotEqual_Text_False() => ThresholdTextMatch.IsMatch("notequal", "text", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_NotEqual_Empty_False() => ThresholdTextMatch.IsMatch("notequal", "", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_NotEqual_Whitespace_False() => ThresholdTextMatch.IsMatch("notequal", "   ", null).Should().BeFalse();
+    // === notequal with "" pattern ===
+    [Fact] public void EmptyPattern_String_NotEqual_Text_False() => ThresholdTextMatch.IsMatch("notequal", "text", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_NotEqual_Empty_False() => ThresholdTextMatch.IsMatch("notequal", "", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_NotEqual_Whitespace_False() => ThresholdTextMatch.IsMatch("notequal", "   ", "").Should().BeFalse();
+    // === notequal with "   " pattern ===
+    [Fact] public void EmptyPattern_Ws_NotEqual_Text_False() => ThresholdTextMatch.IsMatch("notequal", "text", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_NotEqual_Empty_False() => ThresholdTextMatch.IsMatch("notequal", "", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_NotEqual_Whitespace_False() => ThresholdTextMatch.IsMatch("notequal", "   ", "   ").Should().BeFalse();
+
+    // === contains with null pattern ===
+    [Fact] public void EmptyPattern_Null_Contains_Text_False() => ThresholdTextMatch.IsMatch("contains", "text", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_Contains_Empty_False() => ThresholdTextMatch.IsMatch("contains", "", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_Contains_Whitespace_False() => ThresholdTextMatch.IsMatch("contains", "   ", null).Should().BeFalse();
+    // === contains with "" pattern ===
+    [Fact] public void EmptyPattern_String_Contains_Text_False() => ThresholdTextMatch.IsMatch("contains", "text", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_Contains_Empty_False() => ThresholdTextMatch.IsMatch("contains", "", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_Contains_Whitespace_False() => ThresholdTextMatch.IsMatch("contains", "   ", "").Should().BeFalse();
+    // === contains with "   " pattern ===
+    [Fact] public void EmptyPattern_Ws_Contains_Text_False() => ThresholdTextMatch.IsMatch("contains", "text", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_Contains_Empty_False() => ThresholdTextMatch.IsMatch("contains", "", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_Contains_Whitespace_False() => ThresholdTextMatch.IsMatch("contains", "   ", "   ").Should().BeFalse();
+
+    // === startswith with null pattern ===
+    [Fact] public void EmptyPattern_Null_StartsWith_Text_False() => ThresholdTextMatch.IsMatch("startswith", "text", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_StartsWith_Empty_False() => ThresholdTextMatch.IsMatch("startswith", "", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_StartsWith_Whitespace_False() => ThresholdTextMatch.IsMatch("startswith", "   ", null).Should().BeFalse();
+    // === startswith with "" pattern ===
+    [Fact] public void EmptyPattern_String_StartsWith_Text_False() => ThresholdTextMatch.IsMatch("startswith", "text", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_StartsWith_Empty_False() => ThresholdTextMatch.IsMatch("startswith", "", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_StartsWith_Whitespace_False() => ThresholdTextMatch.IsMatch("startswith", "   ", "").Should().BeFalse();
+    // === startswith with "   " pattern ===
+    [Fact] public void EmptyPattern_Ws_StartsWith_Text_False() => ThresholdTextMatch.IsMatch("startswith", "text", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_StartsWith_Empty_False() => ThresholdTextMatch.IsMatch("startswith", "", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_StartsWith_Whitespace_False() => ThresholdTextMatch.IsMatch("startswith", "   ", "   ").Should().BeFalse();
+
+    // === endswith with null pattern ===
+    [Fact] public void EmptyPattern_Null_EndsWith_Text_False() => ThresholdTextMatch.IsMatch("endswith", "text", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_EndsWith_Empty_False() => ThresholdTextMatch.IsMatch("endswith", "", null).Should().BeFalse();
+    [Fact] public void EmptyPattern_Null_EndsWith_Whitespace_False() => ThresholdTextMatch.IsMatch("endswith", "   ", null).Should().BeFalse();
+    // === endswith with "" pattern ===
+    [Fact] public void EmptyPattern_String_EndsWith_Text_False() => ThresholdTextMatch.IsMatch("endswith", "text", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_EndsWith_Empty_False() => ThresholdTextMatch.IsMatch("endswith", "", "").Should().BeFalse();
+    [Fact] public void EmptyPattern_String_EndsWith_Whitespace_False() => ThresholdTextMatch.IsMatch("endswith", "   ", "").Should().BeFalse();
+    // === endswith with "   " pattern ===
+    [Fact] public void EmptyPattern_Ws_EndsWith_Text_False() => ThresholdTextMatch.IsMatch("endswith", "text", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_EndsWith_Empty_False() => ThresholdTextMatch.IsMatch("endswith", "", "   ").Should().BeFalse();
+    [Fact] public void EmptyPattern_Ws_EndsWith_Whitespace_False() => ThresholdTextMatch.IsMatch("endswith", "   ", "   ").Should().BeFalse();
+
+    #endregion
+
+    #region Edge cases — other
 
     // Unknown/null match type defaults to "equal"
     [Fact] public void UnknownMatchType_DefaultsToEqual() => ThresholdTextMatch.IsMatch("unknown", "Break", Pattern).Should().BeTrue();
     [Fact] public void NullMatchType_DefaultsToEqual() => ThresholdTextMatch.IsMatch(null, "Break", Pattern).Should().BeTrue();
     [Fact] public void EmptyMatchType_DefaultsToEqual() => ThresholdTextMatch.IsMatch("", "Break", Pattern).Should().BeTrue();
-
-    // Null pattern treated as empty string
-    [Fact] public void NullPattern_Contains_ReturnsTrue() => ThresholdTextMatch.IsMatch("contains", "anything", null).Should().BeTrue();
-    [Fact] public void NullPattern_Equal_MatchesEmpty() => ThresholdTextMatch.IsMatch("equal", "", null).Should().BeTrue();
 
     #endregion
 
