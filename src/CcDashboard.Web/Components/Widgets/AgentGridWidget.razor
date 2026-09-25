@@ -180,17 +180,43 @@
 
         @* Footer with pagination and connection status - P1 *@
         <div class="agent-grid-footer d-flex align-items-center justify-content-between px-2 py-1 border-top small">
-            <div class="d-flex align-items-center gap-2" style="@GetFontColorStyle()" aria-label="@L["Widget_LiveDataUpdating"]">
+            <div class="d-flex align-items-center gap-2" style="@GetFontColorStyle()">
                 @{
                     var sortColDef = _sortColumn != null ? _columnDefs.FirstOrDefault(c => c.Id == _sortColumn) : null;
                 }
                 @if (sortColDef != null)
                 {
-                    <span class="small opacity-70">@L["Widget_SortedByColumn", sortColDef.Name]</span>
+                    <span class="small opacity-70">
+                        @{
+                            var sortTpl = L["Widget_SortedByColumn"].Value;
+                            var sortParts = sortTpl.Split(new[] { "{0}" }, StringSplitOptions.None);
+                        }
+                        @if (sortParts.Length == 2)
+                        {
+                            @sortParts[0]<bdi>@sortColDef.Name</bdi>@sortParts[1]
+                        }
+                        else
+                        {
+                            @L["Widget_SortedByColumn", sortColDef.Name]
+                        }
+                    </span>
                 }
                 @if (FilteredRowCount > 0)
                 {
-                    <span class="small opacity-70">@((MarkupString)string.Format(L["Widget_ShowingNofM"], $"<bdi>{pagedRows.Count}</bdi>", $"<bdi>{FilteredRowCount}</bdi>"))</span>
+                    <span class="small opacity-70">
+                        @{
+                            var showTpl = L["Widget_ShowingNofM"].Value;
+                            var showParts = showTpl.Split(new[] { "{0}", "{1}" }, StringSplitOptions.None);
+                        }
+                        @if (showParts.Length == 3)
+                        {
+                            @showParts[0]<bdi>@pagedRows.Count</bdi>@showParts[1]<bdi>@FilteredRowCount</bdi>@showParts[2]
+                        }
+                        else
+                        {
+                            @L["Widget_ShowingNofM", pagedRows.Count, FilteredRowCount]
+                        }
+                    </span>
                 }
             </div>
 
