@@ -493,7 +493,7 @@ namespace RTM
             // נשתמש בערך סף נמוך מאוד (למשל אלפית השעה)
             if (totalHours < 0.001)
             {
-                return 0.ToString(format);
+                return string.Empty;
             }
 
             // 4. חישוב המדד
@@ -651,7 +651,7 @@ namespace RTM
         {
             if (!applyAny)
             {
-                return "00:00:00";
+                return string.Empty;
             }
 
             List<TimeSpan> responseTimes = new();
@@ -698,7 +698,7 @@ namespace RTM
             }
 
             if (responseTimes.Count == 0)
-                return "00:00:00";
+                return string.Empty;
 
             var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
             var avg = TimeSpan.FromSeconds(avgSeconds);
@@ -873,6 +873,7 @@ namespace RTM
         public string getUsersInStatusPercent(MetricDef metric)
         {
             double dCalc = 0;
+            bool hasValue = false;
             if (Users.Count() > 0)
             {
                 int numSignon1 = Users.Count(x => x.isLoggedId);
@@ -880,9 +881,10 @@ namespace RTM
                 {
                     int count11 = Users.Count(t => t.UserStatus == metric.Parameter);
                     dCalc = (double)count11 / numSignon1;
+                    hasValue = true;
                 }
             }
-            return dCalc.ToString(metric.Format); // "#0.##%"
+            return hasValue ? dCalc.ToString(metric.Format) : string.Empty; // "#0.##%"
         }
 
 
@@ -890,6 +892,7 @@ namespace RTM
         public string getUsersInStatusGroupPercent(MetricDef metric)
         {
             double dCalc = 0;
+            bool hasValue = false;
             if (Users.Count() > 0)
             {
                 int numSignong1 = Users.Count(x => x.isLoggedId);
@@ -897,9 +900,10 @@ namespace RTM
                 {
                     int count11 = Users.Count(t => t.UserStatusGroup == metric.Parameter);
                     dCalc = (double)count11 / numSignong1;
+                    hasValue = true;
                 }
             }
-            return dCalc.ToString(metric.Format); // "#0.##%"
+            return hasValue ? dCalc.ToString(metric.Format) : string.Empty; // "#0.##%"
         }
 
 
@@ -907,7 +911,7 @@ namespace RTM
         // get UsersInStatusDurationAvg
         public string getUsersInStatusDurationAvg(MetricDef metric)
         {
-            string avg = "00:00:00";
+            string avg = string.Empty;
             if (Users.Count() > 0)
             {
                 TimeSpan stsDur = TimeSpan.Zero;
@@ -936,7 +940,7 @@ namespace RTM
         // Get UsersInStatusGroupDurationAvg
         public string getUsersInStatusGroupDurationAvg(MetricDef metric)
         {
-            string avg = "00:00:00";
+            string avg = string.Empty;
             if (Users.Count() > 0)
             {
                 TimeSpan stsGrpDur = TimeSpan.Zero;
@@ -968,6 +972,7 @@ namespace RTM
         public string getUsersInStatusDurationPercent(MetricDef metric)
         {
             double dCalc = 0;
+            bool hasValue = false;
             if (Users.Count() > 0)
             {
                 TimeSpan stsDur = new TimeSpan(Users.Sum(t => t.TotalStatuses.Values.Where(x => x.StatusId == metric.Parameter).Sum(r => r.Dur.Ticks)));
@@ -978,9 +983,10 @@ namespace RTM
                 if (loginDur.TotalSeconds > 0)
                 {
                     dCalc = stsDur.TotalSeconds / loginDur.TotalSeconds;
+                    hasValue = true;
                 }
             }
-            return dCalc.ToString(metric.Format); // "#0.##%"
+            return hasValue ? dCalc.ToString(metric.Format) : string.Empty; // "#0.##%"
         }
 
 
@@ -989,6 +995,7 @@ namespace RTM
         public string getUsersInStatusGroupDurationPercent(MetricDef metric)
         {
             double dCalc = 0;
+            bool hasValue = false;
             if (Users.Count() > 0)
             {
                 TimeSpan stsDur = new TimeSpan(Users.Sum(t => t.TotalStatuses.Values.Where(x => x.StatusGroup == metric.Parameter).Sum(r => r.Dur.Ticks)));
@@ -999,9 +1006,10 @@ namespace RTM
                 if (loginDur.TotalSeconds > 0)
                 {
                     dCalc = stsDur.TotalSeconds / loginDur.TotalSeconds;
+                    hasValue = true;
                 }
             }
-            return dCalc.ToString(metric.Format); // "#0.##%"   
+            return hasValue ? dCalc.ToString(metric.Format) : string.Empty; // "#0.##%"   
         }
 
 

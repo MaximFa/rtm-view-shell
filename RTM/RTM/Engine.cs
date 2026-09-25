@@ -2838,7 +2838,7 @@ namespace RTM
             // talkDurationAvgFunction
             // =======================
             string talkDurationAvgFunction = @"     
-                string val =  ""00:00:00"";
+                string val = string.Empty;
                 var ans = Bag.Where((i => i.UserId == userId && (METRIC_PARAMETER)));
                 long cnt = ans.Count();
                 if (cnt > 0)
@@ -2893,7 +2893,7 @@ namespace RTM
                 }
 
                 if (!responseTimes.Any())
-                return ""00:00:00"";
+                return string.Empty;
 
                 var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
                 var avg = TimeSpan.FromSeconds(avgSeconds);
@@ -2952,7 +2952,7 @@ namespace RTM
             }
 
             if (responseTimes.Count == 0)
-                return ""00:00:00"";
+                return string.Empty;
 
             var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
             var avg = TimeSpan.FromSeconds(avgSeconds);
@@ -3096,6 +3096,7 @@ namespace RTM
             // =======================
             string answeredPercentFunction = @"
                 double dCalc = 0;
+                bool hasValue = false;
                 if (applicAny)
                 {
                     int incomingCount = Bag.Where(i => METRIC_PARAMETER).Count();
@@ -3103,9 +3104,10 @@ namespace RTM
                     {
                         int answeredCount = Bag.Where(i => i.IsAnswered && (METRIC_PARAMETER)).Count();
                         dCalc = (double)answeredCount / incomingCount;
+                        hasValue = true;
                     }
                 }
-                return dCalc.ToString(METRIC_FORMAT); // ""#0.##%""";
+                return hasValue ? dCalc.ToString(METRIC_FORMAT) : string.Empty;";
             MetricFunctionList.TryAdd("AnsweredPercent", answeredPercentFunction);
 
 
@@ -3113,6 +3115,7 @@ namespace RTM
             // ========================
             string abandonedPercentFunction = @"
                 double dCalc = 0;
+                bool hasValue = false;
                 if (applicAny)
                 {
                     var ans =  Bag.Where(i => METRIC_PARAMETER);
@@ -3121,9 +3124,10 @@ namespace RTM
                     {
                         int abandonCount = Bag.Where(i => i.IsAbandoned && (METRIC_PARAMETER)).Count();
                         dCalc = (double)abandonCount / incomingCount1;
+                        hasValue = true;
                     }
                 }
-                return dCalc.ToString(METRIC_FORMAT); // ""#0.##%""";
+                return hasValue ? dCalc.ToString(METRIC_FORMAT) : string.Empty;";
             MetricFunctionList.TryAdd("AbandonedPercent", abandonedPercentFunction);
 
 
@@ -3209,6 +3213,7 @@ namespace RTM
 
             string MessagesPercentFunction = @"
                 double dCalc = 0;
+                bool hasValue = false;
                 if (applicAny)
                 {
                     var ans = Bag
@@ -3222,9 +3227,10 @@ namespace RTM
                     {
                         int selectedMessages = ans.Sum(m => m.ChatMessages.Values.Count(i => METRIC_PARAMETER));
                         dCalc = (double)selectedMessages / totalMessages;
+                        hasValue = true;
                     }
                 }
-                return dCalc.ToString(METRIC_FORMAT);";
+                return hasValue ? dCalc.ToString(METRIC_FORMAT) : string.Empty;";
             MetricFunctionList.TryAdd("MessagesPercent", MessagesPercentFunction);
 
 
@@ -3234,6 +3240,7 @@ namespace RTM
             // ===================================
             string MessagesInteractionsPercentFunction = @"
                 double dCalc = 0;
+                bool hasValue = false;
                 if (applicAny)
                 {
                     var ans = Bag
@@ -3248,9 +3255,10 @@ namespace RTM
                         int selectedInteractions = ans.Count(m => 
                             m.ChatMessages.Values.Any(i => METRIC_PARAMETER));
                         dCalc = (double)selectedInteractions / totalInteractions;
+                        hasValue = true;
                     }
                 }
-                return dCalc.ToString(METRIC_FORMAT);";
+                return hasValue ? dCalc.ToString(METRIC_FORMAT) : string.Empty;";
             MetricFunctionList.TryAdd("MessagesInteractionsPercent", MessagesInteractionsPercentFunction);
 
 
@@ -3323,8 +3331,9 @@ namespace RTM
                 List<TimeSpan> responseTimes = new();
 
                 if (!applicAny)
-                {              
-                    return ""00:00:00"";
+                {
+              
+                    return string.Empty;
                 }
 
                 foreach (var interaction in Bag.Where(m =>
@@ -3345,7 +3354,7 @@ namespace RTM
                 }
 
                 if (!responseTimes.Any())
-                return ""00:00:00"";
+                return string.Empty;
 
                 var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
                 var avg = TimeSpan.FromSeconds(avgSeconds);
@@ -3361,7 +3370,7 @@ namespace RTM
             string MessagesAvgResponseTimeFunction = @"
             if (!applicAny)
             {
-                return ""00:00:00"";
+                return string.Empty;
             }
 
             List<TimeSpan> responseTimes = new();
@@ -3408,7 +3417,7 @@ namespace RTM
             }
 
             if (responseTimes.Count == 0)
-                return ""00:00:00"";
+                return string.Empty;
 
             var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
             var avg = TimeSpan.FromSeconds(avgSeconds);
@@ -3424,7 +3433,7 @@ namespace RTM
             // waitDurationAvgFunction
             // =======================
             string waitDurationAvgFunction = @"
-                string avg = ""00:00:00"";
+                string avg = string.Empty;
                 var ans =  Bag.Where(i => METRIC_PARAMETER);
                 long count = ans.Count();
                 if (count > 0)
@@ -3461,7 +3470,7 @@ namespace RTM
             // talkDurationAvgFunction
             // =======================
             string talkDurationAvgFunction = @"
-                string avg = ""00:00:00"";   
+                string avg = string.Empty;   
                 var ans = Bag.Where(i => i.IsAnswered && (METRIC_PARAMETER));
                 long cnt = ans.Count();
                 if (cnt > 0)

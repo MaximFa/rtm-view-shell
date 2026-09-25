@@ -1013,7 +1013,7 @@ namespace RTM
             if (totalHours < 0.001)
             {
                 //AsyncLogger.Info($"(totalHours < 0.001)");
-                return 0.ToString(format);
+                return string.Empty;
             }
 
             // 4. חישוב המדד
@@ -1270,19 +1270,25 @@ namespace RTM
                         break;
 
                     case "TotalStatusPercent":
-                        val = "0";
+                        val = string.Empty;
                         if (isLoggedId)
                         {
                             long loginDur1 = _TotalStatuses.Values.Where(x => x.StatusId != "SIGNOFF").Sum(r => r.Dur.Ticks);
-                            long statusGrpDur1 = _TotalStatuses.Values.Where(x => x.StatusId == metric.Parameter).Sum(r => r.Dur.Ticks);
-                            double dCalc1 = (double)statusGrpDur1 / (double)loginDur1;
-                            var fmt1 = string.IsNullOrEmpty(metric.Format) ? "##0.0%" : metric.Format;
-                            val = dCalc1.ToString(fmt1); // "#0.##%"
+                            if (loginDur1 > 0)
+                            {
+                                long statusGrpDur1 = _TotalStatuses.Values.Where(x => x.StatusId == metric.Parameter).Sum(r => r.Dur.Ticks);
+                                double dCalc1 = (double)statusGrpDur1 / (double)loginDur1;
+                                if (!double.IsNaN(dCalc1) && !double.IsInfinity(dCalc1))
+                                {
+                                    var fmt1 = string.IsNullOrEmpty(metric.Format) ? "##0.0%" : metric.Format;
+                                    val = dCalc1.ToString(fmt1);
+                                }
+                            }
                         }
                         break;
 
                     case "TotalStatusGroupPercent":
-                        val = "0";
+                        val = string.Empty;
                         if (isLoggedId)
                         {
                             long loginDur2 = _TotalStatuses.Values
@@ -1327,7 +1333,7 @@ namespace RTM
                     case "TotalStatusDurationAvg": // StatusId   
                         var v121 = _TotalStatuses.Values.Where(x => x.StatusId == metric.Parameter);
                         int tsda = v121.Sum(y => y.Count);
-                        val = "00:00:00";
+                        val = string.Empty;
                         if (tsda > 0)
                         {
                             double tsdDur = v121.Sum(r => r.Dur.Ticks);
@@ -1340,7 +1346,7 @@ namespace RTM
                     case "TotalStatusGroupDurationAvg":
                         var v122 = _TotalStatuses.Values.Where(x => x.StatusGroup == metric.Parameter);
                         int tsgda = v122.Sum(y => y.Count);
-                        val = "00:00:00";
+                        val = string.Empty;
                         if (tsgda > 0)
                         {
                             double tsdDur = v122.Sum(r => r.Dur.Ticks);
