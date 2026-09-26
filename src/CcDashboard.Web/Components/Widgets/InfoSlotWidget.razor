@@ -98,6 +98,14 @@
         ? (Config?.DarkFontColor ?? Config?.FontColor ?? "auto")
         : (Config?.FontColor ?? "auto");
 
+    private string EffectivePriorityHighBgColor => DarkMode
+        ? (Config?.DarkPriorityHighBackgroundColor ?? Config?.PriorityHighBackgroundColor ?? "auto")
+        : (Config?.PriorityHighBackgroundColor ?? "auto");
+
+    private string EffectivePriorityHighTextColor => DarkMode
+        ? (Config?.DarkPriorityHighTextColor ?? Config?.PriorityHighTextColor ?? "auto")
+        : (Config?.PriorityHighTextColor ?? "auto");
+
     private string WidgetStyle
     {
         get
@@ -123,8 +131,12 @@
         {
             if (Config is null) return "";
             var styles = new List<string>();
-            // Priority high styling via CSS variables
-            // Priority high colors use CSS defaults
+            var bg = EffectivePriorityHighBgColor;
+            var text = EffectivePriorityHighTextColor;
+            if (bg != "auto" && !string.IsNullOrEmpty(bg))
+                styles.Add($"--is-priority-high-bg: {bg}");
+            if (text != "auto" && !string.IsNullOrEmpty(text))
+                styles.Add($"--is-priority-high-text: {text}");
             return string.Join("; ", styles);
         }
     }
