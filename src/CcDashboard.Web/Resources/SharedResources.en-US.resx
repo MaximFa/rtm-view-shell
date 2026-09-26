@@ -1153,6 +1153,5 @@
   <data name="Common_Fullscreen"><value>Fullscreen</value></data>
   <data name="Widget_SortedByColumn"><value>Sorted by: {0}</value></data>
   <data name="Widget_ShowingNofM"><value>Showing {0} of {1}</value></data>
-  <data name="InfoSlot_TickerLabel"><value>MESSAGES</value></data>
 </root>
 

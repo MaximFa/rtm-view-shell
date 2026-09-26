@@ -1151,6 +1151,5 @@
   <data name="Common_Fullscreen"><value>מסך מלא</value></data>
   <data name="Widget_SortedByColumn"><value>ממוין לפי: {0}</value></data>
   <data name="Widget_ShowingNofM"><value>מוצגים {0} מתוך {1}</value></data>
-  <data name="InfoSlot_TickerLabel"><value>הודעות</value></data>
 </root>
 

@@ -1102,7 +1102,12 @@
                                         <input type="checkbox" class="form-check-input" id="infoSlotShowTimestamp" @bind="ConfigShowTimestamp" />
                                         <label class="form-check-label" for="infoSlotShowTimestamp">@L["InfoSlot_ShowTimestamp"]</label>
                                     </div>
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input" id="infoSlotHideHeader" @bind="ConfigHideHeader" />
+                                        <label class="form-check-label" for="infoSlotHideHeader">@L["Widgets_HideHeader"]</label>
+                                    </div>
                                 </div>
+                                <small class="text-muted d-block mt-2">@L["Widgets_HideHeaderHint"]</small>
                             </div>
                         }
 

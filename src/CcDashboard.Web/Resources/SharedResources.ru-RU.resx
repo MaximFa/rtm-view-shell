@@ -1155,6 +1155,5 @@
   <data name="Common_Fullscreen"><value>Полноэкранный режим</value></data>
   <data name="Widget_SortedByColumn"><value>Сортировка: {0}</value></data>
   <data name="Widget_ShowingNofM"><value>Показано {0} из {1}</value></data>
-  <data name="InfoSlot_TickerLabel"><value>СООБЩЕНИЯ</value></data>
 </root>
 
