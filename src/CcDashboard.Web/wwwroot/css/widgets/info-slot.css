@@ -1,9 +1,21 @@
 /* Info Slot Widget CSS — CC-010 */
 
 /* Ticker mode — horizontal */
-.is-widget { overflow: hidden; position: relative; height: 100%; }
+.is-widget {
+    --is-label-inline-size: 5rem;  /* Width of fixed label for horizontal modes */
+    --is-label-block-size: 2rem;   /* Height of fixed label for vertical modes */
+    overflow: hidden;
+    position: relative;
+    height: 100%;
+}
 .is-ticker { white-space: nowrap; overflow: hidden; }
 .is-ticker-track { display: inline-block; }
+
+/* Horizontal ticker offset — messages start after the label, not under it */
+.is-dir-lefttoright .is-ticker,
+.is-dir-righttoleft .is-ticker {
+    padding-inline-start: var(--is-label-inline-size);
+}
 
 .is-dir-lefttoright .is-ticker-track {
     animation: ticker-ltr var(--is-anim-duration, 20s) linear infinite;
@@ -23,6 +35,12 @@
 
 /* Ticker — vertical */
 .is-vertical { white-space: normal; overflow: hidden; height: 100%; }
+
+/* Vertical ticker offset — messages start after the label, not under it */
+.is-dir-toptobottom .is-vertical,
+.is-dir-bottomtotop .is-vertical {
+    padding-block-start: var(--is-label-block-size);
+}
 
 .is-dir-toptobottom .is-ticker-track {
     animation: ticker-ttb var(--is-anim-duration, 20s) linear infinite;
@@ -73,6 +91,7 @@
     letter-spacing: 0.05em;
     z-index: 1;
     white-space: nowrap;
+    min-width: var(--is-label-inline-size);
 }
 
 /* Vertical directions — label at block-start */
@@ -84,6 +103,7 @@
     height: auto;
     padding-block: 0.5rem;
     justify-content: center;
+    min-height: var(--is-label-block-size);
 }
 
 /* Priority High — red, bold (default values can be overridden via CSS vars) */
