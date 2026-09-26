@@ -47,7 +47,7 @@
             @if (_currentIndex < OrderedMessages.Count())
             {
                 var msg = OrderedMessages.ElementAt(_currentIndex);
-                <div class="is-msg-content @(msg.Priority == "High" ? "is-high" : "")">
+                <div class="is-msg-content @(msg.Priority == "High" ? "is-high" : "")" style="@MsgStyle">
                     @if (msg.Priority == "High") { <span class="is-star">★</span> }
                     @msg.Content
                 </div>
