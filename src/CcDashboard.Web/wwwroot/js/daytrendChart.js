@@ -7,9 +7,10 @@ window.dayTrendChart = {
         if (!hex || typeof hex !== 'string') return `rgba(128,128,128,${opacity})`;
         hex = hex.replace('#', '');
         if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-        const r = parseInt(hex.substring(0, 2), 16) || 128;
-        const g = parseInt(hex.substring(2, 4), 16) || 128;
-        const b = parseInt(hex.substring(4, 6), 16) || 128;
+        const parse = s => { const n = parseInt(s, 16); return Number.isNaN(n) ? 128 : n; };
+        const r = parse(hex.substring(0, 2));
+        const g = parse(hex.substring(2, 4));
+        const b = parse(hex.substring(4, 6));
         return `rgba(${r},${g},${b},${opacity})`;
     },
 
