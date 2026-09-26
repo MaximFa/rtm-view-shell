@@ -2,6 +2,22 @@
 window.agentStateDistributionChart = {
     _charts: {},
 
+    // Compute relative luminance (WCAG formula) and return appropriate text color
+    _getContrastColor: function (hexColor) {
+        if (!hexColor || hexColor.length < 4) return '#fff';
+        let hex = hexColor.replace('#', '');
+        if (hex.length === 3) {
+            hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        }
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        // Relative luminance: 0.299*R + 0.587*G + 0.114*B
+        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        // Threshold 140: slightly above 128 for better readability
+        return luminance > 140 ? '#333' : '#fff';
+    },
+
     render: function (elementId, segments, options) {
         if (typeof Chart === 'undefined') {
             console.error('agentStateDistributionChart: Chart.js is not loaded.');
@@ -25,6 +41,7 @@ window.agentStateDistributionChart = {
         const data = segments.map(s => s.value);
         const colors = segments.map(s => s.color);
         const total = data.reduce((a, b) => a + b, 0);
+        const self = this;
 
         const showPercentages = options?.valueDisplay === 'percentages';
 
@@ -36,6 +53,10 @@ window.agentStateDistributionChart = {
             indexAxis = 'y';
         }
 
+        const isDoughnut = chartType === 'doughnut';
+        const centerLabel = options?.centerLabel || 'Agents';
+        const fontColor = options?.fontColor || '#333';
+
         const chartOptions = {
             responsive: true,
             maintainAspectRatio: false,
@@ -45,27 +66,32 @@ window.agentStateDistributionChart = {
             plugins: {
                 legend: {
                     display: chartType === 'bar' ? false : (options?.showLegend ?? true),
-                    position: 'bottom',
+                    position: 'right',
+                    align: 'center',
                     labels: {
                         usePointStyle: true,
-                        padding: 10,
+                        padding: 8,
                         font: { size: 11 },
-                        color: options?.fontColor || undefined,
-                        // Unified per-segment legend for all chart types (pie, doughnut, bar, horizbar).
-                        // Chart.defaults.plugins.legend.labels.generateLabels is the GLOBAL (bar/line)
-                        // default — calling it from pie/doughnut yields one 'undefined' item.
-                        // Single implementation covers all types consistently.
+                        color: fontColor,
                         generateLabels: function (chart) {
                             const ds = chart.data.datasets[0];
+                            const chartData = ds.data;
+                            const dataTotal = chartData.reduce((a, b) => a + b, 0);
                             return (chart.data.labels || []).map((lbl, i) => {
                                 const clr = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
+                                const rawValue = chartData[i] || 0;
+                                const pct = dataTotal > 0 ? Math.round((rawValue / dataTotal) * 100) : 0;
+                                // Format matching tooltip: percentages -> "Label: N% (count)", values -> "Label: count (N%)"
+                                const labelText = showPercentages
+                                    ? `${lbl}: ${pct}% (${rawValue})`
+                                    : `${lbl}: ${rawValue} (${pct}%)`;
                                 return {
-                                    text: lbl,
-                                    fillStyle: clr + '40', // 25% opacity — matches DayTrend
-                                    strokeStyle: clr,      // solid border
+                                    text: labelText,
+                                    fillStyle: clr + '40',
+                                    strokeStyle: clr,
                                     lineWidth: 2,
                                     pointStyle: 'circle',
-                                    fontColor: options?.fontColor || undefined, // explicit per-item override
+                                    fontColor: fontColor,
                                     hidden: false,
                                     index: i
                                 };
@@ -77,7 +103,6 @@ window.agentStateDistributionChart = {
                     enabled: true,
                     callbacks: {
                         label: function (context) {
-                            const value = context.parsed;
                             const rawValue = chartType === 'bar'
                                 ? (indexAxis === 'y' ? context.parsed.x : context.parsed.y)
                                 : context.parsed;
@@ -91,10 +116,14 @@ window.agentStateDistributionChart = {
             }
         };
 
-        // Configure data labels on segments
+        // Configure data labels on segments with adaptive color
         if (options?.showValueLabels) {
             chartOptions.plugins.datalabels = {
-                color: '#fff',
+                color: function (ctx) {
+                    const bgColors = ctx.dataset.backgroundColor;
+                    const segmentColor = Array.isArray(bgColors) ? bgColors[ctx.dataIndex] : bgColors;
+                    return self._getContrastColor(segmentColor);
+                },
                 font: { weight: 'bold', size: 12 },
                 formatter: function (value, ctx) {
                     if (value === 0) return '';
@@ -112,7 +141,7 @@ window.agentStateDistributionChart = {
 
         // Bar chart specific options
         if (chartType === 'bar') {
-            const tickColor = options?.fontColor || undefined;
+            const tickColor = fontColor;
             // Vertical bar: X = category, Y = value
             chartOptions.scales = {
                 x: {
@@ -163,10 +192,36 @@ window.agentStateDistributionChart = {
                 }]
             };
 
+        // Center text plugin for doughnut
+        const centerTextPlugin = {
+            id: 'centerText',
+            afterDraw: function (chart) {
+                if (!isDoughnut) return;
+                const ctx = chart.ctx;
+                const { width, height } = chart.chartArea || chart;
+                const centerX = chart.chartArea ? (chart.chartArea.left + chart.chartArea.right) / 2 : width / 2;
+                const centerY = chart.chartArea ? (chart.chartArea.top + chart.chartArea.bottom) / 2 : height / 2;
+
+                ctx.save();
+                // Draw total number
+                ctx.font = 'bold 24px sans-serif';
+                ctx.fillStyle = fontColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(total.toString(), centerX, centerY - 8);
+                // Draw label below
+                ctx.font = '12px sans-serif';
+                ctx.fillStyle = fontColor;
+                ctx.fillText(centerLabel, centerX, centerY + 14);
+                ctx.restore();
+            }
+        };
+
         this._charts[elementId] = new Chart(ctx, {
             type: chartType,
             data: chartData,
-            options: chartOptions
+            options: chartOptions,
+            plugins: [centerTextPlugin]
         });
     },
 
