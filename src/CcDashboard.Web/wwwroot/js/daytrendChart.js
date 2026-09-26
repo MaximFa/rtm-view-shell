@@ -2,6 +2,17 @@
 window.dayTrendChart = {
     _charts: {},
 
+    // Convert hex color to rgba with given opacity
+    _hexToRgba: function (hex, opacity) {
+        if (!hex || typeof hex !== 'string') return `rgba(128,128,128,${opacity})`;
+        hex = hex.replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+        const r = parseInt(hex.substring(0, 2), 16) || 128;
+        const g = parseInt(hex.substring(2, 4), 16) || 128;
+        const b = parseInt(hex.substring(4, 6), 16) || 128;
+        return `rgba(${r},${g},${b},${opacity})`;
+    },
+
     render: function (elementId, labels, datasets, options) {
         // Check if Chart.js is loaded
         if (typeof Chart === 'undefined') {
@@ -68,15 +79,15 @@ window.dayTrendChart = {
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: { font: { size: 10 } }
+                    ticks: { font: { size: 11 }, color: options?.fontColor || undefined }
                 },
                 y: {
                     type: 'linear',
                     display: true,
                     position: 'left',
                     beginAtZero: true,
-                    grid: { color: 'rgba(255,255,255,0.1)' },
-                    ticks: { font: { size: 10 } }
+                    grid: { color: this._hexToRgba(options?.fontColor, 0.12) },
+                    ticks: { font: { size: 11 }, color: options?.fontColor || undefined }
                 }
             }
         };
@@ -91,7 +102,8 @@ window.dayTrendChart = {
                 beginAtZero: true,
                 grid: { drawOnChartArea: false },
                 ticks: {
-                    font: { size: 10 },
+                    font: { size: 11 },
+                    color: options?.fontColor || undefined,
                     callback: function (value) {
                         const mins = Math.floor(value / 60);
                         const secs = value % 60;
