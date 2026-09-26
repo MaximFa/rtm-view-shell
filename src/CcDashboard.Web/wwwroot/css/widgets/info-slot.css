@@ -56,11 +56,55 @@
     margin-inline-end: 0.25rem;
 }
 
-/* Priority High */
+/* Fixed leading label — positioned at start edge, does not scroll */
+.is-label {
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding-inline: 0.75rem;
+    background: var(--widget-bg, var(--bs-body-bg));
+    color: var(--widget-text, var(--bs-body-color));
+    font-weight: 600;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    z-index: 1;
+    white-space: nowrap;
+}
+
+/* Vertical directions — label at block-start */
+.is-dir-toptobottom .is-label,
+.is-dir-bottomtotop .is-label {
+    inset-inline-start: 0;
+    top: 0;
+    width: 100%;
+    height: auto;
+    padding-block: 0.5rem;
+    justify-content: center;
+}
+
+/* Priority High — red, bold (default values can be overridden via CSS vars) */
 .is-high {
-    background-color: var(--is-priority-high-bg, var(--bs-warning-bg-subtle));
-    color: var(--is-priority-high-text, var(--bs-warning-text-emphasis));
+    background-color: var(--is-priority-high-bg, var(--bs-danger-bg-subtle));
+    color: var(--is-priority-high-text, var(--bs-danger-text-emphasis));
     border-radius: 3px;
+    font-weight: 700;
+}
+
+/* Reduced motion — keep ticker readable from start, not end position */
+@media (prefers-reduced-motion: reduce) {
+    .is-ticker-track {
+        animation: none !important;
+        transform: none !important;
+    }
+    /* For vertical modes */
+    .is-dir-toptobottom .is-ticker-track,
+    .is-dir-bottomtotop .is-ticker-track {
+        transform: none !important;
+    }
 }
 
 /* auto colour mode */
