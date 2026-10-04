@@ -2791,6 +2791,18 @@ button.clr-swatch,
 
 .is-msg-content.is-high {
     font-weight: var(--fw-semibold);
+    background-color: var(--is-priority-high-bg, var(--clr-danger));
+    color: var(--is-priority-high-text, var(--clr-surface));
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--radius-sm);
+}
+
+/* Urgent message in ticker mode */
+.is-ticker .is-msg.is-high {
+    background-color: var(--is-priority-high-bg, var(--clr-danger));
+    color: var(--is-priority-high-text, var(--clr-surface));
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--radius-sm);
 }
 
 .is-msg-meta {
@@ -2885,6 +2897,14 @@ button.clr-swatch,
     display: block;
     text-align: center;
     padding: var(--sp-1) 0;
+}
+
+/* Reduced motion: stop ticker animation and reset to start position */
+@media (prefers-reduced-motion: reduce) {
+    .is-ticker-track {
+        animation: none;
+        transform: none;
+    }
 }
 
 .editor-fullscreen.dark-mode .widget-toolbar {
