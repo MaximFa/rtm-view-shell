@@ -235,6 +235,33 @@ def check(path):
                 continue
             break
 
+    # --- a watching window must be wider than the thing it watches ---------------
+    # A probe that waits for RTMTwilio_1 to come back decides "did it return" from a FIXED number of
+    # sleeps. If that window is narrower than the slowest return ever measured, the probe cannot tell
+    # "it never came up" from "it comes up slower than I watched" - a predicate weaker than its own
+    # question, which reads as a red that is not there.
+    # Measured cost, 2026-10-05: the install probe sampled 3 times 20 s apart (40 s) and printed
+    # Stopped three times; the adapter actually returned at 278 s, 209 s of which were AFTER the
+    # engine was already Running. The operator was told the adapter was down. It was not.
+    # The floor is therefore the measured worst case plus room: 300 s.
+    ADAPTER_FLOOR_SECONDS = 300
+    if re.search(r'RTMTwilio_1', txt):
+        sleeps = [int(m) for m in re.findall(r'(?i)Start-Sleep\s+-Seconds\s+(\d+)', txt)]
+        if sleeps:
+            window = sum(sleeps)
+            if window < ADAPTER_FLOOR_SECONDS:
+                faults.append("the probe waits for RTMTwilio_1 and the sleep LITERALS in its text "
+                              "add up to %d s (%s). That is a LOWER BOUND, not the window: a sleep "
+                              "inside a loop runs more than once - the 2026-10-05 install probe shows "
+                              "20 s here and waited 40 s. The slowest measured return is 278 s "
+                              "[234_20261005_081231_install-e7eb243.txt: Stopped 08:56:17, Running "
+                              "09:00:55], so this window cannot tell 'never came up' from 'slower "
+                              "than I watched'. Raise the literals past %d s, or key the wait to the "
+                              "SCM event instead of counting seconds. If the real window already "
+                              "exceeds that because of a loop, say so in the probe's own text - a "
+                              "number a reader cannot see is not a measurement"
+                              % (window, '+'.join(str(s) for s in sleeps), ADAPTER_FLOOR_SECONDS))
+
     return faults, notes
 
 
