@@ -214,6 +214,7 @@
 
     private int _previousGridId;
     private bool _chartRendered;
+    private string? _previousChartType;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -398,7 +399,17 @@
 
         try
         {
-            await JS.InvokeVoidAsync("agentStateDistributionChart.render", _chartElementId, segments, options);
+            // Use update() for data changes, render() only for first build or chartType change
+            var needsRender = !_chartRendered || _previousChartType != _chartType;
+            if (needsRender)
+            {
+                await JS.InvokeVoidAsync("agentStateDistributionChart.render", _chartElementId, segments, options);
+                _previousChartType = _chartType;
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("agentStateDistributionChart.update", _chartElementId, segments, options);
+            }
         }
         catch (Exception ex)
         {

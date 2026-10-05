@@ -34,6 +34,14 @@ window.agentStateDistributionChart = {
             return;
         }
 
+        // Lock canvas to current container size before creating chart to prevent geometry jump
+        const container = canvas.parentElement;
+        if (container) {
+            const rect = container.getBoundingClientRect();
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+        }
+
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
@@ -66,8 +74,8 @@ window.agentStateDistributionChart = {
             plugins: {
                 legend: {
                     display: chartType === 'bar' ? false : (options?.showLegend ?? true),
-                    position: 'right',
-                    align: 'center',
+                    position: 'bottom',
+                    align: 'start',
                     labels: {
                         usePointStyle: true,
                         padding: 8,
@@ -77,12 +85,13 @@ window.agentStateDistributionChart = {
                             const ds = chart.data.datasets[0];
                             const chartData = ds.data;
                             const dataTotal = chartData.reduce((a, b) => a + b, 0);
+                            const showPct = chart._customData?.showPercentages ?? false;
                             return (chart.data.labels || []).map((lbl, i) => {
                                 const clr = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
                                 const rawValue = chartData[i] || 0;
                                 const pct = dataTotal > 0 ? Math.round((rawValue / dataTotal) * 100) : 0;
                                 // Format matching tooltip: percentages -> "Label: N% (count)", values -> "Label: count (N%)"
-                                const labelText = showPercentages
+                                const labelText = showPct
                                     ? `${lbl}: ${pct}% (${rawValue})`
                                     : `${lbl}: ${rawValue} (${pct}%)`;
                                 return {
@@ -91,8 +100,8 @@ window.agentStateDistributionChart = {
                                     strokeStyle: clr,
                                     lineWidth: 2,
                                     pointStyle: 'circle',
-                                    fontColor: fontColor,
-                                    hidden: false,
+                                    fontColor: chart._customData?.fontColor || '#333',
+                                    hidden: !chart.isDatasetVisible(0) ? true : chart.getDatasetMeta(0).data[i]?.hidden,
                                     index: i
                                 };
                             });
@@ -103,11 +112,14 @@ window.agentStateDistributionChart = {
                     enabled: true,
                     callbacks: {
                         label: function (context) {
+                            const chart = context.chart;
+                            const currentTotal = chart._customData?.total ?? 0;
                             const rawValue = chartType === 'bar'
                                 ? (indexAxis === 'y' ? context.parsed.x : context.parsed.y)
                                 : context.parsed;
-                            const pct = total > 0 ? Math.round((rawValue / total) * 100) : 0;
-                            return showPercentages
+                            const pct = currentTotal > 0 ? Math.round((rawValue / currentTotal) * 100) : 0;
+                            const showPct = chart._customData?.showPercentages ?? false;
+                            return showPct
                                 ? `${context.label}: ${pct}% (${rawValue})`
                                 : `${context.label}: ${rawValue} (${pct}%)`;
                         }
@@ -192,37 +204,52 @@ window.agentStateDistributionChart = {
                 }]
             };
 
-        // Center text plugin for doughnut
+        // Center text plugin for doughnut — reads from chart._customData so it stays current on update()
         const centerTextPlugin = {
             id: 'centerText',
             afterDraw: function (chart) {
-                if (!isDoughnut) return;
+                const customData = chart._customData || {};
+                if (!customData.isDoughnut) return;
                 const ctx = chart.ctx;
                 const { width, height } = chart.chartArea || chart;
                 const centerX = chart.chartArea ? (chart.chartArea.left + chart.chartArea.right) / 2 : width / 2;
                 const centerY = chart.chartArea ? (chart.chartArea.top + chart.chartArea.bottom) / 2 : height / 2;
+                const currentTotal = customData.total ?? 0;
+                const currentLabel = customData.centerLabel || 'Agents';
+                const currentFontColor = customData.fontColor || '#333';
 
                 ctx.save();
                 // Draw total number
                 ctx.font = 'bold 24px sans-serif';
-                ctx.fillStyle = fontColor;
+                ctx.fillStyle = currentFontColor;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(total.toString(), centerX, centerY - 8);
+                ctx.fillText(currentTotal.toString(), centerX, centerY - 8);
                 // Draw label below
                 ctx.font = '12px sans-serif';
-                ctx.fillStyle = fontColor;
-                ctx.fillText(centerLabel, centerX, centerY + 14);
+                ctx.fillStyle = currentFontColor;
+                ctx.fillText(currentLabel, centerX, centerY + 14);
                 ctx.restore();
             }
         };
 
-        this._charts[elementId] = new Chart(ctx, {
+        const chart = new Chart(ctx, {
             type: chartType,
             data: chartData,
             options: chartOptions,
             plugins: [centerTextPlugin]
         });
+
+        // Store dynamic data on chart instance for plugin and legend to read
+        chart._customData = {
+            total: total,
+            centerLabel: centerLabel,
+            fontColor: fontColor,
+            isDoughnut: isDoughnut,
+            showPercentages: showPercentages
+        };
+
+        this._charts[elementId] = chart;
     },
 
     update: function (elementId, segments, options) {
@@ -235,11 +262,20 @@ window.agentStateDistributionChart = {
         const labels = segments.map(s => s.label);
         const data = segments.map(s => s.value);
         const colors = segments.map(s => s.color);
+        const total = data.reduce((a, b) => a + b, 0);
 
         chart.data.labels = labels;
         chart.data.datasets[0].data = data;
         chart.data.datasets[0].backgroundColor = colors;
         chart.data.datasets[0].borderColor = colors;
+
+        // Update custom data for center text plugin and legend
+        if (chart._customData) {
+            chart._customData.total = total;
+            if (options?.centerLabel) chart._customData.centerLabel = options.centerLabel;
+            if (options?.fontColor) chart._customData.fontColor = options.fontColor;
+        }
+
         chart.update('none');
     },
 
