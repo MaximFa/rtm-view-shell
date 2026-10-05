@@ -41,11 +41,17 @@ Cardinal truths (source-pinned):
 3. **Preserve operator config across binary updates (appsettings.json + *.Production.json).**
    · SOURCE: 234 28P01 incident; e46e849
 
-4. **EVERY run-box handed to the operator opens with WHERE IT RUNS.** First line, before the code:
-   the target machine (DEV / 234 / 45 / 140), the database it touches, and whether it writes or only reads.
-   The operator drives several boxes on several machines in one session; a box that does not say where it runs
-   makes HIM carry that state — and a converge box pasted into the wrong console is not recoverable.
-   · SOURCE: operator directive 2026-08-29 ("ГДЕ БЕЖИМ" — before every run-box)
+4. **EVERY run-box opens with WHERE IT RUNS — FIRST LINE, EVERY TIME, NO EXCEPTIONS.** Before the code:
+   the machine (station / 234 / 45 / 140), the database it touches, write or read-only, and the outage.
+   Not buried mid-paragraph, not implied by context, not skipped because the last box went to the same place.
+   **AND THE LINE IS NOT ENOUGH: the box must REFUSE to run in the wrong place.** Pasted line by line into a
+   console, `return` at top level ends only its own line — a guard written that way PRINTS a stop and lets
+   every line after it run. Measured on the operator's console 2026-09-26: the guard fired, said STOP, and the
+   whole box executed anyway. So the box is wrapped in `& { ... }` as ONE statement, and the machine test
+   stands first inside it. A predicate that announces instead of preventing is an ornament.
+   · SOURCE: operator directives 2026-08-29 ("ГДЕ БЕЖИМ" — before every run-box) and 2026-09-26
+     ("ВСЕГДА говори где бежим перед боксом"), said after three boxes in a row went to one machine and the
+     fourth went to another.
 5. **EVERY password prompt in a run-box is `Read-Host -AsSecureString`. NEVER a bare `Read-Host`.**
    A bare prompt echoes the secret to the screen, into the console history file, and into whatever the operator
    pastes back. It already happened once: a plain `Read-Host "postgres password"` put the PRODUCTION superuser
