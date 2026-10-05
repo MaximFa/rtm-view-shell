@@ -1471,7 +1471,7 @@ a:hover {
 .dashboard-widget {
     background-color: var(--clr-surface);
     border: 1px solid var(--clr-border-solid);
-    border-radius: var(--r-md);
+    border-radius: var(--wb-radius, 7px);
     padding: var(--sp-3);
     min-width: 150px;
     min-height: 100px;
@@ -1479,6 +1479,11 @@ a:hover {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+
+/* Data-slot tiles fill edge-to-edge — the colored block reaches the card border */
+.dashboard-widget:has(.data-slot-widget) {
+    padding: 0;
 }
 
 .dashboard-widget:hover {
@@ -1611,12 +1616,14 @@ a:hover {
     flex: 1;
 }
 
-/* Data Slot Widget - content aligned to top */
+/* Data Slot Widget - fills card edge-to-edge, stripe clipped by card corner */
 .data-slot-widget {
     display: flex;
     flex-direction: column;
     justify-content: flex-start !important;
-    padding: var(--sp-1) var(--sp-3) 0 !important;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4) !important;
+    border-radius: inherit;
+    height: 100%;
 }
 
 /* Widget Resize Handles */

@@ -5,20 +5,17 @@
     justify-content: flex-start;
     height: 100%;
     min-height: 120px;
-    padding: var(--sp-2) var(--sp-4) 0;
-    border-radius: var(--r-md);
     position: relative;
 }
 
-/* Accent stripe at the start edge (RTL-safe via inset-inline-start) */
+/* Accent stripe at the start edge — runs full height, card corner clips it */
 .data-slot-with-stripe::before {
     content: "";
     position: absolute;
     inset-inline-start: 0;
-    top: var(--sp-2);
-    bottom: var(--sp-2);
+    top: 0;
+    bottom: 0;
     width: 3px;
-    border-radius: 2px;
     background-color: var(--accent-stripe-color, currentColor);
 }
 
