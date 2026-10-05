@@ -75,13 +75,6 @@
 .wb-skin table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.wb-skin th,
-.wb-skin td {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .wb-skin th {

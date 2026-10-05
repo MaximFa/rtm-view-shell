@@ -10,15 +10,6 @@
     border-radius: var(--wb-radius);
 }
 
-.agent-grid-widget.wb-skin .agent-grid-table {
-    table-layout: fixed;
-}
-
-.agent-grid-widget.wb-skin .agent-grid-table th:first-child,
-.agent-grid-widget.wb-skin .agent-grid-table td:first-child {
-    width: 14%;
-}
-
 .agent-grid-widget.wb-skin .agent-grid-thead {
     border-bottom: 1px solid var(--wb-line);
 }

@@ -43,15 +43,6 @@
     border-radius: var(--wb-radius);
 }
 
-.queue-grid-widget.wb-skin .queue-grid-table {
-    table-layout: fixed;
-}
-
-.queue-grid-widget.wb-skin .queue-grid-table th:first-child,
-.queue-grid-widget.wb-skin .queue-grid-table td:first-child {
-    width: 19%;
-}
-
 .queue-grid-widget.wb-skin .queue-grid-thead th {
     border-bottom: 1px solid var(--wb-line);
 }
