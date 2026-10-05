@@ -268,11 +268,41 @@ window.agentStateDistributionChart = {
 
     update: function (elementId, segments, options) {
         const chart = this._charts[elementId];
+
+        // A: Verify the chart's canvas is the element we're asked for AND is still in the document
+        if (chart) {
+            const currentCanvas = document.getElementById(elementId);
+            if (!currentCanvas || chart.canvas !== currentCanvas || !document.body.contains(currentCanvas)) {
+                // Canvas was replaced or removed — full rebuild
+                this.destroy(elementId);
+                this.render(elementId, segments, options);
+                return;
+            }
+        }
+
         if (!chart) {
             this.render(elementId, segments, options);
             return;
         }
 
+        // B: Settings change detection — any visual setting change means full rebuild
+        const cd = chart.options._customData || {};
+        const newFontColor = options?.fontColor || '#333';
+        const newShowLegend = options?.showLegend ?? true;
+        const newShowValueLabels = options?.showValueLabels ?? true;
+        const newValueDisplay = options?.valueDisplay || 'values';
+
+        if (cd.fontColor !== newFontColor ||
+            cd.showLegend !== newShowLegend ||
+            cd.showValueLabels !== newShowValueLabels ||
+            (cd.showPercentages ? 'percentages' : 'values') !== newValueDisplay) {
+            // Settings changed — full rebuild to apply new axis colors etc.
+            this.destroy(elementId);
+            this.render(elementId, segments, options);
+            return;
+        }
+
+        // Data-only update path
         const labels = segments.map(s => s.label);
         const data = segments.map(s => s.value);
         const colors = segments.map(s => s.color);
@@ -283,8 +313,17 @@ window.agentStateDistributionChart = {
         chart.data.datasets[0].backgroundColor = colors;
         chart.data.datasets[0].borderColor = colors;
 
+        // C: Reset hidden state on all segments so clicked legend rows become visible again
+        const meta = chart.getDatasetMeta(0);
+        if (meta && meta.data) {
+            for (let i = 0; i < meta.data.length; i++) {
+                if (meta.data[i]) {
+                    meta.data[i].hidden = false;
+                }
+            }
+        }
+
         // Update customData in chart.options._customData for plugins to read current state
-        const cd = chart.options._customData || {};
         cd.total = total;
         if (options?.centerLabel !== undefined) cd.centerLabel = options.centerLabel;
         if (options?.fontColor !== undefined) cd.fontColor = options.fontColor;
