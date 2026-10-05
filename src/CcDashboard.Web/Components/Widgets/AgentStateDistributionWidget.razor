@@ -154,11 +154,11 @@
 
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
-    private string EffectiveBackgroundColor => DarkMode 
-        ? (string.IsNullOrEmpty(_darkBackgroundColor) ? "#1e1e1e" : _darkBackgroundColor) 
+    private string EffectiveBackgroundColor => DarkMode
+        ? (string.IsNullOrEmpty(_darkBackgroundColor) ? "#1e1e1e" : _darkBackgroundColor)
         : (string.IsNullOrEmpty(_backgroundColor) ? "" : _backgroundColor);
-    private string EffectiveFontColor => DarkMode 
-        ? (string.IsNullOrEmpty(_darkFontColor) ? "#f1f5f9" : _darkFontColor) 
+    private string EffectiveFontColor => DarkMode
+        ? (string.IsNullOrEmpty(_darkFontColor) ? "#f1f5f9" : _darkFontColor)
         : (string.IsNullOrEmpty(_fontColor) ? "#333333" : _fontColor);
 
     // CC-009: Dual-mode grid selection
@@ -215,6 +215,12 @@
     private int _previousGridId;
     private bool _chartRendered;
     private string? _previousChartType;
+    // Track previous settings to detect changes — settings change = full rebuild
+    private string? _prevValueDisplay;
+    private bool? _prevShowLegend;
+    private bool? _prevShowValueLabels;
+    // Track connection state to detect canvas replacement
+    private ConnectionState _prevConnectionState = ConnectionState.Connecting;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -243,10 +249,19 @@
         if (firstRender)
             await ConnectAsync();
 
+        // Detect canvas replacement: transition to Connected means a new canvas element
+        // (canvas only exists in DOM when _connectionState == Connected)
+        if (_prevConnectionState != ConnectionState.Connected && _connectionState == ConnectionState.Connected)
+        {
+            _chartRendered = false;  // Force render() since canvas is new
+        }
+        _prevConnectionState = _connectionState;
+
         if (_connectionState == ConnectionState.Connected && _cellValues.Count > 0 && !_chartRendered)
         {
-            _chartRendered = true;
             await RenderChartAsync();
+            // Set flag AFTER successful render, not before
+            _chartRendered = true;
         }
     }
 
@@ -399,12 +414,21 @@
 
         try
         {
-            // Use update() for data changes, render() only for first build or chartType change
-            var needsRender = !_chartRendered || _previousChartType != _chartType;
+            // Detect settings changes — any settings change = full rebuild
+            var settingsChanged = _prevValueDisplay != _valueDisplay
+                               || _prevShowLegend != _showLegend
+                               || _prevShowValueLabels != _showValueLabels;
+
+            // Full render needed: first build, chart type change, or settings change
+            var needsRender = !_chartRendered || _previousChartType != _chartType || settingsChanged;
+
             if (needsRender)
             {
                 await JS.InvokeVoidAsync("agentStateDistributionChart.render", _chartElementId, segments, options);
                 _previousChartType = _chartType;
+                _prevValueDisplay = _valueDisplay;
+                _prevShowLegend = _showLegend;
+                _prevShowValueLabels = _showValueLabels;
             }
             else
             {

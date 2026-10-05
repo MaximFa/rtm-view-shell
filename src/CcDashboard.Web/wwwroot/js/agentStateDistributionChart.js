@@ -26,6 +26,7 @@ window.agentStateDistributionChart = {
 
         if (this._charts[elementId]) {
             this._charts[elementId].destroy();
+            delete this._charts[elementId];
         }
 
         const canvas = document.getElementById(elementId);
@@ -65,12 +66,25 @@ window.agentStateDistributionChart = {
         const centerLabel = options?.centerLabel || 'Agents';
         const fontColor = options?.fontColor || '#333';
 
+        // Create customData BEFORE chart construction so plugins can access it during first draw
+        const customData = {
+            total: total,
+            centerLabel: centerLabel,
+            fontColor: fontColor,
+            isDoughnut: isDoughnut,
+            showPercentages: showPercentages,
+            showLegend: options?.showLegend ?? true,
+            showValueLabels: options?.showValueLabels ?? true
+        };
+
         const chartOptions = {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
             devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
             indexAxis: indexAxis,
+            // Store customData in options so it's available during chart construction
+            _customData: customData,
             plugins: {
                 legend: {
                     display: chartType === 'bar' ? false : (options?.showLegend ?? true),
@@ -84,8 +98,10 @@ window.agentStateDistributionChart = {
                         generateLabels: function (chart) {
                             const ds = chart.data.datasets[0];
                             const chartData = ds.data;
+                            // Read from chart.options._customData (available during first draw)
+                            const cd = chart.options._customData || {};
                             const dataTotal = chartData.reduce((a, b) => a + b, 0);
-                            const showPct = chart._customData?.showPercentages ?? false;
+                            const showPct = cd.showPercentages ?? false;
                             return (chart.data.labels || []).map((lbl, i) => {
                                 const clr = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
                                 const rawValue = chartData[i] || 0;
@@ -100,7 +116,7 @@ window.agentStateDistributionChart = {
                                     strokeStyle: clr,
                                     lineWidth: 2,
                                     pointStyle: 'circle',
-                                    fontColor: chart._customData?.fontColor || '#333',
+                                    fontColor: cd.fontColor || '#333',
                                     hidden: !chart.isDatasetVisible(0) ? true : chart.getDatasetMeta(0).data[i]?.hidden,
                                     index: i
                                 };
@@ -113,12 +129,14 @@ window.agentStateDistributionChart = {
                     callbacks: {
                         label: function (context) {
                             const chart = context.chart;
-                            const currentTotal = chart._customData?.total ?? 0;
+                            // Read from chart.options._customData
+                            const cd = chart.options._customData || {};
+                            const currentTotal = cd.total ?? 0;
                             const rawValue = chartType === 'bar'
                                 ? (indexAxis === 'y' ? context.parsed.x : context.parsed.y)
                                 : context.parsed;
                             const pct = currentTotal > 0 ? Math.round((rawValue / currentTotal) * 100) : 0;
-                            const showPct = chart._customData?.showPercentages ?? false;
+                            const showPct = cd.showPercentages ?? false;
                             return showPct
                                 ? `${context.label}: ${pct}% (${rawValue})`
                                 : `${context.label}: ${rawValue} (${pct}%)`;
@@ -139,8 +157,12 @@ window.agentStateDistributionChart = {
                 font: { weight: 'bold', size: 12 },
                 formatter: function (value, ctx) {
                     if (value === 0) return '';
-                    if (showPercentages && total > 0) {
-                        const pct = Math.round((value / total) * 100);
+                    // Read from chart.options._customData (current state, not closure)
+                    const cd = ctx.chart.options._customData || {};
+                    const currentTotal = cd.total ?? 0;
+                    const showPct = cd.showPercentages ?? false;
+                    if (showPct && currentTotal > 0) {
+                        const pct = Math.round((value / currentTotal) * 100);
                         return pct + '%';
                     }
                     return value;
@@ -204,19 +226,20 @@ window.agentStateDistributionChart = {
                 }]
             };
 
-        // Center text plugin for doughnut — reads from chart._customData so it stays current on update()
+        // Center text plugin for doughnut — reads from chart.options._customData so it's available during first draw
         const centerTextPlugin = {
             id: 'centerText',
             afterDraw: function (chart) {
-                const customData = chart._customData || {};
-                if (!customData.isDoughnut) return;
+                // Read from chart.options._customData (available during construction)
+                const cd = chart.options._customData || {};
+                if (!cd.isDoughnut) return;
                 const ctx = chart.ctx;
                 const { width, height } = chart.chartArea || chart;
                 const centerX = chart.chartArea ? (chart.chartArea.left + chart.chartArea.right) / 2 : width / 2;
                 const centerY = chart.chartArea ? (chart.chartArea.top + chart.chartArea.bottom) / 2 : height / 2;
-                const currentTotal = customData.total ?? 0;
-                const currentLabel = customData.centerLabel || 'Agents';
-                const currentFontColor = customData.fontColor || '#333';
+                const currentTotal = cd.total ?? 0;
+                const currentLabel = cd.centerLabel || 'Agents';
+                const currentFontColor = cd.fontColor || '#333';
 
                 ctx.save();
                 // Draw total number
@@ -240,15 +263,6 @@ window.agentStateDistributionChart = {
             plugins: [centerTextPlugin]
         });
 
-        // Store dynamic data on chart instance for plugin and legend to read
-        chart._customData = {
-            total: total,
-            centerLabel: centerLabel,
-            fontColor: fontColor,
-            isDoughnut: isDoughnut,
-            showPercentages: showPercentages
-        };
-
         this._charts[elementId] = chart;
     },
 
@@ -269,12 +283,13 @@ window.agentStateDistributionChart = {
         chart.data.datasets[0].backgroundColor = colors;
         chart.data.datasets[0].borderColor = colors;
 
-        // Update custom data for center text plugin and legend
-        if (chart._customData) {
-            chart._customData.total = total;
-            if (options?.centerLabel) chart._customData.centerLabel = options.centerLabel;
-            if (options?.fontColor) chart._customData.fontColor = options.fontColor;
-        }
+        // Update customData in chart.options._customData for plugins to read current state
+        const cd = chart.options._customData || {};
+        cd.total = total;
+        if (options?.centerLabel !== undefined) cd.centerLabel = options.centerLabel;
+        if (options?.fontColor !== undefined) cd.fontColor = options.fontColor;
+        if (options?.valueDisplay !== undefined) cd.showPercentages = options.valueDisplay === 'percentages';
+        chart.options._customData = cd;
 
         chart.update('none');
     },
