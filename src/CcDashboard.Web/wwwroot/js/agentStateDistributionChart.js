@@ -314,14 +314,11 @@ window.agentStateDistributionChart = {
         chart.data.datasets[0].borderColor = colors;
 
         // C: Reset hidden state on all segments so clicked legend rows become visible again
-        const meta = chart.getDatasetMeta(0);
-        if (meta && meta.data) {
-            for (let i = 0; i < meta.data.length; i++) {
-                if (meta.data[i]) {
-                    meta.data[i].hidden = false;
-                }
-            }
+        // For doughnut/pie, legend clicks use toggleDataVisibility — reset via the chart API
+        for (let i = 0; i < labels.length; i++) {
+            if (!chart.getDataVisibility(i)) chart.toggleDataVisibility(i);
         }
+        if (!chart.isDatasetVisible(0)) chart.setDatasetVisibility(0, true);
 
         // Update customData in chart.options._customData for plugins to read current state
         cd.total = total;
