@@ -1486,6 +1486,12 @@ a:hover {
     padding: 0;
 }
 
+/* Header inset when visible inside a zero-padding data-slot card */
+.dashboard-widget:has(.data-slot-widget) > .widget-header {
+    padding-block-start: var(--sp-3);
+    padding-inline-start: var(--sp-3);
+}
+
 .dashboard-widget:hover {
     box-shadow: var(--shadow-sm);
 }
@@ -1621,7 +1627,8 @@ a:hover {
     display: flex;
     flex-direction: column;
     justify-content: flex-start !important;
-    padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4) !important;
+    padding: var(--sp-2) var(--sp-3) !important;
+    padding-inline-start: var(--sp-4) !important;
     border-radius: inherit;
     height: 100%;
 }
