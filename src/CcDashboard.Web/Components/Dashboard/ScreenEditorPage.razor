@@ -2873,27 +2873,27 @@
         ["staffVariance"] = "Staff Variance"
     };
 
-    // Default WFM thresholds (seeded from WfmRealtimeLoop.cs ComputeRag)
+    // Default WFM thresholds — font colours match widget server-band fallback
     private static readonly Dictionary<string, List<ThresholdRule>> WfmDefaultThresholds = new()
     {
         ["predictedSl"] = new()
         {
-            new() { From = "80", To = "100", BackgroundColor = "#dcfce7", FontColor = "#166534" },  // green
-            new() { From = "70", To = "79.9", BackgroundColor = "#fef3c7", FontColor = "#92400e" },  // amber
-            new() { From = "0", To = "69.9", BackgroundColor = "#fee2e2", FontColor = "#991b1b" }    // red
+            new() { From = "80", To = "100", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },   // green
+            new() { From = "70", To = "79.99", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" }, // amber
+            new() { From = "0", To = "69.99", BackgroundColor = "#fee2e2", FontColor = "#ef4444" }   // red
         },
         ["occupancy"] = new()
         {
-            new() { From = "50", To = "85", BackgroundColor = "#dcfce7", FontColor = "#166534" },    // green
-            new() { From = "85.1", To = "95", BackgroundColor = "#fef3c7", FontColor = "#92400e" },  // amber
-            new() { From = "0", To = "49.9", BackgroundColor = "#fee2e2", FontColor = "#991b1b" },   // red (low)
-            new() { From = "95.1", To = "100", BackgroundColor = "#fee2e2", FontColor = "#991b1b" }  // red (high)
+            new() { From = "50", To = "85", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },     // green
+            new() { From = "85.01", To = "95", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" }, // amber
+            new() { From = "0", To = "49.99", BackgroundColor = "#fee2e2", FontColor = "#ef4444" },  // red (low)
+            new() { From = "95.01", To = "100", BackgroundColor = "#fee2e2", FontColor = "#ef4444" } // red (high)
         },
         ["staffVariance"] = new()
         {
-            new() { From = "0", To = "999", BackgroundColor = "#dcfce7", FontColor = "#166534" },    // green
-            new() { From = "-2", To = "-0.1", BackgroundColor = "#fef3c7", FontColor = "#92400e" },  // amber
-            new() { From = "-999", To = "-2.1", BackgroundColor = "#fee2e2", FontColor = "#991b1b" } // red
+            new() { From = "0", To = "999", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },     // green
+            new() { From = "-2", To = "-0.01", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" }, // amber
+            new() { From = "-999", To = "-2.01", BackgroundColor = "#fee2e2", FontColor = "#ef4444" } // red
         }
     };
 
@@ -3967,6 +3967,16 @@
                     BackgroundColor = t.BackgroundColor,
                     FontColor = t.FontColor
                 }).ToList()) ?? new Dictionary<string, List<ColumnThreshold>>();
+
+            // Seed tile thresholds from defaults for metrics not already configured
+            foreach (var (metricKey, defaults) in WfmDefaultThresholds)
+            {
+                if (!ConfigWfmTileThresholds.ContainsKey(metricKey))
+                    ConfigWfmTileThresholds[metricKey] = defaults.Select(t => new ThresholdRule
+                    {
+                        From = t.From, To = t.To, BackgroundColor = t.BackgroundColor, FontColor = t.FontColor
+                    }).ToList();
+            }
         }
 
         // Initialize search fields with selected values
@@ -5389,24 +5399,16 @@
             ConfigWfmListMetrics.Remove(metricKey);
     }
 
+    // Pure getter — no mutation; seeding happens in OpenWidgetConfig
     private List<ThresholdRule> GetWfmTileThresholds(string metricKey)
     {
-        if (!ConfigWfmTileThresholds.TryGetValue(metricKey, out var thresholds))
-        {
-            // Seed with defaults if available
-            if (WfmDefaultThresholds.TryGetValue(metricKey, out var defaults))
-                thresholds = defaults.Select(t => new ThresholdRule { From = t.From, To = t.To, BackgroundColor = t.BackgroundColor, FontColor = t.FontColor }).ToList();
-            else
-                thresholds = new List<ThresholdRule>();
-            ConfigWfmTileThresholds[metricKey] = thresholds;
-        }
-        return thresholds;
+        return ConfigWfmTileThresholds.TryGetValue(metricKey, out var thresholds) ? thresholds : new List<ThresholdRule>();
     }
 
     private void AddWfmTileThreshold(string metricKey)
     {
         var thresholds = GetWfmTileThresholds(metricKey);
-        thresholds.Add(new ThresholdRule { From = "0", To = "100", BackgroundColor = "#dcfce7", FontColor = "#166534" });
+        thresholds.Add(new ThresholdRule { From = "0", To = "100", BackgroundColor = "#dcfce7", FontColor = "#22c55e" });
     }
 
     private void RemoveWfmTileThreshold(string metricKey, int index)
@@ -5441,20 +5443,16 @@
         _openThresholdPalette = null;
     }
 
+    // Pure getter — no mutation; seeding happens in OpenWidgetConfig
     private List<ColumnThreshold> GetWfmListThresholds(string metricKey)
     {
-        if (!ConfigWfmListThresholds.TryGetValue(metricKey, out var thresholds))
-        {
-            thresholds = new List<ColumnThreshold>();
-            ConfigWfmListThresholds[metricKey] = thresholds;
-        }
-        return thresholds;
+        return ConfigWfmListThresholds.TryGetValue(metricKey, out var thresholds) ? thresholds : new List<ColumnThreshold>();
     }
 
     private void AddWfmListThreshold(string metricKey)
     {
         var thresholds = GetWfmListThresholds(metricKey);
-        thresholds.Add(new ColumnThreshold { MatchType = "numeric", From = "0", To = "100", BackgroundColor = "#dcfce7", FontColor = "#166534" });
+        thresholds.Add(new ColumnThreshold { MatchType = "numeric", From = "0", To = "100", BackgroundColor = "#dcfce7", FontColor = "#22c55e" });
     }
 
     private void RemoveWfmListThreshold(string metricKey, int index)

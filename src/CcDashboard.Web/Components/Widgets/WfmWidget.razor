@@ -107,29 +107,6 @@
     private Dictionary<string, List<ThresholdRule>> _tileThresholds = new();
     private Dictionary<string, List<ColumnThreshold>> _listThresholds = new();
 
-    // Default thresholds matching WfmRealtimeLoop.ComputeRag bands
-    private static readonly Dictionary<string, List<ThresholdRule>> DefaultTileThresholds = new()
-    {
-        ["predictedSl"] = new List<ThresholdRule>
-        {
-            new() { From = "80", To = "100", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },  // green
-            new() { From = "70", To = "79.99", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" }, // amber
-            new() { From = "0", To = "69.99", BackgroundColor = "#fee2e2", FontColor = "#ef4444" }   // red
-        },
-        ["occupancy"] = new List<ThresholdRule>
-        {
-            new() { From = "50", To = "85", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },     // green
-            new() { From = "85.01", To = "95", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" },  // amber high
-            new() { From = "0", To = "49.99", BackgroundColor = "#fee2e2", FontColor = "#ef4444" },   // red low
-            new() { From = "95.01", To = "100", BackgroundColor = "#fee2e2", FontColor = "#ef4444" }  // red high
-        },
-        ["staffVariance"] = new List<ThresholdRule>
-        {
-            new() { From = "0", To = "100", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },     // green
-            new() { From = "-2", To = "-0.01", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" },  // amber
-            new() { From = "-100", To = "-2.01", BackgroundColor = "#fee2e2", FontColor = "#ef4444" } // red
-        }
-    };
 
     // Cached badge state for callback
     private string? _lastBadgeState;

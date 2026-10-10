@@ -33,28 +33,6 @@
     line-height: 1.15;
 }
 
-/* Tile threshold states */
-.wfmcell.bad {
-    background: var(--badbg, #fef2f2);
-    border-color: #f3cfcf;
-}
-
-.wfmcell.bad .v {
-    color: var(--bad, #ef4444);
-}
-
-.wfmcell.ok .v {
-    color: var(--ok, #22c55e);
-}
-
-.wfmcell.warn {
-    background: var(--warnbg, #fffbeb);
-    border-color: #fde68a;
-}
-
-.wfmcell.warn .v {
-    color: var(--warn, #f59e0b);
-}
 
 /* ---------- List (legend-style) ---------- */
 .wfmlist {
