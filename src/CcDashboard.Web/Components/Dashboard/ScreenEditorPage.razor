@@ -225,10 +225,33 @@
                                         @_widgetFilterCounts[widget.Id]
                                     </span>
                                 }
+                                @if (IsWfmWidget(widget) && _widgetWfmBadges.TryGetValue(widget.Id, out var wfmState) && wfmState is not null)
+                                {
+                                    @switch (wfmState)
+                                    {
+                                        case "ok":
+                                            <span class="badge bg-success ms-1" style="font-size: 10px; padding: 2px 6px;">
+                                                <i class="bi bi-check-circle me-1"></i>@L["Wfm_StateOk"]
+                                            </span>
+                                            break;
+                                        case "overloaded":
+                                            <span class="badge bg-danger ms-1" style="font-size: 10px; padding: 2px 6px;">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>@L["Wfm_StateOverloaded"]
+                                            </span>
+                                            break;
+                                        case "nodata":
+                                            <span class="badge bg-secondary ms-1" style="font-size: 10px; padding: 2px 6px;">
+                                                <i class="bi bi-hourglass me-1"></i>@L["Wfm_StateNoData"]
+                                            </span>
+                                            break;
+                                    }
+                                }
                             </div>
                         }
                         <div class="widget-content">
-                            <RenderWidget Widget="widget" DarkMode="_darkMode" ActiveFilterCountChanged="count => { _widgetFilterCounts[widget.Id] = count; InvokeAsync(StateHasChanged); }" />
+                            <RenderWidget Widget="widget" DarkMode="_darkMode"
+                                          ActiveFilterCountChanged="count => { _widgetFilterCounts[widget.Id] = count; InvokeAsync(StateHasChanged); }"
+                                          WfmBadgeStateChanged="state => { _widgetWfmBadges[widget.Id] = state; InvokeAsync(StateHasChanged); }" />
                         </div>
                         @* Resize handles (driven by synchronous JS mousedown listener) *@
                         <div class="resize-handle resize-e"></div>
@@ -2279,6 +2302,9 @@
     // Widget filter badge state
     private Dictionary<Guid, int> _widgetFilterCounts = new();
 
+    // WFM widget badge state (ok | warn | bad | nodata)
+    private Dictionary<Guid, string?> _widgetWfmBadges = new();
+
     // Fullscreen editor state
     private bool PaletteOpen = false;
     private async Task TogglePalette()
@@ -3607,6 +3633,13 @@
         if (widget is null) return false;
         var name = widget.OriginalWidgetName?.ToLower() ?? widget.Name.ToLower();
         return name.Contains("info") && name.Contains("slot");
+    }
+
+    private static bool IsWfmWidget(PlacedWidget? widget)
+    {
+        if (widget is null) return false;
+        var name = widget.OriginalWidgetName?.ToLower() ?? widget.Name.ToLower();
+        return name.Contains("wfm") || name.Contains("workforce");
     }
 
     private string GetSelectedInfoSlotDisplayMode()
@@ -5586,6 +5619,10 @@
 
         // WFM widget specific
         public string? WfmQueueId { get; set; }  // External queue ID for WFM snapshot lookup
+        public List<string>? WfmTileMetrics { get; set; }  // 4 metrics for tiles (2x2 grid)
+        public List<string>? WfmListMetrics { get; set; }  // Metrics for list section
+        public Dictionary<string, List<ThresholdRule>>? WfmTileThresholds { get; set; }  // Per-tile thresholds
+        public Dictionary<string, List<ColumnThreshold>>? WfmListThresholds { get; set; }  // Per-list-metric thresholds
     }
 
     public record DayTrendMetricConfig(string MetricId, bool Enabled, string Color, string Label, string ValueType = "number")

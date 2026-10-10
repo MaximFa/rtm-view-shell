@@ -1,0 +1,147 @@
+/* WFM Widget Styles — Reference: docs/new-design/RTM_wallboard_bank_demo_ops.html :138-146 */
+
+.wfm {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    height: 100%;
+}
+
+/* ---------- Tile Grid ---------- */
+.wfmgrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.wfmcell {
+    background: var(--wfm-cell-bg, #f7f9fc);
+    border: 1px solid var(--line2, #e0e4ea);
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+.wfmcell .k {
+    font-size: 10px;
+    color: var(--muted, #6c757d);
+}
+
+.wfmcell .v {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+/* Tile threshold states */
+.wfmcell.bad {
+    background: var(--badbg, #fef2f2);
+    border-color: #f3cfcf;
+}
+
+.wfmcell.bad .v {
+    color: var(--bad, #ef4444);
+}
+
+.wfmcell.ok .v {
+    color: var(--ok, #22c55e);
+}
+
+.wfmcell.warn {
+    background: var(--warnbg, #fffbeb);
+    border-color: #fde68a;
+}
+
+.wfmcell.warn .v {
+    color: var(--warn, #f59e0b);
+}
+
+/* ---------- List (legend-style) ---------- */
+.wfmlist {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 2px;
+}
+
+.wfmlg {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11.5px;
+}
+
+.wfmlg .lbl {
+    flex: 1;
+    min-width: 0;
+}
+
+.wfmlg .n {
+    margin-inline-start: auto;
+    font-weight: 700;
+}
+
+/* Pill for threshold match */
+.wfmlg .pill {
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+}
+
+/* Secondary column (unit/suffix) */
+.wfmlg .p {
+    width: 38px;
+    text-align: start;
+    color: var(--faint, #9ca3af);
+    font-size: 10.5px;
+}
+
+/* ---------- Note (footer) ---------- */
+.wfmnote {
+    font-size: 10px;
+    color: var(--muted, #6c757d);
+    line-height: 1.32;
+    border-top: 1px dashed var(--line, #dee2e6);
+    padding-top: 6px;
+    margin-top: auto;
+}
+
+/* ---------- Empty / Loading states ---------- */
+.wfm-empty,
+.wfm-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    opacity: 0.7;
+}
+
+/* ---------- Header badge (state indicator) ---------- */
+.wfm-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.wfm-badge.ok {
+    background: var(--ok, #22c55e);
+    color: #fff;
+}
+
+.wfm-badge.warn {
+    background: var(--warn, #f59e0b);
+    color: #fff;
+}
+
+.wfm-badge.bad {
+    background: var(--bad, #ef4444);
+    color: #fff;
+}
+
+.wfm-badge.muted {
+    background: var(--muted, #6c757d);
+    color: #fff;
+}

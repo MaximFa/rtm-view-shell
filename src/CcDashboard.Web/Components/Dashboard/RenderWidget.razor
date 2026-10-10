@@ -30,7 +30,7 @@
             <InfoSlotWidget @key="Widget.Id" Config="Widget.Config" DarkMode="DarkMode" />
             break;
         case var n when n.Contains("wfm") || n.Contains("workforce"):
-            <WfmWidget @key="Widget.Id" Config="Widget.Config" DarkMode="DarkMode" GridId="Widget.GridId" />
+            <WfmWidget @key="Widget.Id" Config="Widget.Config" DarkMode="DarkMode" GridId="Widget.GridId" BadgeStateChanged="WfmBadgeStateChanged" />
             break;
         default:
             <div class="text-center text-muted small">
@@ -46,6 +46,7 @@
     [Parameter] public bool DarkMode { get; set; }
     [Parameter] public bool IsViewMode { get; set; }
     [Parameter] public EventCallback<int> ActiveFilterCountChanged { get; set; }
+    [Parameter] public EventCallback<string?> WfmBadgeStateChanged { get; set; }
 
     private DayTrendWidget? _dayTrendWidget;
 
