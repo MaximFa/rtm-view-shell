@@ -1,6 +1,8 @@
 // DayTrend Chart — Chart.js interop for Blazor
 window.dayTrendChart = {
     _charts: {},
+    _pendingRenders: {},  // Track pending retry timers by elementId
+    _lastRenderArgs: {},  // Store last render args for rebuild
 
     // Compute canvas density: max(2, dpr) * max(1, s), ceiling 4
     // s = viewer scale (< 1 when compressed to fit; 1 in actual-size mode)
@@ -34,6 +36,36 @@ window.dayTrendChart = {
         return `rgba(${r},${g},${b},${opacity})`;
     },
 
+    // Wait for canvas element to appear, then call callback. Timeout after ~10s.
+    _waitForCanvas: function (elementId, callback, startTime) {
+        if (!startTime) startTime = Date.now();
+        const elapsed = Date.now() - startTime;
+        // Timeout after 10 seconds — the widget was probably removed
+        if (elapsed > 10000) {
+            console.warn('dayTrendChart: timeout waiting for canvas:', elementId);
+            delete this._pendingRenders[elementId];
+            return;
+        }
+        const canvas = document.getElementById(elementId);
+        if (canvas) {
+            delete this._pendingRenders[elementId];
+            callback(canvas);
+        } else {
+            // Schedule retry on next animation frame
+            this._pendingRenders[elementId] = requestAnimationFrame(() => {
+                this._waitForCanvas(elementId, callback, startTime);
+            });
+        }
+    },
+
+    // Cancel any pending render for this element
+    _cancelPending: function (elementId) {
+        if (this._pendingRenders[elementId]) {
+            cancelAnimationFrame(this._pendingRenders[elementId]);
+            delete this._pendingRenders[elementId];
+        }
+    },
+
     render: function (elementId, labels, datasets, options) {
         // Check if Chart.js is loaded
         if (typeof Chart === 'undefined') {
@@ -45,12 +77,26 @@ window.dayTrendChart = {
             this._charts[elementId].destroy();
         }
 
+        // Cancel any pending retry for this element
+        this._cancelPending(elementId);
+
+        // Store render args for rebuild on scale change
+        this._lastRenderArgs[elementId] = { labels, datasets, options };
+
         const canvas = document.getElementById(elementId);
         if (!canvas) {
-            console.warn('dayTrendChart: canvas element not found:', elementId);
+            // Canvas not in DOM yet — wait and retry
+            this._waitForCanvas(elementId, (c) => {
+                this._doRender(elementId, c, labels, datasets, options);
+            });
             return;
         }
 
+        this._doRender(elementId, canvas, labels, datasets, options);
+    },
+
+    // Internal render implementation (canvas guaranteed to exist)
+    _doRender: function (elementId, canvas, labels, datasets, options) {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
@@ -183,6 +229,22 @@ window.dayTrendChart = {
         });
     },
 
+    // Rebuild all charts (called on scale change)
+    rebuildAll: function () {
+        Object.keys(this._charts).forEach(elementId => {
+            const chart = this._charts[elementId];
+            if (!chart) return;
+            const canvas = document.getElementById(elementId);
+            if (!canvas || !document.body.contains(canvas)) return;
+            const args = this._lastRenderArgs[elementId];
+            if (!args) return;
+            // Destroy and rebuild with stored args
+            chart.destroy();
+            delete this._charts[elementId];
+            this.render(elementId, args.labels, args.datasets, args.options);
+        });
+    },
+
     update: function (elementId, labels, datasets) {
         const chart = this._charts[elementId];
         if (!chart) {
@@ -200,6 +262,8 @@ window.dayTrendChart = {
     },
 
     destroy: function (elementId) {
+        this._cancelPending(elementId);
+        delete this._lastRenderArgs[elementId];
         if (this._charts[elementId]) {
             this._charts[elementId].destroy();
             delete this._charts[elementId];

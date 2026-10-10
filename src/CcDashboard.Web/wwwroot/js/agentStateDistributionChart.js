@@ -1,6 +1,7 @@
 // Agent State Distribution Chart — Chart.js interop for Blazor
 window.agentStateDistributionChart = {
     _charts: {},
+    _pendingRenders: {},  // Track pending retry timers by elementId
 
     // Compute canvas density: max(2, dpr) * max(1, s), ceiling 4
     _getDensity: function () {
@@ -36,6 +37,36 @@ window.agentStateDistributionChart = {
         return luminance > 140 ? '#333' : '#fff';
     },
 
+    // Wait for canvas element to appear, then call callback. Timeout after ~10s.
+    _waitForCanvas: function (elementId, callback, startTime) {
+        if (!startTime) startTime = Date.now();
+        const elapsed = Date.now() - startTime;
+        // Timeout after 10 seconds — the widget was probably removed
+        if (elapsed > 10000) {
+            console.warn('agentStateDistributionChart: timeout waiting for canvas:', elementId);
+            delete this._pendingRenders[elementId];
+            return;
+        }
+        const canvas = document.getElementById(elementId);
+        if (canvas) {
+            delete this._pendingRenders[elementId];
+            callback(canvas);
+        } else {
+            // Schedule retry on next animation frame
+            this._pendingRenders[elementId] = requestAnimationFrame(() => {
+                this._waitForCanvas(elementId, callback, startTime);
+            });
+        }
+    },
+
+    // Cancel any pending render for this element
+    _cancelPending: function (elementId) {
+        if (this._pendingRenders[elementId]) {
+            cancelAnimationFrame(this._pendingRenders[elementId]);
+            delete this._pendingRenders[elementId];
+        }
+    },
+
     render: function (elementId, segments, options) {
         if (typeof Chart === 'undefined') {
             console.error('agentStateDistributionChart: Chart.js is not loaded.');
@@ -47,12 +78,23 @@ window.agentStateDistributionChart = {
             delete this._charts[elementId];
         }
 
+        // Cancel any pending retry for this element
+        this._cancelPending(elementId);
+
         const canvas = document.getElementById(elementId);
         if (!canvas) {
-            console.warn('agentStateDistributionChart: canvas element not found:', elementId);
+            // Canvas not in DOM yet — wait and retry
+            this._waitForCanvas(elementId, (c) => {
+                this._doRender(elementId, c, segments, options);
+            });
             return;
         }
 
+        this._doRender(elementId, canvas, segments, options);
+    },
+
+    // Internal render implementation (canvas guaranteed to exist)
+    _doRender: function (elementId, canvas, segments, options) {
         // Lock canvas to current container size before creating chart to prevent geometry jump
         const container = canvas.parentElement;
         if (container) {
@@ -284,6 +326,37 @@ window.agentStateDistributionChart = {
         this._charts[elementId] = chart;
     },
 
+    // Rebuild all charts (called on scale change)
+    rebuildAll: function () {
+        Object.keys(this._charts).forEach(elementId => {
+            const chart = this._charts[elementId];
+            if (!chart) return;
+            const canvas = document.getElementById(elementId);
+            if (!canvas || !document.body.contains(canvas)) return;
+            // Extract current data and options from chart
+            const cd = chart.options._customData || {};
+            const segments = (chart.data.labels || []).map((label, i) => ({
+                label: label,
+                value: chart.data.datasets[0].data[i],
+                color: Array.isArray(chart.data.datasets[0].backgroundColor)
+                    ? chart.data.datasets[0].backgroundColor[i]
+                    : chart.data.datasets[0].backgroundColor
+            }));
+            const options = {
+                chartType: chart.config.type === 'bar' && chart.options.indexAxis === 'y' ? 'horizontalbar' : chart.config.type,
+                centerLabel: cd.centerLabel,
+                fontColor: cd.fontColor,
+                showLegend: cd.showLegend,
+                showValueLabels: cd.showValueLabels,
+                valueDisplay: cd.showPercentages ? 'percentages' : 'values'
+            };
+            // Destroy and rebuild
+            chart.destroy();
+            delete this._charts[elementId];
+            this.render(elementId, segments, options);
+        });
+    },
+
     update: function (elementId, segments, options) {
         const chart = this._charts[elementId];
 
@@ -349,6 +422,7 @@ window.agentStateDistributionChart = {
     },
 
     destroy: function (elementId) {
+        this._cancelPending(elementId);
         if (this._charts[elementId]) {
             this._charts[elementId].destroy();
             delete this._charts[elementId];
