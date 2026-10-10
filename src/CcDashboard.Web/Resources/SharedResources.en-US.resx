@@ -1120,6 +1120,10 @@
   <data name="Wfm_Understaff"><value>Understaff</value></data>
   <data name="Wfm_StaffVariance"><value>Variance</value></data>
   <data name="Wfm_MinWindow"><value>min window</value></data>
+  <data name="Wfm_TileTitleFontSize"><value>Tile Title</value></data>
+  <data name="Wfm_TileValueFontSize"><value>Tile Value</value></data>
+  <data name="Wfm_ListTitleFontSize"><value>List Label</value></data>
+  <data name="Wfm_ListValueFontSize"><value>List Value</value></data>
   <data name="Wfm_Queue"><value>Queue</value></data>
   <data name="Wfm_TileMetrics"><value>Tile Metrics</value></data>
   <data name="Wfm_ListMetrics"><value>List Metrics</value></data>

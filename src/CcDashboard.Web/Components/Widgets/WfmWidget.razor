@@ -51,7 +51,7 @@
                         <span class="lbl" style="@GetCaptionStyle()">@GetMetricLabel(metric)</span>
                         @if (!string.IsNullOrEmpty(pillBg))
                         {
-                            <span class="n pill" style="background: @pillBg; color: @pillFg;">@value</span>
+                            <span class="n pill" style="@GetListValueFontSize()background: @pillBg; color: @pillFg;">@value</span>
                         }
                         else
                         {
@@ -107,6 +107,12 @@
     // Appearance - dark mode defaults from DataSlotWidget
     private string _backgroundColor = "";
     private string _fontColor = "";
+
+    // Wfm font sizes (from config, "" = use css defaults)
+    private string _tileTitleFontSize = "";
+    private string _tileValueFontSize = "";
+    private string _listTitleFontSize = "";
+    private string _listValueFontSize = "";
     private const string DarkBgDefault = "#1e3a5f";
     private const string DarkFontDefault = "#ffffff";
 
@@ -537,7 +543,8 @@
     private string GetCaptionStyle()
     {
         // Captions use config color (not affected by thresholds)
-        return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
+        var fontSize = !string.IsNullOrEmpty(_listTitleFontSize) ? $"font-size: {_listTitleFontSize}px; " : "";
+        return fontSize + (!string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "");
     }
 
     // Subdued color with correct fallback: plain color first, color-mix second.
@@ -550,29 +557,38 @@
         // Caption style for tiles: when a threshold supplies a background,
         // use the threshold's FontColor subdued; otherwise use config color.
         var rule = GetMatchingTileThreshold(metricKey);
+        var fontSize = !string.IsNullOrEmpty(_tileTitleFontSize) ? $"font-size: {_tileTitleFontSize}px; " : "";
         if (rule is not null && !string.IsNullOrEmpty(rule.BackgroundColor))
         {
             var fg = rule.FontColor ?? "#000000";
-            return SubduedColorStyle(fg);
+            return fontSize + SubduedColorStyle(fg);
         }
-        return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
+        return fontSize + (!string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "");
     }
 
     private string GetValueStyle()
     {
         // Value style for items without threshold match
-        return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
+        var fontSize = !string.IsNullOrEmpty(_listValueFontSize) ? $"font-size: {_listValueFontSize}px; " : "";
+        return fontSize + (!string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "");
+    }
+
+    private string GetListValueFontSize()
+    {
+        // Just the font-size for inline use (e.g., pills)
+        return !string.IsNullOrEmpty(_listValueFontSize) ? $"font-size: {_listValueFontSize}px; " : "";
     }
 
     private string GetTileValueStyle(string metricKey)
     {
         // Tile value uses threshold font color when matched, otherwise config color
         var rule = GetMatchingTileThreshold(metricKey);
+        var fontSize = !string.IsNullOrEmpty(_tileValueFontSize) ? $"font-size: {_tileValueFontSize}px; " : "";
         if (rule is not null && !string.IsNullOrEmpty(rule.FontColor))
         {
-            return $"color: {rule.FontColor};";
+            return fontSize + $"color: {rule.FontColor};";
         }
-        return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
+        return fontSize + (!string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "");
     }
 
     public ValueTask DisposeAsync()

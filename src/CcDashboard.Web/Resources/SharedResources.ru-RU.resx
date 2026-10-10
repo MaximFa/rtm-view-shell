@@ -1102,6 +1102,10 @@
   <data name="Wfm_Understaff"><value>Недобор</value></data>
   <data name="Wfm_StaffVariance"><value>Отклонение</value></data>
   <data name="Wfm_MinWindow"><value>мин окно</value></data>
+  <data name="Wfm_TileTitleFontSize"><value>Заголовок плитки</value></data>
+  <data name="Wfm_TileValueFontSize"><value>Значение плитки</value></data>
+  <data name="Wfm_ListTitleFontSize"><value>Подпись списка</value></data>
+  <data name="Wfm_ListValueFontSize"><value>Значение списка</value></data>
   <data name="Wfm_Queue"><value>Очередь</value></data>
   <data name="Wfm_TileMetrics"><value>Метрики плиток</value></data>
   <data name="Wfm_ListMetrics"><value>Метрики списка</value></data>

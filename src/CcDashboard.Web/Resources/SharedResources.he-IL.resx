@@ -1032,6 +1032,10 @@
   <data name="Wfm_Understaff"><value>תת-איוש</value></data>
   <data name="Wfm_StaffVariance"><value>שונות</value></data>
   <data name="Wfm_MinWindow"><value>חלון בדקות</value></data>
+  <data name="Wfm_TileTitleFontSize"><value>כותרת אריח</value></data>
+  <data name="Wfm_TileValueFontSize"><value>ערך אריח</value></data>
+  <data name="Wfm_ListTitleFontSize"><value>תווית רשימה</value></data>
+  <data name="Wfm_ListValueFontSize"><value>ערך רשימה</value></data>
   <data name="Wfm_Queue"><value>תור</value></data>
   <data name="Wfm_TileMetrics"><value>מדדי אריח</value></data>
   <data name="Wfm_ListMetrics"><value>מדדי רשימה</value></data>

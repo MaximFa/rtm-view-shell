@@ -605,24 +605,72 @@
                         <div class="appearance-section mb-4">
                             <h6 class="section-label">@L["WidgetCfg_Typography"]</h6>
                             <div class="row align-items-end">
-                                <div class="col-md-6">
-                                    <label class="form-label small text-muted mb-1">@L["Widgets_TableFontSize"]</label>
-                                    <select class="form-select form-select-sm" @bind="ConfigFontSize">
-                                        @foreach (var size in _tenantFontSizes)
-                                        {
-                                            <option value="@size">@size px</option>
-                                        }
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small text-muted mb-1">@L["Widgets_HeaderFontSize"]</label>
-                                    <select class="form-select form-select-sm" @bind="ConfigHeaderFontSize">
-                                        @foreach (var size in _tenantFontSizes)
-                                        {
-                                            <option value="@size">@size px</option>
-                                        }
-                                    </select>
-                                </div>
+                                @if (IsWfmWidget(ConfiguringWidget))
+                                {
+                                    <!-- WFM: 4 role-specific font sizes -->
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label small text-muted mb-1">@L["Wfm_TileTitleFontSize"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigWfmTileTitleFontSize">
+                                            <option value="">@L["Common_Default"]</option>
+                                            @foreach (var size in _tenantFontSizes)
+                                            {
+                                                <option value="@size">@size px</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label small text-muted mb-1">@L["Wfm_TileValueFontSize"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigWfmTileValueFontSize">
+                                            <option value="">@L["Common_Default"]</option>
+                                            @foreach (var size in _tenantFontSizes)
+                                            {
+                                                <option value="@size">@size px</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label small text-muted mb-1">@L["Wfm_ListTitleFontSize"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigWfmListTitleFontSize">
+                                            <option value="">@L["Common_Default"]</option>
+                                            @foreach (var size in _tenantFontSizes)
+                                            {
+                                                <option value="@size">@size px</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label small text-muted mb-1">@L["Wfm_ListValueFontSize"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigWfmListValueFontSize">
+                                            <option value="">@L["Common_Default"]</option>
+                                            @foreach (var size in _tenantFontSizes)
+                                            {
+                                                <option value="@size">@size px</option>
+                                            }
+                                        </select>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <!-- Non-WFM: generic font sizes -->
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">@L["Widgets_TableFontSize"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigFontSize">
+                                            @foreach (var size in _tenantFontSizes)
+                                            {
+                                                <option value="@size">@size px</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">@L["Widgets_HeaderFontSize"]</label>
+                                        <select class="form-select form-select-sm" @bind="ConfigHeaderFontSize">
+                                            @foreach (var size in _tenantFontSizes)
+                                            {
+                                                <option value="@size">@size px</option>
+                                            }
+                                        </select>
+                                    </div>
+                                }
                                 @if (IsDataSlotWidget(ConfiguringWidget))
                                 {
                                     <div class="col-md-6">
@@ -2845,6 +2893,10 @@
     private HashSet<string> ConfigWfmListMetrics = new() { "lambdaPerHour", "aht", "wrapIncluded", "trafficA", "pWait", "predictedAsa", "requiredAgents", "erlangB", "understaff" };
     private Dictionary<string, List<ThresholdRule>> ConfigWfmTileThresholds = new();
     private Dictionary<string, List<ColumnThreshold>> ConfigWfmListThresholds = new();
+    private string ConfigWfmTileTitleFontSize = "";
+    private string ConfigWfmTileValueFontSize = "";
+    private string ConfigWfmListTitleFontSize = "";
+    private string ConfigWfmListValueFontSize = "";
     private string WfmQueueSearchText = "";
     private bool WfmQueueDropdownOpen;
 
@@ -6179,6 +6231,10 @@
         public List<string>? WfmListMetrics { get; set; }  // Metrics for list section
         public Dictionary<string, List<ThresholdRule>>? WfmTileThresholds { get; set; }  // Per-tile thresholds
         public Dictionary<string, List<ColumnThreshold>>? WfmListThresholds { get; set; }  // Per-list-metric thresholds
+        public string? WfmTileTitleFontSize { get; set; }  // Tile caption font size (px)
+        public string? WfmTileValueFontSize { get; set; }  // Tile value font size (px)
+        public string? WfmListTitleFontSize { get; set; }  // List label font size (px)
+        public string? WfmListValueFontSize { get; set; }  // List value font size (px)
     }
 
     public record DayTrendMetricConfig(string MetricId, bool Enabled, string Color, string Label, string ValueType = "number")
