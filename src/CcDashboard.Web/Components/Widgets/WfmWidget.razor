@@ -533,6 +533,11 @@
         return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
     }
 
+    // Subdued color with correct fallback: plain color first, color-mix second.
+    // A browser that supports color-mix uses the 75% mix; one that doesn't uses the plain color.
+    private static string SubduedColorStyle(string color) =>
+        $"color: {color}; color: color-mix(in srgb, {color} 75%, transparent);";
+
     private string GetTileCaptionStyle(string metricKey)
     {
         // Caption style for tiles: when a threshold supplies a background,
@@ -541,8 +546,7 @@
         if (rule is not null && !string.IsNullOrEmpty(rule.BackgroundColor))
         {
             var fg = rule.FontColor ?? "#000000";
-            // Subdue the font color for caption (75% opacity via color-mix)
-            return $"color: color-mix(in srgb, {fg} 75%, transparent); color: {fg};";
+            return SubduedColorStyle(fg);
         }
         return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
     }

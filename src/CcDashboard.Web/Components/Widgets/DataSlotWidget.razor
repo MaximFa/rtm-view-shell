@@ -484,24 +484,28 @@
 
     private static string GetPartAlignStyle(string align) => $"text-align: {align};";
 
+    // Subdued color with correct fallback: plain color first, color-mix second.
+    // A browser that supports color-mix uses the 75% mix; one that doesn't uses the plain color.
+    private static string SubduedColorDeclarations(string color) =>
+        $"color: {color}; color: color-mix(in srgb, {color} 75%, transparent);";
+
     private string GetTitleStyle()
     {
         // Title: when a threshold supplies a background, use the threshold's FontColor
-        // (subdued via color-mix); otherwise use base config color.
-        string fg;
-        if (_thresholdBgColor is not null && _thresholdFontColor is not null)
-        {
-            // Subdue with color-mix fallback pattern
-            fg = $"color-mix(in srgb, {_thresholdFontColor} 75%, transparent)";
-        }
-        else
-        {
-            fg = BaseFontColor;
-        }
-
+        // (subdued via color-mix with fallback); otherwise use base config color.
         var fs = ResolveFontSizePx(_headerFontSize);
         var result = new System.Text.StringBuilder();
-        if (!string.IsNullOrEmpty(fg)) result.Append($"color: {fg}; ");
+
+        if (_thresholdBgColor is not null && _thresholdFontColor is not null)
+        {
+            result.Append(SubduedColorDeclarations(_thresholdFontColor));
+            result.Append(' ');
+        }
+        else if (!string.IsNullOrEmpty(BaseFontColor))
+        {
+            result.Append($"color: {BaseFontColor}; ");
+        }
+
         result.Append($"font-size: {fs}; ");
         result.Append(GetPartAlignStyle(_titleAlign));
         return result.ToString();
@@ -525,20 +529,25 @@
     private string GetTargetLabelStyle()
     {
         // Target label: when a threshold supplies a background, use the threshold's FontColor
-        // (subdued via color-mix); otherwise use base config color with opacity.
-        string fg;
+        // (subdued via color-mix with fallback); otherwise use base config color with opacity.
+        var result = new System.Text.StringBuilder();
+
         if (_thresholdBgColor is not null && _thresholdFontColor is not null)
         {
-            // Subdue with color-mix fallback pattern
-            fg = $"color-mix(in srgb, {_thresholdFontColor} 75%, transparent)";
+            result.Append(SubduedColorDeclarations(_thresholdFontColor));
+            result.Append(" opacity: 0.6; ");
+        }
+        else if (!string.IsNullOrEmpty(BaseFontColor))
+        {
+            result.Append($"color: {BaseFontColor}; opacity: 0.6; ");
         }
         else
         {
-            fg = BaseFontColor;
+            result.Append("opacity: 0.6; ");
         }
 
-        var result = !string.IsNullOrEmpty(fg) ? $"color: {fg}; opacity: 0.6; " : "opacity: 0.6; ";
-        return result + GetPartAlignStyle(_targetAlign);
+        result.Append(GetPartAlignStyle(_targetAlign));
+        return result.ToString();
     }
 
     private string GetDeltaStyle()
