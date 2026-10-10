@@ -33,7 +33,7 @@
             {
                 var (value, unit) = GetMetricValue(tileMetric);
                 <div class="wfmcell" style="@GetTileBackgroundStyle(tileMetric)">
-                    <div class="k" style="@GetCaptionStyle()">@GetMetricLabel(tileMetric)</div>
+                    <div class="k" style="@GetTileCaptionStyle(tileMetric)">@GetMetricLabel(tileMetric)</div>
                     <div class="v" style="@GetTileValueStyle(tileMetric)">@value@(!string.IsNullOrEmpty(unit) ? $" {unit}" : "")</div>
                 </div>
             }
@@ -505,12 +505,45 @@
             styles.Add($"background-color: {_backgroundColor}");
         if (!string.IsNullOrEmpty(_fontColor))
             styles.Add($"color: {_fontColor}");
+
+        // Publish themed CSS custom properties for child elements
+        if (DarkMode)
+        {
+            styles.Add("--wfm-cell-bg: rgba(255,255,255,0.06)");
+            styles.Add("--line2: rgba(255,255,255,0.12)");
+            styles.Add("--muted: rgba(255,255,255,0.6)");
+            styles.Add("--line: rgba(255,255,255,0.15)");
+            styles.Add("--faint: rgba(255,255,255,0.45)");
+        }
+        else
+        {
+            styles.Add("--wfm-cell-bg: #f7f9fc");
+            styles.Add("--line2: #e0e4ea");
+            styles.Add("--muted: #6c757d");
+            styles.Add("--line: #dee2e6");
+            styles.Add("--faint: #9ca3af");
+        }
+
         return string.Join("; ", styles);
     }
 
     private string GetCaptionStyle()
     {
         // Captions use config color (not affected by thresholds)
+        return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
+    }
+
+    private string GetTileCaptionStyle(string metricKey)
+    {
+        // Caption style for tiles: when a threshold supplies a background,
+        // use the threshold's FontColor subdued; otherwise use config color.
+        var rule = GetMatchingTileThreshold(metricKey);
+        if (rule is not null && !string.IsNullOrEmpty(rule.BackgroundColor))
+        {
+            var fg = rule.FontColor ?? "#000000";
+            // Subdue the font color for caption (75% opacity via color-mix)
+            return $"color: color-mix(in srgb, {fg} 75%, transparent); color: {fg};";
+        }
         return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
     }
 

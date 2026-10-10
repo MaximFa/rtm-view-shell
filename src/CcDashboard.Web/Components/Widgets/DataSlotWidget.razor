@@ -486,8 +486,19 @@
 
     private string GetTitleStyle()
     {
-        // Title uses base font color (not affected by thresholds)
-        var fg = BaseFontColor;
+        // Title: when a threshold supplies a background, use the threshold's FontColor
+        // (subdued via color-mix); otherwise use base config color.
+        string fg;
+        if (_thresholdBgColor is not null && _thresholdFontColor is not null)
+        {
+            // Subdue with color-mix fallback pattern
+            fg = $"color-mix(in srgb, {_thresholdFontColor} 75%, transparent)";
+        }
+        else
+        {
+            fg = BaseFontColor;
+        }
+
         var fs = ResolveFontSizePx(_headerFontSize);
         var result = new System.Text.StringBuilder();
         if (!string.IsNullOrEmpty(fg)) result.Append($"color: {fg}; ");
@@ -513,8 +524,19 @@
 
     private string GetTargetLabelStyle()
     {
-        // Target label uses base font color (not affected by thresholds)
-        var fg = BaseFontColor;
+        // Target label: when a threshold supplies a background, use the threshold's FontColor
+        // (subdued via color-mix); otherwise use base config color with opacity.
+        string fg;
+        if (_thresholdBgColor is not null && _thresholdFontColor is not null)
+        {
+            // Subdue with color-mix fallback pattern
+            fg = $"color-mix(in srgb, {_thresholdFontColor} 75%, transparent)";
+        }
+        else
+        {
+            fg = BaseFontColor;
+        }
+
         var result = !string.IsNullOrEmpty(fg) ? $"color: {fg}; opacity: 0.6; " : "opacity: 0.6; ";
         return result + GetPartAlignStyle(_targetAlign);
     }
