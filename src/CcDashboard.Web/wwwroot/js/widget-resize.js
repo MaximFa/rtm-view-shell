@@ -833,6 +833,9 @@ window.viewerScale = {
         const offsetY = Math.max(0, (wrapH - scaledHeight) / 2);
         this.designEl.style.marginLeft = offsetX + 'px';
         this.designEl.style.marginTop = offsetY + 'px';
+
+        // Notify chart modules to rebuild with new density
+        this._notifyCharts();
     },
     
     debounce: function (fn, delay) {
@@ -841,6 +844,19 @@ window.viewerScale = {
             clearTimeout(timer);
             timer = setTimeout(fn, delay);
         };
+    },
+
+    // Notify chart modules to rebuild with current density
+    _notifyCharts: function () {
+        if (window.agentStateDistributionChart && typeof window.agentStateDistributionChart.rebuildAll === 'function') {
+            window.agentStateDistributionChart.rebuildAll();
+        }
+        if (window.dayTrendChart && typeof window.dayTrendChart.rebuildAll === 'function') {
+            window.dayTrendChart.rebuildAll();
+        }
+        if (window.reportDistributionChart && typeof window.reportDistributionChart.rebuildAll === 'function') {
+            window.reportDistributionChart.rebuildAll();
+        }
     },
     
     resetToActual: function () {
@@ -855,6 +871,8 @@ window.viewerScale = {
             window.removeEventListener('resize', this._onResize);
             this._onResize = null;
         }
+        // Notify chart modules to rebuild with new density (scale = 1)
+        this._notifyCharts();
     },
 
     dispose: function () {
