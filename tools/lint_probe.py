@@ -235,6 +235,22 @@ def check(path):
                 continue
             break
 
+    # --- a probe that WRITES to production must read the bus first ----------------
+    # Measured cost, 2026-10-10: the coordinator revoked the blessing at 10:15Z after the operator
+    # said "one rollout, not piecemeal". I had read the blessing at 09:53Z and never re-read the
+    # inbox; the package was built at 10:28Z and installed on production at 10:52Z - against the
+    # operator's own decision. The result happened to be green, which is luck, not order.
+    # So: any probe that invokes the updater must read the LAST letter of its own inbox and refuse
+    # to continue if that letter revokes or stops. A rule in a role body is a promise; this is a gate.
+    if re.search(r'(?i)Update-RTMView\.ps1', txt) and re.search(r'(?i)(powershell|pwsh)[^\n]*-File\s+\$updaterPath', txt):
+        reads_bus = re.search(r'(?i)\.coord[\\/]inbox[\\/]devops\.md', txt)
+        if not reads_bus:
+            faults.append("this probe runs Update-RTMView on production but never reads "
+                          ".coord/inbox/devops.md - on 2026-10-10 a flight was installed four hours "
+                          "after its blessing had been revoked, because the inbox was not re-read "
+                          "before the write. A probe that writes to production reads its last "
+                          "letter first and stops on a revocation")
+
     # --- a watching window must be wider than the thing it watches ---------------
     # A probe that waits for RTMTwilio_1 to come back decides "did it return" from a FIXED number of
     # sleeps. If that window is narrower than the slowest return ever measured, the probe cannot tell
