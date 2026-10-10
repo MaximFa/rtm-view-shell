@@ -892,6 +892,12 @@
   <data name="WidgetCfg_Thresholds" xml:space="preserve">
     <value>Thresholds</value>
   </data>
+  <data name="WidgetCfg_MainThresholds" xml:space="preserve">
+    <value>Main Thresholds</value>
+  </data>
+  <data name="WidgetCfg_DataThresholds" xml:space="preserve">
+    <value>Data Thresholds</value>
+  </data>
   <data name="WidgetCfg_Filters" xml:space="preserve">
     <value>Filters</value>
   </data>
@@ -1114,6 +1120,11 @@
   <data name="Wfm_Understaff"><value>Understaff</value></data>
   <data name="Wfm_StaffVariance"><value>Variance</value></data>
   <data name="Wfm_MinWindow"><value>min window</value></data>
+  <data name="Wfm_Queue"><value>Queue</value></data>
+  <data name="Wfm_TileMetrics"><value>Tile Metrics</value></data>
+  <data name="Wfm_ListMetrics"><value>List Metrics</value></data>
+  <data name="Wfm_Tile"><value>Tile</value></data>
+  <data name="Wfm_InTile"><value>— in tile</value></data>
   <data name="Widgets_MatchType_LessThan"><value>Less Than</value></data>
   <data name="Widgets_MatchType_LessOrEqual"><value>Less Or Equal</value></data>
   <data name="Widgets_MatchType_GreaterThan"><value>Greater Than</value></data>

@@ -796,6 +796,12 @@
   <data name="WidgetCfg_Thresholds" xml:space="preserve">
     <value>ספים</value>
   </data>
+  <data name="WidgetCfg_MainThresholds" xml:space="preserve">
+    <value>ספי אריחים</value>
+  </data>
+  <data name="WidgetCfg_DataThresholds" xml:space="preserve">
+    <value>ספי נתונים</value>
+  </data>
   <data name="WidgetCfg_Filters" xml:space="preserve">
     <value>מסננים</value>
   </data>
@@ -1026,6 +1032,11 @@
   <data name="Wfm_Understaff"><value>Understaff</value></data>
   <data name="Wfm_StaffVariance"><value>Variance</value></data>
   <data name="Wfm_MinWindow"><value>min window</value></data>
+  <data name="Wfm_Queue"><value>Queue</value></data>
+  <data name="Wfm_TileMetrics"><value>Tile Metrics</value></data>
+  <data name="Wfm_ListMetrics"><value>List Metrics</value></data>
+  <data name="Wfm_Tile"><value>Tile</value></data>
+  <data name="Wfm_InTile"><value>— in tile</value></data>
   <data name="Widget_DayTrend_Line"><value>קו</value></data>
   <data name="Widget_DayTrend_Bar"><value>עמודות</value></data>
   <data name="Widget_DayTrend_Area"><value>שטח</value></data>

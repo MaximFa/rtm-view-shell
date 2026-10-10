@@ -866,6 +866,12 @@
   <data name="WidgetCfg_Thresholds" xml:space="preserve">
     <value>Пороговые значения</value>
   </data>
+  <data name="WidgetCfg_MainThresholds" xml:space="preserve">
+    <value>Пороги плиток</value>
+  </data>
+  <data name="WidgetCfg_DataThresholds" xml:space="preserve">
+    <value>Пороги данных</value>
+  </data>
   <data name="WidgetCfg_Filters" xml:space="preserve">
     <value>Фильтры</value>
   </data>
@@ -1096,6 +1102,11 @@
   <data name="Wfm_Understaff"><value>Недобор</value></data>
   <data name="Wfm_StaffVariance"><value>Отклонение</value></data>
   <data name="Wfm_MinWindow"><value>мин окно</value></data>
+  <data name="Wfm_Queue"><value>Очередь</value></data>
+  <data name="Wfm_TileMetrics"><value>Метрики плиток</value></data>
+  <data name="Wfm_ListMetrics"><value>Метрики списка</value></data>
+  <data name="Wfm_Tile"><value>Плитка</value></data>
+  <data name="Wfm_InTile"><value>— в плитке</value></data>
   <data name="Widget_DayTrend_Line"><value>Линия</value></data>
   <data name="Widget_DayTrend_Bar"><value>Бар</value></data>
   <data name="Widget_DayTrend_Area"><value>Область</value></data>

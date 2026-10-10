@@ -330,6 +330,19 @@
                                 <button class="nav-link @(ConfigActiveTab == "agentmetrics" ? "active" : "")" @onclick='() => ConfigActiveTab = "agentmetrics"'>@L["WidgetCfg_AgentMetrics"]</button>
                             </li>
                         }
+                        @if (IsWfmWidget(ConfiguringWidget))
+                        {
+                            <li class="nav-item">
+                                <button class="nav-link @(ConfigActiveTab == "wfmMainThresholds" ? "active" : "")" @onclick='() => ConfigActiveTab = "wfmMainThresholds"'>
+                                    @L["WidgetCfg_MainThresholds"]
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link @(ConfigActiveTab == "wfmDataThresholds" ? "active" : "")" @onclick='() => ConfigActiveTab = "wfmDataThresholds"'>
+                                    @L["WidgetCfg_DataThresholds"]
+                                </button>
+                            </li>
+                        }
                     </ul>
 
                     <!-- Tab: General -->
@@ -520,6 +533,36 @@
                                     <option value="600">10 min</option>
                                     <option value="0">@L["Widget_DayTrend_Manual"]</option>
                                 </select>
+                            </div>
+                        }
+
+                        @if (IsWfmWidget(ConfiguringWidget))
+                        {
+                            <!-- WFM: Queue Selection -->
+                            <div class="mb-3">
+                                <label class="form-label">@L["Wfm_Queue"]</label>
+                                <div class="searchable-select">
+                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                           value="@WfmQueueSearchText"
+                                           @oninput="e => WfmQueueSearchText = e.Value?.ToString() ?? string.Empty"
+                                           @onfocus="() => { WfmQueueSearchText = string.Empty; WfmQueueDropdownOpen = true; }"
+                                           @onblur="() => Task.Delay(150).ContinueWith(_ => InvokeAsync(() => { WfmQueueDropdownOpen = false; WfmQueueSearchText = ConfigWfmQueueId ?? string.Empty; StateHasChanged(); }))" />
+                                    @if (WfmQueueDropdownOpen)
+                                    {
+                                        <div class="searchable-dropdown">
+                                            @foreach (var bu in BusinessUnits.Where(b =>
+                                                string.IsNullOrEmpty(WfmQueueSearchText) ||
+                                                (b.BusinessUnitName?.Contains(WfmQueueSearchText, StringComparison.OrdinalIgnoreCase) ?? false)))
+                                            {
+                                                <div class="dropdown-item @(ConfigWfmQueueId == bu.BusinessUnitId.ToString() ? "active" : "")"
+                                                     @onmousedown="() => { ConfigWfmQueueId = bu.BusinessUnitId.ToString(); WfmQueueSearchText = bu.BusinessUnitName ?? string.Empty; WfmQueueDropdownOpen = false; }"
+                                                     @onmousedown:preventDefault="true">
+                                                    @bu.BusinessUnitName
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
                             </div>
                         }
 
@@ -1184,6 +1227,60 @@
                             </div>
                         }
 
+                        @if (IsWfmWidget(ConfiguringWidget))
+                        {
+                            <!-- WFM Tile Metrics Section -->
+                            <div class="appearance-section mb-4">
+                                <h6 class="section-label">@L["Wfm_TileMetrics"]</h6>
+                                <div class="row g-2">
+                                    @for (int i = 0; i < 4; i++)
+                                    {
+                                        var tileIndex = i;
+                                        var currentMetric = ConfigWfmTileMetrics.Count > tileIndex ? ConfigWfmTileMetrics[tileIndex] : "";
+                                        <div class="col-6 mb-2">
+                                            <label class="form-label small text-muted mb-1">@L["Wfm_Tile"] @(tileIndex + 1)</label>
+                                            <select class="form-select form-select-sm" value="@currentMetric"
+                                                    @onchange="e => UpdateWfmTileMetric(tileIndex, e.Value?.ToString())">
+                                                <option value="">—</option>
+                                                @foreach (var metric in WfmAllMetrics)
+                                                {
+                                                    <option value="@metric">@GetWfmMetricLabel(metric)</option>
+                                                }
+                                            </select>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- WFM List Metrics Section -->
+                            <div class="appearance-section mb-4">
+                                <h6 class="section-label">@L["Wfm_ListMetrics"]</h6>
+                                <div class="row g-2">
+                                    @foreach (var metric in WfmAllMetrics)
+                                    {
+                                        var isInTile = ConfigWfmTileMetrics.Contains(metric);
+                                        var isChecked = ConfigWfmListMetrics.Contains(metric);
+                                        <div class="col-6 col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                       id="wfmList_@metric"
+                                                       checked="@isChecked"
+                                                       disabled="@isInTile"
+                                                       @onchange="e => ToggleWfmListMetric(metric, (bool?)e.Value ?? false)" />
+                                                <label class="form-check-label small @(isInTile ? "text-muted" : "")" for="wfmList_@metric">
+                                                    @GetWfmMetricLabel(metric)
+                                                    @if (isInTile)
+                                                    {
+                                                        <span class="text-muted">@L["Wfm_InTile"]</span>
+                                                    }
+                                                </label>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
                         @if (IsAgentGridWidget(ConfiguringWidget) || IsQueueGridWidget(ConfiguringWidget))
                         {
                             <!-- Display Options Section -->
@@ -1505,6 +1602,218 @@
                             </button>
                         </div>
                     }
+                    }
+
+                    <!-- Tab: WFM Main Thresholds (tiles) -->
+                    @if (ConfigActiveTab == "wfmMainThresholds" && IsWfmWidget(ConfiguringWidget))
+                    {
+                        <div class="wfm-thresholds">
+                            @foreach (var metric in ConfigWfmTileMetrics.Where(m => !string.IsNullOrEmpty(m)))
+                            {
+                                var tileThresholds = GetWfmTileThresholds(metric);
+                                <div class="threshold-section mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="mb-0">@GetWfmMetricLabel(metric) <span class="badge bg-secondary">@tileThresholds.Count</span></h6>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="() => AddWfmTileThreshold(metric)">
+                                            <i class="bi bi-plus"></i> @L["Widgets_AddThreshold"]
+                                        </button>
+                                    </div>
+                                    @for (int i = 0; i < tileThresholds.Count; i++)
+                                    {
+                                        var idx = i;
+                                        var rule = tileThresholds[idx];
+                                        var bgKey = $"wfm-tile-{metric}-{idx}-bg";
+                                        var fontKey = $"wfm-tile-{metric}-{idx}-font";
+                                        <div class="threshold-rule mb-2 p-2 border rounded" @key="@($"{metric}_{idx}")">
+                                            <div class="row g-2 align-items-end">
+                                                <div class="col-2">
+                                                    <label class="form-label small">@L["Widgets_From"]</label>
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           value="@rule.From"
+                                                           @onchange="e => UpdateWfmTileThresholdFrom(metric, idx, e)" />
+                                                </div>
+                                                <div class="col-2">
+                                                    <label class="form-label small">@L["Widgets_To"]</label>
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           value="@rule.To"
+                                                           @onchange="e => UpdateWfmTileThresholdTo(metric, idx, e)" />
+                                                </div>
+                                                <div class="col-auto">
+                                                    <label class="form-label small">@L["Widgets_BackgroundColor"]</label>
+                                                    <div class="position-relative">
+                                                        <span class="clr-swatch"
+                                                              title="@GetColorName(rule.BackgroundColor ?? "#dcfce7", ThresholdBackgroundColors)"
+                                                              style="@GetColorStyle(rule.BackgroundColor ?? "#dcfce7"); cursor: pointer;"
+                                                              @onclick="() => ToggleThresholdPalette(bgKey)"
+                                                              @onclick:stopPropagation></span>
+                                                        @if (_openThresholdPalette == bgKey)
+                                                        {
+                                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                                 @onclick="() => _openThresholdPalette = null"></div>
+                                                            <div class="color-palette-dropdown">
+                                                                @foreach (var color in ThresholdBackgroundColors)
+                                                                {
+                                                                    <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
+                                                                          title="@color.Name"
+                                                                          style="@GetColorStyle(color.Value)"
+                                                                          @onclick="() => SelectWfmTileThresholdBgColor(metric, idx, color.Value)"
+                                                                          @onclick:stopPropagation></span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <div class="col-auto">
+                                                    <label class="form-label small">@L["Widgets_FontColor"]</label>
+                                                    <div class="position-relative">
+                                                        <span class="clr-swatch"
+                                                              title="@GetColorName(rule.FontColor ?? "#166534", ThresholdFontColors)"
+                                                              style="@GetColorStyle(rule.FontColor ?? "#166534"); cursor: pointer;"
+                                                              @onclick="() => ToggleThresholdPalette(fontKey)"
+                                                              @onclick:stopPropagation></span>
+                                                        @if (_openThresholdPalette == fontKey)
+                                                        {
+                                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                                 @onclick="() => _openThresholdPalette = null"></div>
+                                                            <div class="color-palette-dropdown">
+                                                                @foreach (var color in ThresholdFontColors)
+                                                                {
+                                                                    <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
+                                                                          title="@color.Name"
+                                                                          style="@GetColorStyle(color.Value)"
+                                                                          @onclick="() => SelectWfmTileThresholdFontColor(metric, idx, color.Value)"
+                                                                          @onclick:stopPropagation></span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <div class="col-2 text-end">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                                            @onclick="() => RemoveWfmTileThreshold(metric, idx)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            @if (!ConfigWfmTileMetrics.Any(m => !string.IsNullOrEmpty(m)))
+                            {
+                                <div class="text-center text-muted py-4">
+                                    <i class="bi bi-grid fs-3 mb-2 d-block opacity-50"></i>
+                                    <p class="small mb-0">No tiles configured</p>
+                                    <p class="small text-muted">Select metrics for tiles in the Appearance tab</p>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <!-- Tab: WFM Data Thresholds (list) -->
+                    @if (ConfigActiveTab == "wfmDataThresholds" && IsWfmWidget(ConfiguringWidget))
+                    {
+                        <div class="wfm-thresholds">
+                            @foreach (var metric in ConfigWfmListMetrics.OrderBy(m => m))
+                            {
+                                var listThresholds = GetWfmListThresholds(metric);
+                                <div class="threshold-section mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="mb-0">@GetWfmMetricLabel(metric) <span class="badge bg-secondary">@listThresholds.Count</span></h6>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="() => AddWfmListThreshold(metric)">
+                                            <i class="bi bi-plus"></i> @L["Widgets_AddThreshold"]
+                                        </button>
+                                    </div>
+                                    @for (int i = 0; i < listThresholds.Count; i++)
+                                    {
+                                        var idx = i;
+                                        var rule = listThresholds[idx];
+                                        var bgKey = $"wfm-list-{metric}-{idx}-bg";
+                                        var fontKey = $"wfm-list-{metric}-{idx}-font";
+                                        <div class="threshold-rule mb-2 p-2 border rounded" @key="@($"{metric}_{idx}")">
+                                            <div class="row g-2 align-items-end">
+                                                <div class="col-2">
+                                                    <label class="form-label small">@L["Widgets_From"]</label>
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           value="@rule.From"
+                                                           @onchange="e => UpdateWfmListThresholdFrom(metric, idx, e)" />
+                                                </div>
+                                                <div class="col-2">
+                                                    <label class="form-label small">@L["Widgets_To"]</label>
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           value="@rule.To"
+                                                           @onchange="e => UpdateWfmListThresholdTo(metric, idx, e)" />
+                                                </div>
+                                                <div class="col-auto">
+                                                    <label class="form-label small">@L["Widgets_BadgeBg"]</label>
+                                                    <div class="position-relative">
+                                                        <span class="clr-swatch"
+                                                              title="@GetColorName(rule.BackgroundColor ?? "#dcfce7", ThresholdBackgroundColors)"
+                                                              style="@GetColorStyle(rule.BackgroundColor ?? "#dcfce7"); cursor: pointer;"
+                                                              @onclick="() => ToggleThresholdPalette(bgKey)"
+                                                              @onclick:stopPropagation></span>
+                                                        @if (_openThresholdPalette == bgKey)
+                                                        {
+                                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                                 @onclick="() => _openThresholdPalette = null"></div>
+                                                            <div class="color-palette-dropdown">
+                                                                @foreach (var color in ThresholdBackgroundColors)
+                                                                {
+                                                                    <span class="clr-swatch sm @(rule.BackgroundColor == color.Value ? "selected" : "")"
+                                                                          title="@color.Name"
+                                                                          style="@GetColorStyle(color.Value)"
+                                                                          @onclick="() => SelectWfmListThresholdBgColor(metric, idx, color.Value)"
+                                                                          @onclick:stopPropagation></span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <div class="col-auto">
+                                                    <label class="form-label small">@L["Widgets_FontColor"]</label>
+                                                    <div class="position-relative">
+                                                        <span class="clr-swatch"
+                                                              title="@GetColorName(rule.FontColor ?? "#166534", ThresholdFontColors)"
+                                                              style="@GetColorStyle(rule.FontColor ?? "#166534"); cursor: pointer;"
+                                                              @onclick="() => ToggleThresholdPalette(fontKey)"
+                                                              @onclick:stopPropagation></span>
+                                                        @if (_openThresholdPalette == fontKey)
+                                                        {
+                                                            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1040;"
+                                                                 @onclick="() => _openThresholdPalette = null"></div>
+                                                            <div class="color-palette-dropdown">
+                                                                @foreach (var color in ThresholdFontColors)
+                                                                {
+                                                                    <span class="clr-swatch sm @(rule.FontColor == color.Value ? "selected" : "")"
+                                                                          title="@color.Name"
+                                                                          style="@GetColorStyle(color.Value)"
+                                                                          @onclick="() => SelectWfmListThresholdFontColor(metric, idx, color.Value)"
+                                                                          @onclick:stopPropagation></span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <div class="col-2 text-end">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                                            @onclick="() => RemoveWfmListThreshold(metric, idx)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            @if (!ConfigWfmListMetrics.Any())
+                            {
+                                <div class="text-center text-muted py-4">
+                                    <i class="bi bi-list-ul fs-3 mb-2 d-block opacity-50"></i>
+                                    <p class="small mb-0">No list metrics selected</p>
+                                    <p class="small text-muted">Select metrics for the list in the Appearance tab</p>
+                                </div>
+                            }
+                        </div>
                     }
 
                     <!-- Tab: Filters (Agent Grid only) -->
@@ -2528,6 +2837,64 @@
         ["Paperwork"]  = "#a78bfa",
         ["Training"]   = "#22d3ee",
         ["Other"]      = "#9ca3af",
+    };
+
+    // WFM Widget Configuration
+    private string? ConfigWfmQueueId;
+    private List<string> ConfigWfmTileMetrics = new() { "predictedSl", "occupancy", "nActual", "staffVariance" };
+    private HashSet<string> ConfigWfmListMetrics = new() { "lambdaPerHour", "aht", "wrapIncluded", "trafficA", "pWait", "predictedAsa", "requiredAgents", "erlangB", "understaff" };
+    private Dictionary<string, List<ThresholdRule>> ConfigWfmTileThresholds = new();
+    private Dictionary<string, List<ColumnThreshold>> ConfigWfmListThresholds = new();
+    private string WfmQueueSearchText = "";
+    private bool WfmQueueDropdownOpen;
+
+    // All 13 WFM metrics
+    private static readonly string[] WfmAllMetrics = {
+        "lambdaPerHour", "aht", "nActual", "wrapIncluded",
+        "trafficA", "pWait", "predictedSl", "predictedAsa", "requiredAgents", "erlangB", "occupancy",
+        "understaff", "staffVariance"
+    };
+
+    // WFM metric display names
+    private static readonly Dictionary<string, string> WfmMetricLabels = new()
+    {
+        ["lambdaPerHour"] = "Lambda/hr",
+        ["aht"] = "AHT",
+        ["nActual"] = "Actual Agents",
+        ["wrapIncluded"] = "Wrap Included",
+        ["trafficA"] = "Traffic A",
+        ["pWait"] = "P(Wait)",
+        ["predictedSl"] = "Predicted SL",
+        ["predictedAsa"] = "Predicted ASA",
+        ["requiredAgents"] = "Required Agents",
+        ["erlangB"] = "Erlang B",
+        ["occupancy"] = "Occupancy",
+        ["understaff"] = "Understaff",
+        ["staffVariance"] = "Staff Variance"
+    };
+
+    // Default WFM thresholds (seeded from WfmRealtimeLoop.cs ComputeRag)
+    private static readonly Dictionary<string, List<ThresholdRule>> WfmDefaultThresholds = new()
+    {
+        ["predictedSl"] = new()
+        {
+            new() { From = "80", To = "100", BackgroundColor = "#dcfce7", FontColor = "#166534" },  // green
+            new() { From = "70", To = "79.9", BackgroundColor = "#fef3c7", FontColor = "#92400e" },  // amber
+            new() { From = "0", To = "69.9", BackgroundColor = "#fee2e2", FontColor = "#991b1b" }    // red
+        },
+        ["occupancy"] = new()
+        {
+            new() { From = "50", To = "85", BackgroundColor = "#dcfce7", FontColor = "#166534" },    // green
+            new() { From = "85.1", To = "95", BackgroundColor = "#fef3c7", FontColor = "#92400e" },  // amber
+            new() { From = "0", To = "49.9", BackgroundColor = "#fee2e2", FontColor = "#991b1b" },   // red (low)
+            new() { From = "95.1", To = "100", BackgroundColor = "#fee2e2", FontColor = "#991b1b" }  // red (high)
+        },
+        ["staffVariance"] = new()
+        {
+            new() { From = "0", To = "999", BackgroundColor = "#dcfce7", FontColor = "#166534" },    // green
+            new() { From = "-2", To = "-0.1", BackgroundColor = "#fef3c7", FontColor = "#92400e" },  // amber
+            new() { From = "-999", To = "-2.1", BackgroundColor = "#fee2e2", FontColor = "#991b1b" } // red
+        }
     };
 
     // Widget deletion confirmation
@@ -3569,6 +3936,37 @@
                 EditingSegmentColors["Other"] = AsdFallbackColors["Other"];
             if (!EditingDarkSegmentColors.ContainsKey("Other"))
                 EditingDarkSegmentColors["Other"] = AsdDarkFallbackColors["Other"];
+        }
+
+        // WFM widget specific
+        if (IsWfmWidget(widget))
+        {
+            ConfigWfmQueueId = widget.Config.WfmQueueId;
+            WfmQueueSearchText = ConfigWfmQueueId ?? "";
+            ConfigWfmTileMetrics = widget.Config.WfmTileMetrics?.ToList() ?? new List<string> { "predictedSl", "occupancy", "nActual", "staffVariance" };
+            ConfigWfmListMetrics = widget.Config.WfmListMetrics?.ToHashSet() ?? new HashSet<string> { "lambdaPerHour", "aht", "wrapIncluded", "trafficA", "pWait", "predictedAsa", "requiredAgents", "erlangB", "understaff" };
+            ConfigWfmTileThresholds = widget.Config.WfmTileThresholds?.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.Select(t => new ThresholdRule
+                {
+                    From = t.From,
+                    To = t.To,
+                    BackgroundColor = t.BackgroundColor,
+                    FontColor = t.FontColor
+                }).ToList()) ?? new Dictionary<string, List<ThresholdRule>>();
+            ConfigWfmListThresholds = widget.Config.WfmListThresholds?.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.Select(t => new ColumnThreshold
+                {
+                    MatchType = t.MatchType,
+                    From = t.From,
+                    To = t.To,
+                    TextMatch = t.TextMatch,
+                    TextTo = t.TextTo,
+                    TextMatchType = t.TextMatchType,
+                    BackgroundColor = t.BackgroundColor,
+                    FontColor = t.FontColor
+                }).ToList()) ?? new Dictionary<string, List<ColumnThreshold>>();
         }
 
         // Initialize search fields with selected values
@@ -4719,6 +5117,32 @@
                 : null,
             DarkStateSegmentColors = IsAgentStateDistributionWidget(ConfiguringWidget) && EditingDarkStateSegmentColors.Count > 0
                 ? EditingDarkStateSegmentColors.ToDictionary(kv => kv.Key, kv => kv.Value)
+                : null,
+            // WFM widget specific
+            WfmQueueId = IsWfmWidget(ConfiguringWidget) ? ConfigWfmQueueId : null,
+            WfmTileMetrics = IsWfmWidget(ConfiguringWidget) && ConfigWfmTileMetrics.Count == 4
+                ? ConfigWfmTileMetrics.ToList()
+                : null,
+            WfmListMetrics = IsWfmWidget(ConfiguringWidget) && ConfigWfmListMetrics.Count > 0
+                ? ConfigWfmListMetrics.ToList()
+                : null,
+            WfmTileThresholds = IsWfmWidget(ConfiguringWidget) && ConfigWfmTileThresholds.Count > 0
+                ? ConfigWfmTileThresholds.Where(kvp => kvp.Value.Count > 0)
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
+                : null,
+            WfmListThresholds = IsWfmWidget(ConfiguringWidget) && ConfigWfmListThresholds.Count > 0
+                ? ConfigWfmListThresholds.Where(kvp => kvp.Value.Count > 0)
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Select(t => new ColumnThreshold
+                    {
+                        MatchType = t.MatchType,
+                        From = t.From,
+                        To = t.To,
+                        TextMatch = t.TextMatch,
+                        TextTo = t.TextTo,
+                        TextMatchType = t.TextMatchType,
+                        BackgroundColor = t.BackgroundColor,
+                        FontColor = t.FontColor
+                    }).ToList())
                 : null
         };
 
@@ -4938,6 +5362,130 @@
     private void SelectColThresholdFontColor(string column, int index, string color)
     {
         UpdateColThresholdFontColor(column, index, color);
+        _openThresholdPalette = null;
+    }
+
+    // WFM widget helpers
+    private string GetWfmMetricLabel(string metricKey)
+    {
+        return WfmMetricLabels.TryGetValue(metricKey, out var label) ? label : metricKey;
+    }
+
+    private void UpdateWfmTileMetric(int tileIndex, string? metricKey)
+    {
+        while (ConfigWfmTileMetrics.Count <= tileIndex)
+            ConfigWfmTileMetrics.Add("");
+        ConfigWfmTileMetrics[tileIndex] = metricKey ?? "";
+        // Remove from list if added to tile
+        if (!string.IsNullOrEmpty(metricKey))
+            ConfigWfmListMetrics.Remove(metricKey);
+    }
+
+    private void ToggleWfmListMetric(string metricKey, bool isChecked)
+    {
+        if (isChecked)
+            ConfigWfmListMetrics.Add(metricKey);
+        else
+            ConfigWfmListMetrics.Remove(metricKey);
+    }
+
+    private List<ThresholdRule> GetWfmTileThresholds(string metricKey)
+    {
+        if (!ConfigWfmTileThresholds.TryGetValue(metricKey, out var thresholds))
+        {
+            // Seed with defaults if available
+            if (WfmDefaultThresholds.TryGetValue(metricKey, out var defaults))
+                thresholds = defaults.Select(t => new ThresholdRule { From = t.From, To = t.To, BackgroundColor = t.BackgroundColor, FontColor = t.FontColor }).ToList();
+            else
+                thresholds = new List<ThresholdRule>();
+            ConfigWfmTileThresholds[metricKey] = thresholds;
+        }
+        return thresholds;
+    }
+
+    private void AddWfmTileThreshold(string metricKey)
+    {
+        var thresholds = GetWfmTileThresholds(metricKey);
+        thresholds.Add(new ThresholdRule { From = "0", To = "100", BackgroundColor = "#dcfce7", FontColor = "#166534" });
+    }
+
+    private void RemoveWfmTileThreshold(string metricKey, int index)
+    {
+        if (ConfigWfmTileThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds.RemoveAt(index);
+    }
+
+    private void UpdateWfmTileThresholdFrom(string metricKey, int index, ChangeEventArgs e)
+    {
+        if (ConfigWfmTileThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].From = e.Value?.ToString();
+    }
+
+    private void UpdateWfmTileThresholdTo(string metricKey, int index, ChangeEventArgs e)
+    {
+        if (ConfigWfmTileThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].To = e.Value?.ToString();
+    }
+
+    private void SelectWfmTileThresholdBgColor(string metricKey, int index, string color)
+    {
+        if (ConfigWfmTileThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].BackgroundColor = color;
+        _openThresholdPalette = null;
+    }
+
+    private void SelectWfmTileThresholdFontColor(string metricKey, int index, string color)
+    {
+        if (ConfigWfmTileThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].FontColor = color;
+        _openThresholdPalette = null;
+    }
+
+    private List<ColumnThreshold> GetWfmListThresholds(string metricKey)
+    {
+        if (!ConfigWfmListThresholds.TryGetValue(metricKey, out var thresholds))
+        {
+            thresholds = new List<ColumnThreshold>();
+            ConfigWfmListThresholds[metricKey] = thresholds;
+        }
+        return thresholds;
+    }
+
+    private void AddWfmListThreshold(string metricKey)
+    {
+        var thresholds = GetWfmListThresholds(metricKey);
+        thresholds.Add(new ColumnThreshold { MatchType = "numeric", From = "0", To = "100", BackgroundColor = "#dcfce7", FontColor = "#166534" });
+    }
+
+    private void RemoveWfmListThreshold(string metricKey, int index)
+    {
+        if (ConfigWfmListThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds.RemoveAt(index);
+    }
+
+    private void UpdateWfmListThresholdFrom(string metricKey, int index, ChangeEventArgs e)
+    {
+        if (ConfigWfmListThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].From = e.Value?.ToString();
+    }
+
+    private void UpdateWfmListThresholdTo(string metricKey, int index, ChangeEventArgs e)
+    {
+        if (ConfigWfmListThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].To = e.Value?.ToString();
+    }
+
+    private void SelectWfmListThresholdBgColor(string metricKey, int index, string color)
+    {
+        if (ConfigWfmListThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].BackgroundColor = color;
+        _openThresholdPalette = null;
+    }
+
+    private void SelectWfmListThresholdFontColor(string metricKey, int index, string color)
+    {
+        if (ConfigWfmListThresholds.TryGetValue(metricKey, out var thresholds) && index >= 0 && index < thresholds.Count)
+            thresholds[index].FontColor = color;
         _openThresholdPalette = null;
     }
 
