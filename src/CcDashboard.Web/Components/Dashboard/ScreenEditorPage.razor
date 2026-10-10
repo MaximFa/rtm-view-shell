@@ -2876,12 +2876,6 @@
     // Default WFM thresholds — font colours match widget server-band fallback
     private static readonly Dictionary<string, List<ThresholdRule>> WfmDefaultThresholds = new()
     {
-        ["predictedSl"] = new()
-        {
-            new() { From = "80", To = "100", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },   // green
-            new() { From = "70", To = "79.99", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" }, // amber
-            new() { From = "0", To = "69.99", BackgroundColor = "#fee2e2", FontColor = "#ef4444" }   // red
-        },
         ["occupancy"] = new()
         {
             new() { From = "50", To = "85", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },     // green
@@ -3201,6 +3195,7 @@
     private List<string> _tenantBackgroundColors = [];
     private List<string> _tenantFontColors = [];
     private List<string> _tenantFontSizes = [];
+    private double _tenantWfmSlTargetPct = 80;
 
     // Color palettes built from tenant settings
     private (string Name, string Value)[] BackgroundColors => BuildBackgroundColors();
@@ -3399,12 +3394,14 @@
                         _tenantBackgroundColors = tenantSettings.BackgroundColorPalette ?? GetDefaultBackgroundColors();
                         _tenantFontColors = tenantSettings.FontColorPalette ?? GetDefaultFontColors();
                         _tenantFontSizes = tenantSettings.FontSizes?.Count > 0 ? tenantSettings.FontSizes : GetDefaultFontSizes();
+                        _tenantWfmSlTargetPct = tenantSettings.WfmSlTargetPct;
                     }
                     else
                     {
                         _tenantBackgroundColors = GetDefaultBackgroundColors();
                         _tenantFontColors = GetDefaultFontColors();
                         _tenantFontSizes = GetDefaultFontSizes();
+                        _tenantWfmSlTargetPct = 80;
                     }
                 }
                 catch
@@ -3412,6 +3409,7 @@
                     _tenantBackgroundColors = GetDefaultBackgroundColors();
                     _tenantFontColors = GetDefaultFontColors();
                     _tenantFontSizes = GetDefaultFontSizes();
+                    _tenantWfmSlTargetPct = 80;
                 }
             }
 
@@ -3976,6 +3974,18 @@
                     {
                         From = t.From, To = t.To, BackgroundColor = t.BackgroundColor, FontColor = t.FontColor
                     }).ToList();
+            }
+
+            // Seed predictedSl thresholds dynamically from tenant's WfmSlTargetPct
+            if (!ConfigWfmTileThresholds.ContainsKey("predictedSl"))
+            {
+                var target = _tenantWfmSlTargetPct;
+                ConfigWfmTileThresholds["predictedSl"] = new List<ThresholdRule>
+                {
+                    new() { From = target.ToString(System.Globalization.CultureInfo.InvariantCulture), To = "100", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },   // green
+                    new() { From = (target - 10).ToString(System.Globalization.CultureInfo.InvariantCulture), To = (target - 0.01).ToString(System.Globalization.CultureInfo.InvariantCulture), BackgroundColor = "#fef3c7", FontColor = "#f59e0b" }, // amber
+                    new() { From = "0", To = (target - 10.01).ToString(System.Globalization.CultureInfo.InvariantCulture), BackgroundColor = "#fee2e2", FontColor = "#ef4444" }   // red
+                };
             }
         }
 
