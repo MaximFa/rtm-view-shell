@@ -39,7 +39,7 @@ window.dayTrendChart = {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
-            devicePixelRatio: window.viewerScale?.getChartDensity?.() ?? Math.max(2, window.devicePixelRatio || 1),
+            devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
             interaction: {
                 mode: 'nearest',
                 intersect: true

@@ -793,92 +793,39 @@ window.viewerScale = {
     designWidth: 0,
     designHeight: 0,
     _onResize: null,
-    currentScale: 1,
-
-    // Canvas density ceiling: density^2 grows memory quadratically.
-    // At 500x300 logical chart, density=6 → 3000x1800x4 = 21.6 MB per canvas.
-    // Ceiling=6 keeps memory reasonable while allowing sharp text at high scales.
-    DENSITY_CEILING: 6,
-
+    
     init: function (designEl, designWidth, designHeight) {
         this.designEl = designEl;
         this.designWidth = designWidth;
         this.designHeight = designHeight;
-
+        
         // Initial scale
         this.applyScale();
-
+        
         // Add resize listener
         this._onResize = this.debounce(() => this.applyScale(), 100);
         window.addEventListener('resize', this._onResize);
     },
-
-    // Compute canvas raster density accounting for layer scale.
-    // Charts call this at render time to get crisp text at any scale.
-    getChartDensity: function () {
-        const baseDensity = Math.max(2, window.devicePixelRatio || 1);
-        const density = baseDensity * this.currentScale;
-        return Math.min(density, this.DENSITY_CEILING);
-    },
-
-    // Notify all registered chart modules to update their density
-    _notifyChartDensityChange: function () {
-        const newDensity = this.getChartDensity();
-        // Update ASD charts
-        if (window.agentStateDistributionChart?._charts) {
-            for (const id in window.agentStateDistributionChart._charts) {
-                const chart = window.agentStateDistributionChart._charts[id];
-                if (chart?.options) {
-                    chart.options.devicePixelRatio = newDensity;
-                    chart.resize();
-                }
-            }
-        }
-        // Update DayTrend charts
-        if (window.dayTrendChart?._charts) {
-            for (const id in window.dayTrendChart._charts) {
-                const chart = window.dayTrendChart._charts[id];
-                if (chart?.options) {
-                    chart.options.devicePixelRatio = newDensity;
-                    chart.resize();
-                }
-            }
-        }
-        // Update Report Distribution charts
-        if (window.reportDistributionChart?._charts) {
-            for (const id in window.reportDistributionChart._charts) {
-                const chart = window.reportDistributionChart._charts[id];
-                if (chart?.options) {
-                    chart.options.devicePixelRatio = newDensity;
-                    chart.resize();
-                }
-            }
-        }
-    },
-
+    
     applyScale: function () {
         if (!this.designEl) return;
-
+        
         // Get wrapper dimensions (parent of design layer)
         const wrapEl = this.designEl.parentElement;
         if (!wrapEl) return;
-
+        
         const wrapW = wrapEl.clientWidth;
         const wrapH = wrapEl.clientHeight;
-
+        
         // Calculate scale (min to fit both dimensions)
         const scaleX = wrapW / this.designWidth;
         const scaleY = wrapH / this.designHeight;
         const scale = Math.min(scaleX, scaleY);
-
-        // Track scale for chart density calculation
-        const scaleChanged = this.currentScale !== scale;
-        this.currentScale = scale;
-
+        
         // Apply transform
         this.designEl.style.transform = 'scale(' + scale + ')';
         this.designEl.style.transformOrigin = 'top left';
-
+        
         // Center the scaled content
         const scaledWidth = this.designWidth * scale;
         const scaledHeight = this.designHeight * scale;
@@ -886,11 +833,6 @@ window.viewerScale = {
         const offsetY = Math.max(0, (wrapH - scaledHeight) / 2);
         this.designEl.style.marginLeft = offsetX + 'px';
         this.designEl.style.marginTop = offsetY + 'px';
-
-        // Update chart density if scale changed
-        if (scaleChanged) {
-            this._notifyChartDensityChange();
-        }
     },
     
     debounce: function (fn, delay) {
@@ -912,12 +854,6 @@ window.viewerScale = {
         if (this._onResize) {
             window.removeEventListener('resize', this._onResize);
             this._onResize = null;
-        }
-        // Reset scale to 1 and update chart density
-        const scaleChanged = this.currentScale !== 1;
-        this.currentScale = 1;
-        if (scaleChanged) {
-            this._notifyChartDensityChange();
         }
     },
 

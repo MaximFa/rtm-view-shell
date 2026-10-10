@@ -81,7 +81,7 @@ window.agentStateDistributionChart = {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
-            devicePixelRatio: window.viewerScale?.getChartDensity?.() ?? Math.max(2, window.devicePixelRatio || 1),
+            devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
             indexAxis: indexAxis,
             // Store customData in options so it's available during chart construction
             _customData: customData,
