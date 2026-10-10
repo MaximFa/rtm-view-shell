@@ -386,6 +386,18 @@
             }
         }
 
+        // Final fallback: synthesize rule from server RAG band (covers gaps between seeded ranges)
+        if (_snapshot?.Rag.TryGetValue(metricKey, out var band) == true)
+        {
+            return band switch
+            {
+                "green" => new ThresholdRule { BackgroundColor = "#dcfce7", FontColor = "#22c55e" },
+                "amber" => new ThresholdRule { BackgroundColor = "#fef3c7", FontColor = "#f59e0b" },
+                "red"   => new ThresholdRule { BackgroundColor = "#fee2e2", FontColor = "#ef4444" },
+                _ => null
+            };
+        }
+
         return null;
     }
 
