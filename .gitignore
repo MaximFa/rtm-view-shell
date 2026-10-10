@@ -74,3 +74,6 @@ tools/Soma/appsettings.json
 tools/cache/
 db/data.zip
 .coord/migration/*.tar.gz
+
+# Measurement and instrument output — never tracked; proof numbers go into the commit message
+.measurements/
