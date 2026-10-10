@@ -104,8 +104,58 @@
     private const string DarkBgDefault = "#1e3a5f";
     private const string DarkFontDefault = "#ffffff";
 
+    // Thresholds (loaded from config or defaults)
+    private Dictionary<string, List<ThresholdRule>> _tileThresholds = new();
+    private Dictionary<string, List<ColumnThreshold>> _listThresholds = new();
+
+    // Default thresholds matching WfmRealtimeLoop.ComputeRag bands
+    private static readonly Dictionary<string, List<ThresholdRule>> DefaultTileThresholds = new()
+    {
+        ["predictedSl"] = new List<ThresholdRule>
+        {
+            new() { From = "80", To = "100", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },  // green
+            new() { From = "70", To = "79.99", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" }, // amber
+            new() { From = "0", To = "69.99", BackgroundColor = "#fee2e2", FontColor = "#ef4444" }   // red
+        },
+        ["occupancy"] = new List<ThresholdRule>
+        {
+            new() { From = "50", To = "85", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },     // green
+            new() { From = "85.01", To = "95", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" },  // amber high
+            new() { From = "0", To = "49.99", BackgroundColor = "#fee2e2", FontColor = "#ef4444" },   // red low
+            new() { From = "95.01", To = "100", BackgroundColor = "#fee2e2", FontColor = "#ef4444" }  // red high
+        },
+        ["staffVariance"] = new List<ThresholdRule>
+        {
+            new() { From = "0", To = "100", BackgroundColor = "#dcfce7", FontColor = "#22c55e" },     // green
+            new() { From = "-2", To = "-0.01", BackgroundColor = "#fef3c7", FontColor = "#f59e0b" },  // amber
+            new() { From = "-100", To = "-2.01", BackgroundColor = "#fee2e2", FontColor = "#ef4444" } // red
+        }
+    };
+
     // Cached badge state for callback
     private string? _lastBadgeState;
+
+    // Threshold rule class (matches ScreenEditorPage definition)
+    private class ThresholdRule
+    {
+        public string? From { get; set; }
+        public string? To { get; set; }
+        public string? BackgroundColor { get; set; }
+        public string? FontColor { get; set; }
+    }
+
+    // Column threshold class (matches ScreenEditorPage definition)
+    private class ColumnThreshold
+    {
+        public string MatchType { get; set; } = "numeric";
+        public string? From { get; set; }
+        public string? To { get; set; }
+        public string? TextMatch { get; set; }
+        public string? TextTo { get; set; }
+        public string TextMatchType { get; set; } = "equal";
+        public string? BackgroundColor { get; set; }
+        public string? FontColor { get; set; }
+    }
 
     protected override Task OnInitializedAsync()
     {
@@ -155,6 +205,32 @@
         {
             _listMetrics = Config.WfmListMetrics;
         }
+
+        // Load tile thresholds from config, or use defaults
+        _tileThresholds = Config.WfmTileThresholds?.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value.Select(t => new ThresholdRule
+            {
+                From = t.From,
+                To = t.To,
+                BackgroundColor = t.BackgroundColor,
+                FontColor = t.FontColor
+            }).ToList()) ?? new Dictionary<string, List<ThresholdRule>>();
+
+        // Load list thresholds from config
+        _listThresholds = Config.WfmListThresholds?.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value.Select(t => new ColumnThreshold
+            {
+                MatchType = t.MatchType,
+                From = t.From,
+                To = t.To,
+                TextMatch = t.TextMatch,
+                TextTo = t.TextTo,
+                TextMatchType = t.TextMatchType,
+                BackgroundColor = t.BackgroundColor,
+                FontColor = t.FontColor
+            }).ToList()) ?? new Dictionary<string, List<ColumnThreshold>>();
     }
 
     private async Task PollLoopAsync()
@@ -256,24 +332,123 @@
         };
     }
 
-    // Get CSS class for tile based on RAG band
+    // Get raw numeric value for a metric (for threshold matching)
+    private double? GetMetricNumericValue(string metricKey)
+    {
+        if (_snapshot is null) return null;
+
+        return metricKey switch
+        {
+            "lambdaPerHour" => _snapshot.Inputs.LambdaPerHour,
+            "aht" => _snapshot.Inputs.AhtSec,
+            "nActual" => _snapshot.Inputs.NActual,
+            "wrapIncluded" => _snapshot.Inputs.WrapIncluded ? 1 : 0,
+            "trafficA" => _snapshot.Erlang.TrafficA,
+            "pWait" => _snapshot.Erlang.PWaitC * 100,  // Convert to percentage
+            "predictedSl" => _snapshot.Erlang.PredictedSlPct,
+            "predictedAsa" => _snapshot.Erlang.PredictedAsaSec,
+            "requiredAgents" => _snapshot.Erlang.RequiredAgents,
+            "erlangB" => _snapshot.Erlang.ErlangBPct,
+            "occupancy" => _snapshot.Erlang.OccupancyPct,
+            "understaff" => _snapshot.Erlang.UnderstaffPct,
+            "staffVariance" => _snapshot.Erlang.StaffVariance,
+            _ => null
+        };
+    }
+
+    // Apply tile threshold rules and get matching rule
+    private ThresholdRule? GetMatchingTileThreshold(string metricKey)
+    {
+        var value = GetMetricNumericValue(metricKey);
+        if (value is null) return null;
+
+        // First check configured thresholds
+        if (_tileThresholds.TryGetValue(metricKey, out var rules) && rules.Count > 0)
+        {
+            foreach (var rule in rules)
+            {
+                var from = ParseThresholdValue(rule.From, double.MinValue);
+                var to = ParseThresholdValue(rule.To, double.MaxValue);
+                if (value >= from && value <= to)
+                    return rule;
+            }
+        }
+
+        // Fall back to defaults for the three RAG metrics
+        if (DefaultTileThresholds.TryGetValue(metricKey, out var defaults))
+        {
+            foreach (var rule in defaults)
+            {
+                var from = ParseThresholdValue(rule.From, double.MinValue);
+                var to = ParseThresholdValue(rule.To, double.MaxValue);
+                if (value >= from && value <= to)
+                    return rule;
+            }
+        }
+
+        return null;
+    }
+
+    private static double ParseThresholdValue(string? text, double defaultValue)
+    {
+        if (string.IsNullOrEmpty(text)) return defaultValue;
+        if (double.TryParse(text.Replace(",", "."), System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var value))
+            return value;
+        return defaultValue;
+    }
+
+    // Get CSS class for tile based on threshold match
     private string GetTileCssClass(string metricKey)
     {
-        if (_snapshot is null) return "";
-        if (!_snapshot.Rag.TryGetValue(metricKey, out var band)) return "";
+        var rule = GetMatchingTileThreshold(metricKey);
+        if (rule is null) return "";
 
-        return band switch
+        // Map background colors to CSS classes
+        return rule.BackgroundColor switch
         {
-            "green" => "ok",
-            "amber" => "warn",
-            "red" => "bad",
+            "#dcfce7" => "ok",    // green background
+            "#fef3c7" => "warn",  // amber background
+            "#fee2e2" => "bad",   // red background
             _ => ""
         };
     }
 
-    // Get pill colors for list items based on RAG band
+    // Apply list threshold rules and get matching rule
+    private ColumnThreshold? GetMatchingListThreshold(string metricKey)
+    {
+        var value = GetMetricNumericValue(metricKey);
+        if (value is null) return null;
+
+        // Check configured thresholds
+        if (_listThresholds.TryGetValue(metricKey, out var rules) && rules.Count > 0)
+        {
+            foreach (var rule in rules)
+            {
+                if (rule.MatchType == "numeric")
+                {
+                    var from = ParseThresholdValue(rule.From, double.MinValue);
+                    var to = ParseThresholdValue(rule.To, double.MaxValue);
+                    if (value >= from && value <= to)
+                        return rule;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // Get pill colors for list items based on threshold match or RAG band
     private (string? bg, string? fg) GetListPillColors(string metricKey)
     {
+        // First check configured thresholds
+        var rule = GetMatchingListThreshold(metricKey);
+        if (rule is not null && !string.IsNullOrEmpty(rule.BackgroundColor))
+        {
+            return (rule.BackgroundColor, rule.FontColor ?? "#000000");
+        }
+
+        // Fall back to RAG band from snapshot
         if (_snapshot is null) return (null, null);
         if (!_snapshot.Rag.TryGetValue(metricKey, out var band)) return (null, null);
 
@@ -353,17 +528,11 @@
 
     private string GetTileValueStyle(string metricKey)
     {
-        // Tile value uses RAG color when matched, otherwise config color
-        if (_snapshot is not null && _snapshot.Rag.TryGetValue(metricKey, out var band))
+        // Tile value uses threshold font color when matched, otherwise config color
+        var rule = GetMatchingTileThreshold(metricKey);
+        if (rule is not null && !string.IsNullOrEmpty(rule.FontColor))
         {
-            var color = band switch
-            {
-                "green" => "var(--ok, #22c55e)",
-                "amber" => "var(--warn, #f59e0b)",
-                "red" => "var(--bad, #ef4444)",
-                _ => null
-            };
-            if (color is not null) return $"color: {color};";
+            return $"color: {rule.FontColor};";
         }
         return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
     }
