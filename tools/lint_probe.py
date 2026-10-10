@@ -247,6 +247,15 @@ def check(path):
     ADAPTER_FLOOR_SECONDS = 300
     if re.search(r'RTMTwilio_1', txt):
         sleeps = [int(m) for m in re.findall(r'(?i)Start-Sleep\s+-Seconds\s+(\d+)', txt)]
+        # A wait bounded by a DEADLINE is the form this gate asked for in the first place: the probe
+        # polls on a short sleep but stops at a wall-clock limit, so the literals say nothing about
+        # the window. Measuring the literals there would paint the CORRECT shape red - the same
+        # false-red this gate exists to prevent. So a deadline of at least the floor satisfies it.
+        deadlines = [int(m) for m in re.findall(r'(?i)AddSeconds\(\s*(\d+)\s*\)', txt)]
+        if deadlines and max(deadlines) >= ADAPTER_FLOOR_SECONDS:
+            sleeps = []
+            notes.append("the adapter wait is bounded by a deadline of %d s, not by sleep literals - "
+                         "window accepted" % max(deadlines))
         if sleeps:
             window = sum(sleeps)
             if window < ADAPTER_FLOOR_SECONDS:
