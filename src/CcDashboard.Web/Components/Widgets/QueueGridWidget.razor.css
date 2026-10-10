@@ -10,7 +10,7 @@
 }
 
 .queue-grid-body table td {
-    font-size: 0.8625rem;  /* 13.8px at root=16px — reference */
+    font-size: 0.9857em;   /* 13.8px when container=14px; scales with setting */
     vertical-align: middle;
     padding-block: 0.4rem;
 }

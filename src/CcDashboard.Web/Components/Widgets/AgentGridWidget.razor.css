@@ -51,7 +51,7 @@
 }
 
 .agent-grid-body table td {
-    font-size: 0.7875rem;  /* 12.6px at root=16px — agent table is denser per reference */
+    font-size: 0.9em;      /* 12.6px when container=14px; scales with setting */
     vertical-align: middle;
     padding-block: 0.4rem;
 }
