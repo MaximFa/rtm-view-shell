@@ -2,7 +2,25 @@
 window.agentStateDistributionChart = {
     _charts: {},
 
-    // Compute relative luminance (WCAG formula) and return appropriate text color
+    // Compute canvas density: max(2, dpr) * max(1, s), ceiling 4
+    _getDensity: function () {
+        const dpr = window.devicePixelRatio || 1;
+        let s = 1;
+        if (window.viewerScale && window.viewerScale.designEl) {
+            const transform = window.viewerScale.designEl.style.transform;
+            const match = transform && transform.match(/scale\(([\d.]+)\)/);
+            if (match) s = parseFloat(match[1]) || 1;
+        }
+        const raw = Math.max(2, dpr) * Math.max(1, s);
+        return Math.min(raw, 4);
+    },
+
+    // Read page font from --font-family token
+    _getPageFont: function () {
+        return getComputedStyle(document.documentElement).getPropertyValue('--font-family').trim() || undefined;
+    },
+
+// Compute relative luminance (WCAG formula) and return appropriate text color
     _getContrastColor: function (hexColor) {
         if (!hexColor || hexColor.length < 4) return '#fff';
         let hex = hexColor.replace('#', '');
@@ -81,7 +99,7 @@ window.agentStateDistributionChart = {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
-            devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
+            devicePixelRatio: this._getDensity(),
             indexAxis: indexAxis,
             // Store customData in options so it's available during chart construction
             _customData: customData,
@@ -93,7 +111,7 @@ window.agentStateDistributionChart = {
                     labels: {
                         usePointStyle: true,
                         padding: 8,
-                        font: { size: 11 },
+                        font: { size: 11, family: this._getPageFont() },
                         color: fontColor,
                         generateLabels: function (chart) {
                             const ds = chart.data.datasets[0];
@@ -180,12 +198,12 @@ window.agentStateDistributionChart = {
             chartOptions.scales = {
                 x: {
                     grid: { display: false },
-                    ticks: { color: tickColor }
+                    ticks: { color: tickColor, font: { family: this._getPageFont() } }
                 },
                 y: {
                     beginAtZero: true,
                     grid: { color: 'rgba(128,128,128,0.2)' },
-                    ticks: { color: tickColor }
+                    ticks: { color: tickColor, font: { family: this._getPageFont() } }
                 }
             };
             // Horizontal bar: Y = category, X = value
@@ -193,12 +211,12 @@ window.agentStateDistributionChart = {
                 chartOptions.scales = {
                     y: {
                         grid: { display: false },
-                        ticks: { color: tickColor }
+                        ticks: { color: tickColor, font: { family: this._getPageFont() } }
                     },
                     x: {
                         beginAtZero: true,
                         grid: { color: 'rgba(128,128,128,0.2)' },
-                        ticks: { color: tickColor }
+                        ticks: { color: tickColor, font: { family: this._getPageFont() } }
                     }
                 };
             }
@@ -243,13 +261,13 @@ window.agentStateDistributionChart = {
 
                 ctx.save();
                 // Draw total number
-                ctx.font = 'bold 24px sans-serif';
+                ctx.font = 'bold 24px ' + (window.agentStateDistributionChart._getPageFont() || 'sans-serif');
                 ctx.fillStyle = currentFontColor;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(currentTotal.toString(), centerX, centerY - 8);
                 // Draw label below
-                ctx.font = '12px sans-serif';
+                ctx.font = '12px ' + (window.agentStateDistributionChart._getPageFont() || 'sans-serif');
                 ctx.fillStyle = currentFontColor;
                 ctx.fillText(currentLabel, centerX, centerY + 14);
                 ctx.restore();

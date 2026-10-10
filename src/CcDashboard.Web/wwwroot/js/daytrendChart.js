@@ -2,6 +2,26 @@
 window.dayTrendChart = {
     _charts: {},
 
+    // Compute canvas density: max(2, dpr) * max(1, s), ceiling 4
+    // s = viewer scale (< 1 when compressed to fit; 1 in actual-size mode)
+    _getDensity: function () {
+        const dpr = window.devicePixelRatio || 1;
+        let s = 1;
+        // Read current viewer scale from transform if present
+        if (window.viewerScale && window.viewerScale.designEl) {
+            const transform = window.viewerScale.designEl.style.transform;
+            const match = transform && transform.match(/scale\(([\d.]+)\)/);
+            if (match) s = parseFloat(match[1]) || 1;
+        }
+        const raw = Math.max(2, dpr) * Math.max(1, s);
+        return Math.min(raw, 4);  // ceiling 4 -> ~10.6 MB on 853x345
+    },
+
+    // Read page font from --font-family token
+    _getPageFont: function () {
+        return getComputedStyle(document.documentElement).getPropertyValue('--font-family').trim() || undefined;
+    },
+
     // Convert hex color to rgba with given opacity
     _hexToRgba: function (hex, opacity) {
         if (!hex || typeof hex !== 'string') return `rgba(128,128,128,${opacity})`;
@@ -39,7 +59,7 @@ window.dayTrendChart = {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
-            devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
+            devicePixelRatio: this._getDensity(),
             interaction: {
                 mode: 'nearest',
                 intersect: true
@@ -51,7 +71,7 @@ window.dayTrendChart = {
                     labels: {
                         usePointStyle: true,
                         padding: 12,
-                        font: { size: 11 },
+                        font: { size: 11, family: this._getPageFont() },
                         color: options?.fontColor || undefined
                     }
                 },
@@ -80,7 +100,7 @@ window.dayTrendChart = {
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: { font: { size: 11 }, color: options?.fontColor || undefined }
+                    ticks: { font: { size: 11, family: this._getPageFont() }, color: options?.fontColor || undefined }
                 },
                 y: {
                     type: 'linear',
@@ -88,7 +108,7 @@ window.dayTrendChart = {
                     position: 'left',
                     beginAtZero: true,
                     grid: { color: this._hexToRgba(options?.fontColor, 0.12) },
-                    ticks: { font: { size: 11 }, color: options?.fontColor || undefined }
+                    ticks: { font: { size: 11, family: this._getPageFont() }, color: options?.fontColor || undefined }
                 }
             }
         };
@@ -103,7 +123,7 @@ window.dayTrendChart = {
                 beginAtZero: true,
                 grid: { drawOnChartArea: false },
                 ticks: {
-                    font: { size: 11 },
+                    font: { size: 11, family: this._getPageFont() },
                     color: options?.fontColor || undefined,
                     callback: function (value) {
                         const mins = Math.floor(value / 60);

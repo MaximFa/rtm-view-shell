@@ -2,7 +2,25 @@
 window.reportDistributionChart = {
     _charts: {},
 
-    render: function (elementId, segments, options) {
+    // Compute canvas density: max(2, dpr) * max(1, s), ceiling 4
+    _getDensity: function () {
+        const dpr = window.devicePixelRatio || 1;
+        let s = 1;
+        if (window.viewerScale && window.viewerScale.designEl) {
+            const transform = window.viewerScale.designEl.style.transform;
+            const match = transform && transform.match(/scale\(([\d.]+)\)/);
+            if (match) s = parseFloat(match[1]) || 1;
+        }
+        const raw = Math.max(2, dpr) * Math.max(1, s);
+        return Math.min(raw, 4);
+    },
+
+    // Read page font from --font-family token
+    _getPageFont: function () {
+        return getComputedStyle(document.documentElement).getPropertyValue('--font-family').trim() || undefined;
+    },
+
+render: function (elementId, segments, options) {
         if (typeof Chart === 'undefined') {
             console.error('reportDistributionChart: Chart.js is not loaded.');
             return;
@@ -40,7 +58,7 @@ window.reportDistributionChart = {
         const chartOptions = {
             responsive: true,
             maintainAspectRatio: false,
-            devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
+            devicePixelRatio: this._getDensity(),
             indexAxis: indexAxis,
             plugins: {
                 legend: {
@@ -68,12 +86,12 @@ window.reportDistributionChart = {
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: { color: tickColor }
+                    ticks: { color: tickColor, font: { family: this._getPageFont() } }
                 },
                 y: {
                     beginAtZero: true,
                     grid: { color: 'rgba(128,128,128,0.2)' },
-                    ticks: { color: tickColor }
+                    ticks: { color: tickColor, font: { family: this._getPageFont() } }
                 }
             }
         };
@@ -82,12 +100,12 @@ window.reportDistributionChart = {
             chartOptions.scales = {
                 y: {
                     grid: { display: false },
-                    ticks: { color: tickColor }
+                    ticks: { color: tickColor, font: { family: this._getPageFont() } }
                 },
                 x: {
                     beginAtZero: true,
                     grid: { color: 'rgba(128,128,128,0.2)' },
-                    ticks: { color: tickColor }
+                    ticks: { color: tickColor, font: { family: this._getPageFont() } }
                 }
             };
         }
