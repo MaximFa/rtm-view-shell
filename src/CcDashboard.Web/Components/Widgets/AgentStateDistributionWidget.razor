@@ -50,9 +50,42 @@
     }
     else
     {
-        <div class="chart-container flex-grow-1 position-relative" style="min-height: 200px;">
-            <canvas id="@_chartElementId"></canvas>
-        </div>
+        @* Ring types (doughnut/pie) use the donut layout with markup legend and centre number *@
+        @if (_chartType == "doughnut" || _chartType == "pie")
+        {
+            <div class="asd-donutwrap">
+                <div class="asd-donutbox">
+                    <canvas id="@_chartElementId"></canvas>
+                    <div class="asd-donutctr" style="color: @EffectiveFontColor;">
+                        <b class="asd-donutctr-num">@_totalAgents</b>
+                        <span class="asd-donutctr-label">@L["Widget_Agents"]</span>
+                    </div>
+                </div>
+                @if (_showLegend && _legendItems.Count > 0)
+                {
+                    <div class="asd-legend">
+                        @foreach (var item in _legendItems)
+                        {
+                            <div class="asd-lg @(item.Hidden ? "asd-lg-hidden" : "")"
+                                 @onclick="() => ToggleLegendItem(item.Index)"
+                                 style="cursor: pointer; color: @EffectiveFontColor;">
+                                <i style="background: @item.Color;"></i>
+                                <span class="asd-lg-label">@item.Label</span>
+                                <span class="asd-lg-n">@item.Value</span>
+                                <span class="asd-lg-p">@item.Percent%</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            @* Bar chart uses simple canvas layout, no legend *@
+            <div class="chart-container flex-grow-1 position-relative" style="min-height: 200px;">
+                <canvas id="@_chartElementId"></canvas>
+            </div>
+        }
 
         <div class="widget-footer d-flex align-items-center justify-content-between px-2 py-1 small" style="@GetFontColorStyle()">
             <div class="d-flex align-items-center gap-1">
@@ -61,7 +94,7 @@
                     <span class="small" style="opacity: 0.7;">@L["Widget_Disconnected"]</span>
                 }
             </div>
-            @if (_chartType != "doughnut")
+            @if (_chartType != "doughnut" && _chartType != "pie")
             {
                 <span class="small" style="opacity: 0.6;">@_totalAgents @L["Widget_Agents"]</span>
             }
@@ -151,6 +184,11 @@
     private Dictionary<string, string> _darkGroupSegmentColors = new();
     private Dictionary<string, string> _stateSegmentColors = new();
     private Dictionary<string, string> _darkStateSegmentColors = new();
+
+    // Markup legend state
+    private record LegendItem(int Index, string Label, int Value, int Percent, string Color, bool Hidden);
+    private List<LegendItem> _legendItems = new();
+    private HashSet<int> _hiddenIndices = new();
 
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
@@ -369,6 +407,8 @@
                 if (updated)
                     await InvokeAsync(async () =>
                     {
+                        // Data update resets hidden state
+                        _hiddenIndices.Clear();
                         StateHasChanged();
                         await RenderChartAsync();
                     });
@@ -394,6 +434,7 @@
         }
         _cellValues.Clear();
         _chartRendered = false;
+        _hiddenIndices.Clear();
         await ConnectAsync();
     }
 
@@ -402,14 +443,25 @@
         var segments = BuildSegments();
         if (segments.Count == 0) return;
 
+        // Build legend items for markup
+        var total = segments.Sum(s => ((dynamic)s).value);
+        _legendItems = segments.Select((s, i) =>
+        {
+            dynamic seg = s;
+            int value = (int)seg.value;
+            int pct = total > 0 ? (int)Math.Round((double)value / total * 100) : 0;
+            return new LegendItem(i, (string)seg.label, value, pct, (string)seg.color, _hiddenIndices.Contains(i));
+        }).ToList();
+
         var options = new
         {
             chartType = _chartType,
             valueDisplay = _valueDisplay,
-            showLegend = _showLegend,
+            showLegend = false,  // Always hide native legend — we use markup
             showValueLabels = _showValueLabels,
             fontColor = EffectiveFontColor,
-            centerLabel = L["Widget_Agents"].Value
+            centerLabel = L["Widget_Agents"].Value,
+            hiddenIndices = _hiddenIndices.ToArray()
         };
 
         try
@@ -439,6 +491,31 @@
         {
             Logger.LogDebug(ex, "Failed to render chart");
         }
+    }
+
+    private async Task ToggleLegendItem(int index)
+    {
+        // Toggle hidden state
+        if (_hiddenIndices.Contains(index))
+            _hiddenIndices.Remove(index);
+        else
+            _hiddenIndices.Add(index);
+
+        // Update legend item and chart via JS
+        _legendItems = _legendItems.Select(item =>
+            item.Index == index ? item with { Hidden = _hiddenIndices.Contains(index) } : item
+        ).ToList();
+
+        try
+        {
+            await JS.InvokeVoidAsync("agentStateDistributionChart.toggleSegment", _chartElementId, index);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to toggle segment visibility");
+        }
+
+        StateHasChanged();
     }
 
     private List<object> BuildSegments()

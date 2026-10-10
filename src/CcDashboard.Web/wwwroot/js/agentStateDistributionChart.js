@@ -1,4 +1,5 @@
 // Agent State Distribution Chart — Chart.js interop for Blazor
+// UNIT14: legends and centre number moved to markup; centerTextPlugin removed
 window.agentStateDistributionChart = {
     _charts: {},
     _pendingRenders: {},  // Track pending retry timers by elementId
@@ -123,17 +124,14 @@ window.agentStateDistributionChart = {
         }
 
         const isDoughnut = chartType === 'doughnut';
-        const centerLabel = options?.centerLabel || 'Agents';
         const fontColor = options?.fontColor || '#333';
 
         // Create customData BEFORE chart construction so plugins can access it during first draw
         const customData = {
             total: total,
-            centerLabel: centerLabel,
             fontColor: fontColor,
             isDoughnut: isDoughnut,
             showPercentages: showPercentages,
-            showLegend: options?.showLegend ?? true,
             showValueLabels: options?.showValueLabels ?? true
         };
 
@@ -146,44 +144,8 @@ window.agentStateDistributionChart = {
             // Store customData in options so it's available during chart construction
             _customData: customData,
             plugins: {
-                legend: {
-                    display: chartType === 'bar' ? false : (options?.showLegend ?? true),
-                    position: 'bottom',
-                    align: 'start',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 8,
-                        font: { size: 11, family: this._getPageFont() },
-                        color: fontColor,
-                        generateLabels: function (chart) {
-                            const ds = chart.data.datasets[0];
-                            const chartData = ds.data;
-                            // Read from chart.options._customData (available during first draw)
-                            const cd = chart.options._customData || {};
-                            const dataTotal = chartData.reduce((a, b) => a + b, 0);
-                            const showPct = cd.showPercentages ?? false;
-                            return (chart.data.labels || []).map((lbl, i) => {
-                                const clr = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
-                                const rawValue = chartData[i] || 0;
-                                const pct = dataTotal > 0 ? Math.round((rawValue / dataTotal) * 100) : 0;
-                                // Format matching tooltip: percentages -> "Label: N% (count)", values -> "Label: count (N%)"
-                                const labelText = showPct
-                                    ? `${lbl}: ${pct}% (${rawValue})`
-                                    : `${lbl}: ${rawValue} (${pct}%)`;
-                                return {
-                                    text: labelText,
-                                    fillStyle: clr + '40',
-                                    strokeStyle: clr,
-                                    lineWidth: 2,
-                                    pointStyle: 'circle',
-                                    fontColor: cd.fontColor || '#333',
-                                    hidden: !chart.isDatasetVisible(0) ? true : chart.getDatasetMeta(0).data[i]?.hidden,
-                                    index: i
-                                };
-                            });
-                        }
-                    }
-                },
+                // Legend always hidden — we use markup legend
+                legend: { display: false },
                 tooltip: {
                     enabled: true,
                     callbacks: {
@@ -286,44 +248,35 @@ window.agentStateDistributionChart = {
                 }]
             };
 
-        // Center text plugin for doughnut — reads from chart.options._customData so it's available during first draw
-        const centerTextPlugin = {
-            id: 'centerText',
-            afterDraw: function (chart) {
-                // Read from chart.options._customData (available during construction)
-                const cd = chart.options._customData || {};
-                if (!cd.isDoughnut) return;
-                const ctx = chart.ctx;
-                const { width, height } = chart.chartArea || chart;
-                const centerX = chart.chartArea ? (chart.chartArea.left + chart.chartArea.right) / 2 : width / 2;
-                const centerY = chart.chartArea ? (chart.chartArea.top + chart.chartArea.bottom) / 2 : height / 2;
-                const currentTotal = cd.total ?? 0;
-                const currentLabel = cd.centerLabel || 'Agents';
-                const currentFontColor = cd.fontColor || '#333';
-
-                ctx.save();
-                // Draw total number
-                ctx.font = 'bold 24px ' + (window.agentStateDistributionChart._getPageFont() || 'sans-serif');
-                ctx.fillStyle = currentFontColor;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(currentTotal.toString(), centerX, centerY - 8);
-                // Draw label below
-                ctx.font = '12px ' + (window.agentStateDistributionChart._getPageFont() || 'sans-serif');
-                ctx.fillStyle = currentFontColor;
-                ctx.fillText(currentLabel, centerX, centerY + 14);
-                ctx.restore();
-            }
-        };
+        // Apply initial hidden indices if provided
+        const hiddenIndices = options?.hiddenIndices || [];
 
         const chart = new Chart(ctx, {
             type: chartType,
             data: chartData,
             options: chartOptions,
-            plugins: [centerTextPlugin]
+            plugins: []  // centerTextPlugin removed — centre number is now markup
         });
 
+        // Apply hidden state after chart creation
+        hiddenIndices.forEach(idx => {
+            if (idx >= 0 && idx < labels.length) {
+                chart.toggleDataVisibility(idx);
+            }
+        });
+        if (hiddenIndices.length > 0) {
+            chart.update('none');
+        }
+
         this._charts[elementId] = chart;
+    },
+
+    // Toggle segment visibility (called from Blazor legend click)
+    toggleSegment: function (elementId, index) {
+        const chart = this._charts[elementId];
+        if (!chart) return;
+        chart.toggleDataVisibility(index);
+        chart.update('none');
     },
 
     // Rebuild all charts (called on scale change)
@@ -344,9 +297,8 @@ window.agentStateDistributionChart = {
             }));
             const options = {
                 chartType: chart.config.type === 'bar' && chart.options.indexAxis === 'y' ? 'horizontalbar' : chart.config.type,
-                centerLabel: cd.centerLabel,
                 fontColor: cd.fontColor,
-                showLegend: cd.showLegend,
+                showLegend: false,
                 showValueLabels: cd.showValueLabels,
                 valueDisplay: cd.showPercentages ? 'percentages' : 'values'
             };
@@ -379,12 +331,10 @@ window.agentStateDistributionChart = {
         // B: Settings change detection — any visual setting change means full rebuild
         const cd = chart.options._customData || {};
         const newFontColor = options?.fontColor || '#333';
-        const newShowLegend = options?.showLegend ?? true;
         const newShowValueLabels = options?.showValueLabels ?? true;
         const newValueDisplay = options?.valueDisplay || 'values';
 
         if (cd.fontColor !== newFontColor ||
-            cd.showLegend !== newShowLegend ||
             cd.showValueLabels !== newShowValueLabels ||
             (cd.showPercentages ? 'percentages' : 'values') !== newValueDisplay) {
             // Settings changed — full rebuild to apply new axis colors etc.
@@ -413,7 +363,6 @@ window.agentStateDistributionChart = {
 
         // Update customData in chart.options._customData for plugins to read current state
         cd.total = total;
-        if (options?.centerLabel !== undefined) cd.centerLabel = options.centerLabel;
         if (options?.fontColor !== undefined) cd.fontColor = options.fontColor;
         if (options?.valueDisplay !== undefined) cd.showPercentages = options.valueDisplay === 'percentages';
         chart.options._customData = cd;

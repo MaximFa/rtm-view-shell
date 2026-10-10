@@ -1,0 +1,102 @@
+/* ASD widget — donut layout with markup legend (reference: RTM_wallboard_bank_demo_ops.html) */
+
+/* Container: flex-column to stack donutbox + legend */
+.asd-donutwrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 8px 10px 10px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Ring container: houses canvas + centre overlay */
+.asd-donutbox {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 132px;
+}
+
+/* Centre number overlay — positioned over the canvas hole */
+.asd-donutctr {
+    position: absolute;
+    text-align: center;
+    pointer-events: none;
+}
+
+.asd-donutctr-num {
+    display: block;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.asd-donutctr-label {
+    font-size: 10px;
+    opacity: 0.6;
+}
+
+/* Legend container */
+.asd-legend {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* Legend row */
+.asd-lg {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11.5px;
+    transition: opacity 0.15s ease;
+}
+
+.asd-lg:hover {
+    opacity: 0.85;
+}
+
+/* Hidden row — struck-through indication */
+.asd-lg-hidden {
+    opacity: 0.45;
+}
+
+.asd-lg-hidden .asd-lg-label {
+    text-decoration: line-through;
+}
+
+/* Colour swatch */
+.asd-lg i {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    flex: 0 0 9px;
+}
+
+/* Label text */
+.asd-lg-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Value number — pushed to row end via logical margin */
+.asd-lg-n {
+    margin-inline-start: auto;
+    font-weight: 700;
+}
+
+/* Percent column — fixed width */
+.asd-lg-p {
+    width: 38px;
+    text-align: left;
+    opacity: 0.6;
+    font-size: 10.5px;
+}
