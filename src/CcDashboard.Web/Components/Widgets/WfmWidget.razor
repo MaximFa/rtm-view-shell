@@ -40,10 +40,10 @@
         </div>
 
         <!-- List: remaining metrics (legend style) -->
-        @if (_listMetrics.Any() && _snapshot.State == WfmSnapshot.StateOk)
+        @if (GetVisibleListMetrics().Any())
         {
             <div class="wfmlist">
-                @foreach (var metric in _listMetrics)
+                @foreach (var metric in GetVisibleListMetrics())
                 {
                     var (value, unit) = GetMetricValue(metric);
                     var (pillBg, pillFg) = GetListPillColors(metric);
@@ -95,6 +95,19 @@
         "lambdaPerHour", "aht", "nActual", "wrapIncluded",
         "trafficA", "pWait", "predictedSl", "predictedAsa", "requiredAgents", "erlangB", "occupancy",
         "understaff", "staffVariance"
+    };
+
+    // Input metrics: always visible (raw inputs, no Erlang required)
+    private static readonly HashSet<string> InputMetrics = new(StringComparer.Ordinal)
+    {
+        "lambdaPerHour", "aht", "nActual", "wrapIncluded"
+    };
+
+    // Erlang metrics: visible only when _snapshot.State == WfmSnapshot.StateOk
+    private static readonly HashSet<string> ErlangMetrics = new(StringComparer.Ordinal)
+    {
+        "trafficA", "pWait", "predictedSl", "predictedAsa", "requiredAgents",
+        "erlangB", "occupancy", "understaff", "staffVariance"
     };
 
     // Appearance - dark mode defaults from DataSlotWidget
@@ -254,6 +267,13 @@
                 await BadgeStateChanged.InvokeAsync(state);
             }
         }
+    }
+
+    // Get visible list metrics based on snapshot state
+    private IEnumerable<string> GetVisibleListMetrics()
+    {
+        return _listMetrics.Where(m =>
+            InputMetrics.Contains(m) || _snapshot?.State == WfmSnapshot.StateOk);
     }
 
     // Get metric value and unit
