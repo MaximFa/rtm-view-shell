@@ -48,7 +48,7 @@
                     var (value, unit) = GetMetricValue(metric);
                     var (pillBg, pillFg) = GetListPillColors(metric);
                     <div class="wfmlg">
-                        <span class="lbl" style="@GetCaptionStyle()">@GetMetricLabel(metric)</span>
+                        <span class="lbl" style="@GetListLabelStyle()">@GetMetricLabel(metric)</span>
                         @if (!string.IsNullOrEmpty(pillBg))
                         {
                             <span class="n pill" style="@GetListValueFontSize()background: @pillBg; color: @pillFg;">@value</span>
@@ -67,7 +67,7 @@
         }
 
         <!-- Note: time + window only -->
-        <div class="wfmnote" style="@GetCaptionStyle()">
+        <div class="wfmnote" style="@GetNoteStyle()">
             @FormatTime(_snapshot.AsOfUtc) · @_snapshot.WindowMin @L["Wfm_MinWindow"]
         </div>
     }
@@ -285,22 +285,23 @@
         if (ErlangMetrics.Contains(metricKey) && _snapshot.State != WfmSnapshot.StateOk)
             return ("—", GetMetricUnit(metricKey));
 
+        var unit = GetMetricUnit(metricKey);
         return metricKey switch
         {
-            "lambdaPerHour" => (FormatDouble(_snapshot.Inputs.LambdaPerHour, 1), "/hr"),
-            "aht" => (FormatDuration(_snapshot.Inputs.AhtSec), ""),
-            "nActual" => (_snapshot.Inputs.NActual.ToString(), ""),
-            "wrapIncluded" => (_snapshot.Inputs.WrapIncluded ? L["Common_Yes"] : L["Common_No"], ""),
-            "trafficA" => (FormatDouble(_snapshot.Erlang.TrafficA, 2), "Erl"),
-            "pWait" => (FormatPWait(_snapshot.Erlang.PWaitC), ""),
-            "predictedSl" => (FormatPct(_snapshot.Erlang.PredictedSlPct), ""),
-            "predictedAsa" => (FormatNullableDouble(_snapshot.Erlang.PredictedAsaSec, 1), "s"),
+            "lambdaPerHour" => (FormatDouble(_snapshot.Inputs.LambdaPerHour, 1), unit),
+            "aht" => (FormatDuration(_snapshot.Inputs.AhtSec), unit),
+            "nActual" => (_snapshot.Inputs.NActual.ToString(), unit),
+            "wrapIncluded" => (_snapshot.Inputs.WrapIncluded ? L["Common_Yes"] : L["Common_No"], unit),
+            "trafficA" => (FormatDouble(_snapshot.Erlang.TrafficA, 2), unit),
+            "pWait" => (FormatPWait(_snapshot.Erlang.PWaitC), unit),
+            "predictedSl" => (FormatPct(_snapshot.Erlang.PredictedSlPct), unit),
+            "predictedAsa" => (FormatNullableDouble(_snapshot.Erlang.PredictedAsaSec, 1), unit),
             "requiredAgents" => GetRequiredAgentsValue(),
-            "erlangB" => (FormatPct(_snapshot.Erlang.ErlangBPct), ""),
-            "occupancy" => (FormatPct(_snapshot.Erlang.OccupancyPct), ""),
-            "understaff" => (FormatPct(_snapshot.Erlang.UnderstaffPct), ""),
-            "staffVariance" => (FormatVariance(_snapshot.Erlang.StaffVariance), ""),
-            _ => ("—", "")
+            "erlangB" => (FormatPct(_snapshot.Erlang.ErlangBPct), unit),
+            "occupancy" => (FormatPct(_snapshot.Erlang.OccupancyPct), unit),
+            "understaff" => (FormatPct(_snapshot.Erlang.UnderstaffPct), unit),
+            "staffVariance" => (FormatVariance(_snapshot.Erlang.StaffVariance), unit),
+            _ => ("—", unit)
         };
     }
 
@@ -540,11 +541,17 @@
         return string.Join("; ", styles);
     }
 
-    private string GetCaptionStyle()
+    private string GetListLabelStyle()
     {
-        // Captions use config color (not affected by thresholds)
+        // List label uses config color + optional font size
         var fontSize = !string.IsNullOrEmpty(_listTitleFontSize) ? $"font-size: {_listTitleFontSize}px; " : "";
         return fontSize + (!string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "");
+    }
+
+    private string GetNoteStyle()
+    {
+        // Footer note uses config color only (font size stays at CSS default 10px)
+        return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
     }
 
     // Subdued color with correct fallback: plain color first, color-mix second.
