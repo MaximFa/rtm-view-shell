@@ -235,6 +235,23 @@ def check(path):
                 continue
             break
 
+    # --- a probe may not claim it descends from itself ----------------------------
+    # Measured cost, 2026-10-10, TWICE in one day: a search-and-replace of the commit token across
+    # the whole file also hit the "SHAPE FROM"/"BASED ON" line, so the new probe named ITSELF as its
+    # own predecessor. The provenance line is the one thing a reader uses to find what the
+    # expectations were inherited from; a self-reference destroys exactly that. Attention did not
+    # catch it the second time either, which is why it is a gate and not a note.
+    stem = os.path.basename(path)
+    for line_no, line in enumerate(txt.splitlines(), 1):
+        if not re.search(r'(?i)(SHAPE\s+FROM|BASED\s+ON)', line):
+            continue
+        if stem in line:
+            faults.append("line %d: the provenance line names THIS file (%s) as its own "
+                          "predecessor - a search-and-replace across the file hit it. Name the "
+                          "probe it was actually built from, or a reader cannot find where the "
+                          "expectations came from" % (line_no, stem))
+        break
+
     # --- a probe that WRITES to production must read the bus first ----------------
     # Measured cost, 2026-10-10: the coordinator revoked the blessing at 10:15Z after the operator
     # said "one rollout, not piecemeal". I had read the blessing at 09:53Z and never re-read the
