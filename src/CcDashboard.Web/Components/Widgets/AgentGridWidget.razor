@@ -1407,8 +1407,10 @@
     {
         var color = !string.IsNullOrEmpty(EffectiveFontColor) ? EffectiveFontColor : "var(--wb-muted)";
         var headerFs = !string.IsNullOrEmpty(_headerFontSize) ? _headerFontSize : _fontSize;
-        var fs = ResolveFontSizePx(headerFs);
-        return $"white-space: pre-line; overflow-wrap: normal; vertical-align: top; text-transform: none; color: {color}; font-size: {fs};";
+        var style = $"white-space: pre-line; overflow-wrap: normal; vertical-align: top; text-transform: none; color: {color}";
+        if (!string.IsNullOrEmpty(headerFs))
+            style += $"; font-size: {ResolveFontSizePx(headerFs)}";
+        return style;
     }
 
     private string GetFilterButtonStyle(bool hasFilter)
