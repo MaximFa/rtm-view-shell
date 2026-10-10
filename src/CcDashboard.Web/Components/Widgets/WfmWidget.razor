@@ -32,8 +32,7 @@
             @foreach (var tileMetric in _tileMetrics)
             {
                 var (value, unit) = GetMetricValue(tileMetric);
-                var tileClass = GetTileCssClass(tileMetric);
-                <div class="wfmcell @tileClass">
+                <div class="wfmcell" style="@GetTileBackgroundStyle(tileMetric)">
                     <div class="k" style="@GetCaptionStyle()">@GetMetricLabel(tileMetric)</div>
                     <div class="v" style="@GetTileValueStyle(tileMetric)">@value@(!string.IsNullOrEmpty(unit) ? $" {unit}" : "")</div>
                 </div>
@@ -357,6 +356,8 @@
     }
 
     // Apply tile threshold rules and get matching rule
+    // Order: configured rules -> server band -> nothing
+    // Seeded defaults stay in modal only (starting content), not in render path
     private ThresholdRule? GetMatchingTileThreshold(string metricKey)
     {
         var value = GetMetricNumericValue(metricKey);
@@ -374,19 +375,7 @@
             }
         }
 
-        // Fall back to defaults for the three RAG metrics
-        if (DefaultTileThresholds.TryGetValue(metricKey, out var defaults))
-        {
-            foreach (var rule in defaults)
-            {
-                var from = ParseThresholdValue(rule.From, double.MinValue);
-                var to = ParseThresholdValue(rule.To, double.MaxValue);
-                if (value >= from && value <= to)
-                    return rule;
-            }
-        }
-
-        // Final fallback: synthesize rule from server RAG band (covers gaps between seeded ranges)
+        // Fall back to server RAG band (authoritative, respects TenantSettings.WfmSlTargetPct)
         if (_snapshot?.Rag.TryGetValue(metricKey, out var band) == true)
         {
             return band switch
@@ -410,20 +399,16 @@
         return defaultValue;
     }
 
-    // Get CSS class for tile based on threshold match
-    private string GetTileCssClass(string metricKey)
+    // Get inline background style for tile (applies rule.BackgroundColor verbatim)
+    // Handles uppercase hex from palette, transparent, and any valid CSS colour
+    private string GetTileBackgroundStyle(string metricKey)
     {
         var rule = GetMatchingTileThreshold(metricKey);
-        if (rule is null) return "";
+        if (rule is null || string.IsNullOrEmpty(rule.BackgroundColor))
+            return "";
 
-        // Map background colors to CSS classes
-        return rule.BackgroundColor switch
-        {
-            "#dcfce7" => "ok",    // green background
-            "#fef3c7" => "warn",  // amber background
-            "#fee2e2" => "bad",   // red background
-            _ => ""
-        };
+        // "transparent" is a valid choice, not empty
+        return $"background-color: {rule.BackgroundColor};";
     }
 
     // Apply list threshold rules and get matching rule
