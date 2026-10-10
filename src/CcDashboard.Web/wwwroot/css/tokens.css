@@ -88,8 +88,16 @@
   --thr-null-badge:    #E4E3E0;
 
   /* ── Typography — Enterprise readable sizes ────────────────────────────── */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* The first face is the choice; the rest are fallbacks if it's missing.
+     Fallbacks must cover Hebrew + Cyrillic + Latin (David/Gisha/Miriam have no Cyrillic). */
+  --font-family: 'Segoe UI', Arial, Tahoma, Verdana, Calibri, 'Microsoft Sans Serif',
+                 system-ui, sans-serif,
+                 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   --font-mono: 'SF Mono', 'Consolas', 'Liberation Mono', Menlo, monospace;
+
+  /* Bootstrap font overrides — point at our token so ONE change applies everywhere */
+  --bs-font-sans-serif: var(--font-family);
+  --bs-body-font-family: var(--font-family);
 
   --text-xs:    0.75rem;    /* 12px — captions only */
   --text-sm:    0.8125rem;  /* 13px — secondary text */
