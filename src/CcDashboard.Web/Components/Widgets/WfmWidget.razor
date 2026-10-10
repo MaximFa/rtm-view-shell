@@ -97,13 +97,7 @@
         "understaff", "staffVariance"
     };
 
-    // Input metrics: always visible (raw inputs, no Erlang required)
-    private static readonly HashSet<string> InputMetrics = new(StringComparer.Ordinal)
-    {
-        "lambdaPerHour", "aht", "nActual", "wrapIncluded"
-    };
-
-    // Erlang metrics: visible only when _snapshot.State == WfmSnapshot.StateOk
+    // Erlang metrics: show "—" when _snapshot.State != WfmSnapshot.StateOk
     private static readonly HashSet<string> ErlangMetrics = new(StringComparer.Ordinal)
     {
         "trafficA", "pWait", "predictedSl", "predictedAsa", "requiredAgents",
@@ -269,17 +263,21 @@
         }
     }
 
-    // Get visible list metrics based on snapshot state
+    // Get visible list metrics — all ticked metrics, always
     private IEnumerable<string> GetVisibleListMetrics()
     {
-        return _listMetrics.Where(m =>
-            InputMetrics.Contains(m) || _snapshot?.State == WfmSnapshot.StateOk);
+        return _listMetrics;
     }
 
     // Get metric value and unit
     private (string value, string unit) GetMetricValue(string metricKey)
     {
         if (_snapshot is null) return ("—", "");
+
+        // Input metrics: always show (they're raw inputs, not Erlang-derived)
+        // Erlang metrics: show "—" when state is not OK
+        if (ErlangMetrics.Contains(metricKey) && _snapshot.State != WfmSnapshot.StateOk)
+            return ("—", GetMetricUnit(metricKey));
 
         return metricKey switch
         {
@@ -299,6 +297,15 @@
             _ => ("—", "")
         };
     }
+
+    // Get unit suffix for a metric (used when showing "—" placeholder)
+    private static string GetMetricUnit(string metricKey) => metricKey switch
+    {
+        "lambdaPerHour" => "/hr",
+        "trafficA" => "Erl",
+        "predictedAsa" => "s",
+        _ => ""
+    };
 
     private (string value, string unit) GetRequiredAgentsValue()
     {
