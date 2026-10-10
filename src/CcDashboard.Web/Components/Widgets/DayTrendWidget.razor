@@ -1,4 +1,4 @@
-﻿@using CcDashboard.Application.Queries.Widgets
+@using CcDashboard.Application.Queries.Widgets
 @using CcDashboard.Application.Commands.Widgets
 @using CcDashboard.Application.Queries.Configuration
 @using CcDashboard.Contracts.DTOs.Configuration
@@ -17,7 +17,7 @@
 @inject ILogger<DayTrendWidget> Logger
 @inject IDbContextFactory<AppDbContext> AppDbFactory
 
-<div class="daytrend-widget h-100" style="@GetWidgetStyle()">
+<div class="daytrend-widget h-100 d-flex flex-column" style="@GetWidgetStyle()">
     @if (_loading)
     {
         <div class="d-flex align-items-center justify-content-center h-100" aria-busy="true">
@@ -51,9 +51,23 @@
     }
     else
     {
-        <div class="chart-container" style="height: calc(100% - 24px);">
+        <div class="dt-chart-container flex-grow-1">
             <canvas id="@_chartId"></canvas>
         </div>
+        @if (_showLegend && _legendItems.Count > 0)
+        {
+            <div class="dt-legend" style="color: @EffectiveFontColor;">
+                @foreach (var item in _legendItems)
+                {
+                    <div class="dt-lg @(item.Hidden ? "dt-lg-hidden" : "")"
+                         @onclick="() => ToggleLegendItem(item.Index)"
+                         style="cursor: pointer;">
+                        <i style="background: @item.Color; @(item.IsDashed ? "background: repeating-linear-gradient(90deg, " + item.Color + " 0, " + item.Color + " 3px, transparent 3px, transparent 6px);" : "")"></i>
+                        <span class="dt-lg-label">@item.Label</span>
+                    </div>
+                }
+            </div>
+        }
         <div class="text-end small pe-2 opacity-75" style="@GetFontStyle()">
             @L["Widget_LastUpdated"]: @_lastUpdate.ToString("HH:mm:ss")
         </div>
@@ -249,6 +263,11 @@
     private int _lastBusinessUnitId;
     private int _lastIntervalMinutes;
 
+    // Markup legend state
+    private record LegendItem(int Index, string Label, string Color, bool Hidden, bool IsDashed);
+    private List<LegendItem> _legendItems = new();
+    private HashSet<int> _hiddenDatasets = new();
+
     private static readonly HashSet<string> DefaultEnabledInteraction = new()
     {
         "interaction.incoming_calls",
@@ -411,6 +430,8 @@
             _isNoQueues = result.IsNoQueues;
             _intervals = result.Intervals.ToList();
             _lastUpdate = DateTime.Now;
+            // Data update resets hidden state
+            _hiddenDatasets.Clear();
         }
         catch (Exception ex)
         {
@@ -433,6 +454,10 @@
         var labels = _intervals.Select(i => i.IntervalStart.ToString("HH:mm")).ToArray();
         var datasets = new List<object>();
 
+        // Build legend items alongside datasets
+        _legendItems = new List<LegendItem>();
+        var datasetIndex = 0;
+
         // Add enabled interaction metrics
         foreach (var metric in _metrics.Where(m => m.Enabled))
         {
@@ -449,6 +474,15 @@
                 isAgentMetric = false,
                 isTimeMetric
             });
+
+            _legendItems.Add(new LegendItem(
+                datasetIndex,
+                GetDisplayLabel(metric),
+                metric.Color,
+                _hiddenDatasets.Contains(datasetIndex),
+                false  // not dashed
+            ));
+            datasetIndex++;
         }
 
         // Add enabled agent metrics
@@ -473,14 +507,24 @@
                 isAgentMetric = true,
                 isTimeMetric
             });
+
+            _legendItems.Add(new LegendItem(
+                datasetIndex,
+                GetDisplayLabel(metric),
+                metric.Color,
+                _hiddenDatasets.Contains(datasetIndex),
+                true  // dashed for agent metrics
+            ));
+            datasetIndex++;
         }
 
         var options = new
         {
             chartType = EffectiveChartType,
             showDataLabels = _showDataLabels,
-            showLegend = _showLegend,
-            fontColor = EffectiveFontColor
+            showLegend = false,  // Always hide native legend — we use markup
+            fontColor = EffectiveFontColor,
+            hiddenDatasets = _hiddenDatasets.ToArray()
         };
 
         Logger.LogInformation("DayTrendWidget: Calling JS with {DatasetCount} datasets, chartId={ChartId}", datasets.Count, _chartId);
@@ -494,6 +538,31 @@
         {
             Logger.LogError(ex, "DayTrendWidget: JS render failed");
         }
+    }
+
+    private async Task ToggleLegendItem(int datasetIndex)
+    {
+        // Toggle hidden state
+        if (_hiddenDatasets.Contains(datasetIndex))
+            _hiddenDatasets.Remove(datasetIndex);
+        else
+            _hiddenDatasets.Add(datasetIndex);
+
+        // Update legend item
+        _legendItems = _legendItems.Select(item =>
+            item.Index == datasetIndex ? item with { Hidden = _hiddenDatasets.Contains(datasetIndex) } : item
+        ).ToList();
+
+        try
+        {
+            await JS.InvokeVoidAsync("dayTrendChart.toggleDataset", _chartId, datasetIndex);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to toggle dataset visibility");
+        }
+
+        StateHasChanged();
     }
 
     private void StartAutoRefresh()
@@ -648,6 +717,7 @@
         _viewIntervalMinutes = _intervalMinutes;
         _viewChartType = _chartType;
         _showViewConfig = false;
+        _hiddenDatasets.Clear();
         ParseConfig();
         await LoadMetricsFromDbAsync();
         await LoadDataAsync();
@@ -702,6 +772,7 @@
         _localAgentMetricColors = _agentMetrics.ToDictionary(m => m.MetricId, m => m.Color);
         _localChartType = _viewChartType;
         _localIntervalMinutes = _viewIntervalMinutes;
+        _hiddenDatasets.Clear();
 
         _showViewConfig = false;
         await LoadDataAsync();

@@ -8,3 +8,56 @@
     align-items: center;
     justify-content: center;
 }
+
+/* Chart container */
+.dt-chart-container {
+    min-height: 0;
+    position: relative;
+}
+
+/* Legend container — horizontal wrap layout */
+.dt-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 6px 8px;
+    min-height: 0;
+}
+
+/* Legend item */
+.dt-lg {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    transition: opacity 0.15s ease;
+    white-space: nowrap;
+}
+
+.dt-lg:hover {
+    opacity: 0.75;
+}
+
+/* Hidden dataset — struck-through indication */
+.dt-lg-hidden {
+    opacity: 0.45;
+}
+
+.dt-lg-hidden .dt-lg-label {
+    text-decoration: line-through;
+}
+
+/* Colour swatch */
+.dt-lg i {
+    width: 12px;
+    height: 3px;
+    border-radius: 1px;
+    flex: 0 0 12px;
+}
+
+/* Label text */
+.dt-lg-label {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

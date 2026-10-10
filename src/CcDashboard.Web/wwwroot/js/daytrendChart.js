@@ -1,4 +1,5 @@
 // DayTrend Chart — Chart.js interop for Blazor
+// UNIT14: legend moved to markup
 window.dayTrendChart = {
     _charts: {},
     _pendingRenders: {},  // Track pending retry timers by elementId
@@ -111,16 +112,8 @@ window.dayTrendChart = {
                 intersect: true
             },
             plugins: {
-                legend: {
-                    display: options?.showLegend ?? true,
-                    position: 'bottom',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 12,
-                        font: { size: 11, family: this._getPageFont() },
-                        color: options?.fontColor || undefined
-                    }
-                },
+                // Legend always hidden — we use markup legend
+                legend: { display: false },
                 tooltip: {
                     enabled: true,
                     callbacks: {
@@ -222,11 +215,33 @@ window.dayTrendChart = {
             });
         }
 
-        this._charts[elementId] = new Chart(ctx, {
+        const chart = new Chart(ctx, {
             type: chartType,
             data: { labels, datasets: configuredDatasets },
             options: chartOptions
         });
+
+        // Apply hidden state after chart creation
+        const hiddenDatasets = options?.hiddenDatasets || [];
+        hiddenDatasets.forEach(idx => {
+            if (idx >= 0 && idx < configuredDatasets.length) {
+                chart.setDatasetVisibility(idx, false);
+            }
+        });
+        if (hiddenDatasets.length > 0) {
+            chart.update('none');
+        }
+
+        this._charts[elementId] = chart;
+    },
+
+    // Toggle dataset visibility (called from Blazor legend click)
+    toggleDataset: function (elementId, datasetIndex) {
+        const chart = this._charts[elementId];
+        if (!chart) return;
+        const currentlyVisible = chart.isDatasetVisible(datasetIndex);
+        chart.setDatasetVisibility(datasetIndex, !currentlyVisible);
+        chart.update('none');
     },
 
     // Rebuild all charts (called on scale change)
@@ -258,6 +273,14 @@ window.dayTrendChart = {
                 chart.data.datasets[idx].data = ds.data;
             }
         });
+
+        // Reset all datasets to visible on data update
+        for (let i = 0; i < chart.data.datasets.length; i++) {
+            if (!chart.isDatasetVisible(i)) {
+                chart.setDatasetVisibility(i, true);
+            }
+        }
+
         chart.update('none');
     },
 
