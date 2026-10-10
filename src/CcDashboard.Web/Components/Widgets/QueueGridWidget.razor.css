@@ -3,13 +3,14 @@
 }
 
 .queue-grid-body table th {
-    font-weight: 500;
-    font-size: 0.75rem;
+    font-weight: 600;
+    font-size: 0.75rem;    /* 12px at root=16px — reference */
     letter-spacing: 0.03em;
     border-bottom-width: 1px;
 }
 
 .queue-grid-body table td {
+    font-size: 0.8625rem;  /* 13.8px at root=16px — reference */
     vertical-align: middle;
     padding-block: 0.4rem;
 }

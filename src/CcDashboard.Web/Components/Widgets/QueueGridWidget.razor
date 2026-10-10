@@ -151,7 +151,7 @@
                                 var (thresholdBg, thresholdFg) = GetThresholdStyle(colDef.MetricId, cellValue);
                                 var hasThreshold = !string.IsNullOrEmpty(thresholdBg) || !string.IsNullOrEmpty(thresholdFg);
 
-                                <td class="text-start @(useMono ? "font-monospace" : "")">
+                                <td class="text-start @(useMono ? "wb-num" : "")">
                                     @if (hasThreshold)
                                     {
                                         <span class="threshold-badge" style="@GetBadgeStyle(thresholdBg, thresholdFg)">@cellValue</span>

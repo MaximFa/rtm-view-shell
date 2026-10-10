@@ -44,13 +44,14 @@
 .avatar-meeting { background-color: #8E24AA; }
 
 .agent-grid-body table th {
-    font-weight: 500;
-    font-size: 0.75rem;
+    font-weight: 600;
+    font-size: 0.6875rem;  /* 11px at root=16px — agent table is denser per reference */
     letter-spacing: 0.03em;
     border-bottom-width: 1px;
 }
 
 .agent-grid-body table td {
+    font-size: 0.7875rem;  /* 12.6px at root=16px — agent table is denser per reference */
     vertical-align: middle;
     padding-block: 0.4rem;
 }
