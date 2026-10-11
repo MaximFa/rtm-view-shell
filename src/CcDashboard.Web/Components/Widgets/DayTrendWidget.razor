@@ -56,7 +56,7 @@
         </div>
         @if (_showLegend && _legendItems.Count > 0)
         {
-            <div class="dt-legend" style="color: @EffectiveFontColor;">
+            <div class="dt-legend" style="color: @EffectiveFontColor; font-size: @(EffectiveFontSize)px;">
                 @foreach (var item in _legendItems)
                 {
                     <div class="dt-lg @(item.Hidden ? "dt-lg-hidden" : "")"
@@ -255,6 +255,10 @@
     private string _darkBackgroundColor = "#1e293b";
     private string _darkFontColor = "#f1f5f9";
 
+    // Font size (from widget config; 0 or null means default 11px)
+    private int _fontSize;
+    private int EffectiveFontSize => _fontSize > 0 ? _fontSize : 11;
+
     private string EffectiveBackgroundColor => DarkMode ? _darkBackgroundColor : _backgroundColor;
     private string EffectiveFontColor => DarkMode
         ? (string.IsNullOrEmpty(_darkFontColor) ? "#f1f5f9" : _darkFontColor)
@@ -363,6 +367,9 @@
         _fontColor = Config.FontColor ?? "";
         _darkBackgroundColor = Config.DarkBackgroundColor ?? "#1e293b";
         _darkFontColor = Config.DarkFontColor ?? "#f1f5f9";
+
+        // Font size (Config.FontSize is a string like "14")
+        _fontSize = int.TryParse(Config.FontSize, out var fs) ? fs : 0;
     }
 
     private async Task LoadMetricsFromDbAsync()
@@ -524,6 +531,7 @@
             showDataLabels = _showDataLabels,
             showLegend = false,  // Always hide native legend — we use markup
             fontColor = EffectiveFontColor,
+            fontSize = EffectiveFontSize,  // For axis ticks
             hiddenDatasets = _hiddenDatasets.ToArray()
         };
 

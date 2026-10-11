@@ -24,12 +24,11 @@
     min-height: 0;
 }
 
-/* Legend item */
+/* Legend item — font-size inherited from .dt-legend (set inline from widget config) */
 .dt-lg {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
     transition: opacity 0.15s ease;
     white-space: nowrap;
 }

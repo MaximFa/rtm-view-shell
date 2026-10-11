@@ -145,7 +145,7 @@ window.dayTrendChart = {
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: { font: { size: 11, family: this._getPageFont() }, color: options?.fontColor || undefined }
+                    ticks: { font: { size: options?.fontSize || 11, family: this._getPageFont() }, color: options?.fontColor || undefined }
                 },
                 y: {
                     type: 'linear',
@@ -153,7 +153,7 @@ window.dayTrendChart = {
                     position: 'left',
                     beginAtZero: true,
                     grid: { color: this._hexToRgba(options?.fontColor, 0.12) },
-                    ticks: { font: { size: 11, family: this._getPageFont() }, color: options?.fontColor || undefined }
+                    ticks: { font: { size: options?.fontSize || 11, family: this._getPageFont() }, color: options?.fontColor || undefined }
                 }
             }
         };
@@ -168,7 +168,7 @@ window.dayTrendChart = {
                 beginAtZero: true,
                 grid: { drawOnChartArea: false },
                 ticks: {
-                    font: { size: 11, family: this._getPageFont() },
+                    font: { size: options?.fontSize || 11, family: this._getPageFont() },
                     color: options?.fontColor || undefined,
                     callback: function (value) {
                         const mins = Math.floor(value / 60);
