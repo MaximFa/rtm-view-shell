@@ -486,14 +486,18 @@
 
     private string GetTitleStyle()
     {
-        // Title: when a threshold supplies a background, use a readable color
+        // Title: when a threshold supplies a measurable background, use a readable color
         // computed from fill luminance; otherwise use base config color.
+        // Transparent/default/non-hex falls back to base color (no fill to measure).
         var fs = ResolveFontSizePx(_headerFontSize);
         var result = new System.Text.StringBuilder();
 
-        if (_thresholdBgColor is not null)
+        var readableColor = _thresholdBgColor is not null
+            ? WfmWidget.ContrastHelper.ReadableColorOnFill(_thresholdBgColor)
+            : null;
+
+        if (readableColor is not null)
         {
-            var readableColor = WfmWidget.ContrastHelper.ReadableColorOnFill(_thresholdBgColor);
             result.Append($"color: {readableColor}; ");
         }
         else if (!string.IsNullOrEmpty(BaseFontColor))

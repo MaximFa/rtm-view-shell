@@ -563,12 +563,16 @@
 
         /// <summary>
         /// Returns a readable text color for the given fill, picking whichever ink has higher contrast.
+        /// Returns null if the fill is not a measurable hex color (transparent, default, rgb(), etc.).
         /// </summary>
-        public static string ReadableColorOnFill(string fillHex)
+        public static string? ReadableColorOnFill(string? fill)
         {
-            var fillLum = RelativeLuminance(ParseHex(fillHex));
-            var darkLum = RelativeLuminance(ParseHex(DarkInk));
-            var lightLum = RelativeLuminance(ParseHex(LightInk));
+            var parsed = TryParseHex(fill);
+            if (parsed is null) return null;
+
+            var fillLum = RelativeLuminance(parsed.Value);
+            var darkLum = RelativeLuminance(TryParseHex(DarkInk)!.Value);
+            var lightLum = RelativeLuminance(TryParseHex(LightInk)!.Value);
 
             var darkContrast = ContrastRatio(fillLum, darkLum);
             var lightContrast = ContrastRatio(fillLum, lightLum);
@@ -576,11 +580,23 @@
             return darkContrast >= lightContrast ? DarkInk : LightInk;
         }
 
-        private static (int r, int g, int b) ParseHex(string hex)
+        /// <summary>
+        /// Parses #RGB, #RRGGBB, RGB, RRGGBB (case-insensitive). Returns null for anything else.
+        /// </summary>
+        private static (int r, int g, int b)? TryParseHex(string? hex)
         {
+            if (string.IsNullOrEmpty(hex)) return null;
+
             hex = hex.TrimStart('#');
+            // Only accept 3 or 6 hex digits
+            if (hex.Length != 3 && hex.Length != 6) return null;
+            // Must be all hex chars
+            foreach (var c in hex)
+                if (!Uri.IsHexDigit(c)) return null;
+
             if (hex.Length == 3)
                 hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
+
             return (
                 Convert.ToInt32(hex.Substring(0, 2), 16),
                 Convert.ToInt32(hex.Substring(2, 2), 16),
@@ -608,14 +624,16 @@
 
     private string GetTileCaptionStyle(string metricKey)
     {
-        // Caption style for tiles: when a threshold supplies a background,
+        // Caption style for tiles: when a threshold supplies a measurable background,
         // use a readable color computed from fill luminance; otherwise use config color.
+        // Transparent/default/non-hex falls back to config color (no fill to measure).
         var rule = GetMatchingTileThreshold(metricKey);
         var fontSize = !string.IsNullOrEmpty(_tileTitleFontSize) ? $"font-size: {_tileTitleFontSize}px; " : "";
         if (rule is not null && !string.IsNullOrEmpty(rule.BackgroundColor))
         {
             var readableColor = ContrastHelper.ReadableColorOnFill(rule.BackgroundColor);
-            return fontSize + $"color: {readableColor};";
+            if (readableColor is not null)
+                return fontSize + $"color: {readableColor};";
         }
         return fontSize + (!string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "");
     }
