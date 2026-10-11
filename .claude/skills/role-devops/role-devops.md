@@ -629,3 +629,32 @@ python3 tools/lint_probe.py .probes/<file>.ps1      # exit 1 = не выдава
 **Предикат непрочитанного (18.09):** все заголовки ниже СВОЕЙ последней отметки `> handled ... by devops-*`,
 и ставить отметку после КАЖДОГО разбора. Прежний «от последнего адресованного мне заголовка»
 потерял семь писем подряд.
+
+- A satellite's SIZE is not a verdict in either direction. I had already learned that growth of
+  +512 B proves nothing; on 2026-10-11 I learned the mirror of it. I carried the rule "three .resx
+  in the delta, so all three satellites must GROW" from the 4634162 flight into the 2f3b426 build
+  probe, and it printed RED on a correct package: he-IL carried all four new keys and stayed at
+  exactly 77824 B, because PE alignment is 512 B and the new names and values fit inside the
+  padding the previous build already had. Fourth false size number in two days. A predicate is
+  derived not only from the delta but from WHAT IS OBSERVABLE: a rebuilt dictionary is observable
+  by its key names, its size is observable but not decisive. Print size as a note, never as a row
+  that can fail.
+- A new .cs file does not necessarily travel in the assembly the flight seems to be about.
+  ContrastInk.cs sits under src/CcDashboard.Contracts, so it compiles into Contracts.dll, not
+  web.dll. A package with a changed web.dll and an untouched Contracts.dll would pass every other
+  row and still be missing the work. Ask of every new file which assembly it lands in, and give
+  that assembly its own row with a self-tested byte search for the type name.
+- A blessing that names one revision is a gate, not a paragraph. The coordinator wrote "head
+  further along - stop", so the probe now compares the re-taken head of v4 against the blessed
+  token and refuses to clone when they differ, instead of building whatever has landed since.
+- EVERY run-box that ends in a report must copy that report to the station in the SAME box, and
+  print its size there. The operator asked why I did not, on 2026-10-11, and he was right: the
+  probe already prints the report path, so a separate transfer box is a whole round of messages
+  spent on a copy. The console verdict is never the thing I read; the file is.
+- The VERDICT block is prose too, and it inherits. On 2026-10-11 the acceptance of 2f3b426 printed
+  "served assets : True (nine present, none bumped - a guard here, not the goal)" while three
+  versions had in fact been bumped and three old ones had vanished: I rewrote the row that was the
+  point of the flight and left the summary line of the previous one. Fifth instance of the same
+  class in two days. When a predicate flips, every line that NAMES it flips with it - the section
+  heading, the row text AND the verdict line - and the check is to re-read the printed verdict
+  against the printed rows, not against memory.
