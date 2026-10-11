@@ -271,14 +271,19 @@
     private bool? _prevShowValueLabels;
     // Track connection state to detect canvas replacement
     private ConnectionState _prevConnectionState = ConnectionState.Connecting;
+    // Prerender guard: do not connect until after firstRender (SSR prerender cycling)
+    private bool _afterFirstRender;
+    // Race guard: set synchronously before first await in ConnectAsync
+    private bool _connecting;
 
     protected override async Task OnParametersSetAsync()
     {
         ApplyConfig();
         var currentGridId = RtsGridId;
 
-        // Connect when config is ready but firstRender already fired (race condition fix)
-        if (_gridHandler is null && currentGridId != 0 && _businessUnitId != 0)
+        // Connect when config is ready but firstRender already fired.
+        // Require _afterFirstRender to avoid SSR prerender cycling (prerender has no DOM).
+        if (_afterFirstRender && _gridHandler is null && !_connecting && currentGridId != 0 && _businessUnitId != 0)
         {
             await ConnectAsync();
         }
@@ -302,7 +307,10 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
+        {
+            _afterFirstRender = true;
             await ConnectAsync();
+        }
 
         // Detect canvas replacement: transition to Connected means a new canvas element
         // (canvas only exists in DOM when _connectionState == Connected)
@@ -388,12 +396,15 @@
             Logger.LogWarning("AgentStateDistributionWidget: RtsGridId or BusinessUnitId is 0, skipping connection");
             return;
         }
-        if (_gridHandler is not null)
+        // Guard: already subscribed OR another call is in progress (closes race window)
+        if (_gridHandler is not null || _connecting)
         {
-            Logger.LogDebug("AgentStateDistributionWidget: already subscribed to grid {GridId}, skipping duplicate ConnectAsync", RtsGridId);
+            Logger.LogDebug("AgentStateDistributionWidget: already subscribed or connecting to grid {GridId}, skipping", RtsGridId);
             return;
         }
 
+        // Set SYNCHRONOUSLY before any await to close the race window
+        _connecting = true;
         _connectionState = ConnectionState.Connecting;
         Logger.LogInformation("AgentStateDistributionWidget: Subscribing to GridId {GridId}", RtsGridId);
 
@@ -439,6 +450,10 @@
         {
             Logger.LogError(ex, "AgentStateDistributionWidget: Failed to subscribe. Error: {Message}", ex.Message);
             _connectionState = ConnectionState.Failed;
+        }
+        finally
+        {
+            _connecting = false;
         }
     }
 
