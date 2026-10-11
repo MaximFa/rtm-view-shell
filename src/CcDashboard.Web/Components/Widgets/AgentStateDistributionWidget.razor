@@ -276,7 +276,12 @@
         ApplyConfig();
         var currentGridId = RtsGridId;
 
-        // Initial connect is handled in OnAfterRenderAsync(firstRender) to avoid SSR pre-render cycling.
+        // Connect when config is ready but firstRender already fired (race condition fix)
+        if (_gridHandler is null && currentGridId != 0 && _businessUnitId != 0)
+        {
+            await ConnectAsync();
+        }
+
         // Track GridId for reconnect detection.
         if (currentGridId != 0 && _previousGridId == 0)
         {
