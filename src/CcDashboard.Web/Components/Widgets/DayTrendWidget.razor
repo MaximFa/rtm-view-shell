@@ -272,6 +272,10 @@
     private List<LegendItem> _legendItems = new();
     private HashSet<int> _hiddenDatasets = new();
 
+    // Guard against infinite render loop + legend change detection
+    private bool _chartRendered;
+    private string _prevLegendSignature = "";
+
     private static readonly HashSet<string> DefaultEnabledInteraction = new()
     {
         "interaction.incoming_calls",
@@ -339,9 +343,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender && !_loading && !_isNoQueues && _error is null && _intervals.Count > 0)
+        if (!firstRender && !_loading && !_isNoQueues && _error is null && _intervals.Count > 0 && !_chartRendered)
         {
             await RenderChartAsync();
+            _chartRendered = true;
         }
         if (_showViewConfig)
         {
@@ -437,8 +442,9 @@
             _isNoQueues = result.IsNoQueues;
             _intervals = result.Intervals.ToList();
             _lastUpdate = DateTime.Now;
-            // Data update resets hidden state
+            // Data update resets hidden state and triggers re-render
             _hiddenDatasets.Clear();
+            _chartRendered = false;
         }
         catch (Exception ex)
         {
@@ -545,6 +551,14 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "DayTrendWidget: JS render failed");
+        }
+
+        // Re-render if legend changed so markup catches up
+        var sig = string.Join("|", _legendItems.Select(l => $"{l.Index}:{l.Label}:{l.Color}:{l.Hidden}"));
+        if (sig != _prevLegendSignature)
+        {
+            _prevLegendSignature = sig;
+            StateHasChanged();
         }
     }
 

@@ -200,6 +200,7 @@
     private record LegendItem(int Index, string Label, int Value, int Percent, string Color, bool Hidden);
     private List<LegendItem> _legendItems = new();
     private HashSet<int> _hiddenIndices = new();
+    private string _prevLegendSignature = "";
 
     private enum ConnectionState { Connecting, Connected, Reconnecting, Failed }
 
@@ -506,6 +507,14 @@
         catch (Exception ex)
         {
             Logger.LogDebug(ex, "Failed to render chart");
+        }
+
+        // Re-render if legend changed so markup catches up
+        var sig = string.Join("|", _legendItems.Select(l => $"{l.Index}:{l.Label}:{l.Value}:{l.Percent}:{l.Hidden}"));
+        if (sig != _prevLegendSignature)
+        {
+            _prevLegendSignature = sig;
+            StateHasChanged();
         }
     }
 
