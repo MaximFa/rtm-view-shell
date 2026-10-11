@@ -484,22 +484,17 @@
 
     private static string GetPartAlignStyle(string align) => $"text-align: {align};";
 
-    // Subdued color with correct fallback: plain color first, color-mix second.
-    // A browser that supports color-mix uses the 75% mix; one that doesn't uses the plain color.
-    private static string SubduedColorDeclarations(string color) =>
-        $"color: {color}; color: color-mix(in srgb, {color} 75%, transparent);";
-
     private string GetTitleStyle()
     {
-        // Title: when a threshold supplies a background, use the threshold's FontColor
-        // (subdued via color-mix with fallback); otherwise use base config color.
+        // Title: when a threshold supplies a background, use a readable color
+        // computed from fill luminance; otherwise use base config color.
         var fs = ResolveFontSizePx(_headerFontSize);
         var result = new System.Text.StringBuilder();
 
-        if (_thresholdBgColor is not null && _thresholdFontColor is not null)
+        if (_thresholdBgColor is not null)
         {
-            result.Append(SubduedColorDeclarations(_thresholdFontColor));
-            result.Append(' ');
+            var readableColor = WfmWidget.ContrastHelper.ReadableColorOnFill(_thresholdBgColor);
+            result.Append($"color: {readableColor}; ");
         }
         else if (!string.IsNullOrEmpty(BaseFontColor))
         {
@@ -528,16 +523,10 @@
 
     private string GetTargetLabelStyle()
     {
-        // Target label: when a threshold supplies a background, use the threshold's FontColor
-        // (subdued via color-mix with fallback); otherwise use base config color with opacity.
+        // Target label: use base config color with opacity (label on widget background).
         var result = new System.Text.StringBuilder();
 
-        if (_thresholdBgColor is not null && _thresholdFontColor is not null)
-        {
-            result.Append(SubduedColorDeclarations(_thresholdFontColor));
-            result.Append(" opacity: 0.6; ");
-        }
-        else if (!string.IsNullOrEmpty(BaseFontColor))
+        if (!string.IsNullOrEmpty(BaseFontColor))
         {
             result.Append($"color: {BaseFontColor}; opacity: 0.6; ");
         }
