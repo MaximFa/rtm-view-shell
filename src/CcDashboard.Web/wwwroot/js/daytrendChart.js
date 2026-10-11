@@ -4,6 +4,7 @@ window.dayTrendChart = {
     _charts: {},
     _pendingRenders: {},  // Track pending retry timers by elementId
     _lastRenderArgs: {},  // Store last render args for rebuild
+    _observers: {},       // ResizeObservers per elementId
 
     // Compute canvas density: max(2, dpr) * max(1, s), ceiling 4
     // s = viewer scale (< 1 when compressed to fit; 1 in actual-size mode)
@@ -233,6 +234,40 @@ window.dayTrendChart = {
         }
 
         this._charts[elementId] = chart;
+
+        // Observe container for resize — calls chart.resize() when container size changes.
+        // Debounced to avoid firing on every drag frame.
+        this._observeContainer(elementId, canvas);
+    },
+
+    // Set up ResizeObserver on the chart's container
+    _observeContainer: function (elementId, canvas) {
+        // Disconnect any existing observer
+        if (this._observers[elementId]) {
+            this._observers[elementId].disconnect();
+            delete this._observers[elementId];
+        }
+
+        const container = canvas.parentElement;
+        if (!container) return;
+
+        const chart = this._charts[elementId];
+        if (!chart) return;
+
+        let resizeTimeout = null;
+        const observer = new ResizeObserver(() => {
+            // Debounce: coalesce rapid resize events (e.g., during drag)
+            if (resizeTimeout) clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                const c = this._charts[elementId];
+                if (c && document.body.contains(canvas)) {
+                    c.resize();
+                }
+            }, 50);
+        });
+
+        observer.observe(container);
+        this._observers[elementId] = observer;
     },
 
     // Toggle dataset visibility (called from Blazor legend click)
@@ -287,6 +322,11 @@ window.dayTrendChart = {
     destroy: function (elementId) {
         this._cancelPending(elementId);
         delete this._lastRenderArgs[elementId];
+        // Disconnect ResizeObserver to prevent leaks
+        if (this._observers[elementId]) {
+            this._observers[elementId].disconnect();
+            delete this._observers[elementId];
+        }
         if (this._charts[elementId]) {
             this._charts[elementId].destroy();
             delete this._charts[elementId];
