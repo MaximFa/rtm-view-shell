@@ -17,7 +17,7 @@ window.agentStateDistributionChart = {
             const match = transform && transform.match(/scale\(([\d.]+)\)/);
             if (match) s = parseFloat(match[1]) || 1;
         }
-        const raw = Math.max(2, dpr) * Math.max(1, s);
+        const raw = Math.max(3, dpr) * Math.max(1, s);
         return Math.min(raw, 4);  // ceiling 4 -> ~10.6 MB on 853x345
     },
 
