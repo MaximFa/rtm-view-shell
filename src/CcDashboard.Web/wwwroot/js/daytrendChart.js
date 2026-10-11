@@ -6,19 +6,24 @@ window.dayTrendChart = {
     _lastRenderArgs: {},  // Store last render args for rebuild
     _observers: {},       // ResizeObservers per elementId
 
-    // Compute canvas density: max(2, dpr) * max(1, s), ceiling 4
-    // s = viewer scale (< 1 when compressed to fit; 1 in actual-size mode)
-    _getDensity: function () {
-        const dpr = window.devicePixelRatio || 1;
-        let s = 1;
-        // Read current viewer scale from transform if present
-        if (window.viewerScale && window.viewerScale.designEl) {
+    // Compute canvas density. Compensates for compression, not for nothing.
+    // s = viewer scale (< 1 when compressed to fit; >= 1 in actual-size / zoom).
+    // IDENTICAL FORMULA in agentStateDistributionChart.js — keep them in sync.
+    _getDensity: function (dprOverride, sOverride) {
+        const dpr = dprOverride ?? (window.devicePixelRatio || 1);
+        let s = sOverride ?? 1;
+        // Read current viewer scale from transform if present (when not overridden)
+        if (sOverride === undefined && window.viewerScale && window.viewerScale.designEl) {
             const transform = window.viewerScale.designEl.style.transform;
             const match = transform && transform.match(/scale\(([\d.]+)\)/);
             if (match) s = parseFloat(match[1]) || 1;
         }
-        const raw = Math.max(2, dpr) * Math.max(1, s);
-        return Math.min(raw, 4);  // ceiling 4 -> ~10.6 MB on 853x345
+        // No compression (s >= 1): density = dpr — pixel for pixel, no downscale.
+        // Compressed (s < 1): density = dpr / s — the drawing matches the physical
+        // pixels the smaller CSS box occupies.
+        const raw = s >= 1 ? dpr : dpr / s;
+        // Floor 1, ceiling 4
+        return Math.max(1, Math.min(raw, 4));
     },
 
     // Read page font from --font-family token
