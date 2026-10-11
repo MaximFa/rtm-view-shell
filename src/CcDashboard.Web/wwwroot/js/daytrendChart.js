@@ -6,7 +6,7 @@ window.dayTrendChart = {
     _lastRenderArgs: {},  // Store last render args for rebuild
     _observers: {},       // ResizeObservers per elementId
 
-    // Compute canvas density. Compensates for compression, not for nothing.
+    // Compute canvas density: max(2, dpr) * max(1, s), ceiling 4.
     // s = viewer scale (< 1 when compressed to fit; >= 1 in actual-size / zoom).
     // IDENTICAL FORMULA in agentStateDistributionChart.js — keep them in sync.
     _getDensity: function (dprOverride, sOverride) {
@@ -18,12 +18,8 @@ window.dayTrendChart = {
             const match = transform && transform.match(/scale\(([\d.]+)\)/);
             if (match) s = parseFloat(match[1]) || 1;
         }
-        // No compression (s >= 1): density = dpr — pixel for pixel, no downscale.
-        // Compressed (s < 1): density = dpr / s — the drawing matches the physical
-        // pixels the smaller CSS box occupies.
-        const raw = s >= 1 ? dpr : dpr / s;
-        // Floor 1, ceiling 4
-        return Math.max(1, Math.min(raw, 4));
+        const raw = Math.max(2, dpr) * Math.max(1, s);
+        return Math.min(raw, 4);  // ceiling 4 -> ~10.6 MB on 853x345
     },
 
     // Read page font from --font-family token
