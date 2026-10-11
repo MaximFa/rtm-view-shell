@@ -3,6 +3,7 @@
 @using CcDashboard.Application.Interfaces
 @using MediatR
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
+@using CcDashboard.Contracts.Common
 @using Microsoft.Extensions.Localization
 @using Microsoft.Extensions.Logging
 @implements IAsyncDisposable
@@ -493,7 +494,7 @@
         var result = new System.Text.StringBuilder();
 
         var readableColor = _thresholdBgColor is not null
-            ? WfmWidget.ContrastHelper.ReadableColorOnFill(_thresholdBgColor)
+            ? ContrastInk.ReadableColorOnFill(_thresholdBgColor)
             : null;
 
         if (readableColor is not null)

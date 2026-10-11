@@ -1,5 +1,6 @@
 @using CcDashboard.Application.Interfaces
 @using CcDashboard.Application.Wfm
+@using CcDashboard.Contracts.Common
 @using CcDashboard.Domain.Interfaces
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using Microsoft.Extensions.Localization
@@ -554,74 +555,6 @@
         return !string.IsNullOrEmpty(_fontColor) ? $"color: {_fontColor};" : "";
     }
 
-    // WCAG contrast helper: picks dark or light ink for readable text on any fill.
-    // Dark ink: #1f2937, Light ink: #f9fafb
-    internal static class ContrastHelper
-    {
-        private const string DarkInk = "#1f2937";
-        private const string LightInk = "#f9fafb";
-
-        /// <summary>
-        /// Returns a readable text color for the given fill, picking whichever ink has higher contrast.
-        /// Returns null if the fill is not a measurable hex color (transparent, default, rgb(), etc.).
-        /// </summary>
-        public static string? ReadableColorOnFill(string? fill)
-        {
-            var parsed = TryParseHex(fill);
-            if (parsed is null) return null;
-
-            var fillLum = RelativeLuminance(parsed.Value);
-            var darkLum = RelativeLuminance(TryParseHex(DarkInk)!.Value);
-            var lightLum = RelativeLuminance(TryParseHex(LightInk)!.Value);
-
-            var darkContrast = ContrastRatio(fillLum, darkLum);
-            var lightContrast = ContrastRatio(fillLum, lightLum);
-
-            return darkContrast >= lightContrast ? DarkInk : LightInk;
-        }
-
-        /// <summary>
-        /// Parses #RGB, #RRGGBB, RGB, RRGGBB (case-insensitive). Returns null for anything else.
-        /// </summary>
-        private static (int r, int g, int b)? TryParseHex(string? hex)
-        {
-            if (string.IsNullOrEmpty(hex)) return null;
-
-            hex = hex.TrimStart('#');
-            // Only accept 3 or 6 hex digits
-            if (hex.Length != 3 && hex.Length != 6) return null;
-            // Must be all hex chars
-            foreach (var c in hex)
-                if (!Uri.IsHexDigit(c)) return null;
-
-            if (hex.Length == 3)
-                hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
-
-            return (
-                Convert.ToInt32(hex.Substring(0, 2), 16),
-                Convert.ToInt32(hex.Substring(2, 2), 16),
-                Convert.ToInt32(hex.Substring(4, 2), 16)
-            );
-        }
-
-        private static double RelativeLuminance((int r, int g, int b) c)
-        {
-            double Linearize(int v)
-            {
-                var s = v / 255.0;
-                return s <= 0.04045 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
-            }
-            return 0.2126 * Linearize(c.r) + 0.7152 * Linearize(c.g) + 0.0722 * Linearize(c.b);
-        }
-
-        private static double ContrastRatio(double l1, double l2)
-        {
-            var lighter = Math.Max(l1, l2);
-            var darker = Math.Min(l1, l2);
-            return (lighter + 0.05) / (darker + 0.05);
-        }
-    }
-
     private string GetTileCaptionStyle(string metricKey)
     {
         // Caption style for tiles: when a threshold supplies a measurable background,
@@ -631,7 +564,7 @@
         var fontSize = !string.IsNullOrEmpty(_tileTitleFontSize) ? $"font-size: {_tileTitleFontSize}px; " : "";
         if (rule is not null && !string.IsNullOrEmpty(rule.BackgroundColor))
         {
-            var readableColor = ContrastHelper.ReadableColorOnFill(rule.BackgroundColor);
+            var readableColor = ContrastInk.ReadableColorOnFill(rule.BackgroundColor);
             if (readableColor is not null)
                 return fontSize + $"color: {readableColor};";
         }
