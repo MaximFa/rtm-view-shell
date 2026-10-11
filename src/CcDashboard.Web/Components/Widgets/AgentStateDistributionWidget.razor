@@ -531,22 +531,21 @@
 
     private List<object> BuildSegments()
     {
-        var segments = new List<object>();
-        var total = ParseInt(_cellValues.GetValueOrDefault("QueueLoginDataNumLoggedUsers"));
-        _totalAgents = total;
-
         // CC-009: Build segments based on distribution mode
+        // _totalAgents is set by the mode-specific method from the sum of drawn segments.
+        // The centre number must agree with the ring — it counts what the snapshot reports,
+        // NOT what is currently visible (legend-hidden segments do not change the centre).
         if (_distributionMode == "state")
         {
-            return BuildStateSegments(total);
+            return BuildStateSegments();
         }
         else
         {
-            return BuildGroupSegments(total);
+            return BuildGroupSegments();
         }
     }
 
-    private List<object> BuildGroupSegments(int total)
+    private List<object> BuildGroupSegments()
     {
         var segments = new List<object>();
 
@@ -568,10 +567,13 @@
             segments.Add(new { label = "Training", value = training, color = GetSegmentColor("TRAINING") });
 
             var sumFive = available + onPhone + breakCount + paperwork + training;
-            var other = Math.Max(0, total - sumFive);
-            if (other > 0)
-                segments.Add(new { label = "Other", value = other, color = GetSegmentColor("OTHER") });
+            // "Other" sizing: use the total metric only if present AND greater than the segment sum
+            var otherCount = ComputeOtherSlice(sumFive);
+            if (otherCount > 0)
+                segments.Add(new { label = "Other", value = otherCount, color = GetSegmentColor("OTHER") });
 
+            // Centre = sum of drawn segments (including Other if present)
+            _totalAgents = sumFive + otherCount;
             return segments;
         }
 
@@ -590,17 +592,19 @@
             segments.Add(new { label = displayName, value, color });
         }
 
-        // "Other" = total - sum
-        var otherCount = Math.Max(0, total - sumFromMetrics);
-        if (otherCount > 0)
+        // "Other" sizing: use the total metric only if present AND greater than the segment sum
+        var other = ComputeOtherSlice(sumFromMetrics);
+        if (other > 0)
         {
-            segments.Add(new { label = "Other", value = otherCount, color = GetSegmentColor("OTHER") });
+            segments.Add(new { label = "Other", value = other, color = GetSegmentColor("OTHER") });
         }
 
+        // Centre = sum of drawn segments (including Other if present)
+        _totalAgents = sumFromMetrics + other;
         return segments;
     }
 
-    private List<object> BuildStateSegments(int total)
+    private List<object> BuildStateSegments()
     {
         var segments = new List<object>();
 
@@ -612,6 +616,7 @@
             if (_definitions.Count == 0)
             {
                 // No definitions, no metrics = empty chart
+                _totalAgents = 0;
                 return segments;
             }
 
@@ -627,12 +632,15 @@
                 segments.Add(new { label = displayName, value, color });
             }
 
-            var otherVal = Math.Max(0, total - sumFromDefs);
+            // "Other" sizing: use the total metric only if present AND greater than the segment sum
+            var otherVal = ComputeOtherSlice(sumFromDefs);
             if (otherVal > 0)
             {
                 segments.Add(new { label = "Other", value = otherVal, color = GetSegmentColor("Other") });
             }
 
+            // Centre = sum of drawn segments (including Other if present)
+            _totalAgents = sumFromDefs + otherVal;
             return segments;
         }
 
@@ -649,18 +657,37 @@
             segments.Add(new { label = stateName, value, color });
         }
 
-        // "Other" = total - sum
-        var otherCount = Math.Max(0, total - sumFromMetrics);
+        // "Other" sizing: use the total metric only if present AND greater than the segment sum
+        var otherCount = ComputeOtherSlice(sumFromMetrics);
         if (otherCount > 0)
         {
             segments.Add(new { label = "Other", value = otherCount, color = GetSegmentColor("Other") });
         }
 
+        // Centre = sum of drawn segments (including Other if present)
+        _totalAgents = sumFromMetrics + otherCount;
         return segments;
     }
 
     private static int ParseInt(string? value) =>
         int.TryParse(value, out var n) ? n : 0;
+
+    /// <summary>
+    /// Compute "Other" slice size using the total-agents metric.
+    /// The metric is used ONLY if present AND greater than the segment sum.
+    /// If absent or <= sum, returns 0 (no "Other" slice).
+    /// </summary>
+    private int ComputeOtherSlice(int segmentSum)
+    {
+        // Use ContainsKey to distinguish "cell absent" from "cell = 0"
+        const string totalMetricId = "QueueLoginDataNumLoggedUsers";
+        if (!_cellValues.ContainsKey(totalMetricId))
+            return 0;
+
+        var totalFromMetric = ParseInt(_cellValues[totalMetricId]);
+        // If metric says fewer than segments show, segments win (no negative Other)
+        return totalFromMetric > segmentSum ? totalFromMetric - segmentSum : 0;
+    }
 
     private string GetWidgetStyle()
     {
