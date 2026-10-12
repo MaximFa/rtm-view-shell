@@ -658,3 +658,13 @@ python3 tools/lint_probe.py .probes/<file>.ps1      # exit 1 = не выдава
   class in two days. When a predicate flips, every line that NAMES it flips with it - the section
   heading, the row text AND the verdict line - and the check is to re-read the printed verdict
   against the printed rows, not against memory.
+- THE sha OF A BUILT ASSEMBLY IS NOT A PREDICATE FOR ITS CONTENT. Measured 2026-10-11 12:50 on the
+  station, reading two packages off the disk: the three satellite dictionaries came out with
+  different sha256 at identical sizes in two builds whose .resx are byte-identical (0 .resx in the
+  delta). A rebuild is not byte-reproducible, so "equals what the machine runs" is a false red for
+  a file the delta does not touch, and "differs from what the machine ran" is a false green for a
+  file it does. I reported such a false green in the 2f3b426 flight: "Contracts.dll changed, so
+  ContrastInk landed" would have been True for a package carrying nothing. What holds either way:
+  equality with THIS package, presence of the file, and the content itself by a self-tested byte
+  search for a name or a needle. Apply it to web.dll too: its value is "equals the package", never
+  "differs from before".
