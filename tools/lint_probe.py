@@ -169,6 +169,45 @@ def check(path):
                               "them over" % (m.group(1), '/'.join(sorted(stem_commits))))
                 break
 
+    # --- unbalanced parentheses on one line -------------------------------------
+    # Measured on myself 2026-10-12: a Say ( ... line in the daytrendfail probe was missing its
+    # closing paren. The linter said "may be handed out", the parser gate in the operator's box
+    # caught it, and a round of his attention was spent on a defect I could see on my own disk.
+    # The linter cannot parse PowerShell, but it can count brackets outside quotes, which is
+    # exactly the class of fault that reaches the operator as a wall of red.
+    def _depth_delta(text):
+        depth = 0
+        quote = None
+        index = 0
+        while index < len(text):
+            char = text[index]
+            if quote:
+                if char == quote:
+                    quote = None
+            elif char in ("'", '"'):
+                quote = char
+            elif char == '#' and depth == 0:
+                break
+            elif char == '(':
+                depth += 1
+            elif char == ')':
+                depth -= 1
+            index += 1
+        return depth
+
+    for number, raw_line in enumerate(code.split('\n'), 1):
+        stripped = raw_line.strip()
+        if not stripped.startswith(('Say ', 'Say(', 'Write-Host')):
+            continue
+        if stripped.endswith(('`', '|', '+')):
+            continue
+        delta = _depth_delta(stripped)
+        if delta != 0:
+            faults.append("line %d: %d unclosed parenthesis/es on a single Say/Write-Host line - "
+                          "PowerShell will refuse the whole file at parse time, and the operator "
+                          "finds out instead of me: %s" % (number, abs(delta), stripped[:70]))
+            break
+
     # --- a genuine zero printed as NOT MEASURED ---------------------------------
     # SafeCount-style helpers return a sentinel (-999) when the call failed. Passing a bare
     # Get-ChildItem to them makes an EMPTY result indistinguishable from a failed one, and the report

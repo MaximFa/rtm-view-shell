@@ -675,3 +675,33 @@ python3 tools/lint_probe.py .probes/<file>.ps1      # exit 1 = не выдава
   line must not restate a count or a number that a section already printed. Name the section and
   the flag, let the rows carry the figures. A sentence I write by hand once per flight will keep
   inheriting until it stops containing facts.
+- A READING PROBE CAN BE A DEFECT BY ITS COST. On 2026-10-12 my rendergap probe compared each of
+  69 failures against all 157k log lines, twice - about twenty million string comparisons in
+  PowerShell - and printed nothing while doing it. The operator saw a hung box and interrupted it.
+  Two rules, both mechanical: filter the candidate set ONCE with the pattern and compare the
+  failures only against that short list; and print a progress line every N items in every loop
+  over more than a few items, because "still working" and "hung" must not look the same. This is
+  the same lesson as the silent 2-minute copy of 10.10, in a probe instead of a transfer.
+- A ROW COUNTER IS A PREDICATE AND NEEDS ITS OWN CONTROLS. In one evening the same counter gave me
+  both signs of being wrong: counting any non-empty output line, three lines of a psql ERROR became
+  "3 rows" and a broken negative control looked like it had fired; counting only lines carrying the
+  field separator, a single-column answer ("509") became "0 rows" and the probe declared its own
+  reader untrusted on a correct result. A row is a non-empty line that is not part of an error
+  message, and whichever rule I pick, the POSCTL must be a query whose shape differs from the
+  question's - one column against two - or the counter is only ever tested on one shape.
+- A QUERY CROSSING A SHELL BOUNDARY TRAVELS AS A FILE. psql -c from PowerShell ate the double
+  quotes around "RTSGrid_Cell", Postgres folded the identifier to lower case and answered
+  'relation does not exist', which looks exactly like a missing table. The file is written UTF-8
+  without BOM and printed back from disk into the report before it runs, so the report shows what
+  the database was actually given rather than what I meant to give it.
+- Set-Content -Encoding UTF8 WRITES A BOM in PowerShell 5.1, and git does not strip it: on
+  2026-10-12 three stray bytes landed at the start of a commit subject (it printed as a BOM glyph
+  in git log and as mojibake through the console). Any file written on Windows that another tool
+  will parse - a commit message, a .sql file for psql, a probe - is written with
+  [IO.File]::WriteAllText(path, text, (New-Object System.Text.UTF8Encoding($false))). Probes
+  themselves are the one exception: they are UTF-8 WITH BOM on purpose, because PowerShell 5.1
+  needs it to read non-ASCII correctly. The rule is per consumer, not per platform.
+- A long multi-line command pasted into the operator's console can be truncated on the way: the
+  four -m commit of 2026-10-12 arrived without its commit step and only the two reporting lines
+  ran, leaving the work staged but uncommitted. A commit message of more than a few lines goes to
+  a FILE and git reads it with -F.
