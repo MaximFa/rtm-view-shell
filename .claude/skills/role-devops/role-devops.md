@@ -668,3 +668,10 @@ python3 tools/lint_probe.py .probes/<file>.ps1      # exit 1 = не выдава
   equality with THIS package, presence of the file, and the content itself by a self-tested byte
   search for a name or a needle. Apply it to web.dll too: its value is "equals the package", never
   "differs from before".
+- SIXTH instance of the inherited verdict line, 2026-10-12: the acceptance of 2ccbf1c printed
+  "served bodies: two bodies equal the package sha, needle 0 -> 1" where three bodies had been
+  measured with needle counts 4 / 5 / 4. Every row above it was rewritten and re-measured; the
+  summary line was not. The rule is no longer "re-read the verdict" - it is MECHANICAL: a verdict
+  line must not restate a count or a number that a section already printed. Name the section and
+  the flag, let the rows carry the figures. A sentence I write by hand once per flight will keep
+  inheriting until it stops containing facts.
