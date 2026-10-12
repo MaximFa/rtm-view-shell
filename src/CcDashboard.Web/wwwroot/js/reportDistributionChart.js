@@ -1,6 +1,7 @@
 // Report Distribution Chart — Chart.js interop for Blazor report widgets
 window.reportDistributionChart = {
     _charts: {},
+    _observers: {},       // ResizeObservers per elementId
     _pendingRenders: {},  // Track pending retry timers by elementId
     _lastRenderArgs: {},  // Store last render args for rebuild
 
@@ -15,6 +16,37 @@ window.reportDistributionChart = {
         }
         const raw = Math.max(2, dpr) * Math.max(1, s);
         return Math.min(raw, 4);
+    },
+
+
+    // Size the canvas from its container's LAYOUT box (clientWidth/clientHeight), never
+    // from getBoundingClientRect. The viewer shrinks the whole design layer with
+    // transform: scale(s), and a rect already has s applied, so Chart.js's own
+    // responsive sizing (which reads the rect) made the canvas s times too small in
+    // design coordinates and the layer then shrank it a SECOND time. Measured
+    // 2026-10-11 in the viewer: canvas.client / container.client = 0.6347 against a
+    // layer scale of 0.6342, identically in DayTrend and ASD; chart.resize() did not
+    // help, because the source of the measurement was wrong, not the notification.
+    // That is why responsive is false here and this function owns the size.
+    // IDENTICAL helper in the other chart modules — keep them in sync.
+    _applyCanvasSize: function (elementId, canvas) {
+        const container = canvas && canvas.parentElement;
+        if (!container) return false;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (w <= 0 || h <= 0) return false;   // not laid out yet — leave as is
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        const chart = this._charts[elementId];
+        if (chart) chart.resize(w, h);        // sets the backing store via devicePixelRatio
+        return true;
+    },
+
+    // Drop the inline size this module wrote, so a later owner of the canvas starts clean
+    _clearCanvasSize: function (canvas) {
+        if (!canvas) return;
+        canvas.style.width = '';
+        canvas.style.height = '';
     },
 
     // Read page font from --font-family token
@@ -102,7 +134,7 @@ render: function (elementId, segments, options) {
         const tickColor = options?.fontColor || undefined;
 
         const chartOptions = {
-            responsive: true,
+            responsive: false,   // size owned by _applyCanvasSize (see its comment)
             maintainAspectRatio: false,
             devicePixelRatio: this._getDensity(),
             indexAxis: indexAxis,
@@ -172,6 +204,31 @@ render: function (elementId, segments, options) {
             data: chartData,
             options: chartOptions
         });
+
+        // responsive is false — apply the real container size now, then follow the container
+        this._applyCanvasSize(elementId, canvas);
+        this._observeContainer(elementId, canvas);
+    },
+
+    // Follow the container's layout size (this module had no observer before)
+    _observeContainer: function (elementId, canvas) {
+        if (this._observers[elementId]) {
+            this._observers[elementId].disconnect();
+            delete this._observers[elementId];
+        }
+        const container = canvas.parentElement;
+        if (!container) return;
+        let resizeTimeout = null;
+        const observer = new ResizeObserver(() => {
+            if (resizeTimeout) clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (this._charts[elementId] && document.body.contains(canvas)) {
+                    this._applyCanvasSize(elementId, canvas);
+                }
+            }, 50);
+        });
+        observer.observe(container);
+        this._observers[elementId] = observer;
     },
 
     // Rebuild all charts (called on scale change)
@@ -186,6 +243,8 @@ render: function (elementId, segments, options) {
             // Destroy and rebuild with stored args
             chart.destroy();
             delete this._charts[elementId];
+            // Drop our inline size: the rebuild measures the container itself
+            this._clearCanvasSize(canvas);
             this.render(elementId, args.segments, args.options);
         });
     },
@@ -215,5 +274,7 @@ render: function (elementId, segments, options) {
             this._charts[elementId].destroy();
             delete this._charts[elementId];
         }
+        // Reset the inline size this module wrote on the canvas
+        this._clearCanvasSize(document.getElementById(elementId));
     }
 };

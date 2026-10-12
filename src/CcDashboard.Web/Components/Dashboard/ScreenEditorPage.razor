@@ -4903,6 +4903,21 @@
                     groupIdx++;
                 }
 
+
+                // The connected-agents metric must be a column of the grid too, or the widget's
+                // snapshot never carries it: the centre number and the "Other" slice both read
+                // it. Before 2026-10-11 the grid held group/state columns only, so the cell was
+                // always absent and "Other" was always 0 — measured in the viewer as centre 23
+                // against the Data Slot tile's 25. The metric is the one the operator picked in
+                // the widget's settings (Config.Metric), with the seeded logins metric as the
+                // default; the same resolve as the columns above, by function + parameter.
+                var connectedMetricId = !string.IsNullOrWhiteSpace(ConfigMetric)
+                    ? ConfigMetric
+                    : ResolveAsdMetricId("LogedInUsersCount", "");
+
+                if (!string.IsNullOrEmpty(connectedMetricId))
+                    groupColumns.Add(("asd-connected", "Connected", connectedMetricId));
+
                 var groupColumnInputs = groupColumns.Select((c, idx) => new QueueGridColumnInput(
                     c.localId, null, c.label, c.metricId, idx + 1
                 )).ToList();
@@ -4949,6 +4964,10 @@
                         _asdStateColumnMetricIds[state.AgentStateName] = metricId;
                     stateIdx++;
                 }
+
+                // Same connected-agents column for the By State grid (see the note above)
+                if (!string.IsNullOrEmpty(connectedMetricId))
+                    stateColumns.Add(("asd-connected", "Connected", connectedMetricId));
 
                 var stateColumnInputs = stateColumns.Select((c, idx) => new QueueGridColumnInput(
                     c.localId, null, c.label, c.metricId, idx + 1

@@ -21,6 +21,37 @@ window.agentStateDistributionChart = {
         return Math.min(raw, 4);  // ceiling 4 -> ~10.6 MB on 853x345
     },
 
+
+    // Size the canvas from its container's LAYOUT box (clientWidth/clientHeight), never
+    // from getBoundingClientRect. The viewer shrinks the whole design layer with
+    // transform: scale(s), and a rect already has s applied, so Chart.js's own
+    // responsive sizing (which reads the rect) made the canvas s times too small in
+    // design coordinates and the layer then shrank it a SECOND time. Measured
+    // 2026-10-11 in the viewer: canvas.client / container.client = 0.6347 against a
+    // layer scale of 0.6342, identically in DayTrend and ASD; chart.resize() did not
+    // help, because the source of the measurement was wrong, not the notification.
+    // That is why responsive is false here and this function owns the size.
+    // IDENTICAL helper in the other chart modules — keep them in sync.
+    _applyCanvasSize: function (elementId, canvas) {
+        const container = canvas && canvas.parentElement;
+        if (!container) return false;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (w <= 0 || h <= 0) return false;   // not laid out yet — leave as is
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        const chart = this._charts[elementId];
+        if (chart) chart.resize(w, h);        // sets the backing store via devicePixelRatio
+        return true;
+    },
+
+    // Drop the inline size this module wrote, so a later owner of the canvas starts clean
+    _clearCanvasSize: function (canvas) {
+        if (!canvas) return;
+        canvas.style.width = '';
+        canvas.style.height = '';
+    },
+
     // Read page font from --font-family token
     _getPageFont: function () {
         return getComputedStyle(document.documentElement).getPropertyValue('--font-family').trim() || undefined;
@@ -82,6 +113,8 @@ window.agentStateDistributionChart = {
             this._charts[elementId].destroy();
             delete this._charts[elementId];
         }
+        // Reset the inline size this module wrote on the canvas
+        this._clearCanvasSize(document.getElementById(elementId));
 
         // Cancel any pending retry for this element
         this._cancelPending(elementId);
@@ -100,12 +133,13 @@ window.agentStateDistributionChart = {
 
     // Internal render implementation (canvas guaranteed to exist)
     _doRender: function (elementId, canvas, segments, options) {
-        // Lock canvas to current container size before creating chart to prevent geometry jump
-        const container = canvas.parentElement;
-        if (container) {
-            const rect = container.getBoundingClientRect();
-            canvas.style.width = rect.width + 'px';
-            canvas.style.height = rect.height + 'px';
+        // Lock canvas to its container's LAYOUT size before creating the chart, so there is
+        // no geometry jump. This used to read getBoundingClientRect — the rect already has
+        // the viewer's scale applied, which is the double-shrink described on _applyCanvasSize.
+        const container0 = canvas.parentElement;
+        if (container0 && container0.clientWidth > 0 && container0.clientHeight > 0) {
+            canvas.style.width = container0.clientWidth + 'px';
+            canvas.style.height = container0.clientHeight + 'px';
         }
 
         const ctx = canvas.getContext('2d');
@@ -140,7 +174,7 @@ window.agentStateDistributionChart = {
         };
 
         const chartOptions = {
-            responsive: true,
+            responsive: false,   // size owned by _applyCanvasSize (see its comment)
             maintainAspectRatio: false,
             animation: false,
             devicePixelRatio: this._getDensity(),
@@ -274,6 +308,9 @@ window.agentStateDistributionChart = {
 
         this._charts[elementId] = chart;
 
+        // responsive is false — apply the real container size now
+        this._applyCanvasSize(elementId, canvas);
+
         // Observe container for resize — calls chart.resize() when container size changes.
         // Debounced to avoid firing on every drag frame.
         this._observeContainer(elementId, canvas);
@@ -300,7 +337,9 @@ window.agentStateDistributionChart = {
             resizeTimeout = setTimeout(() => {
                 const c = this._charts[elementId];
                 if (c && document.body.contains(canvas)) {
-                    c.resize();
+                    // responsive is false: the size is ours to apply, chart.resize() alone
+                    // would re-measure nothing and keep the stale size
+                    this._applyCanvasSize(elementId, canvas);
                 }
             }, 50);
         });
@@ -343,6 +382,8 @@ window.agentStateDistributionChart = {
             // Destroy and rebuild
             chart.destroy();
             delete this._charts[elementId];
+            // Drop our inline size: the rebuild measures the container itself
+            this._clearCanvasSize(canvas);
             this.render(elementId, segments, options);
         });
     },

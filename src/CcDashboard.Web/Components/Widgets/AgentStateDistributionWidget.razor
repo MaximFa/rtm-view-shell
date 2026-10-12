@@ -59,7 +59,7 @@
                     @if (_chartType == "doughnut")
                     {
                         <div class="asd-donutctr" style="color: @EffectiveFontColor;">
-                            <b class="asd-donutctr-num">@_totalAgents</b>
+                            <b class="asd-donutctr-num">@(_connectedAgents?.ToString() ?? "—")</b>
                             <span class="asd-donutctr-label">@L["Widget_Agents"]</span>
                         </div>
                     }
@@ -107,7 +107,7 @@
             </div>
             @if (_chartType != "doughnut")
             {
-                <span class="small" style="opacity: 0.6;">@_totalAgents @L["Widget_Agents"]</span>
+                <span class="small" style="opacity: 0.6;">@(_connectedAgents?.ToString() ?? "—") @L["Widget_Agents"]</span>
             }
         </div>
     }
@@ -169,7 +169,14 @@
     private string _chartElementId = $"asd-chart-{Guid.NewGuid():N}";
     private Dictionary<string, string> _cellValues = new();
     private Dictionary<int, string> _cellIdToMetric = new();
-    private int _totalAgents;
+    // Centre number = the CONNECTED-AGENTS METRIC, not the sum of the drawn segments.
+    // Operator's word 2026-10-11: summing the known statuses is fitting the answer to the
+    // picture — it hides a status that is not mapped. Measured the same day in the viewer:
+    // centre 23 (sum of AVAILABLE 7 + BREAK 1 + ONPHONE 6 + PAPERWORK 9) against the
+    // Data Slot tile "connected agents" 25; the two missing agents are the unmapped status.
+    // null = the metric's cell is NOT in the snapshot -> the centre shows an em dash. A cell
+    // holding 0 and a cell that is absent are different facts and must not look the same.
+    private int? _connectedAgents;
 
     // Agent state definitions loaded from DB
     private IReadOnlyList<AgentStateDefinitionDto> _definitions = Array.Empty<AgentStateDefinitionDto>();
@@ -445,11 +452,23 @@
             await RtmRelay.SubscribeGridAsync(_tenantId, RtsGridId, _gridHandler, _cts.Token);
             _connectionState = ConnectionState.Connected;
             Logger.LogInformation("AgentStateDistributionWidget: subscribed to GridId {GridId}", RtsGridId);
+            // Blazor does NOT re-render after OnAfterRenderAsync, and that is the path the
+            // first connect takes. Without this the state said Connected while the markup
+            // stayed on the Connecting branch, so no canvas entered the DOM and the widget
+            // showed the connecting spinner until some cell value happened to change.
+            // Measured 2026-10-11/12: the 234 shell log has 13 of 13 subscriptions complete
+            // (Subscribing -> loaded 10 cells -> subscribed, GridId 52, no failures), while
+            // the viewer showed a canvas in only 1-2 of 5 loads. The server was never the
+            // problem; the missing render was.
+            StateHasChanged();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "AgentStateDistributionWidget: Failed to subscribe. Error: {Message}", ex.Message);
             _connectionState = ConnectionState.Failed;
+            // Same reason as above: the Failed branch must reach the markup too, otherwise
+            // the spinner hides the failure and the retry button is unreachable.
+            StateHasChanged();
         }
         finally
         {
@@ -561,9 +580,11 @@
     private List<object> BuildSegments()
     {
         // CC-009: Build segments based on distribution mode
-        // _totalAgents is set by the mode-specific method from the sum of drawn segments.
-        // The centre number must agree with the ring — it counts what the snapshot reports,
-        // NOT what is currently visible (legend-hidden segments do not change the centre).
+        // The centre comes from the connected-agents metric (see _connectedAgents), not from
+        // the segments, and it does not change when the legend hides a segment.
+        // Read the metric once for this build: both the centre and "Other" stand on it
+        _connectedAgents = ReadConnectedAgents();
+
         if (_distributionMode == "state")
         {
             return BuildStateSegments();
@@ -601,8 +622,6 @@
             if (otherCount > 0)
                 segments.Add(new { label = "Other", value = otherCount, color = GetSegmentColor("OTHER") });
 
-            // Centre = sum of drawn segments (including Other if present)
-            _totalAgents = sumFive + otherCount;
             return segments;
         }
 
@@ -628,8 +647,6 @@
             segments.Add(new { label = "Other", value = other, color = GetSegmentColor("OTHER") });
         }
 
-        // Centre = sum of drawn segments (including Other if present)
-        _totalAgents = sumFromMetrics + other;
         return segments;
     }
 
@@ -644,8 +661,7 @@
             // Fallback: use definitions with dynamic metrics
             if (_definitions.Count == 0)
             {
-                // No definitions, no metrics = empty chart
-                _totalAgents = 0;
+                // No definitions, no metrics = empty chart (the centre still shows the metric)
                 return segments;
             }
 
@@ -668,8 +684,6 @@
                 segments.Add(new { label = "Other", value = otherVal, color = GetSegmentColor("Other") });
             }
 
-            // Centre = sum of drawn segments (including Other if present)
-            _totalAgents = sumFromDefs + otherVal;
             return segments;
         }
 
@@ -693,8 +707,6 @@
             segments.Add(new { label = "Other", value = otherCount, color = GetSegmentColor("Other") });
         }
 
-        // Centre = sum of drawn segments (including Other if present)
-        _totalAgents = sumFromMetrics + otherCount;
         return segments;
     }
 
@@ -706,16 +718,32 @@
     /// The metric is used ONLY if present AND greater than the segment sum.
     /// If absent or <= sum, returns 0 (no "Other" slice).
     /// </summary>
+    /// <summary>
+    /// MetricId of the connected-agents metric. Config.Metric wins — the operator picks it in
+    /// the widget's settings — and this is only the default for a widget saved before that
+    /// field was read. Until 2026-10-11 the id was hardcoded here and Config.Metric was never
+    /// read at all, so the operator's choice was silently ignored.
+    /// </summary>
+    private const string DefaultConnectedMetricId = "QueueLoginDataNumLoggedUsers";
+
+    private string ConnectedMetricId =>
+        string.IsNullOrWhiteSpace(Config?.Metric) ? DefaultConnectedMetricId : Config!.Metric!;
+
+    /// <summary>
+    /// Value of the connected-agents metric, or null when its cell is absent from the snapshot.
+    /// ContainsKey is what separates "absent" from "present and zero".
+    /// </summary>
+    private int? ReadConnectedAgents() =>
+        _cellValues.ContainsKey(ConnectedMetricId) ? ParseInt(_cellValues[ConnectedMetricId]) : null;
+
+    /// <summary>
+    /// "Other" = connected − the statuses we know about: the agents in a status the widget
+    /// cannot map. Absent metric, or a metric no larger than the sum, means no slice.
+    /// </summary>
     private int ComputeOtherSlice(int segmentSum)
     {
-        // Use ContainsKey to distinguish "cell absent" from "cell = 0"
-        const string totalMetricId = "QueueLoginDataNumLoggedUsers";
-        if (!_cellValues.ContainsKey(totalMetricId))
-            return 0;
-
-        var totalFromMetric = ParseInt(_cellValues[totalMetricId]);
-        // If metric says fewer than segments show, segments win (no negative Other)
-        return totalFromMetric > segmentSum ? totalFromMetric - segmentSum : 0;
+        var connected = _connectedAgents;
+        return connected.HasValue && connected.Value > segmentSum ? connected.Value - segmentSum : 0;
     }
 
     private string GetWidgetStyle()
