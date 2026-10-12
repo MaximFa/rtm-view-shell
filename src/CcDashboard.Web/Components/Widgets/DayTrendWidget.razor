@@ -457,6 +457,34 @@
         }
     }
 
+    /// <summary>
+    /// Trim the leading and trailing runs of all-zero intervals, judged ONLY by the metrics
+    /// the operator has switched on: a metric hidden by its checkbox must not hold the window
+    /// open. Returns the input unchanged when there is nothing to trim or when every interval
+    /// is zero, so the caller never gets an empty list.
+    /// </summary>
+    private List<DayTrendIntervalData> ClipToNonZeroWindow(List<DayTrendIntervalData> intervals)
+    {
+        if (intervals.Count == 0) return intervals;
+
+        var enabledIds = _metrics.Where(m => m.Enabled).Select(m => m.MetricId)
+            .Concat(_agentMetrics.Where(m => m.Enabled).Select(m => m.MetricId))
+            .ToHashSet(StringComparer.Ordinal);
+        if (enabledIds.Count == 0) return intervals;
+
+        bool HasValue(DayTrendIntervalData interval) =>
+            enabledIds.Any(id => interval.Metrics.TryGetValue(id, out var v)
+                                 && v.HasValue && v.Value != 0);
+
+        var first = intervals.FindIndex(HasValue);
+        if (first < 0) return intervals;          // every interval is zero — keep the full day
+        var last = intervals.FindLastIndex(HasValue);
+
+        return first == 0 && last == intervals.Count - 1
+            ? intervals
+            : intervals.GetRange(first, last - first + 1);
+    }
+
     private async Task RenderChartAsync()
     {
         if (_intervals.Count == 0) return;
@@ -464,7 +492,15 @@
         Logger.LogInformation("DayTrendWidget: RenderChart - {IntervalCount} intervals, {MetricCount} metrics ({EnabledCount} enabled)",
             _intervals.Count, _metrics.Count, _metrics.Count(m => m.Enabled));
 
-        var labels = _intervals.Select(i => i.IntervalStart.ToString("HH:mm")).ToArray();
+        // Operator's word 2026-10-12: show the window [first non-zero .. last non-zero]
+        // instead of the whole day. A full day of leading empty intervals squeezed the
+        // actual shape into the right-hand edge of the widget. Zero gaps INSIDE the window
+        // stay — dropping them would make the axis lie about when things happened.
+        // All-zero data keeps the full day, so an empty shift still draws its axis rather
+        // than an empty box. View only: the query and the server are untouched.
+        var view = ClipToNonZeroWindow(_intervals);
+
+        var labels = view.Select(i => i.IntervalStart.ToString("HH:mm")).ToArray();
         var datasets = new List<object>();
 
         // Build legend items alongside datasets
@@ -474,7 +510,7 @@
         // Add enabled interaction metrics
         foreach (var metric in _metrics.Where(m => m.Enabled))
         {
-            var data = _intervals.Select(i =>
+            var data = view.Select(i =>
                 i.Metrics.TryGetValue(metric.MetricId, out var v) ? v : 0).ToArray();
 
             var isTimeMetric = metric.ValueType == "Time";
@@ -501,7 +537,7 @@
         // Add enabled agent metrics
         foreach (var metric in _agentMetrics.Where(m => m.Enabled))
         {
-            var data = _intervals.Select(i =>
+            var data = view.Select(i =>
                 i.Metrics.TryGetValue(metric.MetricId, out var v) ? v : 0).ToArray();
 
             var isTimeMetric = metric.ValueType == "Time";

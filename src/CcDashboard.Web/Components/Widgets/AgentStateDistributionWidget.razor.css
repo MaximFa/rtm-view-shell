@@ -26,6 +26,23 @@
     max-height: 100%;
 }
 
+/* The donut box does NOT need the canvas taken out of the flow, and measurement says so:
+   three size applications with the canvas in flow give box 283x165 and canvas 283x165 with
+   scrollHeight 165 — nothing moves, because aspect-ratio 1/1 and max-height 100% fix this
+   box's size regardless of its content. With the rule the numbers are identical, so the
+   rule would only add the risk of a box with no content left to size it. Measured
+   2026-10-12 in the viewer. The bar branch below is a different layout and does need it. */
+
+/* The bar branch's container is flex-grow with a min-height and no aspect-ratio, so the
+   canvas in flow does push past it: three applications give container 283x200 while
+   scrollHeight goes to 206, and the chart hangs 6 px below its own box. Out of the flow the
+   same three give scrollHeight 200. Measured 2026-10-12 on the bar markup
+   (AgentStateDistributionWidget.razor:96-98) rebuilt inside the same widget body. */
+.chart-container > canvas {
+    position: absolute;
+    inset: 0;
+}
+
 /* Centre number overlay — positioned over the canvas hole */
 .asd-donutctr {
     position: absolute;

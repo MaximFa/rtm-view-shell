@@ -47,7 +47,14 @@ else
                     <span class="text-muted">(@L["Report_Total"]: @_result.TotalCount)</span>
                 </div>
             }
-            <canvas id="@_canvasId" class="distribution-chart"></canvas>
+            @* The canvas gets its own box so it can be taken out of the flow without covering the
+               ASA caption above it. In the flow it fed its own height back into the container:
+               measured 2026-10-12, three size applications grew the container 200 -> 234 -> 268
+               -> 302 px with no end in sight. With this box the same three give 200 / 200 / 200,
+               the box takes the remaining 171 px, and the caption keeps its place. *@
+            <div class="distribution-chart-box">
+                <canvas id="@_canvasId" class="distribution-chart"></canvas>
+            </div>
         </div>
     </div>
 }

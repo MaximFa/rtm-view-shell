@@ -3418,9 +3418,22 @@ button.clr-swatch,
     width: 100%;
     min-height: 200px;
     max-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Box that owns the canvas: takes the height left over by the ASA caption and gives the
+   canvas something to be absolute against. See the comment in DistributionReportWidget.razor
+   for the measured numbers. */
+.distribution-chart-box {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .distribution-chart {
+    position: absolute;
+    inset: 0;
     width: 100% !important;
     height: 100% !important;
 }

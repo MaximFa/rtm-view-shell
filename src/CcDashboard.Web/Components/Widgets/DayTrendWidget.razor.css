@@ -15,6 +15,18 @@
     position: relative;
 }
 
+/* The canvas is taken OUT OF THE FLOW on purpose. This container is a flex item with
+   flex: 1 1 auto, so its height is computed from its content — the canvas. While the
+   canvas sat in the flow, giving it the container's height moved the container itself:
+   measured 2026-10-12 in the viewer, three applications in a row walked the container
+   280 -> 226 -> 218 px while the canvas stayed 8-53 px taller, and the chart hung below
+   its own widget (scrollHeight 280 against clientHeight 227). Positioned absolutely the
+   same three applications give 217 / 217 / 217 and nothing overflows. */
+.dt-chart-container > canvas {
+    position: absolute;
+    inset: 0;
+}
+
 /* Legend container — horizontal wrap layout */
 .dt-legend {
     display: flex;
