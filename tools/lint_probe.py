@@ -169,6 +169,80 @@ def check(path):
                               "them over" % (m.group(1), '/'.join(sorted(stem_commits))))
                 break
 
+    # --- a helper called but never defined -------------------------------------
+    # Measured on myself twice. 2026-10-10: the acceptance of 4634162 called Line() where the probe
+    # defines Rule(), the trap swallowed it and a whole section was skipped under a GREEN verdict.
+    # 2026-10-12: the install probe of f333db5 called Find-ByteRun three times without defining it;
+    # the call returned nothing, the row printed "needle present : False" with an empty offset, and
+    # with the predicate the other way round that would have been a FALSE GREEN on production.
+    # These are MY helpers, not cmdlets: if one is called in a file, that file must define it.
+    sources_core = bool(re.search(r"_core\.ps1", code))
+    OWN_HELPERS = ('Find-ByteRun', 'Get-Sha256Of', 'Invoke-Native', 'Protect-Line', 'Stamp-Of',
+                   'Invoke-Select', 'Test-Offset', 'Write-Report', 'ShaOf', 'StateOf', 'CountOf',
+                   'Say', 'Rule', 'Finish', 'Line')
+    defined = set(re.findall(r'(?m)^\s*function\s+([A-Za-z][A-Za-z0-9_-]*)', code))
+    for helper in OWN_HELPERS:
+        if helper in defined:
+            continue
+        # a call looks like "Helper arg" or "(Helper arg)" or "$x = Helper ..." - never "function Helper"
+        # A NAME IS NOT A CALL when it is a property or a key: 'Line = $line' inside @{ } matched
+        # the first version of this gate and produced a false red on a correct probe (measured
+        # 2026-10-12). A call is the name followed by whitespace or '(' and NOT by '='.
+        called = None
+        # A DOT before the name means a property access: '$record.Line' produced the second
+        # false red of this gate's first hour. Short helper names (Say, Rule, Line) are the
+        # dangerous ones in a text gate, so the lookbehind excludes '.', '-' and word chars.
+        for candidate in re.finditer(r'(?<![-\w.])' + re.escape(helper) + r'(?![\w-])', code):
+            tail = code[candidate.end():candidate.end() + 12]
+            if re.match(r'\s*=(?!=)', tail):
+                continue
+            if not re.match(r'[ (\r\n]', tail):
+                continue
+            line_start = code[:candidate.start()].rsplit('\n', 1)[-1]
+            if 'function' in line_start:
+                continue
+            called = candidate
+            break
+        if not called:
+            continue
+        if sources_core:
+            continue
+        faults.append("the helper %s is called but this file neither defines it nor dot-sources "
+                      "_core.ps1. PowerShell returns nothing for an unknown command, so the row "
+                      "prints a value that was never measured - a false green when the predicate "
+                      "runs the other way" % helper)
+        break
+
+    # --- defined, but BELOW the first call ---------------------------------------
+    # Measured on myself 2026-10-12, one hour after fixing the gate above: Find-ByteRun was defined
+    # at the bottom of section 6 and called in the same section, so the call ran first, the trap
+    # fired, the row printed False and the acceptance of a GOOD flight said NOT ACCEPTED. Presence
+    # of a definition is not enough; it must come first.
+    if not sources_core:
+        for helper in OWN_HELPERS:
+            definition = re.search(r'(?m)^\s*function\s+' + re.escape(helper) + r'\b', code)
+            if not definition:
+                continue
+            call = None
+            for candidate in re.finditer(r'(?<![-\w.])' + re.escape(helper) + r'(?![\w-])', code):
+                tail = code[candidate.end():candidate.end() + 12]
+                if re.match(r'\s*=(?!=)', tail):
+                    continue
+                if not re.match(r'[ (\r\n]', tail):
+                    continue
+                line_start = code[:candidate.start()].rsplit('\n', 1)[-1]
+                if 'function' in line_start:
+                    continue
+                call = candidate
+                break
+            if call and call.start() < definition.start():
+                faults.append("the helper %s is CALLED on line %d but only DEFINED on line %d. "
+                              "PowerShell runs a script top to bottom, so the call fails, the trap "
+                              "swallows it and the row prints a value that was never measured"
+                              % (helper, code[:call.start()].count('\n') + 1,
+                                 code[:definition.start()].count('\n') + 1))
+                break
+
     # --- unbalanced parentheses on one line -------------------------------------
     # Measured on myself 2026-10-12: a Say ( ... line in the daytrendfail probe was missing its
     # closing paren. The linter said "may be handed out", the parser gate in the operator's box

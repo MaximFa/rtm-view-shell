@@ -705,3 +705,50 @@ python3 tools/lint_probe.py .probes/<file>.ps1      # exit 1 = не выдава
   four -m commit of 2026-10-12 arrived without its commit step and only the two reporting lines
   ran, leaving the work staged but uncommitted. A commit message of more than a few lines goes to
   a FILE and git reads it with -F.
+- A HELPER CALLED BUT NOT DEFINED IS THE SAME DEFECT TWICE, AND NOW IT IS A LINTER GATE. 10.10: the
+  acceptance called Line() where the probe defines Rule(), the trap swallowed it, a whole section
+  was skipped and the verdict printed GREEN. 12.10: the install probe called Find-ByteRun three
+  times without defining it; PowerShell returns nothing for an unknown command, so the row printed
+  "needle present : False" with an EMPTY offset while measuring nothing - and with the predicate
+  inverted that is a false green on production. Fixing it inside one probe was not enough: the gate
+  belongs in the linter, where it cannot depend on my attention.
+- WRITING THAT GATE TAUGHT ITS OWN LESSON: a text gate over SHORT helper names produced two false
+  reds in its first hour - 'Line = $line' (a property in a hash literal) and '$record.Line' (a
+  property access). A control file must isolate ONE subject: my first POSCTL failed for an unrelated
+  missing helper and I nearly believed the gate was broken. Every gate I add now gets a POSCTL, a
+  NEGCTL, AND a false-red control built from the real shapes the code uses.
+
+### The generic half of an instrument is a file, not copied text (2026-10-13)
+
+Five of the instrument defects of 11-12.10 sat in the part of the probe that is the same every
+flight: the byte finder, the self-test, the report writer, the trap, the verdict scaffolding. That
+part was carried forward by editing the previous probe, and editing is where it broke - a helper
+lost on the way, then the same helper pasted back below its first call. Three of those cost the
+operator a run-box. That half now lives in `.probes/_core.ps1`, dot-sourced by every probe:
+
+    . (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) '_core.ps1')
+    Start-Probe -Name '<step>-<commit>' [-OutputDir <dir>]
+    Assert-Machine
+
+`Start-Probe` self-tests every helper before the probe measures anything and prints each test's
+expected value beside the measured one; a failed self-test stops the run instead of printing rows
+nobody can believe. A flight probe now carries only its pins and its predicates. When a helper is
+wrong, it is wrong in one place and fixed once.
+
+### A gate that checks existence must also check order (2026-10-13)
+
+The linter gate I added after the "called but never defined" defect checked that a definition
+exists *somewhere* in the file. One hour later the same helper was defined thirty lines *below* its
+first call, the call failed, the trap swallowed it, and the acceptance of a good flight said NOT
+ACCEPTED. A predicate about a program must be stated in the order the program runs, not as set
+membership. The gate now compares the position of the definition with the position of the first
+call. A gate written without its own negative half - a file where the definition comes after the
+call, which must come out red - would have passed the broken probe too.
+
+### No number measured on the server is written into the package probe (2026-10-13)
+
+The package probes of the earlier flights pinned the server's satellite sizes and assembly hashes
+by hand, copied from the previous day's report; one such carried rule painted a correct package red
+on three rows. The split that holds: the package probe records what the package carries, the
+pre-deploy probe records what the machine carries, and every comparison is made where both halves
+are measured at one time - the install probe, against the staging unpacked from that very package.
