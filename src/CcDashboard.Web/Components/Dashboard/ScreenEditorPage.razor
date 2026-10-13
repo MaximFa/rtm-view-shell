@@ -3993,6 +3993,13 @@
         {
             ConfigWfmQueueId = widget.Config.WfmQueueId;
             WfmQueueSearchText = ConfigWfmQueueId ?? "";
+            // The four font sizes travelled nowhere before 2026-10-13: the selectors existed,
+            // the config properties existed, but nothing filled the selectors on open and
+            // nothing wrote them back on save, so the operator's choice was lost twice over.
+            ConfigWfmTileTitleFontSize = widget.Config.WfmTileTitleFontSize ?? "";
+            ConfigWfmTileValueFontSize = widget.Config.WfmTileValueFontSize ?? "";
+            ConfigWfmListTitleFontSize = widget.Config.WfmListTitleFontSize ?? "";
+            ConfigWfmListValueFontSize = widget.Config.WfmListValueFontSize ?? "";
             ConfigWfmTileMetrics = widget.Config.WfmTileMetrics?.ToList() ?? new List<string> { "predictedSl", "occupancy", "nActual", "staffVariance" };
             ConfigWfmListMetrics = widget.Config.WfmListMetrics?.ToHashSet() ?? new HashSet<string> { "lambdaPerHour", "aht", "wrapIncluded", "trafficA", "pWait", "predictedAsa", "requiredAgents", "erlangB", "understaff" };
             ConfigWfmTileThresholds = widget.Config.WfmTileThresholds?.ToDictionary(
@@ -5211,6 +5218,16 @@
                 : null,
             // WFM widget specific
             WfmQueueId = IsWfmWidget(ConfiguringWidget) ? ConfigWfmQueueId : null,
+            // Four separate sizes, as the operator asked: tile caption, tile value,
+            // list label, list value. Empty string means "not set" and keeps the stylesheet's size.
+            WfmTileTitleFontSize = IsWfmWidget(ConfiguringWidget) && !string.IsNullOrEmpty(ConfigWfmTileTitleFontSize)
+                ? ConfigWfmTileTitleFontSize : null,
+            WfmTileValueFontSize = IsWfmWidget(ConfiguringWidget) && !string.IsNullOrEmpty(ConfigWfmTileValueFontSize)
+                ? ConfigWfmTileValueFontSize : null,
+            WfmListTitleFontSize = IsWfmWidget(ConfiguringWidget) && !string.IsNullOrEmpty(ConfigWfmListTitleFontSize)
+                ? ConfigWfmListTitleFontSize : null,
+            WfmListValueFontSize = IsWfmWidget(ConfiguringWidget) && !string.IsNullOrEmpty(ConfigWfmListValueFontSize)
+                ? ConfigWfmListValueFontSize : null,
             WfmTileMetrics = IsWfmWidget(ConfiguringWidget) && ConfigWfmTileMetrics.Count == 4
                 ? ConfigWfmTileMetrics.ToList()
                 : null,

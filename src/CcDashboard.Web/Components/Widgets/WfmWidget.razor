@@ -167,6 +167,16 @@
     {
         if (Config is null) return;
 
+        // Four font sizes the operator sets in the widget's settings. Until 2026-10-13 these
+        // four fields were declared and used by the style helpers below, but NOTHING ever
+        // assigned them: they stayed empty strings, every helper returned no font-size at all,
+        // and the setting looked dead to the operator. The other half of the break was in the
+        // editor, which neither loaded nor saved them.
+        _tileTitleFontSize = Config.WfmTileTitleFontSize ?? "";
+        _tileValueFontSize = Config.WfmTileValueFontSize ?? "";
+        _listTitleFontSize = Config.WfmListTitleFontSize ?? "";
+        _listValueFontSize = Config.WfmListValueFontSize ?? "";
+
         // Queue scope
         _queueId = Config.WfmQueueId;
         if (string.IsNullOrEmpty(_queueId) && Config.BusinessUnit is not null)
