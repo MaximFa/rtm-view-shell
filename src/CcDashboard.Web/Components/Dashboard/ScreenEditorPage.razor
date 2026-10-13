@@ -536,35 +536,13 @@
                             </div>
                         }
 
-                        @if (IsWfmWidget(ConfiguringWidget))
-                        {
-                            <!-- WFM: Queue Selection -->
-                            <div class="mb-3">
-                                <label class="form-label">@L["Wfm_Queue"]</label>
-                                <div class="searchable-select">
-                                    <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
-                                           value="@WfmQueueSearchText"
-                                           @oninput="e => WfmQueueSearchText = e.Value?.ToString() ?? string.Empty"
-                                           @onfocus="() => { WfmQueueSearchText = string.Empty; WfmQueueDropdownOpen = true; }"
-                                           @onblur="() => Task.Delay(150).ContinueWith(_ => InvokeAsync(() => { WfmQueueDropdownOpen = false; WfmQueueSearchText = ConfigWfmQueueId ?? string.Empty; StateHasChanged(); }))" />
-                                    @if (WfmQueueDropdownOpen)
-                                    {
-                                        <div class="searchable-dropdown">
-                                            @foreach (var bu in BusinessUnits.Where(b =>
-                                                string.IsNullOrEmpty(WfmQueueSearchText) ||
-                                                (b.BusinessUnitName?.Contains(WfmQueueSearchText, StringComparison.OrdinalIgnoreCase) ?? false)))
-                                            {
-                                                <div class="dropdown-item @(ConfigWfmQueueId == bu.BusinessUnitId.ToString() ? "active" : "")"
-                                                     @onmousedown="() => { ConfigWfmQueueId = bu.BusinessUnitId.ToString(); WfmQueueSearchText = bu.BusinessUnitName ?? string.Empty; WfmQueueDropdownOpen = false; }"
-                                                     @onmousedown:preventDefault="true">
-                                                    @bu.BusinessUnitName
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        }
+                        @* The WFM queue selector is gone (operator, 2026-10-13): it listed BUSINESS
+                           UNITS under the label "queue" and wrote the BU id into WfmQueueId, so the
+                           screen offered the same choice twice. Scope now comes from the shared
+                           business-unit field above; the engine's per-BU pooled snapshot is keyed by
+                           the same id. Widgets saved earlier keep working: the widget still falls back
+                           to WfmQueueId when BusinessUnit is empty (WfmWidget.razor ApplyConfig). *@
+
 
                     }
 
@@ -2897,8 +2875,6 @@
     private string ConfigWfmTileValueFontSize = "";
     private string ConfigWfmListTitleFontSize = "";
     private string ConfigWfmListValueFontSize = "";
-    private string WfmQueueSearchText = "";
-    private bool WfmQueueDropdownOpen;
 
     // All 13 WFM metrics
     private static readonly string[] WfmAllMetrics = {
@@ -3991,8 +3967,9 @@
         // WFM widget specific
         if (IsWfmWidget(widget))
         {
+            // Carried, not shown: the saved value is read back and written out unchanged on
+            // save, so a widget configured before the queue field was removed keeps its scope.
             ConfigWfmQueueId = widget.Config.WfmQueueId;
-            WfmQueueSearchText = ConfigWfmQueueId ?? "";
             // The four font sizes travelled nowhere before 2026-10-13: the selectors existed,
             // the config properties existed, but nothing filled the selectors on open and
             // nothing wrote them back on save, so the operator's choice was lost twice over.

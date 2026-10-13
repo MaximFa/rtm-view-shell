@@ -42,20 +42,27 @@
     margin-top: 2px;
 }
 
+/* Three fixed columns: label | value | unit. The unit column keeps its 38px even when the
+   row has no unit — that is what puts every value on the same vertical line. As a flex row
+   with the unit column present only on some rows, the values drifted: measured 2026-10-13 in
+   the viewer, the left edges of the values were spread over 30.6px and the right edges over
+   34px, with rows that carry a unit sitting ~30px away from rows that do not. With these
+   columns the left edges line up exactly (spread 0) and the remaining 8.1px on the right is
+   just the differing length of the numbers themselves. */
 .wfmlg {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 38px;
     align-items: center;
     gap: 7px;
     font-size: 11.5px;
 }
 
 .wfmlg .lbl {
-    flex: 1;
     min-width: 0;
 }
 
 .wfmlg .n {
-    margin-inline-start: auto;
+    justify-self: end;
     font-weight: 700;
 }
 

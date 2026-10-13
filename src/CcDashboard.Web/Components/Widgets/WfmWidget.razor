@@ -177,12 +177,19 @@
         _listTitleFontSize = Config.WfmListTitleFontSize ?? "";
         _listValueFontSize = Config.WfmListValueFontSize ?? "";
 
-        // Queue scope
-        _queueId = Config.WfmQueueId;
-        if (string.IsNullOrEmpty(_queueId) && Config.BusinessUnit is not null)
-        {
-            _queueId = Config.BusinessUnit;
-        }
+        // Scope = the BUSINESS UNIT, by the operator's word 2026-10-13: "there should be no
+        // queue, the queue or the list of them comes from the business unit". The engine
+        // already stores a pooled snapshot per BU under the key BusinessUnitId.ToString()
+        // (WfmRealtimeLoop.cs:166-215), which is exactly what Config.BusinessUnit holds —
+        // the editor writes bu.BusinessUnitId.ToString() into it (ScreenEditorPage:4700).
+        //
+        // WfmQueueId stays here as a FALLBACK and only for that: widgets saved before this
+        // change have the BU id in WfmQueueId (the old "queue" field listed business units),
+        // and they must keep working untouched, without being re-saved. Nothing writes
+        // WfmQueueId any more.
+        _queueId = !string.IsNullOrEmpty(Config.BusinessUnit)
+            ? Config.BusinessUnit
+            : Config.WfmQueueId;
 
         // Appearance with dark mode defaults
         if (DarkMode)
