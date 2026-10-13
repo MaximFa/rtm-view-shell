@@ -198,8 +198,44 @@ foreach ($pgVersion in @('18','17','16','15','14')) {
   if (Test-Path -LiteralPath $candidate) { $psql = $candidate ; Say ('  psql found : ' + $candidate) ; break }
 }
 $dbRead = $false
-if ($null -eq $psql) { Say '  psql not found under any of 18/17/16/15/14 - this section is NOT MEASURED' }
+# THE USER AND THE PASSWORD BOTH COME FROM THE MACHINE'S OWN CONFIG, AND NEITHER IS TYPED HERE.
+# What actually happened at 15:47, corrected by the operator: there IS NO ROLE ccdash. I had typed
+# that user name into the probe. PostgreSQL answers a non-existent role with exactly the same
+# "password authentication failed for user X" it gives a wrong password, so I read the message
+# literally and named the password as the cause - a cause asserted from an error string instead of
+# measured. The connection string on the machine is the only place that knows both, so both are
+# parsed from it; the user name is printed (it is not a secret), the password never is - only its
+# name, length and a sha256 prefix, per the handoff rule.
+$pgPassword = $null
+$pgUser = $null
+$pgPort = $null
+$pgDatabase = $null
+$appSettings = Join-Path $SHELL_DIR 'appsettings.json'
+if (-not (Test-Path -LiteralPath $appSettings)) { Say ('  ' + $appSettings + ' absent - the DB section will be NOT MEASURED') }
 else {
+  $connectionText = [IO.File]::ReadAllText($appSettings)
+  foreach ($field in @(@('Username|User ID|UserId|User','user'), @('Password','password'), @('Port','port'), @('Database','database'))) {
+    $fieldMatch = [regex]::Match($connectionText, '(?i)(?:' + $field[0] + ')\s*=\s*([^;"\\]+)')
+    if (-not $fieldMatch.Success) { continue }
+    $fieldValue = $fieldMatch.Groups[1].Value.Trim()
+    switch ($field[1]) {
+      'user'     { $pgUser = $fieldValue ; Say ('  user     : ' + $pgUser + '   (read from the connection string, not typed into this probe)') }
+      'password' {
+        $pgPassword = $fieldValue
+        $passwordSha = [BitConverter]::ToString((New-Object Security.Cryptography.SHA256Managed).ComputeHash([Text.Encoding]::UTF8.GetBytes($pgPassword))).Replace('-','')
+        Say ('  password : name "Password", length ' + $pgPassword.Length + ' , sha256 ' + $passwordSha.Substring(0,16) + '...   (the value never reaches this report or any file)')
+      }
+      'port'     { $pgPort = $fieldValue ; Say ('  port     : ' + $pgPort) }
+      'database' { $pgDatabase = $fieldValue ; Say ('  database : ' + $pgDatabase) }
+    }
+  }
+  Say ('  source   : ' + $appSettings)
+}
+if ([string]::IsNullOrEmpty($pgPort)) { $pgPort = '5433' ; Say '  port not in the string - falling back to 5433, and saying so' }
+if ([string]::IsNullOrEmpty($pgDatabase)) { $pgDatabase = 'ccdashboard' ; Say '  database not in the string - falling back to ccdashboard, and saying so' }
+if (($null -eq $psql) -or ($null -eq $pgUser) -or ($null -eq $pgPassword)) { Say '  DB SECTION: NOT MEASURED - and therefore it states nothing about the data below.' }
+else {
+  $env:PGPASSWORD = $pgPassword
   $sqlDir = 'C:\RTMView-Ops\probes'
   $sqlPath = Join-Path $sqlDir 'acceptance_2d75b01_wfm.sql'
   # NO GUESSED KEY NAMES. My first version of this query tested for 'wfmTileTitleFontSize' with
@@ -220,10 +256,10 @@ else {
   Say  '  or a zero from the real one only means psql started.'
   $badSqlPath = Join-Path $sqlDir 'acceptance_2d75b01_bad.sql'
   [IO.File]::WriteAllText($badSqlPath, "SELECT * FROM zzz_no_such_table;`r`n", (New-Object System.Text.UTF8Encoding($false)))
-  $badOutput = @(Invoke-Native { & $psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5433 -U ccdash -d ccdashboard -t -A -f $badSqlPath 2>&1 })
+  $badOutput = @(Invoke-Native { & $psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p $pgPort -U $pgUser -d $pgDatabase -t -A -f $badSqlPath 2>&1 })
   $badExit = $LASTEXITCODE
   Say ('    broken query rc : ' + $badExit + '   (must be non-zero)')
-  $goodOutput = @(Invoke-Native { & $psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5433 -U ccdash -d ccdashboard -t -A -f $sqlPath 2>&1 })
+  $goodOutput = @(Invoke-Native { & $psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p $pgPort -U $pgUser -d $pgDatabase -t -A -f $sqlPath 2>&1 })
   $goodExit = $LASTEXITCODE
   Say ('    real query rc   : ' + $goodExit + '   (must be 0)')
   foreach ($outputLine in $goodOutput) { Say ('    ' + $outputLine) }
@@ -231,23 +267,34 @@ else {
   Say ('    Wfm widgets found : ' + $dataRows.Count)
   $dbRead = (($badExit -ne 0) -and ($goodExit -eq 0))
   Say ('    this read is usable as evidence : ' + $dbRead)
-  $fontSizeKeys = @()
-  foreach ($dataRow in $dataRows) {
-    foreach ($keyMatch in [regex]::Matches("$dataRow", '(?i)[A-Za-z]*fontsize[A-Za-z]*')) { $fontSizeKeys += $keyMatch.Value }
+  if (-not $dbRead) {
+    Say  '    THIS READ MEASURED NOTHING, so this section states NOTHING about the data. No count of'
+    Say  '    widgets, no conclusion about the keys, no "none are set". The 15:47 run of this probe'
+    Say  '    printed "Wfm widgets found : 0" and "NO Wfm widget on any screen" after the connection'
+    Say  '    had been refused - a false statement standing beside an honest flag, which is the same'
+    Say  '    fault as a verdict line claiming more than its sections measured. A section that could'
+    Say  '    not measure says only that.'
+  } else {
+    Say ('    Wfm widgets found : ' + $dataRows.Count)
+    $fontSizeKeys = @()
+    foreach ($dataRow in $dataRows) {
+      foreach ($keyMatch in [regex]::Matches("$dataRow", '(?i)[A-Za-z]*fontsize[A-Za-z]*')) { $fontSizeKeys += $keyMatch.Value }
+    }
+    $distinctKeys = @($fontSizeKeys | Sort-Object -Unique)
+    Say ('    config keys containing "fontsize", case-insensitive : ' + $distinctKeys.Count)
+    foreach ($distinctKey in $distinctKeys) { Say ('      ' + $distinctKey) }
+    $negKeyHits = ([regex]::Matches('screen_id|type|queueId', '(?i)[A-Za-z]*fontsize[A-Za-z]*')).Count
+    Say ('    NEGCTL the same matcher over a line that cannot hold such a key : ' + $negKeyHits + ' hits (expected 0)')
+    if ($dataRows.Count -eq 0) {
+      Say  '    No Wfm widget on any screen. The behavioural half then needs one placed and its four'
+      Say  '    sizes set first - a question for the coordinator, not something this probe invents,'
+      Say  '    and it does not make the file side red.'
+    } else {
+      Say  '    Four such keys on a widget means the editor saved them; none means nobody has set the'
+      Say  '    sizes yet. Neither outcome makes the file side red.'
+    }
   }
-  $distinctKeys = @($fontSizeKeys | Sort-Object -Unique)
-  Say ('    config keys containing "fontsize", case-insensitive : ' + $distinctKeys.Count)
-  foreach ($distinctKey in $distinctKeys) { Say ('      ' + $distinctKey) }
-  Say  '    NEGCTL for this matcher: it is run over a line that cannot contain such a key -'
-  $negKeyHits = ([regex]::Matches('screen_id|type|queueId', '(?i)[A-Za-z]*fontsize[A-Za-z]*')).Count
-  Say ('    ' + $negKeyHits + ' hits (expected 0, which proves the count above is not matching everything)')
-  Say  '    Four such keys present means the editor saved them; none means nobody has set the sizes'
-  Say  '    yet, and the behavioural half needs them set first. Neither outcome makes the files red.'
-  if ($dataRows.Count -eq 0) {
-    Say  '    NO Wfm widget on any screen. Then the behavioural half cannot be measured until one is'
-    Say  '    placed and its four sizes are set - that is a question for the coordinator, not'
-    Say  '    something this probe invents, and it does NOT make the file side red.'
-  }
+  $env:PGPASSWORD = $null
 }
 Rule
 
