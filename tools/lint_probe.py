@@ -130,7 +130,18 @@ def check(path):
     # Picking "the newest file in the output directory" proves nothing: the newest file can predate
     # the run by weeks. Cost when this was missed: step 4 of the 0ae2102 flight read a delta file from
     # 29 August and reported its numbers as today's, while the comparator had in fact died. 2026-09-18.
+    # NARROWED 2026-10-13, after this gate painted the 2d75b01 pre-deploy probe red. That probe
+    # ENUMERATES the newest eight packages in incoming/ and identifies each by its sha - the sort is
+    # a listing window, not a choice of result, and nothing in it depends on recency. The gate as
+    # written fired on the sort alone, which is stricter than the question it asks: a false red, and
+    # by this project's rule the dearer kind, because it sends me to fix something healthy. It now
+    # fires only where a SINGLE newest artefact is taken (-First 1, or no Select at all).
     picks_newest = re.search(r'Sort-Object\s+LastWriteTime\s+-Descending', code)
+    if picks_newest:
+        tail_after_sort = code[picks_newest.end():picks_newest.end() + 120]
+        window = re.search(r'Select(?:-Object)?\s+-First\s+(\d+)', tail_after_sort)
+        if window and int(window.group(1)) > 1:
+            picks_newest = None          # a window of N rows, each identified on its own merits
     proves_fresh = re.search(r'LastWriteTime\w*\s*-(?:gt|ge)\s|\bRunStartedAt\b|-newer', code)
     if picks_newest and not proves_fresh:
         faults.append("the probe takes the newest file in a directory but never proves that file is NEWER "
@@ -212,6 +223,49 @@ def check(path):
                       "prints a value that was never measured - a false green when the predicate "
                       "runs the other way" % helper)
         break
+
+    # --- concatenation handed to a command without parentheses -------------------
+    # Measured on myself 2026-10-13, in the cleanup probe, caught before the box: I wrote
+    #     Say '  POSCTL: it found ' + $headings.Count + ' headings'
+    # PowerShell parses a command's ARGUMENTS, not an expression, so Say received five arguments
+    # and printed only the first fragment - a line that reads like a measurement and carries no
+    # number. Inside parentheses the same text is one expression and is correct.
+    #
+    # The first version of this gate lit up twelve older probes and every one was a FALSE RED,
+    # from two separate causes, both fixed here:
+    #   - `\s+` after the command name matched a NEWLINE, so a bare `Rule` on its own line was
+    #     joined to the `Say ("x" + $y)` on the next one. The separator is now [ \t]+ and the
+    #     line is examined on its own.
+    #   - a `+` INSIDE a quoted string counted ("picked up live (IOptionsMonitor + ...")`. Quoted
+    #     spans are now removed before the search, the same way the bracket gate does it.
+    for raw_line_number, raw_line in enumerate(code.split('\n'), start=1):
+        command_match = re.match(r'[ \t]*(Say|Write-Host|Rule)[ \t]+(?![\(@$])(\S.*)$', raw_line)
+        if not command_match:
+            continue
+        tail = command_match.group(2)
+        # strip quoted spans, so only an operator in CODE position can match, and STOP at the first
+        # unquoted ';' - `Write-Host ''; Write-Host ('report : ' + $REPORT)` is two statements, and
+        # taking the whole line as one argument list made the correct second half light up the gate.
+        unquoted = []
+        quote = None
+        for character in tail:
+            if quote:
+                if character == quote:
+                    quote = None
+                continue
+            if character in ('"', "'"):
+                quote = character
+                continue
+            if character == ';':
+                break
+            unquoted.append(character)
+        if re.search(r'\s\+\s', ''.join(unquoted)):
+            faults.append("line %d: `%s '...' + ...` without parentheses - a command takes "
+                          "ARGUMENTS, not an expression, so the pieces after the first are passed "
+                          "as separate arguments and silently dropped. The line prints as a "
+                          "measurement while carrying no value. Wrap the whole expression: %s ('...' + ...)"
+                          % (raw_line_number, command_match.group(1), command_match.group(1)))
+            break
 
     # --- a statement used where PowerShell wants an expression ------------------
     # Measured on myself 2026-10-13, inside the fix for the false red of the run before: I wrote
