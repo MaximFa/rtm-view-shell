@@ -282,42 +282,96 @@ try {
   }
 
   Say  ''
-  Say  '  6a  THE NINE STATIC FILES. The delta touches wwwroot 0 times (PIN 3b), so each one is'
-  Say  '      RECORDED here with its bytes and sha. These are plain text files, not built assemblies,'
-  Say  '      so their sha IS a lawful predicate - and the install probe compares the disk against'
-  Say  '      this same package, where both halves are measured at once.'
-  $staticList = @(
-    'wwwroot/app.css', 'wwwroot/app.js', 'wwwroot/css/tokens.css', 'wwwroot/css/wallboard-skin.css',
-    'wwwroot/js/daytrendChart.js', 'wwwroot/js/agentStateDistributionChart.js',
-    'wwwroot/js/reportDistributionChart.js', 'wwwroot/js/widgetResize.js',
-    'wwwroot/CcDashboard.Web.styles.css'
-  )
-  foreach ($staticPath in $staticList) {
-    $bytes = Read-Entry $staticPath
-    if ($null -eq $bytes) { Say ('      ' + $staticPath.PadRight(42) + ' ABSENT FROM PACKAGE  <- finding') ; $pkgOk = $false ; continue }
-    $sha = [BitConverter]::ToString((New-Object Security.Cryptography.SHA256Managed).ComputeHash($bytes)).Replace('-','')
-    Say ('      ' + $staticPath.PadRight(42) + ' ' + ([string]$bytes.Length).PadLeft(7) + ' B  ' + $sha)
+  Say  ''
+  Say  '  6a  THE STATIC FILES - THE LIST IS READ OUT OF App.razor, NOT TYPED HERE'
+  Say  '      The first run of this probe typed the nine paths by hand and got three of them wrong:'
+  Say  '      app.js is under js/, wallboard-skin.css under css/widgets/, and the resize script is'
+  Say  '      widget-resize.js, not widgetResize.js. All three printed "ABSENT FROM PACKAGE" and'
+  Say  '      painted a correct package RED - a false red, the dearer kind, because it sends me to'
+  Say  '      fix something healthy. A list I can mistype is not a measurement. The list below is'
+  Say  '      parsed out of App.razor at the pinned revision, so it cannot disagree with the page'
+  Say  '      that actually loads these files, and a tenth asset appearing there would be followed.'
+  $appRazorPath = Join-Path $CLONE 'src\CcDashboard.Web\Components\App.razor'
+  $assetRows = @()
+  if (-not (Test-Path -LiteralPath $appRazorPath)) {
+    Say ('      App.razor not found at ' + $appRazorPath + '  <- cannot derive the list') ; $pkgOk = $false
+  } else {
+    $appRazorText = [IO.File]::ReadAllText($appRazorPath)
+    foreach ($assetMatch in [regex]::Matches($appRazorText, '(?:href|src)="([^":]+?)\?v=(\d+)"')) {
+      $assetRows += ,@($assetMatch.Groups[1].Value, $assetMatch.Groups[2].Value)
+    }
   }
-  Say  '      The scoped bundle CcDashboard.Web.styles.css is built from the .razor.css files, and no'
-  Say  '      .razor.css is in this delta. The blessing requires its sha to equal the one handed out'
-  Say  '      before the install - that comparison is made by the install probe, against this line.'
+  Say ('      assets declared in App.razor : ' + $assetRows.Count + '   (expected 9 - the blessing names nine)')
+  if ($assetRows.Count -ne 9) { $pkgOk = $false }
+  if ($null -eq $appRazorText) { $appRazorText = '' }
+  $negAsset = ([regex]::Matches($appRazorText, 'zzz-no-such-asset\.css\?v=\d+')).Count
+  Say ('      NEGCTL an asset that cannot be declared : ' + $negAsset + ' hits (expected 0; the 9 above prove the same regex does find real ones)')
+  if ($negAsset -ne 0) { $pkgOk = $false }
+  Say  ''
+  Say  '      THE VERSIONS THE BLESSING NAMES, against the versions App.razor carries at 2d75b01.'
+  Say  '      No wwwroot file and no "?v=" line is in the delta (PIN 3b, PIN 3c), so every one of'
+  Say  '      these must still read exactly what the coordinator wrote down.'
+  $blessedVersions = @{
+    'app.css' = '36' ; 'CcDashboard.Web.styles.css' = '10' ; 'js/daytrendChart.js' = '14'
+    'js/agentStateDistributionChart.js' = '16' ; 'js/reportDistributionChart.js' = '6'
+    'js/widget-resize.js' = '3' ; 'css/tokens.css' = '3' ; 'css/widgets/wallboard-skin.css' = '3'
+    'js/app.js' = '2'
+  }
+  $versionsAgree = $true
+  foreach ($assetRow in $assetRows) {
+    $assetPath = $assetRow[0] ; $assetVersion = $assetRow[1]
+    if (-not $blessedVersions.ContainsKey($assetPath)) {
+      Say ('      ' + $assetPath.PadRight(38) + ' v=' + $assetVersion + '   NOT IN THE BLESSED LIST <- finding') ; $versionsAgree = $false ; continue
+    }
+    $expectedVersion = $blessedVersions[$assetPath]
+    $agrees = ($expectedVersion -eq $assetVersion)
+    Say ('      ' + $assetPath.PadRight(38) + ' expected v=' + $expectedVersion.PadRight(3) + ' measured v=' + $assetVersion.PadRight(3) + '  ' + $(if ($agrees) { 'agrees' } else { 'MOVED <- finding' }))
+    if (-not $agrees) { $versionsAgree = $false }
+  }
+  if (-not $versionsAgree) { $pkgOk = $false }
+  Say  ''
+  Say  '      AND THE BODIES, out of the package itself. These are plain text files, not built'
+  Say  '      assemblies, so their sha IS a lawful predicate; the install probe compares the disk'
+  Say  '      against this same staging, where both halves are measured at one time.'
+  foreach ($assetRow in $assetRows) {
+    $staticPath = 'wwwroot/' + $assetRow[0]
+    $bytes = Read-Entry $staticPath
+    if ($null -eq $bytes) { Say ('      ' + $staticPath.PadRight(44) + ' ABSENT FROM PACKAGE  <- finding') ; $pkgOk = $false ; continue }
+    $sha = [BitConverter]::ToString((New-Object Security.Cryptography.SHA256Managed).ComputeHash($bytes)).Replace('-','')
+    Say ('      ' + $staticPath.PadRight(44) + ' ' + ([string]$bytes.Length).PadLeft(7) + ' B  ' + $sha)
+  }
+  $bundleBytes = Read-Entry 'wwwroot/CcDashboard.Web.styles.css'
+  if ($null -ne $bundleBytes) {
+    $bundleSha = [BitConverter]::ToString((New-Object Security.Cryptography.SHA256Managed).ComputeHash($bundleBytes)).Replace('-','')
+    Say  ''
+    Say ('      SCOPED BUNDLE, called out on its own because the blessing stops the flight on it:')
+    Say ('        CcDashboard.Web.styles.css  ' + $bundleBytes.Length + ' B  ' + $bundleSha)
+    Say  '        It is built from the .razor.css files and no .razor.css is in this delta. THIS sha is'
+    Say  '        the one handed out before the install; the install probe compares the disk against it,'
+    Say  '        and a bundle that moved is a stop and a letter to the coordinator, not a note.'
+  } else { Say '      SCOPED BUNDLE ABSENT FROM PACKAGE  <- finding' ; $pkgOk = $false }
 
   Say  ''
-  Say  '  6b  THE THREE DICTIONARIES. No .resx in the delta (PIN 3b), so EQUALITY with what 234 runs'
-  Say  '      is the pass. Their sha is NOT a predicate - a rebuild changes it by itself, measured'
-  Say  '      2026-10-12 at identical sizes. Size is recorded; the install probe compares the disk'
-  Say  '      against this staging, and the four Wfm keys are searched for by bytes below.'
+  Say  '  6b  THE THREE DICTIONARIES - PRESENCE AND SIZE ONLY, AND NO KEY SEARCH AT ALL'
+  Say  '      The first run of this probe searched all three for the four Wfm property names and'
+  Say  '      printed "0/4" on every row. That rule was carried over from the f333db5 flight, where'
+  Say  '      three .resx WERE in the delta and four new label keys had to appear. Measured in the'
+  Say  '      2d75b01 tree today: the three .resx carry NO key whose name starts with Wfm, and the'
+  Say  '      four names are C# CONFIG PROPERTIES, not resource keys - they were never supposed to'
+  Say  '      be in a dictionary, before this flight or after it. Demanding them painted a correct'
+  Say  '      package red on three rows, which is the same fault as the carried satellite-growth'
+  Say  '      rule of 2026-10-11. .resx count in this delta is 0 (PIN 3b), so the only lawful'
+  Say  '      predicate here is: present, and equal to what 234 runs - and that comparison belongs'
+  Say  '      to the install probe, which has both halves in front of it at once.'
   foreach ($culture in @('he-IL','ru-RU','en-US')) {
     $bytes = Read-Entry ($culture + '/CcDashboard.Web.resources.dll')
     if ($null -eq $bytes) { Say ('      ' + $culture.PadRight(8) + ' ABSENT FROM PACKAGE  <- finding') ; $pkgOk = $false ; continue }
-    $keyHits = 0
-    foreach ($key in @('WfmTileTitleFontSize','WfmTileValueFontSize','WfmListTitleFontSize','WfmListValueFontSize')) {
-      if ((Find-Text $bytes $key) -ge 0) { $keyHits++ }
-    }
-    $negKey = Find-Text $bytes 'WfmNoSuchFontSizeKey'
-    Say ('      ' + $culture.PadRight(8) + ([string]$bytes.Length).PadLeft(7) + ' B   four Wfm label keys found: ' + $keyHits + '/4   NEGCTL a key that cannot exist: ' + $(if ($negKey -lt 0) { 'absent, as it must be' } else { 'FOUND - the search is broken' }))
-    if ($negKey -ge 0) { $pkgOk = $false }
+    $sha = [BitConverter]::ToString((New-Object Security.Cryptography.SHA256Managed).ComputeHash($bytes)).Replace('-','')
+    Say ('      ' + $culture.PadRight(8) + ([string]$bytes.Length).PadLeft(7) + ' B  ' + $sha + '   (sha RECORDED, never a predicate: a rebuild changes it by itself)')
   }
+  $negSat = Read-Entry 'zz-ZZ/CcDashboard.Web.resources.dll'
+  Say ('      NEGCTL a culture that cannot be in the package : ' + $(if ($null -eq $negSat) { 'absent, as it must be - so the three rows above are real reads' } else { 'FOUND - the reader is broken' }))
+  if ($null -ne $negSat) { $pkgOk = $false }
 
   Say  ''
   Say  '  6c  THE ASSEMBLIES. web.dll is RECORDED, not compared against the deployed one: it was'
@@ -367,7 +421,7 @@ Say ('  PIN 1/2/2b/3 provenance            : ' + ($pinClone -and $pinClean -and 
 Say ('  PIN 3b delta and mode              : ' + $modeLawful)
 Say ('  PIN 3c no asset version moved       : ' + $pinVersions)
 Say ('  PIN 4 builder exit 0               : ' + ($buildExit -eq 0))
-Say ('  PIN 6 package complete and clean   : ' + $pkgOk)
+Say ('  PIN 6 package complete and clean   : ' + $pkgOk + '   (asset list parsed from App.razor, versions against the blessed nine, no key search)')
 Say ('  PIN 7 hand-over copy identical     : ' + $copyOk)
 $all = ($pinClone -and $pinClean -and $pinWitness -and $modeLawful -and $pinVersions -and ($buildExit -eq 0) -and $pkgOk -and $copyOk -and (-not (Test-TrapFired)))
 Say ('  PACKAGE : ' + $(if ($all) { 'READY TO HAND OVER' } else { 'NOT READY - see the RED rows above' }))

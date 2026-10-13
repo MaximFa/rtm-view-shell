@@ -213,6 +213,22 @@ def check(path):
                       "runs the other way" % helper)
         break
 
+    # --- a statement used where PowerShell wants an expression ------------------
+    # Measured on myself 2026-10-13, inside the fix for the false red of the run before: I wrote
+    # ([regex]::Matches((if ($rows.Count -gt 0) { $text } else { '' }), $pattern)). In PowerShell
+    # 5.1 `if` is a STATEMENT - it is an expression only inside $( ). Bare `(if ...)`, `(foreach`,
+    # `(while`, `(switch`, `(try` is a parse error, which means the probe dies at line 1 and the
+    # operator gets a red console instead of a measurement. Caught here, before the box.
+    for keyword_match in re.finditer(r'\((if|foreach|while|switch|try|do)[\s(]', code):
+        if code[keyword_match.start() - 1:keyword_match.start()] == '$':
+            continue
+        faults.append("line %d: `(%s ...` - %s is a STATEMENT in PowerShell, an expression only "
+                      "inside $( ). Bare parentheses here are a parse error and the probe never "
+                      "reaches its first measurement. Write $(%s ...)"
+                      % (code[:keyword_match.start()].count('\n') + 1, keyword_match.group(1),
+                         keyword_match.group(1), keyword_match.group(1)))
+        break
+
     # --- defined, but BELOW the first call ---------------------------------------
     # Measured on myself 2026-10-12, one hour after fixing the gate above: Find-ByteRun was defined
     # at the bottom of section 6 and called in the same section, so the call ran first, the trap
