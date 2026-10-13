@@ -218,10 +218,28 @@ if ($logFiles.Count -eq 0) {
 }
 Say  '  THE ACTUAL LOG LEVEL - named, because Debug lines may simply not be written, and that is'
 Say  '  itself an answer rather than a missing needle.'
+# THIS SECTION PRINTED A SECRET AT 16:24 AND 16:28, AND THAT IS THE DEFECT IT NOW GUARDS AGAINST.
+# It grepped appsettings.json for '"Default"' to find the log level. "Default" is ALSO the name of
+# the connection string, so the matching line was the whole connection string - password included -
+# and it went into two measurement files. The standing rule is absolute: a secret never reaches the
+# chat, a measurement or a commit; only its name, length and hash. A pattern wide enough to match a
+# config KEY will one day match a config VALUE, so this reads the Logging section as an OBJECT and,
+# as a second independent guard, withholds any entry whose text smells of a credential.
 if (Test-Path -LiteralPath $appSettingsPath) {
-  foreach ($levelLine in @(Select-String -LiteralPath $appSettingsPath -Pattern 'LogLevel|"Default"|"Microsoft"|"CcDashboard"' -ErrorAction SilentlyContinue | Select-Object -First 12)) {
-    Say ('    ' + $levelLine.Line.Trim())
-  }
+  $settingsForLevel = $null
+  try { $settingsForLevel = ([IO.File]::ReadAllText($appSettingsPath) | ConvertFrom-Json) } catch { }
+  if (($null -ne $settingsForLevel) -and ($null -ne $settingsForLevel.Logging) -and ($null -ne $settingsForLevel.Logging.LogLevel)) {
+    foreach ($levelProperty in $settingsForLevel.Logging.LogLevel.PSObject.Properties) {
+      $levelText = $levelProperty.Name + ' = ' + [string]$levelProperty.Value
+      if ($levelText -match '(?i)password|pwd=|secret|token|apikey|connection') {
+        Say '    one log-level entry was WITHHELD because its text could carry a credential'
+        continue
+      }
+      Say ('    Logging:LogLevel:' + $levelText)
+    }
+    Say  '    Read from the Logging:LogLevel OBJECT, never by grepping the file: the 16:24 run'
+    Say  '    grepped for "Default" and printed the connection string, password and all.'
+  } else { Say '    no Logging:LogLevel section could be read - the level is NOT MEASURED' }
 }
 Rule
 

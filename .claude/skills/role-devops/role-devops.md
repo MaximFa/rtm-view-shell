@@ -936,3 +936,51 @@ Two rules from it. A file that needs more than a token changed is REWRITTEN, not
 cheap-looking surgery is what carries the defect forward. And SQL inside a probe travels in a
 here-string (`@'...'@`), where nothing needs escaping at all; the moment I find myself escaping a
 quote inside a quoted string, the construct is wrong, not the escape.
+
+### A PATTERN WIDE ENOUGH TO MATCH A CONFIG KEY WILL MATCH ITS VALUE (2026-10-13)
+
+I printed a database password into two measurement files. The section was harmless in intent - it
+reported the actual log level, so that a missing Debug needle would not be read as a missing event.
+It found the level by grepping appsettings.json for `"Default"`. In that file `"Default"` is the
+name of the log level AND the name of the connection string, so the matching line was the whole
+connection string, password included.
+
+The rule it broke has no exceptions: a secret never reaches the chat, a measurement file or a
+commit; only its name, length and hash. What I take from it, mechanically:
+
+- a config value is read as an OBJECT (`$json.Logging.LogLevel`), never by matching text in the
+  file. Grep finds lines; a line is whatever happens to be on it;
+- and because any pattern can still widen by accident, the printing step carries its own
+  independent guard: an entry whose text matches password/secret/token/apikey/connection is
+  withheld and reported as withheld, whatever the pattern thought it was doing. One guard that
+  depends on my pattern being right is not a guard;
+- repair is not optional and comes before analysis: the measurement files were rewritten with the
+  value replaced, the repair verified by searching for the value again, and the incident reported
+  to the coordinator in the same letter as the findings, not after them.
+
+Worth recording for what it revealed: the same password was already in the TRACKED tree in ten-odd
+committed files, so it lived in branch history, not only in today's measurements. I put that to the
+operator with a recommendation to rotate; his decision on 2026-10-13 was NOT to rotate. That is his
+call, it is recorded, and I do not re-raise it.
+
+### AN EXACT-MATCH ON A NAME I DID NOT MEASURE IS NOT A MEASUREMENT (2026-10-13)
+
+I reported to the coordinator that `TenantSettings` and `BusinessUnitQueueClassifications` do not
+exist in rtmviewdb. They do. The table is `public.tenant_settings`: in this database TABLE names are
+snake_case while COLUMN names are PascalCase (`"TenantId"`, `"WfmEnableRealtime"`). My query asked
+`WHERE table_name = 'TenantSettings'`, which could not match by construction, and I presented its
+zero as a fact about the machine. The operator corrected me from the database browser.
+
+Three things to carry:
+
+- a search for a name I have not seen with my own eyes is a PATTERN search (`ILIKE '%tenant%'`)
+  across every schema, never an equality on a name I inherited from a letter or from code. The
+  equality form may be used only to confirm a name a previous measurement printed;
+- a zero from a name-match is a statement about MY NAME, not about the machine. The honest line is
+  "no table matching X", and when X was typed by me, it is not reportable as absence at all;
+- when a reading contradicts how a working product must be built - the shell was serving screens
+  all along, so its tables plainly exist - that contradiction is the signal to doubt the probe
+  first. I had it in front of me and reported the absence anyway.
+
+And the operator's instruction, in his words: ask when I do not know. A question costs one message;
+a wrong fact in a letter costs the coordinator's and backend's time and has to be retracted.
