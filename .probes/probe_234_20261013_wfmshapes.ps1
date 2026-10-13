@@ -61,7 +61,7 @@ foreach ($pgVersion in @('18','17','16','15','14')) {
 }
 
 function Invoke-Sql($connection, [string]$label, [string]$sqlText, [bool]$withNegativeControl, [string]$databaseOverride) {
-  if (($null -eq $script:Psql) -or ($null -eq $connection)) { Say ('    ' + $label + ' : NOT MEASURED') ; return ,@() }
+  if (($null -eq $script:Psql) -or ($null -eq $connection)) { Say ('    ' + $label + ' : NOT MEASURED') ; return @() }
   $database = $connection[3]
   if (-not [string]::IsNullOrEmpty($databaseOverride)) { $database = $databaseOverride }
   $sqlPath = Join-Path $SQL_DIR ('wfmshapes_' + $label + '.sql')
@@ -81,8 +81,13 @@ function Invoke-Sql($connection, [string]$label, [string]$sqlText, [bool]$withNe
   $env:PGPASSWORD = $null
   Say ('    rc ' + $exitCode + '   (must be 0)')
   foreach ($outputLine in $output) { Say-Guarded ('    ' + $outputLine) }
-  if ($exitCode -ne 0) { Say '    THIS QUERY FAILED, so this section states NOTHING about the data.' ; return ,@() }
-  return ,(Select-DataRows $output)
+  if ($exitCode -ne 0) { Say '    THIS QUERY FAILED, so this section states NOTHING about the data.' ; return @() }
+  # NO COMMA HERE. Select-DataRows already returns a wrapped array; wrapping it a second time
+  # made the caller's @() see ONE element - an Object[] - so the 16:41 run printed sixteen rows and
+  # then said "rows 1". The data was right and the counter lied, which is the shape of a false
+  # green. Measured in PowerShell: current form count 1 with element0 Object[], this form count 3
+  # with element0 String, and a one-row result still arrives as one row of four fields.
+  return (Select-DataRows $output)
 }
 
 Say '0  THE CONNECTION, READ AS AN OBJECT'
