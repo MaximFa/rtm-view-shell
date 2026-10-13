@@ -83,7 +83,13 @@ function Stamp-Of([string]$line) {
 # A data row is a non-empty line that is not part of an error message. NOT "a line with a
 # separator": a single-column answer has none, which made a correct result count as zero rows.
 function Select-DataRows($output) {
-  return @(@($output) | Where-Object { "$_".Trim() -ne '' -and "$_" -notmatch '(?i)^ERROR|^psql:|FATAL|^LINE \d|^\s*\^\s*$' })
+  # THE COMMA IS LOAD-BEARING. `return @(...)` UNROLLS a one-element array on the way out, so a
+  # single-row result came back as a STRING: the caller's $rows[0] was then the first CHARACTER of
+  # the row, Split('|') gave one field instead of four, and the whole block that read it was
+  # skipped in silence. Measured 2026-10-13 16:24 on 234, where the row 0|1|0|0 was printed by the
+  # probe and then not seen by it. Same trap as the one-element loop of 2026-10-04. The comma
+  # operator keeps the array an array whatever its length.
+  return ,@(@($output) | Where-Object { "$_".Trim() -ne '' -and "$_" -notmatch '(?i)^ERROR|^psql:|FATAL|^LINE \d|^\s*\^\s*$' })
 }
 function Utc-Now() { return (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss') + 'Z' }
 
@@ -128,10 +134,16 @@ function Start-Probe([string]$Name, [string]$Title, [string]$OutputDir) {
   Say ('  ShaOf        : a file that exists -> ' + $shaKnown.Substring(0, 12) + '...   a file that does not -> ' + (ShaOf 'C:\zzz-no-such-file'))
   $rowsOk = (Select-DataRows @('509', '', 'ERROR:  nope', 'LINE 1: x')).Count
   Say ('  Select-DataRows : 1 data row out of 4 output lines -> ' + $rowsOk + ' (expected 1)')
+  # The row above is also the control for the unroll: a ONE-row result must come back as an array
+  # whose first element is the whole row, not as a string whose first element is a character.
+  $oneRow = Select-DataRows @('0|1|0|0')
+  $firstField = ([string]$oneRow[0]).Split('|')[0]
+  $fieldCount = ([string]$oneRow[0]).Split('|').Count
+  Say ('  one-row result  : element 0 splits into ' + $fieldCount + ' fields (expected 4), first field "' + $firstField + '" (expected "0" from a FOUR-field row, not a single character of it)')
   $stampOk = Stamp-Of '2026-10-13 10:18:59.123 +03:00 [INF] x'
   $stampBad = Stamp-Of 'no timestamp here'
   Say ('  Stamp-Of     : a stamped line -> ' + $(if ($null -ne $stampOk) { $stampOk.ToUniversalTime().ToString('HH:mm:ssZ') } else { 'NULL' }) + '   an unstamped one -> ' + $(if ($null -eq $stampBad) { 'NULL as it must be' } else { 'NOT NULL - WRONG' }))
-  $coreOk = (($hit -eq 3) -and ($miss -eq -1) -and ($hitWide -eq 0) -and ($shaKnown -ne 'ABSENT') -and ((ShaOf 'C:\zzz-no-such-file') -eq 'ABSENT') -and ($rowsOk -eq 1) -and ($null -ne $stampOk) -and ($null -eq $stampBad))
+  $coreOk = (($hit -eq 3) -and ($miss -eq -1) -and ($hitWide -eq 0) -and ($shaKnown -ne 'ABSENT') -and ((ShaOf 'C:\zzz-no-such-file') -eq 'ABSENT') -and ($rowsOk -eq 1) -and ($fieldCount -eq 4) -and ($null -ne $stampOk) -and ($null -eq $stampBad))
   Say ('  CORE : ' + $(if ($coreOk) { 'TRUSTED' } else { 'NOT TRUSTED - nothing this probe prints can be believed' }))
   if (-not $coreOk) { Finish $false }
   Rule

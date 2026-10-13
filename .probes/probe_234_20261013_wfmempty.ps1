@@ -150,9 +150,19 @@ $appConnection = $null
 $emulationConnection = $null
 foreach ($connection in $connections) {
   Say ('  "' + $connection[0] + '" -> database ' + $connection[3])
-  $rows = Invoke-Sql $connection ('tables_' + $connection[0]) $tablesSql $true
+  # A connection with no host or no database is not a PostgreSQL one - the Redis entry is in this
+  # same section of appsettings.json. Running psql against it at 16:24 produced
+  # 'could not translate host name "-p" to address', because an empty -h value let psql swallow the
+  # next switch as the host name. A doomed query printed into a report is noise that looks like a
+  # measurement, so such a connection is named and skipped.
+  if ([string]::IsNullOrEmpty($connection[1]) -or [string]::IsNullOrEmpty($connection[3])) {
+    Say '    not a PostgreSQL connection (no host or no database) - SKIPPED, not queried'
+    continue
+  }
+  $rows = @(Invoke-Sql $connection ('tables_' + $connection[0]) $tablesSql $true)
   if ($rows.Count -gt 0) {
     $parts = ([string]$rows[0]).Split('|')
+    Say ('    fields parsed from the row : ' + $parts.Count + '   (expected 4; a 1 here means the row came back as a string and was never really read - the unroll defect of 16:24)')
     if ($parts.Count -ge 4) {
       Say ('    TenantSettings ' + $parts[0] + '   RTSData_Interaction ' + $parts[1] + '   BusinessUnitQueueClassifications ' + $parts[2] + '   NEGCTL a table that cannot exist ' + $parts[3] + ' (must be 0)')
       if ($parts[0] -eq '1') { $appConnection = $connection }
@@ -223,7 +233,7 @@ FROM "TenantSettings";
 
 Say '3  TenantSettings - is realtime on, and is the serving-state map non-empty'
 Say  '  expected : WfmEnableRealtime true on at least one tenant, and WfmServingStateGroups NOT empty'
-$tenantRows = Invoke-Sql $appConnection 'tenantsettings' $tenantSql $true
+$tenantRows = @(Invoke-Sql $appConnection 'tenantsettings' $tenantSql $true)
 Say ('  measured : rows ' + $tenantRows.Count)
 if ($tenantRows.Count -eq 0) {
   Say '  NOT MEASURED or no rows - this section states nothing further.'
@@ -259,7 +269,7 @@ Say  '  nothing on its own. total is the live object: with no interactions in th
 Say  '  lambda is correct and there is no defect to find.'
 Say  '  expected : total > 0 at least in the 24-hour row; with_tz > 0 and wg_with_tz > 0.'
 Say  '  If total > 0 while with_tz = 0, suspect 1 - the empty TimeZone map - is CONFIRMED.'
-$interactionRows = Invoke-Sql $emulationConnection 'interactions' $interactionSql $true
+$interactionRows = @(Invoke-Sql $emulationConnection 'interactions' $interactionSql $true)
 Say ('  measured : rows ' + $interactionRows.Count)
 Rule
 
@@ -272,7 +282,7 @@ SELECT COUNT(*) AS zzz_rows FROM "BusinessUnitQueueClassifications" WHERE "Class
 
 Say '5  THE ALL CLASSIFICATION - suspect 2'
 Say  '  expected : > 0. A zero CONFIRMS suspect 2.'
-$classRows = Invoke-Sql $emulationConnection 'classifications' $allSql $true
+$classRows = @(Invoke-Sql $emulationConnection 'classifications' $allSql $true)
 Say  '  NEGCTL IN THE SAME SHAPE: the same count for an id that cannot exist must be 0, or the'
 Say  '  predicate is matching everything rather than counting that one id.'
 [void](Invoke-Sql $emulationConnection 'classifications_negctl' $allNegSql $false)
@@ -290,7 +300,7 @@ Say '6  THE WIDGET BUSINESS UNIT - shell asked for this: does the loop build a s
 Say  '  Only the BusinessUnitId key of the widget config is read and printed, as the letter requires.'
 Say  '  Both spellings are asked for because I have not measured how this config is serialised, and'
 Say  '  a guessed key would come back empty and look like an answer.'
-$buRows = Invoke-Sql $appConnection 'widget_bu' $widgetSql $true
+$buRows = @(Invoke-Sql $appConnection 'widget_bu' $widgetSql $true)
 Say ('  Wfm widgets read : ' + $buRows.Count)
 $buIds = @()
 foreach ($buRow in $buRows) {
