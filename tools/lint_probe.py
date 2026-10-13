@@ -224,6 +224,23 @@ def check(path):
                       "runs the other way" % helper)
         break
 
+    # --- a variable handed to a query but never assigned ---------------------------
+    # Measured on myself 2026-10-13 17:0x. An edit of mine deleted two here-string definitions
+    # while rewriting the section above them. The probe then wrote an EMPTY .sql file, psql ran it,
+    # returned rc 0 and no rows, and the section reported "0 pairs" - which I read as an empty
+    # table. It had measured nothing. A zero that comes from an empty query is the purest false
+    # green there is: every control passed, because there was nothing to control.
+    for sql_use in re.finditer(r'Invoke-Sql[^\r\n]*?\$([A-Za-z][A-Za-z0-9_]*Sql)\b', code):
+        variable = sql_use.group(1)
+        assigned = re.search(r'(?m)^\s*\$' + re.escape(variable) + r'\s*=', code)
+        if assigned:
+            continue
+        faults.append("the query variable $%s is passed to Invoke-Sql but never assigned anywhere "
+                      "in this file. An empty query runs, psql returns rc 0 and no rows, and the "
+                      "section reports a zero it never measured - every control passes because "
+                      "there is nothing to control" % variable)
+        break
+
     # --- an operator left in ARGUMENT position ------------------------------------
     # PowerShell parses a command's ARGUMENTS, not an expression. So
     #     Say '  found ' + $n + ' items'

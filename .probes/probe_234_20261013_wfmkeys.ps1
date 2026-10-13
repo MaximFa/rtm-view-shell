@@ -189,13 +189,44 @@ if (($configColumn.Count -eq 0) -or ($columnRows.Count -eq 0)) {
 }
 Rule
 
+# THESE TWO DEFINITIONS WERE DELETED BY MY OWN EDIT, AND SECTION 4 RAN WITH EMPTY VARIABLES.
+# The run of 16:56 wrote an EMPTY .sql file, psql executed it, returned rc 0 and no rows, and the
+# section reported 0 (BU, classification) pairs - which I read as an empty table. It measured
+# nothing at all. What exposed it was this probe's own convention of printing the query back FROM
+# DISK: no query text in the report means no query was run. Keep that convention; it is the only
+# reason a silent nothing did not become a fact in a letter.
+$classSql = @'
+SELECT "BusinessUnitId", "ClassificationId", count(*) AS rows
+FROM public."NGC_BusinessUnitQueueClassification"
+GROUP BY 1, 2
+ORDER BY 1, 2;
+'@
+
+$classAllSql = @'
+SELECT 'ALL rows' AS scope, count(*) AS rows FROM public."NGC_BusinessUnitQueueClassification" WHERE "ClassificationId" = 'ALL'
+UNION ALL
+SELECT 'rows in total', count(*) FROM public."NGC_BusinessUnitQueueClassification"
+UNION ALL
+SELECT 'NEGCTL id that cannot exist', count(*) FROM public."NGC_BusinessUnitQueueClassification" WHERE "ClassificationId" = 'ZZZ_NO_SUCH_ID';
+'@
+
+# AND A GUARD, so an empty query can never again be run as if it were one.
+function Assert-SqlPresent([string]$name, [string]$text) {
+  if ([string]::IsNullOrWhiteSpace($text)) {
+    Say ('    ' + $name + ' : THE QUERY TEXT IS EMPTY - not run. This section is NOT MEASURED and states nothing.')
+    return $false
+  }
+  return $true
+}
 Say '4  THE CLASSIFICATIONS - by BU and by classification, then the ALL count with its controls'
 Say  '  expected : for the BU of the widget in section 3 there is at least one ALL row. A zero'
 Say  '  there means the aggregate for that BU is never built - which would be a cause, not a'
 Say  '  detail. The total and the impossible id stand beside it so neither zero can be blind.'
-$classRows = @(Invoke-Sql $primary 'classifications_by_bu' $classSql $true)
+$classRows = @()
+if (Assert-SqlPresent 'classifications_by_bu' $classSql) { $classRows = @(Invoke-Sql $primary 'classifications_by_bu' $classSql $true) }
 Say ('  measured : (BU, classification) pairs ' + $classRows.Count)
-$classAllRows = @(Invoke-Sql $primary 'classifications_all' $classAllSql $false)
+$classAllRows = @()
+if (Assert-SqlPresent 'classifications_all' $classAllSql) { $classAllRows = @(Invoke-Sql $primary 'classifications_all' $classAllSql $true) }
 Say ('  measured : rows ' + $classAllRows.Count + '   (expected 3)')
 Rule
 
