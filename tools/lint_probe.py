@@ -224,31 +224,39 @@ def check(path):
                       "runs the other way" % helper)
         break
 
-    # --- concatenation handed to a command without parentheses -------------------
-    # Measured on myself 2026-10-13, in the cleanup probe, caught before the box: I wrote
-    #     Say '  POSCTL: it found ' + $headings.Count + ' headings'
-    # PowerShell parses a command's ARGUMENTS, not an expression, so Say received five arguments
-    # and printed only the first fragment - a line that reads like a measurement and carries no
-    # number. Inside parentheses the same text is one expression and is correct.
+    # --- an operator left in ARGUMENT position ------------------------------------
+    # PowerShell parses a command's ARGUMENTS, not an expression. So
+    #     Say '  found ' + $n + ' items'
+    # passes five arguments and prints only the first - a line that reads like a measurement and
+    # carries no number; and
+    #     Invoke-Sql $conn 'label' @('SELECT 1;') -join "`r`n" $true
+    # passes the ARRAY and then the literal '-join', so the query never reaches the function and
+    # the flag argument receives '-join'. I wrote both of these today, hours apart.
     #
-    # The first version of this gate lit up twelve older probes and every one was a FALSE RED,
-    # from two separate causes, both fixed here:
-    #   - `\s+` after the command name matched a NEWLINE, so a bare `Rule` on its own line was
-    #     joined to the `Say ("x" + $y)` on the next one. The separator is now [ \t]+ and the
-    #     line is examined on its own.
-    #   - a `+` INSIDE a quoted string counted ("picked up live (IOptionsMonitor + ...")`. Quoted
-    #     spans are now removed before the search, the same way the bracket gate does it.
+    # This gate took three wrong forms before it was right, and every wrong form was a FALSE RED,
+    # which this project counts as the dearer kind of defect:
+    #   - `\s+` after the command name matched a NEWLINE and glued a bare `Rule` to the next line;
+    #   - a `+` INSIDE a quoted string counted;
+    #   - the tail was not cut at an unquoted ';', so the correct second statement of
+    #     `Write-Host ''; Write-Host ('report : ' + $REPORT)` lit the gate;
+    #   - skipping any tail that began with ( @ or $ hid every call whose first argument is a
+    #     VARIABLE - which is exactly the Invoke-Sql case above - while still lighting up
+    #     `Say ("a" + $b)`, because the operator inside the parentheses was never measured for
+    #     DEPTH. Both halves are fixed by the same thing: the operator counts only at paren depth
+    #     zero, and quoted spans are removed first.
+    own_functions = set(re.findall(r'(?m)^\s*function\s+([A-Za-z][A-Za-z0-9_-]*)', code))
+    callable_names = own_functions | {'Say', 'Write-Host', 'Rule'}
+    name_alternation = '|'.join(sorted((re.escape(n) for n in callable_names), key=len, reverse=True))
     for raw_line_number, raw_line in enumerate(code.split('\n'), start=1):
-        command_match = re.match(r'[ \t]*(Say|Write-Host|Rule)[ \t]+(?![\(@$])(\S.*)$', raw_line)
+        if re.match(r'[ \t]*function\b', raw_line):
+            continue
+        command_match = re.match(r'[ \t]*(' + name_alternation + r')[ \t]+(\S.*)$', raw_line)
         if not command_match:
             continue
-        tail = command_match.group(2)
-        # strip quoted spans, so only an operator in CODE position can match, and STOP at the first
-        # unquoted ';' - `Write-Host ''; Write-Host ('report : ' + $REPORT)` is two statements, and
-        # taking the whole line as one argument list made the correct second half light up the gate.
-        unquoted = []
+        depth = 0
         quote = None
-        for character in tail:
+        argument_text = []
+        for character in command_match.group(2):
             if quote:
                 if character == quote:
                     quote = None
@@ -256,15 +264,22 @@ def check(path):
             if character in ('"', "'"):
                 quote = character
                 continue
-            if character == ';':
+            if character in '([{':
+                depth += 1
+                continue
+            if character in ')]}':
+                depth -= 1
+                continue
+            if character == ';' and depth == 0:
                 break
-            unquoted.append(character)
-        if re.search(r'\s\+\s', ''.join(unquoted)):
-            faults.append("line %d: `%s '...' + ...` without parentheses - a command takes "
-                          "ARGUMENTS, not an expression, so the pieces after the first are passed "
-                          "as separate arguments and silently dropped. The line prints as a "
-                          "measurement while carrying no value. Wrap the whole expression: %s ('...' + ...)"
-                          % (raw_line_number, command_match.group(1), command_match.group(1)))
+            argument_text.append(character if depth == 0 else ' ')
+        if re.search(r'\s(?:\+|-join)\s', ''.join(argument_text)):
+            faults.append("line %d: `%s ... + / -join ...` with the operator in ARGUMENT position - "
+                          "a command takes arguments, not an expression, so everything after the "
+                          "first piece is passed as separate arguments. A Say line then prints "
+                          "without its value; a function call receives the literal '-join' in place "
+                          "of a real argument. Wrap the whole expression in parentheses."
+                          % (raw_line_number, command_match.group(1)))
             break
 
     # --- a statement used where PowerShell wants an expression ------------------

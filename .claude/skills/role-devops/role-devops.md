@@ -789,3 +789,150 @@ line. `Unblock-File` comes before the parse, because a file arriving over the cl
 the zone marker. And the report is copied back INSIDE the same box: measurement directories are
 untracked, so a report that stays on 234 is one disk failure from gone, and I read it from
 `.measurements/` rather than from pasted console text.
+
+### THE FORM OF A FLIGHT, END TO END (2026-10-13, written down because I kept re-deriving it)
+
+Four steps, four probes, four boxes, one commit before each run. Nothing in this shape is decided
+per flight; only the pins and the predicates are. Re-deriving it from memory every time is how the
+transport, the psql path and the asset list all got lost at one context break or another.
+
+**Step 0 - package, on the STATION.** `probe_WS_<date>_shellpkg-<commit>.ps1`.
+Gates first, in this order, and a red one builds nothing: the head of v4 equals the BLESSED
+revision (a head further along is a stop, not a build); the clone is clean and at that commit;
+every product blob of the delta is equal in clone and worktree; the delta decides the mode
+(`db/migrations` 0 and `RTM/` 0 is what makes `-Mode Shell -SkipDB` lawful, and `src/` > 0 is the
+control that the listing is not empty). Build, then take the package: FRESHNESS BEFORE EVERYTHING -
+a zip older than this run's start is refused, or a leftover passes every row below it. Then
+measure the package only against ITSELF: entries, `Shell\` non-zero, `RTM\` zero, both installers
+present, the asset list PARSED out of App.razor and never typed, the dictionaries present, the
+assemblies present. The zip sha is the step's product.
+
+**Step 1 - pre-deploy, on 234. READ-ONLY.** `probe_234_<date>_predeploy-<commit>.ps1`.
+The BEFORE column: assemblies, dictionaries, services and pids, the served asset versions, the
+static bodies on disk, the scoped bundle, the rollback floor, whether the package has arrived, and
+the disk as a pair of numbers. Nothing here is restarted and no log level is touched.
+
+**Step 2 - install, on 234. THE ONLY STEP THAT WRITES.** `probe_234_<date>_install-<commit>.ps1`.
+G-BUS FIRST: re-read `.coord/inbox/devops.md` over `\\tsclient\D\...` before anything is written,
+and stop on a stop word - a blessing is a gate at the moment of the write, not a permission
+granted earlier in the day. Then the rollback line and the floor package proven PRESENT and by
+sha, then the package gate, then unpack to `C:\RTMView-Ops\incoming\pkg_<commit>_<stamp>` so both
+sides of every later comparison are measured in one run on one disk. Install, read the installer's
+own words by COUNTED occurrences, poll the adapter to a 420 s deadline, compare the installed tree
+against the staging, and write the ledger line with a stamp from `ToUniversalTime()`. The staging
+directory is KEPT for step 3.
+
+**Step 3 - acceptance, on 234. READ-ONLY.** `probe_234_<date>_acceptance-<commit>.ps1`.
+Served HTML, bodies, behaviour. This is the step that decides whether the flight is accepted, and
+its report is what goes to the coordinator as a block.
+
+**Transport, every 234 step:** the probe and `_core.ps1` are copied by the box from
+`\\tsclient\D\Claude\Projects\RTM View Shell\.probes\` into `C:\RTMView-Ops\probes\`, hashed
+against the station's value BEFORE the probe is invoked, `Unblock-File`d, parsed, then run; the
+report is copied back into `.measurements\` inside the same box. See the transport section above
+for why the hash check is what allows copy and run to share one box.
+
+**What is pinned and what is measured.** Pinned: the blessed commit, the zip sha and name, the
+rollback floor. Measured in the run that uses it: everything else. A number taken from yesterday's
+report has produced four false verdicts in three days - carried satellite sizes, a carried
+`needle must appear` rule, carried asset versions, a carried assembly sha.
+
+**Which predicates are lawful at all.** A built assembly's sha: only equality with THIS package,
+never "unchanged" and never "differs" (two builds of one tree gave different sha at an identical
+size). A satellite's size: comparable; its sha: only against the package. A plain wwwroot file's
+sha: lawful in both directions. "No byte needle exists" is a legitimate answer, and then the proof
+of version is the ledger sha plus behaviour - inventing a needle is worse than not having one.
+
+**Where the flight stops rather than notes:** the scoped bundle moved with no `.razor.css` in the
+delta; machine config or `data.sys` changed; an `RTM\` entry in a Shell package; the head past the
+blessing; a stop word in the inbox. Each of those is a letter to the coordinator, not a line in a
+report.
+
+### THE REFERENCE FLIGHT, AS THE OPERATOR HANDED IT BACK (2026-10-13, flight 2ccbf1c)
+
+The operator gave me the whole 2ccbf1c flight as the shape to copy. The four steps are in the
+section above; what follows is what the reference has that my own write-up did NOT, each of which
+cost something when it was missing.
+
+**1. A station box carries a machine gate too, and its gate is the NEGATIVE one.**
+The 234 boxes refuse to run anywhere but RTM. A station box must refuse to run ON RTM, and must
+also prove it is standing in the repository rather than trusting the path:
+
+    if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'THIS IS SERVER 234 - the build runs on the workstation. Nothing done.'; return }
+    $repo = 'D:\Claude\Projects\RTM View Shell'
+    if (-not (Test-Path -LiteralPath $repo)) { Write-Host ("not the workstation: " + $repo + " does not exist here. Nothing done."); return }
+    Write-Host ("HOST: " + $env:COMPUTERNAME + "   (must NOT be RTM)")
+
+Both halves, in both directions, in every box. A box without its gate is a box that will one day
+run on the other machine.
+
+**2. A 51 MB copy prints a line per chunk, and is skipped when the file is already there.**
+A silent `Copy-Item` of the package looks exactly like a hung session, and the operator has had to
+interrupt a probe for showing no sign of life once already. The reference copies in 4 MB chunks,
+one line of progress each, and refuses to re-copy a package that is already on the disk - then
+hashes it either way, because "already present" is not "the right bytes":
+
+    if (-not (Test-Path -LiteralPath $pkgDst)) {
+      $in = [IO.File]::OpenRead($pkgSrc); $out = [IO.File]::Create($pkgDst)
+      $buf = New-Object byte[] (4MB); $done = 0
+      while (($read = $in.Read($buf, 0, $buf.Length)) -gt 0) {
+        $out.Write($buf, 0, $read); $done += $read
+        Write-Host ("  " + [math]::Round($done/1MB,1) + " MB of 51.6")
+      }
+      $out.Close(); $in.Close()
+    } else { Write-Host ("already present, not copied: " + $pkgDst) }
+    # expected sha and byte count printed, then measured, then compared - a mismatch stops the
+    # READING step too, not only the install
+
+**3. The package transfer rides in the PRE-DEPLOY box, not in a box of its own.**
+Transfer plus a read-only reading is one task for the operator; the reading then reports whether
+the package has arrived, and a False on that row before the transfer is normal rather than a
+finding. One box, one answer. The install stays its own box, because it writes.
+
+**4. The verdict line never repeats a number a section printed.**
+My sixth defect of this kind: the acceptance verdict said "two bodies, needle 0 -> 1" when there
+were three bodies with needles 4 / 5 / 4. The sections had been rewritten and the summary line had
+not. The rule is mechanical now: a verdict line names the SECTION and the FLAG, and the numbers
+stay in the rows that measured them. A hand-written phrase in a summary is inherited forever.
+
+**And the method the reference is really about:** the package side is not carried by hand at all.
+The install unpacks the package on the server itself, every later comparison reads that staging,
+and the staging is KEPT so the acceptance reads the same bytes. Both halves of every comparison
+are then measured in one run, by one instrument, on one disk. Four wrong numbers in two days came
+from carrying expectations between machines; after this change the only thing still carried is the
+BEFORE column - and that is exactly the half whose job is to be able to come out red.
+
+One more row shape the reference names explicitly, because the operator asked for it himself: an
+INVERTED predicate gets its own line with teeth. For 2ccbf1c that was widget-resize.js - it had to
+STAY at v=3 and the appearance of v=4 was the finding. Write that row as a row, not as a note.
+
+### A PROBE IS PARSED BY ME BEFORE IT IS HANDED OUT (2026-10-13)
+
+Twice today a probe reached the operator's console with a syntax error, and both times his box
+caught it - which is the box working, and the operator paying for my step. The reason was simply
+that I had no PowerShell of my own, so the only parser in the loop was his.
+
+PowerShell 7.4.6 now runs in my own environment (fetched as the linux-x64 tarball, unpacked to
+/opt/pwsh/pwsh). The probe and `_core.ps1` are staged into it and parsed BEFORE the box is written:
+
+    [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$null, [ref]$errors)
+
+with a negative control each time - a file with a deliberate syntax error, which must come back
+with a non-zero count, or a zero only means the script ran. The box keeps its own ParseFile gate:
+7.4 is not 5.1, so mine catches syntax and his catches the version.
+
+The order is now: write the file, `python3 tools/lint_probe.py`, parse with /opt/pwsh/pwsh, then
+hand out the box. A probe that has not been through all three is not ready.
+
+### DO NOT PATCH A PATCH - REWRITE THE SECTION (2026-10-13)
+
+The parse failure above had a second cause worth its own line. I had changed the SQL call sites of
+a finished probe with a regular expression, in place, and it left an unbalanced parenthesis in one
+call and missed another entirely; in the same file I had escaped single quotes inside a PostgreSQL
+interval the C way (\'60 minutes\') where PowerShell doubles them. Both survived because each fix
+was applied on top of the previous text instead of replacing it.
+
+Two rules from it. A file that needs more than a token changed is REWRITTEN, not patched - the
+cheap-looking surgery is what carries the defect forward. And SQL inside a probe travels in a
+here-string (`@'...'@`), where nothing needs escaping at all; the moment I find myself escaping a
+quote inside a quoted string, the construct is wrong, not the escape.
