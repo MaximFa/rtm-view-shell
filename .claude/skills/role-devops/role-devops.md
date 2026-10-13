@@ -752,3 +752,40 @@ by hand, copied from the previous day's report; one such carried rule painted a 
 on three rows. The split that holds: the package probe records what the package carries, the
 pre-deploy probe records what the machine carries, and every comparison is made where both halves
 are measured at one time - the install probe, against the staging unpacked from that very package.
+
+### HOW A PROBE REACHES 234 AND HOW ITS REPORT COMES BACK (2026-10-13, operator-dictated)
+
+This was never written down and I lost it at a context break, then asked the operator for it -
+a question that cost him a message about something that is pure routine. It lives here now.
+
+234 is reached over RDP from the station, so the STATION's D: is visible on 234 as `\\tsclient\D`.
+Nothing is pushed from the station; 234 pulls, runs, and pushes the report back the same way.
+The shape of every 234 box, in one piece:
+
+    if ($env:COMPUTERNAME -ne 'RTM') { Write-Host ('this is ' + $env:COMPUTERNAME + ', not server 234. Nothing done.'); return }
+    $src = '\\tsclient\D\Claude\Projects\RTM View Shell\.probes\<probe>.ps1'
+    $dst = 'C:\RTMView-Ops\probes\<probe>.ps1'
+    Copy-Item -LiteralPath $src -Destination $dst -Force
+    Unblock-File -LiteralPath $dst
+    # expected sha256 and byte count PRINTED FIRST, then measured on 234
+    $got = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash
+    if ($got -ne '<expected>') { Write-Host 'HASH MISMATCH - stop'; return }
+    $err = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($dst, [ref]$null, [ref]$err)
+    if (@($err).Count -gt 0) { $err | ForEach-Object { Write-Host ("  " + $_.Message) }; return }
+    & $dst
+    $last = Get-ChildItem 'C:\RTMView-Ops\output\*<topic>*.txt' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    Copy-Item -LiteralPath $last.FullName -Destination '\\tsclient\D\Claude\Projects\RTM View Shell\.measurements\' -Force
+
+Why this is one box and not two, even though the handoff says copying and running are two tasks:
+the sha of the copy is compared against the station's value ON 234 BEFORE the probe is invoked,
+and a mismatch returns without running. That check is what the two-box rule was protecting - a
+box that silently ran yesterday's copy - so it is satisfied here by measurement instead of by
+sequencing. Dropping the hash comparison puts the two-box rule back in force.
+
+Three details that are not optional. The core travels too: a probe dot-sources `_core.ps1` from
+its own directory, so both files go into `C:\RTMView-Ops\probes\` or the probe dies on its first
+line. `Unblock-File` comes before the parse, because a file arriving over the client drive carries
+the zone marker. And the report is copied back INSIDE the same box: measurement directories are
+untracked, so a report that stays on 234 is one disk failure from gone, and I read it from
+`.measurements/` rather than from pasted console text.
