@@ -209,6 +209,8 @@ Say ('  present : ' + $logDirPresent)
 $logOk = $false
 $loopCount = -1
 $warningCount = -1
+$wholeWarning = -1
+$negativeHalfSeen = $false
 if (-not $logDirPresent) { Say '  *** the sink directory does not exist - the log half is NOT MEASURED. Report it; do not call it green or red.' }
 else {
   $logFiles = @(Get-ChildItem -LiteralPath $LOG_DIR -File -Filter 'log-*.txt' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
@@ -232,7 +234,8 @@ else {
     Say ('    lines in the file today                     : ' + $wholeFile.Count)
     Say ('    "WfmRealtimeLoop: processed" anywhere today  : ' + (Count-In $wholeFile 'WfmRealtimeLoop: processed'))
     Say ('    "[INF]" + that line anywhere today          : ' + (Count-Regex $wholeFile '\[INF\].*WfmRealtimeLoop: processed'))
-    Say ('    the N=0 warning anywhere today              : ' + (Count-Regex $wholeFile '\[WRN\].*N=0'))
+    $wholeWarning = Count-Regex $wholeFile '\[WRN\].*N=0'
+    Say ('    the N=0 warning anywhere today              : ' + $wholeWarning)
     Say ('    "configured groups ... absent" anywhere today: ' + (Count-Regex $wholeFile 'configured groups.*absent'))
     Say ('    NEGCTL a needle that cannot be there        : ' + (Count-In $wholeFile 'ZzzNoSuchLogLineCouldEverExist') + '   (must be 0)')
 
@@ -291,6 +294,18 @@ else {
     Say ('  then resumed on a 30 s step. Worth a separate reading - a hosted loop that waits for a')
     Say ('  first request is a different thing from a hosted loop that runs on its own.')
     $logOk = (($grewBy -gt 0) -and ($windowLines.Count -gt 0) -and $contentFresh -and ($loopCount -ge 1) -and ($loopInformation -ge 1) -and ($negNeedle -eq 0))
+    $negativeHalfSeen = (($warningCount -ge 1) -or ($warningAbsent -ge 1) -or ($wholeWarning -ge 1))
+    Say ('  NEGATIVE HALF OBSERVED : ' + $negativeHalfSeen + '   <- wired into the verdict, not left in prose')
+    Say  '  A negative half stated in a comment and not carried by a variable is not a negative half.'
+    Say  '  The first version of this probe said in words that the absence of this warning would be'
+    Say  '  the finding, and then reported ACCEPTED with the warning at 0 for the whole day. Fixed.'
+    if (-not $negativeHalfSeen) {
+      Say  '  The warning has not been seen ONCE today, in the window or outside it, while the loop'
+      Say  '  lines are flowing. So the loop runs and the warning path is not exercised by it. The'
+      Say  '  likely reading - MINE, not a measurement - is that the warning sits in the widget query'
+      Say  '  path rather than in the loop, and nobody has opened the Wfm widget since the install.'
+      Say  '  That is a reading for shell to confirm or refute. Until then this flight is NOT closed.'
+    }
   }
 }
 Say ('  LOG : ' + $logOk)
@@ -313,9 +328,17 @@ Say ('  services up, same pids    : ' + $servicesOk)
 Say ('  served versions and bodies: ' + $servedOk)
 Say ('  scoped bundle             : ' + $bundleOk)
 Say ('  assemblies == package     : ' + $assembliesOk)
-Say ('  log, bounded window       : ' + $logOk)
-$stepOk = ($ledgerOk -and $servicesOk -and $servedOk -and $bundleOk -and $assembliesOk -and $logOk -and (-not (Test-TrapFired)))
-Say ('  STEP 3 : ' + $(if ($stepOk) { 'ACCEPTED ON THE FILE AND LOG SIDE - the behavioural half is shells to close' } else { 'NOT ACCEPTED - report the rows above; the rollback floor is the 2d75b01 package on disk' }))
+Say ('  log, loop half            : ' + $logOk)
+Say ('  negative half observed    : ' + $negativeHalfSeen + '   (the expected N=0 warning; its absence is a finding, not a pass)')
+$filesAndLoopOk = ($ledgerOk -and $servicesOk -and $servedOk -and $bundleOk -and $assembliesOk -and $logOk -and (-not (Test-TrapFired)))
+$stepOk = ($filesAndLoopOk -and $negativeHalfSeen)
+Say ('  files and loop half       : ' + $filesAndLoopOk)
+Say ('  STEP 3 : ' + $(if ($stepOk) { 'ACCEPTED ON THE FILE AND LOG SIDE - the behavioural half is shells to close' } else { 'NOT CLOSED - see which row is False above; the rollback floor is the 2d75b01 package on disk' }))
+if ($filesAndLoopOk -and (-not $negativeHalfSeen)) {
+  Say  '  READ THIS ONE CAREFULLY: every file row and the loop half are green, and NOTHING here says'
+  Say  '  the build is bad. What is missing is the proof that the new warning can fire at all. A'
+  Say  '  guard nobody has seen fire is an untested guard, and this project does not count those.'
+}
 Say  '  No unit is closed by this report. Closing is the operator word, and the coordinator accepts.'
 Say '===== END-OF-RUN MARKER: ACCEPTANCE-2324894-COMPLETE ====='
 Finish $stepOk

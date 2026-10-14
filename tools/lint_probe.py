@@ -169,6 +169,18 @@ def check(path):
                      "that is a false-red waiting to happen: add the growth pair, or parse the timestamp "
                      "out of the newest line")
 
+    # --- a negative half stated in PROSE is not a negative half -----------------
+    # 2026-10-14, flight 2324894 step 3. The probe said in its own text that the absence of the new
+    # N=0 warning "would be the finding", then computed its verdict without that term and printed
+    # STEP 3 : ACCEPTED with the warning at 0 for the entire day. Prose does not fail a run; a
+    # variable does. If a probe names a negative half, the verdict must carry a term for it.
+    claims_negative_half = re.search(r'NEGATIVE HALF|ABSENCE would be|its absence is a finding', code, re.I)
+    wires_negative_half = re.search(r'\$\w*[Nn]egative\w*\s*=|\$\w*[Ss]een\w*\s*=', code)
+    if claims_negative_half and not wires_negative_half:
+        faults.append("the probe NAMES a negative half in its text but no variable carries it, so the "
+                      "verdict cannot fail on it. On 2026-10-14 that printed ACCEPTED while the expected "
+                      "warning stood at 0 all day. Give it a variable and put that variable in the verdict")
+
     # --- the report must survive a broken-off run -------------------------------
     # Count the CALLS that flush the report, not the single line that implements the flush: a probe
     # with `function Write-Report { ...WriteAllLines... }` called five times is correct, and an early
