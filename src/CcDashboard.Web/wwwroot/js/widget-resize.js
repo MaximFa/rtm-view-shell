@@ -822,16 +822,24 @@ window.viewerScale = {
         const scaleY = wrapH / this.designHeight;
         const scale = Math.min(scaleX, scaleY);
         
-        // Apply transform
+        // Apply transform. The origin must be the INLINE START of the wrapper, not a
+        // physical side: in an RTL board the un-scaled layer is flush right, so scaling
+        // from 'top left' grows it past the wrapper's right edge and the right-most
+        // widget leaves the window entirely (PR234-V4-VIEWER-OVERFLOW-RTL-01).
+        const isRtl = getComputedStyle(wrapEl).direction === 'rtl';
         this.designEl.style.transform = 'scale(' + scale + ')';
-        this.designEl.style.transformOrigin = 'top left';
+        this.designEl.style.transformOrigin = isRtl ? 'top right' : 'top left';
         
-        // Center the scaled content
+        // Center the scaled content. The offset is applied on the inline-start side so
+        // it follows the same direction as the origin above; the physical margin is
+        // cleared so a value left over from an earlier direction cannot stick.
         const scaledWidth = this.designWidth * scale;
         const scaledHeight = this.designHeight * scale;
         const offsetX = Math.max(0, (wrapW - scaledWidth) / 2);
         const offsetY = Math.max(0, (wrapH - scaledHeight) / 2);
-        this.designEl.style.marginLeft = offsetX + 'px';
+        this.designEl.style.marginLeft = '';
+        this.designEl.style.marginRight = '';
+        this.designEl.style.marginInlineStart = offsetX + 'px';
         this.designEl.style.marginTop = offsetY + 'px';
 
         // Notify chart modules to rebuild with new density
@@ -864,7 +872,11 @@ window.viewerScale = {
         if (!this.designEl) return;
         this.designEl.style.transform = '';
         this.designEl.style.transformOrigin = '';
+        // marginInlineStart is what applyScale sets, so clearing marginLeft alone would
+        // leave the offset stuck on the right in an RTL board.
+        this.designEl.style.marginInlineStart = '';
         this.designEl.style.marginLeft = '';
+        this.designEl.style.marginRight = '';
         this.designEl.style.marginTop = '';
         // Stop listening for resize (no scaling needed in 1:1 mode)
         if (this._onResize) {
