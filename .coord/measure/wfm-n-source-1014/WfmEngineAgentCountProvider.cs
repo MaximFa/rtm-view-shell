@@ -22,6 +22,20 @@ namespace CcDashboard.Infrastructure.Wfm;
 /// per-group metric counts exactly that union's users (RTM/RTM/Union.cs:859-865). Nothing here has
 /// to re-derive a roster, and the §36a BU-&gt;SG-&gt;AG-&gt;user walk is not used for N any more.
 ///
+/// THE BU LINK IS ON THE ROW, NOT ON THE GRID. Measured by devops on 234 (14.10):
+/// RTSGrid_Grid.UnionId is -1 in all 60 rows and RTSGrid_Cell.UnionId is -1 in all 509; only
+/// RTSGrid_Row.UnionId carries the BusinessUnitId. The write path agrees: RTSGrid_Row is inserted
+/// with UnionId = BusinessUnitId (RtsRepository.InsertQueueGridRowAsync, :217-226, raw INSERT INTO
+/// "RTSGrid_Row"), called from SaveDataSlotRtsCommand.cs:63.
+/// My earlier claim that the grid level carries it too was wrong: the code I read
+/// (SaveAgentGridRtsCommand.cs:95, RtsRepository.UpdateGridAsync:66) writes RtsUserGridGrid - the
+/// RTSUserGrid_Grid table - which is a DIFFERENT entity from RtsGridGrid/RTSGrid_Grid. Claim
+/// withdrawn; the row is the only resolve path here.
+///
+/// One BU therefore spans MANY grids: devops measured BU 22 as 17 rows across 15 grids. The
+/// provider subscribes to every grid that holds one of the BU's rows, and reads only the cells of
+/// those rows - never the whole grid, whose other rows belong to other BUs.
+///
 /// SINGLETON. Two independent reasons:
 ///   1. it holds subscriptions that must outlive a tick - WfmRealtimeLoop opens a new scope every
 ///      30 s (WfmRealtimeLoop.cs:74), so anything Scoped loses its state and its handlers;
@@ -70,15 +84,29 @@ public sealed class WfmEngineAgentCountProvider(
 {
     private const string GroupMetricPrefix = "UsersInStatusGroupCount_";
 
-    /// <summary>Latest cell values per (tenant, grid): MetricId -> raw string from the engine.</summary>
-    private readonly ConcurrentDictionary<(Guid TenantId, int GridId), ConcurrentDictionary<string, string>> _values = new();
+    /// <summary>
+    /// Latest value per (tenant, CellId). Keyed on CellId rather than MetricId because one BU spans
+    /// several grids and the same MetricId appears in each of them - keying on the metric would let
+    /// one grid's value overwrite another's, which is exactly how a BU could end up with another
+    /// BU's number.
+    /// </summary>
+    private readonly ConcurrentDictionary<(Guid TenantId, int CellId), string> _values = new();
 
-    /// <summary>CellId -> MetricId per grid, and the subscription that keeps _values fresh.</summary>
-    private readonly ConcurrentDictionary<(Guid TenantId, int GridId), GridSubscription> _subscriptions = new();
+    /// <summary>One subscription per (tenant, grid), shared by every BU with rows in that grid.</summary>
+    private readonly ConcurrentDictionary<(Guid TenantId, int GridId), bool> _subscribed = new();
 
-    /// <summary>BU -> GridId. RTSGrid_Grid.UnionId IS the BusinessUnitId (SaveAgentGridRtsCommand.cs:97,
-    /// RtsRepository.cs:66), so this needs no widget configuration and works with no ASD on screen.</summary>
-    private readonly ConcurrentDictionary<(Guid TenantId, int BuId), int?> _gridByBu = new();
+    /// <summary>
+    /// BU -> the grids and cells that belong to it, resolved through RTSGrid_Row.UnionId. No widget
+    /// configuration is involved, so this works with no ASD on screen - the condition the
+    /// coordinator set.
+    /// </summary>
+    private readonly ConcurrentDictionary<(Guid TenantId, int BuId), BuCellMap> _cellsByBu = new();
+
+    /// <summary>Cells of one BU: which grids to subscribe to, and what each cell means.</summary>
+    private sealed record BuCellMap(
+        IReadOnlyList<int> GridIds,
+        Dictionary<int, string> MetricByCell,
+        HashSet<string> MetricIds);
 
     public async Task<WfmAgentCount> GetBuServingCountAsync(
         Guid tenantId, int businessUnitId, IReadOnlyList<string> servingGroups, CancellationToken ct = default)
@@ -86,12 +114,11 @@ public sealed class WfmEngineAgentCountProvider(
         if (servingGroups.Count == 0)
             return WfmAgentCount.Unknown("no serving groups configured");
 
-        var gridId = await ResolveGridAsync(tenantId, businessUnitId, ct);
-        if (gridId is null)
-            return WfmAgentCount.Unknown($"no grid for BU {businessUnitId}");
+        var map = await ResolveBuCellsAsync(tenantId, businessUnitId, ct);
+        if (map.MetricByCell.Count == 0)
+            return WfmAgentCount.Unknown($"no grid rows for BU {businessUnitId}");
 
-        var sub = await EnsureSubscribedAsync(tenantId, gridId.Value, ct);
-        var values = _values.GetOrAdd((tenantId, gridId.Value), _ => new ConcurrentDictionary<string, string>());
+        await EnsureSubscribedAsync(tenantId, map, ct);
 
         var total = 0;
         var missing = new List<string>();
@@ -102,28 +129,53 @@ public sealed class WfmEngineAgentCountProvider(
 
             // Exact match, on purpose. The operator picks the group from the published suffixes
             // (GetPublishedGroupNamesAsync), so a mismatch here is a real configuration error and
-            // must not be smoothed over by a case-insensitive compare.
-            if (!sub.MetricIds.Contains(metricId))
+            // must not be smoothed over by a case-insensitive compare. devops measured the live
+            // skill name as `הובלה` while the ticket and the letters said otherwise - which is why
+            // the name has to come from the data, never from prose.
+            var cells = map.MetricByCell
+                .Where(kv => string.Equals(kv.Value, metricId, StringComparison.Ordinal))
+                .Select(kv => kv.Key)
+                .ToList();
+
+            if (cells.Count == 0)
             {
                 missing.Add(group);
                 continue;
             }
 
-            if (!values.TryGetValue(metricId, out var raw))
+            // One BU can hold the same metric in several grids. Taking the max rather than the sum:
+            // each cell reports the SAME engine counter for the same union, so summing would
+            // multiply one group's agents by the number of grids showing it. Max over identical
+            // values is that value; if the values disagree, one grid is stale and the larger number
+            // is the fresher push - and the disagreement is logged rather than averaged away.
+            int? best = null;
+            var seen = new List<int>();
+            foreach (var cellId in cells)
             {
-                // The cell exists but the engine has not pushed a value yet.
+                if (!_values.TryGetValue((tenantId, cellId), out var raw))
+                    continue;
+                if (!int.TryParse(raw, out var parsed))
+                    continue;      // a value we cannot read is not a zero
+                seen.Add(parsed);
+                best = best is null ? parsed : Math.Max(best.Value, parsed);
+            }
+
+            if (best is null)
+            {
+                // Cells exist but no value has arrived for any of them yet.
                 missing.Add(group);
                 continue;
             }
 
-            if (!int.TryParse(raw, out var parsed))
+            if (seen.Distinct().Count() > 1)
             {
-                // A non-numeric value is not a zero: it is a value we failed to read.
-                missing.Add(group);
-                continue;
+                logger.LogWarning(
+                    "WfmEngineAgentCountProvider: BU {BuId} group {Group} reports differing values across grids [{Values}]; "
+                  + "using {Chosen}. One of those grids is stale.",
+                    businessUnitId, group, string.Join(", ", seen), best.Value);
             }
 
-            total += parsed;
+            total += best.Value;
         }
 
         if (missing.Count > 0)
@@ -141,128 +193,85 @@ public sealed class WfmEngineAgentCountProvider(
     public async Task<IReadOnlyList<string>> GetPublishedGroupNamesAsync(
         Guid tenantId, int businessUnitId, CancellationToken ct = default)
     {
-        var gridId = await ResolveGridAsync(tenantId, businessUnitId, ct);
-        if (gridId is null)
-            return Array.Empty<string>();
+        var map = await ResolveBuCellsAsync(tenantId, businessUnitId, ct);
 
-        var sub = await EnsureSubscribedAsync(tenantId, gridId.Value, ct);
-
-        return sub.MetricIds
+        return map.MetricIds
             .Where(m => m.StartsWith(GroupMetricPrefix, StringComparison.Ordinal))
             .Select(m => m[GroupMetricPrefix.Length..])
-            .Where(s => s.Length > 0)
+            .Where(suffix => suffix.Length > 0)
             .Distinct(StringComparer.Ordinal)
-            .OrderBy(s => s, StringComparer.Ordinal)
+            .OrderBy(suffix => suffix, StringComparer.Ordinal)
             .ToList();
     }
 
     // ── internals ────────────────────────────────────────────────────────────────
 
-    private async Task<int?> ResolveGridAsync(Guid tenantId, int buId, CancellationToken ct)
+    private async Task<BuCellMap> ResolveBuCellsAsync(Guid tenantId, int buId, CancellationToken ct)
     {
-        if (_gridByBu.TryGetValue((tenantId, buId), out var cached))
+        if (_cellsByBu.TryGetValue((tenantId, buId), out var cached))
             return cached;
 
         await using var ctx = await beFactory.CreateDbContextAsync(ct);
 
-        // One grid per union by construction; if several exist, the lowest id is taken and the
-        // ambiguity is logged rather than silently resolved - a wrong grid would produce a
-        // plausible N for the wrong BU.
-        var ids = await ctx.RtsGridGrids
-            .AsNoTracking()
-            .Where(g => g.UnionId == buId)
-            .Select(g => g.GridId)
-            .OrderBy(id => id)
-            .ToListAsync(ct);
-
-        if (ids.Count == 0)
-        {
-            // Fallback by ROW union. Both carry the BU: the save path sets UnionId on the grid
-            // (RtsRepository.cs:66) and on the row ("Row (RowNumber=1, UnionId=BusinessUnitId)",
-            // SaveDataSlotRtsCommand.cs:59). A grid saved by an older path may have it only on the
-            // row, and resolving by one field alone would report "no grid" for a BU that has one.
-            ids = await ctx.RtsGridRows
-                .AsNoTracking()
-                .Where(r => r.UnionId == buId)
-                .Select(r => r.GridId)
-                .Distinct()
-                .OrderBy(id => id)
-                .ToListAsync(ct);
-
-            if (ids.Count > 0)
-                logger.LogInformation(
-                    "WfmEngineAgentCountProvider: BU {BuId} resolved to grid {GridId} by ROW union, "
-                  + "not by grid union - the grid row carries the BU but the grid itself does not.",
-                    buId, ids[0]);
-        }
-
-        if (ids.Count > 1)
-        {
-            logger.LogWarning(
-                "WfmEngineAgentCountProvider: BU {BuId} maps to {Count} grids [{Ids}]; using {Chosen}. "
-              + "N is computed from one grid, so this is a configuration ambiguity worth fixing.",
-                buId, ids.Count, string.Join(", ", ids), ids[0]);
-        }
-
-        int? resolved = ids.Count > 0 ? ids[0] : null;
-        _gridByBu[(tenantId, buId)] = resolved;
-        return resolved;
-    }
-
-    private async Task<GridSubscription> EnsureSubscribedAsync(Guid tenantId, int gridId, CancellationToken ct)
-    {
-        if (_subscriptions.TryGetValue((tenantId, gridId), out var existing))
-            return existing;
-
-        await using var ctx = await beFactory.CreateDbContextAsync(ct);
-
-        // CellId -> MetricId comes from the cell rows themselves, not from any widget config:
-        // RTSGrid_Cell.Value holds the MetricId (RtsRepository.GetCellMapForGridAsync, :305).
-        var cellMap = await (
+        // BU -> rows -> cells. The MetricId lives in Cell.Value, which is where the real cell map
+        // comes from too (RtsRepository.GetCellMapForGridAsync, :305). Rows of OTHER BUs in the
+        // same grid are excluded by the UnionId filter - that is the whole reason this is keyed on
+        // the row and not on the grid.
+        var rows = await (
             from c in ctx.RtsGridCells.AsNoTracking()
             join r in ctx.RtsGridRows.AsNoTracking() on c.RowId equals r.RowId
-            where r.GridId == gridId && c.Value != null && c.Value != ""
-            select new { c.CellId, c.Value })
+            where r.UnionId == buId && c.Value != null && c.Value != ""
+            select new { r.GridId, c.CellId, MetricId = c.Value! })
             .ToListAsync(ct);
 
-        var byCell = cellMap.ToDictionary(x => x.CellId, x => x.Value!);
-        var metricIds = new HashSet<string>(byCell.Values, StringComparer.Ordinal);
+        var map = new BuCellMap(
+            GridIds: rows.Select(x => x.GridId).Distinct().OrderBy(id => id).ToList(),
+            MetricByCell: rows.GroupBy(x => x.CellId).ToDictionary(g => g.Key, g => g.First().MetricId),
+            MetricIds: new HashSet<string>(rows.Select(x => x.MetricId), StringComparer.Ordinal));
 
-        var values = _values.GetOrAdd((tenantId, gridId), _ => new ConcurrentDictionary<string, string>());
-
-        Func<IReadOnlyList<GridCellUpdate>, Task> handler = updates =>
+        if (map.GridIds.Count > 1)
         {
-            foreach (var cell in updates)
-            {
-                // GridCellUpdate.Value is non-nullable (Domain/Domain/Rtm/GridCellUpdate.cs:4),
-                // so there is nothing to null-check here.
-                if (byCell.TryGetValue(cell.CellId, out var metricId))
-                    values[metricId] = cell.Value;
-            }
-            return Task.CompletedTask;
-        };
+            // Normal, not an anomaly: one BU legitimately has rows in several grids. Logged at
+            // Debug so the shape is visible once without adding to the noise the gate just removed.
+            logger.LogDebug(
+                "WfmEngineAgentCountProvider: BU {BuId} has cells in {GridCount} grids [{Ids}], {CellCount} cells",
+                buId, map.GridIds.Count, string.Join(", ", map.GridIds), map.MetricByCell.Count);
+        }
 
-        var sub = new GridSubscription(metricIds, handler);
-
-        // First writer wins: a concurrent tick for the same grid must not open a second subscription.
-        if (!_subscriptions.TryAdd((tenantId, gridId), sub))
-            return _subscriptions[(tenantId, gridId)];
-
-        // Subscribing is also how we GET the current values: the relay delivers its whole snapshot
-        // to a late subscriber immediately (RtmRelayService.cs:561-570), so the first tick after
-        // startup is not blind - it does not have to wait for the engine's next push.
-        await relay.SubscribeGridAsync(tenantId, gridId, handler, ct);
-
-        logger.LogInformation(
-            "WfmEngineAgentCountProvider: subscribed to grid {GridId} for tenant {TenantId}, {MetricCount} metrics, "
-          + "{GroupCount} of them per-group counts",
-            gridId, tenantId, metricIds.Count,
-            metricIds.Count(m => m.StartsWith(GroupMetricPrefix, StringComparison.Ordinal)));
-
-        return sub;
+        _cellsByBu[(tenantId, buId)] = map;
+        return map;
     }
 
-    private sealed record GridSubscription(
-        HashSet<string> MetricIds,
-        Func<IReadOnlyList<GridCellUpdate>, Task> Handler);
+    private async Task EnsureSubscribedAsync(Guid tenantId, BuCellMap map, CancellationToken ct)
+    {
+        foreach (var gridId in map.GridIds)
+        {
+            // First writer wins: a concurrent tick must not open a second subscription for the same
+            // grid, and several BUs share a grid, so this is reached repeatedly by design.
+            if (!_subscribed.TryAdd((tenantId, gridId), true))
+                continue;
+
+            Task Handler(IReadOnlyList<GridCellUpdate> updates)
+            {
+                foreach (var cell in updates)
+                {
+                    // Stored by CellId for every cell of the grid, not only this BU's: another BU
+                    // sharing the grid reads the same stream, and filtering here would make the
+                    // first BU to subscribe decide what the others can see.
+                    // GridCellUpdate.Value is non-nullable (Domain/Domain/Rtm/GridCellUpdate.cs:4).
+                    _values[(tenantId, cell.CellId)] = cell.Value;
+                }
+                return Task.CompletedTask;
+            }
+
+            // Subscribing is also how we GET the current values: the relay delivers its whole
+            // snapshot to a late subscriber immediately (RtmRelayService.cs:561-570), so the first
+            // tick after startup is not blind - it does not wait for the engine's next push.
+            await relay.SubscribeGridAsync(tenantId, gridId, Handler, ct);
+
+            logger.LogInformation(
+                "WfmEngineAgentCountProvider: subscribed to grid {GridId} for tenant {TenantId}",
+                gridId, tenantId);
+        }
+    }
 }

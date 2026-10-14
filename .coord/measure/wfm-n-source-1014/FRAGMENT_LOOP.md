@@ -196,9 +196,44 @@ of two methods, not of a data model.
 `IWfmInputQueryService` loses both members. `GetActiveBusAsync`, `GetLambdaAndAhtAsync` and the
 timezone map stay: lambda and AHT remain per queue, which is the other half of the operator's rule.
 
+## CORRECTION (coordinator 10:03:45Z / 10:13:07Z): the BU link is on the ROW
+
+My earlier text said the save path sets `UnionId` on both the grid and the row. **Withdrawn — it was
+wrong, and the data says so.** devops measured on 234: `RTSGrid_Grid.UnionId` = -1 in all 60 rows and
+`RTSGrid_Cell.UnionId` = -1 in all 509; only `RTSGrid_Row.UnionId` carries the BusinessUnitId.
+
+Shown by file:line, as asked:
+
+- the row IS written with the BU: `RtsRepository.InsertQueueGridRowAsync` (`:217-226`) runs a raw
+  `INSERT INTO "RTSGrid_Row" (..., "UnionId", ...)` with `@unionId`, called from
+  `SaveDataSlotRtsCommand.cs:63` as `InsertQueueGridRowAsync(gridId, 1, cmd.BusinessUnitId, ct)`;
+- the code I had cited for the grid level — `SaveAgentGridRtsCommand.cs:95` and
+  `RtsRepository.UpdateGridAsync` (`:66`) — writes **`RtsUserGridGrid`**, the `RTSUserGrid_Grid`
+  table. That is a different entity from `RtsGridGrid`/`RTSGrid_Grid`. I read one table and wrote
+  about another; the claim is removed, not re-argued.
+
+What changed in the code because of it (`WfmEngineAgentCountProvider.cs`, blob below):
+
+- resolution is `BU -> rows with that UnionId -> their cells`. The grid level is not consulted at
+  all, not even as a hint;
+- one BU spans several grids (devops: BU 22 = 17 rows in 15 grids), so the provider subscribes to
+  **every** grid holding one of the BU's rows;
+- values are kept per `CellId`, not per MetricId: the same MetricId appears in each of those grids,
+  and keying on the metric would let one grid's value overwrite another's;
+- only the BU's own rows are read. A grid shared with another BU is normal, and reading the grid
+  instead of the rows would add the neighbour's agents to ours — a wrong number that looks right.
+  The test `RowsOfAnotherBuInTheSameGrid_AreNotCounted` is what makes that load-bearing;
+- when the same group has cells in several grids the **max** is taken, not the sum: every such cell
+  reports the same engine counter for the same union, so summing would multiply one group's agents
+  by the number of grids showing it. A disagreement between them means one grid is stale, and it is
+  logged rather than averaged away.
+
+Every seed in the tests writes `Grid.UnionId = -1` on purpose — that is the negative half you asked
+for: a resolve that looked at the grid level would find nothing and the tests would go red.
+
 ## Named while writing the tests, NOT fixed here
 
-`RTSGrid_Grid` has **no `TenantId` column** (measured: the entity is
+`RTSGrid_Grid` has **no `TenantId` column**, and neither does `RTSGrid_Row` (measured: the entity is
 `RtsGridGrid(GridId, UnionId, StyleId, Title, ThresholdScript)`, `RtsEntities.cs:42-49`). The grid is
 therefore resolved by `UnionId` alone, with no tenant gate. In production that is safe because
 `BusinessUnitId` is a database identity in `NGC_BusinessUnit` and so unique across tenants — but the
@@ -209,10 +244,13 @@ from another tenant's grid and look perfectly plausible. Same family as
 
 ## Blobs
 
-- `WfmEngineAgentCountProvider.cs` — `dae5fc74ca473a39a61d087007d85455a9fc95b9`, 12548 B;
-  target `src/CcDashboard.Infrastructure/Wfm/WfmEngineAgentCountProvider.cs`
-- `WfmEngineAgentCountProviderTests.cs` — `c618046bfca83401fa135064619aabeaebcb5643`, 14008 B,
-  11 `[Fact]`, CR 0; target `tests/CcDashboard.Tests.Security/Wfm/`
+- `WfmEngineAgentCountProvider.cs` — `67dcfec5722756588defc56501954a2a06768cf2`, 13934 B
+  (row-level resolve; supersedes `dae5fc74`); target `src/CcDashboard.Infrastructure/Wfm/`
+- `WfmEngineAgentCountProviderTests.cs` — `907e54242e1a455f75ec1c87911cc69f47afb291`, 17089 B,
+  12 `[Fact]`, CR 0 (supersedes `c618046b`); target `tests/CcDashboard.Tests.Security/Wfm/`
+- `GetWfmServingGroupCandidatesQuery.cs` — `7bfd98cb396c0ef88560f155d346cf34743da43c`, 4033 B;
+  target `src/CcDashboard.Application/Queries/TenantSettings/`
+- `FRAGMENT_TYPES.md` — `202f9edec258964c3db678719aaf8ed048a16f08`, 3125 B (the nullable contract)
 - `FRAGMENT_LOOP.md` — this file
 - `PROJECT.md` — `ab540f91b465b73324b834633f340f63713a5a00` (design, accepted 08:33Z)
 

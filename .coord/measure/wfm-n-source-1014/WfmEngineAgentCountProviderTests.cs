@@ -17,10 +17,15 @@ namespace CcDashboard.Tests.Security.Wfm;
 /// per-skill by construction (the engine already counts only agents whose skills match the union),
 /// and anything missing yields UNKNOWN rather than a number - never a partial sum, never zero.
 ///
-/// Every test uses its OWN tenant id: PostgresFixture starts one container per collection and never
-/// truncates between tests, and the provider resolves grids per (tenant, BU), so a shared tenant
-/// would let one test's grid answer another's question. That is the same trap that made the N=0
-/// tests go red at 05:39Z.
+/// The BU link is on the ROW, not on the grid: devops measured RTSGrid_Grid.UnionId = -1 in all 60
+/// rows and RTSGrid_Cell.UnionId = -1 in all 509 on 234, with only RTSGrid_Row.UnionId carrying the
+/// BusinessUnitId. Every seed below therefore writes Grid.UnionId = -1 deliberately, so a resolve
+/// that looked at the grid level would find nothing and these tests would go red.
+///
+/// Every test uses its OWN tenant id and a database-generated BU id: PostgresFixture starts one
+/// container per collection and never truncates between tests, and RTSGrid_Grid has no TenantId
+/// column at all, so rows accumulate and a shared or invented id would let one test's cells answer
+/// another's question. That is the same trap that made the N=0 tests go red at 05:39Z.
 /// </summary>
 [Collection("Postgres")]
 public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
@@ -155,7 +160,7 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         var n = await provider.GetBuServingCountAsync(_tenant, buWithoutGrid, new[] { "Available" }, default);
 
         n.IsKnown.Should().BeFalse();
-        n.UnknownReason.Should().Contain("no grid");
+        n.UnknownReason.Should().Contain("no grid rows");
     }
 
     [Fact]
@@ -183,7 +188,7 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         var n = await provider.GetBuServingCountAsync(_tenant, otherBu, new[] { "Available" }, default);
 
         n.IsKnown.Should().BeFalse();
-        n.UnknownReason.Should().Contain("no grid");
+        n.UnknownReason.Should().Contain("no grid rows");
     }
 
     [Fact]
@@ -239,6 +244,48 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         n.UnknownReason.Should().Contain("no serving groups");
     }
 
+    [Fact]
+    public async Task RowsOfAnotherBuInTheSameGrid_AreNotCounted()
+    {
+        // One grid, two rows, two BUs - the shape devops measured (BU 22: 17 rows across 15 grids).
+        // Resolving by grid instead of by row would add the neighbour's agents to ours, and the
+        // result would look entirely plausible. This is the test that makes the row-level resolve
+        // load-bearing rather than a detail.
+        await using var db = postgres.CreateBackendEmulationDbContext();
+
+        var mine = new NgcBusinessUnit { TenantId = _tenant, BusinessUnitName = $"BU-mine-{Guid.NewGuid():N}" };
+        var theirs = new NgcBusinessUnit { TenantId = _tenant, BusinessUnitName = $"BU-theirs-{Guid.NewGuid():N}" };
+        db.NgcBusinessUnits.AddRange(mine, theirs);
+        await db.SaveChangesAsync();
+
+        var grid = new RtsGridGrid { UnionId = -1, Title = "shared-grid" };
+        db.RtsGridGrids.Add(grid);
+        await db.SaveChangesAsync();
+
+        var column = new RtsGridColumn { GridId = grid.GridId, ColumnNumber = 1 };
+        var myRow = new RtsGridRow { GridId = grid.GridId, RowNumber = 1, UnionId = mine.BusinessUnitId };
+        var theirRow = new RtsGridRow { GridId = grid.GridId, RowNumber = 2, UnionId = theirs.BusinessUnitId };
+        db.RtsGridColumns.Add(column);
+        db.RtsGridRows.AddRange(myRow, theirRow);
+        await db.SaveChangesAsync();
+
+        var myCell = new RtsGridCell { RowId = myRow.RowId, ColumnId = column.ColumnId, Value = "UsersInStatusGroupCount_Available" };
+        var theirCell = new RtsGridCell { RowId = theirRow.RowId, ColumnId = column.ColumnId, Value = "UsersInStatusGroupCount_Available" };
+        db.RtsGridCells.AddRange(myCell, theirCell);
+        await db.SaveChangesAsync();
+
+        var seed = new Seeded(mine.BusinessUnitId, grid.GridId,
+            Snapshot: new Dictionary<int, string> { [myCell.CellId] = "2", [theirCell.CellId] = "40" },
+            CellByMetric: new Dictionary<string, int> { ["UsersInStatusGroupCount_Available"] = myCell.CellId });
+        var provider = NewProvider(seed);
+
+        var n = await provider.GetBuServingCountAsync(
+            _tenant, mine.BusinessUnitId, new[] { "Available" }, default);
+
+        n.IsKnown.Should().BeTrue(n.UnknownReason);
+        n.Value.Should().Be(2, "the neighbour's 40 belongs to another BU's row");
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────────
 
     private sealed record Seeded(
@@ -248,9 +295,10 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         Dictionary<string, int> CellByMetric);
 
     /// <summary>
-    /// Seeds one grid whose UnionId is the BU (that equality is how the engine's save path writes
-    /// it: SaveAgentGridRtsCommand.cs:97, RtsRepository.cs:66), one row, and one cell per metric
-    /// with the MetricId in Cell.Value - which is where the real cell map comes from
+    /// Seeds one grid with UnionId = -1 (as the live data has it), one ROW whose UnionId is the BU -
+    /// which is the only link that exists, written by RtsRepository.InsertQueueGridRowAsync:217-226
+    /// (raw INSERT INTO "RTSGrid_Row") from SaveDataSlotRtsCommand.cs:63 - and one cell per metric
+    /// with the MetricId in Cell.Value, which is where the real cell map comes from
     /// (RtsRepository.GetCellMapForGridAsync, :305). No widget configuration is involved.
     /// </summary>
     private async Task<Seeded> SeedGridAsync(
@@ -267,7 +315,9 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         await db.SaveChangesAsync();
         var buId = bu.BusinessUnitId;
 
-        var grid = new RtsGridGrid { UnionId = buId, Title = $"grid-{buId}" };
+        // -1 on purpose: this is what the live data holds, and it is the negative half the
+        // coordinator asked for - the map must still be non-empty.
+        var grid = new RtsGridGrid { UnionId = -1, Title = $"grid-{buId}" };
         db.RtsGridGrids.Add(grid);
         await db.SaveChangesAsync();
 
