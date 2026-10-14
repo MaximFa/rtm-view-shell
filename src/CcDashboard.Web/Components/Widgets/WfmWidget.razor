@@ -33,7 +33,7 @@
             @foreach (var tileMetric in _tileMetrics)
             {
                 var (value, unit) = GetMetricValue(tileMetric);
-                <div class="wfmcell" style="@GetTileBackgroundStyle(tileMetric)">
+                <div class="wfmcell" style="@GetTileBackgroundStyle(tileMetric)" title="@GetMetricTitle(tileMetric)">
                     <div class="k" style="@GetTileCaptionStyle(tileMetric)">@GetMetricLabel(tileMetric)</div>
                     <div class="v" style="@GetTileValueStyle(tileMetric)">@value@(!string.IsNullOrEmpty(unit) ? $" {unit}" : "")</div>
                 </div>
@@ -48,7 +48,7 @@
                 {
                     var (value, unit) = GetMetricValue(metric);
                     var (pillBg, pillFg) = GetListPillColors(metric);
-                    <div class="wfmlg">
+                    <div class="wfmlg" title="@GetMetricTitle(metric)">
                         <span class="lbl" style="@GetListLabelStyle()">@GetMetricLabel(metric)</span>
                         @if (!string.IsNullOrEmpty(pillBg))
                         {
@@ -104,6 +104,27 @@
         "trafficA", "pWait", "predictedSl", "predictedAsa", "requiredAgents",
         "erlangB", "occupancy", "understaff", "staffVariance"
     };
+
+    // Everything whose value is computed from N. When N is unknown none of these has a meaning,
+    // so they all say "no data" rather than showing a figure derived from a number we do not have.
+    private static readonly HashSet<string> MetricsDependingOnN = new(StringComparer.Ordinal)
+    {
+        "nActual", "trafficA", "pWait", "predictedSl", "predictedAsa", "requiredAgents",
+        "erlangB", "occupancy", "understaff", "staffVariance"
+    };
+
+    // N is unknown when the loop could not count it honestly. Distinct from "no snapshot yet",
+    // which is handled above by the spinner, and from N = 0, which is a fact and shows as 0.
+    private bool IsNUnknown => _snapshot is not null && _snapshot.Inputs.NActual is null;
+
+    // Tooltip for a cell: the loop's own reason when N is unknown, nothing otherwise.
+    private string? GetMetricTitle(string metricKey)
+    {
+        if (!IsNUnknown || !MetricsDependingOnN.Contains(metricKey)) return null;
+        return string.IsNullOrWhiteSpace(_snapshot!.UnknownReason)
+            ? L["Wfm_NUnknownDefaultReason"]
+            : _snapshot.UnknownReason;
+    }
 
     // Appearance - dark mode defaults from DataSlotWidget
     private string _backgroundColor = "";
@@ -298,6 +319,12 @@
     {
         if (_snapshot is null) return ("—", "");
 
+        // N unknown: say so in words, in N's own cell and in every cell derived from it. A dash
+        // reads as "nothing here" and a zero reads as a fact; neither is true. The reason goes in
+        // the tooltip (GetMetricTitle), so the cell stays short and the cause is one hover away.
+        if (IsNUnknown && MetricsDependingOnN.Contains(metricKey))
+            return (L["Wfm_NUnknown"], "");
+
         // Input metrics: always show (they're raw inputs, not Erlang-derived)
         // Erlang metrics: show "—" when state is not OK
         if (ErlangMetrics.Contains(metricKey) && _snapshot.State != WfmSnapshot.StateOk)
@@ -308,17 +335,17 @@
         {
             "lambdaPerHour" => (FormatDouble(_snapshot.Inputs.LambdaPerHour, 1), unit),
             "aht" => (FormatDuration(_snapshot.Inputs.AhtSec), unit),
-            "nActual" => (_snapshot.Inputs.NActual.ToString(), unit),
+            "nActual" => (_snapshot.Inputs.NActual?.ToString() ?? "—", unit),
             "wrapIncluded" => (_snapshot.Inputs.WrapIncluded ? L["Common_Yes"] : L["Common_No"], unit),
-            "trafficA" => (FormatDouble(_snapshot.Erlang.TrafficA, 2), unit),
-            "pWait" => (FormatPWait(_snapshot.Erlang.PWaitC), unit),
-            "predictedSl" => (FormatPct(_snapshot.Erlang.PredictedSlPct), unit),
-            "predictedAsa" => (FormatNullableDouble(_snapshot.Erlang.PredictedAsaSec, 1), unit),
+            "trafficA" => (_snapshot.Erlang is null ? "—" : FormatDouble(_snapshot.Erlang.TrafficA, 2), unit),
+            "pWait" => (_snapshot.Erlang is null ? "—" : FormatPWait(_snapshot.Erlang.PWaitC), unit),
+            "predictedSl" => (_snapshot.Erlang is null ? "—" : FormatPct(_snapshot.Erlang.PredictedSlPct), unit),
+            "predictedAsa" => (_snapshot.Erlang is null ? "—" : FormatNullableDouble(_snapshot.Erlang.PredictedAsaSec, 1), unit),
             "requiredAgents" => GetRequiredAgentsValue(),
-            "erlangB" => (FormatPct(_snapshot.Erlang.ErlangBPct), unit),
-            "occupancy" => (FormatPct(_snapshot.Erlang.OccupancyPct), unit),
-            "understaff" => (FormatPct(_snapshot.Erlang.UnderstaffPct), unit),
-            "staffVariance" => (FormatVariance(_snapshot.Erlang.StaffVariance), unit),
+            "erlangB" => (_snapshot.Erlang is null ? "—" : FormatPct(_snapshot.Erlang.ErlangBPct), unit),
+            "occupancy" => (_snapshot.Erlang is null ? "—" : FormatPct(_snapshot.Erlang.OccupancyPct), unit),
+            "understaff" => (_snapshot.Erlang is null ? "—" : FormatPct(_snapshot.Erlang.UnderstaffPct), unit),
+            "staffVariance" => (_snapshot.Erlang is null ? "—" : FormatVariance(_snapshot.Erlang.StaffVariance), unit),
             _ => ("—", unit)
         };
     }
@@ -334,7 +361,7 @@
 
     private (string value, string unit) GetRequiredAgentsValue()
     {
-        if (_snapshot is null) return ("—", "");
+        if (_snapshot?.Erlang is null) return ("—", "");
         var capped = _snapshot.Erlang.RequiredCapped ? " ⚠" : "";
         return (_snapshot.Erlang.RequiredAgents.ToString() + capped, "");
     }
@@ -365,21 +392,27 @@
     {
         if (_snapshot is null) return null;
 
+        // No number means no threshold colour. An unknown N must not be coloured as if it were a
+        // value: this is the same question as GetMetricValue above, asked by the threshold code,
+        // and answering it only in one of the two places would paint a tile that says "no data".
+        if (IsNUnknown && MetricsDependingOnN.Contains(metricKey)) return null;
+        var erl = _snapshot.Erlang;
+
         return metricKey switch
         {
             "lambdaPerHour" => _snapshot.Inputs.LambdaPerHour,
             "aht" => _snapshot.Inputs.AhtSec,
             "nActual" => _snapshot.Inputs.NActual,
             "wrapIncluded" => _snapshot.Inputs.WrapIncluded ? 1 : 0,
-            "trafficA" => _snapshot.Erlang.TrafficA,
-            "pWait" => _snapshot.Erlang.PWaitC * 100,  // Convert to percentage
-            "predictedSl" => _snapshot.Erlang.PredictedSlPct,
-            "predictedAsa" => _snapshot.Erlang.PredictedAsaSec,
-            "requiredAgents" => _snapshot.Erlang.RequiredAgents,
-            "erlangB" => _snapshot.Erlang.ErlangBPct,
-            "occupancy" => _snapshot.Erlang.OccupancyPct,
-            "understaff" => _snapshot.Erlang.UnderstaffPct,
-            "staffVariance" => _snapshot.Erlang.StaffVariance,
+            "trafficA" => erl?.TrafficA,
+            "pWait" => erl?.PWaitC * 100,  // Convert to percentage
+            "predictedSl" => erl?.PredictedSlPct,
+            "predictedAsa" => erl?.PredictedAsaSec,
+            "requiredAgents" => erl?.RequiredAgents,
+            "erlangB" => erl?.ErlangBPct,
+            "occupancy" => erl?.OccupancyPct,
+            "understaff" => erl?.UnderstaffPct,
+            "staffVariance" => erl?.StaffVariance,
             _ => null
         };
     }

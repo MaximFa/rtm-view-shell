@@ -1195,7 +1195,10 @@ else
         {
             AgentStateGroups = (await Mediator.Send(new GetAgentStateGroupsQuery(tenantId), _cts.Token)).ToList();
             AgentStates = (await Mediator.Send(new GetAgentStatesQuery(tenantId), _cts.Token)).ToList();
-            TenantStatusGroups = (await Mediator.Send(new GetTenantStatusGroupsQuery(tenantId), _cts.Token)).ToList();
+            // The candidate names now come from the engine's own metric suffixes, not from the
+            // status log: the stored setting has to match the metric by construction, which is what
+            // the casing mismatch of 13.10 showed we cannot get any other way.
+            TenantStatusGroups = (await Mediator.Send(new GetWfmServingGroupCandidatesQuery(tenantId), _cts.Token)).ToList();
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { EditSaveError = ex.Message; }

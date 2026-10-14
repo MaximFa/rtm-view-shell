@@ -1105,6 +1105,8 @@
   <data name="Wfm_StateNoData"><value>No Data</value></data>
   <data name="Wfm_OverloadedMessage"><value>System overloaded — serving agents ≤ traffic</value></data>
   <data name="Wfm_NoDataMessage"><value>Waiting for calls or agents</value></data>
+  <data name="Wfm_NUnknown"><value>No data</value></data>
+  <data name="Wfm_NUnknownDefaultReason"><value>Agent count is unknown</value></data>
   <data name="Wfm_Inputs"><value>Inputs</value></data>
   <data name="Wfm_Lambda"><value>Arrivals (λ)</value></data>
   <data name="Wfm_AHT"><value>AHT</value></data>

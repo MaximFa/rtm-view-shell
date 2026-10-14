@@ -17,11 +17,16 @@ public sealed record WfmMetricResult(
 
 // ─── WFM Snapshot contract (spec §4) ────────────────────────────────────────
 
-/// <summary>Input values used for WFM calculations.</summary>
+/// <summary>
+/// Input values used for WFM calculations.
+/// NActual is nullable because "we do not know how many agents are serving" is a real state, not a
+/// zero: the engine may have no cell for a configured group, or no value pushed yet. A zero here
+/// would make every Erlang output read as "infinitely understaffed" with full confidence.
+/// </summary>
 public sealed record WfmInputs(
     double LambdaPerHour,
     double AhtSec,
-    int NActual,
+    int? NActual,
     bool WrapIncluded);
 
 /// <summary>Erlang-derived metrics from the calculator.</summary>
@@ -40,6 +45,9 @@ public sealed record WfmErlang(
 /// <summary>
 /// Snapshot of all WFM metrics for a (tenant, queue) at a point in time.
 /// Written by the WFM hosted loop (B1), read by Shell widgets.
+/// Erlang is null exactly when Inputs.NActual is null: with no N there is nothing to compute, and
+/// publishing zeroed metrics would put numbers on the wire that mean nothing. UnknownReason says
+/// WHY, so the widget can show the cause instead of an empty cell with no explanation.
 /// </summary>
 public sealed record WfmSnapshot(
     Guid TenantId,
@@ -47,9 +55,10 @@ public sealed record WfmSnapshot(
     DateTime AsOfUtc,
     int WindowMin,
     WfmInputs Inputs,
-    WfmErlang Erlang,
+    WfmErlang? Erlang,
     string State,
-    IReadOnlyDictionary<string, string> Rag)
+    IReadOnlyDictionary<string, string> Rag,
+    string? UnknownReason = null)
 {
     /// <summary>Queue is operating normally.</summary>
     public const string StateOk = "ok";

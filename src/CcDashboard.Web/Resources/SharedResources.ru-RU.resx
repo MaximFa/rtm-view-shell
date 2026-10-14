@@ -1087,6 +1087,8 @@
   <data name="Wfm_StateNoData"><value>Нет данных</value></data>
   <data name="Wfm_OverloadedMessage"><value>Система перегружена — агентов ≤ трафика</value></data>
   <data name="Wfm_NoDataMessage"><value>Ожидание вызовов или агентов</value></data>
+  <data name="Wfm_NUnknown"><value>Нет данных</value></data>
+  <data name="Wfm_NUnknownDefaultReason"><value>Число агентов неизвестно</value></data>
   <data name="Wfm_Inputs"><value>Вход</value></data>
   <data name="Wfm_Lambda"><value>Прибытия (λ)</value></data>
   <data name="Wfm_AHT"><value>AHT</value></data>

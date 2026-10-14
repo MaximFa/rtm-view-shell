@@ -80,6 +80,11 @@ public sealed class WfmRealtimeLoop(
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var inputService = scope.ServiceProvider.GetRequiredService<IWfmInputQueryService>();
         var erlang = scope.ServiceProvider.GetRequiredService<IErlangCalculatorService>();
+        // Both are singletons; resolved through the scope because that is how every other
+        // dependency is reached in this method. Added by shell - FRAGMENT_LOOP.md uses
+        // `agentCounts` and `logGate` but does not say where they come from.
+        var agentCounts = scope.ServiceProvider.GetRequiredService<IWfmEngineAgentCountProvider>();
+        var logGate = scope.ServiceProvider.GetRequiredService<IWfmLogGate>();
 
         // Load tenant settings
         var settings = await db.TenantSettings
@@ -101,23 +106,55 @@ public sealed class WfmRealtimeLoop(
         // Get λ and AHT for all queues
         var lambdaAht = await inputService.GetLambdaAndAhtAsync(tenantId, windowMin, ct);
 
-        // Get N for all queues
-        var agentCounts = await inputService.GetServingAgentCountsAsync(tenantId, servingGroups, ct);
+        // N is no longer derived per queue. The operator's rule (14.10) is "flow by queue, agents by
+        // skill": lambda and AHT stay per queue, while N belongs to the BU's skill. The BU map is
+        // fetched once here so a queue can find its owner.
+        var bus = await inputService.GetActiveBusAsync(tenantId, ct);
+        var busByQueue = bus
+            .SelectMany(b => b.QueueIds.Select(q => (Queue: q, Bu: b)))
+            .GroupBy(x => x.Queue, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Bu).ToList(), StringComparer.OrdinalIgnoreCase);
 
         var asOfUtc = DateTime.UtcNow;
 
         // Track queue keys for collision guard
         var queueKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // Process each queue
-        var allQueues = lambdaAht.Keys.Union(agentCounts.Keys).Distinct();
+        // Process each queue.
+        // The old shape unioned the N dictionary's keys; the provider is not a dictionary, so that
+        // source is gone. Taking λ/AHT keys ALONE would silently drop a queue with no calls in the
+        // window - it used to appear through the N side - and that queue still needs a snapshot:
+        // zero traffic with staffed agents is a real, reportable state. The BU classification is
+        // the right second source: it lists the tenant's queues regardless of traffic.
+        var allQueues = lambdaAht.Keys.Union(busByQueue.Keys, StringComparer.OrdinalIgnoreCase)
+                                      .Distinct(StringComparer.OrdinalIgnoreCase)
+                                      .ToList();
 
         foreach (var queueId in allQueues)
         {
             queueKeys.Add(queueId);
 
-            var (lambda, aht) = lambdaAht.GetValueOrDefault(queueId, (0, 0));
-            var nActual = agentCounts.GetValueOrDefault(queueId, 0);
+            // (0d, 0d), not (0, 0): the dictionary value is (double, double) and an int literal
+            // pair leaves the deconstruction untyped (CS8130).
+            var (lambda, aht) = lambdaAht.GetValueOrDefault(queueId, (0d, 0d));
+
+            // One queue, one BU, one skill - that is the whole point of "isolated calculations".
+            // A queue owned by several BUs has no single skill behind it, so N is UNKNOWN rather
+            // than a sum or a pick: summing would double-count agents who hold both skills, and
+            // picking one BU would answer about a different population than the caller asked about.
+            var owners = busByQueue.GetValueOrDefault(queueId, new List<BuInfo>());
+            WfmAgentCount n;
+            if (owners.Count == 1)
+            {
+                n = await agentCounts.GetBuServingCountAsync(tenantId, owners[0].BusinessUnitId, servingGroups, ct);
+            }
+            else
+            {
+                n = WfmAgentCount.Unknown(owners.Count == 0
+                    ? $"queue {queueId} belongs to no BU"
+                    : $"queue {queueId} belongs to {owners.Count} BUs, so no single skill defines N");
+            }
+            var nActual = n;
 
             var snapshot = BuildSnapshot(
                 tenantId, queueId, asOfUtc, windowMin,
@@ -134,7 +171,7 @@ public sealed class WfmRealtimeLoop(
         // --- Per-BU AGGREGATE snapshots ---
         // Reuses this tick's per-queue λ/AHT; pools inputs + re-runs Erlang (NOT summing outputs)
         await ProcessBuAggregatesAsync(
-            tenantId, inputService, erlang,
+            tenantId, inputService, erlang, agentCounts, logGate,
             lambdaAht, servingGroups,
             windowMin, slTargetPct, slThresholdSec, trunkCapacity,
             asOfUtc, queueKeys, ct);
@@ -149,6 +186,10 @@ public sealed class WfmRealtimeLoop(
         Guid tenantId,
         IWfmInputQueryService inputService,
         IErlangCalculatorService erlang,
+        // Passed in rather than resolved again: both are singletons, and resolving a second time
+        // from another scope would hand this method a different view of the same subscriptions.
+        IWfmEngineAgentCountProvider agentCounts,
+        IWfmLogGate logGate,
         IReadOnlyDictionary<string, (double LambdaPerHour, double AhtSec)> lambdaAht,
         IReadOnlyList<string> servingGroups,
         int windowMin,
@@ -195,8 +236,29 @@ public sealed class WfmRealtimeLoop(
                 // Arrival-weighted AHT = Σ(λ_q * aht_q) / Σλ_q
                 double pooledAht = lambdaSum > 0 ? weightedAhtSum / lambdaSum : 0;
 
-                // Distinct N for BU (§36a resolution, cached, deduped)
-                int pooledN = await inputService.GetBuServingAgentCountAsync(tenantId, bu.BusinessUnitId, servingGroups, ct);
+                // N for the BU = sum of the engine's current per-group counts over the serving
+                // groups. Per-skill by construction: the engine admits an agent to a union only
+                // when the agent's activated skills contain every group the union requires
+                // (RTM/RTM/UserManager.cs:572), and the per-group metric counts that union's users
+                // (RTM/RTM/Union.cs:859-865).
+                var pooledN = await agentCounts.GetBuServingCountAsync(tenantId, bu.BusinessUnitId, servingGroups, ct);
+
+                if (!pooledN.IsKnown)
+                {
+                    // Once per hour per BU through the same gate as the mixed-TimeZone line, for the
+                    // same reason: a missing metric stays missing until somebody fixes the setting,
+                    // and repeating it every 30 s buries the log (measured there: 42 lines/min).
+                    if (logGate.ShouldLog($"wfm-n-unknown:{tenantId}:{bu.BusinessUnitId}",
+                                          pooledN.UnknownReason, TimeSpan.FromHours(1)))
+                    {
+                        logger.LogWarning(
+                            "WfmRealtimeLoop: N unknown for BU {BuName} (id={BuId}): {Reason}. Missing groups: [{Missing}]. "
+                          + "Configured serving groups: [{Configured}]. Repeats suppressed for an hour unless the reason changes.",
+                            bu.BusinessUnitName, bu.BusinessUnitId, pooledN.UnknownReason,
+                            string.Join(", ", pooledN.MissingGroups),
+                            string.Join(", ", servingGroups));
+                    }
+                }
 
                 // Build and store BU aggregate snapshot (keyed by BusinessUnitId — matches widget Get)
                 var snapshot = BuildSnapshot(
@@ -244,40 +306,64 @@ public sealed class WfmRealtimeLoop(
         int windowMin,
         double lambda,
         double aht,
-        int nActual,
+        WfmAgentCount nActual,
         double slTargetPct,
         int slThresholdSec,
         int trunkCapacity,
         IErlangCalculatorService erlang)
     {
-        // Determine state
+        // Determine state. An unknown N is its own case and must come FIRST: it is not the same
+        // thing as N = 0. Zero means nobody is serving (a real, computable situation); unknown means
+        // the engine has not told us, and the operator's standing rule is to show empty and log the
+        // anomaly rather than compute on a stand-in.
         string state;
-        if (aht <= 0 || nActual <= 0)
+        if (!nActual.IsKnown || aht <= 0 || nActual.Value <= 0)
         {
             state = WfmSnapshot.StateNoData;
         }
         else
         {
             var trafficA = erlang.TrafficIntensity(lambda, aht);
-            if (nActual <= trafficA)
+            if (nActual.Value <= trafficA)
                 state = WfmSnapshot.StateOverloaded;
             else
                 state = WfmSnapshot.StateOk;
         }
 
+        // Unknown N -> no Erlang at all. Returning the snapshot in StateNoData with null inputs is
+        // what makes the widget show empty; a zeroed snapshot would show numbers that look real.
+        if (!nActual.IsKnown)
+        {
+            return new WfmSnapshot(
+                TenantId: tenantId,
+                QueueId: queueId,
+                AsOfUtc: asOfUtc,
+                WindowMin: windowMin,
+                Inputs: new WfmInputs(lambda, aht, NActual: null, WrapIncluded: false),
+                Erlang: null,
+                State: WfmSnapshot.StateNoData,
+                Rag: new Dictionary<string, string>(),
+                UnknownReason: nActual.UnknownReason);
+        }
+
+        // Past the guard above N is known, so unwrap it once. WfmAgentCount.Value is int? (unknown
+        // is expressed by null), hence the second .Value - the guard is what makes it safe, and
+        // GetValueOrDefault() would hide a future guard regression behind a silent 0.
+        var nValue = nActual.Value.Value;
+
         // Compute Erlang metrics
         var trafficAComputed = aht > 0 ? erlang.TrafficIntensity(lambda, aht) : 0;
-        var pWaitC = erlang.ErlangC(nActual, trafficAComputed);
-        var predictedSlPct = erlang.PredictedSl(nActual, trafficAComputed, aht, slThresholdSec);
-        var predictedAsaSec = erlang.PredictedAsaSec(nActual, trafficAComputed, aht);
+        var pWaitC = erlang.ErlangC(nValue, trafficAComputed);
+        var predictedSlPct = erlang.PredictedSl(nValue, trafficAComputed, aht, slThresholdSec);
+        var predictedAsaSec = erlang.PredictedAsaSec(nValue, trafficAComputed, aht);
         var (reqAgents, reqCapped) = erlang.RequiredAgents(trafficAComputed, aht, slThresholdSec, slTargetPct / 100.0);
         var erlangBPct = erlang.ErlangB(trunkCapacity, trafficAComputed) * 100.0;
-        var occupancyPct = erlang.OccupancyPct(trafficAComputed, nActual);
-        var understaffPct = erlang.UnderstaffPct(reqAgents, nActual);
-        var staffVariance = erlang.StaffVariance(nActual, reqAgents);
+        var occupancyPct = erlang.OccupancyPct(trafficAComputed, nValue);
+        var understaffPct = erlang.UnderstaffPct(reqAgents, nValue);
+        var staffVariance = erlang.StaffVariance(nValue, reqAgents);
 
         // Build snapshot
-        var inputs = new WfmInputs(lambda, aht, nActual, WrapIncluded: false);
+        var inputs = new WfmInputs(lambda, aht, nValue, WrapIncluded: false);
         var erlangMetrics = new WfmErlang(
             TrafficA: trafficAComputed,
             PWaitC: pWaitC,

@@ -13,15 +13,12 @@ namespace CcDashboard.Infrastructure.Wfm;
 /// </summary>
 public sealed class WfmInputQueryService(
     IDbContextFactory<BackendEmulationDbContext> beFactory,
+    IWfmLogGate logGate,
     ILogger<WfmInputQueryService> logger) : IWfmInputQueryService
 {
     // Cached Workgroup -> TimeZone mapping per tenant (refresh every 5 min)
     private readonly ConcurrentDictionary<Guid, (DateTime CachedAt, Dictionary<string, string> Map)> _tzCache = new();
     private static readonly TimeSpan TzCacheTtl = TimeSpan.FromMinutes(5);
-
-    // Cached BU agent pool per tenant (§36a resolution, refresh every 5 min)
-    private readonly ConcurrentDictionary<Guid, (DateTime CachedAt, Dictionary<int, HashSet<string>> BuAgentPools)> _buAgentPoolCache = new();
-    private static readonly TimeSpan BuAgentPoolCacheTtl = TimeSpan.FromMinutes(5);
 
     /// <inheritdoc/>
     public async Task<IReadOnlyDictionary<string, (double LambdaPerHour, double AhtSec)>> GetLambdaAndAhtAsync(
@@ -125,233 +122,6 @@ public sealed class WfmInputQueryService(
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyDictionary<string, int>> GetServingAgentCountsAsync(
-        Guid tenantId,
-        IReadOnlyList<string> servingStateGroups,
-        CancellationToken ct = default)
-    {
-        if (servingStateGroups.Count == 0)
-            return new Dictionary<string, int>();
-
-        await using var ctx = await beFactory.CreateDbContextAsync(ct);
-
-        // Step 1: Get all queues for tenant (from BU queue classifications)
-        var queues = await ctx.NgcBusinessUnitQueueClassifications
-            .AsNoTracking()
-            .Where(bq => bq.TenantId == tenantId && bq.ClassificationId == "ALL")
-            .Select(bq => bq.QueueId)
-            .Distinct()
-            .ToListAsync(ct);
-
-        if (queues.Count == 0)
-            return new Dictionary<string, int>();
-
-        // Step 2: For each queue, get BU -> SG -> AG -> agents (§36a resolution)
-        // Then count those currently in serving state groups
-        var results = new Dictionary<string, int>();
-
-        // Get BU -> Queue mappings
-        var buQueueMappings = await ctx.NgcBusinessUnitQueueClassifications
-            .AsNoTracking()
-            .Where(bq => bq.TenantId == tenantId && bq.ClassificationId == "ALL")
-            .Select(bq => new { bq.BusinessUnitId, bq.QueueId })
-            .ToListAsync(ct);
-
-        var busByQueue = buQueueMappings
-            .GroupBy(m => m.QueueId)
-            .ToDictionary(g => g.Key, g => g.Select(m => m.BusinessUnitId).Distinct().ToList());
-
-        // Get BU -> SG mappings
-        var allBuIds = busByQueue.Values.SelectMany(x => x).Distinct().ToList();
-        var buSgMappings = await ctx.NgcBusinessUnitSupergroups
-            .AsNoTracking()
-            .Where(bs => allBuIds.Contains(bs.BusinessUnitId) && bs.TenantId == tenantId)
-            .Select(bs => new { bs.BusinessUnitId, bs.SupergroupId })
-            .ToListAsync(ct);
-
-        var sgsByBu = buSgMappings
-            .GroupBy(m => m.BusinessUnitId)
-            .ToDictionary(g => g.Key, g => g.Select(m => m.SupergroupId).Distinct().ToList());
-
-        // Get SG -> AG mappings
-        var allSgIds = sgsByBu.Values.SelectMany(x => x).Distinct().ToList();
-        var sgAgMappings = await ctx.NgcSupergroupAgentgroups
-            .AsNoTracking()
-            .Where(sag => sag.SupergroupId.HasValue && allSgIds.Contains(sag.SupergroupId.Value) && sag.TenantId == tenantId)
-            .Select(sag => new { sag.SupergroupId, sag.AgentgroupId })
-            .ToListAsync(ct);
-
-        var agsBySg = sgAgMappings
-            .GroupBy(m => m.SupergroupId!.Value)
-            .ToDictionary(g => g.Key, g => g.Select(m => m.AgentgroupId).Where(id => id != null).Select(id => id!).Distinct().ToList());
-
-        // Get AG -> User (agent) mappings
-        var allAgIds = agsBySg.Values.SelectMany(x => x).Distinct().ToList();  // List<string>
-        var agUserMappings = await ctx.NgcUserAgentgroups
-            .AsNoTracking()
-            .Where(uag => uag.AgentgroupId != null && allAgIds.Contains(uag.AgentgroupId) && uag.TenantId == tenantId && uag.UserId != null)
-            .Select(uag => new { uag.AgentgroupId, uag.UserId })
-            .ToListAsync(ct);
-
-        var usersByAg = agUserMappings
-            .Where(m => m.AgentgroupId != null)
-            .GroupBy(m => m.AgentgroupId!)
-            .ToDictionary(g => g.Key, g => new HashSet<string>(g.Select(m => m.UserId!)));
-
-        // Step 3: For each queue, resolve agents per §36a (AGENT-RES-01: SG=AND, BU=OR)
-        // Distinct StatusGroup values present in THIS TENANT's data. Computed at most once per call
-        // and only if some queue actually reports N=0 - see the branch below for why it is needed
-        // and why it must not be per-queue.
-        List<string>? tenantStatusGroups = null;
-
-        foreach (var queue in queues)
-        {
-            var busForQueue = busByQueue.GetValueOrDefault(queue, new List<int>());
-            var allAgentsForQueue = new HashSet<string>();
-
-            foreach (var buId in busForQueue)
-            {
-                var sgsForBu = sgsByBu.GetValueOrDefault(buId, new List<int>());
-
-                foreach (var sgId in sgsForBu)
-                {
-                    var agsForSg = agsBySg.GetValueOrDefault(sgId, new List<string>());
-                    if (agsForSg.Count == 0) continue;
-
-                    // SG = AND: intersect all AG members within this SG
-                    HashSet<string>? sgAgents = null;
-                    foreach (var agId in agsForSg)
-                    {
-                        var agMembers = usersByAg.GetValueOrDefault(agId, new HashSet<string>());
-                        if (sgAgents == null)
-                            sgAgents = new HashSet<string>(agMembers);
-                        else
-                            sgAgents.IntersectWith(agMembers);
-                    }
-
-                    // BU = OR: union SG results
-                    if (sgAgents != null)
-                        allAgentsForQueue.UnionWith(sgAgents);
-                }
-            }
-
-            if (allAgentsForQueue.Count == 0)
-            {
-                results[queue] = 0;
-                continue;
-            }
-
-            // Step 4: Count agents in serving state groups (current snapshot)
-            // SARGable on ix_rtsus_wfm
-            var agentList = allAgentsForQueue.ToArray();
-            var servingGroups = servingStateGroups.ToArray();
-
-            var countSql = @"
-                SELECT COUNT(DISTINCT us.""UserId"")::int AS ""Value""
-                FROM public.""RTSData_UserStatus"" us
-                WHERE us.""TenantId"" = @tenant
-                  AND us.""StatusGroup"" = ANY(@servingGroups)
-                  AND us.""UserId"" = ANY(@agentList)";
-
-            var count = await ctx.Database
-                .SqlQueryRaw<int>(countSql,
-                    new Npgsql.NpgsqlParameter("@tenant", tenantId),
-                    new Npgsql.NpgsqlParameter("@servingGroups", servingGroups),
-                    new Npgsql.NpgsqlParameter("@agentList", agentList))
-                .FirstOrDefaultAsync(ct);
-
-            if (count == 0 && agentList.Length > 0)
-            {
-                // The roster is NOT empty, yet nobody counts as serving. Two different situations
-                // hide behind the same zero and only one needs a human:
-                //   - the configured names do not occur in this tenant's data at all -> misconfigured;
-                //   - they do occur, nobody is in them right now -> an idle shift.
-                // The comparison must be against the TENANT's values, not against these agents':
-                // over the same agentList the count query already answers that question, so an
-                // intersection taken there is empty whenever count == 0 and the test would be
-                // vacuous. Measured and recorded as PR234-V4-WFM-N0-WARN-01.
-                tenantStatusGroups ??= await ctx.Database
-                    .SqlQueryRaw<string>(@"
-                        SELECT DISTINCT us.""StatusGroup"" AS ""Value""
-                        FROM public.""RTSData_UserStatus"" us
-                        WHERE us.""TenantId"" = @tenant
-                          AND us.""StatusGroup"" IS NOT NULL",
-                        new Npgsql.NpgsqlParameter("@tenant", tenantId))
-                    .ToListAsync(ct);
-
-                // Ordinal, to match the count query's own comparison: StatusGroup = ANY(@servingGroups)
-                // is exact, byte for byte. A case-insensitive test here would call the 13.10 casing
-                // mismatch an overlap and silence the one Warning worth keeping.
-                var configuredNamesExistInTenant = tenantStatusGroups
-                    .Intersect(servingGroups, StringComparer.Ordinal)
-                    .Any();
-
-                if (!configuredNamesExistInTenant)
-                {
-                    logger.LogWarning(
-                        "WfmInputQueryService: N=0 for queue {Queue} while roster has {AgentCount} agents, "
-                      + "and NONE of the configured serving groups occurs anywhere in this tenant's data. "
-                      + "Configured serving groups = [{Configured}]; StatusGroup values present for tenant = [{Actual}]",
-                        queue, agentList.Length,
-                        string.Join(", ", servingGroups),
-                        string.Join(", ", tenantStatusGroups));
-                }
-                else
-                {
-                    // Legitimate "nobody on the line". One line, no lists: this fires on every quiet
-                    // tick and must stay cheap.
-                    logger.LogDebug(
-                        "WfmInputQueryService: N=0 for queue {Queue}, roster {AgentCount} agents, configured groups present in tenant data",
-                        queue, agentList.Length);
-                }
-            }
-
-            results[queue] = count;
-        }
-
-        return results;
-    }
-
-    /// <inheritdoc/>
-    public async Task<int> GetBuServingAgentCountAsync(
-        Guid tenantId,
-        int businessUnitId,
-        IReadOnlyList<string> servingStateGroups,
-        CancellationToken ct = default)
-    {
-        if (servingStateGroups.Count == 0)
-            return 0;
-
-        await using var ctx = await beFactory.CreateDbContextAsync(ct);
-
-        // Get or refresh the BU agent pool cache
-        var buAgentPools = await GetOrRefreshBuAgentPoolsAsync(tenantId, ctx, ct);
-
-        if (!buAgentPools.TryGetValue(businessUnitId, out var agentPool) || agentPool.Count == 0)
-            return 0;
-
-        // Count agents in serving state groups
-        var agentList = agentPool.ToArray();
-        var servingGroups = servingStateGroups.ToArray();
-
-        var countSql = @"
-            SELECT COUNT(DISTINCT us.""UserId"")::int AS ""Value""
-            FROM public.""RTSData_UserStatus"" us
-            WHERE us.""TenantId"" = @tenant
-              AND us.""StatusGroup"" = ANY(@servingGroups)
-              AND us.""UserId"" = ANY(@agentList)";
-
-        var count = await ctx.Database
-            .SqlQueryRaw<int>(countSql,
-                new Npgsql.NpgsqlParameter("@tenant", tenantId),
-                new Npgsql.NpgsqlParameter("@servingGroups", servingGroups),
-                new Npgsql.NpgsqlParameter("@agentList", agentList))
-            .FirstOrDefaultAsync(ct);
-
-        return count;
-    }
-
-    /// <inheritdoc/>
     public async Task<IReadOnlyList<BuInfo>> GetActiveBusAsync(Guid tenantId, CancellationToken ct = default)
     {
         await using var ctx = await beFactory.CreateDbContextAsync(ct);
@@ -386,108 +156,6 @@ public sealed class WfmInputQueryService(
     }
 
     /// <summary>
-    /// Get or refresh the BU -> Agent pool mapping (§36a resolution).
-    /// Cached for 5 minutes since membership changes slowly.
-    /// </summary>
-    private async Task<Dictionary<int, HashSet<string>>> GetOrRefreshBuAgentPoolsAsync(
-        Guid tenantId,
-        BackendEmulationDbContext ctx,
-        CancellationToken ct)
-    {
-        // Check cache
-        if (_buAgentPoolCache.TryGetValue(tenantId, out var cached) &&
-            DateTime.UtcNow - cached.CachedAt < BuAgentPoolCacheTtl)
-        {
-            return cached.BuAgentPools;
-        }
-
-        // Build BU -> Agent pool using §36a resolution
-        var buAgentPools = new Dictionary<int, HashSet<string>>();
-
-        // Get all BUs for tenant
-        var allBuIds = await ctx.NgcBusinessUnits
-            .AsNoTracking()
-            .Where(bu => bu.TenantId == tenantId)
-            .Select(bu => bu.BusinessUnitId)
-            .ToListAsync(ct);
-
-        if (allBuIds.Count == 0)
-        {
-            _buAgentPoolCache[tenantId] = (DateTime.UtcNow, buAgentPools);
-            return buAgentPools;
-        }
-
-        // Get BU -> SG mappings
-        var buSgMappings = await ctx.NgcBusinessUnitSupergroups
-            .AsNoTracking()
-            .Where(bs => allBuIds.Contains(bs.BusinessUnitId) && bs.TenantId == tenantId)
-            .Select(bs => new { bs.BusinessUnitId, bs.SupergroupId })
-            .ToListAsync(ct);
-
-        var sgsByBu = buSgMappings
-            .GroupBy(m => m.BusinessUnitId)
-            .ToDictionary(g => g.Key, g => g.Select(m => m.SupergroupId).Distinct().ToList());
-
-        // Get SG -> AG mappings
-        var allSgIds = sgsByBu.Values.SelectMany(x => x).Distinct().ToList();
-        var sgAgMappings = await ctx.NgcSupergroupAgentgroups
-            .AsNoTracking()
-            .Where(sag => sag.SupergroupId.HasValue && allSgIds.Contains(sag.SupergroupId.Value) && sag.TenantId == tenantId)
-            .Select(sag => new { sag.SupergroupId, sag.AgentgroupId })
-            .ToListAsync(ct);
-
-        var agsBySg = sgAgMappings
-            .GroupBy(m => m.SupergroupId!.Value)
-            .ToDictionary(g => g.Key, g => g.Select(m => m.AgentgroupId).Where(id => id != null).Select(id => id!).Distinct().ToList());
-
-        // Get AG -> User (agent) mappings
-        var allAgIds = agsBySg.Values.SelectMany(x => x).Distinct().ToList();
-        var agUserMappings = await ctx.NgcUserAgentgroups
-            .AsNoTracking()
-            .Where(uag => uag.AgentgroupId != null && allAgIds.Contains(uag.AgentgroupId) && uag.TenantId == tenantId && uag.UserId != null)
-            .Select(uag => new { uag.AgentgroupId, uag.UserId })
-            .ToListAsync(ct);
-
-        var usersByAg = agUserMappings
-            .Where(m => m.AgentgroupId != null)
-            .GroupBy(m => m.AgentgroupId!)
-            .ToDictionary(g => g.Key, g => new HashSet<string>(g.Select(m => m.UserId!)));
-
-        // Resolve agents per BU using §36a (AGENT-RES-01: SG=AND, BU=OR)
-        foreach (var buId in allBuIds)
-        {
-            var allAgentsForBu = new HashSet<string>();
-            var sgsForBu = sgsByBu.GetValueOrDefault(buId, new List<int>());
-
-            foreach (var sgId in sgsForBu)
-            {
-                var agsForSg = agsBySg.GetValueOrDefault(sgId, new List<string>());
-                if (agsForSg.Count == 0) continue;
-
-                // SG = AND: intersect all AG members within this SG
-                HashSet<string>? sgAgents = null;
-                foreach (var agId in agsForSg)
-                {
-                    var agMembers = usersByAg.GetValueOrDefault(agId, new HashSet<string>());
-                    if (sgAgents == null)
-                        sgAgents = new HashSet<string>(agMembers);
-                    else
-                        sgAgents.IntersectWith(agMembers);
-                }
-
-                // BU = OR: union SG results
-                if (sgAgents != null)
-                    allAgentsForBu.UnionWith(sgAgents);
-            }
-
-            buAgentPools[buId] = allAgentsForBu;
-        }
-
-        _buAgentPoolCache[tenantId] = (DateTime.UtcNow, buAgentPools);
-        return buAgentPools;
-    }
-
-    /// <summary>
     /// Get or refresh the Workgroup -> TimeZone mapping for a tenant.
     /// Mixed TZ within one Workgroup: pick dominant + WARN; NO per-row fallback.
     /// </summary>
@@ -519,11 +187,18 @@ public sealed class WfmInputQueryService(
             var dominant = wgGroup.OrderByDescending(x => x.Count).First();
             map[wgGroup.Key] = dominant.TimeZone ?? string.Empty;
 
-            // Warn if mixed TZ within workgroup
-            if (wgGroup.Count() > 1)
+            // Mixed zones inside one workgroup is a configuration fact, not an event: it stays true
+            // until somebody fixes the data, so repeating it every tick buries the rest of the log
+            // (measured: 42 lines/min, 1260 in 30 min, more than half the log). Once an hour per
+            // queue is enough to keep it visible; a CHANGED dominant zone speaks immediately,
+            // because that is new information and the one case worth interrupting for.
+            if (wgGroup.Count() > 1 &&
+                logGate.ShouldLog($"wfm-mixed-tz:{tenantId}:{wgGroup.Key}", dominant.TimeZone, TimeSpan.FromHours(1)))
             {
-                logger.LogWarning("WfmInputQueryService: workgroup {Workgroup} has mixed TimeZones, using dominant {Tz}",
-                    wgGroup.Key, dominant.TimeZone);
+                logger.LogWarning(
+                    "WfmInputQueryService: workgroup {Workgroup} has mixed TimeZones ({ZoneCount} distinct), using dominant {Tz}. "
+                  + "Repeats of this line are suppressed for an hour unless the dominant zone changes.",
+                    wgGroup.Key, wgGroup.Count(), dominant.TimeZone);
             }
         }
 

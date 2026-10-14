@@ -1017,6 +1017,8 @@
   <data name="Wfm_StateNoData"><value>אין נתונים</value></data>
   <data name="Wfm_OverloadedMessage"><value>המערכת בעומס יתר — נציגים זמינים ≤ תעבורה</value></data>
   <data name="Wfm_NoDataMessage"><value>ממתין לשיחות או נציגים</value></data>
+  <data name="Wfm_NUnknown"><value>אין נתונים</value></data>
+  <data name="Wfm_NUnknownDefaultReason"><value>מספר הנציגים אינו ידוע</value></data>
   <data name="Wfm_Inputs"><value>קלטים</value></data>
   <data name="Wfm_Lambda"><value>Arrivals (λ)</value></data>
   <data name="Wfm_AHT"><value>AHT</value></data>

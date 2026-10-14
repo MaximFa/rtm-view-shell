@@ -185,6 +185,13 @@ public static class InfrastructureServiceExtensions
         // WFM Phase 1: Input query service (per-TZ frame, dba-locked)
         services.AddScoped<IWfmInputQueryService, WfmInputQueryService>();
 
+        // Singleton on purpose: the Wfm services are Scoped and the loop makes a new scope per tick,
+        // so any per-tick state (including rate limiting) has to live outside them.
+        services.AddSingleton<IWfmLogGate, WfmLogGate>();
+
+        // Singleton: it holds relay subscriptions that must outlive the per-tick scope.
+        services.AddSingleton<IWfmEngineAgentCountProvider, WfmEngineAgentCountProvider>();
+
         // WFM Phase 1: 30-second realtime loop (IHostedService)
         services.AddHostedService<WfmRealtimeLoop>();
 
