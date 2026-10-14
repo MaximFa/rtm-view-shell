@@ -38,7 +38,11 @@ public sealed class WfmInputQueryService(
         var tzMap = await GetOrRefreshTzMapAsync(tenantId, ctx, ct);
         if (tzMap.Count == 0)
         {
-            logger.LogDebug("WfmInputQueryService: no TimeZone mappings for tenant {TenantId}", tenantId);
+            // Zero mappings means lambda and AHT are skipped for EVERY queue of this tenant.
+            // Warning, not Debug: on the server Debug is not emitted, so today this path is silent.
+            logger.LogWarning(
+                "WfmInputQueryService: no Workgroup->TimeZone mappings for tenant {TenantId} — "
+              + "lambda and AHT are skipped for ALL queues this tick", tenantId);
             return new Dictionary<string, (double, double)>();
         }
 
@@ -195,6 +199,11 @@ public sealed class WfmInputQueryService(
             .ToDictionary(g => g.Key, g => new HashSet<string>(g.Select(m => m.UserId!)));
 
         // Step 3: For each queue, resolve agents per §36a (AGENT-RES-01: SG=AND, BU=OR)
+        // Distinct StatusGroup values present in THIS TENANT's data. Computed at most once per call
+        // and only if some queue actually reports N=0 - see the branch below for why it is needed
+        // and why it must not be per-queue.
+        List<string>? tenantStatusGroups = null;
+
         foreach (var queue in queues)
         {
             var busForQueue = busByQueue.GetValueOrDefault(queue, new List<int>());
@@ -250,6 +259,52 @@ public sealed class WfmInputQueryService(
                     new Npgsql.NpgsqlParameter("@servingGroups", servingGroups),
                     new Npgsql.NpgsqlParameter("@agentList", agentList))
                 .FirstOrDefaultAsync(ct);
+
+            if (count == 0 && agentList.Length > 0)
+            {
+                // The roster is NOT empty, yet nobody counts as serving. Two different situations
+                // hide behind the same zero and only one needs a human:
+                //   - the configured names do not occur in this tenant's data at all -> misconfigured;
+                //   - they do occur, nobody is in them right now -> an idle shift.
+                // The comparison must be against the TENANT's values, not against these agents':
+                // over the same agentList the count query already answers that question, so an
+                // intersection taken there is empty whenever count == 0 and the test would be
+                // vacuous. Measured and recorded as PR234-V4-WFM-N0-WARN-01.
+                tenantStatusGroups ??= await ctx.Database
+                    .SqlQueryRaw<string>(@"
+                        SELECT DISTINCT us.""StatusGroup"" AS ""Value""
+                        FROM public.""RTSData_UserStatus"" us
+                        WHERE us.""TenantId"" = @tenant
+                          AND us.""StatusGroup"" IS NOT NULL",
+                        new Npgsql.NpgsqlParameter("@tenant", tenantId))
+                    .ToListAsync(ct);
+
+                // Ordinal, to match the count query's own comparison: StatusGroup = ANY(@servingGroups)
+                // is exact, byte for byte. A case-insensitive test here would call the 13.10 casing
+                // mismatch an overlap and silence the one Warning worth keeping.
+                var configuredNamesExistInTenant = tenantStatusGroups
+                    .Intersect(servingGroups, StringComparer.Ordinal)
+                    .Any();
+
+                if (!configuredNamesExistInTenant)
+                {
+                    logger.LogWarning(
+                        "WfmInputQueryService: N=0 for queue {Queue} while roster has {AgentCount} agents, "
+                      + "and NONE of the configured serving groups occurs anywhere in this tenant's data. "
+                      + "Configured serving groups = [{Configured}]; StatusGroup values present for tenant = [{Actual}]",
+                        queue, agentList.Length,
+                        string.Join(", ", servingGroups),
+                        string.Join(", ", tenantStatusGroups));
+                }
+                else
+                {
+                    // Legitimate "nobody on the line". One line, no lists: this fires on every quiet
+                    // tick and must stay cheap.
+                    logger.LogDebug(
+                        "WfmInputQueryService: N=0 for queue {Queue}, roster {AgentCount} agents, configured groups present in tenant data",
+                        queue, agentList.Length);
+                }
+            }
 
             results[queue] = count;
         }

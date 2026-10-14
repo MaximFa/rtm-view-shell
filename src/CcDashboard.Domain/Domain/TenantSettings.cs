@@ -30,8 +30,16 @@ public class TenantSettings
     public int? SlThresholdSeconds { get; set; }
 
     // ─── WFM Phase 1 config (spec §5) ───────────────────────────────────────
-    /// <summary>Agent state groups counted as "serving" for N calculation. Default: Available, On Phone, Paperwork.</summary>
-    public string[] WfmServingStateGroups { get; set; } = new[] { "Available", "On Phone", "Paperwork" };
+    /// <summary>
+    /// Agent state groups counted as "serving" for N calculation. EMPTY by default on purpose:
+    /// these values are compared verbatim against RTSData_UserStatus.StatusGroup, which the
+    /// platform reports in upper case (AVAILABLE, ONPHONE, PAPERWORK). The former default
+    /// { "Available", "On Phone", "Paperwork" } matched nothing, so a tenant nobody had configured
+    /// silently counted zero serving agents and every WFM number came out empty. An empty array
+    /// says "not configured yet" honestly; the operator picks the real values from the list the
+    /// settings page now offers.
+    /// </summary>
+    public string[] WfmServingStateGroups { get; set; } = Array.Empty<string>();
     /// <summary>Rolling window length for λ/AHT calculation (minutes). Default 30.</summary>
     public int WfmWindowMinutes { get; set; } = 30;
     /// <summary>SL target percentage (e.g. 80 for 80%). Default 80.</summary>

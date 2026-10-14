@@ -293,6 +293,8 @@
   <data name="TenantSettings_WfmEnableRealtime"><value>Enable WFM real-time metrics</value></data>
   <data name="TenantSettings_WfmServingStateGroups"><value>Serving State Groups</value></data>
   <data name="TenantSettings_WfmServingStateGroupsHelp"><value>Agent state groups counted as "serving" for N calculation (Ready/Talking/Wrap).</value></data>
+  <data name="TenantSettings_WfmGroupNotInData"><value>לא נמצא בנתונים</value></data>
+  <data name="TenantSettings_WfmNoStatusGroupsInData"><value>לא נמצאו קבוצות סטטוס של נציגים בנתוני הארגון.</value></data>
   <data name="TenantSettings_WfmWindow"><value>Rolling Window</value></data>
   <data name="TenantSettings_WfmWindowMinutes"><value>Window length (minutes)</value></data>
   <data name="TenantSettings_WfmWindowMinutesHelp"><value>Rolling window for λ/AHT calculation. Default: 30 min.</value></data>

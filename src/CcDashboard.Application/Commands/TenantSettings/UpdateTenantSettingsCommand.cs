@@ -40,7 +40,11 @@ public class UpdateTenantSettingsCommandHandler(
         settings.FontSizes = SerializeList(r.FontSizes);
 
         // WFM Phase 1 config (spec §5)
-        settings.WfmServingStateGroups = (r.WfmServingStateGroups is { Count: > 0 }) ? r.WfmServingStateGroups.ToArray() : settings.WfmServingStateGroups;
+        // null = field not sent -> keep stored value; [] = sent empty -> store empty.
+        // Collapsing the two (Count: > 0) silently discarded "no groups at all", which is a legitimate
+        // setting: it means "not configured", and WfmRealtimeLoop.cs:99 already tolerates it
+        // (`settings.WfmServingStateGroups ?? Array.Empty<string>()`).
+        settings.WfmServingStateGroups = r.WfmServingStateGroups?.ToArray() ?? settings.WfmServingStateGroups;
         settings.WfmWindowMinutes = Math.Clamp(r.WfmWindowMinutes, 1, 1440);
         settings.WfmSlTargetPct = Math.Clamp(r.WfmSlTargetPct, 1, 100);
         settings.WfmSlThresholdSec = Math.Clamp(r.WfmSlThresholdSec, 1, 3600);

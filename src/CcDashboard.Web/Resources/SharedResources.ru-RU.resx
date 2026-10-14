@@ -367,6 +367,8 @@
   <data name="TenantSettings_WfmEnableRealtime"><value>Включить метрики WFM в реальном времени</value></data>
   <data name="TenantSettings_WfmServingStateGroups"><value>Группы состояний обслуживания</value></data>
   <data name="TenantSettings_WfmServingStateGroupsHelp"><value>Группы состояний агентов, учитываемые как "обслуживание" для расчёта N (Ready/Talking/Wrap).</value></data>
+  <data name="TenantSettings_WfmGroupNotInData"><value>не найдено в данных</value></data>
+  <data name="TenantSettings_WfmNoStatusGroupsInData"><value>В данных этой организации пока нет групп статусов агентов.</value></data>
   <data name="TenantSettings_WfmWindow"><value>Окно расчёта</value></data>
   <data name="TenantSettings_WfmWindowMinutes"><value>Длина окна (минуты)</value></data>
   <data name="TenantSettings_WfmWindowMinutesHelp"><value>Скользящее окно для расчёта λ/AHT. По умолчанию: 30 мин.</value></data>

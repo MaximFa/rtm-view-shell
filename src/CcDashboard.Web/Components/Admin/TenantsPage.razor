@@ -528,18 +528,36 @@ else
                                         <div class="card-header fw-semibold small">@L["TenantSettings_WfmServingStateGroups"]</div>
                                         <div class="card-body">
                                             <div class="form-text mb-2">@L["TenantSettings_WfmServingStateGroupsHelp"]</div>
-                                            @foreach (var g in AgentStateGroups.Where(g => g.IsActive))
+                                            @* The list comes from the DATA (distinct StatusGroup values this tenant
+                                               reports), not from the shell's state groups. The WFM input service
+                                               compares the saved strings against that very column, verbatim, so any
+                                               other source of names can only produce a setting that matches nothing —
+                                               which is exactly how every tenant ended up with N = 0. *@
+                                            @foreach (var g in TenantStatusGroups)
                                             {
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="wfmsg-@g.Id"
-                                                           checked="@EditWfmServingStateGroups.Contains(g.GroupName)"
-                                                           @onchange="e => ToggleWfmServingGroup(g.GroupName, (bool)(e.Value ?? false))" />
-                                                    <label class="form-check-label" for="wfmsg-@g.Id">@g.GroupName</label>
+                                                    <input class="form-check-input" type="checkbox" id="wfmsg-@g"
+                                                           checked="@EditWfmServingStateGroups.Contains(g)"
+                                                           @onchange="e => ToggleWfmServingGroup(g, (bool)(e.Value ?? false))" />
+                                                    <label class="form-check-label" for="wfmsg-@g">@g</label>
                                                 </div>
                                             }
-                                            @if (!AgentStateGroups.Any(g => g.IsActive))
+                                            @* Saved values the data does not know. Shown, not dropped: the choice is the
+                                               operator's record, and silently discarding it would hide why N is zero. *@
+                                            @foreach (var missing in EditWfmServingStateGroups.Where(v => !TenantStatusGroups.Contains(v)).ToList())
                                             {
-                                                <span class="text-muted small">@L["AgentStates_NoGroups"]</span>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="wfmsg-missing-@missing"
+                                                           checked="@true"
+                                                           @onchange="e => ToggleWfmServingGroup(missing, (bool)(e.Value ?? false))" />
+                                                    <label class="form-check-label text-warning" for="wfmsg-missing-@missing">
+                                                        @missing <span class="small">— @L["TenantSettings_WfmGroupNotInData"]</span>
+                                                    </label>
+                                                </div>
+                                            }
+                                            @if (!TenantStatusGroups.Any())
+                                            {
+                                                <span class="text-muted small">@L["TenantSettings_WfmNoStatusGroupsInData"]</span>
                                             }
                                         </div>
                                     </div>
@@ -932,6 +950,9 @@ else
 
     // WFM tab
     private List<string> EditWfmServingStateGroups = new();
+    // Distinct StatusGroup values the tenant actually reports — the only valid source for the
+    // serving-groups setting (see the markup remark).
+    private List<string> TenantStatusGroups = new();
     private int EditWfmWindowMinutes = 30;
     private double EditWfmSlTargetPct = 80;
     private int EditWfmSlThresholdSec = 20;
@@ -1038,7 +1059,9 @@ else
             EditFontColors = s?.FontColorPalette?.ToList() ?? GetDefaultFontColors();
             EditFontSizes = s?.FontSizes?.ToList() ?? GetDefaultFontSizes();
             // WFM
-            EditWfmServingStateGroups = s?.WfmServingStateGroups?.ToList() ?? new List<string> { "Available", "On Phone", "Paperwork" };
+            // No invented default here either: those three strings never matched the data and only
+            // made an unconfigured tenant look configured.
+            EditWfmServingStateGroups = s?.WfmServingStateGroups?.ToList() ?? new List<string>();
             EditWfmWindowMinutes = s?.WfmWindowMinutes ?? 30;
             EditWfmSlTargetPct = s?.WfmSlTargetPct ?? 80;
             EditWfmSlThresholdSec = s?.WfmSlThresholdSec ?? 20;
@@ -1172,6 +1195,7 @@ else
         {
             AgentStateGroups = (await Mediator.Send(new GetAgentStateGroupsQuery(tenantId), _cts.Token)).ToList();
             AgentStates = (await Mediator.Send(new GetAgentStatesQuery(tenantId), _cts.Token)).ToList();
+            TenantStatusGroups = (await Mediator.Send(new GetTenantStatusGroupsQuery(tenantId), _cts.Token)).ToList();
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { EditSaveError = ex.Message; }

@@ -128,7 +128,7 @@ public sealed class WfmRealtimeLoop(
             snapshotStore.Set(snapshot);
         }
 
-        logger.LogDebug("WfmRealtimeLoop: processed {QueueCount} queues for tenant {TenantId}",
+        logger.LogInformation("WfmRealtimeLoop: processed {QueueCount} queues for tenant {TenantId}",
             allQueues.Count(), tenantId);
 
         // --- Per-BU AGGREGATE snapshots ---
@@ -216,10 +216,21 @@ public sealed class WfmRealtimeLoop(
             }
         }
 
-        if (buCount > 0)
+        // No `if (buCount > 0)`: zero IS the answer we were missing — it separates
+        // "no BU aggregates built" from "the loop never reached the aggregate stage".
+        logger.LogInformation(
+            "WfmRealtimeLoop: processed {BuCount} BU aggregates of {BuTotal} BUs for tenant {TenantId}",
+            buCount, bus.Count, tenantId);
+
+        var busWithoutQueues = bus.Count(b => b.QueueIds.Count == 0);
+        if (busWithoutQueues > 0)
         {
-            logger.LogDebug("WfmRealtimeLoop: processed {BuCount} BU aggregates for tenant {TenantId}",
-                buCount, tenantId);
+            // Today this case is logged nowhere at any level, yet it yields a snapshot full of zeros:
+            // the queue loop makes no pass, so lambda = 0 and AHT = 0, and State becomes NoData.
+            logger.LogWarning(
+                "WfmRealtimeLoop: {Count} of {Total} BUs have no queues (missing 'ALL' classification) "
+              + "for tenant {TenantId} — their snapshots are published with zero inputs",
+                busWithoutQueues, bus.Count, tenantId);
         }
     }
 
