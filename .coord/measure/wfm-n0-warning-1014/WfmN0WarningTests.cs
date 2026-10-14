@@ -22,6 +22,18 @@ namespace CcDashboard.Tests.Security.Wfm;
 [Collection("Postgres")]
 public class WfmN0WarningTests(PostgresFixture postgres)
 {
+    // Each test gets its OWN tenant id, and that is the fix for the two reds of 05:39Z.
+    // PostgresFixture starts one container per collection and never truncates between tests
+    // (InitializeAsync/DisposeAsync only create and drop the container), so rows accumulate.
+    // GetServingAgentCountsAsync loops over EVERY queue of the tenant and logs per queue, so with
+    // a shared tenant one test sees log lines produced by another test's leftover queues - which is
+    // exactly what "HealthyTick_LogsNothingAtAll" caught, and why the Warning assertions were
+    // unreliable. BackendEmulationDbContext has no query filters and no FK to a tenants table
+    // (measured: HasQueryFilter 0 occurrences; no HasOne on a tenant), so an arbitrary Guid is a
+    // valid, fully isolated tenant here.
+    private readonly Guid _tenant = Guid.NewGuid();
+    private readonly Guid _foreignTenant = Guid.NewGuid();
+
     [Fact]
     public async Task ConfiguredNameAbsentFromTenantData_WarnsWithBothSides()
     {
@@ -33,7 +45,7 @@ public class WfmN0WarningTests(PostgresFixture postgres)
         var svc = new WfmInputQueryService(Factory(), logger);
 
         var counts = await svc.GetServingAgentCountsAsync(
-            postgres.TenantAId, new[] { "Available" }, default);
+            _tenant, new[] { "Available" }, default);
 
         counts[seed.QueueId].Should().Be(0);
 
@@ -57,7 +69,7 @@ public class WfmN0WarningTests(PostgresFixture postgres)
         var svc = new WfmInputQueryService(Factory(), logger);
 
         var counts = await svc.GetServingAgentCountsAsync(
-            postgres.TenantAId, new[] { "AVAILABLE" }, default);
+            _tenant, new[] { "AVAILABLE" }, default);
 
         counts[seed.QueueId].Should().Be(0);
         logger.Entries.Should().NotContain(e => e.Level == LogLevel.Warning);
@@ -66,16 +78,16 @@ public class WfmN0WarningTests(PostgresFixture postgres)
     [Fact]
     public async Task AnotherTenantsGroups_DoNotSilenceTheWarning()
     {
-        // Guards the TenantId gate in the new query. Tenant B holds "AVAILABLE"; tenant A does not.
-        // Asking for tenant A must still warn - otherwise a neighbour's data would mute the alarm,
-        // and the query would be wrong in the one direction nobody notices.
+        // Guards the TenantId gate in the new query. A DIFFERENT tenant holds "AVAILABLE"; this
+        // test's tenant does not. The call must still warn - otherwise a neighbour's data would
+        // mute the alarm, and the query would be wrong in the one direction nobody notices.
         await SeedAsync(agentGroups: new[] { "BREAK" });
         await SeedForeignTenantStatusAsync("AVAILABLE");
         var logger = new CollectingLogger<WfmInputQueryService>();
         var svc = new WfmInputQueryService(Factory(), logger);
 
         await svc.GetServingAgentCountsAsync(
-            postgres.TenantAId, new[] { "AVAILABLE" }, default);
+            _tenant, new[] { "AVAILABLE" }, default);
 
         logger.Entries.Should().Contain(e => e.Level == LogLevel.Warning);
     }
@@ -90,7 +102,7 @@ public class WfmN0WarningTests(PostgresFixture postgres)
         var svc = new WfmInputQueryService(Factory(), logger);
 
         var counts = await svc.GetServingAgentCountsAsync(
-            postgres.TenantAId, new[] { "AVAILABLE" }, default);
+            _tenant, new[] { "AVAILABLE" }, default);
 
         counts[seed.QueueId].Should().Be(0);
         logger.Entries.Should().NotContain(e => e.Level == LogLevel.Warning);
@@ -107,9 +119,11 @@ public class WfmN0WarningTests(PostgresFixture postgres)
         var svc = new WfmInputQueryService(Factory(), logger);
 
         var counts = await svc.GetServingAgentCountsAsync(
-            postgres.TenantAId, new[] { "AVAILABLE" }, default);
+            _tenant, new[] { "AVAILABLE" }, default);
 
         counts[seed.QueueId].Should().Be(1);
+        // The tenant is this test's own, so "nothing at all" is a statement about this tenant only.
+        counts.Should().HaveCount(1, "the tenant must hold exactly this test's queue");
         logger.Entries.Should().BeEmpty();
     }
 
@@ -136,7 +150,7 @@ public class WfmN0WarningTests(PostgresFixture postgres)
         bool withAgent = true,
         string[]? otherUserOfSameTenantGroups = null)
     {
-        var tenant = postgres.TenantAId;
+        var tenant = _tenant;
         var suffix = Guid.NewGuid().ToString("N")[..8];
         var queueId = $"Q-{suffix}";
         var agId = $"AG-{suffix}";
@@ -186,12 +200,12 @@ public class WfmN0WarningTests(PostgresFixture postgres)
         return new Seeded(queueId, userId);
     }
 
-    /// <summary>Rows for a DIFFERENT tenant, to prove the TenantId gate on the new query.</summary>
+    /// <summary>Rows for a DIFFERENT tenant id, to prove the TenantId gate on the new query.</summary>
     private async Task SeedForeignTenantStatusAsync(string group)
     {
         await using var db = postgres.CreateBackendEmulationDbContext();
         db.RtsDataUserStatuses.Add(
-            NewStatus(postgres.TenantBId, $"U-B-{Guid.NewGuid():N}", group));
+            NewStatus(_foreignTenant, $"U-B-{Guid.NewGuid():N}", group));
         await db.SaveChangesAsync();
     }
 

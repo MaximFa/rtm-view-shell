@@ -138,3 +138,40 @@ already visible on screen; what the log must add is WHY.
 `grep -c '^## BEFORE'` → 1, `grep -c '^## AFTER'` → 1. The anchor line
 `if (count == 0 && agentList.Length > 0)` appears in both code blocks, so a predicate demanding one
 occurrence would be stricter than the question and would go red on a correct fragment.
+
+## Why the first run went red, and what was actually wrong
+
+Coordinator's box of 05:39Z: Unit 445/445, Architecture 8/8, Security 338/340, both failures mine.
+The trx (`.measurements/commit-28ce148-wfmgroups_Security_20261014T053941Z.trx`) says:
+
+- `ConfiguredNameAbsentFromTenantData_WarnsWithBothSides` — no entry of level Warning;
+- `HealthyTick_LogsNothingAtAll` — found a Debug entry for queue `Q-a3ce87be`.
+
+**The code is not at fault; my tests were.** Measured cause, in the order it was found:
+
+1. `PostgresFixture` starts one container per collection and never truncates between tests — its
+   `InitializeAsync`/`DisposeAsync` only create and drop the container (searched for Respawn,
+   TRUNCATE, DELETE FROM, ResetAsync: no occurrences). So rows from one test survive into the next.
+2. `GetServingAgentCountsAsync` resolves and logs for **every queue of the tenant**, not only the
+   queue a test seeded. With all tests sharing `postgres.TenantAId`, a test therefore sees log lines
+   produced by another test's leftover queues. That is literally what the Debug line reports: queue
+   `Q-a3ce87be` is not the queue the failing test created.
+3. The queue id in that Debug line is the proof that the branch itself behaves as designed — it found
+   a configured group present in the tenant's data and stayed at Debug, exactly as specified.
+
+Fix: every test now runs on **its own tenant id** (`Guid.NewGuid()` per test instance), so no
+leftover queue, roster or StatusGroup value from a neighbouring test can reach it. This is sound
+here because `BackendEmulationDbContext` has no query filters and no foreign key to a tenants table
+(measured: `HasQueryFilter` 0 occurrences, no `HasOne` on a tenant), so an arbitrary Guid is a fully
+isolated tenant. The foreign-tenant test now uses a second generated id rather than `TenantBId`,
+which other tests also touch, and `HealthyTick_LogsNothingAtAll` additionally asserts the tenant
+holds exactly one queue, so "nothing was logged" cannot be satisfied by an empty tenant.
+
+**My miss behind the miss:** I said all morning that v4 was invisible to me. The v4 working
+*directory* is not mounted, but the v4 *branch* lives in this same repository and `git show v4:<path>`
+reads it. I could have checked the real code and the real fixture before writing a single test. The
+first version of these tests was built against the v3 file and guesses about the fixture; that is why
+they went red on their first contact with the truth. Verified now by reading v4 directly: `countSql`
+there is identical to v3 (`v4:…/WfmInputQueryService.cs:240-245`), and the 13.10 branch is **not** in
+the committed v4 at all (head `28ce148`, 13.10 17:05), so the box ran against shell's uncommitted
+working copy.
