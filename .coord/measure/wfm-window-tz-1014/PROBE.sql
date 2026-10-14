@@ -99,3 +99,52 @@ ORDER BY 1;
 --                             the filters, not in the clock.
 --   24h = 0                -> no traffic for that tenant at all. The probe cannot answer. Do not
 --                             guess from blocks 1-2 alone.
+
+-- ── 4. Separating the two possible causes ──────────────────────────────────────────────────
+-- devops measured on 13.10: TimeZone in the rows is '+02:00', the machine and the loop log are
+-- +03:00, and the freshest rows sit +3:44 AHEAD of UTC. That matches NEITHER hypothesis above:
+-- H-WALL would put the lag near +2:00, H-UTC near 0. So a third cause is on the table, and the
+-- two must be told apart before anything is changed:
+--   C-TZSTRING  the offset recorded in the rows is simply wrong for that site (rows are local
+--               time of a +03:00 site but carry '+02:00'), so the window is short by an hour.
+--   C-CLOCK     the feeding machine's clock is ahead (the extra ~0:44 on top of any offset),
+--               so no offset choice makes the window line up and the fix is not in our code.
+-- These produce different numbers: C-TZSTRING gives a lead clustered tightly at a whole number of
+-- hours, C-CLOCK gives a lead that is not a round offset and drifts between rows.
+--
+-- The previous probe also measured only 86 rows, which is too small a sample to read a
+-- distribution from, so the row count is printed first and every figure below is per-row, not a
+-- single max().
+SELECT count(*)                                                        AS rows_total,
+       count(*) FILTER (WHERE "TimeZone" IS NULL)                      AS rows_without_tz,
+       count(*) FILTER (WHERE "InQueueDateTime" >= now() + interval '1 year') AS rows_year_10000,
+       count(*) FILTER (WHERE "InQueueDateTime" >= (now() AT TIME ZONE 'UTC') - interval '24 hours'
+                          AND "InQueueDateTime" <  now() + interval '1 year')  AS rows_last_24h
+FROM public."RTSData_Interaction";
+
+-- Distribution of how far ahead of UTC the recent rows sit. A single number cannot tell a wrong
+-- offset from a drifting clock; the spread is the whole point.
+SELECT "TimeZone",
+       count(*)                                                                      AS rows,
+       min("InQueueDateTime" - (now() AT TIME ZONE 'UTC'))                           AS lead_min,
+       percentile_disc(0.5) WITHIN GROUP (ORDER BY "InQueueDateTime" - (now() AT TIME ZONE 'UTC')) AS lead_median,
+       max("InQueueDateTime" - (now() AT TIME ZONE 'UTC'))                           AS lead_max
+FROM public."RTSData_Interaction"
+WHERE "InQueueDateTime" <  now() + interval '1 year'
+  AND "InQueueDateTime" >= (now() AT TIME ZONE 'UTC') - interval '24 hours'
+GROUP BY "TimeZone"
+ORDER BY rows DESC;
+
+-- Reading block 4:
+--   lead_min ≈ lead_median ≈ lead_max, all at a whole hour  -> C-TZSTRING. The offset in the rows
+--                                                              is wrong; our window must use the
+--                                                              site's real offset, and that is a
+--                                                              decision about data, not a code fix
+--                                                              to make blindly.
+--   lead spread over minutes, not a round offset             -> C-CLOCK. The feed's clock is ahead;
+--                                                              no offset choice lines the window up
+--                                                              and the defect is outside our code.
+--   rows_last_24h = 0 while rows_total > 0                   -> the feed is not delivering at all,
+--                                                              which outranks both and must be
+--                                                              reported as such, not as a timezone
+--                                                              finding.
