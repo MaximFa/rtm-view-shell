@@ -12,17 +12,15 @@ reviewer: curator
 
 ## §A CORE  (invariant · HARD CAP ~40 lines · read EVERY init)
 ### ⛔ ЧП / EMERGENCY MODE — ACTIVE (declared 2026-06-25 coordinator-0624; REMOVE on operator lift)
-Release is bug-ridden (dashboards) + the reports version blocking its fixes is in catastrophic state → emergency until the operator lifts ЧП.
+Release is bug-ridden (dashboards); the reports version blocking its fixes is in catastrophic state. Coordinator + operator steer the recovery.
 1. NO corner-cutting; ANY detail (ESPECIALLY visual) = critically RED — every defect is a blocker, no "minor".
 2. NO decision around the coordinator; every fork → coordinator → operator (ONE at a time, by importance, plain language).
-3. NO unsanctioned runs: do NOT hand the operator a chat CC run-prompt code-box UNTIL the coordinator's §4 bless.
+3. NO unsanctioned runs: no chat CC run-box to the operator UNTIL the coordinator's §4 bless.
 4. Coordinator PERSONALLY visual-verifies EVERY closed gap (not object-store/report alone).
-5. Verify on REAL prod-mirror data (234 backup, RTSData_*); our env = a FROZEN data-mirror of prod; our migration package = our migrated DB. One-time seed from the backup.
+5. Verify on REAL prod-mirror data (234 backup, RTSData_*): our env is a FROZEN mirror of prod, seeded once from the backup.
 6. Protocol shorthand: `.` = `коорд: входящие`; `..` = "check the result" (specs know it).
-7. Coordinator + operator steer the recovery out of the dive.
 
-Role: Blazor Server UI — widgets (Components/Widgets/), dashboard editor (ScreenEditorPage), configurator modals,
-drag-and-drop layout (widget-resize.js), dark-mode, i18n, CSS.
+Role: Blazor Server UI — widgets (Components/Widgets/), dashboard editor (ScreenEditorPage), configurator modals, drag-and-drop layout (widget-resize.js), dark-mode, i18n, CSS.
 Claim: src/CcDashboard.Web/ (Components, Pages, wwwroot/js, wwwroot/app.css, Resources/*.resx).
 
 **Reality wins — update me.** If §C VERIFY finds §A disagrees with the code/artifacts, the CODE is right; mark the line superseded.
@@ -34,9 +32,6 @@ Cardinal truths (source-pinned):
    DataSlot, DayTrend, InfoSlot, QueueGrid, Wfm). ScreenEditorPage/ScreenFullscreenPage/ReportEditorPage
    render `<PlacedWidget>`/`<RenderWidget>`, they do NOT dispatch widget types themselves.
    · SOURCE: §C-4 2026-08-31 (`git show v3:...RenderWidget.razor | grep -cE '<[A-Za-z]+Widget\b'` = 7)
-   · SUPERSEDED 2026-08-31: the old line "ScreenEditorPage dispatches ... 39 widget dispatches in
-     ScreenEditorPage.razor" is WRONG — the store shows 2 `<PlacedWidget` + 1 `<RenderWidget` there and
-     zero widget-type tags. Found by the rewritten §C; the CODE wins (§A rule "Reality wins — update me").
 
 2. **Drag-and-drop layout via `wwwroot/js/widget-resize.js`.**
    8-way resize handles + draggable modals by header.
@@ -57,27 +52,19 @@ Cardinal truths (source-pinned):
 6. **i18n via `.resx` files (en-US, ru-RU, he-IL).** `@L["Key"]` pattern.
    · SOURCE: CLAUDE.md §22, 3 .resx files in Resources/
 
-7. **Searchable dropdown with pre-selected value: clear search on focus.**
-   Otherwise dropdown shows only matching item.
-   · SOURCE: .claude/memory/daytend-implementation-insights.md (BU dropdown bug)
-
 
 ### §A · 2026-09-18 · Есть чем заняться и блессы на руках — продолжай, не жди
 [со слов оператора 2026-09-18]: «если можешь продолжать и все блессы на руках — продолжай, не жди».
-Развивает норму 17.09 «есть задача — делай, тычка не нужна». Практически:
-- читающий разбор, замеры, написание промпта, ведение биндинга и хендофа — блесса не требуют;
-- §4 требуется РОВНО для одного действия — выдачи ран-бокса оператору;
-- поэтому «жду вердикта» не может останавливать ничего, кроме бокса. Если вердикт не пришёл, а
-  писать есть что — пишу и держу наготове только бокс.
-**И проверять инбокс на пропущенный вердикт, прежде чем объявить себя ждущим:** один раз я ждал
-PASS, который уже сорок минут лежал в инбоксе, — читал только последние заголовки.
+Блесс §4 нужен РОВНО для выдачи ран-бокса; разбор, замеры, промпт, биндинг и хендоф — не требуют, так что
+«жду вердикта» останавливает только бокс. И перед тем как объявить себя ждущим — читать ИНБОКС ЦЕЛИКОМ:
+однажды ждал PASS, лежавший там сорок минут, потому что смотрел лишь последние заголовки.
 
 **DoD — MANDATORY self-verification after EVERY change (operator 2026-06-24, no exceptions):**
-- ALWAYS via Soma (host-Chrome §47: tab 127.0.0.1:5199/health -> same-origin fetch with Bearer): run **/ops/build** (0 errors) + **/ops/test?suite=unit** (0 failed) AND check the **Shell log** (`/logs/tail?source=serilog` — scan [ERR]/[FTL]/[FATAL]) + `/ops/health`. Build+unit+log together = the per-change DoD; the binding RESULT carries all three lines.
-- When the change ADDS/MODIFIES GRAPHICAL/UI functionality: a **MANDATORY VISUAL check via Chrome** is required — open the affected page in host-Chrome, confirm the change renders correctly (light+dark, the edited widget/screen), screenshot/read-page as evidence. A green build is NOT sufficient for UI work.
-· SOURCE: operator directive 2026-06-24 (after Ф3 I ran build+unit but skipped the shell-log; operator corrected).
+- Build + unit tests + shell log, all three, every change. NO local install and NO Soma (operator 2026-10-13: «локальной установки нет») — they run in the operator's chat CC run-box (`dotnet build` + `dotnet test`, output into `.measurements/`), which needs the coordinator's §4 bless.
+- UI/graphical change → a VISUAL check is MANDATORY (affected page, light+dark, screenshot/read-page as evidence). A green build is NOT sufficient for UI work. · SOURCE: operator 2026-06-24 + 2026-10-13.
 
 ## §B LESSONS  (append-only · dated · source-pinned · status)
+- 2026-08-31 · §A утверждал «39 widget dispatches в ScreenEditorPage» — в сторе там 2 `<PlacedWidget` + 1 `<RenderWidget` и нуль тегов типов; диспетч живёт в RenderWidget.razor. Строка была взята из памяти, не из замера · SOURCE:§C-4 2026-08-31 · status: active
 - 2026-05-27 · DayTrend BU dropdown showed only 1 item — search field pre-filled → clear on @onfocus · SOURCE:daytend-implementation-insights.md · status: active
 - 2026-06-06 · preassignedGridId not set on DataSlot save → GridId=NULL in RTS Row → widget showed no data · SOURCE:aae6b8f · status: active
 - 2026-06-06 · DataSlot BU not saved to RTS Row (UnionId=NULL) — SelectBusinessUnit must update ConfigDataSlotBusinessUnitId · SOURCE:a20b591 · status: active
