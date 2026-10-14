@@ -1,0 +1,325 @@
+using CcDashboard.Application.Interfaces;
+using CcDashboard.Domain.Domain;
+using CcDashboard.Domain.Domain.Rtm;
+using CcDashboard.Infrastructure.Persistence;
+using CcDashboard.Infrastructure.Wfm;
+using CcDashboard.Tests.Security.Fixtures;
+using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+
+namespace CcDashboard.Tests.Security.Wfm;
+
+/// <summary>
+/// N now comes from the engine's per-group metrics, delivered as grid cells through the relay.
+/// The cases below pin the two things that matter and that the old source got wrong: the sum is
+/// per-skill by construction (the engine already counts only agents whose skills match the union),
+/// and anything missing yields UNKNOWN rather than a number - never a partial sum, never zero.
+///
+/// Every test uses its OWN tenant id: PostgresFixture starts one container per collection and never
+/// truncates between tests, and the provider resolves grids per (tenant, BU), so a shared tenant
+/// would let one test's grid answer another's question. That is the same trap that made the N=0
+/// tests go red at 05:39Z.
+/// </summary>
+[Collection("Postgres")]
+public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
+{
+    private readonly Guid _tenant = Guid.NewGuid();
+
+    [Fact]
+    public async Task SumsTheConfiguredGroups_FromTheRelaySnapshot()
+    {
+        // Two serving groups with 3 and 4 -> N = 7. The provider must sum only the configured
+        // groups: BREAK is present in the grid with 9 and must be ignored, otherwise "serving"
+        // would silently mean "everyone".
+        var seed = await SeedGridAsync(new Dictionary<string, string>
+        {
+            ["UsersInStatusGroupCount_Available"] = "3",
+            ["UsersInStatusGroupCount_OnPhone"]   = "4",
+            ["UsersInStatusGroupCount_Break"]     = "9",
+        });
+        var provider = NewProvider(seed);
+
+        var n = await provider.GetBuServingCountAsync(
+            _tenant, seed.BuId, new[] { "Available", "OnPhone" }, default);
+
+        n.IsKnown.Should().BeTrue(n.UnknownReason);
+        n.Value.Should().Be(7);
+    }
+
+    [Fact]
+    public async Task PresentAndZero_IsKnownZero_NotUnknown()
+    {
+        // NEGATIVE half of the pair below: a metric that exists and says 0 is an answer - nobody is
+        // serving right now. Reporting that as unknown would hide a real, computable situation and
+        // make the night shift look like a malfunction.
+        var seed = await SeedGridAsync(new Dictionary<string, string>
+        {
+            ["UsersInStatusGroupCount_Available"] = "0",
+        });
+        var provider = NewProvider(seed);
+
+        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "Available" }, default);
+
+        n.IsKnown.Should().BeTrue();
+        n.Value.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ConfiguredGroupWithNoCell_IsUnknown_AndNamesTheGroup()
+    {
+        // The configured group has no cell in the grid at all: N is unknown, and the reason must
+        // carry the group name so the log can say what to fix without a second lookup.
+        var seed = await SeedGridAsync(new Dictionary<string, string>
+        {
+            ["UsersInStatusGroupCount_Available"] = "5",
+        });
+        var provider = NewProvider(seed);
+
+        var n = await provider.GetBuServingCountAsync(
+            _tenant, seed.BuId, new[] { "Available", "Paperwork" }, default);
+
+        n.IsKnown.Should().BeFalse();
+        n.MissingGroups.Should().ContainSingle().Which.Should().Be("Paperwork");
+    }
+
+    [Fact]
+    public async Task PartialSum_IsNeverReturned()
+    {
+        // The defect this guards against is subtle and is the whole reason UNKNOWN exists: with one
+        // of two groups missing, 5 is a plausible number and would be believed. The value must be
+        // absent, not 5.
+        var seed = await SeedGridAsync(new Dictionary<string, string>
+        {
+            ["UsersInStatusGroupCount_Available"] = "5",
+        });
+        var provider = NewProvider(seed);
+
+        var n = await provider.GetBuServingCountAsync(
+            _tenant, seed.BuId, new[] { "Available", "Paperwork" }, default);
+
+        n.Value.Should().BeNull("a partial sum is not N");
+    }
+
+    [Fact]
+    public async Task CellPresentButNoValuePushedYet_IsUnknown()
+    {
+        // The grid declares the metric, the relay snapshot has nothing for that cell yet (startup,
+        // or the engine has not pushed it). Unknown, not zero.
+        var seed = await SeedGridAsync(
+            cells: new Dictionary<string, string> { ["UsersInStatusGroupCount_Available"] = "1" },
+            snapshotOverride: new Dictionary<string, string>());   // relay delivers nothing
+        var provider = NewProvider(seed);
+
+        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "Available" }, default);
+
+        n.IsKnown.Should().BeFalse();
+        n.MissingGroups.Should().Contain("Available");
+    }
+
+    [Fact]
+    public async Task NonNumericValue_IsUnknown_NotZero()
+    {
+        // A value we cannot read is not a zero. int.TryParse failing must not quietly contribute 0.
+        var seed = await SeedGridAsync(new Dictionary<string, string>
+        {
+            ["UsersInStatusGroupCount_Available"] = "n/a",
+        });
+        var provider = NewProvider(seed);
+
+        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "Available" }, default);
+
+        n.IsKnown.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task NoGridForTheBu_IsUnknown()
+    {
+        // Nothing seeded for this BU: the answer is unknown, and in particular NOT zero - "no grid"
+        // is a configuration gap, not an idle shift.
+        // A BU that exists but has no grid at all - closer to the real gap than an invented id,
+        // and it also proves the answer is about the grid, not about the BU row being absent.
+        int buWithoutGrid;
+        await using (var db = postgres.CreateBackendEmulationDbContext())
+        {
+            var bu = new NgcBusinessUnit { TenantId = _tenant, BusinessUnitName = $"BU-nogrid-{Guid.NewGuid():N}" };
+            db.NgcBusinessUnits.Add(bu);
+            await db.SaveChangesAsync();
+            buWithoutGrid = bu.BusinessUnitId;
+        }
+
+        var provider = NewProvider(new Seeded(BuId: buWithoutGrid, GridId: 0,
+            Snapshot: new Dictionary<int, string>(), CellByMetric: new Dictionary<string, int>()));
+
+        var n = await provider.GetBuServingCountAsync(_tenant, buWithoutGrid, new[] { "Available" }, default);
+
+        n.IsKnown.Should().BeFalse();
+        n.UnknownReason.Should().Contain("no grid");
+    }
+
+    [Fact]
+    public async Task AnotherBusGrid_DoesNotAnswerForThisBu()
+    {
+        // NEGATIVE half of the resolution: a grid exists in the tenant, but for a different BU.
+        // Resolving by anything looser than UnionId would hand back that grid's numbers, which is
+        // the kind of wrong answer that looks right on screen.
+        var other = await SeedGridAsync(new Dictionary<string, string>
+        {
+            ["UsersInStatusGroupCount_Available"] = "11",
+        });
+        var provider = NewProvider(other);
+
+        // A second real BU, with no grid of its own.
+        int otherBu;
+        await using (var db = postgres.CreateBackendEmulationDbContext())
+        {
+            var bu = new NgcBusinessUnit { TenantId = _tenant, BusinessUnitName = $"BU-second-{Guid.NewGuid():N}" };
+            db.NgcBusinessUnits.Add(bu);
+            await db.SaveChangesAsync();
+            otherBu = bu.BusinessUnitId;
+        }
+
+        var n = await provider.GetBuServingCountAsync(_tenant, otherBu, new[] { "Available" }, default);
+
+        n.IsKnown.Should().BeFalse();
+        n.UnknownReason.Should().Contain("no grid");
+    }
+
+    [Fact]
+    public async Task PublishedGroupNames_AreTheMetricSuffixes()
+    {
+        // This is the list the operator picks from, so the stored setting matches a metric by
+        // construction - that is how the casing question (data is UPPER CASE, suffixes are mixed)
+        // stops being a question. Non-group metrics must not leak into the list.
+        var seed = await SeedGridAsync(new Dictionary<string, string>
+        {
+            ["UsersInStatusGroupCount_Available"]  = "1",
+            ["UsersInStatusGroupCount_OnPhone"]    = "2",
+            ["QueueLoginDataNumLoggedUsers"]       = "25",
+        });
+        var provider = NewProvider(seed);
+
+        var names = await provider.GetPublishedGroupNamesAsync(_tenant, seed.BuId, default);
+
+        names.Should().Equal("Available", "OnPhone");
+    }
+
+    [Fact]
+    public async Task ExactMatchOnly_CasingMismatchIsUnknown()
+    {
+        // Deliberate: the comparison is Ordinal. A case-insensitive fallback would call the 13.10
+        // casing defect a match and hide a real misconfiguration behind a number.
+        var seed = await SeedGridAsync(new Dictionary<string, string>
+        {
+            ["UsersInStatusGroupCount_Available"] = "3",
+        });
+        var provider = NewProvider(seed);
+
+        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "AVAILABLE" }, default);
+
+        n.IsKnown.Should().BeFalse("AVAILABLE is not Available");
+        n.MissingGroups.Should().Contain("AVAILABLE");
+    }
+
+    [Fact]
+    public async Task NoServingGroupsConfigured_IsUnknown_NotZero()
+    {
+        // Empty setting means "not configured", which is exactly the case the 13.10 fix made
+        // storable. It must read as unknown, not as a quiet zero.
+        var seed = await SeedGridAsync(new Dictionary<string, string>
+        {
+            ["UsersInStatusGroupCount_Available"] = "3",
+        });
+        var provider = NewProvider(seed);
+
+        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, Array.Empty<string>(), default);
+
+        n.IsKnown.Should().BeFalse();
+        n.UnknownReason.Should().Contain("no serving groups");
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────────────
+
+    private sealed record Seeded(
+        int BuId,
+        int GridId,
+        Dictionary<int, string> Snapshot,
+        Dictionary<string, int> CellByMetric);
+
+    /// <summary>
+    /// Seeds one grid whose UnionId is the BU (that equality is how the engine's save path writes
+    /// it: SaveAgentGridRtsCommand.cs:97, RtsRepository.cs:66), one row, and one cell per metric
+    /// with the MetricId in Cell.Value - which is where the real cell map comes from
+    /// (RtsRepository.GetCellMapForGridAsync, :305). No widget configuration is involved.
+    /// </summary>
+    private async Task<Seeded> SeedGridAsync(
+        Dictionary<string, string> cells,
+        Dictionary<string, string>? snapshotOverride = null)
+    {
+        await using var db = postgres.CreateBackendEmulationDbContext();
+
+        // The BU id comes from the database, not from Random: RTSGrid_Grid has NO TenantId column
+        // (measured), so the provider resolves a grid by UnionId alone and two tests drawing the
+        // same random number would read each other's grid. An identity id cannot collide.
+        var bu = new NgcBusinessUnit { TenantId = _tenant, BusinessUnitName = $"BU-{Guid.NewGuid():N}" };
+        db.NgcBusinessUnits.Add(bu);
+        await db.SaveChangesAsync();
+        var buId = bu.BusinessUnitId;
+
+        var grid = new RtsGridGrid { UnionId = buId, Title = $"grid-{buId}" };
+        db.RtsGridGrids.Add(grid);
+        await db.SaveChangesAsync();
+
+        var row = new RtsGridRow { GridId = grid.GridId, RowNumber = 1, UnionId = buId };
+        db.RtsGridRows.Add(row);
+        var column = new RtsGridColumn { GridId = grid.GridId, ColumnNumber = 1 };
+        db.RtsGridColumns.Add(column);
+        await db.SaveChangesAsync();
+
+        var cellByMetric = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var metricId in cells.Keys)
+        {
+            var cell = new RtsGridCell { RowId = row.RowId, ColumnId = column.ColumnId, Value = metricId };
+            db.RtsGridCells.Add(cell);
+            await db.SaveChangesAsync();
+            cellByMetric[metricId] = cell.CellId;
+        }
+
+        var values = snapshotOverride ?? cells;
+        var snapshot = values
+            .Where(kv => cellByMetric.ContainsKey(kv.Key))
+            .ToDictionary(kv => cellByMetric[kv.Key], kv => kv.Value);
+
+        return new Seeded(buId, grid.GridId, snapshot, cellByMetric);
+    }
+
+    /// <summary>
+    /// The relay substitute behaves like the real one on the point that matters: a late subscriber
+    /// is handed the current snapshot immediately (RtmRelayService.cs:561-570), which is why the
+    /// provider needs no extra interface method and the first tick is not blind.
+    /// </summary>
+    private IWfmEngineAgentCountProvider NewProvider(Seeded seed)
+    {
+        var relay = Substitute.For<IRtmRelayService>();
+
+        relay.SubscribeGridAsync(
+                Arg.Any<Guid>(), Arg.Any<int>(),
+                Arg.Any<Func<IReadOnlyList<GridCellUpdate>, Task>>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var handler = call.ArgAt<Func<IReadOnlyList<GridCellUpdate>, Task>>(2);
+                var updates = seed.Snapshot
+                    .Select(kv => new GridCellUpdate(kv.Key, kv.Value))
+                    .ToList();
+                return handler(updates);
+            });
+
+        var factory = Substitute.For<IDbContextFactory<BackendEmulationDbContext>>();
+        factory.CreateDbContextAsync(Arg.Any<CancellationToken>())
+               .Returns(_ => Task.FromResult(postgres.CreateBackendEmulationDbContext()));
+
+        return new WfmEngineAgentCountProvider(
+            relay, factory, NullLogger<WfmEngineAgentCountProvider>.Instance);
+    }
+}
