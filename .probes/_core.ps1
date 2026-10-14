@@ -30,7 +30,14 @@ function Say($text) {
   $script:SayCount++
   if (($script:SayCount % 20) -eq 0) { Write-Report }
 }
-function Rule() { Say ('-' * 78) }
+function Rule() {
+  # FLUSH ON EVERY RULE, added 2026-10-14. A probe that dies mid-section used to lose every line it
+  # had printed since the last explicit Write-Report: the tzgate run left 20 lines and no cause.
+  # Rule ends every section, so flushing here makes the report survive any crash, at the price of
+  # one small write per section.
+  Say ('-' * 78)
+  Write-Report
+}
 function Finish($passed) {
   Write-Report
   Write-Host ''
@@ -46,6 +53,33 @@ function Note-Trap($record) {
 }
 function Test-TrapFired() { return $script:TrapFired }
 
+# READING A FILE A SERVICE HOLDS OPEN. Added 2026-10-14 after [IO.File]::ReadLines died on
+# C:\Logs\RTMViewShell\log-20261014.txt: it opens with FileShare.Read, and a writer that holds the
+# file with FileShare.ReadWrite refuses that. Every log on this machine is held open by its writer,
+# so this is the only lawful way to read one here. Returns a StreamReader the caller disposes.
+function Open-SharedReader([string]$path) {
+  $stream = [IO.File]::Open($path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+  return (New-Object IO.StreamReader($stream, [Text.Encoding]::UTF8))
+}
+function Read-SharedLines([string]$path) {
+  # @() and not ,@() - same reason as the return below: the comma would make an absent file look
+  # like a one-line file, measured 2026-10-14 by the self-test of this very helper.
+  if (-not (Test-Path -LiteralPath $path)) { return @() }
+  $reader = Open-SharedReader $path
+  $lines = New-Object 'System.Collections.Generic.List[string]'
+  try {
+    while ($true) {
+      $line = $reader.ReadLine()
+      if ($null -eq $line) { break }
+      $lines.Add($line)
+    }
+  } finally { $reader.Dispose() }
+  # NO LEADING COMMA HERE. The comma is load-bearing when returning @(...) that may hold ONE item,
+  # because PowerShell unrolls a one-element array on the way out. A List.ToArray() is already an
+  # array, so the comma would wrap it in a one-element array instead: measured 2026-10-14, the
+  # caller got 1 line for a 3-line file. Callers wrap the result in @() as usual.
+  return $lines.ToArray()
+}
 function ShaOf($path) {
   if (Test-Path -LiteralPath $path) { return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash }
   return 'ABSENT'
