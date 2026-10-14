@@ -1130,3 +1130,94 @@ Three things to carry:
 
 And the operator's instruction, in his words: ask when I do not know. A question costs one message;
 a wrong fact in a letter costs the coordinator's and backend's time and has to be retracted.
+
+## §E CORE API  (the generic half lives in `.probes/_core.ps1` — never re-implement it in a probe)
+
+> Собрано 2026-10-14 после сессии, в которой почти каждый дефект родился в очередной
+> ручной реализации одного и того же механизма. Оператор сказал прямо: ошибок зашкаливает,
+> и большинство времени ушло на них. Правило отсюда: **прибор — это предикаты; механика в ядре.**
+> У каждой функции ниже есть самопроверка в `Start-Probe`, и она печатает ожидаемое рядом с
+> измеренным ДО того, как прибор измерит что-либо. `CORE : NOT TRUSTED` останавливает прогон.
+
+**Файлы.** `Get-FilesByExtension <root> @('.log','.txt') [-IncludeRolled]`
+Никогда не писать `Get-ChildItem -LiteralPath -Recurse -Include`: рядом с `-LiteralPath` ключ
+`-Include` молча игнорируется и список приходит нефильтрованным. Цена, измерено 14.10: «самый
+свежий `.log`» вернулся как `web.config` и дважды обнулил раздел. Откатившиеся логи называются
+`log.txt.1 … log.txt.100` — расширение `.1`, не `.txt`, их видно только с `-IncludeRolled`.
+
+**Метки времени.** `Parse-LogStamp <line>` → `[datetime]` или `$null`
+Три формы на этой машине: `yyyy-MM-dd HH:mm:ss.fff zzz` (Serilog оболочки),
+`dd/MM/yyyy HH:mm:ss,fff` (log4net адаптера, день первым — взято из его `ConversionPattern`),
+и точечная. Парсер, знающий одну форму, докладывает «компонент молчал», когда он говорил.
+
+**Окно живого лога.** `Measure-LogWindow <path> <seconds>` → `@{ Grew; Lines; NewestStamp; Alive }`
+Запоминает длину, ждёт, читает ТОЛЬКО дописанное. Это и делает счёт счётом строк, родившихся
+внутри окна. Свежесть — по метке ВНУТРИ последней строки и по росту длины, **никогда по времени
+файла**: файл, который держит открытым служба, не получает запись времени в каталог на каждом
+добавлении, и суждение по нему дало ложное красное на здоровом логе в 10:04 14.10.
+
+**Чтение файла под открытой записью.** `Read-SharedLines <path>` → `string[]`
+`[IO.File]::ReadLines` открывает с `FileShare.Read` и падает на логе, который пишущий держит с
+`FileShare.ReadWrite`, — а такие тут все. Возвращает `@()` на отсутствующем файле.
+Запятая в `return` несущая только там, где возвращается `@(...)`, который МОЖЕТ содержать один
+элемент; готовый массив она оборачивает и портит — обе ошибки поймала самопроверка до выдачи.
+
+**Иглы в байтах.** `Count-ByteNeedle <bytes> <text> 'utf16'|'utf8'`, `Needle-Pair <bytes> <text>`,
+`Read-Bytes <path>`
+Всегда обе кодировки. Сборка несёт большинство строк в UTF-16 и часть в UTF-8, поэтому ноль в
+одной кодировке означает только, что искали в одной. `Needle-Pair` на `$null` даёт `-1/-1`, чтобы
+отсутствующий файл никогда не читался как нулевой счёт.
+
+**Секреты.** `Test-Credentialish <text>`, `Say-Guarded <text>`
+Пароль дошёл до двух файлов замеров 13.10, потому что раздел грепал конфиг по слову, которым
+назван и уровень лога, и строка подключения. Всё, что идёт в отчёт из внешнего источника, проходит
+через `Say-Guarded`.
+
+**База.** `Get-MachineConnection <appsettings.json>` → объект, `Find-Psql`,
+`Invoke-Psql <connection> <label> <sqlText> <workDir> <withNegativeControl>`
+Подключение читается из конфига машины как ОБЪЕКТ: машина знает свои user, port и database, а я
+нет — однажды я вписал несуществующую роль и прочёл ответ PostgreSQL как неверный пароль. Пароль
+уходит в отчёт только длиной и префиксом sha256. Данные идут через `-o`, **ошибки — отдельным
+файлом** через `-RedirectStandardError`: `*>&1 | Out-File` не забирает stderr внешней программы и
+портит кодировку, из-за чего отчёт 14.10 не мог доказывать отсутствие ошибок. Запрос печатается
+обратно С ДИСКА. `withNegativeControl` гоняет заведомо битый запрос первым: пустой файл ошибок
+что-то значит только потому, что битый запрос в него попадает.
+
+### Каноническая форма ран-бокса
+
+Прибор завершает сценарий сам (`Finish`), поэтому **никаких `try/finally` вокруг вызова прибора** —
+вставленная в консоль обёртка развалится, и `finally` выполнится отдельной командой. Это измерено
+14.10. Бокс для прибора:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$src = '\\tsclient\D\Claude\Projects\RTM View Shell'
+$dst = 'C:\RTMView-Ops\probes'
+Copy-Item "$src\.probes\_core.ps1" "$dst\_core.ps1" -Force
+Copy-Item "$src\.probes\<probe>.ps1" "$dst\<probe>.ps1" -Force
+Get-ChildItem "$dst\_core.ps1","$dst\<probe>.ps1" | Unblock-File
+'EXPECTED core  <sha>'
+'EXPECTED probe <sha>'
+Get-FileHash "$dst\_core.ps1","$dst\<probe>.ps1" -Algorithm SHA256 | Format-List Path,Hash
+$errs = $null
+[void][System.Management.Automation.Language.Parser]::ParseFile("$dst\<probe>.ps1", [ref]$null, [ref]$errs)
+'PARSE ERRORS (expected 0): ' + @($errs).Count
+& "$dst\<probe>.ps1"
+$rep = Get-ChildItem 'C:\RTMView-Ops\output\*<name>*.txt' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$rep.FullName
+Copy-Item $rep.FullName "$src\.measurements\" -Force
+(Get-FileHash $rep.FullName -Algorithm SHA256).Hash
+(Get-FileHash (Join-Path "$src\.measurements" $rep.Name) -Algorithm SHA256).Hash
+```
+
+Бокс БЕЗ прибора (несколько команд) пишет результат файлом сам — `Start-Transcript` в начале,
+копирование в `finally`, и только потом суммы; путь отчёта не вписывается руками, а находится
+самым свежим файлом по маске. Консоль в боксе — только для того, что оператор читает сам:
+ожидания, суммы, стоп-строки.
+
+### Что остаётся на приборе
+
+Пины и их происхождение; ожидания, напечатанные ДО чисел; у каждого «нет» — тот же поиск по
+заведомо существующему; у каждой иглы — половина «до», снятая в том же прогоне; окно замера,
+названное своей длиной и не домноженное до единиц ожидания; и вердикт, в котором каждая строка
+несёт переменную, а не прозу.
