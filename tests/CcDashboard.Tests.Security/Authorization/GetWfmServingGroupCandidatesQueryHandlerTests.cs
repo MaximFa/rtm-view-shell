@@ -13,10 +13,27 @@ namespace CcDashboard.Tests.Security.Authorization;
 /// The candidate list feeds the serving-groups setting, so leaking another tenant's suffixes would
 /// leak their platform configuration - the same reason GetTenantStatusGroupsQuery is gated.
 ///
-/// The tenant gate here is structural, not incidental: RTSGrid_Row has NO TenantId column and
-/// neither does RTSGrid_Grid (measured), so the only way to scope the query is through
-/// NGC_BusinessUnit.TenantId. Drop that join condition and the query happily returns a neighbour's
-/// metric suffixes, which is what the cross-tenant test below pins.
+/// CORRECTED 14.10. The first version of these tests seeded cells whose Value began with
+/// "UsersInStatusGroupCount_" and passed - against a name that does not exist in the product
+/// (devops on 234: 0 such metrics, 0 such cells in the whole database). They were testing my model,
+/// not the product. `UsersInStatusGroupCount` is the value of RtsGridMetric.MetricFunction and the
+/// group is RtsGridMetric.MetricParameter; the lookup the product already uses is
+/// AgentStateHandlers.cs:50-57.
+///
+/// Hence the first test below deliberately seeds NOTHING: it asserts against the catalogue the
+/// MIGRATIONS bring (20260528100000_AddTrainingRtsGridMetric inserts QueueLoginDataNumTrainingUsers
+/// / TRAINING). A test that seeds its own rows can only confirm whatever format the author
+/// imagined, which is exactly how the previous version stayed green on a fiction.
+///
+/// Scope note: RtsGridMetric has no TenantId column, so the catalogue is shared and the query
+/// cannot filter it per tenant. The gate guards WHO MAY ASK; the per-BU question is the provider's.
+///
+/// CONSEQUENCE for these tests, learned from box n2 (Security 342/346): because the catalogue is
+/// shared by the whole collection, NO test here may assert on the WHOLE list. Rows seeded by
+/// neighbouring tests are legitimately present, so assertions are about THIS test's own unique
+/// group codes only - Contain / NotContain, never Equal or OnlyContain. My previous version
+/// asserted "every value is upper case" and "the list is exactly these" and went red on other
+/// tests' rows, which is a defect of the test, not of the query.
 ///
 /// Each test seeds its own BU ids from the database: PostgresFixture starts one container per
 /// collection and never truncates between tests, and the grid tables carry no tenant column, so
@@ -33,22 +50,20 @@ public class GetWfmServingGroupCandidatesQueryHandlerTests(PostgresFixture postg
     private readonly Guid _otherTenant = Guid.NewGuid();
 
     [Fact]
-    public async Task ReturnsSuffixes_OfOwnTenantOnly()
+    public async Task ReturnsGroupsFromTheRealCatalogue_WithoutSeedingAnything()
     {
-        // Two tenants, each with its own BU, rows and cells. The caller belongs to A and must see
-        // only A's suffix. NEGATIVE half in the same test: B's suffix must be absent - without the
-        // NGC_BusinessUnit.TenantId condition it would be present, and the list would look fine.
-        var mine = $"Mine{Guid.NewGuid():N}"[..12];
-        var theirs = $"Theirs{Guid.NewGuid():N}"[..12];
-
-        await SeedAsync(_tenant, $"UsersInStatusGroupCount_{mine}");
-        await SeedAsync(_otherTenant, $"UsersInStatusGroupCount_{theirs}");
-
+        // NOTHING is seeded here on purpose. The only rows involved are the ones the product's own
+        // migrations insert, so this test can fail if the lookup is wrong - which the seeded version
+        // could not. TRAINING comes from 20260528100000_AddTrainingRtsGridMetric.
         var result = await CreateHandler(_tenant)
             .Handle(new GetWfmServingGroupCandidatesQuery(), default);
 
-        result.Should().Contain(mine);
-        result.Should().NotContain(theirs);
+        result.Should().Contain("TRAINING");
+
+        // NEGATIVE half: the name I invented must appear nowhere, in any shape. This one IS safe to
+        // assert over the whole list - no test seeds such a value any more, and if one ever does,
+        // that is precisely what should fail.
+        result.Should().NotContain(g => g.Contains("UsersInStatusGroupCount", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -57,14 +72,19 @@ public class GetWfmServingGroupCandidatesQueryHandlerTests(PostgresFixture postg
         // Only UsersInStatusGroupCount_* are serving groups. A connected-agents metric in the same
         // row must not appear as a pickable "group", or the operator would configure N out of a
         // metric that is not a group count at all.
-        var group = $"Grp{Guid.NewGuid():N}"[..10];
-        await SeedAsync(_tenant, $"UsersInStatusGroupCount_{group}", "QueueLoginDataNumLoggedUsers");
+        // Unique code per run: the catalogue is shared, so a fixed name would be another test's row.
+        var group = $"GRPX{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var nonGroupId = await SeedCatalogueAsync(group);
+        var otherFunctionId = await SeedCatalogueAsync(null);   // same shape, different function
 
         var result = await CreateHandler(_tenant)
             .Handle(new GetWfmServingGroupCandidatesQuery(), default);
 
         result.Should().Contain(group);
-        result.Should().NotContain("QueueLoginDataNumLoggedUsers");
+        // The metric written with another MetricFunction must not be offered. Asserting on ITS id,
+        // not on the whole list, keeps the check independent of what neighbours seeded.
+        result.Should().NotContain(otherFunctionId);
+        result.Should().NotContain(nonGroupId, "a MetricId is never a group code");
     }
 
     [Fact]
@@ -74,13 +94,14 @@ public class GetWfmServingGroupCandidatesQueryHandlerTests(PostgresFixture postg
         // byte for byte, because the provider compares with StringComparer.Ordinal. Normalising
         // here would reintroduce the 13.10 casing defect from the other end.
         var mixed = $"OnPhone{Guid.NewGuid():N}"[..14];
-        await SeedAsync(_tenant, $"UsersInStatusGroupCount_{mixed}");
+        await SeedCatalogueAsync(mixed);
 
         var result = await CreateHandler(_tenant)
             .Handle(new GetWfmServingGroupCandidatesQuery(), default);
 
-        result.Should().Contain(mixed);
-        result.Should().NotContain(mixed.ToUpperInvariant());
+        result.Should().Contain(mixed, "the parameter is returned verbatim");
+        result.Should().NotContain(mixed.ToUpperInvariant(),
+            "nothing up-cases it on the way out - the comparison downstream is Ordinal");
     }
 
     [Fact]
@@ -90,7 +111,6 @@ public class GetWfmServingGroupCandidatesQueryHandlerTests(PostgresFixture postg
         // The settings page attribute guards a UI route, not this query: AuthorizationBehavior
         // fires only for IRequiresPermission / IRequiresTenantContext, which no request in the
         // solution implements. The refusal has to live in the handler.
-        await SeedAsync(_otherTenant, "UsersInStatusGroupCount_Available");
 
         var act = () => CreateHandler(_tenant, role: "Editor")
             .Handle(new GetWfmServingGroupCandidatesQuery(_otherTenant), default);
@@ -104,8 +124,8 @@ public class GetWfmServingGroupCandidatesQueryHandlerTests(PostgresFixture postg
     {
         // POSITIVE half of the gate: a handler that refused everyone would pass the test above and
         // break the only legitimate cross-tenant caller.
-        var theirs = $"Their{Guid.NewGuid():N}"[..11];
-        await SeedAsync(_otherTenant, $"UsersInStatusGroupCount_{theirs}");
+        var theirs = $"THEIR{Guid.NewGuid():N}"[..11].ToUpperInvariant();
+        await SeedCatalogueAsync(theirs);
 
         var result = await CreateHandler(_tenant, role: "Superadmin")
             .Handle(new GetWfmServingGroupCandidatesQuery(_otherTenant), default);
@@ -126,50 +146,51 @@ public class GetWfmServingGroupCandidatesQueryHandlerTests(PostgresFixture postg
     }
 
     [Fact]
-    public async Task TenantWithNoGridRows_GetsEmptyList_NotAnError()
+    public async Task TheCatalogueIsShared_SoTheListDoesNotDependOnTheTenant()
     {
-        // "Nothing published yet" is a legitimate answer for a fresh tenant, and the settings page
-        // must be able to render it. An exception here would make the page unopenable.
-        // _tenant is untouched in this test - nothing seeded for it at all.
-        var result = await CreateHandler(_tenant)
+        // This replaces a test I wrote before reading the schema: it expected an empty list for a
+        // fresh tenant, which would now FAIL - and failing is the honest outcome, because
+        // RtsGridMetric has no TenantId column and the catalogue is one for the whole platform.
+        // Pinning the real property instead of my assumption: two different tenants get the same
+        // answer. The per-tenant question ("does this BU actually publish that group?") belongs to
+        // IWfmEngineAgentCountProvider.GetPublishedGroupNamesAsync.
+        var mine = await CreateHandler(_tenant)
+            .Handle(new GetWfmServingGroupCandidatesQuery(), default);
+        var theirs = await CreateHandler(_otherTenant)
             .Handle(new GetWfmServingGroupCandidatesQuery(), default);
 
-        result.Should().BeEmpty();
+        mine.Should().BeEquivalentTo(theirs);
+        mine.Should().Contain("TRAINING", "the migrations alone put TRAINING in the catalogue");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Seeds BU -> row -> cells for one tenant. Grid.UnionId stays -1, as the live data has it
-    /// (devops on 234: -1 in all 60 grid rows); the BU link lives on RTSGrid_Row.UnionId, written by
-    /// RtsRepository.InsertQueueGridRowAsync:217-226. BU ids come from the database, since the grid
-    /// tables carry no tenant column and an invented id could collide with another test's.
+    /// Adds one row to the metric CATALOGUE, the way the product's own migrations and seeder do
+    /// (DatabaseInitializer.cs:607-613, 20260528100000_AddTrainingRtsGridMetric): the group is
+    /// MetricParameter and the function is UsersInStatusGroupCount. Passing null for the group
+    /// writes a metric with a DIFFERENT function, used as the negative case.
+    /// No grids, rows or cells are needed: the candidate list is a catalogue question. Which of
+    /// these groups has live cells on a BU's rows is the provider's question, not this query's.
     /// </summary>
-    private async Task SeedAsync(Guid tenantId, params string[] metricIds)
+    private async Task<string> SeedCatalogueAsync(string? group)
     {
         await using var db = postgres.CreateBackendEmulationDbContext();
 
-        var bu = new NgcBusinessUnit { TenantId = tenantId, BusinessUnitName = $"BU-{Guid.NewGuid():N}" };
-        db.NgcBusinessUnits.Add(bu);
-        await db.SaveChangesAsync();
-
-        var grid = new RtsGridGrid { UnionId = -1, Title = $"grid-{bu.BusinessUnitId}" };
-        db.RtsGridGrids.Add(grid);
-        await db.SaveChangesAsync();
-
-        var column = new RtsGridColumn { GridId = grid.GridId, ColumnNumber = 1 };
-        var row = new RtsGridRow { GridId = grid.GridId, RowNumber = 1, UnionId = bu.BusinessUnitId };
-        db.RtsGridColumns.Add(column);
-        db.RtsGridRows.Add(row);
-        await db.SaveChangesAsync();
-
-        foreach (var metricId in metricIds)
-            db.RtsGridCells.Add(new RtsGridCell
-            {
-                RowId = row.RowId, ColumnId = column.ColumnId, Value = metricId
-            });
+        var id = $"TestMetric{Guid.NewGuid():N}"[..24];
+        db.RtsGridMetrics.Add(new RtsGridMetric
+        {
+            MetricId = id,
+            Description = "test",
+            DataType = "UsersSummary",
+            MetricFunction = group is null ? "QueueCallsWaiting" : "UsersInStatusGroupCount",
+            MetricParameter = group ?? "",
+            ValueType = "number",
+            MetricType = "Data"
+        });
 
         await db.SaveChangesAsync();
+        return id;
     }
 
     private GetWfmServingGroupCandidatesQueryHandler CreateHandler(Guid? tenantId, string role = "Editor")

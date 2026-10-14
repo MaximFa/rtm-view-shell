@@ -12,6 +12,15 @@ using NSubstitute;
 namespace CcDashboard.Tests.Security.Wfm;
 
 /// <summary>
+/// CORRECTED 14.10: these tests used to seed cells whose Value began with
+/// "UsersInStatusGroupCount_" - a MetricId that does not exist in the product (devops on 234: zero
+/// such metrics, zero such cells). They were green against my own invention. A group metric is
+/// identified by the CATALOGUE: RtsGridMetric.MetricFunction == "UsersInStatusGroupCount" and the
+/// group in MetricParameter (the product's own lookup: AgentStateHandlers.cs:50-57). The seeder
+/// below now writes a catalogue row plus a cell that references it by MetricId, which is how the
+/// real data is shaped, and one test leans on the migration-provided TRAINING metric instead of
+/// any seed of mine.
+///
 /// N now comes from the engine's per-group metrics, delivered as grid cells through the relay.
 /// The cases below pin the two things that matter and that the old source got wrong: the sum is
 /// per-skill by construction (the engine already counts only agents whose skills match the union),
@@ -40,14 +49,14 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         // would silently mean "everyone".
         var seed = await SeedGridAsync(new Dictionary<string, string>
         {
-            ["UsersInStatusGroupCount_Available"] = "3",
-            ["UsersInStatusGroupCount_OnPhone"]   = "4",
-            ["UsersInStatusGroupCount_Break"]     = "9",
+            ["AVAILABLE"] = "3",
+            ["ONPHONE"]   = "4",
+            ["BREAK"]     = "9",
         });
         var provider = NewProvider(seed);
 
         var n = await provider.GetBuServingCountAsync(
-            _tenant, seed.BuId, new[] { "Available", "OnPhone" }, default);
+            _tenant, seed.BuId, new[] { "AVAILABLE", "ONPHONE" }, default);
 
         n.IsKnown.Should().BeTrue(n.UnknownReason);
         n.Value.Should().Be(7);
@@ -61,11 +70,11 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         // make the night shift look like a malfunction.
         var seed = await SeedGridAsync(new Dictionary<string, string>
         {
-            ["UsersInStatusGroupCount_Available"] = "0",
+            ["AVAILABLE"] = "0",
         });
         var provider = NewProvider(seed);
 
-        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "Available" }, default);
+        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "AVAILABLE" }, default);
 
         n.IsKnown.Should().BeTrue();
         n.Value.Should().Be(0);
@@ -78,15 +87,15 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         // carry the group name so the log can say what to fix without a second lookup.
         var seed = await SeedGridAsync(new Dictionary<string, string>
         {
-            ["UsersInStatusGroupCount_Available"] = "5",
+            ["AVAILABLE"] = "5",
         });
         var provider = NewProvider(seed);
 
         var n = await provider.GetBuServingCountAsync(
-            _tenant, seed.BuId, new[] { "Available", "Paperwork" }, default);
+            _tenant, seed.BuId, new[] { "AVAILABLE", "PAPERWORK" }, default);
 
         n.IsKnown.Should().BeFalse();
-        n.MissingGroups.Should().ContainSingle().Which.Should().Be("Paperwork");
+        n.MissingGroups.Should().ContainSingle().Which.Should().Be("PAPERWORK");
     }
 
     [Fact]
@@ -97,12 +106,12 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         // absent, not 5.
         var seed = await SeedGridAsync(new Dictionary<string, string>
         {
-            ["UsersInStatusGroupCount_Available"] = "5",
+            ["AVAILABLE"] = "5",
         });
         var provider = NewProvider(seed);
 
         var n = await provider.GetBuServingCountAsync(
-            _tenant, seed.BuId, new[] { "Available", "Paperwork" }, default);
+            _tenant, seed.BuId, new[] { "AVAILABLE", "PAPERWORK" }, default);
 
         n.Value.Should().BeNull("a partial sum is not N");
     }
@@ -113,14 +122,14 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         // The grid declares the metric, the relay snapshot has nothing for that cell yet (startup,
         // or the engine has not pushed it). Unknown, not zero.
         var seed = await SeedGridAsync(
-            cells: new Dictionary<string, string> { ["UsersInStatusGroupCount_Available"] = "1" },
+            cells: new Dictionary<string, string> { ["AVAILABLE"] = "1" },
             snapshotOverride: new Dictionary<string, string>());   // relay delivers nothing
         var provider = NewProvider(seed);
 
-        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "Available" }, default);
+        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "AVAILABLE" }, default);
 
         n.IsKnown.Should().BeFalse();
-        n.MissingGroups.Should().Contain("Available");
+        n.MissingGroups.Should().Contain("AVAILABLE");
     }
 
     [Fact]
@@ -129,11 +138,11 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         // A value we cannot read is not a zero. int.TryParse failing must not quietly contribute 0.
         var seed = await SeedGridAsync(new Dictionary<string, string>
         {
-            ["UsersInStatusGroupCount_Available"] = "n/a",
+            ["AVAILABLE"] = "n/a",
         });
         var provider = NewProvider(seed);
 
-        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "Available" }, default);
+        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "AVAILABLE" }, default);
 
         n.IsKnown.Should().BeFalse();
     }
@@ -157,7 +166,7 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         var provider = NewProvider(new Seeded(BuId: buWithoutGrid, GridId: 0,
             Snapshot: new Dictionary<int, string>(), CellByMetric: new Dictionary<string, int>()));
 
-        var n = await provider.GetBuServingCountAsync(_tenant, buWithoutGrid, new[] { "Available" }, default);
+        var n = await provider.GetBuServingCountAsync(_tenant, buWithoutGrid, new[] { "AVAILABLE" }, default);
 
         n.IsKnown.Should().BeFalse();
         n.UnknownReason.Should().Contain("no grid rows");
@@ -171,7 +180,7 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         // the kind of wrong answer that looks right on screen.
         var other = await SeedGridAsync(new Dictionary<string, string>
         {
-            ["UsersInStatusGroupCount_Available"] = "11",
+            ["AVAILABLE"] = "11",
         });
         var provider = NewProvider(other);
 
@@ -185,7 +194,7 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
             otherBu = bu.BusinessUnitId;
         }
 
-        var n = await provider.GetBuServingCountAsync(_tenant, otherBu, new[] { "Available" }, default);
+        var n = await provider.GetBuServingCountAsync(_tenant, otherBu, new[] { "AVAILABLE" }, default);
 
         n.IsKnown.Should().BeFalse();
         n.UnknownReason.Should().Contain("no grid rows");
@@ -197,17 +206,27 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         // This is the list the operator picks from, so the stored setting matches a metric by
         // construction - that is how the casing question (data is UPPER CASE, suffixes are mixed)
         // stops being a question. Non-group metrics must not leak into the list.
+        // Unique group codes per test run: the metric CATALOGUE has no TenantId column, so it is
+        // shared by every test in the collection and fixed names would collide. The non-group
+        // metric is marked "!" so the seeder writes it with another MetricFunction instead of
+        // inventing a group out of its id.
+        var g1 = $"GRPA{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var g2 = $"GRPB{Guid.NewGuid():N}"[..12].ToUpperInvariant();
         var seed = await SeedGridAsync(new Dictionary<string, string>
         {
-            ["UsersInStatusGroupCount_Available"]  = "1",
-            ["UsersInStatusGroupCount_OnPhone"]    = "2",
-            ["QueueLoginDataNumLoggedUsers"]       = "25",
+            [g1] = "1",
+            [g2] = "2",
+            ["!QueueLoginDataNumLoggedUsers"] = "25",
         });
         var provider = NewProvider(seed);
 
         var names = await provider.GetPublishedGroupNamesAsync(_tenant, seed.BuId, default);
 
-        names.Should().Equal("Available", "OnPhone");
+        // Equal (not Contain): this list is per-BU, built from THIS BU's cells, so it is not
+        // exposed to the shared catalogue's other rows - and that is worth pinning exactly.
+        names.Should().Equal(new[] { g1, g2 }.OrderBy(x => x, StringComparer.Ordinal));
+        names.Should().NotContain("QueueLoginDataNumLoggedUsers",
+            "a metric id is not a group; the catalogue says its function is LogedInUsersCount");
     }
 
     [Fact]
@@ -215,16 +234,21 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
     {
         // Deliberate: the comparison is Ordinal. A case-insensitive fallback would call the 13.10
         // casing defect a match and hide a real misconfiguration behind a number.
+        // The previous version of this test seeded AVAILABLE and ASKED for AVAILABLE while
+        // expecting "unknown" - it could only ever fail. It did, in box n2.
+        var code = $"GRPC{Guid.NewGuid():N}"[..12].ToUpperInvariant();
         var seed = await SeedGridAsync(new Dictionary<string, string>
         {
-            ["UsersInStatusGroupCount_Available"] = "3",
+            [code] = "3",
         });
         var provider = NewProvider(seed);
 
-        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { "AVAILABLE" }, default);
+        // Same letters, different case - a stale setting from before the pick-from-list change.
+        var asConfigured = code[0] + code[1..].ToLowerInvariant();
+        var n = await provider.GetBuServingCountAsync(_tenant, seed.BuId, new[] { asConfigured }, default);
 
-        n.IsKnown.Should().BeFalse("AVAILABLE is not Available");
-        n.MissingGroups.Should().Contain("AVAILABLE");
+        n.IsKnown.Should().BeFalse($"\"{asConfigured}\" is not the catalogue's \"{code}\"");
+        n.MissingGroups.Should().Contain(asConfigured);
     }
 
     [Fact]
@@ -234,7 +258,7 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         // storable. It must read as unknown, not as a quiet zero.
         var seed = await SeedGridAsync(new Dictionary<string, string>
         {
-            ["UsersInStatusGroupCount_Available"] = "3",
+            ["AVAILABLE"] = "3",
         });
         var provider = NewProvider(seed);
 
@@ -269,18 +293,34 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         db.RtsGridRows.AddRange(myRow, theirRow);
         await db.SaveChangesAsync();
 
-        var myCell = new RtsGridCell { RowId = myRow.RowId, ColumnId = column.ColumnId, Value = "UsersInStatusGroupCount_Available" };
-        var theirCell = new RtsGridCell { RowId = theirRow.RowId, ColumnId = column.ColumnId, Value = "UsersInStatusGroupCount_Available" };
+        // ONE catalogue metric, referenced by BOTH rows' cells - the real shape: the metric means
+        // "agents in AVAILABLE", and each BU's row carries its own cell for it. The cell's Value is
+        // a MetricId and holds no group; the group lives only in the catalogue.
+        var metricId = $"TestM{Guid.NewGuid():N}"[..20];
+        db.RtsGridMetrics.Add(new RtsGridMetric
+        {
+            MetricId = metricId,
+            Description = "shared counter",
+            DataType = "UsersSummary",
+            MetricFunction = "UsersInStatusGroupCount",
+            MetricParameter = "AVAILABLE",
+            ValueType = "number",
+            MetricType = "Data"
+        });
+        await db.SaveChangesAsync();
+
+        var myCell = new RtsGridCell { RowId = myRow.RowId, ColumnId = column.ColumnId, Value = metricId };
+        var theirCell = new RtsGridCell { RowId = theirRow.RowId, ColumnId = column.ColumnId, Value = metricId };
         db.RtsGridCells.AddRange(myCell, theirCell);
         await db.SaveChangesAsync();
 
         var seed = new Seeded(mine.BusinessUnitId, grid.GridId,
             Snapshot: new Dictionary<int, string> { [myCell.CellId] = "2", [theirCell.CellId] = "40" },
-            CellByMetric: new Dictionary<string, int> { ["UsersInStatusGroupCount_Available"] = myCell.CellId });
+            CellByMetric: new Dictionary<string, int> { ["AVAILABLE"] = myCell.CellId });
         var provider = NewProvider(seed);
 
         var n = await provider.GetBuServingCountAsync(
-            _tenant, mine.BusinessUnitId, new[] { "Available" }, default);
+            _tenant, mine.BusinessUnitId, new[] { "AVAILABLE" }, default);
 
         n.IsKnown.Should().BeTrue(n.UnknownReason);
         n.Value.Should().Be(2, "the neighbour's 40 belongs to another BU's row");
@@ -327,13 +367,38 @@ public class WfmEngineAgentCountProviderTests(PostgresFixture postgres)
         db.RtsGridColumns.Add(column);
         await db.SaveChangesAsync();
 
+        // For each requested GROUP: one catalogue row (function + parameter, as the product stores
+        // it) and one cell referencing that metric by MetricId. The cell's Value is a MetricId and
+        // carries no group - the group is only in the catalogue, which is the correction.
+        //
+        // A key prefixed with "!" means a NON-group metric: the row is written with a different
+        // MetricFunction and an empty parameter, the way the product stores such metrics
+        // (DatabaseInitializer.cs:611 - QueueLoginDataNumLoggedUsers has MetricFunction
+        // "LogedInUsersCount" and no parameter). Before this, passing a metric id as a dictionary
+        // key made the seeder invent a GROUP with that name - which is exactly what polluted the
+        // shared catalogue and failed the box.
         var cellByMetric = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var metricId in cells.Keys)
+        foreach (var key in cells.Keys)
         {
+            var isGroup = !key.StartsWith("!", StringComparison.Ordinal);
+            var group = isGroup ? key : key[1..];
+            var metricId = $"TestM{Guid.NewGuid():N}"[..20];
+            db.RtsGridMetrics.Add(new RtsGridMetric
+            {
+                MetricId = metricId,
+                Description = isGroup ? $"test counter for {group}" : $"non-group metric {group}",
+                DataType = "UsersSummary",
+                MetricFunction = isGroup ? "UsersInStatusGroupCount" : "LogedInUsersCount",
+                MetricParameter = isGroup ? group : "",
+                ValueType = "number",
+                MetricType = "Data"
+            });
+            await db.SaveChangesAsync();
+
             var cell = new RtsGridCell { RowId = row.RowId, ColumnId = column.ColumnId, Value = metricId };
             db.RtsGridCells.Add(cell);
             await db.SaveChangesAsync();
-            cellByMetric[metricId] = cell.CellId;
+            cellByMetric[key] = cell.CellId;
         }
 
         var values = snapshotOverride ?? cells;

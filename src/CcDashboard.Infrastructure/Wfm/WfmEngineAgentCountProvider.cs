@@ -82,7 +82,7 @@ public sealed class WfmEngineAgentCountProvider(
     IDbContextFactory<BackendEmulationDbContext> beFactory,
     ILogger<WfmEngineAgentCountProvider> logger) : IWfmEngineAgentCountProvider
 {
-    private const string GroupMetricPrefix = "UsersInStatusGroupCount_";
+    private const string GroupMetricFunction = "UsersInStatusGroupCount";
 
     /// <summary>
     /// Latest value per (tenant, CellId). Keyed on CellId rather than MetricId because one BU spans
@@ -102,11 +102,14 @@ public sealed class WfmEngineAgentCountProvider(
     /// </summary>
     private readonly ConcurrentDictionary<(Guid TenantId, int BuId), BuCellMap> _cellsByBu = new();
 
-    /// <summary>Cells of one BU: which grids to subscribe to, and what each cell means.</summary>
+    /// <summary>
+    /// Cells of one BU: which grids to subscribe to, and which cells carry which GROUP.
+    /// The group comes from the metric catalogue (MetricParameter), not from the cell's text.
+    /// </summary>
     private sealed record BuCellMap(
         IReadOnlyList<int> GridIds,
         Dictionary<int, string> MetricByCell,
-        HashSet<string> MetricIds);
+        Dictionary<string, List<int>> CellsByGroup);
 
     public async Task<WfmAgentCount> GetBuServingCountAsync(
         Guid tenantId, int businessUnitId, IReadOnlyList<string> servingGroups, CancellationToken ct = default)
@@ -125,19 +128,11 @@ public sealed class WfmEngineAgentCountProvider(
 
         foreach (var group in servingGroups)
         {
-            var metricId = GroupMetricPrefix + group;
-
-            // Exact match, on purpose. The operator picks the group from the published suffixes
-            // (GetPublishedGroupNamesAsync), so a mismatch here is a real configuration error and
-            // must not be smoothed over by a case-insensitive compare. devops measured the live
-            // skill name as `הובלה` while the ticket and the letters said otherwise - which is why
-            // the name has to come from the data, never from prose.
-            var cells = map.MetricByCell
-                .Where(kv => string.Equals(kv.Value, metricId, StringComparison.Ordinal))
-                .Select(kv => kv.Key)
-                .ToList();
-
-            if (cells.Count == 0)
+            // The configured group is matched against MetricParameter from the catalogue, exactly.
+            // Both sides are the platform's own upper-case codes (AVAILABLE, ONPHONE, PAPERWORK...),
+            // so there is no casing question left to paper over: the operator picks the group from
+            // GetPublishedGroupNamesAsync, which returns those same parameters.
+            if (!map.CellsByGroup.TryGetValue(group, out var cells) || cells.Count == 0)
             {
                 missing.Add(group);
                 continue;
@@ -195,12 +190,10 @@ public sealed class WfmEngineAgentCountProvider(
     {
         var map = await ResolveBuCellsAsync(tenantId, businessUnitId, ct);
 
-        return map.MetricIds
-            .Where(m => m.StartsWith(GroupMetricPrefix, StringComparison.Ordinal))
-            .Select(m => m[GroupMetricPrefix.Length..])
-            .Where(suffix => suffix.Length > 0)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(suffix => suffix, StringComparer.Ordinal)
+        // The group names are MetricParameter values from the catalogue - the platform's own codes.
+        // Nothing is parsed out of a MetricId here, because a MetricId carries no group.
+        return map.CellsByGroup.Keys
+            .OrderBy(g => g, StringComparer.Ordinal)
             .ToList();
     }
 
@@ -217,17 +210,26 @@ public sealed class WfmEngineAgentCountProvider(
         // comes from too (RtsRepository.GetCellMapForGridAsync, :305). Rows of OTHER BUs in the
         // same grid are excluded by the UnionId filter - that is the whole reason this is keyed on
         // the row and not on the grid.
+        // Three-way join: the BU's rows give the cells, the cell's Value is a MetricId, and the
+        // CATALOGUE says which of those metrics are per-group counters and for which group.
+        // Joining the catalogue is the whole correction: without it there is no way to tell a group
+        // counter from any other metric, and no way to learn the group's name.
         var rows = await (
             from c in ctx.RtsGridCells.AsNoTracking()
             join r in ctx.RtsGridRows.AsNoTracking() on c.RowId equals r.RowId
-            where r.UnionId == buId && c.Value != null && c.Value != ""
-            select new { r.GridId, c.CellId, MetricId = c.Value! })
+            join m in ctx.RtsGridMetrics.AsNoTracking() on c.Value equals m.MetricId
+            where r.UnionId == buId
+                  && m.MetricFunction == GroupMetricFunction
+                  && m.MetricParameter != null && m.MetricParameter != ""
+            select new { r.GridId, c.CellId, MetricId = c.Value!, Group = m.MetricParameter })
             .ToListAsync(ct);
 
         var map = new BuCellMap(
             GridIds: rows.Select(x => x.GridId).Distinct().OrderBy(id => id).ToList(),
             MetricByCell: rows.GroupBy(x => x.CellId).ToDictionary(g => g.Key, g => g.First().MetricId),
-            MetricIds: new HashSet<string>(rows.Select(x => x.MetricId), StringComparer.Ordinal));
+            CellsByGroup: rows
+                .GroupBy(x => x.Group, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.CellId).Distinct().ToList(), StringComparer.Ordinal));
 
         if (map.GridIds.Count > 1)
         {
