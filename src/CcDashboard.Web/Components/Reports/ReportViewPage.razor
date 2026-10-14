@@ -163,8 +163,10 @@
                     if (pos.X + pos.Width > maxX) maxX = pos.X + pos.Width;
                     if (pos.Y + pos.Height > maxY) maxY = pos.Y + pos.Height;
                 }
-                _designWidth = maxX + 32;
-                _designHeight = maxY + 32;
+                // No extra padding - see ScreenFullscreenPage: it would land on the right and
+                // bottom only. Even margins come from centring the layer in its wrapper.
+                _designWidth = maxX;
+                _designHeight = maxY;
             }
             else
             {

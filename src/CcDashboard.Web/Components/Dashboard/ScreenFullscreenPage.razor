@@ -196,11 +196,16 @@
                     }
                 }
             }
-            // Compute design layer dimensions (bounding box of all widgets + padding)
+            // Compute design layer dimensions: the bounding box of the widgets, and nothing
+            // more. A padding added here lands on the right and bottom only, because widget
+            // coordinates start at zero - so the viewer showed a strip of empty space on two
+            // sides and none on the other two, while the editor shows no padding at all
+            // (operator 2026-10-14: the viewer must use the editor's spacing, nothing extra).
+            // Even margins around the board come from centring the layer inside its wrapper.
             if (PlacedWidgets.Count > 0)
             {
-                _designWidth = PlacedWidgets.Max(w => w.X + w.Width) + 32;
-                _designHeight = PlacedWidgets.Max(w => w.Y + w.Height) + 32;
+                _designWidth = PlacedWidgets.Max(w => w.X + w.Width);
+                _designHeight = PlacedWidgets.Max(w => w.Y + w.Height);
             }
         }
         catch { }
