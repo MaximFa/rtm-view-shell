@@ -142,11 +142,32 @@ def check(path):
         window = re.search(r'Select(?:-Object)?\s+-First\s+(\d+)', tail_after_sort)
         if window and int(window.group(1)) > 1:
             picks_newest = None          # a window of N rows, each identified on its own merits
+    # NARROWED AGAIN 2026-10-14, and this time the gate itself had caused the damage. Demanding a
+    # LastWriteTime comparison made the 2324894 acceptance refuse a healthy log: the directory
+    # timestamp of C:\Logs\RTMViewShell\log-20261014.txt read 09:47:44 at 10:04:39 while the file
+    # was 2 MB and growing (2246669 -> 2249665 B in 20 s, [INF] WfmRealtimeLoop lines at 10:06:13).
+    # A file a service holds open does not get its directory time written on every append, so for
+    # such a file the file time is NOT the freshness predicate. The predicates that are: the
+    # timestamp parsed OUT OF the newest line, and growth of the length across the window. Either
+    # one satisfies this gate now; the gate still fires when a single newest artefact is taken and
+    # NOTHING proves it belongs to this run.
     proves_fresh = re.search(r'LastWriteTime\w*\s*-(?:gt|ge)\s|\bRunStartedAt\b|-newer', code)
-    if picks_newest and not proves_fresh:
-        faults.append("the probe takes the newest file in a directory but never proves that file is NEWER "
-                      "THAN THIS RUN. A leftover from a previous day will be read as today's result. "
-                      "Record the start time and refuse any artefact older than it")
+    proves_content_fresh = re.search(r'ParseExact|\bStaleFloor\b|\bgrewBy\b|\boffsetBefore\b', code)
+    if picks_newest and not (proves_fresh or proves_content_fresh):
+        faults.append("the probe takes the newest file in a directory but never proves that file belongs "
+                      "to THIS RUN. A leftover from a previous day will be read as today's result. Prove it "
+                      "by the timestamp parsed out of the newest LINE, or by growth of the length across a "
+                      "recorded offset - and for a file a service holds open, NOT by the file time, which "
+                      "is written lazily and gave a false red on 2026-10-14")
+
+    # --- the file time must not be the SOLE liveness evidence -------------------
+    # Same day, same cost, stated as its own check so the lesson survives a rewrite of the gate above.
+    judges_by_file_time = re.search(r'LastWriteTime\w*\s*-(?:gt|ge)\s', code)
+    has_growth_proof = re.search(r'\bgrewBy\b|ParseExact', code)
+    if judges_by_file_time and not has_growth_proof:
+        notes.append("freshness is judged by the file time alone. For a file a running service holds open "
+                     "that is a false-red waiting to happen: add the growth pair, or parse the timestamp "
+                     "out of the newest line")
 
     # --- the report must survive a broken-off run -------------------------------
     # Count the CALLS that flush the report, not the single line that implements the flush: a probe
