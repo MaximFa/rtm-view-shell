@@ -169,6 +169,22 @@ def check(path):
                      "that is a false-red waiting to happen: add the growth pair, or parse the timestamp "
                      "out of the newest line")
 
+    # --- -Include with -LiteralPath -Recurse does not filter --------------------
+    # 2026-10-14. The adapter half of the feed-stall reading was voided by this: with -LiteralPath
+    # and -Recurse, -Include is silently ignored, so "the newest .log file" came back as
+    # web.config, which carries no timestamps, and the section printed NOT MEASURED. Measured
+    # afterwards: 21 probes carry the form, but in all the older ones it only feeds Unblock-File,
+    # so no past verdict rests on it. Filter with -Filter, or with Where-Object on .Extension.
+    for match in re.finditer(r'Get-ChildItem[^\n]*', code):
+        fragment = match.group(0)
+        if '-LiteralPath' in fragment and '-Recurse' in fragment and '-Include' in fragment:
+            line_no = code[:match.start()].count('\n') + 1
+            faults.append("line %d: -Include is silently IGNORED next to -LiteralPath and -Recurse, "
+                          "so this list is NOT filtered. On 2026-10-14 that returned web.config as "
+                          "'the newest log file' and voided a whole section. Use -Filter, or "
+                          "Where-Object on .Extension" % line_no)
+            break
+
     # --- a negative half stated in PROSE is not a negative half -----------------
     # 2026-10-14, flight 2324894 step 3. The probe said in its own text that the absence of the new
     # N=0 warning "would be the finding", then computed its verdict without that term and printed
