@@ -70,6 +70,9 @@ Cardinal truths (each SOURCE-pinned):
 - truth#1/#4 (CAPTURE in HEAD, not WT): `git show HEAD:CLAUDE.md | grep -c 'CAPTURE'` → expect >0.
 - truth#3 (Specialist Protocol in HEAD): `git show HEAD:CLAUDE.md | grep -c 'NORM-CUR-11'` → expect >0.
 - truth#5 (norm log tracked): `git ls-files .coord/protocols/discipline-lessons.md` → expect non-empty.
+- ⚓ ОТЗЫВ ВЕРДИКТОВ (датчик, файл): `python3 tools/curator_recall_sensor.py` → живых красных 0;
+  печатает свою отрицательную половину сам. Красное = прибор признан негодным, а вердикты им
+  выданные остались без строки `ОТЗЫВ ПРИБОРА`. Это не блокирует работу — это запрещает забыть.
 - truth#2 (fail-closed gate, after the standard commits): `git show HEAD:.coord/protocols/role-skill-standard.md | grep -c 'DEFAULT-DENY'` → expect >0. [RAN GREEN 2026-06-16 = 1]
 
 ## §D REFERENCE
