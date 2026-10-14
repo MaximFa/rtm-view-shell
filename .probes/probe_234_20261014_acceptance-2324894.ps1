@@ -35,8 +35,8 @@ $BUNDLE_HANDED_OUT = '081F52CCBDEC1AD4DCB57DFC9471450C2B4F68C08A08CE08B5256C4C45
 $WEBDLL_HANDED_OUT = 'E58AAA86E0A332E61EFFB62A11A36293F9666B17A69F59ED17E37B9FA04069C5'
 $PidsAfterInstall = @{ 'RTMService' = 8948 ; 'RTMViewShell' = 8876 ; 'RTMTwilio_1' = 9348 }
 $WINDOW_SECONDS = 130
-$RunStart = Get-Date
-$StaleFloor = $RunStart.AddMinutes(-10)
+$RunStartedAt = Get-Date
+$StaleFloor = $RunStartedAt.AddMinutes(-10)
 
 Start-Probe -Name 'acceptance-2324894' -Title 'STEP 3  ACCEPTANCE  flight 2324894 (Wfm counts agents again)'
 Say ('PS version : ' + $PSVersionTable.PSVersion.ToString())
@@ -197,12 +197,18 @@ Rule
 
 Say '7  THE LOG, IN A BOUNDED WINDOW - what the running process says about the Wfm loop'
 Write-Report
+Say  '  WHY THE FILE TIME IS NOT THE PREDICATE HERE, measured today 2026-10-14: the previous'
+Say  '  version of this probe refused the sink because its directory timestamp read 09:47:44 at'
+Say  '  10:04:39 - a false red on a healthy log, which is the dearer kind, since it sends a reader'
+Say  '  to fix something that is not broken. A log is alive if its LENGTH grows and if the last'
+Say  '  line carries a recent timestamp OF ITS OWN. Both are read below; the file time is printed'
+Say  '  as context only and decides nothing.'
 $logDirPresent = Test-Path -LiteralPath $LOG_DIR
 Say ('  sink directory (measured from appsettings Serilog, not remembered) : ' + $LOG_DIR)
 Say ('  present : ' + $logDirPresent)
 $logOk = $false
-$warningCount = -1
 $loopCount = -1
+$warningCount = -1
 if (-not $logDirPresent) { Say '  *** the sink directory does not exist - the log half is NOT MEASURED. Report it; do not call it green or red.' }
 else {
   $logFiles = @(Get-ChildItem -LiteralPath $LOG_DIR -File -Filter 'log-*.txt' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
@@ -211,25 +217,27 @@ else {
   else {
     $logFile = $logFiles[0].FullName
     $offsetBefore = $logFiles[0].Length
-    $logWritten = $logFiles[0].LastWriteTime
     Say ('  newest file : ' + $logFile)
-    Say ('  length now  : ' + $offsetBefore + ' B    last written ' + $logWritten.ToString('yyyy-MM-dd HH:mm:ss'))
-    Say ('  THE FILE MUST BE NEWER THAN THIS RUN, or a leftover from another day reads as today:')
-    Say ('    this run started      ' + $RunStart.ToString('yyyy-MM-dd HH:mm:ss'))
-    Say ('    refuse anything older than ' + $StaleFloor.ToString('yyyy-MM-dd HH:mm:ss'))
-    $logFresh = ($logFiles[0].LastWriteTime -ge $StaleFloor)
-    $nameCarriesToday = $logFiles[0].Name.Contains($RunStart.ToString('yyyyMMdd'))
-    Say ('    fresh enough : ' + $logFresh + '    name carries today date : ' + $nameCarriesToday)
-    if (-not $logFresh) {
-      Say ('  *** the newest file in the sink predates this run - the log half is NOT MEASURED, and a')
-      Say ('      silent sink is itself a finding. Reported, not called green and not called red.')
-      Say ('  LOG : NOT MEASURED')
-      Write-Report
-      Rule
-      Finish $false
-    }
+    Say ('  length now  : ' + $offsetBefore + ' B')
+    Say ('  file time (context only, NOT the predicate) : ' + $logFiles[0].LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))
+    Say ('  this run started ' + $RunStartedAt.ToString('yyyy-MM-dd HH:mm:ss') + ' , the stale floor is ' + $StaleFloor.ToString('yyyy-MM-dd HH:mm:ss'))
+    $fileTimeFresh = ($logFiles[0].LastWriteTime -ge $StaleFloor)
+    Say ('  file time newer than the floor : ' + $fileTimeFresh + '   (False alone is NOT a refusal - see the note above)')
+    $nameCarriesToday = $logFiles[0].Name.Contains($RunStartedAt.ToString('yyyyMMdd'))
+    Say ('  file name carries today date : ' + $nameCarriesToday)
+
+    Say  '  CONTEXT OVER THE WHOLE FILE - so a zero inside the window can be told apart from a'
+    Say  '  needle that never matches anything. These are NOT the window counts.'
+    $wholeFile = @(Get-Content -LiteralPath $logFile -ErrorAction SilentlyContinue)
+    Say ('    lines in the file today                     : ' + $wholeFile.Count)
+    Say ('    "WfmRealtimeLoop: processed" anywhere today  : ' + (Count-In $wholeFile 'WfmRealtimeLoop: processed'))
+    Say ('    "[INF]" + that line anywhere today          : ' + (Count-Regex $wholeFile '\[INF\].*WfmRealtimeLoop: processed'))
+    Say ('    the N=0 warning anywhere today              : ' + (Count-Regex $wholeFile '\[WRN\].*N=0'))
+    Say ('    "configured groups ... absent" anywhere today: ' + (Count-Regex $wholeFile 'configured groups.*absent'))
+    Say ('    NEGCTL a needle that cannot be there        : ' + (Count-In $wholeFile 'ZzzNoSuchLogLineCouldEverExist') + '   (must be 0)')
+
     Say ('  WINDOW OPENS. Waiting ' + $WINDOW_SECONDS + ' s, then reading ONLY the bytes appended past ' + $offsetBefore + '.')
-    Say  '  That is what makes the counts below "in two minutes" rather than "at some point".'
+    Say  '  That is what makes the counts below "in two minutes" rather than "at some point today".'
     Start-Sleep -Seconds $WINDOW_SECONDS
     $offsetAfter = (Get-Item -LiteralPath $logFile).Length
     $grewBy = $offsetAfter - $offsetBefore
@@ -250,25 +258,39 @@ else {
     $sampleCount = [math]::Min(3, $windowLines.Count)
     for ($sampleIndex = 0; $sampleIndex -lt $sampleCount; $sampleIndex++) { Say ('    sample | ' + $windowLines[$sampleIndex]) }
     Say  '  The samples are printed so the reader can check the level token and timestamp shape'
-    Say  '  that the counters below rely on, instead of trusting my parse.'
+    Say  '  the counters rely on, instead of trusting my parse.'
+
+    $lastStampedLine = ''
+    foreach ($windowLine in $windowLines) { if ("$windowLine" -match '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}') { $lastStampedLine = "$windowLine" } }
+    $contentFresh = $false
+    if ($lastStampedLine -ne '') {
+      $lineStamp = [datetime]::ParseExact($lastStampedLine.Substring(0,19), 'yyyy-MM-dd HH:mm:ss', $null)
+      Say ('  newest line timestamp, read out of the line itself : ' + $lineStamp.ToString('yyyy-MM-dd HH:mm:ss'))
+      $contentFresh = ($lineStamp -ge $StaleFloor)
+      Say ('  that timestamp is newer than the stale floor : ' + $contentFresh + '   <- THIS is the freshness predicate')
+    } else { Say '  no timestamped line inside the window - the log is not alive in this window' }
+
     $loopCount = Count-In $windowLines 'WfmRealtimeLoop: processed'
     $loopWithQueues = Count-Regex $windowLines 'WfmRealtimeLoop: processed .* queues'
     $loopInformation = Count-Regex $windowLines '\[INF\].*WfmRealtimeLoop: processed'
-    Say ('  "WfmRealtimeLoop: processed"            : ' + $loopCount + '   (expected 1 or more - these lines did not exist before this flight)')
-    Say ('  same line with "... queues"             : ' + $loopWithQueues)
-    Say ('  same line carrying the [INF] level token: ' + $loopInformation + '   (the blessing asks for Information)')
+    Say ('  "WfmRealtimeLoop: processed"             : ' + $loopCount + '   (expected 1 or more - these lines did not exist before this flight)')
+    Say ('  same line with "... queues"              : ' + $loopWithQueues)
+    Say ('  same line carrying the [INF] level token : ' + $loopInformation + '   (the blessing asks for Information)')
     $warningCount = Count-Regex $windowLines '\[WRN\].*N=0'
     $warningAbsent = Count-Regex $windowLines 'configured groups.*absent'
-    Say ('  Warning lines with "N=0"                : ' + $warningCount)
+    Say ('  Warning lines with "N=0"                 : ' + $warningCount)
     Say ('  lines naming "configured groups ... absent" : ' + $warningAbsent)
     Say  '  THIS WARNING IS EXPECTED AND IS THE NEGATIVE HALF. The tenant map still holds the'
     Say  '  mixed-case names while the data stores StatusGroup uppercase, so N=0 is the truth right'
     Say  '  now. A warning that fires on a real misconfiguration is not blind. Its ABSENCE would be'
-    Say  '  the finding, and the widget staying at zeros after the operator re-picks the groups is'
-    Say  '  the behavioural half, which belongs to shell and not to this probe.'
+    Say  '  the finding; the widget leaving zero once the operator re-picks the groups belongs to shell.'
     $negNeedle = Count-In $windowLines 'ZzzNoSuchLogLineCouldEverExist'
-    Say ('  NEGCTL a needle that cannot be there    : ' + $negNeedle + '   (must be 0, and the counts above prove the reader finds real lines)')
-    $logOk = (($grewBy -gt 0) -and ($windowLines.Count -gt 0) -and ($loopCount -ge 1) -and ($loopInformation -ge 1) -and ($negNeedle -eq 0))
+    Say ('  NEGCTL a needle that cannot be there     : ' + $negNeedle + '   (must be 0, and the counts above prove the reader finds real lines)')
+    Say ('  A NOTE FOR THE COORDINATOR, measured today and not part of this verdict: today the loop')
+    Say ('  wrote nothing between the restart at 09:48 and the first HTTP request at about 10:04,')
+    Say ('  then resumed on a 30 s step. Worth a separate reading - a hosted loop that waits for a')
+    Say ('  first request is a different thing from a hosted loop that runs on its own.')
+    $logOk = (($grewBy -gt 0) -and ($windowLines.Count -gt 0) -and $contentFresh -and ($loopCount -ge 1) -and ($loopInformation -ge 1) -and ($negNeedle -eq 0))
   }
 }
 Say ('  LOG : ' + $logOk)
