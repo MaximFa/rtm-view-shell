@@ -2280,6 +2280,19 @@ button.clr-swatch,
 .fullscreen-design-layer {
     transform-origin: top left;
     /* JS sets transform: scale(...) and margin for centering */
+
+    /* The wrapper is a flex container, so this layer is a flex item and would shrink to the
+       wrapper's width whenever the window is narrower than the board (measured: style.width
+       2670px, computed width 1806px in a 1920px window). The widgets inside are absolutely
+       positioned, so they keep their real coordinates and spill out of their own shrunken
+       layer - the right third of the board gets cut off, and in 1:1 mode no scrollbar appears
+       because a shrunken layer has nothing to scroll (scrollWidth == clientWidth).
+       `flex: none` is `0 0 auto`: no shrink, no grow, size from the width JS sets. It says
+       "this element does not take part in flex sizing at all", which is the whole intent;
+       `flex-shrink: 0` alone would fix today's case and still leave the layer growable.
+       The scale factor is computed in JS from the design size, not from this width, so the
+       board is rendered at exactly the same size as before. PR234-V4-VIEWER-NARROW-WINDOW-01 */
+    flex: none;
 }
 
 
