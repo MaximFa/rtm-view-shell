@@ -4588,3 +4588,42 @@ agentStateDistributionChart.js `159881d6`, daytrendChart.js `254f7630`, reportDi
 [ОБЛАСТЬ: лаборатория coordinator-0924 (Chromium, daytrendChart.js блоб 25f253df, подмена _getDensity, метрика градиента с контролями d0.5..d4); письмо shell 07:44Z]
 dpr 0.75 s 1: старая плотность 2 -> резкость 1.64, a8acfbb (1) -> 1.19; s 1.3: 1.10 -> 0.60; dpr 1 s 1: 1.40 = 1.40 (нет различия). Предикат приёмки был таблицей значений функции, не резкостью.
 Лечение: откат a8acfbb. Владелец shell. Закрытие — словом оператора.
+
+## PR234-V4-ASD-VIEWER-CONNECT-01 · ASD в просмотре висит «מתחבר...», canvas 0 · OPEN · заведён coordinator-0924 2026-10-11T09:04:37Z
+[ОБЛАСТЬ: замер shell 09:00Z (просмотр против редактора, стенд 2f3b426); `AgentStateDistributionWidget.razor` 2f3b426 :296-299, :378-380 = v3 :245-248, :318-320; `RenderWidget.razor` :27 @key=GridId]
+Подключение только из firstRender, второй попытки нет. Старше редизайна. Владелец shell. Закрытие — словом оператора.
+
+## PR234-V4-DAYTREND-VIEWER-LEGEND-01 · легенда DayTrend отсутствует в просмотре (в редакторе есть) · OPEN · заведён coordinator-0924 2026-10-11T09:04:37Z
+[ОБЛАСТЬ: замер shell 09:00Z; условие :57 `_showLegend && _legendItems.Count > 0`] Причина не установлена. Владелец shell.
+
+## PR234-V4-ASD-VIEWER-CONNECT-01 · дополнение 2026-10-11T09:29:49Z · e565dbc ВОЗВРАЩЁН
+[ОБЛАСТЬ: `git show e565dbc`; `AgentStateDistributionWidget.razor` 5cf4f71 :275-305, :384-440; @rendermode InteractiveServer]
+Подключение из OnParametersSetAsync срабатывает на пререндере (удалён комментарий-причина) и не закрыто от гонки с firstRender: _gridHandler присваивается после двух await -> возможна двойная подписка с утечкой обработчика.
+Лечение: подключение только после первого рендера + флаг «идёт подключение» до первого await. Приёмка — число подписок на виджет = 1 на стенде.
+
+## PR234-V4-CHART-DOUBLE-SCALE-01 · графики не заполняют виджет в просмотре: масштаб слоя применён дважды · OPEN · заведён coordinator-0924 2026-10-12T04:33:40Z
+[ОБЛАСТЬ: замер shell 12:47Z — canvas.client/container.client = 0.6347 при scale слоя 0.6342 в DayTrend и ASD; опыт responsive:false -> 813x217 = контейнеру]
+Chart.js responsive мерит контейнер через getBoundingClientRect (с transform слоя). Лечение — свой размер от clientWidth/Height. Владелец shell.
+
+## PR234-V4-ASD-TOTAL-METRIC-01 · ASD: метрики подключённых нет в сетке ASD, Config.Metric не читается · OPEN · заведён coordinator-0924 2026-10-12T04:33:40Z
+[ОБЛАСТЬ: ScreenEditorPage 356d58b :4891-4908 (сборка сетки ASD без QueueLoginDataNumLoggedUsers), :5047 (Config.Metric); виджет :712 (строка зашита)]
+Слово оператора: центр = метрика, Other = разница. Снимок: Data Slot 25, ASD 23. Владелец shell.
+
+## PR234-V4-CANVAS-OVERFLOW-01 · после 2ccbf1c холст DayTrend выше контейнера (1.2335), график торчит вниз · OPEN · заведён coordinator-0924 2026-10-12T10:01:02Z
+[ОБЛАСТЬ: замер shell 08:36Z — canvas 279–280 / cont 226–227, scrollHeight 280 > client 227; опыт: без absolute числа ползут, с absolute стабильно]
+Внесено выкатом 2ccbf1c (холст в потоке у flex-контейнера). Лечение: absolute; inset:0 для трёх графиков. Владелец shell.
+
+## PR234-V4-DAYTREND-RENDER-FAIL-01 · «[ERR] DayTrendWidget: JS render failed» каждые 5 минут · OPEN · заведён coordinator-0924 2026-10-12T10:01:02Z
+[ОБЛАСТЬ: devops `234_20261012_120644_asdlog2.txt` — 11.10: 15 строк с 09:51; 12.10: 57 строк; есть до рейсов 12.10] Не от 2ccbf1c. Нужен текст исключения из консоли. Владелец shell.
+- 2026-10-13T10:04:47Z · coordinator-0924 · PR234-V4-WFM-FONT-DEAD-01 — четыре размера шрифта Wfm (022e839) не доходили до виджета: редактор не загружал и не сохранял, ApplyConfig не присваивал. Слово оператора: «шрифт в вфм не работает, установки не применяются». Моя приёмка 022e839 — ложное зелёное: принял без замера вычисленного font-size. Исправление shell-0919b (43251f20, 40cf81eb), коммит моим боксом. Открыт; закрытие — оператор.
+- 2026-10-13T12:54:31Z · coordinator-0924 · PR234-INSTALLER-DISKSPACE-PREFLIGHT-01 — префлайт установщика сравнивает свободное место с фиксированным порогом, а не с объёмом бэкапа: [OK] 3.3GB, затем падение «not enough space» на [2/5] (рейс 2d75b01, 13.10). Ложное зелёное перед записью на боевой. Открыт.
+- 2026-10-13T12:54:31Z · coordinator-0924 · PR234-INSTALLER-SHELLMODE-BACKS-RTM-01 — -Mode Shell копирует в бэкап каталог движка (Update-RTMView.ps1:278), съедая место; тот же класс, что :259. Открыт.
+- 2026-10-13T13:00:00Z · coordinator-0924 · PR234-V4-WFM-FONT-DEAD-01 — оператор проверил на 234 (2d75b01): «шрифт применяется верно». Закрытие — словом оператора.
+- 2026-10-13T13:00:00Z · coordinator-0924 · PR234-V4-WFM-NO-DATA-01 — слово оператора: «виджет не считает ничего, все данные обнулены или отсутствуют». Разбор: backend (цикл), shell (сторона виджета). Открыт.
+- 2026-10-13T13:00:00Z · coordinator-0924 · PR234-V4-WFM-ALIGN-01 — слово оператора: «значения данных в нижней части под плитками не выровнены». shell. Открыт.
+- 2026-10-13T13:51:23Z · coordinator-0924 · PR234-V4-PROBE-LEFTOVER-01 — в продукте остались диагностические строки «[PROBE PR234-1a]» на уровне Warning (ScreenEditorPage.razor:5270, :5771, :6056, :6065, :6073), пишут в боевой лог при каждом сохранении. Найдено в чтении devops 13.10. Открыт; исполнитель shell после Wfm.
+- 2026-10-13T13:51:23Z · coordinator-0924 · PR234-SECRET-IN-TRACKED-TREE-01 — пароль БД 234 лежит в отслеживаемом дереве (≥10 файлов, .coord/migration/bus-snapshot/…, навык rtm-sim-installer) и в истории; плюс сегодня попал в 2 отчёта замеров devops (перезаписаны, страж добавлен). Решение оператора 13.10: пароль не менять. Открыт.
+- 2026-10-13T14:42:07Z · coordinator-0924 · PR234-V4-WFM-WINDOW-TZ-01 — пояс в строках RTSData_Interaction +02:00 при машине и логе цикла +03:00; 12/86 строк без пояса; 15 строк года 10000; свежие строки на +3:44 впереди UTC (devops 13.10). Возможное смещение окна λ на час. Разбор backend. Открыт.
+- 2026-10-13T14:42:07Z · coordinator-0924 · PR234-V4-WFM-DEFAULT-GROUPS-01 — умолчание TenantSettings.cs:34 {Available,"On Phone",Paperwork} не совпадает ни с данными, ни с группами оболочки; у тенанта 234 стоит оно. В рейс: пустой массив. Открыт.
+- 2026-10-13T16:27:02Z · coordinator-0924 · PR234-V4-AUTHZ-BEHAVIOR-INERT-01 — AuthorizationBehavior не проверяет ничего: IRequiresPermission/IRequiresTenantContext не реализует ни один запрос и ни одна команда (backend-0919 13.10). Защита только на [Authorize] страниц. Экземпляры с явным чужим TenantId: GetTenantStatusGroupsQuery (новый, гейт в рейсе), GetTenantSettingsQuery:20 (в рейсе). Аудит — security. Открыт, блокер.
+- 2026-10-14T05:13:57Z · coordinator-0924 · PR-SIG-RELAPSE-2156b21 — коммит 2156b21 (v3, backend-0919, 14.10 04:20Z) несёт Co-Authored-By/Claude-Session вопреки запрету оператора с 08.09. Признан ролью сам. Историю не переписываем. Открыт.
