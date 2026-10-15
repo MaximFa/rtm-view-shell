@@ -17,7 +17,38 @@ namespace RTM
         private readonly IDInteractionsList _interactionsList;
         private readonly DBMng _dbMng;
 
- 
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] Consult/warm-transfer (Variant A): retained-consult-leg registry.
+        // On a warm (consultative) transfer the initiator stays bridged to the held customer. Her leg is kept
+        // alive on its OWN Call while the transferred-to segment runs on a fresh Call; it is finalized by its own
+        // terminal event or, as a backstop, by FinalizeStaleConsultLegs. Keyed by segment#interactionId.
+        // Only an adapter that sends isConsult=true reaches this path; with isConsult=false nothing changes.
+        private readonly ConcurrentDictionary<string, RetainedConsultLeg> _consultRetainedLegs =
+            new ConcurrentDictionary<string, RetainedConsultLeg>();
+
+        private static string RetainedKey(string interactionId, int segment) => segment + "#" + interactionId;
+
+        private sealed class RetainedConsultLeg
+        {
+            public Call Call { get; }
+            public string InteractionId { get; }
+            public int Segment { get; }
+            public string InitiatorUserId { get; }
+            public DateTime RetainedAtUtc { get; }
+
+            public RetainedConsultLeg(Call call, string interactionId, int segment, string initiatorUserId, DateTime retainedAtUtc)
+            {
+                Call = call;
+                InteractionId = interactionId;
+                Segment = segment;
+                InitiatorUserId = initiatorUserId;
+                RetainedAtUtc = retainedAtUtc;
+            }
+        }
+
+        // Number of legs currently retained (observability and tests).
+        public int RetainedConsultLegCount => _consultRetainedLegs.Count;
+
 
 
         public WorkgroupManager(
@@ -64,7 +95,7 @@ namespace RTM
                     await call.SetCallAsync(
                         call.IdInteraction.InteractionType, segmentId, call.IdInteraction.CallType, call.IdInteraction.Direction, state,
                         DateTime.Now, _id, localUserId,
-                        TimeSpan.Zero, timeInWorkgroupQueue, "", "", call.IdInteraction.ClassificationCode, origCallId,
+                        TimeSpan.Zero, timeInWorkgroupQueue, false, "", "", call.IdInteraction.ClassificationCode, origCallId,
                         "", "", new List<string>(),
                         false, "", "",
                         "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -161,6 +192,13 @@ namespace RTM
             {
                 AsyncLogger.Info($"WorkgroupManager.interactionRemoved | START | interactionId={interactionId} seg={segmentId} state={state} isDisconnect={isDisconnect}");
 
+                // [SYNC-PORT 2026-10-15 src=2026-07-15] A terminal for a retained consult leg finalizes the initiator's
+                // OWN Call, not the later-segment Call that sits in _callsList, so the transferred-to agent is untouched.
+                if (_consultRetainedLegs.TryRemove(RetainedKey(interactionId, segmentId), out var retained))
+                {
+                    return await finalizeConsultLeg(retained, state, origCallId, localUserId, timeInWorkgroupQueue, isCallbackRequest, messageId, "EVENT");
+                }
+
                 if (_callsList.TryGetValue(interactionId, out var call))
                 {
                     lastMessageSid = call.IdInteraction.LastMessageSid;
@@ -169,7 +207,7 @@ namespace RTM
                         call.IdInteraction.InteractionType, segmentId, call.IdInteraction.CallType,
                         call.IdInteraction.Direction, state,
                         DateTime.Now, _id, localUserId,
-                        TimeSpan.Zero, timeInWorkgroupQueue, "", "", call.IdInteraction.ClassificationCode,
+                        TimeSpan.Zero, timeInWorkgroupQueue, false, "", "", call.IdInteraction.ClassificationCode,
                         origCallId, "", "", new List<string>(),
                         false, "", "",
                         "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -204,9 +242,85 @@ namespace RTM
         }
 
 
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] Finalize a retained consult leg on its OWN Call (real terminal event or
+        // the lifetime backstop). Runs the state machine for the retained segment, so "completed"/"wrapping" ends the
+        // talk, ends the incoming call and resolves LastNoPhone for the initiator; OnPhone flips off for her only.
+        private async Task<string> finalizeConsultLeg(
+            RetainedConsultLeg leg, string state, string origCallId, string localUserId,
+            TimeSpan timeInWorkgroupQueue, bool isCallbackRequest, long messageId, string reason)
+        {
+            string lastMessageSid = string.Empty;
+            var call = leg.Call;
+
+            try
+            {
+                lastMessageSid = call.IdInteraction.LastMessageSid;
+
+                await call.SetCallAsync(
+                    call.IdInteraction.InteractionType, leg.Segment, call.IdInteraction.CallType,
+                    call.IdInteraction.Direction, state,
+                    DateTime.Now, _id, localUserId,
+                    TimeSpan.Zero, timeInWorkgroupQueue, false, "", "", call.IdInteraction.ClassificationCode,
+                    origCallId, "", "", new List<string>(),
+                    false, "", "",
+                    "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+                    isCallbackRequest, messageId);
+
+                bool ended = _interactionsList.MarkSegmentEnded(leg.InteractionId, leg.Segment);
+                int activeCount = _interactionsList.GetActiveCount(leg.InteractionId);
+
+                AsyncLogger.Info($"WorkgroupManager.finalizeConsultLeg | interactionId={leg.InteractionId} seg={leg.Segment} initiator={leg.InitiatorUserId} reason={reason} state={state} ended={ended} activeCount={activeCount}");
+
+                if (!_interactionsList.HasInteractionId(leg.InteractionId))
+                {
+                    bool removed = _callsList.TryRemove(leg.InteractionId, out _);
+                    AsyncLogger.Info($"WorkgroupManager.finalizeConsultLeg | CALL_REMOVED | interactionId={leg.InteractionId} removed={removed}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("WorkgroupManager.finalizeConsultLeg", ex);
+            }
+
+            return lastMessageSid;
+        }
 
 
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] Lifetime backstop: any retained consult leg older than maxAge is finalized
+        // through the same path as a real terminal. A real consult is far shorter than the default 30 min, so a genuine
+        // one is never cut short; a stranded leg is cleaned within the bound. Logged at Error on every firing.
+        // (Verify-before-kill, the absolute ceiling and alive re-anchoring are later rounds: 08-19, 09-07.)
+        public async Task FinalizeStaleConsultLegs(TimeSpan maxAge)
+        {
+            await FinalizeStaleConsultLegs(maxAge, DateTime.UtcNow);
+        }
 
+        internal async Task FinalizeStaleConsultLegs(TimeSpan maxAge, DateTime nowUtc)
+        {
+            try
+            {
+                foreach (var kvp in _consultRetainedLegs)
+                {
+                    var leg = kvp.Value;
+                    TimeSpan age = nowUtc.Subtract(leg.RetainedAtUtc);
+
+                    if (age < maxAge)
+                    {
+                        continue;
+                    }
+
+                    if (_consultRetainedLegs.TryRemove(kvp.Key, out var stale))
+                    {
+                        AsyncLogger.Error($"WorkgroupManager.FinalizeStaleConsultLegs | TIMEOUT | wg={_id} interactionId={stale.InteractionId} seg={stale.Segment} initiator={stale.InitiatorUserId} ageSec={(int)age.TotalSeconds} maxSec={(int)maxAge.TotalSeconds}");
+                        await finalizeConsultLeg(stale, "completed", "", stale.InitiatorUserId, TimeSpan.Zero, false, DateTime.UtcNow.Ticks, "TIMEOUT");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("WorkgroupManager.FinalizeStaleConsultLegs", ex);
+            }
+        }
 
 
 
@@ -226,13 +340,55 @@ namespace RTM
             Call call = null;
 
             try
-            {               
-                call = _callsList.GetOrAdd(interactionId, id =>
-                    new Call(id, _userManagerList, _interactionsList, _dbMng));
+            {
+                // [SYNC-PORT 2026-10-15 src=2026-07-15] Consult rotation. consultConfirmed is what Call sees: true only when
+                // this event really rotated a warm transfer (isConsult from the adapter AND the initiator matches).
+                bool consultConfirmed = false;
+
+                // (1) An event addressed to an already-retained consult segment goes to that leg's OWN Call.
+                if (_consultRetainedLegs.TryGetValue(RetainedKey(interactionId, segmentId), out var retainedForEvent))
+                {
+                    call = retainedForEvent.Call;
+                    AsyncLogger.Info($"WorkgroupManager.interactionAction | CONSULT_ROUTED | interactionId={interactionId} seg={segmentId} state={state}");
+                }
+                // (2) Warm-transfer segment advance: retain the initiator's current leg on its own Call and give the
+                //     transferred-to segment a FRESH Call, so two live agents never share one moving Call.
+                else if (isConsult && segmentId > 1
+                         && _callsList.TryGetValue(interactionId, out var existingCall)
+                         && existingCall.IdInteraction != null
+                         && existingCall.IdInteraction.Segment < segmentId
+                         && !existingCall.IdInteraction.IsDisconnected)
+                {
+                    string initiatorUserId = existingCall.IdInteraction.UserId;
+
+                    if (!string.IsNullOrEmpty(initiatorUserId) && initiatorUserId == consultCallId)
+                    {
+                        int retainedSegment = existingCall.IdInteraction.Segment;
+                        _consultRetainedLegs[RetainedKey(interactionId, retainedSegment)] =
+                            new RetainedConsultLeg(existingCall, interactionId, retainedSegment, initiatorUserId, DateTime.UtcNow);
+
+                        call = new Call(interactionId, _userManagerList, _interactionsList, _dbMng);
+                        _callsList[interactionId] = call;
+                        consultConfirmed = true;
+
+                        AsyncLogger.Info($"WorkgroupManager.interactionAction | CONSULT_ROTATED | interactionId={interactionId} seg={segmentId} retainedSeg={retainedSegment} initiator={initiatorUserId}");
+                    }
+                    else
+                    {
+                        // Consult requested but the initiator does not match: fall back to the ordinary path.
+                        AsyncLogger.Error($"WorkgroupManager.interactionAction | CONSULT_ASSERT_FAILED | interactionId={interactionId} seg={segmentId} initiator={initiatorUserId} consultCallId={consultCallId}");
+                        call = _callsList.GetOrAdd(interactionId, id => new Call(id, _userManagerList, _interactionsList, _dbMng));
+                    }
+                }
+                else
+                {
+                    call = _callsList.GetOrAdd(interactionId, id =>
+                        new Call(id, _userManagerList, _interactionsList, _dbMng));
+                }
 
                 await call.SetCallAsync(
                     interactionType, segmentId, callType, direction, state, stateChangedTime, _id, localUserId,
-                    duration, timeInWorkgroupQueue, consultCallId, applicAtt, classificationCode, origCallId,
+                    duration, timeInWorkgroupQueue, consultConfirmed, consultCallId, applicAtt, classificationCode, origCallId,
                     calculatedStatus, calculatedStatusTime, changedAttributeNames,
                     isHeld, remoteAddress, lastMessageSid,
                     customCallData1, customCallData2, customCallData3, customCallData4, customCallData5, customCallData6,

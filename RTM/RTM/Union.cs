@@ -156,8 +156,11 @@ namespace RTM
         {
             try
             {
+                // [SYNC-PORT 2026-10-15 src=2026-07-20] Clear the key set IN LOCKSTEP with the bags: a key is present iff the
+                // interaction lives in at least one bag. The import-race self-heal (addQueueInteraction guard) relies on it.
                 QueueInteractions.Clear();
                 UsersInteractions.Clear();
+                InteractionKeys.Clear();
 
                 foreach (var interaction in interactionsList)
                 {
@@ -229,7 +232,9 @@ namespace RTM
 
                 //AsyncLogger.Info($"AddQueueInteraction Union={UnionId} applicId={applicId.QueueId}/{applicId.ClassificationId} interactionId={interaction.InteractionId} Applics.Count={Applics.Count} AllApplics={allApplics}");
 
-                if (Applics.Keys.Contains(applicId))
+                // [SYNC-PORT 2026-10-15 src=2026-07-20] O(1) membership guard: re-invoked on every event by the import-race
+                // self-heal (IDInteractionsList.EnsureRouted), so an interaction already accounted for is never added twice.
+                if (Applics.Keys.Contains(applicId) && !InteractionKeys.ContainsKey(interaction.Key))
                 {
                     //AsyncLogger.Info($"AddQueueInteraction Contains Union={UnionId} interactionId={interaction.InteractionId}");
                     QueueInteractions.Add(interaction);

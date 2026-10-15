@@ -30,4 +30,9 @@
     <ProjectReference Include="..\RTM.Types\RTM.Types.csproj" />
   </ItemGroup>
 
+  <!-- SYNC-PORT 2026-10-15: tests reach the internal seams of the ported rounds (HasLiveVoiceCall, the consult-leg sweep clock). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="RTM.Engine.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -35,6 +35,11 @@ namespace RTM
 
         public TimeSpan TimeInQueue { get; set; } = TimeSpan.Zero;
 
+        // [SYNC-PORT 2026-10-15 src=2026-07-30] Ringing round-2: the worker THIS interaction currently shows calc
+        // "Ringing" for (empty otherwise). Held on the interaction so every clearer erases exactly the user this ring
+        // was asserted for, independent of the triggering event's userId (unreliable on re-queue / cancel events).
+        public string TaggedRingingUserId { get; set; } = string.Empty;
+
 
         //public List<string> Users { get; set; } = new List<string>();
 
@@ -77,8 +82,9 @@ namespace RTM
 
 
         // Set Call Async
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] isConsult: true only when WorkgroupManager actually rotated a warm transfer.
         public async Task SetCallAsync(string interactionType, int segmantId, string callType, string direction, string state, DateTime stateChangedTime, string workgroup, string userId,
-          TimeSpan duration, TimeSpan timeInWorkgroupQueue, string consultCallId, string applicAtt, string classificationCode, string origCallId,
+          TimeSpan duration, TimeSpan timeInWorkgroupQueue, bool isConsult, string consultCallId, string applicAtt, string classificationCode, string origCallId,
           string calculatedStatus, string calculatedStatusTime, List<string> changedAttributeNames,
           bool isHeld, string remoteAddress, string lastMessageSid, 
            string customCallData1, string customCallData2, string customCallData3, string customCallData4, string customCallData5, string customCallData6,
@@ -92,7 +98,7 @@ namespace RTM
             {
                 // Critical section: only one execution per Call instance at a time
                 SetCall(interactionType, segmantId, callType, direction, state, stateChangedTime, workgroup, userId,
-                  duration, timeInWorkgroupQueue, consultCallId, applicAtt, classificationCode, origCallId,
+                  duration, timeInWorkgroupQueue, isConsult, consultCallId, applicAtt, classificationCode, origCallId,
                   calculatedStatus, calculatedStatusTime, changedAttributeNames,
                   isHeld, remoteAddress, lastMessageSid, customCallData1, customCallData2, customCallData3, customCallData4, customCallData5, customCallData6,
                    customCallData7, customCallData8, customCallData9, customCallData10, customCallData11, customCallData12,
@@ -112,7 +118,7 @@ namespace RTM
 
         // Set Call
         public void SetCall(string interactionType, int segmantId, string callType, string direction, string state, DateTime stateChangedTime, string workgroup, string userId,
-          TimeSpan duration, TimeSpan timeInWorkgroupQueue, string consultCallId, string applicAtt, string classificationCode, string origCallId,
+          TimeSpan duration, TimeSpan timeInWorkgroupQueue, bool isConsult, string consultCallId, string applicAtt, string classificationCode, string origCallId,
           string calculatedStatus, string calculatedStatusTime, List<string> changedAttributeNames,
           bool isHeld, string remoteAddress, string lastMessageSid, 
            string customCallData1, string customCallData2, string customCallData3, string customCallData4, string customCallData5, string customCallData6,
@@ -143,7 +149,29 @@ namespace RTM
                     {
                         var LastIdInteraction = InteractionsList.getInteraction(InteractionId, segmantId-1);
 
-                        if (LastIdInteraction != null)
+                        if (LastIdInteraction != null && isConsult)
+                        {
+                            // [SYNC-PORT 2026-10-15 src=2026-07-15] Warm transfer: the initiator stays bridged to the held
+                            // customer. Do NOT OutQueue / EndTalk / release her here: her leg is retained on its own Call
+                            // (WorkgroupManager) and finalized by its own terminal or the lifetime backstop.
+                            AsyncLogger.Info($"SetCall CONSULT_RETAINED interactionId={InteractionId} retainedSeg={segmantId - 1} initiator={LastIdInteraction.UserId}");
+
+                            // A prior source status (the reserved "waiting" token arrives with onPhone=false) may have
+                            // switched her OnPhone off while she still holds the customer. Re-assert the on-phone calc
+                            // status ONLY in that case, so the later corrective status restores via _isWaitForCall.
+                            if (LastIdInteraction.IsHeld
+                                && !string.IsNullOrEmpty(LastIdInteraction.UserId)
+                                && UserManagerList.ContainsKey(LastIdInteraction.UserId))
+                            {
+                                UserManager initiatorMng = UserManagerList[LastIdInteraction.UserId];
+                                if (!initiatorMng.OnPhone)
+                                {
+                                    AsyncLogger.Info($"SetCall CONSULT_ONPHONE_REASSERT interactionId={InteractionId} initiator={LastIdInteraction.UserId}");
+                                    initiatorMng.setStatus(true, "Hold", "Hold", "ONPHONE", stateChangedTime, "", true, stateChangedTime, messageId, true);
+                                }
+                            }
+                        }
+                        else if (LastIdInteraction != null)
                         {
                             if (LastIdInteraction.IsInQueue)
                             {
@@ -168,6 +196,10 @@ namespace RTM
                                     }
                                 }
 
+                                // [SYNC-PORT 2026-10-15 src=2026-07-15] Guard kept on purpose (legacy retired it): the adapter in
+                                // production still sends the transfer initiator in customCallData19 and never isConsult, so this
+                                // guard is what keeps her on the call today. A new adapter sends "" here, which makes the guard
+                                // a no-op and the release unconditional, exactly as in the legacy fix.
                                 if (LastIdInteraction.UserId != customCallData19)
                                 {
                                     userMng1.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
@@ -183,7 +215,12 @@ namespace RTM
                    {
                         return; 
                    } 
-                   LastState = IdInteraction.State;                  
+                   LastState = IdInteraction.State;
+
+                   // [SYNC-PORT 2026-10-15 src=2026-07-28] Import-race self-heal: re-route this already-registered
+                   // interaction so a union whose bag lost it (concurrent-attach import) re-adds it now. Idempotent and
+                   // O(1)-guarded per union (Union.addQueueInteraction / InteractionKeys); a no-op when nothing was lost.
+                   InteractionsList.EnsureRouted(IdInteraction);
                 }
                 
                 IdInteraction.ClassificationCode = classificationCode;
@@ -321,18 +358,32 @@ namespace RTM
                         if (!IdInteraction.IsAnswered)
                         {
                             IdInteraction.InQueue();
-                            if (userMng != null)
+
+                            // [SYNC-PORT 2026-10-15 src=2026-07-30] Ringing round-2: a reservation is created "pending" WITH its
+                            // worker, so a pending with a worker is the ring (assert + tag); a pending with an EMPTY userId is a
+                            // task-level queue event or a re-queue after the offered reservation ended (clear the tagged ring).
+                            if (!string.IsNullOrEmpty(userId))
                             {
-                                if (IdInteraction.Direction == "Incoming")
+                                clearTaggedRinging(stateChangedTime, messageId);
+                                if (userMng != null)
                                 {
-                                    userMng.setStatus(true, "Ringing", "Ringing", "ONPHONE", stateChangedTime, "", false, stateChangedTime, messageId, true);
+                                    if (IdInteraction.Direction == "Incoming")
+                                    {
+                                        userMng.setStatus(true, "Ringing", "Ringing", "ONPHONE", stateChangedTime, "", false, stateChangedTime, messageId, true);
+                                        userMng.TagCalcRinging(InteractionId);
+                                        TaggedRingingUserId = userId;
+                                    }
+                                    else if (direction == "Outgoing")
+                                    {
+                                        //userMng.startOutgoingCall(this, IdInteraction.Workgroup);
+                                        userMng.setStatus(true, "Calling Out", "Calling Out", "ONPHONE", stateChangedTime, "", true, stateChangedTime, messageId, true);
+                                    }
                                 }
-                                else if (direction == "Outgoing")
-                                {
-                                    //userMng.startOutgoingCall(this, IdInteraction.Workgroup);
-                                    userMng.setStatus(true, "Calling Out", "Calling Out", "ONPHONE", stateChangedTime, "", true, stateChangedTime, messageId, true);
-                                }
-                            }                      
+                            }
+                            else
+                            {
+                                clearTaggedRinging(stateChangedTime, messageId);
+                            }
                         }
                         break;
                     case "reserved":
@@ -476,6 +527,10 @@ namespace RTM
                             IdInteraction.UserId = string.Empty;
                         }
 
+                        // [SYNC-PORT 2026-10-15 src=2026-07-30] A reservation that cancels before accept is a ring death:
+                        // clear THIS interaction's tagged ring for its offered worker (userMng may already be null here).
+                        clearTaggedRinging(stateChangedTime, messageId);
+
                         AsyncLogger.Info(
                           $"SetCall CANCELED AFTER | interactionId={InteractionId} segment={segmantId} " +
                           $"isInQueue={IdInteraction.IsInQueue}");
@@ -592,6 +647,22 @@ namespace RTM
             {
                 AsyncLogger.Error("Call.state", ex);
             }
+        }
+
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-30] Ringing round-2: the universal ring-death eraser. Restores the tagged
+        // worker's last real status only if he is STILL showing the Ringing this interaction asserted
+        // (UserManager.ClearCalcRingingIfTaggedTo is guarded), so a stale tag is a safe no-op. Always resets the tag.
+        private void clearTaggedRinging(DateTime statusChanged, long messageId)
+        {
+            if (!string.IsNullOrEmpty(TaggedRingingUserId)
+                && UserManagerList != null
+                && UserManagerList.ContainsKey(TaggedRingingUserId))
+            {
+                UserManagerList[TaggedRingingUserId].ClearCalcRingingIfTaggedTo(InteractionId, statusChanged, messageId);
+            }
+            TaggedRingingUserId = string.Empty;
         }
     }
 }

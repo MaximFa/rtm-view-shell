@@ -40,6 +40,17 @@ namespace RTM.Configuration
 
         public static bool DiagPushLogging { get; private set; }
 
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] Consult/warm-transfer (Variant A): max lifetime of a retained consult leg
+        // before the engine force-finalizes it. Default 1800 s; RTM:ConsultLegMaxDurationSeconds, non-positive/invalid => default.
+        public static int ConsultLegMaxDurationSeconds { get; internal set; } = 1800;
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-30] Stuck-OnPhone reconcile kill-switch. FAIL-OPEN: on unless RTM:OnPhoneReconcileEnabled is a literal false.
+        public static bool OnPhoneReconcileEnabled { get; internal set; } = true;
+
+        // [SYNC-PORT 2026-10-15 src=2026-08-12] LastNoPhone must not overwrite a fresher real status. FAIL-OPEN:
+        // on unless RTM:LastNoPhonePreserveRealStatusEnabled is a literal false.
+        public static bool LastNoPhonePreserveRealStatusEnabled { get; internal set; } = true;
+
 
         public static void Initialize(IConfiguration configuration, string dataFilePath)
         {
@@ -62,6 +73,32 @@ namespace RTM.Configuration
 
                 PipeName = string.IsNullOrWhiteSpace(configuration["RTM:PipeName"]) ? "rtmpipe" : configuration["RTM:PipeName"];
                 AsyncLogger.Info($"AppConfig.PipeName = {PipeName}");
+
+                // [SYNC-PORT 2026-10-15 src=2026-07-15] Retained consult leg lifetime (seconds).
+                ConsultLegMaxDurationSeconds = 1800;
+                var consultLegMaxRaw = configuration["RTM:ConsultLegMaxDurationSeconds"];
+                if (!string.IsNullOrWhiteSpace(consultLegMaxRaw) && int.TryParse(consultLegMaxRaw, out var consultLegMax) && consultLegMax > 0)
+                {
+                    ConsultLegMaxDurationSeconds = consultLegMax;
+                }
+
+                // [SYNC-PORT 2026-10-15 src=2026-07-30] FAIL-OPEN: only a literal "false" turns the reconcile off.
+                OnPhoneReconcileEnabled = true;
+                var reconcileRaw = configuration["RTM:OnPhoneReconcileEnabled"];
+                if (!string.IsNullOrWhiteSpace(reconcileRaw) && bool.TryParse(reconcileRaw, out var reconcileEnabled))
+                {
+                    OnPhoneReconcileEnabled = reconcileEnabled;
+                }
+
+                // [SYNC-PORT 2026-10-15 src=2026-08-12] FAIL-OPEN: only a literal "false" restores the legacy LastNoPhone resolution.
+                LastNoPhonePreserveRealStatusEnabled = true;
+                var lastNoPhoneRaw = configuration["RTM:LastNoPhonePreserveRealStatusEnabled"];
+                if (!string.IsNullOrWhiteSpace(lastNoPhoneRaw) && bool.TryParse(lastNoPhoneRaw, out var lastNoPhoneEnabled))
+                {
+                    LastNoPhonePreserveRealStatusEnabled = lastNoPhoneEnabled;
+                }
+
+                AsyncLogger.Info($"AppConfig.ConsultLegMaxDurationSeconds = {ConsultLegMaxDurationSeconds} OnPhoneReconcileEnabled = {OnPhoneReconcileEnabled} LastNoPhonePreserveRealStatusEnabled = {LastNoPhonePreserveRealStatusEnabled}");
 
 
                 // Load and decrypt sensitive values from data.sys

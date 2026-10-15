@@ -34,6 +34,9 @@ namespace RTM
         private UserManagerList _userManagerList = new UserManagerList();
 
         private CollectData _collectData = null;
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] Consult/warm-transfer (Variant A): stranded-consult-leg sweep timer.
+        private System.Threading.Timer? _consultLegTimeoutTimer;
         
 
         // Timers
@@ -342,7 +345,8 @@ namespace RTM
 
                     _collectData = new CollectData(UnionList, _gridList, _interactionsList, _userManagerList, _userGridMetrics, calcInterval);
 
-
+                    // [SYNC-PORT 2026-10-15 src=2026-07-15] Retained consult legs are swept for staleness from startup on.
+                    startConsultLegTimeoutTimer();
                 }
                 catch (Exception ex)
                 {
@@ -974,6 +978,43 @@ namespace RTM
 
             //midnightTimer.Stop();
             //startMidnightTimer();
+        }
+
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] Consult-leg lifetime backstop: periodically sweeps every workgroup manager
+        // for retained consult legs older than RTM:ConsultLegMaxDurationSeconds and finalizes them (Error-logged per leg).
+        // Sweep period = max/10, clamped to 15..60 s.
+        private void startConsultLegTimeoutTimer()
+        {
+            try
+            {
+                int maxSec = AppConfig.ConsultLegMaxDurationSeconds;
+                int sweepSec = Math.Max(15, Math.Min(60, maxSec / 10));
+
+                _consultLegTimeoutTimer?.Dispose();   // idempotent if ever started twice
+                _consultLegTimeoutTimer = new System.Threading.Timer(async _ =>
+                {
+                    try
+                    {
+                        var maxAge = TimeSpan.FromSeconds(AppConfig.ConsultLegMaxDurationSeconds);
+                        foreach (var wg in _workgroupManagerList.Values)
+                        {
+                            await wg.FinalizeStaleConsultLegs(maxAge);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AsyncLogger.Error("Engine.consultLegTimeoutTimer", ex);
+                    }
+                }, null, TimeSpan.FromSeconds(sweepSec), TimeSpan.FromSeconds(sweepSec));
+
+                AsyncLogger.Info($"ConsultLegTimeout timer started maxSec={maxSec} sweepSec={sweepSec}");
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("Engine.startConsultLegTimeoutTimer", ex);
+            }
         }
 
 

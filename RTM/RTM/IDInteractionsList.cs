@@ -68,6 +68,14 @@ namespace RTM
             }
         }
 
+        // [SYNC-PORT 2026-10-15 src=2026-07-28] Import-race self-heal: re-route an ALREADY-registered interaction to its
+        // unions. Unlike Add it does not touch _interactions/_activeCounts; it only fans out to the unions, where each
+        // applies its O(1) InteractionKeys guard (Union.addQueueInteraction). A no-op for a union that already holds it.
+        public void EnsureRouted(IDInteraction interaction)
+        {
+            _unionList.addQueueInteraction(interaction);
+        }
+
         public void Remove(string interactionKey)
         {
             if (_interactions.TryRemove(interactionKey, out var removed) && removed != null)

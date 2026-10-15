@@ -1,5 +1,6 @@
 using ExpressionEvaluator;
 using log4net;
+using RTM.Configuration;
 using RTM.Tools;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
@@ -303,6 +304,30 @@ namespace RTM
         private string statusNameBeforeWait = string.Empty;
         private string statusGroupBeforeWait = string.Empty;
 
+        // [SYNC-PORT 2026-10-15 src=2026-07-30] Ringing round-2: the interactionId whose calc "Ringing" this user is
+        // CURRENTLY showing (empty otherwise). Consulted by the eraser, so a ring's death (dodge, timeout, reject,
+        // task terminal) restores the last real activity; the `_userStatus == "Ringing"` guard makes a stale tag harmless.
+        private string _calcRingingInteractionId = string.Empty;
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-30] Stuck-OnPhone reconcile: true iff the agent holds at least one LIVE VOICE
+        // call (answered, not ended; Hold keeps IsTalk). Mirrors what sets OnPhone: chat/email excluded, ringing and
+        // dialing reservations are never in _calls, a dead entry is excluded by !IsDisconnected && IsTalk.
+        // (Legacy later widens the email test to case-insensitive - round 09-14, not ported yet.)
+        internal bool HasLiveVoiceCall()
+        {
+            foreach (var cl in _calls)
+            {
+                var it = cl.Key.IdInteraction;
+                if (it != null && it.InteractionType != "Chat" && it.InteractionType != "Email"
+                    && !it.IsDisconnected && it.IsTalk)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
 
         // Set Status
         public void setStatus(bool isLoggedIn, string newStatus, string statusName, string statusGroup, DateTime statusChanged, string station, bool onPhone, DateTime oOnPhoneChanged, long messageId, bool isCalcStatus)
@@ -408,8 +433,20 @@ namespace RTM
                             else
                             {
                                 _isWaitForCall = false;
-                                AsyncLogger.Error("(OnPhone && !isCalcStatus");
-                                return;
+
+                                // [SYNC-PORT 2026-10-15 src=2026-07-30] Stuck-OnPhone reconcile: OnPhone is set but the agent holds
+                                // NO live voice call, so the flag is stale (a call terminal failed to clear it). Fall through: the
+                                // shared apply below clears OnPhone and applies this real status instead of dropping it forever.
+                                // With a live voice call - drop exactly as before. Kill-switch RTM:OnPhoneReconcileEnabled.
+                                if (AppConfig.OnPhoneReconcileEnabled && !HasLiveVoiceCall())
+                                {
+                                    AsyncLogger.Info($"setStatus OnPhoneReconciled userId={userId} newStatus={newStatus}");
+                                }
+                                else
+                                {
+                                    AsyncLogger.Error("(OnPhone && !isCalcStatus");
+                                    return;
+                                }
                             }
                         }
                         else
@@ -445,6 +482,19 @@ namespace RTM
 
                 if (newStatus == "LastNoPhone") // Like Unhold
                 {
+                    // [SYNC-PORT 2026-10-15 src=2026-08-12] Do NOT overwrite a FRESHER real status with a remembered phone
+                    // status. Only a real (non-calc) status can leave _userStatus equal to LastNoPhoneStatusId (every phone
+                    // status is a calc status with its own literal), so this means "a real status was applied after the
+                    // call's phone status began" - keep it (no status change, no timer reset). OnPhone was already set from
+                    // this call's onPhone argument above. Kill-switch RTM:LastNoPhonePreserveRealStatusEnabled.
+                    if (AppConfig.LastNoPhonePreserveRealStatusEnabled
+                        && !string.IsNullOrEmpty(LastNoPhoneStatusId)
+                        && _userStatus == LastNoPhoneStatusId)
+                    {
+                        AsyncLogger.Info($"setStatus LastNoPhonePreservedRealStatus userId={userId} keptStatus={_userStatus}");
+                        return;
+                    }
+
                     // =============================================== 11/11/2025 =========================================
                     //newStatus = LastNoPhoneStatusId;
                     //statusName = LastNoPhoneStatusName;
@@ -466,6 +516,14 @@ namespace RTM
                         statusName = LastNoPhoneStatusName;
                         statusGroup = LastNoPhoneStatusGroup;
                         AsyncLogger.Info($"2statusName = {LastNoPhoneStatusId}");
+                    }
+
+                    // [SYNC-PORT 2026-10-15 src=2026-07-30] Ringing round-2 empty-resolution guard: if neither cache holds a
+                    // usable status (a ring cleared before any real activity was ever recorded), never apply an empty status.
+                    if (string.IsNullOrEmpty(newStatus))
+                    {
+                        AsyncLogger.Warn($"setStatus LastNoPhoneEmptyResolution userId={userId} keptStatus={_userStatus}");
+                        return;
                     }
 
 
@@ -549,6 +607,25 @@ namespace RTM
         }
 
 
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-30] Ringing round-2: remember that this user's calc "Ringing" belongs to
+        // interactionId (called by Call.SetCall right after it asserts Ringing for a live reservation).
+        public void TagCalcRinging(string interactionId)
+        {
+            _calcRingingInteractionId = interactionId;
+        }
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-30] Ringing round-2 eraser: if this user is STILL showing the calc "Ringing"
+        // tagged to interactionId, resolve LastNoPhone (restores the last real activity). No-op if he already moved on.
+        public void ClearCalcRingingIfTaggedTo(string interactionId, DateTime statusChanged, long messageId)
+        {
+            if (_userStatus == "Ringing" && _calcRingingInteractionId == interactionId)
+            {
+                setStatus(true, "LastNoPhone", "", "", statusChanged, "", false, DateTime.MinValue, messageId, true);
+            }
+        }
 
 
         // ContainsAllItems
@@ -1416,7 +1493,13 @@ namespace RTM
                         break;
 
                     case "LongestInteractionCustomCallData":
-                        val = LongestInteraction.IdInteraction.CustomCallData;
+                        // [SYNC-PORT 2026-10-15 src=2026-07-30] Same null/OnPhone guard as the sibling cases: with the
+                        // liveness filter below LongestInteraction is null whenever nothing is being handled right now.
+                        val = "&nbsp;";
+                        if (LongestInteraction != null && OnPhone)
+                        {
+                            val = LongestInteraction.IdInteraction.CustomCallData;
+                        }
                         break;
 
                     case "LongestInteractionDuration": // < T / B >
@@ -1875,44 +1958,42 @@ namespace RTM
 
 
 
+        // [SYNC-PORT 2026-10-15 src=2026-07-30] Case-B / LongestInteraction: the agents table shows the OLDEST interaction
+        // the agent is CURRENTLY handling - voice talking (IsTalk) or chat/email messaging (IsMessaging), never
+        // disconnected. A dead/stale entry left in _calls can no longer surface as the active interaction, nor inflate
+        // the displayed duration. Oldest by add-time, as before. Returns null (add-time MinValue) when nothing is handled.
+        private Call pickLongestHandled(out DateTime addTime)
+        {
+            Call call = null;
+            DateTime dt = DateTime.MaxValue;
+            foreach (var cl in _calls)
+            {
+                var it = cl.Key.IdInteraction;
+                if (it == null || it.IsDisconnected) continue;
+                if (!(it.IsTalk || it.IsMessaging)) continue;
+                if (cl.Value < dt)
+                {
+                    dt = cl.Value;
+                    call = cl.Key;
+                }
+            }
+            addTime = (call != null) ? dt : DateTime.MinValue;
+            return call;
+        }
+
+
         // Longest Interaction
         public Call LongestInteraction
         {
-            get
-            {
-                DateTime dt = DateTime.MaxValue;
-                Call call = null;
-
-                //if (_calls.Where(c=>c.Key.State == "pending" || c.Key.State == "accepted" || c.Key.State == "wrapping").Any())
-                if (_calls.Where(c => c.Key.IdInteraction.IsTalk).Any())
-                {
-                    foreach (var cl in _calls)
-                    {
-                        if (cl.Value < dt)
-                        {
-                            dt = cl.Value;
-                            call = cl.Key;
-                        }
-                    }
-                }
-                return call;
-            }
+            get { return pickLongestHandled(out _); }
         }
 
 
 
-        // Longest Interaction Duration
+        // Longest Interaction Duration (add-time of the same currently-handled interaction)
         public DateTime LongestInteractionDuration
         {
-            get
-            {
-                DateTime dt = DateTime.MinValue;
-                if (_calls.Any())
-                {
-                    dt = _calls.Min(d => d.Value);
-                }
-                return dt;
-            }
+            get { pickLongestHandled(out var t); return t; }
         }
 
     }

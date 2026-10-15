@@ -15,4 +15,9 @@
     <ProjectReference Include="..\RTM.Tools\RTM.Tools.csproj" />
   </ItemGroup>
 
+  <!-- SYNC-PORT 2026-10-15: tests toggle the fail-open kill-switches (internal setters) to cover both branches. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="RTM.Engine.Tests" />
+  </ItemGroup>
+
 </Project>
