@@ -19,6 +19,16 @@
 Запуск: python3 tools/curator_recall_sensor.py [--self-test]
 Прогоняется при КАЖДОМ подъёме куратора (§C его роль-скилла).
 """
+import sys, io as _io
+# Консоль Windows по умолчанию cp1252/cp866 и падает на кириллице в print.
+# Прибор, зелёный только в UTF-8 среде, негоден на машине оператора.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 import os, re, sys, glob
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
