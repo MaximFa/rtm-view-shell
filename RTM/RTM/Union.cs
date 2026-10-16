@@ -265,6 +265,59 @@ namespace RTM
 
 
 
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): evict one interaction from this union's live counters (both bags + key set).
+        public void RemoveInteraction(string key)
+        {
+            QueueInteractions.RemoveKey(key);
+            UsersInteractions.RemoveKey(key);
+            InteractionKeys.TryRemove(key, out _);
+        }
+
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] Live-BU removal: a union whose BU was deleted is frozen until its midnight clear (metrics and bags
+        // kept, routing and membership rules dropped), then reaped. A re-created unionId before midnight revives it.
+        public bool IsFrozen { get; set; }
+
+        // Drop routing rules, membership rules and grid/metric bindings; bags and metric values stay (frozen).
+        public void ClearRouting()
+        {
+            Applics.Clear();
+            Queues.Clear();
+            Classifications.Clear();
+            UserGroups.Clear();
+            UserGridMetrics.Clear();
+            AgentGrids.Clear();
+        }
+
+        // getData drains UsersToRemove only while the union still has members, so a union emptied by a removal would
+        // never send removeUser. Fire the deactivations now for such a union. Returns the number fired.
+        public int DrainRemovedUsersIfEmpty()
+        {
+            if (Users.Count > 0 || UsersToRemove.Count == 0)
+            {
+                return 0;
+            }
+            var leavers = UsersToRemove.ToList();
+            UsersToRemove.Clear();
+            foreach (var user in leavers)
+            {
+                UserUnionDeactivateEvent?.Invoke(this, new UserUnionActivationEventArgs(user.UserData, UnionId));
+            }
+            return leavers.Count;
+        }
+
+        // Reap: remove every subscriber of the union-level events (however many times LoadData wired them).
+        public void ClearAllEventSubscribers()
+        {
+            if (UserGridEvent != null)
+            {
+                foreach (var d in UserGridEvent.GetInvocationList()) UserGridEvent -= (UserGridEventHandler)d;
+            }
+            if (UserUnionDeactivateEvent != null)
+            {
+                foreach (var d in UserUnionDeactivateEvent.GetInvocationList()) UserUnionDeactivateEvent -= (UserUnionDeactivateEventHandler)d;
+            }
+        }
+
         public void midnightClear(IDInteractionsList interactionsList)
         {
             try

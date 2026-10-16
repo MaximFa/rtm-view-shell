@@ -94,6 +94,15 @@ namespace RTM.Configuration
         // FAIL-OPEN: on unless RTM:ColdStartSeedFixEnabled is a literal false.
         public static bool ColdStartSeedFixEnabled { get; internal set; } = true;
 
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): a terminal arriving after midnight for a prior day's interaction is written to its
+        // ORIGIN day's row and evicted from today's live counters. FAIL-OPEN: on unless RTM:BackdatedTerminalEnabled is a literal false.
+        public static bool BackdatedTerminalEnabled { get; internal set; } = true;
+
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] Live-BU removal via /LoadData: queue / classification / agent-group mappings removed in the DB
+        // leave the union at once, a deleted BU is frozen until its midnight clear. FAIL-OPEN: on unless
+        // RTM:LiveBusinessUnitRemovalEnabled is a literal false (then removals wait for a restart, as before).
+        public static bool LiveBusinessUnitRemovalEnabled { get; internal set; } = true;
+
 
         public static void Initialize(IConfiguration configuration, string dataFilePath)
         {
@@ -226,6 +235,22 @@ namespace RTM.Configuration
                     ColdStartSeedFixEnabled = valColdStartSeedFixEnabled;
                 }
 
+                // [SYNC-PORT 2026-10-16 src=2026-07-20] FAIL-OPEN: only a literal "false" restores today's behaviour.
+                BackdatedTerminalEnabled = true;
+                var rawBackdatedTerminalEnabled = configuration["RTM:BackdatedTerminalEnabled"];
+                if (!string.IsNullOrWhiteSpace(rawBackdatedTerminalEnabled) && bool.TryParse(rawBackdatedTerminalEnabled, out var valBackdatedTerminalEnabled))
+                {
+                    BackdatedTerminalEnabled = valBackdatedTerminalEnabled;
+                }
+
+                LiveBusinessUnitRemovalEnabled = true;
+                var rawLiveBusinessUnitRemovalEnabled = configuration["RTM:LiveBusinessUnitRemovalEnabled"];
+                if (!string.IsNullOrWhiteSpace(rawLiveBusinessUnitRemovalEnabled) && bool.TryParse(rawLiveBusinessUnitRemovalEnabled, out var valLiveBusinessUnitRemovalEnabled))
+                {
+                    LiveBusinessUnitRemovalEnabled = valLiveBusinessUnitRemovalEnabled;
+                }
+
+                AsyncLogger.Info($"AppConfig BackdatedTerminalEnabled = {BackdatedTerminalEnabled} LiveBusinessUnitRemovalEnabled = {LiveBusinessUnitRemovalEnabled}");
                 AsyncLogger.Info($"AppConfig WaitStatusAuthorityEnabled = {WaitStatusAuthorityEnabled} ConsultLegCapVerifyEnabled = {ConsultLegCapVerifyEnabled} ConsultLegAbsoluteMaxSeconds = {ConsultLegAbsoluteMaxSeconds} ConsultLegAliveByInteractionEnabled = {ConsultLegAliveByInteractionEnabled} ConsultLegAliveTouchEnabled = {ConsultLegAliveTouchEnabled} CrossChannelOnPhoneGuardEnabled = {CrossChannelOnPhoneGuardEnabled} EmailTypingFixEnabled = {EmailTypingFixEnabled} ColdStartSeedFixEnabled = {ColdStartSeedFixEnabled}");
 
 

@@ -223,7 +223,7 @@ namespace RTM
             string customCallData3, string customCallData4, string customCallData5, string customCallData6, string customCallData7, string customCallData8,
             string customCallData9, string customCallData10, string customCallData11, string customCallData12, string customCallData13, string customCallData14,
             string customCallData15, string customCallData16, string customCallData17, string customCallData18, string customCallData19, string customCallData20, 
-            bool isCallbackRequest, string timeZone, DateTime updateTime)
+            bool isCallbackRequest, string timeZone, DateTime updateTime, DateTime rowDate)
         {
             InteractionDBRequest interactionDBRequest = new InteractionDBRequest
             {
@@ -274,7 +274,8 @@ namespace RTM
                 TimeZone = timeZone,
                 ServerId = _machineName,
                 UpdateTime = updateTime,
-                OnDate = updateTime.Date.ToString("dd/MM/yyyy")
+                // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): row day from IDInteraction.RowDate (origin day when ON, write day when OFF).
+                OnDate = rowDate.Date.ToString("dd/MM/yyyy")
             };
 
             _requestsQueue.Add(interactionDBRequest);

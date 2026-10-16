@@ -369,6 +369,162 @@ namespace RTM
 
 
 
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] Live-BU removal (Bezeq semantics, applied through /LoadData because the Shell writes the DB).
+        private readonly object _configApplyGate = new object();
+
+        // Compare the DB mapping rows with memory and drop what is gone: a queue (QueueId, ALL) or a classification
+        // (ALL, cls) or a specific (queue, cls) applic leaves the union and the union is rebuilt from the global list
+        // (its calls are subtracted at once); an agent group leaves its supergroup clause, an emptied clause is
+        // dropped, members are re-evaluated by refreshUnions at the end of LoadData; a union with no rows at all
+        // is frozen (ClearRouting) until its midnight clear. A frozen union that has rows again is revived.
+        // RTM:LiveBusinessUnitRemovalEnabled = false: a no-op (removals wait for a restart, as before).
+        internal void reconcileRemovedMappings(List<Dictionary<string, string>> qcRows, List<Dictionary<string, string>> ugRows, List<Union> newUnions)
+        {
+            if (!AppConfig.LiveBusinessUnitRemovalEnabled)
+            {
+                return;
+            }
+
+            try
+            {
+                var queues = new Dictionary<int, HashSet<string>>();
+                var classes = new Dictionary<int, HashSet<string>>();
+                var applics = new Dictionary<int, HashSet<QueueClassification>>();
+                var groups = new Dictionary<int, Dictionary<int, HashSet<string>>>();
+                var dbUnions = new HashSet<int>();
+
+                foreach (var r in qcRows)
+                {
+                    int u = Convert.ToInt32(r["UnionId"]);
+                    dbUnions.Add(u);
+                    string q = r["QueueId"], c = r["ClassificationId"];
+                    if (q == "ALL") { if (!classes.ContainsKey(u)) classes[u] = new HashSet<string>(); classes[u].Add(c); }
+                    else if (c == "ALL") { if (!queues.ContainsKey(u)) queues[u] = new HashSet<string>(); queues[u].Add(q); }
+                    else { if (!applics.ContainsKey(u)) applics[u] = new HashSet<QueueClassification>(); applics[u].Add(new QueueClassification(q, c)); }
+                }
+                foreach (var r in ugRows)
+                {
+                    int u = Convert.ToInt32(r["UnionId"]);
+                    dbUnions.Add(u);
+                    int sg = Convert.ToInt32(r["SupergroupId"]);
+                    if (!groups.ContainsKey(u)) groups[u] = new Dictionary<int, HashSet<string>>();
+                    if (!groups[u].ContainsKey(sg)) groups[u][sg] = new HashSet<string>();
+                    groups[u][sg].Add(r["UsergroupId"]);
+                }
+
+                foreach (var union in UnionList.Values)
+                {
+                    int id = union.UnionId;
+                    if (!dbUnions.Contains(id))
+                    {
+                        if (!union.IsFrozen)
+                        {
+                            union.ClearRouting();
+                            union.IsFrozen = true;
+                            AsyncLogger.Info($"LoadData | LIVE_BU | union={id} FROZEN (BU removed; reaped at its midnight clear)");
+                        }
+                        continue;
+                    }
+
+                    if (union.IsFrozen)
+                    {
+                        union.IsFrozen = false;
+                        AsyncLogger.Info($"LoadData | LIVE_BU | union={id} REVIVED");
+                    }
+
+                    bool rebuild = false;
+                    var wantQ = queues.TryGetValue(id, out var wq) ? wq : new HashSet<string>();
+                    foreach (var q in union.Queues.Where(q => !wantQ.Contains(q)).ToList())
+                    {
+                        union.Queues.Remove(q);
+                        rebuild = true;
+                        AsyncLogger.Info($"LoadData | LIVE_BU | union={id} queue={q} REMOVED");
+                    }
+                    var wantC = classes.TryGetValue(id, out var wc) ? wc : new HashSet<string>();
+                    foreach (var c in union.Classifications.Where(c => !wantC.Contains(c)).ToList())
+                    {
+                        union.Classifications.Remove(c);
+                        rebuild = true;
+                        AsyncLogger.Info($"LoadData | LIVE_BU | union={id} classification={c} REMOVED");
+                    }
+                    var wantA = applics.TryGetValue(id, out var wa) ? wa : new HashSet<QueueClassification>();
+                    foreach (var key in union.Applics.Keys.ToList())
+                    {
+                        // (q, ALL) applics come from a queue row, from a classification row (ALL, ALL) or from the rebuild's
+                        // classification matches; once a queue or classification left, drop every one no longer backed by a
+                        // row - the rebuild below re-derives the matches of the classifications that remain.
+                        bool keep = key.ClassificationId == "ALL"
+                            ? !rebuild || (key.QueueId == "ALL" ? union.Classifications.Count > 0 : union.Queues.Contains(key.QueueId))
+                            : wantA.Contains(key);
+                        if (!keep && union.Applics.TryRemove(key, out _))
+                        {
+                            rebuild = true;
+                            AsyncLogger.Info($"LoadData | LIVE_BU | union={id} applic={key.QueueId}/{key.ClassificationId} REMOVED");
+                        }
+                    }
+
+                    var wantG = groups.TryGetValue(id, out var wg) ? wg : new Dictionary<int, HashSet<string>>();
+                    foreach (var sg in union.UserGroups.Keys.ToList())
+                    {
+                        if (!union.UserGroups.TryGetValue(sg, out var clause)) continue;
+                        if (!wantG.TryGetValue(sg, out var keepGroups))
+                        {
+                            union.UserGroups.TryRemove(sg, out _);
+                            AsyncLogger.Info($"LoadData | LIVE_BU | union={id} sg={sg} REMOVED");
+                            continue;
+                        }
+                        int removed = clause.RemoveAll(g => !keepGroups.Contains(g));
+                        if (removed > 0) AsyncLogger.Info($"LoadData | LIVE_BU | union={id} sg={sg} groupsRemoved={removed}");
+                        if (clause.Count == 0)
+                        {
+                            // an empty clause would admit EVERY agent (ContainsAllItems of an empty list is true)
+                            union.UserGroups.TryRemove(sg, out _);
+                        }
+                    }
+
+                    if (rebuild && !newUnions.Contains(union))
+                    {
+                        newUnions.Add(union);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("Engine.reconcileRemovedMappings", ex);
+            }
+        }
+
+        // A union emptied by a removal sends its removeUser now. No-op when the switch is off.
+        internal int drainEmptiedUnions()
+        {
+            if (!AppConfig.LiveBusinessUnitRemovalEnabled)
+            {
+                return 0;
+            }
+            int total = 0;
+            foreach (var union in UnionList.Values)
+            {
+                int fired = union.DrainRemovedUsersIfEmpty();
+                if (fired > 0) AsyncLogger.Info($"LoadData | LIVE_BU | union={union.UnionId} removeUserFired={fired}");
+                total += fired;
+            }
+            return total;
+        }
+
+        // Phase B of the BU removal: after its final midnight clear a frozen union leaves every live structure.
+        internal bool reapIfFrozen(Union union)
+        {
+            if (!union.IsFrozen)
+            {
+                return false;
+            }
+            UnionList.TryRemove(union.UnionId, out _);
+            _lastClearLocalDateByUnion.TryRemove(union.UnionId.ToString(), out _);
+            union.ClearAllEventSubscribers();
+            AsyncLogger.Info($"LoadData | LIVE_BU | union={union.UnionId} REAPED at its midnight clear");
+            return true;
+        }
+
         public void LoadData(bool addAllInteractions)
         {
             try
@@ -564,6 +720,12 @@ namespace RTM
                     }
                 }
 
+
+                // [SYNC-PORT 2026-10-16 src=2026-07-20] Live-BU removal: DB rows are the truth; mappings that disappeared leave memory now.
+                lock (_configApplyGate)
+                {
+                    reconcileRemovedMappings(UnionQueueClassifications, UnionUserGroups, newUnions);
+                }
 
                 AsyncLogger.Info("LoadData: AgentGrids");
                 foreach (var userGrid in AgentGrids.Values)
@@ -768,6 +930,9 @@ namespace RTM
                     userMng.refreshUnions();
                     userMng.ForceRefreshMetrics();
                 }
+
+                // [SYNC-PORT 2026-10-16 src=2026-07-20] A union emptied by a removal sends its removeUser now (getData drains only non-empty unions).
+                drainEmptiedUnions();
 
                 AsyncLogger.Info("LoadData End");
             }
@@ -1197,6 +1362,9 @@ namespace RTM
                         union.midnightClear(_interactionsList);
 
                         AsyncLogger.Info($"UnionClear DONE | union={union.UnionId}");
+
+                        // [SYNC-PORT 2026-10-16 src=2026-07-20] Phase B: a frozen union has had its final clear - remove it everywhere.
+                        reapIfFrozen(union);
                     }
                     catch (Exception ex)
                     {
@@ -1792,6 +1960,9 @@ namespace RTM
 
             string lastMessageSid = await wgMng.interactionRemoved(interactionId, segmentId, isDisconnect, origCallId, localUserId, state, timeInWorkgroupQueue, isCallbackRequest, messageId);
 
+            // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): a prior day's segment closing after midnight leaves today's counters.
+            evictBackdated(_interactionsList.getInteraction(interactionId, segmentId));
+
             //string lastMessageSid = call.IdInteraction.LastMessageSid;
             if (!string.IsNullOrEmpty(lastMessageSid))
             {
@@ -1804,6 +1975,26 @@ namespace RTM
         }
 
 
+
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): evict a backdated interaction from every union's live counters and the global
+        // list; its DB row (IDInteraction.RowDate) carries the origin-day attribution. No-op for a same-day segment or when OFF.
+        internal void evictBackdated(IDInteraction? seg) => evictBackdated(seg, DateTime.UtcNow);
+
+        internal void evictBackdated(IDInteraction? seg, DateTime nowUtc)
+        {
+            if (!AppConfig.BackdatedTerminalEnabled || seg == null || !seg.IsBackdated(nowUtc))
+            {
+                return;
+            }
+
+            string key = seg.Key;
+            foreach (var union in UnionList.Values)
+            {
+                union.RemoveInteraction(key);
+            }
+            _interactionsList.Remove(key);
+            AsyncLogger.Info($"Engine.evictBackdated | EVICTED | interactionId={seg.InteractionId} seg={seg.Segment} origin={seg.OriginLocalDate():dd/MM/yyyy}");
+        }
 
         // [SYNC-PORT 2026-10-15 src=2026-07-15] B2 authoritative terminal (receiving side): on TaskCompleted/TaskCanceled a new
         // adapter sends ONE "interactionRemovedAll" instead of per-reservation removals. Close EVERY active segment of the
@@ -1837,6 +2028,8 @@ namespace RTM
                     }
 
                     string lastMessageSid = await wgMng.interactionRemoved(interactionId, seg.Segment, true, "", seg.UserId, terminalState, TimeSpan.Zero, seg.IsCallbackRequest || isCallbackRequest, messageId);
+                    // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked).
+                    evictBackdated(seg);
                     if (!string.IsNullOrEmpty(lastMessageSid))
                     {
                         // Same message-map cleanup as the per-segment interactionRemoved (ours; the legacy method skipped it).

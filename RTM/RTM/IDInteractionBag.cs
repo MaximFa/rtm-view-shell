@@ -40,6 +40,13 @@ namespace RTM
 
 
 
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): remove one interaction by key (rebuild-filter, like ClearInactive).
+        public void RemoveKey(string key)
+        {
+            Bag = new ConcurrentBag<IDInteraction>(Bag.Where(item => item.Key != key));
+            IsEmpty = Bag.IsEmpty;
+        }
+
         public List<IDInteraction> ClearInactive()
         {
             var oldBag = Bag.ToList();

@@ -1,4 +1,6 @@
 using RTM.Tools;
+// [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): AppConfig.BackdatedTerminalEnabled.
+using RTM.Configuration;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -16,6 +18,8 @@ namespace RTM
 
         public IDInteraction(string interactionId, int segment, DBMng dbMng, bool isDBInserted)
         {
+            // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): origin fallback if neither InQueue nor Answered ever fires.
+            CreatedUtc = DateTime.UtcNow;
             InteractionId = interactionId;
             Segment = segment;
             //Workgroup = workgroup;
@@ -250,9 +254,13 @@ namespace RTM
 
 
 
-        public DateTime getLocalDateTime()
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): the UTC->local step is shared by getLocalDateTime and the origin day, so both
+        // localize identically. Our semantics kept: empty TimeZone => UTC; offset string or Windows/IANA id; unknown => UTC.
+        public DateTime getLocalDateTime() => toLocal(DateTime.UtcNow);
+
+        internal DateTime toLocal(DateTime utc)
         {
-            DateTime localTime = DateTime.UtcNow;
+            DateTime localTime = utc;
 
             if (string.IsNullOrWhiteSpace(TimeZone))
                 return localTime;
@@ -274,7 +282,7 @@ namespace RTM
                 {
                     // Fallback: Windows / IANA timezone ID (e.g. "Israel", "UTC")
                     var tzi = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
-                    offset = tzi.GetUtcOffset(DateTime.UtcNow);
+                    offset = tzi.GetUtcOffset(utc);
                 }
 
                 localTime = localTime.Add(offset);
@@ -286,6 +294,28 @@ namespace RTM
 
             return localTime;
         }
+
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): wall clock (UTC) at construction - the last-resort origin.
+        public DateTime CreatedUtc { get; private set; }
+
+        // ORIGIN day: the local day the interaction entered the queue / was answered, never the write day.
+        public DateTime OriginLocalDate()
+        {
+            if (InQueueDateTime != (DateTime)SqlDateTime.MaxValue)
+            {
+                return InQueueDateTime.Date;
+            }
+            if (AnsweredDateTime != (DateTime)SqlDateTime.MinValue)
+            {
+                return AnsweredDateTime.Date;
+            }
+            return toLocal(CreatedUtc).Date;
+        }
+
+        // True when the origin day is earlier than the current local day (this interaction's own TimeZone).
+        public bool IsBackdated() => IsBackdated(DateTime.UtcNow);
+
+        internal bool IsBackdated(DateTime nowUtc) => OriginLocalDate() < toLocal(nowUtc).Date;
 
 
 
@@ -308,13 +338,17 @@ namespace RTM
 
 
 
+        // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): the DB row day. ON: the origin day, so an after-midnight terminal closes the
+        // prior day's row. OFF: the write day (today's behaviour).
+        internal DateTime RowDate() => AppConfig.BackdatedTerminalEnabled ? OriginLocalDate() : getLocalDateTime();
+
         private void addIntercationRequest()
         {
             _dbMng.addIntercationRequest(IsDBInserted, InteractionId, Segment, Workgroup, ClassificationCode, InteractionType, CallType, Direction, CustomCallData, RemoteAddress, 
                UserId, IsTransferred, IsAnswered, IsInQueue, IsTalk, IsAbandoned, IsMessaging, TimeInQueue, TalkTime, InQueueDateTime, AnsweredDateTime, LastUserId, LastWorkgroup,
                CustomCallData1, CustomCallData2, CustomCallData3, CustomCallData4, CustomCallData5, CustomCallData6, CustomCallData7, CustomCallData8, CustomCallData9, CustomCallData10,
                CustomCallData11, CustomCallData12, CustomCallData13, CustomCallData14, CustomCallData15, CustomCallData16, CustomCallData17, CustomCallData18, CustomCallData19, CustomCallData20, 
-               IsCallbackRequest, TimeZone, getLocalDateTime());
+               IsCallbackRequest, TimeZone, getLocalDateTime(), RowDate());
 
         }
 
