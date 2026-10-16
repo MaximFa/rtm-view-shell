@@ -51,6 +51,17 @@ namespace RTM.Configuration
         // on unless RTM:LastNoPhonePreserveRealStatusEnabled is a literal false.
         public static bool LastNoPhonePreserveRealStatusEnabled { get; internal set; } = true;
 
+        // [SYNC-PORT 2026-10-15 src=2026-08-05] Orphaned-assigned-task reap (eviction + max-live backstop). FAIL-SAFE:
+        // OFF unless RTM:OrphanReapEnabled is a literal true - the family stays OFF everywhere by the legacy deploy rule.
+        public static bool OrphanReapEnabled { get; internal set; } = false;
+
+        // [SYNC-PORT 2026-10-15 src=2026-08-05] Backstop silence threshold (seconds). Default 5400; non-positive/invalid => default.
+        public static int OrphanCallMaxLiveSeconds { get; internal set; } = 5400;
+
+        // [SYNC-PORT 2026-10-15 src=2026-08-06] Segment de-dup in queue metrics and per-agent day counts (one interaction
+        // = one call across its segments). FAIL-OPEN: on unless RTM:SegmentDedupEnabled is a literal false.
+        public static bool SegmentDedupEnabled { get; internal set; } = true;
+
 
         public static void Initialize(IConfiguration configuration, string dataFilePath)
         {
@@ -99,6 +110,31 @@ namespace RTM.Configuration
                 }
 
                 AsyncLogger.Info($"AppConfig.ConsultLegMaxDurationSeconds = {ConsultLegMaxDurationSeconds} OnPhoneReconcileEnabled = {OnPhoneReconcileEnabled} LastNoPhonePreserveRealStatusEnabled = {LastNoPhonePreserveRealStatusEnabled}");
+
+                // [SYNC-PORT 2026-10-15 src=2026-08-05] FAIL-SAFE: only a literal "true" enables the orphan reap.
+                OrphanReapEnabled = false;
+                var orphanRaw = configuration["RTM:OrphanReapEnabled"];
+                if (!string.IsNullOrWhiteSpace(orphanRaw) && bool.TryParse(orphanRaw, out var orphanEnabled))
+                {
+                    OrphanReapEnabled = orphanEnabled;
+                }
+
+                OrphanCallMaxLiveSeconds = 5400;
+                var orphanMaxRaw = configuration["RTM:OrphanCallMaxLiveSeconds"];
+                if (!string.IsNullOrWhiteSpace(orphanMaxRaw) && int.TryParse(orphanMaxRaw, out var orphanMax) && orphanMax > 0)
+                {
+                    OrphanCallMaxLiveSeconds = orphanMax;
+                }
+
+                // [SYNC-PORT 2026-10-15 src=2026-08-06] FAIL-OPEN: only a literal "false" restores the per-segment counting.
+                SegmentDedupEnabled = true;
+                var segDedupRaw = configuration["RTM:SegmentDedupEnabled"];
+                if (!string.IsNullOrWhiteSpace(segDedupRaw) && bool.TryParse(segDedupRaw, out var segDedupEnabled))
+                {
+                    SegmentDedupEnabled = segDedupEnabled;
+                }
+
+                AsyncLogger.Info($"AppConfig.OrphanReapEnabled = {OrphanReapEnabled} OrphanCallMaxLiveSeconds = {OrphanCallMaxLiveSeconds} SegmentDedupEnabled = {SegmentDedupEnabled}");
 
 
                 // Load and decrypt sensitive values from data.sys

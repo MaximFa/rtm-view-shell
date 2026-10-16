@@ -40,6 +40,10 @@ namespace RTM
         // was asserted for, independent of the triggering event's userId (unreliable on re-queue / cancel events).
         public string TaggedRingingUserId { get; set; } = string.Empty;
 
+        // [SYNC-PORT 2026-10-15 src=2026-08-05] Wall-clock of the last engine event for this call (stamped at the top of every
+        // SetCall). The max-live backstop measures silence as now - LastEventUtc; an orphan gets no events after accept.
+        public DateTime LastEventUtc { get; internal set; } = DateTime.Now;
+
 
         //public List<string> Users { get; set; } = new List<string>();
 
@@ -128,6 +132,9 @@ namespace RTM
         {
             try
             {
+                // [SYNC-PORT 2026-10-15 src=2026-08-05] Any engine event for this call counts as activity for the orphan backstop.
+                LastEventUtc = DateTime.Now;
+
                 AsyncLogger.Info($"SetCall InteractionId={InteractionId} SegmentId={segmantId} interactionType={interactionType} callType={callType} direction={direction} state={state} " +
                     $"stateChangedTime={stateChangedTime} workgroup={workgroup} userId={userId} isCallbackRequest={isCallbackRequest} remoteAddress={remoteAddress} customCallData19={customCallData19} customCallData20={customCallData20}");
 
@@ -422,6 +429,12 @@ namespace RTM
                             }
                             else
                             {
+                                // [SYNC-PORT 2026-10-15 src=2026-08-05] Single-voice-line eviction: a NEW primary voice acceptance
+                                // proves any OTHER live voice call still registered for this agent has ended (its terminal was
+                                // lost -> orphan); finalize it first through the normal completed path. Consult legs are excluded.
+                                // FAIL-SAFE: a no-op unless RTM:OrphanReapEnabled is a literal true.
+                                if (!isConsult) userMng.EvictStalePrimaryVoiceCalls(this, stateChangedTime, messageId);
+
                                 if (IdInteraction.Direction == "Incoming")
                                 {
                                     userMng.startIncomingCall(this, IdInteraction.Workgroup);
@@ -609,11 +622,80 @@ namespace RTM
                         }
                         break;
 
+                    // [SYNC-PORT 2026-10-15 src=2026-07-15] B2 terminal case for Engine.interactionRemovedAll ([src=2026-07-20] the
+                    // forceCloseAbandoned label comes with the cause threading). Still queued: dequeue - "forceClose" (cause completed)
+                    // is NOT abandoned (a phantom queued segment), "forceCloseAbandoned" (cause canceled) IS, except callback requests.
+                    // End talk and release the agent only if actually talking; never fabricates an answered record.
+                    case "forceClose":
+                    case "forceCloseAbandoned":
+                        // [SYNC-PORT 2026-10-15 src=2026-08-06] Item-4: a callback opt-out cancel carries isCallbackRequest; mark the
+                        // interaction a callback BEFORE OutQueue so its guard keeps IsAbandoned=false. Abandoning terminal only.
+                        if (state == "forceCloseAbandoned" && isCallbackRequest && !IdInteraction.IsCallbackRequest)
+                        {
+                            IdInteraction.CallbackRequest();
+                        }
+                        if (IdInteraction.IsInQueue)
+                        {
+                            IdInteraction.OutQueue(state == "forceCloseAbandoned");
+                        }
+                        if (IdInteraction.IsTalk)
+                        {
+                            IdInteraction.EndTalk();
+                            if (userMng != null)
+                            {
+                                if (IdInteraction.Direction == "Incoming")
+                                {
+                                    userMng.endIncomingCall(this, IdInteraction.Workgroup);
+                                }
+                                if (direction == "Outgoing")
+                                {
+                                    userMng.endOutgoingCall(this, IdInteraction.Workgroup);
+                                }
+                                userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
+                            }
+                        }
+                        else
+                        {
+                            // [SYNC-PORT 2026-10-15 src=2026-07-30] Ring-only terminal (never answered): clear THIS interaction's
+                            // tagged ring, then evict any dead _calls entry so it cannot surface via LongestInteraction.
+                            clearTaggedRinging(stateChangedTime, messageId);
+                            if (userMng != null) userMng.removeCall(this);
+                        }
+                        AsyncLogger.Info($"SetCall {state} interactionId={InteractionId} seg={segmantId} isAbandoned={IdInteraction.IsAbandoned} isCallbackRequest={IdInteraction.IsCallbackRequest}");
+                        break;
+
                 }
             }
             catch (Exception ex)
             {
                 AsyncLogger.Error("Call.SetCall", ex);
+            }
+        }
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-08-05] Shared finalize primitive for the eviction and the max-live backstop: runs THIS
+        // call through the normal "completed" terminal, the same as a real ReservationCompleted (OutQueue/answered guard, end
+        // talk, LastNoPhone with onPhone false, DB close). Idempotent: a no-op once disconnected or already completed.
+        // Empty CustomCallData keeps the stored customer values.
+        public void FinalizeOrphan(string path, DateTime endTime, long messageId)
+        {
+            try
+            {
+                var it = IdInteraction;
+                if (it == null || it.IsDisconnected || State == "completed") return;
+
+                double silentSec = Math.Max(0, (DateTime.Now - LastEventUtc).TotalSeconds);
+                AsyncLogger.Info($"Call.FinalizeOrphan interactionId={InteractionId} seg={it.Segment} userId={it.UserId} path={path} priorState={State} silentSec={(int)silentSec} endTime={endTime:dd/MM/yyyy HH:mm:ss}");
+
+                SetCall(it.InteractionType, it.Segment, it.CallType, it.Direction, "completed", endTime, it.Workgroup, it.UserId,
+                    TimeSpan.Zero, TimeSpan.Zero, false, "", "", it.ClassificationCode, "",
+                    "", "", new List<string>(), false, it.RemoteAddress, it.LastMessageSid,
+                    "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+                    false, messageId);
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("Call.FinalizeOrphan", ex);
             }
         }
 

@@ -37,6 +37,9 @@ namespace RTM
 
         // [SYNC-PORT 2026-10-15 src=2026-07-15] Consult/warm-transfer (Variant A): stranded-consult-leg sweep timer.
         private System.Threading.Timer? _consultLegTimeoutTimer;
+
+        // [SYNC-PORT 2026-10-15 src=2026-08-05] Orphaned-assigned-task backstop sweep timer.
+        private System.Threading.Timer? _orphanBackstopTimer;
         
 
         // Timers
@@ -347,6 +350,7 @@ namespace RTM
 
                     // [SYNC-PORT 2026-10-15 src=2026-07-15] Retained consult legs are swept for staleness from startup on.
                     startConsultLegTimeoutTimer();
+                    startOrphanBackstopTimer();
                 }
                 catch (Exception ex)
                 {
@@ -1014,6 +1018,45 @@ namespace RTM
             catch (Exception ex)
             {
                 AsyncLogger.Error("Engine.startConsultLegTimeoutTimer", ex);
+            }
+        }
+
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-08-05] Orphaned-assigned-task backstop: periodically finalizes any live voice call
+        // silent (no engine event) longer than RTM:OrphanCallMaxLiveSeconds, through the normal completed terminal path.
+        // Gated by the FAIL-SAFE RTM:OrphanReapEnabled (default OFF => every sweep is a no-op). Period max/20 in 30..120 s.
+        private void startOrphanBackstopTimer()
+        {
+            try
+            {
+                int maxSec = AppConfig.OrphanCallMaxLiveSeconds;
+                int sweepSec = Math.Max(30, Math.Min(120, maxSec / 20));
+
+                _orphanBackstopTimer?.Dispose();
+                _orphanBackstopTimer = new System.Threading.Timer(_ =>
+                {
+                    try
+                    {
+                        if (!AppConfig.OrphanReapEnabled) return;   // re-checked each sweep
+                        var maxAge = TimeSpan.FromSeconds(AppConfig.OrphanCallMaxLiveSeconds);
+                        long messageId = DateTime.UtcNow.Ticks;
+                        foreach (var user in _userManagerList.Values)
+                        {
+                            user.FinalizeStaleSilentVoiceCalls(maxAge, messageId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AsyncLogger.Error("Engine.orphanBackstopTimer", ex);
+                    }
+                }, null, TimeSpan.FromSeconds(sweepSec), TimeSpan.FromSeconds(sweepSec));
+
+                AsyncLogger.Info($"OrphanBackstop timer started maxSec={maxSec} sweepSec={sweepSec} enabled={AppConfig.OrphanReapEnabled}");
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("Engine.startOrphanBackstopTimer", ex);
             }
         }
 
@@ -1755,6 +1798,57 @@ namespace RTM
 
             AsyncLogger.Info("interactionRemoved:  interactionId=" + interactionId + " segmentId=" + segmentId + " origCallId=" + origCallId + " isCallbackRequest=" + isCallbackRequest +
                 " timeStamp=" + timeStamp.ToString("dd/MM/yyyy HH:mm:ss") + " messageId=" + messageId);
+        }
+
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] B2 authoritative terminal (receiving side): on TaskCompleted/TaskCanceled a new
+        // adapter sends ONE "interactionRemovedAll" instead of per-reservation removals. Close EVERY active segment of the
+        // interaction from the engine's own bookkeeping, so a segment orphaned by an adapter queue-move desync still ends.
+        // [SYNC-PORT 2026-10-15 src=2026-07-20] Cause threading: cause "canceled" (the real caller-abandon) closes a still-queued
+        // segment as abandoned ("forceCloseAbandoned"); anything else ("completed", absent) closes it without abandoning.
+        // [SYNC-PORT 2026-10-15 src=2026-08-06] Item-4: isCallbackRequest is OR-combined with each segment's own flag, so a
+        // callback opt-out cancel is not counted as abandoned. The production adapter never sends this method: the path sleeps
+        // until the adapter round (A2). (The legacy backdated-terminal eviction inside this method is a separate decision, D4.)
+        public async Task interactionRemovedAll(string interactionId, string cause, DateTime timeStamp, long messageId, bool isCallbackRequest = false)
+        {
+            try
+            {
+                string terminalState = (cause == "canceled") ? "forceCloseAbandoned" : "forceClose";
+
+                // (1) Retained consult legs first (every workgroup), through their own idempotent finalize path.
+                foreach (var wg in _workgroupManagerList.Values)
+                {
+                    await wg.FinalizeConsultLegsForInteraction(interactionId);
+                }
+
+                // (2) Every remaining active segment through its OWN workgroup, real terminal path.
+                var activeSegments = _interactionsList.GetActiveSegments(interactionId);
+
+                foreach (var seg in activeSegments)
+                {
+                    var wgMng = getOrAddWGManager(seg.Workgroup, _userManagerList, CallsList, _lastDisconnectedQ, _applicList, _interactionsList, _dbMng, "interactionRemovedAll");
+                    if (wgMng == null)
+                    {
+                        continue;
+                    }
+
+                    string lastMessageSid = await wgMng.interactionRemoved(interactionId, seg.Segment, true, "", seg.UserId, terminalState, TimeSpan.Zero, seg.IsCallbackRequest || isCallbackRequest, messageId);
+                    if (!string.IsNullOrEmpty(lastMessageSid))
+                    {
+                        // Same message-map cleanup as the per-segment interactionRemoved (ours; the legacy method skipped it).
+                        MessageInteractions?.TryRemove(lastMessageSid, out _);
+                        ActiveMessages?.TryRemove(lastMessageSid, out _);
+                    }
+                }
+
+                AsyncLogger.Info($"interactionRemovedAll: interactionId={interactionId} cause={cause} state={terminalState} segments={activeSegments.Count} isCallbackRequest={isCallbackRequest} " +
+                    "timeStamp=" + timeStamp.ToString("dd/MM/yyyy HH:mm:ss") + " messageId=" + messageId);
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("Engine.interactionRemovedAll interactionId=" + interactionId, ex);
+            }
         }
 
 
@@ -2617,6 +2711,24 @@ namespace RTM
 
 
 
+        // [SYNC-PORT 2026-10-15 src=2026-08-06] Reference set for runtime-compiled metric templates. RTM.Configuration is
+        // removed from the trusted platform list: AppConfig is public static and holds DB / Kestrel / licence secrets, so a
+        // template must not be able to name it. Templates read the de-dup switch through RTM.MetricTemplateSwitches instead.
+        internal static List<MetadataReference> buildTemplateReferences()
+        {
+            string configAssemblyFile = Path.GetFileName(typeof(RTM.Configuration.AppConfig).Assembly.Location);
+            var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+                .Split(Path.PathSeparator)
+                .Where(p => File.Exists(p))
+                .Where(p => !string.Equals(Path.GetFileName(p), configAssemblyFile, StringComparison.OrdinalIgnoreCase))
+                .Select(p => MetadataReference.CreateFromFile(p))
+                .Cast<MetadataReference>()
+                .ToList();
+            // Add RTM assembly (for IDInteraction, MetricTemplateSwitches, etc.)
+            references.Add(MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location));
+            return references;
+        }
+
         public void CompileAndSetUserMetricFunction(MetricDef metricDef, string functionBody)
         {
             string codeToCompile = string.Empty;
@@ -2642,15 +2754,8 @@ namespace RTM
                 // Parse the source code into a syntax tree
                 var syntaxTree = CSharpSyntaxTree.ParseText(codeToCompile);
 
-                // .NET 8: Use TRUSTED_PLATFORM_ASSEMBLIES for all runtime references
-                var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-                    .Split(Path.PathSeparator)
-                    .Where(p => File.Exists(p))
-                    .Select(p => MetadataReference.CreateFromFile(p))
-                    .Cast<MetadataReference>()
-                    .ToList();
-                // Add RTM assembly (for IDInteraction, etc.)
-                trustedAssemblies.Add(MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location));
+                // [SYNC-PORT 2026-10-15 src=2026-08-06] References come from buildTemplateReferences(): RTM.Configuration (secrets) is excluded.
+                var trustedAssemblies = buildTemplateReferences();
 
                 // Compile the syntax tree into an assembly
                 var compilation = CSharpCompilation.Create($"Metric{metricDef.ID}Assembly",
@@ -2720,15 +2825,8 @@ namespace RTM
                 // Parse the source code into a syntax tree
                 var syntaxTree = CSharpSyntaxTree.ParseText(codeToCompile);
 
-                // .NET 8: Use TRUSTED_PLATFORM_ASSEMBLIES for all runtime references
-                var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-                    .Split(Path.PathSeparator)
-                    .Where(p => File.Exists(p))
-                    .Select(p => MetadataReference.CreateFromFile(p))
-                    .Cast<MetadataReference>()
-                    .ToList();
-                // Add RTM assembly (for IDInteraction, etc.)
-                trustedAssemblies.Add(MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location));
+                // [SYNC-PORT 2026-10-15 src=2026-08-06] References come from buildTemplateReferences(): RTM.Configuration (secrets) is excluded.
+                var trustedAssemblies = buildTemplateReferences();
 
                 // Compile the syntax tree into an assembly
                 var compilation = CSharpCompilation.Create($"Metric{metricDef.ID}Assembly",
@@ -2804,15 +2902,8 @@ namespace RTM
                 // Parse the source code into a syntax tree
                 var syntaxTree = CSharpSyntaxTree.ParseText(codeToCompile);
 
-                // .NET 8: Use TRUSTED_PLATFORM_ASSEMBLIES for all runtime references
-                var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-                    .Split(Path.PathSeparator)
-                    .Where(p => File.Exists(p))
-                    .Select(p => MetadataReference.CreateFromFile(p))
-                    .Cast<MetadataReference>()
-                    .ToList();
-                // Add RTM assembly (for IDInteraction, etc.)
-                trustedAssemblies.Add(MetadataReference.CreateFromFile(typeof(IDInteraction).Assembly.Location));
+                // [SYNC-PORT 2026-10-15 src=2026-08-06] References come from buildTemplateReferences(): RTM.Configuration (secrets) is excluded.
+                var trustedAssemblies = buildTemplateReferences();
 
                 // Compile the syntax tree into an assembly
                 var compilation = CSharpCompilation.Create($"Metric{metricDef.ID}Assembly",
@@ -3111,11 +3202,13 @@ namespace RTM
 
             // answeredCountFunction
             // =====================
+            // [SYNC-PORT 2026-10-15 src=2026-08-06] Segment de-dup: one interaction = one answered call across its segments.
             string answeredCountFunction = @"
                 int cnt = 0;
                 if (applicAny)
                 {
-                    cnt = Bag.Where(i => i.IsAnswered && (METRIC_PARAMETER)).Count();
+                    var _a = Bag.Where(i => i.IsAnswered && (METRIC_PARAMETER));
+                    cnt = RTM.MetricTemplateSwitches.SegmentDedupEnabled ? _a.Select(i => i.InteractionId).Distinct().Count() : _a.Count();
                 }
                 return cnt.ToString();";
             MetricFunctionList.TryAdd("AnsweredCount", answeredCountFunction);
@@ -3123,11 +3216,13 @@ namespace RTM
 
             // abandonedCountFunction
             // ======================
+            // [SYNC-PORT 2026-10-15 src=2026-08-06] Segment de-dup: one interaction = one abandoned call.
             string abandonedCountFunction = @"
                 int cnt = 0;
                 if (applicAny)
                 {
-                    cnt = Bag.Where(i => i.IsAbandoned && (METRIC_PARAMETER)).Count(); 
+                    var _a = Bag.Where(i => i.IsAbandoned && (METRIC_PARAMETER));
+                    cnt = RTM.MetricTemplateSwitches.SegmentDedupEnabled ? _a.Select(i => i.InteractionId).Distinct().Count() : _a.Count();
                 }
                 return cnt.ToString();";
             MetricFunctionList.TryAdd("AbandonedCount", abandonedCountFunction);
@@ -3135,15 +3230,19 @@ namespace RTM
 
             // answeredPercentFunction
             // =======================
+            // [SYNC-PORT 2026-10-15 src=2026-08-06] Segment de-dup in BOTH numerator and denominator; our empty-on-no-data kept.
             string answeredPercentFunction = @"
                 double dCalc = 0;
                 bool hasValue = false;
                 if (applicAny)
                 {
-                    int incomingCount = Bag.Where(i => METRIC_PARAMETER).Count();
+                    bool _dd = RTM.MetricTemplateSwitches.SegmentDedupEnabled;
+                    var _inc = Bag.Where(i => METRIC_PARAMETER);
+                    int incomingCount = _dd ? _inc.Select(i => i.InteractionId).Distinct().Count() : _inc.Count();
                     if (incomingCount > 0)
                     {
-                        int answeredCount = Bag.Where(i => i.IsAnswered && (METRIC_PARAMETER)).Count();
+                        var _ans = Bag.Where(i => i.IsAnswered && (METRIC_PARAMETER));
+                        int answeredCount = _dd ? _ans.Select(i => i.InteractionId).Distinct().Count() : _ans.Count();
                         dCalc = (double)answeredCount / incomingCount;
                         hasValue = true;
                     }
@@ -3154,16 +3253,19 @@ namespace RTM
 
             // abandonedPercentFunction
             // ========================
+            // [SYNC-PORT 2026-10-15 src=2026-08-06] Segment de-dup in BOTH numerator and denominator; our empty-on-no-data kept.
             string abandonedPercentFunction = @"
                 double dCalc = 0;
                 bool hasValue = false;
                 if (applicAny)
                 {
-                    var ans =  Bag.Where(i => METRIC_PARAMETER);
-                    int incomingCount1 = Bag.Where(i => METRIC_PARAMETER).Count();
+                    bool _dd = RTM.MetricTemplateSwitches.SegmentDedupEnabled;
+                    var _inc = Bag.Where(i => METRIC_PARAMETER);
+                    int incomingCount1 = _dd ? _inc.Select(i => i.InteractionId).Distinct().Count() : _inc.Count();
                     if (incomingCount1 > 0)
                     {
-                        int abandonCount = Bag.Where(i => i.IsAbandoned && (METRIC_PARAMETER)).Count();
+                        var _ab = Bag.Where(i => i.IsAbandoned && (METRIC_PARAMETER));
+                        int abandonCount = _dd ? _ab.Select(i => i.InteractionId).Distinct().Count() : _ab.Count();
                         dCalc = (double)abandonCount / incomingCount1;
                         hasValue = true;
                     }
@@ -3174,8 +3276,11 @@ namespace RTM
 
             // interactionsCountFunction
             // =========================
+            // [SYNC-PORT 2026-10-15 src=2026-08-06] Segment de-dup: count DISTINCT interactionId (an interaction counts if ANY
+            // of its segments matches); a literal false restores the per-segment count.
             string interactionsCountFunction = @"
-                int cnt = Bag.Where(i => METRIC_PARAMETER).Count();          
+                var _f = Bag.Where(i => METRIC_PARAMETER);
+                int cnt = RTM.MetricTemplateSwitches.SegmentDedupEnabled ? _f.Select(i => i.InteractionId).Distinct().Count() : _f.Count();
                 return cnt.ToString();";
             MetricFunctionList.TryAdd("InteractionsCount", interactionsCountFunction);
 
@@ -3183,8 +3288,10 @@ namespace RTM
 
             // CPHFunctionFunction
             // =========================
+            // [SYNC-PORT 2026-10-15 src=2026-08-06] Segment de-dup: distinct interactionId.
             string CPHFunction = @"
-                int cnt = Bag.Where(i => METRIC_PARAMETER).Count();          
+                var _f = Bag.Where(i => METRIC_PARAMETER);
+                int cnt = RTM.MetricTemplateSwitches.SegmentDedupEnabled ? _f.Select(i => i.InteractionId).Distinct().Count() : _f.Count();
                 return cnt.ToString();";
             MetricFunctionList.TryAdd("CPH", CPHFunction);
 
@@ -3473,13 +3580,17 @@ namespace RTM
 
             // waitDurationAvgFunction
             // =======================
+            // [SYNC-PORT 2026-10-15 src=2026-08-06] Segment de-dup: average over ONE wait per interaction (its longest single wait).
             string waitDurationAvgFunction = @"
                 string avg = string.Empty;
                 var ans =  Bag.Where(i => METRIC_PARAMETER);
-                long count = ans.Count();
+                var _w = RTM.MetricTemplateSwitches.SegmentDedupEnabled
+                    ? ans.GroupBy(i => i.InteractionId).Select(g => (double)g.Max(x => x.TimeInQueue)).ToList()
+                    : ans.Select(i => (double)i.TimeInQueue).ToList();
+                long count = _w.Count;
                 if (count > 0)
                 {
-                    long sum = Convert.ToInt64(ans.Select(i => i.TimeInQueue).Sum());
+                    long sum = Convert.ToInt64(_w.Sum());
                     int tdais = Convert.ToInt32(sum / count);
                     TimeSpan tsaSp = new TimeSpan(0, 0, tdais);
                     avg = tsaSp.ToString(@""hh\:mm\:ss"");
@@ -3510,13 +3621,17 @@ namespace RTM
 
             // talkDurationAvgFunction
             // =======================
+            // [SYNC-PORT 2026-10-15 src=2026-08-06] Segment de-dup: ONE talk time per interaction (sum of its answered segments).
             string talkDurationAvgFunction = @"
                 string avg = string.Empty;   
                 var ans = Bag.Where(i => i.IsAnswered && (METRIC_PARAMETER));
-                long cnt = ans.Count();
+                var _t = RTM.MetricTemplateSwitches.SegmentDedupEnabled
+                    ? ans.GroupBy(i => i.InteractionId).Select(g => g.Sum(x => x.TalkTime)).ToList()
+                    : ans.Select(i => i.TalkTime).ToList();
+                long cnt = _t.Count;
                 if (cnt > 0)
                 {
-                    long sum = Convert.ToInt64(ans.Select(i => i.TalkTime).Sum());
+                    long sum = Convert.ToInt64(_t.Sum());
                     int tdais = Convert.ToInt32(sum / cnt);
                     TimeSpan ts = new TimeSpan(0, 0, tdais);
                     avg = ts.ToString(@""hh\:mm\:ss"");

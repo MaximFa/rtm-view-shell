@@ -324,6 +324,28 @@ namespace RTM
 
 
 
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] Authoritative terminal helper: finalize every retained consult leg of one
+        // interaction (Engine.interactionRemovedAll calls it before closing the remaining active segments).
+        public async Task FinalizeConsultLegsForInteraction(string interactionId)
+        {
+            try
+            {
+                foreach (var kvp in _consultRetainedLegs)
+                {
+                    if (kvp.Value.InteractionId == interactionId && _consultRetainedLegs.TryRemove(kvp.Key, out var leg))
+                    {
+                        await finalizeConsultLeg(leg, "completed", "", leg.InitiatorUserId, TimeSpan.Zero, false, DateTime.UtcNow.Ticks, "REMOVED_ALL");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("WorkgroupManager.FinalizeConsultLegsForInteraction", ex);
+            }
+        }
+
+
+
         public async Task<Call> interactionAction(
             bool isAdded, string interactionId, int segmentId, bool isDisconnect, string callType, string interactionType,
             string direction, string state, DateTime stateChangedTime,

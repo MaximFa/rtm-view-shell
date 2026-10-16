@@ -201,6 +201,10 @@ namespace RTM
                     case "interactionRemoved":
                         await interactionRemoved(dic, jsnonString);
                         break;
+                    // [SYNC-PORT 2026-10-15 src=2026-07-15] B2 bulk terminal from a new adapter; the production adapter never sends it.
+                    case "interactionRemovedAll":
+                        await interactionRemovedAll(dic, jsnonString);
+                        break;
                     case "setUsers":
                         setUsers(dic, jsnonString);
                         break;
@@ -406,6 +410,39 @@ namespace RTM
             catch (Exception ex)
             {
                 AsyncLogger.Error("interactionRemoved " + jsnonString, ex);
+            }
+        }
+
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-20] Wire defaults of interactionRemovedAll, kept backward compatible: an adapter
+        // that sends no "cause" (or anything but "canceled") gets the non-abandoning terminal "completed"; [src=2026-08-06]
+        // an absent "isCallbackRequest" is false. Only an explicit "canceled" abandons a still-queued segment.
+        internal static (string cause, bool isCallbackRequest) ParseRemovedAllOptions(Dictionary<string, object> dic)
+        {
+            string cause = "completed";
+            if (dic.TryGetValue("cause", out var causeObj) && DictionarySerializer.getString(causeObj) == "canceled")
+            {
+                cause = "canceled";
+            }
+            bool isCallbackRequest = dic.TryGetValue("isCallbackRequest", out var cbObj) && DictionarySerializer.getBool(cbObj);
+            return (cause, isCallbackRequest);
+        }
+
+        private async Task interactionRemovedAll(Dictionary<string, object> dic, string jsnonString)
+        {
+            try
+            {
+                string interactionId = DictionarySerializer.getString(dic["interactionId"]);
+                DateTime timeStamp = DictionarySerializer.getDateTime(dic["timeStamp"]);
+                long messageId = DictionarySerializer.getLong(dic["messageId"]);
+                var (cause, isCallbackRequest) = ParseRemovedAllOptions(dic);
+
+                await _engine.interactionRemovedAll(interactionId, cause, timeStamp, messageId, isCallbackRequest);
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("interactionRemovedAll " + jsnonString, ex);
             }
         }
 

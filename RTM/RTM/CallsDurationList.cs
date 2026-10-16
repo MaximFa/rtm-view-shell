@@ -1,4 +1,5 @@
-﻿using RTM.Tools;
+﻿using RTM.Configuration;   // [SYNC-PORT 2026-10-15 src=2026-08-06] AppConfig.SegmentDedupEnabled
+using RTM.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +14,11 @@ namespace RTM
         private TimeSpan _duration = TimeSpan.Zero;
         private int _callsCount = 0;
         private string _name = string.Empty;
+
+        // [SYNC-PORT 2026-10-15 src=2026-08-06] Per-agent day-scoped de-dup: interactionIds already credited today. A re-cycling
+        // interaction (Add -> Remove -> Add across segments) credits this agent ONCE per day; distinct calls, and two different
+        // agents on a transferred interaction, each still credit. Cleared at midnight. Rides RTM:SegmentDedupEnabled (fail-open).
+        private readonly HashSet<string> _countedToday = new HashSet<string>();
 
 
 
@@ -54,7 +60,13 @@ namespace RTM
                 if (!activeCalls.ContainsKey(interactionId))
                 {
                     activeCalls.Add(interactionId, DateTime.Now);
-                    _callsCount++;
+
+                    // [SYNC-PORT 2026-10-15 src=2026-08-06] Credit once per interaction per day; a literal false = every active period.
+                    bool firstToday = _countedToday.Add(interactionId);
+                    if (!AppConfig.SegmentDedupEnabled || firstToday)
+                    {
+                        _callsCount++;
+                    }
                 }
             }
             catch (Exception ex)
@@ -162,6 +174,7 @@ namespace RTM
         {
             _callsCount = 0;
             _duration = TimeSpan.Zero;
+            _countedToday.Clear();   // [SYNC-PORT 2026-10-15 src=2026-08-06] reset the day-scoped de-dup set
         }
 
     }

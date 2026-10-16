@@ -329,6 +329,96 @@ namespace RTM
         }
 
 
+        // [SYNC-PORT 2026-10-15 src=2026-08-05] Orphaned-assigned-task fix, path=Evicted (single voice line). Called from the
+        // PRIMARY voice "accepted" branch: an agent cannot be on two primary voice calls, so accepting one proves any OTHER live
+        // voice call still registered here ended (its terminal was lost). Never touches the consult pair's other segment (same
+        // interactionId) or a HELD leg. FAIL-SAFE: no-op unless RTM:OrphanReapEnabled is a literal true.
+        public void EvictStalePrimaryVoiceCalls(Call newCall, DateTime now, long messageId)
+        {
+            if (!AppConfig.OrphanReapEnabled) return;
+            try
+            {
+                foreach (var cl in _calls)
+                {
+                    var old = cl.Key;
+                    if (old == newCall) continue;
+                    var it = old.IdInteraction;
+                    if (it == null || it.IsDisconnected || !it.IsTalk) continue;                          // live only
+                    if (it.InteractionType == "Chat" || it.InteractionType == "Email") continue;          // voice only
+                    if (!string.IsNullOrEmpty(newCall.InteractionId) && newCall.InteractionId == old.InteractionId) continue; // consult pair
+                    if (it.IsHeld) continue;                                                              // hold/consult leg
+                    AsyncLogger.Info($"UserManager.EvictStalePrimaryVoiceCalls userId={userId} evicted={old.InteractionId} by={newCall.InteractionId}");
+                    old.FinalizeOrphan("Evicted", now, messageId);
+                }
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("UserManager.EvictStalePrimaryVoiceCalls", ex);
+            }
+        }
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-08-05] Orphaned-assigned-task fix, path=Backstop: swept by Engine's orphan timer.
+        // Finalizes any live, un-held voice call SILENT (no engine event, Call.LastEventUtc) longer than maxAge.
+        // FAIL-SAFE: no-op unless RTM:OrphanReapEnabled. (The legacy third path "Reaped" ships disabled there and is not ported.)
+        public void FinalizeStaleSilentVoiceCalls(TimeSpan maxAge, long messageId)
+        {
+            FinalizeStaleSilentVoiceCalls(maxAge, messageId, DateTime.Now);
+        }
+
+        internal void FinalizeStaleSilentVoiceCalls(TimeSpan maxAge, long messageId, DateTime now)
+        {
+            if (!AppConfig.OrphanReapEnabled) return;
+            try
+            {
+                foreach (var cl in _calls)
+                {
+                    var call = cl.Key;
+                    var it = call.IdInteraction;
+                    if (it == null || it.IsDisconnected || !it.IsTalk) continue;
+                    if (it.InteractionType == "Chat" || it.InteractionType == "Email") continue;
+                    if (it.IsHeld) continue;
+                    if ((now - call.LastEventUtc) >= maxAge)
+                    {
+                        AsyncLogger.Error($"UserManager.FinalizeStaleSilentVoiceCalls BACKSTOP userId={userId} interactionId={call.InteractionId} seg={it.Segment} silentSec={(int)(now - call.LastEventUtc).TotalSeconds} maxSec={(int)maxAge.TotalSeconds}");
+                        call.FinalizeOrphan("Backstop", now, messageId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("UserManager.FinalizeStaleSilentVoiceCalls", ex);
+            }
+        }
+
+
+        // [SYNC-PORT 2026-10-15 src=2026-07-30] Case-B hygiene: lightweight _calls eviction for a terminal that did NOT run the
+        // talking-end path (a forceClose of a never-talking segment). Removes it from the active set (LongestInteraction can never
+        // surface it), unsubscribes, recomputes the frozen calc status when the last call leaves. Talk sums untouched. Idempotent.
+        public void removeCall(Call call)
+        {
+            try
+            {
+                if (_calls.TryRemove(call, out _))
+                {
+                    call.CallStateChangedEvent -= call_CallStateChangedEvent;
+                    _isHoldChanged = true;
+
+                    if (!_calls.Any())
+                    {
+                        _calculatedStatus = _userStatus;
+                        _calculatedStatusTime = _userStatusStart;
+                    }
+                    IsChanged = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("UserManager.removeCall", ex);
+            }
+        }
+
+
         // Set Status
         public void setStatus(bool isLoggedIn, string newStatus, string statusName, string statusGroup, DateTime statusChanged, string station, bool onPhone, DateTime oOnPhoneChanged, long messageId, bool isCalcStatus)
         {

@@ -76,6 +76,15 @@ namespace RTM
             _unionList.addQueueInteraction(interaction);
         }
 
+        // [SYNC-PORT 2026-10-15 src=2026-07-15] All still-active segments of an interaction: the source of truth for the
+        // authoritative bulk terminal (Engine.interactionRemovedAll).
+        public List<IDInteraction> GetActiveSegments(string interactionId)
+        {
+            return _interactions.Values
+                .Where(i => i != null && i.InteractionId == interactionId && !i.IsDisconnected)
+                .ToList();
+        }
+
         public void Remove(string interactionKey)
         {
             if (_interactions.TryRemove(interactionKey, out var removed) && removed != null)
