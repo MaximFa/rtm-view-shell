@@ -1,5 +1,7 @@
 ﻿using Microsoft.VisualBasic;
 using RTM.Tools;
+// [SYNC-PORT 2026-10-16 src=2026-08-19] Fix C / safety circle / 09-07 switches live in AppConfig.
+using RTM.Configuration;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -36,6 +38,27 @@ namespace RTM
             public string InitiatorUserId { get; }
             public DateTime RetainedAtUtc { get; }
 
+            // [SYNC-PORT 2026-10-16 src=2026-08-19] Fix C: cap anchor + extension counter (verify-before-kill re-arms the cap). The anchor
+            // starts AT RetainedAtUtc, so with the switch off the cap age is exactly the retained age.
+            public DateTime CapAnchorUtc { get; private set; }
+            public int CapExtensions { get; private set; }
+
+            public void ExtendCap(DateTime nowUtc)
+            {
+                CapAnchorUtc = nowUtc;
+                CapExtensions++;
+            }
+
+            // [SYNC-PORT 2026-10-16 src=2026-09-07] Retained-leg real fix, change 2: a real event on this leg re-anchors the cap.
+            // Counted apart from CapExtensions so the two sources stay distinguishable.
+            public int AliveTouches { get; private set; }
+
+            public void TouchAlive(DateTime nowUtc)
+            {
+                CapAnchorUtc = nowUtc;
+                AliveTouches++;
+            }
+
             public RetainedConsultLeg(Call call, string interactionId, int segment, string initiatorUserId, DateTime retainedAtUtc)
             {
                 Call = call;
@@ -43,11 +66,18 @@ namespace RTM
                 Segment = segment;
                 InitiatorUserId = initiatorUserId;
                 RetainedAtUtc = retainedAtUtc;
+                CapAnchorUtc = retainedAtUtc;
             }
         }
 
         // Number of legs currently retained (observability and tests).
         public int RetainedConsultLegCount => _consultRetainedLegs.Count;
+
+        // [SYNC-PORT 2026-10-16 src=2026-08-19] Observability for tests: cap state of one retained leg, null when it is not retained.
+        internal (DateTime CapAnchorUtc, int CapExtensions, int AliveTouches)? RetainedLegCapState(string interactionId, int segment) =>
+            _consultRetainedLegs.TryGetValue(RetainedKey(interactionId, segment), out var leg)
+                ? (leg.CapAnchorUtc, leg.CapExtensions, leg.AliveTouches)
+                : null;
 
 
 
@@ -304,15 +334,35 @@ namespace RTM
                     var leg = kvp.Value;
                     TimeSpan age = nowUtc.Subtract(leg.RetainedAtUtc);
 
-                    if (age < maxAge)
+                    // [SYNC-PORT 2026-10-16 src=2026-08-19] Fix C: the cap window is measured from the cap anchor (== RetainedAtUtc until
+                    // the first extension); an expired window on a leg the engine still sees alive re-arms instead of finalizing.
+                    TimeSpan capAge = AppConfig.ConsultLegCapVerifyEnabled ? nowUtc.Subtract(leg.CapAnchorUtc) : age;
+
+                    // [SYNC-PORT 2026-10-16 src=2026-08-19] Safety circle: the ABSOLUTE ceiling on the total retained age, last resort when the
+                    // terminal was lost and every sample failed. Gated on the same switch: with verify OFF a leg never outlives the cap.
+                    // [SYNC-PORT 2026-10-16 src=2026-09-07] Evaluated BEFORE the cap-window early exit: alive touches can keep
+                    // capAge below maxAge forever, which would otherwise make the ceiling unreachable.
+                    bool absoluteCapHit = AppConfig.ConsultLegCapVerifyEnabled
+                                          && AppConfig.ConsultLegAbsoluteMaxSeconds > 0
+                                          && age.TotalSeconds >= AppConfig.ConsultLegAbsoluteMaxSeconds;
+
+                    if (capAge < maxAge && !absoluteCapHit)
                     {
+                        continue;
+                    }
+
+                    if (AppConfig.ConsultLegCapVerifyEnabled && !absoluteCapHit && IsLegTaskAlive(leg))
+                    {
+                        leg.ExtendCap(nowUtc);
+                        AsyncLogger.Info($"WorkgroupManager.FinalizeStaleConsultLegs | KEPT | ConsultLegCapExtended wg={_id} interactionId={leg.InteractionId} seg={leg.Segment} extensions={leg.CapExtensions} aliveTouches={leg.AliveTouches} ageSec={(int)age.TotalSeconds} maxSec={(int)maxAge.TotalSeconds}");
                         continue;
                     }
 
                     if (_consultRetainedLegs.TryRemove(kvp.Key, out var stale))
                     {
-                        AsyncLogger.Error($"WorkgroupManager.FinalizeStaleConsultLegs | TIMEOUT | wg={_id} interactionId={stale.InteractionId} seg={stale.Segment} initiator={stale.InitiatorUserId} ageSec={(int)age.TotalSeconds} maxSec={(int)maxAge.TotalSeconds}");
-                        await finalizeConsultLeg(stale, "completed", "", stale.InitiatorUserId, TimeSpan.Zero, false, DateTime.UtcNow.Ticks, "TIMEOUT");
+                        string reason = absoluteCapHit ? "ABSOLUTE_CAP" : "TIMEOUT";
+                        AsyncLogger.Error($"WorkgroupManager.FinalizeStaleConsultLegs | {reason} | wg={_id} interactionId={stale.InteractionId} seg={stale.Segment} initiator={stale.InitiatorUserId} extensions={stale.CapExtensions} aliveTouches={stale.AliveTouches} ageSec={(int)age.TotalSeconds} maxSec={(int)maxAge.TotalSeconds} absMaxSec={AppConfig.ConsultLegAbsoluteMaxSeconds}");
+                        await finalizeConsultLeg(stale, "completed", "", stale.InitiatorUserId, TimeSpan.Zero, false, DateTime.UtcNow.Ticks, reason);
                     }
                 }
             }
@@ -323,6 +373,47 @@ namespace RTM
         }
 
 
+
+        // [SYNC-PORT 2026-10-16 src=2026-09-07] Alive test of Fix C, change 1: asks about THIS leg. A genuine task terminal already
+        // removed the leg from the registry (interactionRemovedAll finalizes retained legs first; a per-segment terminal takes
+        // the retained branch), so a leg still present at cap expiry received NO terminal; it is alive iff its own record is live.
+        // RTM:ConsultLegAliveByInteractionEnabled = false restores the 08-19 rule (also require another active segment).
+        private bool IsLegTaskAlive(RetainedConsultLeg leg)
+        {
+            try
+            {
+                if (leg == null)
+                {
+                    return false;   // no leg record => nothing proves it alive => finalize (07-15 behaviour)
+                }
+
+                var it = leg.Call?.IdInteraction;
+                if (it == null || it.IsDisconnected || !it.IsTalk)
+                {
+                    return false;
+                }
+
+                if (AppConfig.ConsultLegAliveByInteractionEnabled)
+                {
+                    return true;
+                }
+
+                foreach (var seg in _interactionsList.GetActiveSegments(leg.InteractionId))
+                {
+                    if (seg.Segment != leg.Segment)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("WorkgroupManager.IsLegTaskAlive", ex);
+                return false;   // unknown => finalize (the 07-15 behaviour)
+            }
+        }
 
         // [SYNC-PORT 2026-10-15 src=2026-07-15] Authoritative terminal helper: finalize every retained consult leg of one
         // interaction (Engine.interactionRemovedAll calls it before closing the remaining active segments).
@@ -371,6 +462,14 @@ namespace RTM
                 if (_consultRetainedLegs.TryGetValue(RetainedKey(interactionId, segmentId), out var retainedForEvent))
                 {
                     call = retainedForEvent.Call;
+
+                    // [SYNC-PORT 2026-10-16 src=2026-09-07] Retained-leg real fix, change 2: an event addressed to this retained segment is
+                    // proof the leg exists (including the adapter's post-sample alive re-assert), so it re-anchors the cap.
+                    if (AppConfig.ConsultLegAliveTouchEnabled)
+                    {
+                        retainedForEvent.TouchAlive(DateTime.UtcNow);
+                    }
+
                     AsyncLogger.Info($"WorkgroupManager.interactionAction | CONSULT_ROUTED | interactionId={interactionId} seg={segmentId} state={state}");
                 }
                 // (2) Warm-transfer segment advance: retain the initiator's current leg on its own Call and give the

@@ -823,7 +823,8 @@ namespace RTM
                         val = val.Substring(1);
                         DateTime signonTimeDT = DateTime.ParseExact(val, "dd/MM/yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                         TimeSpan signonTimeTS = DateTime.Now.Subtract(signonTimeDT);
-                        val = firstChr + signonTimeTS.ToString(@"hh\:mm\:ss");
+                        // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                        val = firstChr + DurationText.WholeHours(signonTimeTS);
                     }
                     catch
                     {
@@ -928,7 +929,8 @@ namespace RTM
                             value = value.Substring(1);
                             DateTime signonTimeDT = DateTime.ParseExact(value, "dd/MM/yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                             TimeSpan signonTimeTS = DateTime.Now.Subtract(signonTimeDT);
-                            value = firstChr + signonTimeTS.ToString(@"hh\:mm\:ss");
+                            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                            value = firstChr + DurationText.WholeHours(signonTimeTS);
                         }
                         catch
                         {
@@ -1493,7 +1495,8 @@ namespace RTM
                             value = value.Substring(1);
                             DateTime signonTimeDT = DateTime.ParseExact(value, "dd/MM/yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                             TimeSpan signonTimeTS = DateTime.Now.Subtract(signonTimeDT);
-                            value = firstChr + signonTimeTS.ToString(@"hh\:mm\:ss");
+                            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                            value = firstChr + DurationText.WholeHours(signonTimeTS);
                         }
                         catch
                         {
@@ -2978,7 +2981,8 @@ namespace RTM
                     long sum = Convert.ToInt64(ans.Select(i => i.TalkTime).Sum());
                     int tdais = Convert.ToInt32(sum / cnt);
                     TimeSpan ts = new TimeSpan(0, 0, tdais);
-                    val = ts.ToString(@""hh\:mm\:ss"");                
+                    // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                    val = RTM.DurationText.WholeHours(ts);                
                 }
                 return val;";
             MetricUserFunctionList.TryAdd("TalkDurationAvg", talkDurationAvgFunction);
@@ -2994,7 +2998,8 @@ namespace RTM
                 {                  
                     int max = Convert.ToInt32(ans.OrderBy(i => i.TalkTime).Select(i => i.TalkTime).Last());
                     TimeSpan ts = new TimeSpan(0, 0, max);
-                    val = ts.ToString(@""hh\:mm\:ss"");                
+                    // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                    val = RTM.DurationText.WholeHours(ts);                
                 }
                 return val;";
             MetricUserFunctionList.TryAdd("TalkDurationMax", talkDurationMaxFunction);
@@ -3030,7 +3035,8 @@ namespace RTM
                 var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
                 var avg = TimeSpan.FromSeconds(avgSeconds);
 
-                return avg.ToString(@""hh\:mm\:ss"");";
+                // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                return RTM.DurationText.WholeHours(avg);";
 
             MetricUserFunctionList.TryAdd("MessagesAvgFirstResponseTime", MessagesAvgFirstResponseTimeFunction);
 
@@ -3089,7 +3095,8 @@ namespace RTM
             var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
             var avg = TimeSpan.FromSeconds(avgSeconds);
 
-            return avg.ToString(@""hh\:mm\:ss"");";
+            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+            return RTM.DurationText.WholeHours(avg);";
 
             MetricUserFunctionList.TryAdd("MessagesAvgResponseTime", MessagesAvgResponseTimeFunction);
 
@@ -3443,7 +3450,8 @@ namespace RTM
 
                 if (!applicAny)
                 {              
-                    return maxResponse.ToString(@""hh\:mm\:ss"");
+                    // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                    return RTM.DurationText.WholeHours(maxResponse);
                 }
 
                 foreach (var interaction in Bag.Where(m =>
@@ -3467,7 +3475,8 @@ namespace RTM
                     }
                 }
 
-                return maxResponse.ToString(@""hh\:mm\:ss"");";
+                // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                return RTM.DurationText.WholeHours(maxResponse);";
             MetricFunctionList.TryAdd("MessagesMaxFirstResponseTime", MessagesMaxFirstResponseTimeFunction);
 
 
@@ -3507,7 +3516,8 @@ namespace RTM
                 var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
                 var avg = TimeSpan.FromSeconds(avgSeconds);
 
-                return avg.ToString(@""hh\:mm\:ss"");";
+                // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                return RTM.DurationText.WholeHours(avg);";
 
             MetricFunctionList.TryAdd("MessagesAvgFirstResponseTime", MessagesAvgFirstResponseTimeFunction);
 
@@ -3570,7 +3580,8 @@ namespace RTM
             var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
             var avg = TimeSpan.FromSeconds(avgSeconds);
 
-            return avg.ToString(@""hh\:mm\:ss"");";
+            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+            return RTM.DurationText.WholeHours(avg);";
 
             MetricFunctionList.TryAdd("MessagesAvgResponseTime", MessagesAvgResponseTimeFunction);
 
@@ -3593,7 +3604,8 @@ namespace RTM
                     long sum = Convert.ToInt64(_w.Sum());
                     int tdais = Convert.ToInt32(sum / count);
                     TimeSpan tsaSp = new TimeSpan(0, 0, tdais);
-                    avg = tsaSp.ToString(@""hh\:mm\:ss"");
+                    // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                    avg = RTM.DurationText.WholeHours(tsaSp);
                 }
                 return avg;";
             MetricFunctionList.TryAdd("WaitDurationAvg", waitDurationAvgFunction);
@@ -3610,7 +3622,8 @@ namespace RTM
                     {
                         int imax = Convert.ToInt32(ans.OrderBy(i => i.TimeInQueue).Select(i => i.TimeInQueue).Last());
                         TimeSpan tsaSp = new TimeSpan(0, 0, imax);
-                        max = tsaSp.ToString(@""hh\:mm\:ss"");
+                        // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                        max = RTM.DurationText.WholeHours(tsaSp);
                     }
                 return max;";
             MetricFunctionList.TryAdd("WaitDurationMax", waitDurationMaxFunction);
@@ -3634,7 +3647,8 @@ namespace RTM
                     long sum = Convert.ToInt64(_t.Sum());
                     int tdais = Convert.ToInt32(sum / cnt);
                     TimeSpan ts = new TimeSpan(0, 0, tdais);
-                    avg = ts.ToString(@""hh\:mm\:ss"");
+                    // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                    avg = RTM.DurationText.WholeHours(ts);
                 }
                 return avg;";
             MetricFunctionList.TryAdd("TalkDurationAvg", talkDurationAvgFunction);
@@ -3650,7 +3664,8 @@ namespace RTM
                 {
                     long sum = Convert.ToInt64(ans.Select(i => i.TalkTime).Sum());
                     TimeSpan tsaSp = new TimeSpan(0, 0, (int)sum);
-                    avg = tsaSp.ToString(@""hh\:mm\:ss"");
+                    // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                    avg = RTM.DurationText.WholeHours(tsaSp);
                 }
                 return avg;";
             MetricFunctionList.TryAdd("TalkDurationTotal", talkDurationTotalFunction);
@@ -3666,7 +3681,8 @@ namespace RTM
                 {
                     int imax = Convert.ToInt32(ans.OrderBy(i => i.TalkTime).Select(i => i.TalkTime).Last());
                     TimeSpan tsaSp = new TimeSpan(0, 0, imax);
-                    max = tsaSp.ToString(@""hh\:mm\:ss"");
+                    // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class B): whole hours, the hh specifier drops Days.
+                    max = RTM.DurationText.WholeHours(tsaSp);
                 }
                 return max;";
             MetricFunctionList.TryAdd("TalkDurationMax", talkDurationMaxFunction);

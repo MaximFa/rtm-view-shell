@@ -308,12 +308,20 @@ public class LegacyPortD1Tests
         await Event(wgm, "T4", 2, "pending", "B", isConsult: true, consultCallId: "A");
         wgm.RetainedConsultLegCount.Should().Be(1, "precondition");
 
-        var maxAge = TimeSpan.FromSeconds(1800);
-        await wgm.FinalizeStaleConsultLegs(maxAge, DateTime.UtcNow.AddSeconds(1700));
-        wgm.RetainedConsultLegCount.Should().Be(1, "younger than the limit - a genuine consult is never cut short");
+        // [SYNC-PORT 2026-10-16 src=2026-08-19] This pins the 07-15 blind cap. From 08-19 an alive leg is re-armed instead
+        // (Fix C, default ON - covered in LegacyPortD3Tests), so the 07-15 behaviour is exactly the switch-off case.
+        var savedVerify = AppConfig.ConsultLegCapVerifyEnabled;
+        AppConfig.ConsultLegCapVerifyEnabled = false;
+        try
+        {
+            var maxAge = TimeSpan.FromSeconds(1800);
+            await wgm.FinalizeStaleConsultLegs(maxAge, DateTime.UtcNow.AddSeconds(1700));
+            wgm.RetainedConsultLegCount.Should().Be(1, "younger than the limit - a genuine consult is never cut short");
 
-        await wgm.FinalizeStaleConsultLegs(maxAge, DateTime.UtcNow.AddSeconds(1900));
-        wgm.RetainedConsultLegCount.Should().Be(0, "older than the limit - a stranded leg is cleaned");
+            await wgm.FinalizeStaleConsultLegs(maxAge, DateTime.UtcNow.AddSeconds(1900));
+            wgm.RetainedConsultLegCount.Should().Be(0, "older than the limit - a stranded leg is cleaned");
+        }
+        finally { AppConfig.ConsultLegCapVerifyEnabled = savedVerify; }
     }
 
     // ---------- 07-28 / 07-20 seam: the self-heal never duplicates ----------

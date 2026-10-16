@@ -62,6 +62,38 @@ namespace RTM.Configuration
         // = one call across its segments). FAIL-OPEN: on unless RTM:SegmentDedupEnabled is a literal false.
         public static bool SegmentDedupEnabled { get; internal set; } = true;
 
+        // [SYNC-PORT 2026-10-16 src=2026-08-19] Fix A - status authority: the reserved wait-entry status arriving while the agent holds a live voice call (or a
+        // retained consult leg) is dropped like every other source status. FAIL-OPEN: on unless RTM:WaitStatusAuthorityEnabled is a literal false.
+        public static bool WaitStatusAuthorityEnabled { get; internal set; } = true;
+
+        // [SYNC-PORT 2026-10-16 src=2026-08-19] Fix C - consult-leg cap verify-before-kill: an expired cap re-arms while the leg is demonstrably alive.
+        // FAIL-OPEN: on unless RTM:ConsultLegCapVerifyEnabled is a literal false.
+        public static bool ConsultLegCapVerifyEnabled { get; internal set; } = true;
+
+        // [SYNC-PORT 2026-10-16 src=2026-08-19] Safety circle - absolute ceiling (seconds) on a retained consult leg, last resort over Fix C extensions.
+        // Default 43200 (12 h) on absent/invalid; an explicit value <= 0 disables the ceiling.
+        public static int ConsultLegAbsoluteMaxSeconds { get; internal set; } = 43200;
+
+        // [SYNC-PORT 2026-10-16 src=2026-09-07] Retained-leg real fix, change 1 - the cap's alive test asks only whether THIS leg is live (no sibling segment needed).
+        // FAIL-OPEN: on unless RTM:ConsultLegAliveByInteractionEnabled is a literal false.
+        public static bool ConsultLegAliveByInteractionEnabled { get; internal set; } = true;
+
+        // [SYNC-PORT 2026-10-16 src=2026-09-07] Retained-leg real fix, change 2 - an event addressed to a retained segment re-anchors that leg's cap.
+        // FAIL-OPEN: on unless RTM:ConsultLegAliveTouchEnabled is a literal false.
+        public static bool ConsultLegAliveTouchEnabled { get; internal set; } = true;
+
+        // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - a chat/email end while a live voice call is held does not run the phone-end resolution.
+        // FAIL-OPEN: on unless RTM:CrossChannelOnPhoneGuardEnabled is a literal false.
+        public static bool CrossChannelOnPhoneGuardEnabled { get; internal set; } = true;
+
+        // [SYNC-PORT 2026-10-16 src=2026-09-14] Email typing fix - every engine email-channel test accepts "email" in any case (the adapter's wire value).
+        // FAIL-OPEN: on unless RTM:EmailTypingFixEnabled is a literal false.
+        public static bool EmailTypingFixEnabled { get; internal set; } = true;
+
+        // [SYNC-PORT 2026-10-16 src=2026-09-15] Cold-start seed fix - a newborn UserManager knows nothing, so the seed that creates it is never "stale".
+        // FAIL-OPEN: on unless RTM:ColdStartSeedFixEnabled is a literal false.
+        public static bool ColdStartSeedFixEnabled { get; internal set; } = true;
+
 
         public static void Initialize(IConfiguration configuration, string dataFilePath)
         {
@@ -135,6 +167,67 @@ namespace RTM.Configuration
                 }
 
                 AsyncLogger.Info($"AppConfig.OrphanReapEnabled = {OrphanReapEnabled} OrphanCallMaxLiveSeconds = {OrphanCallMaxLiveSeconds} SegmentDedupEnabled = {SegmentDedupEnabled}");
+
+                // [SYNC-PORT 2026-10-16 src=2026-08-19] FAIL-OPEN switches of rails 08-19 .. 09-15: only a literal "false" restores the old behaviour.
+                WaitStatusAuthorityEnabled = true;
+                var rawWaitStatusAuthorityEnabled = configuration["RTM:WaitStatusAuthorityEnabled"];
+                if (!string.IsNullOrWhiteSpace(rawWaitStatusAuthorityEnabled) && bool.TryParse(rawWaitStatusAuthorityEnabled, out var valWaitStatusAuthorityEnabled))
+                {
+                    WaitStatusAuthorityEnabled = valWaitStatusAuthorityEnabled;
+                }
+
+                ConsultLegCapVerifyEnabled = true;
+                var rawConsultLegCapVerifyEnabled = configuration["RTM:ConsultLegCapVerifyEnabled"];
+                if (!string.IsNullOrWhiteSpace(rawConsultLegCapVerifyEnabled) && bool.TryParse(rawConsultLegCapVerifyEnabled, out var valConsultLegCapVerifyEnabled))
+                {
+                    ConsultLegCapVerifyEnabled = valConsultLegCapVerifyEnabled;
+                }
+
+                // 12 h default on absent/invalid; an explicit non-positive value disables the ceiling.
+                ConsultLegAbsoluteMaxSeconds = 43200;
+                var rawConsultLegAbsoluteMaxSeconds = configuration["RTM:ConsultLegAbsoluteMaxSeconds"];
+                if (!string.IsNullOrWhiteSpace(rawConsultLegAbsoluteMaxSeconds) && int.TryParse(rawConsultLegAbsoluteMaxSeconds, out var valConsultLegAbsoluteMaxSeconds))
+                {
+                    ConsultLegAbsoluteMaxSeconds = valConsultLegAbsoluteMaxSeconds;
+                }
+
+                ConsultLegAliveByInteractionEnabled = true;
+                var rawConsultLegAliveByInteractionEnabled = configuration["RTM:ConsultLegAliveByInteractionEnabled"];
+                if (!string.IsNullOrWhiteSpace(rawConsultLegAliveByInteractionEnabled) && bool.TryParse(rawConsultLegAliveByInteractionEnabled, out var valConsultLegAliveByInteractionEnabled))
+                {
+                    ConsultLegAliveByInteractionEnabled = valConsultLegAliveByInteractionEnabled;
+                }
+
+                ConsultLegAliveTouchEnabled = true;
+                var rawConsultLegAliveTouchEnabled = configuration["RTM:ConsultLegAliveTouchEnabled"];
+                if (!string.IsNullOrWhiteSpace(rawConsultLegAliveTouchEnabled) && bool.TryParse(rawConsultLegAliveTouchEnabled, out var valConsultLegAliveTouchEnabled))
+                {
+                    ConsultLegAliveTouchEnabled = valConsultLegAliveTouchEnabled;
+                }
+
+                CrossChannelOnPhoneGuardEnabled = true;
+                var rawCrossChannelOnPhoneGuardEnabled = configuration["RTM:CrossChannelOnPhoneGuardEnabled"];
+                if (!string.IsNullOrWhiteSpace(rawCrossChannelOnPhoneGuardEnabled) && bool.TryParse(rawCrossChannelOnPhoneGuardEnabled, out var valCrossChannelOnPhoneGuardEnabled))
+                {
+                    CrossChannelOnPhoneGuardEnabled = valCrossChannelOnPhoneGuardEnabled;
+                }
+
+                EmailTypingFixEnabled = true;
+                var rawEmailTypingFixEnabled = configuration["RTM:EmailTypingFixEnabled"];
+                if (!string.IsNullOrWhiteSpace(rawEmailTypingFixEnabled) && bool.TryParse(rawEmailTypingFixEnabled, out var valEmailTypingFixEnabled))
+                {
+                    EmailTypingFixEnabled = valEmailTypingFixEnabled;
+                }
+
+                ColdStartSeedFixEnabled = true;
+                var rawColdStartSeedFixEnabled = configuration["RTM:ColdStartSeedFixEnabled"];
+                if (!string.IsNullOrWhiteSpace(rawColdStartSeedFixEnabled) && bool.TryParse(rawColdStartSeedFixEnabled, out var valColdStartSeedFixEnabled))
+                {
+                    ColdStartSeedFixEnabled = valColdStartSeedFixEnabled;
+                }
+
+                AsyncLogger.Info($"AppConfig WaitStatusAuthorityEnabled = {WaitStatusAuthorityEnabled} ConsultLegCapVerifyEnabled = {ConsultLegCapVerifyEnabled} ConsultLegAbsoluteMaxSeconds = {ConsultLegAbsoluteMaxSeconds} ConsultLegAliveByInteractionEnabled = {ConsultLegAliveByInteractionEnabled} ConsultLegAliveTouchEnabled = {ConsultLegAliveTouchEnabled} CrossChannelOnPhoneGuardEnabled = {CrossChannelOnPhoneGuardEnabled} EmailTypingFixEnabled = {EmailTypingFixEnabled} ColdStartSeedFixEnabled = {ColdStartSeedFixEnabled}");
+
 
 
                 // Load and decrypt sensitive values from data.sys

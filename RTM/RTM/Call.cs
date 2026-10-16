@@ -1,4 +1,6 @@
 ﻿using RTM.Tools;
+// [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - AppConfig.CrossChannelOnPhoneGuardEnabled.
+using RTM.Configuration;
 using System.Collections.Concurrent;
 
 
@@ -65,6 +67,31 @@ namespace RTM
 
 
         // Call
+        // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard, decided at the interaction-end call sites because only here
+        // the ENDING interaction's channel is known. A chat/email end while the agent holds a live VOICE call must not run the
+        // phone-end / LastNoPhone resolution: it clears the OnPhone flag the voice call owns and lets the next source
+        // "available" onto the board mid-call. A VOICE end always behaves as before (a stale duplicate voice record ending
+        // must still clear OnPhone). FAIL-OPEN; a literal false restores the old behaviour.
+        private bool SuppressPhoneEndForCrossChannel(UserManager? userMng)
+        {
+            try
+            {
+                if (!AppConfig.CrossChannelOnPhoneGuardEnabled) return false;
+                if (userMng == null || IdInteraction == null) return false;
+
+                string t = IdInteraction.InteractionType;
+                // [SYNC-PORT 2026-10-16 src=2026-09-14] same case-insensitive email test as the engine.
+                if (t != "Chat" && !UserManager.IsEmailChannel(t)) return false;
+
+                return userMng.HasLiveVoiceCall();
+            }
+            catch (Exception ex)
+            {
+                AsyncLogger.Error("Call.SuppressPhoneEndForCrossChannel", ex);
+                return false;   // unknown => behave exactly as before
+            }
+        }
+
         public Call(string interactionId, UserManagerList userManagerList, IDInteractionsList interactionsList, DBMng dbMng)
         {
             try
@@ -474,13 +501,15 @@ namespace RTM
                             if (IdInteraction.Direction == "Incoming")
                             {
                                 userMng.endIncomingCall(this, IdInteraction.Workgroup);
-                                userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
+                                // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - see SuppressPhoneEndForCrossChannel.
+                                if (!SuppressPhoneEndForCrossChannel(userMng)) userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
                                 //userMng.setStatus(true, "Missed Call", "Missed Call", "Missed Call", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
                             }
                             if (direction == "Outgoing")
                             {
                                 userMng.endOutgoingCall(this, IdInteraction.Workgroup);
-                                userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
+                                // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - see SuppressPhoneEndForCrossChannel.
+                                if (!SuppressPhoneEndForCrossChannel(userMng)) userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
                             }
 
                             IdInteraction.UserId = string.Empty;
@@ -498,13 +527,15 @@ namespace RTM
                             if (IdInteraction.Direction == "Incoming")
                             {
                                 userMng.endIncomingCall(this, IdInteraction.Workgroup);
-                                userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
+                                // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - see SuppressPhoneEndForCrossChannel.
+                                if (!SuppressPhoneEndForCrossChannel(userMng)) userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
                                 //userMng.setStatus(true, "Missed Call", "Missed Call", "Missed Call", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
                             }
                             if (direction == "Outgoing")
                             {
                                 userMng.endOutgoingCall(this, IdInteraction.Workgroup);
-                                userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
+                                // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - see SuppressPhoneEndForCrossChannel.
+                                if (!SuppressPhoneEndForCrossChannel(userMng)) userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
                             }
 
                             IdInteraction.UserId = string.Empty;
@@ -535,7 +566,8 @@ namespace RTM
                             {
                                 userMng.endOutgoingCall(this, IdInteraction.Workgroup);
                             }
-                            userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
+                            // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - see SuppressPhoneEndForCrossChannel.
+                            if (!SuppressPhoneEndForCrossChannel(userMng)) userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
 
                             IdInteraction.UserId = string.Empty;
                         }
@@ -594,7 +626,8 @@ namespace RTM
                         }
                         if (userMng != null)
                         {
-                            userMng.setStatus(true, "Wrap Up", "Wrap Up", "ONPHONE", stateChangedTime, "", false, stateChangedTime, messageId, true);
+                            // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - see SuppressPhoneEndForCrossChannel.
+                            if (!SuppressPhoneEndForCrossChannel(userMng)) userMng.setStatus(true, "Wrap Up", "Wrap Up", "ONPHONE", stateChangedTime, "", false, stateChangedTime, messageId, true);
                         }
                         break;
 
@@ -618,7 +651,8 @@ namespace RTM
                             {
                                 userMng.endOutgoingCall(this, IdInteraction.Workgroup);
                             }
-                            userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
+                            // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - see SuppressPhoneEndForCrossChannel.
+                            if (!SuppressPhoneEndForCrossChannel(userMng)) userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
                         }
                         break;
 
@@ -651,7 +685,8 @@ namespace RTM
                                 {
                                     userMng.endOutgoingCall(this, IdInteraction.Workgroup);
                                 }
-                                userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
+                                // [SYNC-PORT 2026-10-16 src=2026-09-07] Cross-channel OnPhone guard - see SuppressPhoneEndForCrossChannel.
+                                if (!SuppressPhoneEndForCrossChannel(userMng)) userMng.setStatus(true, "LastNoPhone", "", "", stateChangedTime, "", false, DateTime.MinValue, messageId, true);
                             }
                         }
                         else

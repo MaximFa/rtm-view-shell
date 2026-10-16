@@ -611,7 +611,8 @@ namespace RTM
                 }
             }
             TimeSpan tsaSp = new TimeSpan(0, 0, Convert.ToInt32(maxResponse));
-            return tsaSp.ToString(@"hh\:mm\:ss"); 
+            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+            return DurationText.WholeHours(tsaSp); 
         }
 
 
@@ -708,7 +709,8 @@ namespace RTM
             var avgSeconds = responseTimes.Average(ts => ts.TotalSeconds);
             var avg = TimeSpan.FromSeconds(avgSeconds);
 
-            return avg.ToString(@"hh\:mm\:ss");
+            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+            return DurationText.WholeHours(avg);
         }
 
 
@@ -934,7 +936,8 @@ namespace RTM
                 if (stsCnt > 0)
                 {
                     ts = new TimeSpan(stsDur.Ticks / stsCnt);
-                    avg = ts.ToString(@"hh\:mm\:ss");
+                    // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                    avg = DurationText.WholeHours(ts);
                 }
             }
             return avg;
@@ -965,7 +968,8 @@ namespace RTM
                 if (stsGrpCnt > 0)
                 {
                     ts = new TimeSpan(stsGrpDur.Ticks / stsGrpCnt);
-                    avg = ts.ToString(@"hh\:mm\:ss");
+                    // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                    avg = DurationText.WholeHours(ts);
                 }
             }
             return avg;

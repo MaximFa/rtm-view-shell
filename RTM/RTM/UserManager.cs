@@ -166,7 +166,9 @@ namespace RTM
                 _statusName = "SIGNOFF";
                 _userStatusGroup = "SIGNOFF";
 
-                _userStatusStart = DateTime.Now; //.MinValue;
+                // [SYNC-PORT 2026-10-16 src=2026-09-15] Cold-start seed fix: a newborn user knows nothing, so it must not out-rank the very
+                // seed that creates it (the staleness guard in setStatus dropped it). MinValue = "any update is newer than me".
+                _userStatusStart = AppConfig.ColdStartSeedFixEnabled ? DateTime.MinValue : DateTime.Now;
                 _userStatusGroupStart = DateTime.Now;
                 TodayLog = new List<string>();
                 YesterdayLog = new List<string>();
@@ -310,16 +312,26 @@ namespace RTM
         private string _calcRingingInteractionId = string.Empty;
 
 
+        // [SYNC-PORT 2026-10-16 src=2026-09-14] Email typing fix: the ONE email-channel test of the engine. The adapter's wire value is
+        // "email"; with RTM:EmailTypingFixEnabled (fail-open) any case matches, a literal false restores the exact "Email".
+        internal static bool IsEmailChannel(string interactionType)
+        {
+            if (AppConfig.EmailTypingFixEnabled)
+            {
+                return string.Equals(interactionType, "Email", StringComparison.OrdinalIgnoreCase);
+            }
+            return interactionType == "Email";
+        }
+
         // [SYNC-PORT 2026-10-15 src=2026-07-30] Stuck-OnPhone reconcile: true iff the agent holds at least one LIVE VOICE
         // call (answered, not ended; Hold keeps IsTalk). Mirrors what sets OnPhone: chat/email excluded, ringing and
         // dialing reservations are never in _calls, a dead entry is excluded by !IsDisconnected && IsTalk.
-        // (Legacy later widens the email test to case-insensitive - round 09-14, not ported yet.)
         internal bool HasLiveVoiceCall()
         {
             foreach (var cl in _calls)
             {
                 var it = cl.Key.IdInteraction;
-                if (it != null && it.InteractionType != "Chat" && it.InteractionType != "Email"
+                if (it != null && it.InteractionType != "Chat" && !IsEmailChannel(it.InteractionType)
                     && !it.IsDisconnected && it.IsTalk)
                 {
                     return true;
@@ -344,7 +356,7 @@ namespace RTM
                     if (old == newCall) continue;
                     var it = old.IdInteraction;
                     if (it == null || it.IsDisconnected || !it.IsTalk) continue;                          // live only
-                    if (it.InteractionType == "Chat" || it.InteractionType == "Email") continue;          // voice only
+                    if (it.InteractionType == "Chat" || IsEmailChannel(it.InteractionType)) continue;          // voice only
                     if (!string.IsNullOrEmpty(newCall.InteractionId) && newCall.InteractionId == old.InteractionId) continue; // consult pair
                     if (it.IsHeld) continue;                                                              // hold/consult leg
                     AsyncLogger.Info($"UserManager.EvictStalePrimaryVoiceCalls userId={userId} evicted={old.InteractionId} by={newCall.InteractionId}");
@@ -376,7 +388,7 @@ namespace RTM
                     var call = cl.Key;
                     var it = call.IdInteraction;
                     if (it == null || it.IsDisconnected || !it.IsTalk) continue;
-                    if (it.InteractionType == "Chat" || it.InteractionType == "Email") continue;
+                    if (it.InteractionType == "Chat" || IsEmailChannel(it.InteractionType)) continue;
                     if (it.IsHeld) continue;
                     if ((now - call.LastEventUtc) >= maxAge)
                     {
@@ -407,7 +419,7 @@ namespace RTM
                     if (!_calls.Any())
                     {
                         _calculatedStatus = _userStatus;
-                        _calculatedStatusTime = _userStatusStart;
+                        _calculatedStatusTime = StatusStartAnchor;
                     }
                     IsChanged = true;
                 }
@@ -500,6 +512,15 @@ namespace RTM
                         {
                             if (newStatus == "ממתין לשיחה")
                             {
+                                // [SYNC-PORT 2026-10-16 src=2026-08-19] Fix A: during a call (a live voice call or a retained consult leg - both are
+                                // live entries in _calls) the calculated status is authoritative, and the wait-entry token no longer
+                                // applies unconditionally (it knocked OnPhone off mid-consult). With no live call nothing changes.
+                                if (AppConfig.WaitStatusAuthorityEnabled && HasLiveVoiceCall())
+                                {
+                                    AsyncLogger.Info($"UserManager.setStatus | DROPPED | WaitStatusWhileOnCall userId={userId}");
+                                    return;
+                                }
+
                                 _isWaitForCall = true;
                                 statusBeforeWait = _userStatus;
                                 statusNameBeforeWait = _statusName;
@@ -649,8 +670,12 @@ namespace RTM
 
                 if (_userStatus != newStatus)
                 {
+                    // [SYNC-PORT 2026-10-16 src=2026-09-15] Cold-start consequence 1 of 2: the virgin bootstrap ADOPTS the first status - the
+                    // placeholder SIGNOFF has no real start, so no duration is banked for it.
+                    bool isVirginBootstrap = AppConfig.ColdStartSeedFixEnabled && _userStatusStart == DateTime.MinValue;
+
                     //if (_userStatus != string.Empty)
-                    if (!string.IsNullOrWhiteSpace(_userStatus))
+                    if (!string.IsNullOrWhiteSpace(_userStatus) && !isVirginBootstrap)
                     {
                         TimeSpan ts = statusChanged.Subtract(_userStatusStart);
 
@@ -670,7 +695,8 @@ namespace RTM
                     if (!_calls.Any())
                     {
                         _calculatedStatus = _userStatus;
-                        _calculatedStatusTime = _userStatusStart;
+                        // [SYNC-PORT 2026-10-16 src=2026-09-15] Cold-start consequence 2 of 2: anchor the virgin calc status to the seed, not MinValue.
+                        _calculatedStatusTime = isVirginBootstrap ? statusChanged : _userStatusStart;
                     }
 
                     if (_userStatusGroup != statusGroup)
@@ -939,7 +965,8 @@ namespace RTM
 
                 UserWorkgroupSum userWorkgroupSum = _userWorkgroupSumList.GetOrAdd(workGroup, new UserWorkgroupSum(workGroup));
 
-                switch (interactionType)
+                // [SYNC-PORT 2026-10-16 src=2026-09-14] Email typing fix: the wire value "email" reaches the "Email" counter case.
+                switch (IsEmailChannel(interactionType) ? "Email" : interactionType)
                 {
                     case "Call":
                         if (callType == "External")
@@ -992,12 +1019,13 @@ namespace RTM
                 if (!_calls.Any())
                 {
                     _calculatedStatus = _userStatus;
-                    _calculatedStatusTime = _userStatusStart;
+                    _calculatedStatusTime = StatusStartAnchor;
                 }
 
                 UserWorkgroupSum userWorkgroupSum = _userWorkgroupSumList.GetOrAdd(workGroup, new UserWorkgroupSum(workGroup));
 
-                switch (interactionType)
+                // [SYNC-PORT 2026-10-16 src=2026-09-14] Email typing fix: the wire value "email" reaches the "Email" counter case.
+                switch (IsEmailChannel(interactionType) ? "Email" : interactionType)
                 {
                     case "Call":
                         if (callType == "External")
@@ -1084,7 +1112,7 @@ namespace RTM
                 if (!_calls.Any())
                 {
                     _calculatedStatus = _userStatus;
-                    _calculatedStatusTime = _userStatusStart;
+                    _calculatedStatusTime = StatusStartAnchor;
 
                 }
 
@@ -1416,7 +1444,8 @@ namespace RTM
                         }
                         else if (statusDur != TimeSpan.Zero)
                         {
-                            val = "-" + statusDur.ToString(@"hh\:mm\:ss");
+                            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                            val = "-" + DurationText.WholeHours(statusDur);
                         }
                         break;
 
@@ -1432,7 +1461,8 @@ namespace RTM
                         }
                         else if (statusGrpDur != TimeSpan.Zero)
                         {
-                            val = "-" + statusGrpDur.ToString(@"hh\:mm\:ss");
+                            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                            val = "-" + DurationText.WholeHours(statusGrpDur);
                         }
                         break;
 
@@ -1505,7 +1535,8 @@ namespace RTM
                         {
                             double tsdDur = v121.Sum(r => r.Dur.Ticks);
                             TimeSpan statusAvg = new TimeSpan(Convert.ToInt64(tsdDur / tsda));
-                            val = statusAvg.ToString(@"hh\:mm\:ss");
+                            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                            val = DurationText.WholeHours(statusAvg);
                         }
                         break;
 
@@ -1518,7 +1549,8 @@ namespace RTM
                         {
                             double tsdDur = v122.Sum(r => r.Dur.Ticks);
                             TimeSpan statusGrpMax = new TimeSpan(Convert.ToInt64(tsdDur / tsgda));
-                            val = statusGrpMax.ToString(@"hh\:mm\:ss");
+                            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                            val = DurationText.WholeHours(statusGrpMax);
                         }
                         break;
 
@@ -1529,7 +1561,8 @@ namespace RTM
                         if (ddd1.Any())
                         {
                             TimeSpan statusMax = new TimeSpan(ddd1.Max(r => r.Dur.Ticks));
-                            val = statusMax.ToString(@"hh\:mm\:ss");
+                            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                            val = DurationText.WholeHours(statusMax);
                         }
                         break;
 
@@ -1540,7 +1573,8 @@ namespace RTM
                         if (ddd.Any())
                         {
                             TimeSpan statusGrpMax = new TimeSpan(ddd.Max(r => r.Dur.Ticks));
-                            val = statusGrpMax.ToString(@"hh\:mm\:ss");
+                            // [SYNC-PORT 2026-10-16 src=2026-08-25] Day-wrap fix (Class A): whole hours, the hh specifier drops Days.
+                            val = DurationText.WholeHours(statusGrpMax);
                         }
                         break;
 
@@ -2035,8 +2069,13 @@ namespace RTM
         // Time In Status
         public DateTime TimeInStatus
         {
-            get { return _userStatusStart; }
+            get { return StatusStartAnchor; }
         }
+
+        // [SYNC-PORT 2026-10-16 src=2026-09-15] Cold-start adaptation (ours): until the first status arrives the MinValue birth stamp is an
+        // internal "knows nothing" marker only. Every reader that shows or copies the start time gets the birth time
+        // (_userStatusGroupStart is still stamped at birth), exactly what it got before the fix.
+        private DateTime StatusStartAnchor => _userStatusStart == DateTime.MinValue ? _userStatusGroupStart : _userStatusStart;
 
 
 
