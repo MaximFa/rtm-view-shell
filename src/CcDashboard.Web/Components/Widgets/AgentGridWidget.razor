@@ -855,7 +855,17 @@
 
     private static bool MatchesTableFilterRule(string cellValue, string? op, string? filterValue)
     {
-        if (string.IsNullOrEmpty(op) || filterValue == null) return true;
+        if (string.IsNullOrEmpty(op)) return true;
+
+        // empty / notempty carry no value by design, so they are answered BEFORE the guard below.
+        // The editor offers them (GetOperatorsForMetric) and the widget used to fall through to the
+        // default and let every row pass — the rule silently filtered nothing. They must also come
+        // first because an older ConfigJson may have no "value" field at all, which arrives here as
+        // null: handled after the guard, the branch would exist in the file and never run.
+        if (op == "empty") return ThresholdTextMatch.IsEmpty(cellValue);
+        if (op == "notempty") return !ThresholdTextMatch.IsEmpty(cellValue);
+
+        if (filterValue == null) return true;
         return op switch
         {
             "equal"        => string.Equals(cellValue, filterValue, StringComparison.OrdinalIgnoreCase),
@@ -1346,7 +1356,8 @@
     {
         if (row.TimerAnchors.TryGetValue(metricId, out var anchor))
             return RunningDuration.Comparable(anchor.BaseSecs, anchor.StartedAt, now ?? DateTime.UtcNow);
-        return GetMetricValue(row.Metrics, metricId);
+        // Same normalisation as the cell: a rule must match what the person sees.
+        return MetricCellValue.Display(GetMetricValue(row.Metrics, metricId));
     }
 
     private string GetCellDisplay(AgentRowData row, string metricId)
@@ -1376,10 +1387,9 @@
                 _rtsGridId, row.RowId, metricId);
         }
         
-        var result = FormatTimeString(raw);
-        // RTM Service uses &nbsp; as placeholder for empty fields (legacy HTML client)
-        if (result == "&nbsp;") return string.Empty;
-        return result;
+        // MetricCellValue.Display also turns the engine's &nbsp; placeholder and NaN/Infinity into
+        // an empty string, and the comparison path uses the very same call.
+        return MetricCellValue.Display(raw);
     }
 
     private string GetWidgetStyle()
@@ -1619,26 +1629,8 @@
     /// Formats HH:MM:SS as MM:SS when hours == 0, otherwise keeps HH:MM:SS.
     /// Returns original string if not a recognisable time format.
     /// </summary>
-    private static string FormatTimeString(string value)
-    {
-        if (string.IsNullOrEmpty(value)) return value;
-        if (value == "NaN" || value == "Infinity" || value == "-Infinity") return "";
-        var parts = value.Split(':');
-        if (parts.Length == 3
-            && int.TryParse(parts[0], out var h)
-            && int.TryParse(parts[1], out var m)
-            && int.TryParse(parts[2], out var s))
-        {
-            return h > 0 ? $"{h:D2}:{m:D2}:{s:D2}" : $"{m:D2}:{s:D2}";
-        }
-        if (parts.Length == 2
-            && int.TryParse(parts[0], out var m2)
-            && int.TryParse(parts[1], out var s2))
-        {
-            return $"{m2:D2}:{s2:D2}";
-        }
-        return value;
-    }
+    // Display form of a raw value — one place, shared with the comparison path (MetricCellValue).
+    private static string FormatTimeString(string value) => MetricCellValue.Display(value);
 
 
     public async ValueTask DisposeAsync()

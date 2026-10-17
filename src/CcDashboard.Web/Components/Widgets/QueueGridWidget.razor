@@ -1104,7 +1104,8 @@
     {
         if (row.TimerAnchors.TryGetValue(metricId, out var anchor))
             return RunningDuration.Comparable(anchor.BaseSecs, anchor.StartedAt, now ?? DateTime.UtcNow);
-        return GetMetricValue(row.Metrics, metricId);
+        // Same normalisation as the cell: a rule must match what the person sees.
+        return MetricCellValue.Display(GetMetricValue(row.Metrics, metricId));
     }
 
     // The metric's catalogue type decides this — not the data, and not a guess from the metric name.
@@ -1447,10 +1448,9 @@
                 _rtsGridId, row.RowId, metricId);
         }
         
-        var result = FormatTimeString(raw);
-        // RTM Service uses &nbsp; as placeholder for empty fields (legacy HTML client)
-        if (result == "&nbsp;") return string.Empty;
-        return result;
+        // MetricCellValue.Display also turns the engine's &nbsp; placeholder and NaN/Infinity into
+        // an empty string, and the comparison path uses the very same call.
+        return MetricCellValue.Display(raw);
     }
 
     private static int ParseTimeToSeconds(string time)
@@ -1472,26 +1472,8 @@
     /// Formats HH:MM:SS as MM:SS when hours == 0, otherwise keeps HH:MM:SS.
     /// Returns original string if not a recognisable time format.
     /// </summary>
-    private static string FormatTimeString(string value)
-    {
-        if (string.IsNullOrEmpty(value)) return value;
-        if (value == "NaN" || value == "Infinity" || value == "-Infinity") return "";
-        var parts = value.Split(':');
-        if (parts.Length == 3
-            && int.TryParse(parts[0], out var h)
-            && int.TryParse(parts[1], out var m)
-            && int.TryParse(parts[2], out var s))
-        {
-            return h > 0 ? $"{h:D2}:{m:D2}:{s:D2}" : $"{m:D2}:{s:D2}";
-        }
-        if (parts.Length == 2
-            && int.TryParse(parts[0], out var m2)
-            && int.TryParse(parts[1], out var s2))
-        {
-            return $"{m2:D2}:{s2:D2}";
-        }
-        return value;
-    }
+    // Display form of a raw value — one place, shared with the comparison path (MetricCellValue).
+    private static string FormatTimeString(string value) => MetricCellValue.Display(value);
 
 
     private async Task StartTickLoopAsync()
