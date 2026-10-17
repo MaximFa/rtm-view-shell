@@ -1,4 +1,5 @@
 @using CcDashboard.Application.Queries.TenantSettings
+@using CcDashboard.Application.Queries.Configuration
 @using CcDashboard.Domain.Domain.Rtm
 @using CcDashboard.Application.Interfaces
 @using MediatR
@@ -118,7 +119,9 @@
     private string _deltaIcon = "";
     private bool _showDelta = false;
     private bool _isWorseThanTarget = false;
-    private bool _isTimeFormat = false;
+    // The metric's catalogue type, not a guess from the value. A slot shows one metric, so one type.
+    private string _metricValueType = MetricValueType.Text;
+    private bool IsTimeMetric => _metricValueType == MetricValueType.Time;
 
     // Base colors (without threshold) - for title, labels
     private string BaseFontColor => DarkMode ? _darkFontColor : _fontColor;
@@ -136,11 +139,34 @@
         public string? FontColor { get; set; }
     }
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
         ApplyConfig();
+        await LoadMetricValueTypeAsync();
         // ConnectAsync moved to OnAfterRenderAsync — does not run during SSR pre-render
-        return Task.CompletedTask;
+    }
+
+    // One metric per slot, so one catalogue lookup. Unknown metric or unavailable catalogue -> text,
+    // never a guess from the value.
+    private async Task LoadMetricValueTypeAsync()
+    {
+        if (ThresholdTextMatch.IsEmpty(_metricId))
+        {
+            _metricValueType = MetricValueType.Text;
+            return;
+        }
+        try
+        {
+            var metrics = await Mediator.Send(new GetRtsGridMetricsQuery(), _cts.Token);
+            var metric = metrics.FirstOrDefault(
+                m => string.Equals(m.MetricId, _metricId, StringComparison.OrdinalIgnoreCase));
+            _metricValueType = MetricValueType.Normalize(metric?.ValueType);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "DataSlot: metric catalogue unavailable for {MetricId}, shown as text", _metricId);
+            _metricValueType = MetricValueType.Text;
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -295,19 +321,20 @@
                 var rawValue = match.Value;
                 var value = rawValue.StartsWith('+') ? rawValue[1..] : rawValue;
 
-                if (TryParseTimeFormat(value, out var timeSeconds))
+                // The type is already known from the catalogue: parsing only extracts the number
+                // for the chosen presentation. A value that does not parse shows as-is, and the
+                // type does NOT change because of it.
+                if (IsTimeMetric && TryParseTimeFormat(value, out var timeSeconds))
                 {
                     _currentValue = timeSeconds;
                     _displayValue = FormatTimeString(value);
-                    _isTimeFormat = true;
                     CalculateDelta();
                     ApplyThresholds();
                 }
-                else if (decimal.TryParse(value.TrimEnd('%').Replace(",", ""), out var numValue))
+                else if (!IsTimeMetric && decimal.TryParse(value.TrimEnd('%').Replace(",", ""), out var numValue))
                 {
                     _currentValue = numValue;
                     _displayValue = value;
-                    _isTimeFormat = false;
                     CalculateDelta();
                     ApplyThresholds();
                 }
@@ -432,7 +459,7 @@
 
         // Format delta as time or number
         string absString;
-        if (_isTimeFormat)
+        if (IsTimeMetric)
         {
             absString = FormatSecondsAsTime(absSeconds);
         }

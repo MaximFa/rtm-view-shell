@@ -18,6 +18,7 @@
 @using CcDashboard.Contracts.DTOs.Dashboards
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Contracts.DTOs.Configuration
+@using CcDashboard.Contracts.Common
 @using CcDashboard.Domain.Enums
 @using CcDashboard.Application.Queries.TenantSettings
 @using CcDashboard.Application.Queries.WidgetTemplates
@@ -2714,6 +2715,12 @@
     // Table filters (saved row filters)
     private List<TableFilterRule> ConfigTableFilters = new();
 
+    /// <summary>Catalogue ValueType of a metric (Metrics is already loaded on this page).</summary>
+    private string? GetMetricCatalogueValueType(string? metricId) =>
+        string.IsNullOrEmpty(metricId)
+            ? null
+            : Metrics.FirstOrDefault(m => string.Equals(m.MetricId, metricId, StringComparison.OrdinalIgnoreCase))?.ValueType;
+
     // Queue Grid Configuration
     private List<QueueGridRowDef> ConfigQueueGridRows = new();
     private List<QueueGridColumnDef> ConfigQueueGridColumnDefs = new();
@@ -3790,8 +3797,8 @@
             Id = c.Id,
             Name = c.Name,
             MetricId = c.MetricId,
-            DbColumnId = c.DbColumnId,  // Preserve RTS column reference
-            DataType = c.DataType ?? "text"  // Preserve detected data type
+            DbColumnId = c.DbColumnId  // Preserve RTS column reference
+            // dataType deliberately not carried over: the type comes from the metric catalogue.
         }).ToList() ?? GetDefaultColumnDefs();
 
         // Column thresholds - exact MetricId keys only
@@ -3813,12 +3820,28 @@
         SelectedThresholdColumn = "";
 
         // Table filters (saved row filters)
-        ConfigTableFilters = widget.Config.TableFilters?.Select(f => new TableFilterRule
+        // Saved rules are reconciled with the metric's type: an operator that does not fit is
+        // replaced by the one valid for that type (MetricValueType.NearestOperator), which always
+        // narrows the result set. The log is the trace of that change.
+        ConfigTableFilters = widget.Config.TableFilters?.Select(f =>
         {
-            MetricId = f.MetricId,
-            Operator = f.Operator,
-            Value = f.Value,
-            Connector = f.Connector
+            var valueType = GetMetricCatalogueValueType(f.MetricId);
+            var op = f.Operator;
+            if (!MetricValueType.OperatorFitsType(op, valueType))
+            {
+                var substitute = MetricValueType.NearestOperator(op, valueType);
+                Logger.LogInformation(
+                    "Screen editor: filter on {MetricId} ({ValueType}) — operator {Old} replaced with {New}; fewer rows will pass",
+                    f.MetricId, valueType, op, substitute);
+                op = substitute;
+            }
+            return new TableFilterRule
+            {
+                MetricId = f.MetricId,
+                Operator = op,
+                Value = f.Value,
+                Connector = f.Connector
+            };
         }).ToList() ?? new List<TableFilterRule>();
 
         // Avatar and Score settings
@@ -6266,7 +6289,11 @@
         public string Name { get; set; } = "";  // Display name
         public string MetricId { get; set; } = "";  // Reference to RtsGridMetric.MetricId
         public int? DbColumnId { get; set; }  // RTSUserGrid_Column.ColumnId, null if not yet inserted
-        public string DataType { get; set; } = "text";  // "text", "time", "number" - detected from actual data
+        // No DataType here on purpose. The column's type is the METRIC's type, read from the
+        // catalogue (RtsGridMetric.ValueType) wherever it is needed. Keeping a copy on the column
+        // is what let a widget's guess from the first data row be saved as the user's setting.
+        // Old ConfigJson may still contain "dataType": it is ignored on load and not written back,
+        // so no data migration is needed.
     }
 
     public class ThresholdRule

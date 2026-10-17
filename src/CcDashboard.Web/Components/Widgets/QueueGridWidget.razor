@@ -1,5 +1,6 @@
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Application.Queries.TenantSettings
+@using CcDashboard.Application.Queries.Configuration
 @using CcDashboard.Domain.Domain.Rtm
 @using CcDashboard.Application.Interfaces
 @using CcDashboard.Web.Services
@@ -306,8 +307,8 @@
     private string? _tableBackgroundColor;
     private bool _showPagination = true;
 
-    // Detected column data types (from actual values)
-    private Dictionary<string, string> _detectedDataTypes = new();
+    // MetricId -> catalogue ValueType. The column's type comes from here and never from the data.
+    private Dictionary<string, string> _metricValueTypes = new(StringComparer.OrdinalIgnoreCase);
 
     // RTM protocol: CellId -> (RowDefId, MetricId) reverse map
     private record RtmCellData(int CellId, string Value, string Value2);
@@ -382,12 +383,39 @@
 
     private bool _stateLoaded;
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
         ApplyConfig();
         FilterPopups.PopupOpened += OnOtherPopupOpened;
+        await LoadMetricValueTypesAsync();
         // NOTE: ConnectAsync moved to OnAfterRenderAsync to avoid SSR pre-render subscribe cycling
-        return Task.CompletedTask;
+    }
+
+    // The catalogue is read once per widget instance: a metric's type does not change while a
+    // screen is open.
+    private async Task LoadMetricValueTypesAsync()
+    {
+        try
+        {
+            var metrics = await Mediator.Send(new GetRtsGridMetricsQuery(), _cts.Token);
+            _metricValueTypes = metrics
+                .GroupBy(m => m.MetricId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().ValueType ?? string.Empty,
+                              StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "QueueGrid {GridId}: metric catalogue unavailable, columns shown as text", _rtsGridId);
+            _metricValueTypes = new(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>Catalogue type of a metric, normalised. Unknown metric -> text.</summary>
+    private string GetMetricValueType(string? metricId)
+    {
+        if (ThresholdTextMatch.IsEmpty(metricId)) return MetricValueType.Text;
+        return MetricValueType.Normalize(
+            _metricValueTypes.TryGetValue(metricId!, out var vt) ? vt : null);
     }
 
     private void OnOtherPopupOpened(object owner)
@@ -547,7 +575,6 @@
 
             _gridHandler = async updates =>
             {
-                var isFirstData = _rows.All(r => r.Metrics.Count == 0);
                 foreach (var cell in updates)
                 {
                     if (!_cellMap.TryGetValue(cell.CellId, out var mapping)) continue;
@@ -556,7 +583,6 @@
                     if (row is null) continue;
                     ApplyMetricValue(row, metricId, cell.Value ?? "", cell.Value2);
                 }
-                if (isFirstData) DetectColumnDataTypes();
                 await InvokeAsync(StateHasChanged);
             };
 
@@ -614,11 +640,11 @@
             {
                 if (filter.Mode == "value" && !string.IsNullOrEmpty(filter.TextValue))
                 {
-                    rows = rows.Where(r => MatchesValueFilter(GetMetricValue(r.Metrics, metricId), filter));
+                    rows = rows.Where(r => MatchesValueFilter(GetComparableValue(r, metricId), filter));
                 }
                 else if (filter.Mode == "list" && filter.SelectedValues.Count > 0)
                 {
-                    rows = rows.Where(r => filter.SelectedValues.Contains(GetMetricValue(r.Metrics, metricId)));
+                    rows = rows.Where(r => filter.SelectedValues.Contains(GetComparableValue(r, metricId)));
                 }
             }
         }
@@ -668,7 +694,7 @@
             return row.QueueName;
         }
 
-        var value = GetMetricValue(row.Metrics, metricId);
+        var value = GetComparableValue(row, metricId);
         if (isNumeric)
         {
             return ParseToSeconds(value) ?? 0;
@@ -732,7 +758,7 @@
     private List<string> GetDistinctValues(string metricId)
     {
         return _rows
-            .Select(r => GetMetricValue(r.Metrics, metricId))
+            .Select(r => GetComparableValue(r, metricId))
             .Where(v => !CcDashboard.Contracts.Common.ThresholdTextMatch.IsEmpty(v))
             .Distinct()
             .OrderBy(v => v)
@@ -1070,60 +1096,21 @@
         return metrics.TryGetValue(metricId, out var value) ? value : "";
     }
 
-    private bool IsNumericColumn(string metricId)
+    // Value used for sorting, funnel filters and distinct lists: the SAME thing the cell shows.
+    // A waiting time arrives as the moment it started, is stored as a timestamp and displayed as
+    // elapsed time, so comparing the stored string sorted such columns lexically — by day of month.
+    // The elapsed seconds live in the timer anchor; thresholds already receive GetCellDisplay.
+    private string GetComparableValue(QueueRowData row, string metricId, DateTime? now = null)
     {
-        // First check detected data type from actual values
-        if (_detectedDataTypes.TryGetValue(metricId, out var dataType))
-        {
-            return dataType == "number" || dataType == "time";
-        }
-        // Fallback to pattern matching on metric ID
-        var id = metricId.ToLowerInvariant();
-        return id.Contains("duration") || id.Contains("occupancy") || id.Contains("adherence") ||
-               id.Contains("calls") || id.Contains("aht") || id.Contains("time") || id.Contains("percent") ||
-               id.Contains("total") || id.Contains("avg") || id.Contains("count") || id.Contains("waiting") ||
-               id.Contains("available") || id.Contains("level") || id.Contains("abandon");
+        if (row.TimerAnchors.TryGetValue(metricId, out var anchor))
+            return RunningDuration.Comparable(anchor.BaseSecs, anchor.StartedAt, now ?? DateTime.UtcNow);
+        return GetMetricValue(row.Metrics, metricId);
     }
 
-    private static string DetectDataType(string? value)
-    {
-        if (CcDashboard.Contracts.Common.ThresholdTextMatch.IsEmpty(value)) return "text";
+    // The metric's catalogue type decides this — not the data, and not a guess from the metric name.
+    private bool IsNumericColumn(string metricId) => MetricValueType.IsOrdered(GetMetricValueType(metricId));
 
-        // Check for time format: MM:SS or HH:MM:SS
-        var parts = value.Split(':');
-        if (parts.Length == 2 || parts.Length == 3)
-        {
-            if (parts.All(p => int.TryParse(p, out _)))
-                return "time";
-        }
 
-        // Check for number (including percentages)
-        var numStr = value.TrimEnd('%');
-        if (double.TryParse(numStr, out _))
-            return "number";
-
-        return "text";
-    }
-
-    private void DetectColumnDataTypes()
-    {
-        if (_rows.Count == 0 || _columnDefs.Count == 0) return;
-
-        var firstRow = _rows.FirstOrDefault(r => r.Metrics.Count > 0);
-        if (firstRow == null) return;
-
-        foreach (var colDef in _columnDefs)
-        {
-            if (string.IsNullOrEmpty(colDef.MetricId)) continue;
-
-            var sampleValue = GetMetricValue(firstRow.Metrics, colDef.MetricId);
-            var detectedType = DetectDataType(sampleValue);
-            _detectedDataTypes[colDef.MetricId] = detectedType;
-        }
-
-        Logger.LogInformation("Detected column types: {Types}",
-            string.Join(", ", _detectedDataTypes.Select(kvp => $"{kvp.Key}={kvp.Value}")));
-    }
 
     private static double? ParseToSeconds(string? value)
     {
@@ -1151,9 +1138,14 @@
         if (!_columnThresholds.TryGetValue(metricId, out var thresholds) || thresholds.Count == 0)
             return (null, null);
 
+        // The branch follows the METRIC's type. MatchType used to decide, and it is nullable for
+        // backward compatibility, so an older threshold with no MatchType silently went numeric and
+        // never matched on a text metric.
+        var isOrdered = MetricValueType.IsOrdered(GetMetricValueType(metricId));
+
         foreach (var t in thresholds)
         {
-            if (t.MatchType == "text")
+            if (!isOrdered)
             {
                 if (CcDashboard.Contracts.Common.ThresholdTextMatch.IsMatch(t.TextMatchType, cellValue, t.TextMatch))
                     return (t.BackgroundColor, t.FontColor);
@@ -1474,14 +1466,8 @@
         };
     }
 
-    private static string FormatSeconds(int totalSecs)
-    {
-        if (totalSecs < 0) totalSecs = 0;
-        var h = totalSecs / 3600;
-        var m = (totalSecs % 3600) / 60;
-        var s = totalSecs % 60;
-        return h > 0 ? $"{h}:{m:D2}:{s:D2}" : $"{m:D2}:{s:D2}";
-    }
+    // One formatter for the displayed and the compared value — see RunningDuration.
+    private static string FormatSeconds(int totalSecs) => RunningDuration.Format(totalSecs);
     /// <summary>
     /// Formats HH:MM:SS as MM:SS when hours == 0, otherwise keeps HH:MM:SS.
     /// Returns original string if not a recognisable time format.

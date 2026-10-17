@@ -1,5 +1,6 @@
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Application.Queries.TenantSettings
+@using CcDashboard.Application.Queries.Configuration
 @using CcDashboard.Domain.Domain.Rtm
 @using CcDashboard.Application.Interfaces
 @using CcDashboard.Web.Services
@@ -292,6 +293,15 @@
     [Inject] private ILogger<AgentGridWidget> Logger { get; set; } = null!;
     [Inject] private IMediator Mediator { get; set; } = null!;
 
+    // MetricId -> catalogue ValueType. The column's type comes from here and never from the data.
+    private Dictionary<string, string> _metricValueTypes = new(StringComparer.OrdinalIgnoreCase);
+
+    // Saved row-filter rules, prepared ONCE: an operator that does not fit the metric's type is
+    // replaced by the one valid for that type. Prepared once rather than per render so the log
+    // carries one line per rule, not one per repaint.
+    private List<TableFilterRule> _preparedTableFilters = new();
+    private bool _tableFiltersPrepared;
+
     private Guid _tenantId;
     private Func<UnionStateChange, Task>? _unionHandler;
     private List<AgentRowData> _rows = new();
@@ -404,12 +414,81 @@
 
     private bool _stateLoaded;
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
         ApplyConfig();
         FilterPopups.PopupOpened += OnOtherPopupOpened;
+        await LoadMetricValueTypesAsync();
+        PrepareTableFilters();
         // ConnectAsync moved to OnAfterRenderAsync — does not run during SSR pre-render
-        return Task.CompletedTask;
+    }
+
+    // The catalogue is read once per widget instance. It is reference data: the type of a metric
+    // does not change while a screen is open, so re-reading it per update would buy nothing.
+    private async Task LoadMetricValueTypesAsync()
+    {
+        try
+        {
+            var metrics = await Mediator.Send(new GetRtsGridMetricsQuery(), _cts.Token);
+            _metricValueTypes = metrics
+                .GroupBy(m => m.MetricId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().ValueType ?? string.Empty,
+                              StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            // Without the catalogue every column falls back to text, which only disables ordered
+            // comparisons — never a guess from the data.
+            Logger.LogWarning(ex, "AgentGrid {GridId}: metric catalogue unavailable, columns shown as text", GridId);
+            _metricValueTypes = new(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    // Operator -> metric type reconciliation for SAVED rules.
+    // A rule whose operator already fits its metric's type is carried over byte for byte.
+    // Reconciles SAVED rules with each metric's catalogue type, once.
+    // A rule whose operator already fits is carried over byte for byte; everything else is
+    // replaced by MetricValueType.NearestOperator, which only ever narrows the result set.
+    private void PrepareTableFilters()
+    {
+        _preparedTableFilters = new();
+        _tableFiltersPrepared = true;
+        var rules = Config?.TableFilters;
+        if (rules is null || rules.Count == 0) return;
+
+        foreach (var rule in rules)
+        {
+            if (string.IsNullOrEmpty(rule.MetricId)) continue;
+            var valueType = GetMetricValueType(rule.MetricId);
+
+            if (MetricValueType.OperatorFitsType(rule.Operator, valueType))
+            {
+                _preparedTableFilters.Add(rule);
+                continue;
+            }
+
+            var substitute = MetricValueType.NearestOperator(rule.Operator, valueType);
+            // The log is the only trace of the change of meaning: one line per rule, written here
+            // rather than where rules are applied, so a repaint does not repeat it.
+            Logger.LogInformation(
+                "AgentGrid {GridId}: filter on {MetricId} ({ValueType}) — operator {Old} replaced with {New}; fewer rows will pass",
+                GridId, rule.MetricId, valueType, rule.Operator, substitute);
+            _preparedTableFilters.Add(new TableFilterRule
+            {
+                MetricId = rule.MetricId,
+                Operator = substitute,
+                Value = rule.Value,
+                Connector = rule.Connector
+            });
+        }
+    }
+
+    /// <summary>Catalogue type of a metric, normalised. Unknown metric -> text.</summary>
+    private string GetMetricValueType(string? metricId)
+    {
+        if (ThresholdTextMatch.IsEmpty(metricId)) return MetricValueType.Text;
+        return MetricValueType.Normalize(
+            _metricValueTypes.TryGetValue(metricId!, out var vt) ? vt : null);
     }
 
     private void OnOtherPopupOpened(object owner)
@@ -460,7 +539,7 @@
                  && prevColumnsKey.Length > 0)
         {
             // Column set changed on a live connection — reconnect so RTM pushes
-            // fresh data for all current MetricIds and DetectColumnDataTypes() runs.
+            // fresh data for all current MetricIds.
             Logger.LogInformation(
                 "AgentGrid {GridId}: column set changed, reconnecting. Old={Old} New={New}",
                 GridId, prevColumnsKey, _lastColumnsKey);
@@ -484,6 +563,8 @@
             _darkFontColor = Config.DarkFontColor ?? "#FFFFFF";
             _darkTableBackgroundColor = Config.DarkTableBackgroundColor ?? "#333333";
             _columnDefs = Config.AgentGridColumnDefs?.ToList() ?? new();
+            // Config may change while the screen is open — saved rules are reconciled again.
+            _tableFiltersPrepared = false;
             // Union ID for RTM Service = BusinessUnit.Id (BU.Id = Union ID in Engine.UnionList).
             // RtsUserGridId is the RTSUserGrid_Grid row ID, NOT the union ID — do not use it here.
             if (!string.IsNullOrEmpty(Config.BusinessUnit) &&
@@ -597,11 +678,9 @@
                                     ApplyMetricValue(row, kv.Key, kv.Value.Raw, agent.ReceivedAt);
                                 _rows.Add(row);
                             }
-                            if (_rows.Count > 0) DetectColumnDataTypes();
                             break;
 
                         case UnionStateChange.AgentsUpserted upserted:
-                            var isFirstData = _rows.Count == 0;
                             var upsertNow = DateTime.UtcNow;
                             foreach (var agent in upserted.Agents)
                             {
@@ -619,7 +698,6 @@
                                     _rows.Add(row);
                                 }
                             }
-                            if (isFirstData) DetectColumnDataTypes();
                             break;
 
                         case UnionStateChange.AgentsRemoved removed:
@@ -660,7 +738,9 @@
         var result = _rows.AsEnumerable();
 
         // Apply configured row filters (from widget configurator)
-        if (Config?.TableFilters is { Count: > 0 } tableFilters)
+        if (!_tableFiltersPrepared) PrepareTableFilters();
+        var tableFilters = _preparedTableFilters;
+        if (tableFilters.Count > 0)
         {
             result = result.Where(row =>
             {
@@ -669,7 +749,7 @@
                 foreach (var rule in tableFilters)
                 {
                     if (string.IsNullOrEmpty(rule.MetricId)) continue;
-                    var cellValue = GetMetricValue(row.Metrics, rule.MetricId);
+                    var cellValue = GetComparableValue(row, rule.MetricId);
                     bool ruleMatch = MatchesTableFilterRule(cellValue, rule.Operator, rule.Value);
                     if (groupResult == null)
                     {
@@ -696,11 +776,11 @@
 
             if (filter.Mode == "list")
             {
-                result = result.Where(r => filter.SelectedValues.Contains(GetMetricValue(r.Metrics, metricId)));
+                result = result.Where(r => filter.SelectedValues.Contains(GetComparableValue(r, metricId)));
             }
             else if (filter.Mode == "value" && !string.IsNullOrEmpty(filter.TextValue))
             {
-                result = result.Where(r => MatchesValueFilter(GetMetricValue(r.Metrics, metricId), filter));
+                result = result.Where(r => MatchesValueFilter(GetComparableValue(r, metricId), filter));
             }
         }
 
@@ -717,14 +797,14 @@
             if (IsNumericColumn(sortMetricId))
             {
                 sorted = _sortAscending
-                    ? sorted.OrderBy(r => ParseNumericValue(GetMetricValue(r.Metrics, sortMetricId)))
-                    : sorted.OrderByDescending(r => ParseNumericValue(GetMetricValue(r.Metrics, sortMetricId)));
+                    ? sorted.OrderBy(r => ParseNumericValue(GetComparableValue(r, sortMetricId)))
+                    : sorted.OrderByDescending(r => ParseNumericValue(GetComparableValue(r, sortMetricId)));
             }
             else
             {
                 sorted = _sortAscending
-                    ? sorted.OrderBy(r => GetMetricValue(r.Metrics, sortMetricId))
-                    : sorted.OrderByDescending(r => GetMetricValue(r.Metrics, sortMetricId));
+                    ? sorted.OrderBy(r => GetComparableValue(r, sortMetricId))
+                    : sorted.OrderByDescending(r => GetComparableValue(r, sortMetricId));
             }
         }
 
@@ -810,69 +890,11 @@
         return null;
     }
 
-    private bool IsNumericColumn(string metricId)
-    {
-        // First check if we have detected DataType in column definition
-        var colDef = _columnDefs.FirstOrDefault(c => c.MetricId == metricId);
-        if (colDef != null && !string.IsNullOrEmpty(colDef.DataType))
-        {
-            return colDef.DataType == "number" || colDef.DataType == "time";
-        }
-        // Fallback to pattern matching
-        var id = metricId.ToLowerInvariant();
-        return id.Contains("duration") || id.Contains("occupancy") || id.Contains("adherence") ||
-               id.Contains("calls") || id.Contains("aht") || id.Contains("time") || id.Contains("percent") ||
-               id.Contains("total") || id.Contains("avg") || id.Contains("count");
-    }
+    // The metric's catalogue type decides this — not the data, and not the column definition.
+    // A metric missing from the catalogue is shown as text (see GetMetricValueType).
+    private bool IsNumericColumn(string metricId) => MetricValueType.IsOrdered(GetMetricValueType(metricId));
 
-    private static string DetectDataType(string? value)
-    {
-        if (CcDashboard.Contracts.Common.ThresholdTextMatch.IsEmpty(value)) return "text";
 
-        // Check for time format: MM:SS or HH:MM:SS
-        var parts = value.Split(':');
-        if (parts.Length == 2 || parts.Length == 3)
-        {
-            if (parts.All(p => int.TryParse(p, out _)))
-                return "time";
-        }
-
-        // Check for number (including percentages)
-        var numStr = value.Replace("%", "").Trim();
-        if (double.TryParse(numStr, out _))
-            return "number";
-
-        // Otherwise it's text
-        return "text";
-    }
-
-    private void DetectColumnDataTypes()
-    {
-        if (_rows.Count == 0 || _columnDefs.Count == 0) return;
-
-        var firstRow = _rows[0];
-        var typesChanged = false;
-
-        foreach (var colDef in _columnDefs)
-        {
-            if (string.IsNullOrEmpty(colDef.MetricId)) continue;
-
-            var sampleValue = GetMetricValue(firstRow.Metrics, colDef.MetricId);
-            var detectedType = DetectDataType(sampleValue);
-
-            if (colDef.DataType != detectedType)
-            {
-                colDef.DataType = detectedType;
-                typesChanged = true;
-            }
-        }
-
-        if (typesChanged)
-        {
-            Logger.LogInformation("Detected column types: {Types}",
-                string.Join(", ", _columnDefs.Select(c => $"{c.Name}={c.DataType}")));
-        }
-    }
 
     private bool HasActiveFilter(string metricId)
     {
@@ -991,8 +1013,10 @@
         foreach (var t in thresholds)
         {
             bool matches;
-            // Auto-detect numeric matching: if From/To looks like time (MM:SS) or number, use numeric comparison
-            var isNumericThreshold = t.MatchType == "numeric" || IsNumericThresholdValue(t.From) || IsNumericThresholdValue(t.To);
+            // The comparison follows the METRIC's type, not the look of the value the user typed
+            // into the threshold box: "5" in the From field used to turn a text column's threshold
+            // into a numeric one, so the same threshold behaved differently per column.
+            var isNumericThreshold = MetricValueType.IsOrdered(GetMetricValueType(metricId));
 
             if (isNumericThreshold)
             {
@@ -1020,14 +1044,6 @@
         return (null, null);
     }
 
-    private static bool IsNumericThresholdValue(string? value)
-    {
-        if (string.IsNullOrEmpty(value)) return false;
-        // Time format: MM:SS or HH:MM:SS
-        if (value.Contains(':')) return true;
-        // Number format
-        return double.TryParse(value.Replace("%", "").Trim(), out _);
-    }
 
     private int CalculateScore(Dictionary<string, string> metrics)
     {
@@ -1180,7 +1196,7 @@
     private List<string> GetDistinctValues(string metricId)
     {
         return _rows
-            .Select(r => GetMetricValue(r.Metrics, metricId))
+            .Select(r => GetComparableValue(r, metricId))
             .Where(v => !CcDashboard.Contracts.Common.ThresholdTextMatch.IsEmpty(v))
             .Distinct()
             .OrderBy(v => v)
@@ -1316,6 +1332,21 @@
     private static string GetMetricValue(Dictionary<string, string> metrics, string metricId)
     {
         return metrics.TryGetValue(metricId, out var value) ? value : "";
+    }
+
+    // Value used for sorting, funnel filters, saved filter rules and distinct lists: the SAME thing
+    // the cell shows. For a running duration the engine sends the moment it started
+    // ("+dd/MM/yyyy HH:mm:ss", RTM/Union.cs:1125); ApplyMetricValue strips the "+" and stores the
+    // rest, so row.Metrics holds a timestamp while the cell displays the elapsed time. Comparing the
+    // stored string sorted those columns lexically — by day of month, so 05/11 ranked above 17/10 —
+    // and parsing it as a number yields nothing at all. The elapsed seconds are already in the
+    // timer anchor, so comparisons use them; thresholds already receive GetCellDisplay and need no
+    // change here.
+    private string GetComparableValue(AgentRowData row, string metricId, DateTime? now = null)
+    {
+        if (row.TimerAnchors.TryGetValue(metricId, out var anchor))
+            return RunningDuration.Comparable(anchor.BaseSecs, anchor.StartedAt, now ?? DateTime.UtcNow);
+        return GetMetricValue(row.Metrics, metricId);
     }
 
     private string GetCellDisplay(AgentRowData row, string metricId)
@@ -1582,14 +1613,8 @@
         };
     }
 
-    private static string FormatSeconds(int totalSecs)
-    {
-        if (totalSecs < 0) totalSecs = 0;
-        var h = totalSecs / 3600;
-        var m = (totalSecs % 3600) / 60;
-        var s = totalSecs % 60;
-        return h > 0 ? $"{h}:{m:D2}:{s:D2}" : $"{m:D2}:{s:D2}";
-    }
+    // One formatter for the displayed and the compared value — see RunningDuration.
+    private static string FormatSeconds(int totalSecs) => RunningDuration.Format(totalSecs);
     /// <summary>
     /// Formats HH:MM:SS as MM:SS when hours == 0, otherwise keeps HH:MM:SS.
     /// Returns original string if not a recognisable time format.
