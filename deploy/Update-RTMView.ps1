@@ -18,7 +18,10 @@
 .PARAMETER SkipShell / SkipRTM
     Update only one component
 .PARAMETER KeepBackups
-    Number of backups to keep (default: 5)
+    Number of installer backups (folders named ddMMyyyy_HHmm under <InstallRoot>\Backup) to keep,
+    COUNTING the one this run creates (default: 2 = this run + the previous one). Older ones are deleted
+    BEFORE the new backup is written, so the disk is freed first. Folders with any other name are never
+    touched. Minimum 2: the previous install must always stay as a rollback floor.
 .PARAMETER MigrationList
     Comma-separated list of migration filenames (without .sql) to apply, in order.
     Example: -MigrationList "20260607_001_name,20260608_002_name"
@@ -49,7 +52,8 @@ param(
     [string]$RTMSvcName    = "RTMService",
     [switch]$SkipShell,
     [switch]$SkipRTM,
-    [int]   $KeepBackups   = 5,
+    [ValidateRange(2, 1000)]
+    [int]   $KeepBackups   = 2,
     [switch]$ForceDeploy,
     [Alias("SkipDriftGate")]
     [switch]$SkipDrift,
@@ -264,6 +268,32 @@ foreach ($svcName in @($ShellSvcName, $RTMSvcName)) {
 }
 
 Write-Host ""
+Write-Host "[ 2a/5 ] Pruning old installer backups (keep $KeepBackups including the one about to be made)..." -ForegroundColor Cyan
+# PR234-INSTALLER-BACKUP-SORT-BY-NAME-01: the old prune sorted folder NAMES (ddMMyyyy_HHmm), which is not
+# chronological across months (01112026 < 31102026) and could delete the newest backup. Age now comes from
+# the timestamp PARSED out of the name. Only folders whose whole name parses are ours; anything else
+# (rtmtwilio_*, hand-made copies) is listed and kept. Runs BEFORE the new backup so its space is free first.
+if (Test-Path $BackupRoot) {
+    $ownBackups = @()
+    foreach ($dir in @(Get-ChildItem -LiteralPath $BackupRoot -Directory)) {
+        $parsed = [datetime]::MinValue
+        $isOurs = ($dir.Name -match '^\d{8}_\d{4}$') -and [datetime]::TryParseExact($dir.Name, 'ddMMyyyy_HHmm', [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$parsed)
+        if ($isOurs) { $ownBackups += [pscustomobject]@{ Dir = $dir; Taken = $parsed } }
+        else { Write-Host "  Kept (not an installer backup name): $($dir.Name)" -ForegroundColor Gray }
+    }
+    $ownBackups = @($ownBackups | Sort-Object Taken -Descending)
+    $keepOld = $KeepBackups - 1
+    for ($i = 0; $i -lt $ownBackups.Count; $i++) {
+        $entry = $ownBackups[$i]
+        if ($i -lt $keepOld) { Write-Host "  Kept: $($entry.Dir.Name)" -ForegroundColor Gray; continue }
+        $sizeMb = [math]::Round(((Get-ChildItem -LiteralPath $entry.Dir.FullName -Recurse -Force -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum) / 1MB, 1)
+        [System.IO.Directory]::Delete($entry.Dir.FullName, $true)
+        Write-Host "  Pruned old backup: $($entry.Dir.Name) ($sizeMb MB)" -ForegroundColor Gray
+    }
+    Write-Host ("  Installer backups: {0} found, {1} kept, {2} pruned" -f $ownBackups.Count, [math]::Min($ownBackups.Count, $keepOld), [math]::Max(0, $ownBackups.Count - $keepOld)) -ForegroundColor Gray
+}
+
+Write-Host ""
 Write-Host "[ 2/5 ] Backing up current installation..." -ForegroundColor Cyan
 $BackupDir = Join-Path $BackupRoot $Timestamp
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
@@ -291,15 +321,6 @@ try {
     Write-Host "  DB backup: $dbBackupPath" -ForegroundColor Green
 } finally {
     $env:PGPASSWORD = $null
-}
-
-$allBackups = @(Get-ChildItem $BackupRoot -Directory | Sort-Object Name)
-if ($allBackups.Count -gt $KeepBackups) {
-    $toDelete = $allBackups | Select-Object -First ($allBackups.Count - $KeepBackups)
-    foreach ($b in $toDelete) {
-        [System.IO.Directory]::Delete($b.FullName, $true)
-        Write-Host "  Pruned old backup: $($b.Name)" -ForegroundColor Gray
-    }
 }
 
 Write-Host ""
