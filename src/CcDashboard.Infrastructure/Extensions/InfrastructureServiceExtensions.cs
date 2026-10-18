@@ -146,6 +146,8 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<INgcBusinessUnitRepository, NgcBusinessUnitRepository>();
         services.AddScoped<INgcSupergroupRepository, NgcSupergroupRepository>();
         services.AddScoped<IRtsGridMetricRepository, RtsGridMetricRepository>();
+        // Widgets read value types through this, never through the circuit-scoped context (PR234-V4-ALL-COLUMNS-TEXT-AFTER-EFFCD27-01).
+        services.AddSingleton<IMetricCatalogue, CcDashboard.Infrastructure.Metrics.MetricCatalogue>();
         services.AddScoped<INgcQueueRepository, NgcQueueRepository>();
         services.AddScoped<INgcAgentGroupRepository, NgcAgentGroupRepository>();
 

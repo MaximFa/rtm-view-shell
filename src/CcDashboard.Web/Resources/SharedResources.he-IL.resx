@@ -548,6 +548,7 @@
   <data name="Widget_Queues"><value>תורים</value></data>
   <data name="Widget_QueueName"><value>תור</value></data>
   <data name="Widget_Retry"><value>נסה שוב</value></data>
+  <data name="Widget_ColumnTypesUnavailable"><value>סוגי העמודות אינם זמינים: לא ניתן לקרוא את מאגר המדדים. מיון וספים בעמודות מספריות מושבתים עד שהקריאה תצליח.</value></data>
   <data name="Widget_Reconnecting"><value>מתחבר מחדש...</value></data>
   <data name="Widget_ReloadPage"><value>רענן דף</value></data>
   <data name="Widget_ActiveFilters"><value>מסננים פעילים</value></data>

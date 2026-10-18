@@ -1,5 +1,4 @@
 @using CcDashboard.Application.Queries.TenantSettings
-@using CcDashboard.Application.Queries.Configuration
 @using CcDashboard.Domain.Domain.Rtm
 @using CcDashboard.Application.Interfaces
 @using MediatR
@@ -11,10 +10,21 @@
 
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject ISender Mediator
+@inject CcDashboard.Application.Interfaces.IMetricCatalogue Catalogue
 @inject IRtmRelayService RtmRelay
 @inject ILogger<DataSlotWidget> Logger
 
 <div class="data-slot-widget data-slot-with-stripe" style="@GetWidgetStyle()">
+    @* Value type unavailable — a small mark rather than a banner: the slot is a tile, and silence
+       here would look exactly like a working slot. *@
+    @if (_catalogueUnavailable)
+    {
+        <i class="bi bi-exclamation-triangle-fill text-warning position-absolute"
+           style="top: 4px; inset-inline-end: 6px; font-size: 0.75rem; z-index: 2;"
+           role="img" title="@L["Widget_ColumnTypesUnavailable"]"
+           aria-label="@L["Widget_ColumnTypesUnavailable"]"></i>
+    }
+
     @if (GridId == 0)
     {
         <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
@@ -121,6 +131,10 @@
     private bool _isWorseThanTarget = false;
     // The metric's catalogue type, not a guess from the value. A slot shows one metric, so one type.
     private string _metricValueType = MetricValueType.Text;
+    // A failed catalogue read must be visible and retried, not silently shown as text.
+    private bool _catalogueUnavailable;
+    private bool _catalogueErrorLogged;
+    private bool _valueTypeKnown;
     private bool IsTimeMetric => _metricValueType == MetricValueType.Time;
 
     // Base colors (without threshold) - for title, labels
@@ -142,30 +156,50 @@
     protected override async Task OnInitializedAsync()
     {
         ApplyConfig();
-        await LoadMetricValueTypeAsync();
+        await EnsureMetricValueTypeAsync();
         // ConnectAsync moved to OnAfterRenderAsync — does not run during SSR pre-render
     }
 
     // One metric per slot, so one catalogue lookup. Unknown metric or unavailable catalogue -> text,
     // never a guess from the value.
-    private async Task LoadMetricValueTypeAsync()
+    // One metric per slot, so one lookup. A FAILED read is remembered, shown and retried on the
+    // next value: silently showing the slot as text is indistinguishable from working software.
+    private async Task EnsureMetricValueTypeAsync()
     {
+        if (_valueTypeKnown) return;
+
         if (ThresholdTextMatch.IsEmpty(_metricId))
         {
             _metricValueType = MetricValueType.Text;
+            _valueTypeKnown = true;
             return;
         }
+
         try
         {
-            var metrics = await Mediator.Send(new GetRtsGridMetricsQuery(), _cts.Token);
-            var metric = metrics.FirstOrDefault(
-                m => string.Equals(m.MetricId, _metricId, StringComparison.OrdinalIgnoreCase));
-            _metricValueType = MetricValueType.Normalize(metric?.ValueType);
+            var types = await Catalogue.GetValueTypesAsync(_cts.Token);
+            types.TryGetValue(_metricId!, out var raw);
+            _metricValueType = MetricValueType.Normalize(raw);
+            _valueTypeKnown = true;
+            if (_catalogueUnavailable)
+            {
+                _catalogueUnavailable = false;
+                _catalogueErrorLogged = false;
+                Logger.LogInformation("DataSlot: metric catalogue read succeeded on retry for {MetricId}", _metricId);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "DataSlot: metric catalogue unavailable for {MetricId}, shown as text", _metricId);
-            _metricValueType = MetricValueType.Text;
+            _catalogueUnavailable = true;
+            if (!_catalogueErrorLogged)
+            {
+                _catalogueErrorLogged = true;
+                Logger.LogError(ex, "DataSlot: metric catalogue could not be read for {MetricId}; value type unavailable", _metricId);
+            }
         }
     }
 
@@ -320,6 +354,10 @@
                 // Process the value (same logic as OnUpdateGridData)
                 var rawValue = match.Value;
                 var value = rawValue.StartsWith('+') ? rawValue[1..] : rawValue;
+
+                // Retry the catalogue on a fresh value: a one-off read failure must not keep the
+                // slot's type unknown until someone reloads the page.
+                await EnsureMetricValueTypeAsync();
 
                 // The type is already known from the catalogue: parsing only extracts the number
                 // for the chosen presentation. A value that does not parse shows as-is, and the

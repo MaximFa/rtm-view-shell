@@ -1,6 +1,5 @@
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Application.Queries.TenantSettings
-@using CcDashboard.Application.Queries.Configuration
 @using CcDashboard.Domain.Domain.Rtm
 @using CcDashboard.Application.Interfaces
 @using CcDashboard.Web.Services
@@ -27,6 +26,17 @@
             <button class="btn btn-sm btn-link p-0 ms-auto" @onclick="ReconnectAsync" aria-label="@L["Widget_ReloadPage"]">
                 @L["Widget_ReloadPage"]
             </button>
+        </div>
+    }
+
+    @* Column types unavailable - the metric catalogue could not be read. Shown because the
+       alternative (every column silently treated as text) looks like working software. *@
+    @if (_catalogueUnavailable)
+    {
+        <div class="alert alert-warning alert-sm d-flex align-items-center gap-2 py-1 px-2 mb-0 rounded-0"
+             role="alert" style="position: sticky; top: 0; z-index: 1039;">
+            <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+            <span class="small">@L["Widget_ColumnTypesUnavailable"]</span>
         </div>
     }
 
@@ -292,9 +302,16 @@
 
     [Inject] private ILogger<AgentGridWidget> Logger { get; set; } = null!;
     [Inject] private IMediator Mediator { get; set; } = null!;
+    [Inject] private IMetricCatalogue Catalogue { get; set; } = null!;
 
     // MetricId -> catalogue ValueType. The column's type comes from here and never from the data.
     private Dictionary<string, string> _metricValueTypes = new(StringComparer.OrdinalIgnoreCase);
+
+    // Reading the catalogue can fail (it did on 234: concurrent reads through one context). A
+    // failure must be VISIBLE and must not freeze the columns as text until the page is reloaded,
+    // so it is remembered, shown in the widget, logged once, and retried on the next data update.
+    private bool _catalogueUnavailable;
+    private bool _catalogueErrorLogged;
 
     // Saved row-filter rules, prepared ONCE: an operator that does not fit the metric's type is
     // replaced by the one valid for that type. Prepared once rather than per render so the log
@@ -418,29 +435,44 @@
     {
         ApplyConfig();
         FilterPopups.PopupOpened += OnOtherPopupOpened;
-        await LoadMetricValueTypesAsync();
+        await EnsureMetricValueTypesAsync();
         PrepareTableFilters();
         // ConnectAsync moved to OnAfterRenderAsync — does not run during SSR pre-render
     }
 
-    // The catalogue is read once per widget instance. It is reference data: the type of a metric
-    // does not change while a screen is open, so re-reading it per update would buy nothing.
-    private async Task LoadMetricValueTypesAsync()
+    // The catalogue is reference data — a metric's type does not change while a screen is open —
+    // so one successful read is enough. A FAILED read is a different matter: it used to be
+    // swallowed, every column silently became text, and it stayed that way until someone reloaded
+    // the page. Now the failure is remembered and retried.
+    private async Task EnsureMetricValueTypesAsync()
     {
+        if (_metricValueTypes.Count > 0) return;   // already have it; nothing to retry
+
         try
         {
-            var metrics = await Mediator.Send(new GetRtsGridMetricsQuery(), _cts.Token);
-            _metricValueTypes = metrics
-                .GroupBy(m => m.MetricId, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First().ValueType ?? string.Empty,
-                              StringComparer.OrdinalIgnoreCase);
+            var types = await Catalogue.GetValueTypesAsync(_cts.Token);
+            _metricValueTypes = new Dictionary<string, string>(types, StringComparer.OrdinalIgnoreCase);
+            if (_catalogueUnavailable)
+            {
+                _catalogueUnavailable = false;
+                _catalogueErrorLogged = false;
+                Logger.LogInformation("AgentGrid {GridId}: metric catalogue read succeeded on retry", GridId);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;   // the widget is going away — not a catalogue failure
         }
         catch (Exception ex)
         {
-            // Without the catalogue every column falls back to text, which only disables ordered
-            // comparisons — never a guess from the data.
-            Logger.LogWarning(ex, "AgentGrid {GridId}: metric catalogue unavailable, columns shown as text", GridId);
-            _metricValueTypes = new(StringComparer.OrdinalIgnoreCase);
+            _catalogueUnavailable = true;
+            // One line per failure spell, not per retry: a broken read repeats with every data
+            // update and would otherwise bury the log.
+            if (!_catalogueErrorLogged)
+            {
+                _catalogueErrorLogged = true;
+                Logger.LogError(ex, "AgentGrid {GridId}: metric catalogue could not be read; column types unavailable", GridId);
+            }
         }
     }
 
@@ -670,6 +702,9 @@
                     switch (change)
                     {
                         case UnionStateChange.InitialSnapshot snap:
+                            // Retry the catalogue on fresh data: a one-off read failure must not
+                            // keep the columns text until someone reloads the page.
+                            await EnsureMetricValueTypesAsync();
                             _rows.Clear();
                             foreach (var (_, agent) in snap.Agents)
                             {

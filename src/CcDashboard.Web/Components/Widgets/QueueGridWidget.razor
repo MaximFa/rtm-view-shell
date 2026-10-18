@@ -1,6 +1,5 @@
 @using CcDashboard.Contracts.DTOs.Widgets
 @using CcDashboard.Application.Queries.TenantSettings
-@using CcDashboard.Application.Queries.Configuration
 @using CcDashboard.Domain.Domain.Rtm
 @using CcDashboard.Application.Interfaces
 @using CcDashboard.Web.Services
@@ -28,6 +27,16 @@
             <button class="btn btn-sm btn-link p-0 ms-auto" @onclick="ReconnectAsync" aria-label="@L["Widget_ReloadPage"]">
                 @L["Widget_ReloadPage"]
             </button>
+        </div>
+    }
+
+    @* Column types unavailable — shown rather than silently treating every column as text. *@
+    @if (_catalogueUnavailable)
+    {
+        <div class="alert alert-warning alert-sm d-flex align-items-center gap-2 py-1 px-2 mb-0 rounded-0"
+             role="alert" style="position: sticky; top: 0; z-index: 1039;">
+            <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+            <span class="small">@L["Widget_ColumnTypesUnavailable"]</span>
         </div>
     }
 
@@ -279,6 +288,7 @@
 
     [Inject] private ILogger<QueueGridWidget> Logger { get; set; } = null!;
     [Inject] private IMediator Mediator { get; set; } = null!;
+    [Inject] private IMetricCatalogue Catalogue { get; set; } = null!;
 
     private Guid _tenantId;
     private Func<IReadOnlyList<GridCellUpdate>, Task>? _gridHandler;
@@ -309,6 +319,10 @@
 
     // MetricId -> catalogue ValueType. The column's type comes from here and never from the data.
     private Dictionary<string, string> _metricValueTypes = new(StringComparer.OrdinalIgnoreCase);
+
+    // A failed catalogue read must be visible and retried — see EnsureMetricValueTypesAsync.
+    private bool _catalogueUnavailable;
+    private bool _catalogueErrorLogged;
 
     // RTM protocol: CellId -> (RowDefId, MetricId) reverse map
     private record RtmCellData(int CellId, string Value, string Value2);
@@ -387,26 +401,39 @@
     {
         ApplyConfig();
         FilterPopups.PopupOpened += OnOtherPopupOpened;
-        await LoadMetricValueTypesAsync();
+        await EnsureMetricValueTypesAsync();
         // NOTE: ConnectAsync moved to OnAfterRenderAsync to avoid SSR pre-render subscribe cycling
     }
 
-    // The catalogue is read once per widget instance: a metric's type does not change while a
-    // screen is open.
-    private async Task LoadMetricValueTypesAsync()
+    // Reference data: one successful read is enough. A FAILED read used to be swallowed and every
+    // column silently became text until the page was reloaded — now it is remembered and retried.
+    private async Task EnsureMetricValueTypesAsync()
     {
+        if (_metricValueTypes.Count > 0) return;
+
         try
         {
-            var metrics = await Mediator.Send(new GetRtsGridMetricsQuery(), _cts.Token);
-            _metricValueTypes = metrics
-                .GroupBy(m => m.MetricId, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First().ValueType ?? string.Empty,
-                              StringComparer.OrdinalIgnoreCase);
+            var types = await Catalogue.GetValueTypesAsync(_cts.Token);
+            _metricValueTypes = new Dictionary<string, string>(types, StringComparer.OrdinalIgnoreCase);
+            if (_catalogueUnavailable)
+            {
+                _catalogueUnavailable = false;
+                _catalogueErrorLogged = false;
+                Logger.LogInformation("QueueGrid {GridId}: metric catalogue read succeeded on retry", _rtsGridId);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "QueueGrid {GridId}: metric catalogue unavailable, columns shown as text", _rtsGridId);
-            _metricValueTypes = new(StringComparer.OrdinalIgnoreCase);
+            _catalogueUnavailable = true;
+            if (!_catalogueErrorLogged)
+            {
+                _catalogueErrorLogged = true;
+                Logger.LogError(ex, "QueueGrid {GridId}: metric catalogue could not be read; column types unavailable", _rtsGridId);
+            }
         }
     }
 
@@ -575,6 +602,9 @@
 
             _gridHandler = async updates =>
             {
+                // Retry the catalogue on fresh data: a one-off read failure must not keep the
+                // columns text until someone reloads the page.
+                await EnsureMetricValueTypesAsync();
                 foreach (var cell in updates)
                 {
                     if (!_cellMap.TryGetValue(cell.CellId, out var mapping)) continue;
