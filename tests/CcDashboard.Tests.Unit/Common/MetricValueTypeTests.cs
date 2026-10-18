@@ -126,6 +126,36 @@ public class MetricValueTypeTests
         MetricValueType.NearestOperator(op, valueType).Should().Be("equal");
     }
 
+    // ── The alphabet this helper speaks, stated rather than left to chance ──
+
+    [Theory]
+    [InlineData("lessOrEqual")]
+    [InlineData("greaterOrEqual")]
+    public void FunnelAlphabet_isNotUnderstood_andThatIsTheBoundary(string funnelOperator)
+    {
+        // This helper is for SAVED rules, which the editor writes in lower case. The column funnel
+        // the viewer sets uses its own camelCase spelling, kept in the browser's localStorage, and
+        // it is read by MatchesValueFilter — never here. Pinned because the helper's name sounds
+        // general: applied to a funnel operator it would call it unfit and substitute "equal",
+        // silently changing what the viewer chose.
+        MetricValueType.OperatorFitsType(funnelOperator, "Number").Should().BeFalse();
+        MetricValueType.OperatorFitsType(funnelOperator, "String").Should().BeFalse();
+        MetricValueType.NearestOperator(funnelOperator, "Number").Should().Be("equal",
+            "which is exactly why this helper must not be pointed at funnel operators");
+    }
+
+    [Theory]
+    [InlineData("startsWith")]
+    [InlineData("endsWith")]
+    public void SomeFunnelSpellings_areUnderstoodByAccident_notByDesign(string funnelOperator)
+    {
+        // Lower-casing makes these two collide with the saved-rule alphabet, so they happen to be
+        // accepted. Written down so the collision is a known fact rather than a quiet coincidence:
+        // the two alphabets differ by one letter, and that is where a mistake would hide.
+        MetricValueType.OperatorFitsType(funnelOperator, "String").Should().BeTrue();
+        MetricValueType.OperatorFitsType(funnelOperator, "Number").Should().BeFalse();
+    }
+
     [Fact]
     public void EverySubstitutionIsDefined_NothingIsLeftWithoutAnOperator()
     {
