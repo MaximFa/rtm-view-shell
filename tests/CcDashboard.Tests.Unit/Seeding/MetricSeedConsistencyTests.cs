@@ -130,4 +130,76 @@ public class MetricSeedConsistencyTests
 
         seed.Keys.Should().BeEquivalentTo(CanonicalRows().Keys, "the seed and the canonical fresh install ship the same metric set");
     }
+
+    // ---------- history metrics (history_metrics): only the seed and the migrations ship them ----------
+
+    private static readonly string[] HistoryColumns =
+        { "MetricId", "Description", "DataType", "MetricFunction", "MetricParameter", "MetricFormat", "DefaultValue", "ValueType", "MetricType" };
+
+    /// <summary>Rows of every "new() { ... }," object initializer inside the named seeding method.</summary>
+    private static Dictionary<string, Dictionary<string, string?>> SeedMethodRows(string src, string method)
+    {
+        int a = src.IndexOf("private async Task " + method + "(", StringComparison.Ordinal);
+        a.Should().BeGreaterThan(0, method + " must exist");
+        int b = src.IndexOf("private async Task ", a + 1, StringComparison.Ordinal);
+        b.Should().BeGreaterThan(a);
+        var rows = new Dictionary<string, Dictionary<string, string?>>();
+        foreach (Match m in Regex.Matches(src[a..b], @"new\(\)\s*\{(.*?)\},", RegexOptions.Singleline))
+        {
+            var d = new Dictionary<string, string?>();
+            foreach (Match f in Regex.Matches(m.Groups[1].Value, @"(\w+)\s*=\s*(null|""((?:[^""\\]|\\.)*)"")"))
+                d[f.Groups[1].Value] = f.Groups[2].Value == "null" ? null : Regex.Unescape(f.Groups[3].Value);
+            if (d.TryGetValue("MetricId", out var id) && id != null) rows[id] = d;
+        }
+        return rows;
+    }
+
+    /// <summary>Tuples of an INSERT ... VALUES (...) with exactly the 9 history columns, all quoted literals.</summary>
+    private static Dictionary<string, string[]> MigrationHistoryRows(string sql)
+    {
+        var rows = new Dictionary<string, string[]>();
+        var lit = @"\s*'((?:[^']|'')*)'\s*";
+        var tuple = @"\(" + string.Join(",", Enumerable.Repeat(lit, HistoryColumns.Length)) + @"\)";
+        foreach (Match m in Regex.Matches(sql, tuple))
+        {
+            var v = Enumerable.Range(1, HistoryColumns.Length).Select(i => m.Groups[i].Value.Replace("''", "'")).ToArray();
+            rows[v[0]] = v;
+        }
+        return rows;
+    }
+
+    /// <summary>MetricIds of the migration whose fields are absent from, or differ in, the seed.</summary>
+    private static List<string> HistoryRowsMissingFromSeed(Dictionary<string, string[]> migration, Dictionary<string, Dictionary<string, string?>> seed)
+    {
+        var bad = new List<string>();
+        foreach (var (id, v) in migration)
+        {
+            if (!seed.TryGetValue(id, out var s)) { bad.Add(id + " (absent)"); continue; }
+            for (int i = 0; i < HistoryColumns.Length; i++)
+                if (!s.TryGetValue(HistoryColumns[i], out var sv) || sv != v[i]) bad.Add(id + "." + HistoryColumns[i]);
+        }
+        return bad;
+    }
+
+    [Fact]
+    public void HistorySeed_CarriesTheUnavailableMetricsOfMigration005()
+    {
+        var migration = MigrationHistoryRows(File.ReadAllText(RepoFile("db/migrations/20260606_005_history_unavailable_metrics.sql"), Encoding.UTF8));
+        migration.Keys.Should().BeEquivalentTo(new[] { "statuslog.unavailable_agents", "statuslog.unavailable_time_ms" }, "the parser must read both rows of _005");
+
+        var src = File.ReadAllText(RepoFile("src/CcDashboard.Infrastructure/Seeding/DatabaseInitializer.cs"), Encoding.UTF8);
+        var seed = SeedMethodRows(src, "SeedHistoryMetricsAsync");
+        seed.Should().ContainKey("statuslog.training_agents", "positive control: the parser reads the history seed");
+
+        HistoryRowsMissingFromSeed(migration, seed).Should().BeEmpty("a fresh install gets history_metrics only from this seed (no db/data file loads it)");
+
+        // negative half: the same check goes red on the seed text as it was before 2026-10-18 (no UNAVAILABLE rows)
+        var oldSeed = seed.Where(kv => !kv.Key.StartsWith("statuslog.unavailable_", StringComparison.Ordinal)).ToDictionary(kv => kv.Key, kv => kv.Value);
+        HistoryRowsMissingFromSeed(migration, oldSeed).Should().BeEquivalentTo(new[] { "statuslog.unavailable_agents (absent)", "statuslog.unavailable_time_ms (absent)" });
+
+        // negative half: a single differing field is caught too
+        var tampered = seed.ToDictionary(kv => kv.Key, kv => new Dictionary<string, string?>(kv.Value));
+        tampered["statuslog.unavailable_time_ms"]["MetricFormat"] = "0";
+        HistoryRowsMissingFromSeed(migration, tampered).Should().BeEquivalentTo(new[] { "statuslog.unavailable_time_ms.MetricFormat" });
+    }
 }
