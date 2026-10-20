@@ -837,3 +837,60 @@ v4 2fea849 отслеживает `Installations/` 812 файлов / 292.7 MB (
 - 2026-10-13T16:29:34Z · coordinator-0924 · BL-PREPROD-AUTHZ-01 — перед продом: аудит кросс-тенантного доступа (AuthorizationBehavior инертен, PR234-V4-AUTHZ-BEHAVIOR-INERT-01) + GetTenantSettingsQuery:20 (явный TenantId без проверки, NRE без тенанта). Слово оператора 13.10: «секюрити откладываю - поедет на прод, мы пока на деве».
 - 2026-10-14T04:34:01Z · coordinator-0924 · BL-V4-ASD-COLOR-GROUP-NAMES-01 — цвета сегментов ASD завязаны на имена «On Phone»/«Available» (AgentStateDistributionWidget.razor:148,157,374), данные дают ONPHONE/AVAILABLE; сегодня цвета верные (где-то есть сопоставление). Третий справочник имён групп. Наблюдение shell-0919b 14.10.
 - 2026-10-14T04:41:27Z · coordinator-0924 · BL-PREPROD-AUTHZ-01 (дополнение) — третий экземпляр: UpdateTenantSettingsCommand.cs:22 (cmd.TenantId ?? currentUser.TenantId!.Value). backend-0919 14.10.
+- 2026-10-14T08:33:34Z · coordinator-0924 · BL-PREPROD-AUTHZ-01 (дополнение) — GetCellMapForGridAsync (RtsRepository.cs:305) / GetRtsGridCellMapQuery: чтение по GridId без TenantId. backend-0919 14.10.
+- 2026-10-15T16:19:20Z · coordinator-0924 · ОЧЕРЕДЬ после задачи оператора по legacy (15.10): (1) сверка N Wfm ↔ ASD при людях в зале — N уже число, «нет данных» ушло (shell 16:17Z), суммы не сверены на нулях; (2) PR234-V4-UI-RAW-EXCEPTION-01 — 67 мест, помощник + страж (shell, решение дано); (3) PR234-V4-STALE-SCREEN-NO-WARNING-01; (4) PR234-V4-SECOND-TAB-RELOGIN-01; (5) удаление 5 бэкапов 17.7 GB на 234 — ждёт слова оператора; (6) замер TZ-гейта при людях (devops); (7) PR234-INSTALLER-BACKUP-SORT-BY-NAME-01 и SHELLMODE-BACKS-RTM-01.
+
+## 2026-10-18T05:25:30Z · BL-V4-INSTALLER-SKIPS-MIGRATIONS-01 · open · owner: devops (установщик), backend (предмет)
+Заявлено coordinator-1018 по разбору backend-1015 (2026-10-18, .coord/inbox/coordinator.md 2026-10-18T05:24:14Z).
+Суть: выкат Shell/RTM не применяет db/migrations и не сверяет db_patch_history; сидинг метрик только вставляет. Следствие на 234: _003 (CurLoginTimestamp) применялась 08.06, стёрта перезаливкой данных 08.09 (metric_deploy_log 203 строки 'baseline' 2026-09-08 11:26:09+03; db_patch_history 0 строк), и ни один выкат её не повторил — «текущий вход» пуст до сих пор.
+Факты: LEDGER migledger-1017 (_002, _003 OK 2026-06-08T23:12:33Z); patchhist-1017 и migledger-1017 17.10, read_only=on.
+Открыто: сколько ещё миграций до 08.09 стёрто так же — замер backend-1015 (единица 2026-10-18).
+
+## 2026-10-18T10:14:10Z · BL-PROBE-CORE-FLUSH-HIDES-TAIL-01 · open · owner: devops
+Заявлено coordinator-1018 по разбору devops-1014 (.coord/inbox/coordinator.md 2026-10-18T09:22:51Z). Ядро _core.ps1 сбрасывает отчёт каждые 20 строк; при убийстве процесса до 19 последних строк теряются, и место остановки по файлу неразличимо (случай shellpkg-effcd27 08:26–08:31 местн., 420 строк, ни ловушки, ни Finish). Предложение devops: сброс на каждой строке в фазах после сборки.
+
+## 2026-10-18T10:37:08Z · BL-V4-INSTALLER-SKIPS-MIGRATIONS-01 · дополнение
+По migeffect 234 (backend-1015, 2026-10-18T10:36:11Z): стёрто перезаливкой — _003, _005; НИКОГДА не применялось — 20260622_001 (2 индекса UpdateTime + autovacuum), 20260721_001 (3 wfm-индекса). Значит причина шире 08.09: с 11.06 на 234 не применена ни одна миграция. _011 и _014 — ждут PROBE2. _007 — не дефект (EF-история backend-emulation на проде не ведётся).
+
+## 2026-10-18T11:15:43Z · BL-234-INTERACTION-TIME-AHEAD-01 · open (кандидат) · owner: metrics (разбор)
+Заявлено coordinator-1018 по замечанию devops-1014 (.coord/inbox/coordinator.md 2026-10-18T11:13:57Z). На 234 newest по типам взаимодействий Call/default = 2026-10-18 16:13:21+03 при db_now 14:13:21+03 того же запроса (.coord/measure/dialer-1018/234_dialer_20261018_141310_PROBE.out). Метки на 2 ч впереди часов базы. Причина не установлена; кандидат — запись местного времени как UTC (или наоборот) в цепочке адаптер → движок → БД.
+
+## 2026-10-18T12:18:41Z · BL-234-INTERACTION-TIME-AHEAD-01 · дополнение (разбор metrics-1014, 2026-10-18T12:03:23Z)
+По коду v3: InQueueDateTime/AnsweredDateTime = UtcNow + пояс площадки (NGC_Site.TimeZone, канон IL = фиксированный +02:00) и пишутся как UTC в timestamptz → +2 ч; время статусов агентов сериализатор переводит в местное время машины и тоже пишет как UTC → +3 ч. Следствия (вывод по v4): Wfm согласован; исторические отчёты — звонки и статусы одного часа в разных интервалах, «сегодня» отстаёт на 2–5 ч, у полуночи хвост уезжает в следующий день. Ждёт замера timeahead-1018.
+## 2026-10-18T12:18:41Z · BL-234-INTERACTION-TYPE-DEFAULT-01 · open (кандидат) · owner: metrics (разбор)
+На 234 36 651 взаимодействие с InteractionType='default' при 38 775 'Call' (.coord/measure/dialer-1018/234_dialer_20261018_141310_PROBE.out). Все звонковые метрики, Wfm и историческая агрегация фильтруют 'Call' — эти строки им невидимы. Движок тип 'default' не порождает — его присылает адаптер. Разбор: блок T5 замера timeahead-1018.
+
+## 2026-10-18T16:37:01Z · BL-V4-SCOPED-CONTEXT-ON-USER-ACTION-01 · open (кандидат) · owner: backend
+Обход backend-1015 2026-10-18T16:28:31Z: GetMyBusinessUnitsQuery (DayTrendWidget.razor:787, OpenLocalConfigAsync) идёт через scoped BackendEmulationDbContext/AppDbContext цепи — тот же класс дефекта, что PR234-V4-ALL-COLUMNS-TEXT-AFTER-EFFCD27-01; зовётся по клику пользователя, не пачкой при загрузке. Не блокер сейчас.
+
+## 2026-10-18T16:48:38Z · BL-234-INTERACTION-TYPE-DEFAULT-01 · переформулировано (metrics-1014 2026-10-18T16:41:19Z)
+37 100 строк 'default' — все в очереди «Nobody», без агента, без разговора, ~24 мин в очереди, по рабочим дням; не дозвон. Служебные задачи Twilio пишутся в RTSData_Interaction наравне со звонками; вред — только если «Nobody» выведена пользователю (проверка — один SELECT, заявка metrics).
+## 2026-10-18T16:48:38Z · BL-234-REMOTEADDRESS-LOST-ON-CLOSE-01 · open (кандидат) · owner: metrics (разбор)
+default-1018: во всех группах число строк с номером = числу строк «в очереди» (64=64, 51=51, 4=4, 1=1, 0=0) — номер есть только у незавершённых взаимодействий, при завершении теряется. Путь в адаптере/движке не прослежен.
+## 2026-10-18T16:48:38Z · BL-234-SITE-TZ-FIXED-NO-DST-01 · open · owner: backend (данные площадок — оператор)
+NGC_Site IL = фиксированные +02:00 (db/data/04_catalog.sql:7, замер timeahead-1018 T1) при летнем +03: местный день движка (OnDate, ClearTime) летом сдвинут на час от настоящего. Связан с BL-234-INTERACTION-TIME-AHEAD-01 (разбор backend 2026-10-18T16:41:31Z).
+## 2026-10-18T16:48:38Z · BL-ADAPTER-STATUSCHANGED-TZ-01 · open (вопрос) · owner: владелец адаптера (ветка adapters)
+Что адаптер шлёт в Agent.StatusChanged: с Z, со смещением или без. Для правки времени (BL-234-INTERACTION-TIME-AHEAD-01) правильнее UTC с Z.
+
+## 2026-10-18T17:39:45Z · BL-234-INTERACTION-TYPE-DEFAULT-01 · вред пользователю не найден
+nobody-1018 (234_nobody_20261018_203727): «Nobody» в NGC_Queues active, свой BU; в ячейках сеток 0, в группах прав 0. Оговорка: POSCTL 5005 в сетках тоже 0 — блок сеток не различающий.
+## 2026-10-18T17:39:45Z · BL-234-INTERACTION-TIME-AHEAD-01 · замер tzdepth-1015 (234_tzdepth_20261018_203727)
+Пояс машины Israel Standard Time (+3 сейчас). Сырьё и архив с 2026-09-08, дней без сырья нет → история пересобирается целиком. Смешанные корзины: очереди 197, агенты 10832/22921. Опережение на сырье до ~2ч52м живо.
+
+## 2026-10-18T17:41:13Z · BL-234-INTERACTION-TIME-AHEAD-01 · решение оператора
+Слово оператора 2026-10-18 20:40 (+03:00): «данные до не релевантны» — миграции сырья и пересборки истории не делаем; правка записи времени вперёд (движок + функции чтения + WFM), отдельной партией после блокера колонок.
+
+## 2026-10-18T18:08:03Z · BL-234-INTERACTION-TYPE-DEFAULT-01 · ПОПРАВКА к записи 17:39:45Z: «вред пользователю не найден» → «НЕ ПРОВЕРЕНО»
+metrics-1014 17:44:37Z: блоки сеток (N3) и прав (N4) дали 0 и у Nobody, и у контрольной 5005 — оба слепы; держит только «Nobody ни в каком BU, кроме своего». Досъём — nobody2-1018. Ошибка вывода — моя (coordinator-1018).
+## 2026-10-18T18:08:03Z · BL-234-INTERACTION-TIME-AHEAD-01 · партия backend остановлена до сборки
+metrics-1014 17:44:37Z: отчёты и дневной тренд выводят время «как записано» (IntervalStart.ToString, DayTrendWidget.razor:503), без перевода; правка только записи сдвинула бы их на 2–3 ч назад. Требование перевода на показе передано backend-1015.
+
+## 2026-10-18T18:31:29Z · BL-V4-INFOSLOT-TIME-NO-LOCAL-01 · open (кандидат) · owner: shell
+InfoSlotWidget.razor:37,56,57 — CreatedAt/ExpiresAt.ToString("HH:mm") без ToLocalTime (InfoSlotMessages.razor переводит). Найдено backend-1015 18:15:34Z при обходе показа времени.
+## 2026-10-18T18:31:29Z · BL-234-PG-QUEUES-EMPTY-01 · open (вопрос) · owner: backend (как оболочка трактует пустой список)
+nobody2-1018 M2: pg_queues на 234 — 0 строк; права по очередям не назначены ни одной группе. Не проверено, трактует ли оболочка пустой список как «все» или «ничего» (CLAUDE.md PG-03: пустой = доступ запрещён).
+
+## 2026-10-18T18:38:48Z · BL-234-INTERACTION-TYPE-DEFAULT-01 · вред пользователю не найден (с рабочим контролем)
+nobody3-1018 (234_nobody3_20261018_213422): по правилу движка (ячейка→строка→сетка) 13 реальных BU у 393 ячеек; BU 3 («Nobody») — 0; ячеек с действующим BU 3 — 0. Заменяет поправку 18:08:03Z.
+## 2026-10-18T18:38:48Z · BL-234-CELLS-WITHOUT-UNION-01 · open (кандидат) · owner: metrics (разбор)
+nobody3-1018 R1/R2: 116 ячеек в 21 сетке без союза ни на одном уровне (110 строк -1, 6 NULL) — getDataCells их пропускает; если это ячейки данных, пользователь видит пустоту всегда.
