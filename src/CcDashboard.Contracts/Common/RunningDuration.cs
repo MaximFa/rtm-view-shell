@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace CcDashboard.Contracts.Common;
 
 /// <summary>
@@ -40,4 +42,37 @@ public static class RunningDuration
     /// <summary>Value a running-duration cell shows, and the value its column is compared by.</summary>
     public static string Comparable(int baseSecs, DateTime startedAt, DateTime now)
         => Format(ElapsedSeconds(baseSecs, startedAt, now));
+
+    /// <summary>Seconds a moment may run ahead of the clock before it is treated as wrong.</summary>
+    public const int FutureToleranceSeconds = 5;
+
+    /// <summary>
+    /// The engine's "+dd/MM/yyyy HH:mm:ss" payload is the MOMENT a duration started, not its length
+    /// (RTM/UserManager.cs:1329,1351,1361,1400,1404,1420,1430,1443,1460,1634,1650 and
+    /// RTM/Union.cs:1095,1124 - fifteen such places, every one built from DateTime.Now). Splitting it
+    /// on ':' makes "18/10/2026 17" the hours part, which parses as nothing, so the old reader
+    /// returned 0 and every running timer restarted from zero whenever the page was reloaded.
+    ///
+    /// ASSUMPTION - ONE HOST: the moment carries no zone, it is the engine machine's local wall
+    /// clock. Measured 2026-10-20 (acceptance report 234_20261020_073118): RTMService (pid 10380) and
+    /// RTMViewShell (pid 8432) run on the same machine "RTM", so Shell's local clock is that same
+    /// scale and SpecifyKind(Local).ToUniversalTime() is exact. If Shell ever moves to another host
+    /// or another zone, this is the line that breaks, and the error is whole hours.
+    /// </summary>
+    /// <returns>true and the moment as UTC; false when the text is not such a moment.</returns>
+    public static bool TryParseEngineInstant(string? text, out DateTime utc)
+    {
+        utc = default;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var body = text![0] == '+' ? text[1..] : text;
+        if (!DateTime.TryParseExact(body, "dd/MM/yyyy HH:mm:ss",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
+            return false;
+        utc = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime();
+        return true;
+    }
+
+    /// <summary>A moment later than now is not a start: clocks disagree or the payload is wrong.</summary>
+    public static bool IsFutureInstant(DateTime utc, DateTime now)
+        => utc > now.AddSeconds(FutureToleranceSeconds);
 }

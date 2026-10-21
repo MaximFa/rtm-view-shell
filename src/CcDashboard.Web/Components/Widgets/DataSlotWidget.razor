@@ -353,7 +353,26 @@
 
                 // Process the value (same logic as OnUpdateGridData)
                 var rawValue = match.Value;
+                // PR234-V4-RUNNING-DURATION-RESET-ON-RELOAD-01: a "+dd/MM/yyyy HH:mm:ss" payload is the
+                // MOMENT the duration started, not its length - it parsed as neither a time nor a
+                // number, so the tile showed the raw timestamp and no threshold applied. Turn it into
+                // the elapsed duration here. The tile has no tick of its own, so the value advances
+                // with each engine update rather than every second; that is a separate unit of work.
+                // One-host assumption and its measurement: RunningDuration.TryParseEngineInstant.
                 var value = rawValue.StartsWith('+') ? rawValue[1..] : rawValue;
+                if (RunningDuration.TryParseEngineInstant(rawValue, out var startedUtc))
+                {
+                    if (RunningDuration.IsFutureInstant(startedUtc, DateTime.UtcNow))
+                    {
+                        Logger.LogWarning(
+                            "DataSlot: start moment {Moment} is in the future for {MetricId}; shown as text, not timed",
+                            value, _metricId);
+                    }
+                    else
+                    {
+                        value = RunningDuration.Comparable(0, startedUtc, DateTime.UtcNow);
+                    }
+                }
 
                 // Retry the catalogue on a fresh value: a one-off read failure must not keep the
                 // slot's type unknown until someone reloads the page.

@@ -1630,11 +1630,38 @@
         _ => value.EndsWith("px") ? value : $"{value}px"
     };
 
-    private static void ApplyMetricValue(AgentRowData row, string metricId, string rawValue, DateTime receivedAt)
+    // PR234-V4-RUNNING-DURATION-RESET-ON-RELOAD-01: the engine sends the MOMENT a duration started,
+    // not its length, so anchor to that moment and the cell survives a page reload. The old
+    // chh:mm:ss reader is kept for a payload that really is a length. One-host assumption and the
+    // measurement behind it: see RunningDuration.TryParseEngineInstant.
+    private void ApplyMetricValue(AgentRowData row, string metricId, string rawValue, DateTime receivedAt)
     {
         if (rawValue?.StartsWith('+') == true)
         {
+            if (RunningDuration.TryParseEngineInstant(rawValue, out var startedUtc))
+            {
+                if (RunningDuration.IsFutureInstant(startedUtc, DateTime.UtcNow))
+                {
+                    // Not silently zero: a start in the future is reported and the raw moment is
+                    // shown as text, so a clock or payload fault is visible instead of a 00:00 timer.
+                    Logger.LogWarning(
+                        "AgentGrid {GridId}: metric {MetricId} start moment {Moment} is in the future; shown as text, not timed",
+                        GridId, metricId, rawValue[1..]);
+                    row.Metrics[metricId] = rawValue[1..];
+                    row.TimerAnchors.Remove(metricId);
+                    return;
+                }
+                row.TimerAnchors[metricId] = (0, startedUtc);
+                row.Metrics[metricId] = rawValue[1..];
+                return;
+            }
             var secs = ParseTimeToSeconds(rawValue[1..]);
+            if (secs == 0 && !LooksLikeDuration(rawValue[1..]))
+            {
+                Logger.LogWarning(
+                    "AgentGrid {GridId}: metric {MetricId} value {Value} is neither a start moment nor a duration; timing it from zero",
+                    GridId, metricId, rawValue[1..]);
+            }
             row.TimerAnchors[metricId] = (secs, receivedAt);
             row.Metrics[metricId] = rawValue[1..];
         }
@@ -1643,6 +1670,15 @@
             row.Metrics[metricId] = rawValue ?? "";
             row.TimerAnchors.Remove(metricId);
         }
+    }
+
+    // Negative half of the guard above: a plain duration is digits and colons only.
+    private static bool LooksLikeDuration(string text)
+    {
+        if (text.Length == 0) return false;
+        foreach (var c in text)
+            if (!char.IsDigit(c) && c != ':') return false;
+        return true;
     }
 
     private static int ParseTimeToSeconds(string time)
