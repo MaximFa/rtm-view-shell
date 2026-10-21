@@ -56,6 +56,10 @@ public class RunningDurationAnchorGuardTests
             "these three are the widgets the defect was found in; losing one from the area would hide a regression");
     }
 
+    // DataSlot is deliberately absent from this theory: it has no timer and no
+    // "time it from zero" branch at all, so LooksLikeDuration has nothing to tell apart there.
+    // What it DOES share - a moment ahead of the clock must be reported - is checked separately
+    // below, so the third stripper is covered rather than quietly skipped.
     [Theory]
     [InlineData("AgentGridWidget.razor")]
     [InlineData("QueueGridWidget.razor")]
@@ -71,6 +75,19 @@ public class RunningDurationAnchorGuardTests
             $"{widget} must log a start moment that lies ahead of the clock");
         source.Should().Contain("neither a start moment nor a duration",
             $"{widget} must log a payload it could not read, instead of timing it from zero quietly");
+    }
+
+    [Fact]
+    public void DataSlot_reportsAMomentAheadOfTheClock_eventhoughItHasNoTimer()
+    {
+        var source = File.ReadAllText(Path.Combine(WidgetsDirectory(), "DataSlotWidget.razor"));
+
+        source.Should().Contain("RunningDuration.IsFutureInstant",
+            "the tile must not present a future moment as an elapsed duration");
+        source.Should().Contain("is in the future; shown as text, not timed",
+            "and it must say so in the log");
+        source.Should().NotContain("LooksLikeDuration",
+            "the tile has no zero-timing branch, so that distinction would be dead code here");
     }
 
     [Fact]
