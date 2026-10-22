@@ -185,8 +185,8 @@ namespace CcDashboard.Infrastructure.Migrations.BackendEmulation
                         .HasColumnType("uuid");
 
                     b.Property<string>("TimeZone")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.HasKey("SiteId");
 
@@ -500,8 +500,8 @@ namespace CcDashboard.Infrastructure.Migrations.BackendEmulation
                         .HasColumnType("integer");
 
                     b.Property<string>("TimeZone")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime?>("UpdateTime")
                         .HasColumnType("timestamp with time zone");
@@ -558,8 +558,8 @@ namespace CcDashboard.Infrastructure.Migrations.BackendEmulation
                         .HasColumnType("uuid");
 
                     b.Property<string>("TimeZone")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<int?>("TotalCount")
                         .HasColumnType("integer");
@@ -612,8 +612,8 @@ namespace CcDashboard.Infrastructure.Migrations.BackendEmulation
                         .HasColumnType("uuid");
 
                     b.Property<string>("TimeZone")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime?>("UpdateTime")
                         .HasColumnType("timestamp with time zone");

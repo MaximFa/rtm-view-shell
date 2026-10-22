@@ -14,8 +14,7 @@ namespace RTM
     /// machine offset (+3h in Israeli summer time). Every reader outside the engine saw shifted times.
     ///
     /// Now: write = true UTC; read back (engine restart) = convert UTC back to the same site-local value.
-    /// Offset rules are byte-for-byte those of IDInteraction.toLocal: empty zone => 0; "+02:00"/"-05:00"/"03:00"
-    /// => that fixed offset; otherwise a Windows/IANA id; anything unparseable => 0.
+    /// Offset rules: the engine's single zone reader SiteZone (the same one toLocal uses).
     /// Sentinels (InQueueDateTime = SqlDateTime.MaxValue, AnsweredDateTime = SqlDateTime.MinValue) are passed
     /// through untouched both ways, so "not queued / not answered" keeps meaning the same.
     /// </summary>
@@ -25,26 +24,7 @@ namespace RTM
         internal static bool IsSentinel(DateTime t) => t.Year >= 9999 || t.Year <= 1753;
 
         /// <summary>Offset the engine adds to UTC for this zone at instant <paramref name="utc"/> (same rules as IDInteraction.toLocal).</summary>
-        internal static TimeSpan SiteOffset(string? timeZone, DateTime utc)
-        {
-            if (string.IsNullOrWhiteSpace(timeZone))
-                return TimeSpan.Zero;
-            try
-            {
-                string cleaned = timeZone.Trim();
-                bool negative = cleaned.StartsWith("-");
-                string stripped = cleaned.TrimStart('+').TrimStart('-');
-                if (TimeSpan.TryParse(stripped, out var offset))
-                    return negative ? offset.Negate() : offset;
-
-                var tzi = TimeZoneInfo.FindSystemTimeZoneById(timeZone);
-                return tzi.GetUtcOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc));
-            }
-            catch
-            {
-                return TimeSpan.Zero;
-            }
-        }
+        internal static TimeSpan SiteOffset(string? timeZone, DateTime utc) => SiteZone.Offset(timeZone, utc); // PR234-SITE-TZ-FIXED-OFFSET-01: shared reader
 
         /// <summary>
         /// Site-local value stamped by the engine -> true UTC (Kind=Utc) for a timestamptz parameter.

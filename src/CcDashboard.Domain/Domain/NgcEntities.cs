@@ -8,7 +8,7 @@ public class NgcSite
     public Guid TenantId { get; set; }
     public string? SiteName { get; set; }
     public string? Description { get; set; }
-    public string? TimeZone { get; set; }   // format: "+10:00"
+    public string? TimeZone { get; set; }   // "+10:00" (fixed) or a time zone id, e.g. "Israel Standard Time" (with DST)
     public string? ClearTime { get; set; }  // format: "HH:MM" as nvarchar
 
     public ICollection<NgcBusinessUnit> BusinessUnits { get; set; } = [];

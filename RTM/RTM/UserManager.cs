@@ -185,41 +185,11 @@ namespace RTM
 
 
 
+        // PR234-SITE-TZ-FIXED-OFFSET-01: same reader as IDInteraction.toLocal (SiteZone).
         public DateTime getLocalDateTime()
         {
-            DateTime localTime = DateTime.UtcNow;
-
-            if (string.IsNullOrWhiteSpace(TimeZone))
-                return localTime;
-
-            try
-            {
-                TimeSpan offset;
-
-                // Try offset format first: "+03:00", "-05:00", "03:00"
-                string cleaned = TimeZone.Trim();
-                bool negative = cleaned.StartsWith("-");
-                string stripped = cleaned.TrimStart('+').TrimStart('-');
-
-                if (TimeSpan.TryParse(stripped, out offset))
-                {
-                    if (negative) offset = offset.Negate();
-                }
-                else
-                {
-                    // Fallback: Windows / IANA timezone ID (e.g. "Israel", "UTC")
-                    var tzi = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
-                    offset = tzi.GetUtcOffset(DateTime.UtcNow);
-                }
-
-                localTime = localTime.Add(offset);
-            }
-            catch
-            {
-                // Unknown timezone format — return UTC silently
-            }
-
-            return localTime;
+            var utc = DateTime.UtcNow;
+            return utc.Add(SiteZone.Offset(TimeZone, utc));
         }
 
 

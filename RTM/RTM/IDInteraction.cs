@@ -266,42 +266,9 @@ namespace RTM
         // localize identically. Our semantics kept: empty TimeZone => UTC; offset string or Windows/IANA id; unknown => UTC.
         public DateTime getLocalDateTime() => toLocal(DateTime.UtcNow);
 
-        internal DateTime toLocal(DateTime utc)
-        {
-            DateTime localTime = utc;
-
-            if (string.IsNullOrWhiteSpace(TimeZone))
-                return localTime;
-
-            try
-            {
-                TimeSpan offset;
-
-                // Try offset format first: "+03:00", "-05:00", "03:00"
-                string cleaned = TimeZone.Trim();
-                bool negative = cleaned.StartsWith("-");
-                string stripped = cleaned.TrimStart('+').TrimStart('-');
-
-                if (TimeSpan.TryParse(stripped, out offset))
-                {
-                    if (negative) offset = offset.Negate();
-                }
-                else
-                {
-                    // Fallback: Windows / IANA timezone ID (e.g. "Israel", "UTC")
-                    var tzi = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
-                    offset = tzi.GetUtcOffset(utc);
-                }
-
-                localTime = localTime.Add(offset);
-            }
-            catch
-            {
-                // Unknown timezone format — return UTC silently
-            }
-
-            return localTime;
-        }
+        // PR234-SITE-TZ-FIXED-OFFSET-01: one reader of the zone string for the whole engine (SiteZone) - fixed offset or zone id
+        // with daylight saving taken at this instant; empty / unresolvable => UTC, as before.
+        internal DateTime toLocal(DateTime utc) => utc.Add(SiteZone.Offset(TimeZone, utc));
 
         // [SYNC-PORT 2026-10-16 src=2026-07-20] U2 backdated terminal (legacy, unmarked): wall clock (UTC) at construction - the last-resort origin.
         public DateTime CreatedUtc { get; private set; }

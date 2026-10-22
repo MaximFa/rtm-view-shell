@@ -65,7 +65,7 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.SiteId).HasMaxLength(50);
             e.Property(x => x.SiteName).HasMaxLength(200);
             e.Property(x => x.Description).HasMaxLength(500);
-            e.Property(x => x.TimeZone).HasMaxLength(10);
+            e.Property(x => x.TimeZone).HasMaxLength(64); // PR234-SITE-TZ-FIXED-OFFSET-01: zone id fits
             e.Property(x => x.ClearTime).HasMaxLength(5);
         });
 
@@ -291,7 +291,7 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.RemoteAddress).HasMaxLength(50);
             e.Property(x => x.LastUserId).HasMaxLength(50);
             e.Property(x => x.LastWorkgroup).HasMaxLength(100);
-            e.Property(x => x.TimeZone).HasMaxLength(10);
+            e.Property(x => x.TimeZone).HasMaxLength(64); // PR234-SITE-TZ-FIXED-OFFSET-01: zone id fits
             // UPSERT conflict key is (InteractionId, Segment, ServerId) - 3 cols, not the 5-col PK
             e.HasIndex(x => new { x.InteractionId, x.Segment, x.ServerId })
                 .IsUnique()
@@ -311,7 +311,7 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.StatusName).HasMaxLength(100);
             e.Property(x => x.StatusGroup).HasMaxLength(100);
             e.Property(x => x.DisplayName).HasMaxLength(100);
-            e.Property(x => x.TimeZone).HasMaxLength(10);
+            e.Property(x => x.TimeZone).HasMaxLength(64); // PR234-SITE-TZ-FIXED-OFFSET-01: zone id fits
             e.Property(x => x.MaxDuration).HasColumnName("MaxDuraction"); // real DB column mis-spelled (matches RTSData_* fns, schema.sql, RTSGrid_UserStatus); C# keeps readable name
         });
 
@@ -325,7 +325,7 @@ public class BackendEmulationDbContext(DbContextOptions<BackendEmulationDbContex
             e.Property(x => x.StatusGroup).HasMaxLength(50);   // NEW column
             e.Property(x => x.ServerId).HasMaxLength(50);
             e.Property(x => x.OnDate).HasMaxLength(50);
-            e.Property(x => x.TimeZone).HasMaxLength(10);
+            e.Property(x => x.TimeZone).HasMaxLength(64); // PR234-SITE-TZ-FIXED-OFFSET-01: zone id fits
             e.Property(x => x.Duration).HasColumnType("bigint"); // milliseconds
         });
 

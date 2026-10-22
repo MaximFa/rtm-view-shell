@@ -1332,20 +1332,18 @@ namespace RTM
                     try
                     {
                         // Decision log (why yes/no)
-                        if (!TryParseOffset(union.TimeZone, out var offset))
+                        // PR234-SITE-TZ-FIXED-OFFSET-01: zone read by SiteZone (fixed offset OR zone id, DST at the instant).
+                        var nowUtc = DateTimeOffset.UtcNow;
+                        if (!SiteZone.TryOffset(union.TimeZone, nowUtc.UtcDateTime, out var offset) ||
+                            !SiteZone.TryClearUtc(union.TimeZone, SiteZone.LocalDay(offset, nowUtc.UtcDateTime), union.ClearTime, out var targetUtc))
                         {
                             AsyncLogger.Error(
                                 $"UnionDecision | union={union.UnionId} INVALID_OFFSET offsetStr={union.TimeZone}", null);
                             return;
                         }
 
-                        var nowUtc = DateTimeOffset.UtcNow;
                         var nowLocal = nowUtc.ToOffset(offset);
-
-                        var targetLocal = new DateTimeOffset(
-                            nowLocal.Year, nowLocal.Month, nowLocal.Day,
-                            union.ClearTime.Hours, union.ClearTime.Minutes, union.ClearTime.Seconds,
-                            offset);
+                        var targetLocal = new DateTimeOffset(targetUtc).ToOffset(offset);
 
                         var windowEnd = targetLocal.AddMinutes(5);
 
@@ -1419,21 +1417,11 @@ namespace RTM
 
         public DateTime getUnionClearTime(string offsetString, TimeSpan clearTime)
         {
-            if (!TryParseOffset(offsetString, out var offset))
+            // PR234-SITE-TZ-FIXED-OFFSET-01: next clear instant in the site's zone (DST-aware), returned in server local time as before.
+            if (!SiteZone.TryNextClearUtc(offsetString, clearTime, DateTime.UtcNow, out var nextUtc))
                 throw new ArgumentException($"Invalid offset: {offsetString}");
 
-            var nowUtc = DateTimeOffset.UtcNow;
-            var nowLocal = nowUtc.ToOffset(offset);
-
-            var candidateLocal = new DateTimeOffset(
-                nowLocal.Year, nowLocal.Month, nowLocal.Day,
-                clearTime.Hours, clearTime.Minutes, clearTime.Seconds,
-                offset);
-
-            if (candidateLocal <= nowLocal)
-                candidateLocal = candidateLocal.AddDays(1);
-
-            return candidateLocal.UtcDateTime.ToLocalTime();
+            return nextUtc.ToLocalTime();
         }
 
 
@@ -1490,56 +1478,19 @@ namespace RTM
 
 
 
-        private static bool TryParseOffset(string offsetString, out TimeSpan offset)
-        {
-            offset = default;
-
-            if (string.IsNullOrWhiteSpace(offsetString))
-                return false;
-
-            var s = offsetString.Trim();
-            var negative = s.StartsWith("-");
-            s = s.TrimStart('+', '-');
-
-            if (!TimeSpan.TryParseExact(s, @"hh\:mm", null, out offset))
-                return false;
-
-            if (negative) offset = offset.Negate();
-            return true;
-        }
 
 
         public bool isUnionClearTime(string unionId, string offsetString, TimeSpan clearTime)
         {
-            //if (!TimeSpan.TryParse(offsetString, out var offset))
-            //{
-            //    AsyncLogger.Error($"Invalid offset: {offsetString}", null);
-            //    return false;
-            //}
-
-            if (!TryParseOffset(offsetString, out var offset))
+            // PR234-SITE-TZ-FIXED-OFFSET-01: decision made by SiteZone.IsClearDue (zone id or fixed offset; DST nights handled there).
+            if (!SiteZone.TryResolve(offsetString, out _, out _))
             {
                 AsyncLogger.Error($"Invalid offset: {offsetString}");
                 return false;
             }
 
-
-            var nowLocal = DateTimeOffset.UtcNow.ToOffset(offset);
-            var todayLocal = DateOnly.FromDateTime(nowLocal.DateTime);
-
-            // prevent double-clear same local day
-            if (_lastClearLocalDateByUnion.TryGetValue(unionId, out var last) && last == todayLocal)
-                return false;
-
-            var targetLocal = new DateTimeOffset(
-                nowLocal.Year, nowLocal.Month, nowLocal.Day,
-                clearTime.Hours, clearTime.Minutes, clearTime.Seconds,
-                offset);
-
-            // minimal delay window (set to 5 if you want tighter)
-            var windowEnd = targetLocal.AddMinutes(5);
-
-            if (nowLocal >= targetLocal && nowLocal <= windowEnd)
+            DateOnly? last = _lastClearLocalDateByUnion.TryGetValue(unionId, out var l) ? l : null;
+            if (SiteZone.IsClearDue(offsetString, clearTime, DateTime.UtcNow, last, TimeSpan.FromMinutes(5), out var todayLocal))
             {
                 _lastClearLocalDateByUnion[unionId] = todayLocal;
                 return true;

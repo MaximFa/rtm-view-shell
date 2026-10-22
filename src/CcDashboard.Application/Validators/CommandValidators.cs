@@ -220,6 +220,15 @@ public class UpdatePermissionGroupCommandValidator : AbstractValidator<UpdatePer
 
 public class SaveSiteCommandValidator : AbstractValidator<SaveSiteCommand>
 {
+    public static bool IsOffsetOrKnownZoneId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        var v = value.Trim();
+        if (System.Text.RegularExpressions.Regex.IsMatch(v, @"^[+-]\d{2}:\d{2}$")) return true;
+        try { TimeZoneInfo.FindSystemTimeZoneById(v); return true; }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException) { return false; }
+    }
+
     public SaveSiteCommandValidator()
     {
         RuleFor(x => x.Request.SiteId)
@@ -233,9 +242,11 @@ public class SaveSiteCommandValidator : AbstractValidator<SaveSiteCommand>
         RuleFor(x => x.Request.Description)
             .MaximumLength(500).WithMessage("Description cannot exceed 500 characters.");
 
+        // PR234-SITE-TZ-FIXED-OFFSET-01: a fixed offset has no daylight saving; a time zone id (Windows or IANA, e.g.
+        // "Israel Standard Time" / "Asia/Jerusalem") lets the engine follow DST. Both are accepted; the id must exist here.
         RuleFor(x => x.Request.TimeZone)
-            .MaximumLength(10).WithMessage("Time zone offset cannot exceed 10 characters.")
-            .Matches(@"^[+-]\d{2}:\d{2}$").WithMessage("Time zone must be in format +HH:MM or -HH:MM (e.g. +03:00).")
+            .MaximumLength(64).WithMessage("Time zone cannot exceed 64 characters.")
+            .Must(IsOffsetOrKnownZoneId).WithMessage("Time zone must be an offset +HH:MM / -HH:MM (e.g. +03:00) or a known time zone id (e.g. Israel Standard Time).")
             .When(x => !string.IsNullOrEmpty(x.Request.TimeZone));
 
         RuleFor(x => x.Request.ClearTime)

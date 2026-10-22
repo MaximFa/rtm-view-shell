@@ -228,7 +228,7 @@ CREATE TABLE public."NGC_Site" (
     "TenantId" uuid CONSTRAINT "ngc_site_TenantId_not_null" NOT NULL,
     "SiteName" character varying(200),
     "Description" character varying(500),
-    "TimeZone" character varying(10),
+    "TimeZone" character varying(64),
     "ClearTime" character varying(5)
 );
 
@@ -350,7 +350,7 @@ CREATE TABLE public."RTSData_Interaction" (
     "IsMessaging" boolean,
     "RemoteAddress" character varying(50),
     "IsCallbackRequest" boolean,
-    "TimeZone" character varying(10),
+    "TimeZone" character varying(64),
     "CustomCallData1" text,
     "CustomCallData2" text,
     "CustomCallData3" text,
@@ -390,7 +390,7 @@ CREATE TABLE public."RTSData_UserStatus" (
     "TotalCount" integer,
     "UpdateTime" timestamp with time zone,
     "DisplayName" character varying(100),
-    "TimeZone" character varying(10)
+    "TimeZone" character varying(64)
 );
 
 --
@@ -408,7 +408,7 @@ CREATE TABLE public."RTSData_UserStatusLog" (
     "EndTime" timestamp with time zone,
     "Duration" bigint,
     "UpdateTime" timestamp with time zone,
-    "TimeZone" character varying(10),
+    "TimeZone" character varying(64),
     "StatusGroup" character varying(50)
 );
 
