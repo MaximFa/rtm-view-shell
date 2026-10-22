@@ -73,6 +73,8 @@ public class RunningDurationAnchorGuardTests
             "zero seconds from an unrecognised payload must be told apart from a genuine 00:00");
         source.Should().Contain("is in the future; shown as text, not timed",
             $"{widget} must log a start moment that lies ahead of the clock");
+        // (The two grids share one wording, so here the whole sentence is a fair needle; DataSlot's
+        // differs and is checked by substrings above.)
         source.Should().Contain("neither a start moment nor a duration",
             $"{widget} must log a payload it could not read, instead of timing it from zero quietly");
     }
@@ -84,10 +86,41 @@ public class RunningDurationAnchorGuardTests
 
         source.Should().Contain("RunningDuration.IsFutureInstant",
             "the tile must not present a future moment as an elapsed duration");
-        source.Should().Contain("is in the future; shown as text, not timed",
-            "and it must say so in the log");
+        // The needle is two independent substrings, not the whole sentence: DataSlot's message names
+        // the metric in the middle ("... is in the future for {MetricId}; shown as text ..."), and
+        // the grids' does not. A whole-sentence needle made this test red for a wording difference
+        // while the behaviour it guards was correct - the test was stricter than its own question.
+        source.Should().Contain("is in the future",
+            "and it must say in the log that the moment lies ahead of the clock");
+        source.Should().Contain("shown as text, not timed",
+            "and that the value is shown as text rather than timed");
         source.Should().NotContain("LooksLikeDuration",
             "the tile has no zero-timing branch, so that distinction would be dead code here");
+    }
+
+    [Fact]
+    public void TheFutureMomentNeedles_canGoRed_onCodeWithoutThatBranch()
+    {
+        // NEGATIVE HALF for the needles just loosened. A loosened needle is only worth keeping if it
+        // still fails on code that lacks the branch - otherwise it would pass on anything.
+        const string withoutTheBranch = """
+                    if (RunningDuration.TryParseEngineInstant(rawValue, out var startedUtc))
+                    {
+                        value = RunningDuration.Comparable(0, startedUtc, DateTime.UtcNow);
+                    }
+            """;
+        withoutTheBranch.Contains("RunningDuration.IsFutureInstant").Should().BeFalse();
+        withoutTheBranch.Contains("is in the future").Should().BeFalse();
+        withoutTheBranch.Contains("shown as text, not timed").Should().BeFalse();
+
+        // And both wordings actually in the code must satisfy the loosened needles.
+        const string dataSlotWording = "DataSlot: start moment {Moment} is in the future for {MetricId}; shown as text, not timed";
+        const string gridWording = "AgentGrid {GridId}: metric {MetricId} start moment {Moment} is in the future; shown as text, not timed";
+        foreach (var wording in new[] { dataSlotWording, gridWording })
+        {
+            wording.Contains("is in the future").Should().BeTrue();
+            wording.Contains("shown as text, not timed").Should().BeTrue();
+        }
     }
 
     [Fact]
