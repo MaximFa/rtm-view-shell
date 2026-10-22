@@ -9,6 +9,7 @@
 @using Microsoft.Extensions.Logging
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using System.Text.Json
+@using CcDashboard.Contracts.Common
 @implements IAsyncDisposable
 
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
@@ -68,8 +69,22 @@
                 }
             </div>
         }
-        <div class="text-end small pe-2 opacity-75" style="@GetFontStyle()">
-            @L["Widget_LastUpdated"]: @_lastUpdate.ToString("HH:mm:ss")
+        @* BL-V4-STALE-VALUES-LOOK-LIVE-01: this widget polls, so "stale" is the AGE of the last
+           successful answer. Until this said so, a chart that had stopped receiving points looked
+           exactly like a quiet hour - the operator reported it as "time stopped at 8:30". *@
+        <div class="text-end small pe-2 @(IsDataStale ? "text-warning" : "opacity-75")" style="@GetFontStyle()">
+            @if (IsDataStale)
+            {
+                <i class="bi bi-wifi-off me-1" aria-hidden="true"></i>
+                <span>@L["Widget_DataStale"]</span>
+                <span class="ms-1">(@L["Widget_LastUpdated"]: @_lastUpdate.ToString("HH:mm:ss"))</span>
+            }
+            else
+            {
+                @L["Widget_LastUpdated"]
+                @(": ")
+                @_lastUpdate.ToString("HH:mm:ss")
+            }
         </div>
     }
 </div>
@@ -222,6 +237,14 @@
     private int _businessUnitId;
     private int _intervalMinutes = 30;
     private int _refreshIntervalSeconds = 300;
+
+    // BL-V4-STALE-VALUES-LOOK-LIVE-01: when the last successful answer arrived, and the verdict
+    // built from it. The threshold and the reasoning behind it live in DataFreshness, so a test
+    // can reach them - a component's private members are not visible to tests.
+    private DateTime? _lastSuccessUtc;
+
+    private bool IsDataStale => DataFreshness.IsStale(
+        _lastSuccessUtc, DateTime.UtcNow, TimeSpan.FromSeconds(_refreshIntervalSeconds));
     private string _chartType = "line";
     private bool _showDataLabels = true;
     private bool _showLegend = true;
@@ -442,6 +465,8 @@
             _isNoQueues = result.IsNoQueues;
             _intervals = result.Intervals.ToList();
             _lastUpdate = DateTime.Now;
+            // Successful answer: this is the instant the shown data became current.
+            _lastSuccessUtc = DateTime.UtcNow;
             // Data update resets hidden state and triggers re-render
             _hiddenDatasets.Clear();
             _chartRendered = false;

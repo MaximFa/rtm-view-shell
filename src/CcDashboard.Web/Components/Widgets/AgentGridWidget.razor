@@ -40,6 +40,18 @@
         </div>
     }
 
+    @* BL-V4-STALE-VALUES-LOOK-LIVE-01: the link to the engine is down. Shown because the values
+       below are the last ones received, and without this strip they are indistinguishable from
+       current ones - the running durations would even keep growing on this widget's own tick. *@
+    @if (_linkDown)
+    {
+        <div class="alert alert-secondary alert-sm d-flex align-items-center gap-2 py-1 px-2 mb-0 rounded-0"
+             role="status" style="position: sticky; top: 0; z-index: 1039;">
+            <i class="bi bi-wifi-off" aria-hidden="true"></i>
+            <span class="small">@L["Widget_DataStale"]</span>
+        </div>
+    }
+
     @if (GridId == 0)
     {
         <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
@@ -311,6 +323,19 @@
     // failure must be VISIBLE and must not freeze the columns as text until the page is reloaded,
     // so it is remembered, shown in the widget, logged once, and retried on the next data update.
     private bool _catalogueUnavailable;
+
+    // BL-V4-STALE-VALUES-LOOK-LIVE-01. _linkDownAtUtc is the instant the link went down; while it
+    // is set, every elapsed-time calculation uses it instead of the wall clock. That freezes a
+    // running duration at its last truthful value instead of letting the local tick carry it on
+    // growing - a growing number is read as live data, which is exactly how a dead screen passed
+    // for a working one twice during checks on 234.
+    private bool _linkDown;
+    private DateTime? _linkDownAtUtc;
+    private Func<RtmConnectionChanged, Task>? _connectionHandler;
+
+    /// <summary>The clock these cells are drawn against: frozen at the moment the link went down.</summary>
+    private DateTime EffectiveNowUtc => _linkDownAtUtc ?? DateTime.UtcNow;
+
     private bool _catalogueErrorLogged;
 
     // Saved row-filter rules, prepared ONCE: an operator that does not fit the metric's type is
@@ -656,7 +681,10 @@
         {
             while (await _tickTimer.WaitForNextTickAsync(_cts.Token))
             {
-                if (_rows.Any(r => r.TimerAnchors.Count > 0))
+                // While the link is down there is nothing to advance: the clock is frozen, so a
+                // redraw would only repaint the same numbers. Stopping here is also the point -
+                // the durations must not keep growing without data behind them.
+                if (!_linkDown && _rows.Any(r => r.TimerAnchors.Count > 0))
                     await InvokeAsync(StateHasChanged);
             }
         }
@@ -746,6 +774,31 @@
             };
 
             await RtmRelay.SubscribeUnionAsync(_tenantId, unionId, _unionHandler, _cts.Token);
+
+            // BL-V4-STALE-VALUES-LOOK-LIVE-01: learn from the relay when the engine link drops,
+            // instead of letting the cells pass for current. Only this widget's own channel.
+            _connectionHandler = change =>
+            {
+                if (change.Kind != RtmChannelKind.Union || change.TenantId != _tenantId || change.ChannelId != unionId)
+                    return Task.CompletedTask;
+
+                if (change.Connected)
+                {
+                    // Data has already been delivered by the time this arrives (the relay sends the
+                    // fresh snapshot first), so it is safe to start trusting the clock again.
+                    _linkDown = false;
+                    _linkDownAtUtc = null;
+                }
+                else if (!_linkDown)
+                {
+                    _linkDown = true;
+                    _linkDownAtUtc = DateTime.UtcNow;
+                    Logger.LogWarning("AgentGrid {GridId}: engine link down; values marked as stale and timers frozen", GridId);
+                }
+                return InvokeAsync(StateHasChanged);
+            };
+            RtmRelay.ConnectionChanged += _connectionHandler;
+
             _connectionState = ConnectionState.Connected;
             Logger.LogInformation("AgentGridWidget: subscribed to union {UnionId}", unionId);
         }
@@ -1390,7 +1443,7 @@
     private string GetComparableValue(AgentRowData row, string metricId, DateTime? now = null)
     {
         if (row.TimerAnchors.TryGetValue(metricId, out var anchor))
-            return RunningDuration.Comparable(anchor.BaseSecs, anchor.StartedAt, now ?? DateTime.UtcNow);
+            return RunningDuration.Comparable(anchor.BaseSecs, anchor.StartedAt, now ?? EffectiveNowUtc);
         // Same normalisation as the cell: a rule must match what the person sees.
         return MetricCellValue.Display(GetMetricValue(row.Metrics, metricId));
     }
@@ -1399,7 +1452,7 @@
     {
         if (row.TimerAnchors.TryGetValue(metricId, out var anchor))
         {
-            var elapsed = (int)(DateTime.UtcNow - anchor.StartedAt).TotalSeconds;
+            var elapsed = (int)(EffectiveNowUtc - anchor.StartedAt).TotalSeconds;
             return FormatSeconds(anchor.BaseSecs + elapsed);
         }
         var raw = GetMetricValue(row.Metrics, metricId);
@@ -1707,6 +1760,11 @@
     public async ValueTask DisposeAsync()
     {
         FilterPopups.PopupOpened -= OnOtherPopupOpened;
+        if (_connectionHandler != null)
+        {
+            RtmRelay.ConnectionChanged -= _connectionHandler;
+            _connectionHandler = null;
+        }
         await _cts.CancelAsync();
         _tickTimer?.Dispose();
         if (_unionHandler != null && _tenantId != Guid.Empty)

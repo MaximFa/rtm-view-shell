@@ -40,6 +40,17 @@
         </div>
     }
 
+    @* BL-V4-STALE-VALUES-LOOK-LIVE-01: link to the engine down - the values below are the last
+       received, and this widget's own tick would otherwise keep the wait times growing. *@
+    @if (_linkDown)
+    {
+        <div class="alert alert-secondary alert-sm d-flex align-items-center gap-2 py-1 px-2 mb-0 rounded-0"
+             role="status" style="position: sticky; top: 0; z-index: 1039;">
+            <i class="bi bi-wifi-off" aria-hidden="true"></i>
+            <span class="small">@L["Widget_DataStale"]</span>
+        </div>
+    }
+
     @if (GridId == 0)
     {
         <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
@@ -322,6 +333,16 @@
 
     // A failed catalogue read must be visible and retried — see EnsureMetricValueTypesAsync.
     private bool _catalogueUnavailable;
+
+    // BL-V4-STALE-VALUES-LOOK-LIVE-01: frozen clock while the engine link is down. See the same
+    // fields in AgentGridWidget and DataFreshness for why a growing number is the worst outcome.
+    private bool _linkDown;
+    private DateTime? _linkDownAtUtc;
+    private Func<RtmConnectionChanged, Task>? _connectionHandler;
+
+    /// <summary>The clock these cells are drawn against: frozen at the moment the link went down.</summary>
+    private DateTime EffectiveNowUtc => _linkDownAtUtc ?? DateTime.UtcNow;
+
     private bool _catalogueErrorLogged;
 
     // RTM protocol: CellId -> (RowDefId, MetricId) reverse map
@@ -617,6 +638,28 @@
             };
 
             await RtmRelay.SubscribeGridAsync(_tenantId, _rtsGridId, _gridHandler, _cts.Token);
+
+            // BL-V4-STALE-VALUES-LOOK-LIVE-01: only this widget's own grid channel.
+            _connectionHandler = change =>
+            {
+                if (change.Kind != RtmChannelKind.Grid || change.TenantId != _tenantId || change.ChannelId != _rtsGridId)
+                    return Task.CompletedTask;
+
+                if (change.Connected)
+                {
+                    _linkDown = false;
+                    _linkDownAtUtc = null;
+                }
+                else if (!_linkDown)
+                {
+                    _linkDown = true;
+                    _linkDownAtUtc = DateTime.UtcNow;
+                    Logger.LogWarning("QueueGrid {GridId}: engine link down; values marked as stale and timers frozen", _rtsGridId);
+                }
+                return InvokeAsync(StateHasChanged);
+            };
+            RtmRelay.ConnectionChanged += _connectionHandler;
+
             _connectionState = ConnectionState.Connected;
             _ = StartTickLoopAsync();
             Logger.LogInformation("QueueGridWidget: subscribed to GridId {GridId}", _rtsGridId);
@@ -1133,7 +1176,7 @@
     private string GetComparableValue(QueueRowData row, string metricId, DateTime? now = null)
     {
         if (row.TimerAnchors.TryGetValue(metricId, out var anchor))
-            return RunningDuration.Comparable(anchor.BaseSecs, anchor.StartedAt, now ?? DateTime.UtcNow);
+            return RunningDuration.Comparable(anchor.BaseSecs, anchor.StartedAt, now ?? EffectiveNowUtc);
         // Same normalisation as the cell: a rule must match what the person sees.
         return MetricCellValue.Display(GetMetricValue(row.Metrics, metricId));
     }
@@ -1479,7 +1522,7 @@
     {
         if (row.TimerAnchors.TryGetValue(metricId, out var anchor))
         {
-            var elapsed = (int)(DateTime.UtcNow - anchor.StartedAt).TotalSeconds;
+            var elapsed = (int)(EffectiveNowUtc - anchor.StartedAt).TotalSeconds;
             return FormatSeconds(anchor.BaseSecs + elapsed);
         }
         var raw = GetMetricValue(row.Metrics, metricId);
@@ -1546,7 +1589,9 @@
         {
             while (await _tickTimer.WaitForNextTickAsync(_cts.Token))
             {
-                if (_rows.Any(r => r.TimerAnchors.Count > 0))
+                // Frozen clock while the link is down: a redraw would repaint the same numbers,
+                // and the wait times must not grow with no data behind them.
+                if (!_linkDown && _rows.Any(r => r.TimerAnchors.Count > 0))
                     await InvokeAsync(StateHasChanged);
             }
         }
@@ -1561,6 +1606,11 @@
     public async ValueTask DisposeAsync()
     {
         FilterPopups.PopupOpened -= OnOtherPopupOpened;
+        if (_connectionHandler != null)
+        {
+            RtmRelay.ConnectionChanged -= _connectionHandler;
+            _connectionHandler = null;
+        }
         _cts.Cancel();
         _tickTimer?.Dispose();
         if (_gridHandler != null && _rtsGridId > 0 && _tenantId != Guid.Empty)

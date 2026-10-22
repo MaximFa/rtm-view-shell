@@ -83,6 +83,36 @@ public sealed class RtmRelayService : IRtmRelayService
         return url;
     }
 
+    // ── Connection state (BL-V4-STALE-VALUES-LOOK-LIVE-01) ───────────────────
+    // Why a separate notice instead of a fourth UnionStateChange case: see IRtmRelayService.
+    public event Func<RtmConnectionChanged, Task>? ConnectionChanged;
+
+    /// <summary>
+    /// Tell subscribers the link went down or came back. A subscriber that throws must not stop
+    /// the others, and must never break reconnection itself - losing the hub is already the bad
+    /// day; a failing notice handler on top of it would hide the recovery too.
+    /// </summary>
+    // internal, not private: the test project reaches it directly - see InternalsVisibleTo in the csproj.
+    internal async Task RaiseConnectionChangedAsync(Guid tenantId, int channelId, RtmChannelKind kind, bool connected)
+    {
+        var handler = ConnectionChanged;
+        if (handler is null) return;
+
+        foreach (var sub in handler.GetInvocationList().Cast<Func<RtmConnectionChanged, Task>>())
+        {
+            try
+            {
+                await sub(new RtmConnectionChanged(tenantId, channelId, kind, connected));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "RtmRelayService: a ConnectionChanged subscriber threw for tenant {TenantId} {Kind} {ChannelId} (connected={Connected})",
+                    tenantId, kind, channelId, connected);
+            }
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // Per-union (AgentGrid) subscribe/unsubscribe
     // ═══════════════════════════════════════════════════════════════════════════
@@ -216,6 +246,9 @@ public sealed class RtmRelayService : IRtmRelayService
             _logger.LogInformation(ex,
                 "RtmRelayService: tenant {TenantId} union {UnionId} connection closed",
                 key.TenantId, key.UnionId);
+            // Say it out loud: until this notice existed, the widgets kept redrawing their
+            // running durations from the old anchor and the screen looked alive.
+            _ = RaiseConnectionChangedAsync(key.TenantId, key.UnionId, RtmChannelKind.Union, connected: false);
             if (!state.IsDisposing)
                 _ = ReconnectUnionWithBackoffAsync(state, key);
             return Task.CompletedTask;
@@ -316,6 +349,10 @@ public sealed class RtmRelayService : IRtmRelayService
                     finally { state.Lock.Release(); }
 
                     await FanOutAsync(handlers, new UnionStateChange.InitialSnapshot(snap, state.ServerTimeOffset));
+                    // Order matters: fresh data first, then "connected". The other way round a
+                    // widget would clear its stale mark and spend one tick showing old values as
+                    // current - the very thing this unit is about.
+                    await RaiseConnectionChangedAsync(key.TenantId, key.UnionId, RtmChannelKind.Union, connected: true);
                     return;
                 }
                 catch (Exception ex)
@@ -630,6 +667,7 @@ public sealed class RtmRelayService : IRtmRelayService
             _logger.LogInformation(ex,
                 "RtmRelayService: tenant {TenantId} grid {GridId} connection closed",
                 key.TenantId, key.GridId);
+            _ = RaiseConnectionChangedAsync(key.TenantId, key.GridId, RtmChannelKind.Grid, connected: false);
             if (!state.IsDisposing)
                 _ = ReconnectGridWithBackoffAsync(state, key);
             return Task.CompletedTask;
@@ -714,6 +752,8 @@ public sealed class RtmRelayService : IRtmRelayService
                         key.TenantId, key.GridId);
 
                     await GridInitAsync(state, key.GridId, default);
+                    // Fresh cells first, then "connected" - same order as the union half.
+                    await RaiseConnectionChangedAsync(key.TenantId, key.GridId, RtmChannelKind.Grid, connected: true);
                     return;
                 }
                 catch (Exception ex)

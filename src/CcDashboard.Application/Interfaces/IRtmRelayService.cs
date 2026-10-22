@@ -25,6 +25,25 @@ public interface IRtmRelayService
     Task UnsubscribeGridAsync(Guid tenantId, int gridId,
         Func<IReadOnlyList<GridCellUpdate>, Task> handler);
 
+    // ── Connection state (BL-V4-STALE-VALUES-LOOK-LIVE-01) ──────────────────
+    /// <summary>
+    /// Raised when the relay's link to the RTM hub for one channel goes down or comes back.
+    ///
+    /// WHY THIS IS A SEPARATE MECHANISM, and not a case of the messages above. The union half
+    /// carries a discriminated union and could take a fourth case; the grid half carries a bare
+    /// list of cell updates and could not, so one shared message type would mean changing
+    /// SubscribeGridAsync and all five of its consumers, two of them outside this territory
+    /// (RtmRelayHub, WfmEngineAgentCountProvider). A link's state is a property of the link, not a
+    /// kind of data, so it travels on its own notice. The cost is that there are now two
+    /// mechanisms to remember - written down here on purpose. Decided with the coordinator
+    /// 2026-10-22.
+    ///
+    /// Subscribers filter by TenantId/ChannelId/Kind; a widget that shows values it did not
+    /// receive itself must mark them as old rather than let them pass for current, because the
+    /// grids' own one-second tick keeps running durations GROWING while the hub is gone.
+    /// </summary>
+    event Func<RtmConnectionChanged, Task>? ConnectionChanged;
+
     // ── Tenant lifecycle ─────────────────────────────────────────────────────
     /// <summary>
     /// Disconnect all active connections for a tenant (called on Suspend/Delete).

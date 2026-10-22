@@ -211,6 +211,7 @@
   <data name="Widget_QueueName"><value>Queue</value></data>
   <data name="Widget_Retry"><value>Retry</value></data>
   <data name="Widget_ColumnTypesUnavailable"><value>Column types unavailable: the metric catalogue could not be read. Sorting and thresholds for numeric columns are off until it is.</value></data>
+  <data name="Widget_DataStale"><value>No connection to the engine: these are the last values received, and timers are frozen.</value></data>
   <data name="Widget_Reconnecting"><value>Reconnecting...</value></data>
   <data name="Widget_ReloadPage"><value>Reload page</value></data>
   <data name="Widget_ActiveFilters"><value>active filters</value></data>

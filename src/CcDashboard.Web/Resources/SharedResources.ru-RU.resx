@@ -585,6 +585,7 @@
   <data name="Widget_QueueName"><value>Очередь</value></data>
   <data name="Widget_Retry"><value>Повторить</value></data>
   <data name="Widget_ColumnTypesUnavailable"><value>Типы колонок недоступны: не удалось прочитать справочник метрик. Сортировка и пороги по числовым колонкам отключены до успешного чтения.</value></data>
+  <data name="Widget_DataStale"><value>Нет связи с движком: показаны последние полученные значения, счёт времени остановлен.</value></data>
   <data name="Widget_Reconnecting"><value>Переподключение...</value></data>
   <data name="Widget_ReloadPage"><value>Обновить страницу</value></data>
   <data name="Widget_ActiveFilters"><value>активных фильтров</value></data>

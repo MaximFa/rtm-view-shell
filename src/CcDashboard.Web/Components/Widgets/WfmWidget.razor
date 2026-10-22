@@ -67,8 +67,17 @@
             </div>
         }
 
+        @* BL-V4-STALE-VALUES-LOOK-LIVE-01: this widget polls a store rather than a live link, and
+           the snapshot itself carries the instant it was computed - so "stale" here is the AGE of
+           that instant. When the realtime loop stops, the figures below stay on screen and look
+           exactly as current as ever. *@
         <!-- Note: time + window only -->
-        <div class="wfmnote" style="@GetNoteStyle()">
+        <div class="wfmnote @(IsDataStale ? "text-warning" : "")" style="@GetNoteStyle()">
+            @if (IsDataStale)
+            {
+                <i class="bi bi-wifi-off me-1" aria-hidden="true"></i>
+                <span>@L["Widget_DataStale"] · </span>
+            }
             @FormatTime(_snapshot.AsOfUtc) · @_snapshot.WindowMin @L["Wfm_MinWindow"]
         </div>
     }
@@ -84,6 +93,16 @@
     private string? _queueId;
     private WfmSnapshot? _snapshot;
     private DateTime _lastAsOfUtc;
+
+    // BL-V4-STALE-VALUES-LOOK-LIVE-01: the snapshot's own AsOfUtc is a better witness than the
+    // success of our poll - the store can keep answering happily with a snapshot nobody refreshed.
+    // PollInterval is the 5 s used below; the threshold and its reasoning live in DataFreshness.
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+
+    private bool _staleShown;
+
+    private bool IsDataStale => _snapshot is not null
+        && DataFreshness.IsStale(_snapshot.AsOfUtc, DateTime.UtcNow, PollInterval);
     private PeriodicTimer? _timer;
     private CancellationTokenSource _cts = new();
 
@@ -273,7 +292,7 @@
             await InvokeAsync(StateHasChanged);
         }
 
-        _timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        _timer = new PeriodicTimer(PollInterval);
         try
         {
             while (await _timer.WaitForNextTickAsync(_cts.Token))
@@ -283,7 +302,16 @@
                 {
                     _snapshot = snapshot;
                     _lastAsOfUtc = snapshot.AsOfUtc;
+                    _staleShown = false;
                     await NotifyBadgeState();
+                    await InvokeAsync(StateHasChanged);
+                }
+                else if (IsDataStale && !_staleShown)
+                {
+                    // Nothing new arrived and the snapshot has aged past the threshold. Without
+                    // this one repaint the mark would never appear, because the loop above only
+                    // redraws when the data CHANGES - and the whole defect is that it stopped.
+                    _staleShown = true;
                     await InvokeAsync(StateHasChanged);
                 }
             }
