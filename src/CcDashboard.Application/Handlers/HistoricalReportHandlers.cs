@@ -1,4 +1,5 @@
 using CcDashboard.Application.HistoricalReports;
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Application.HistoricalReports.Queries;
 using CcDashboard.Domain.Interfaces;
 using MediatR;
@@ -12,9 +13,14 @@ namespace CcDashboard.Application.Handlers;
 public class GetQueueIntervalReportQueryHandler(
     IHistoricalReportRepository repo,
     IReportScopeResolver scopeResolver,
-    ICurrentUserAccessor currentUser)
+    ICurrentUserAccessor currentUser,
+    IDisplayTimeZone? displayZone = null)
     : IRequestHandler<GetQueueIntervalReportQuery, QueueIntervalReportResult>
 {
+    // BL-234-INTERACTION-TIME-AHEAD-01: DB holds true UTC; dates picked and interval starts shown are in the display zone.
+    // Without a registered zone (unit tests of other concerns) it is UTC, i.e. no conversion.
+    private TimeZoneInfo Zone => displayZone?.Zone ?? TimeZoneInfo.Utc;
+
     public async Task<QueueIntervalReportResult> Handle(
         GetQueueIntervalReportQuery query, CancellationToken ct)
     {
@@ -26,10 +32,10 @@ public class GetQueueIntervalReportQueryHandler(
             return new QueueIntervalReportResult([], 0, query.Page, query.PageSize);
 
         var intervals = await repo.GetQueueIntervalsAsync(
-            tenantId, query.From, query.To, scope, effectiveWorkgroups, ct);
+            tenantId, Zone.WallToUtc(query.From), Zone.WallToUtc(query.To), scope, effectiveWorkgroups, ct);
 
         var rows = intervals.Select(i => new QueueIntervalRow(
-            i.IntervalStart,
+            Zone.ToDisplay(i.IntervalStart),
             i.Workgroup,
             i.QueueId,
             i.Offered,
@@ -57,9 +63,14 @@ public class GetQueueIntervalReportQueryHandler(
 public class GetQueueWaitTimeReportQueryHandler(
     IHistoricalReportRepository repo,
     IReportScopeResolver scopeResolver,
-    ICurrentUserAccessor currentUser)
+    ICurrentUserAccessor currentUser,
+    IDisplayTimeZone? displayZone = null)
     : IRequestHandler<GetQueueWaitTimeReportQuery, QueueWaitTimeReportResult>
 {
+    // BL-234-INTERACTION-TIME-AHEAD-01: DB holds true UTC; dates picked and interval starts shown are in the display zone.
+    // Without a registered zone (unit tests of other concerns) it is UTC, i.e. no conversion.
+    private TimeZoneInfo Zone => displayZone?.Zone ?? TimeZoneInfo.Utc;
+
     public async Task<QueueWaitTimeReportResult> Handle(
         GetQueueWaitTimeReportQuery query, CancellationToken ct)
     {
@@ -71,10 +82,10 @@ public class GetQueueWaitTimeReportQueryHandler(
             return new QueueWaitTimeReportResult([], 0, query.Page, query.PageSize, null);
 
         var intervals = await repo.GetQueueIntervalsAsync(
-            tenantId, query.From, query.To, scope, effectiveWorkgroups, ct);
+            tenantId, Zone.WallToUtc(query.From), Zone.WallToUtc(query.To), scope, effectiveWorkgroups, ct);
 
         var rows = intervals.Select(i => new QueueWaitTimeRow(
-            i.IntervalStart,
+            Zone.ToDisplay(i.IntervalStart),
             i.Workgroup,
             i.Answered,
             i.SumWaitAnswered,
@@ -100,9 +111,14 @@ public class GetQueueWaitTimeReportQueryHandler(
 public class GetAgentMonthlyReportQueryHandler(
     IHistoricalReportRepository repo,
     IReportScopeResolver scopeResolver,
-    ICurrentUserAccessor currentUser)
+    ICurrentUserAccessor currentUser,
+    IDisplayTimeZone? displayZone = null)
     : IRequestHandler<GetAgentMonthlyReportQuery, AgentMonthlyReportResult>
 {
+    // BL-234-INTERACTION-TIME-AHEAD-01: DB holds true UTC; dates picked and interval starts shown are in the display zone.
+    // Without a registered zone (unit tests of other concerns) it is UTC, i.e. no conversion.
+    private TimeZoneInfo Zone => displayZone?.Zone ?? TimeZoneInfo.Utc;
+
     public async Task<AgentMonthlyReportResult> Handle(
         GetAgentMonthlyReportQuery query, CancellationToken ct)
     {
@@ -114,10 +130,10 @@ public class GetAgentMonthlyReportQueryHandler(
             return new AgentMonthlyReportResult([], 0, query.Page, query.PageSize);
 
         var intervals = await repo.GetAgentIntervalsAsync(
-            tenantId, query.From, query.To, scope, effectiveAgents, ct);
+            tenantId, Zone.WallToUtc(query.From), Zone.WallToUtc(query.To), scope, effectiveAgents, ct);
 
         var rows = intervals
-            .GroupBy(x => new { YearMonth = x.IntervalStart.ToString("yyyy-MM"), x.AgentExternalId })
+            .GroupBy(x => new { YearMonth = Zone.ToDisplay(x.IntervalStart).ToString("yyyy-MM"), x.AgentExternalId })
             .Select(g =>
             {
                 var sumAvailable = g.Sum(x => x.SumAvailableMs);
@@ -168,9 +184,14 @@ public class GetAgentMonthlyReportQueryHandler(
 public class GetAgentShiftDetailReportQueryHandler(
     IHistoricalReportRepository repo,
     IReportScopeResolver scopeResolver,
-    ICurrentUserAccessor currentUser)
+    ICurrentUserAccessor currentUser,
+    IDisplayTimeZone? displayZone = null)
     : IRequestHandler<GetAgentShiftDetailReportQuery, AgentShiftDetailReportResult>
 {
+    // BL-234-INTERACTION-TIME-AHEAD-01: DB holds true UTC; dates picked and interval starts shown are in the display zone.
+    // Without a registered zone (unit tests of other concerns) it is UTC, i.e. no conversion.
+    private TimeZoneInfo Zone => displayZone?.Zone ?? TimeZoneInfo.Utc;
+
     public async Task<AgentShiftDetailReportResult> Handle(
         GetAgentShiftDetailReportQuery query, CancellationToken ct)
     {
@@ -182,13 +203,13 @@ public class GetAgentShiftDetailReportQueryHandler(
             return new AgentShiftDetailReportResult([], 0, query.Page, query.PageSize);
 
         var intervals = await repo.GetAgentIntervalsAsync(
-            tenantId, query.From, query.To, scope, effectiveAgents, ct);
+            tenantId, Zone.WallToUtc(query.From), Zone.WallToUtc(query.To), scope, effectiveAgents, ct);
 
         var rows = intervals.Select(i =>
         {
             var occupancyDenom = i.SumAvailableMs + i.SumOnphoneMs + i.SumPaperworkMs;
             return new AgentShiftDetailRow(
-                i.IntervalStart,
+                Zone.ToDisplay(i.IntervalStart),
                 i.AgentExternalId,
                 i.AgentDisplayName,
                 i.SumAvailableMs,

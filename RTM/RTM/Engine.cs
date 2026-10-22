@@ -268,8 +268,12 @@ namespace RTM
                             IsMessaging = isMessaging,
                             TimeInQueue = timeInQueue,
                             TalkTime = talkTime,
-                            InQueueDateTime = inQueueDateTime,
-                            AnsweredDateTime = answeredDateTime,
+                            // BL-234-INTERACTION-TIME-AHEAD-01: the DB now holds true UTC; the engine works in site-local time -> convert back
+                            // with the row's own zone (exact inverse of DBMng's write), so "today" stays today after a restart.
+                            InQueueDateTime = DbTime.UtcToEngineLocal(inQueueDateTime, timeZone),
+                            AnsweredDateTime = DbTime.UtcToEngineLocal(answeredDateTime, timeZone),
+                            InQueueUtc = DbTime.IsSentinel(inQueueDateTime) ? null : DateTime.SpecifyKind(inQueueDateTime, DateTimeKind.Utc),
+                            AnsweredUtc = DbTime.IsSentinel(answeredDateTime) ? null : DateTime.SpecifyKind(answeredDateTime, DateTimeKind.Utc),
                             LastUserId = lastUserId,
                             LastWorkgroup = lastWorkgroup,
                             IsTransferred = isTransferred,

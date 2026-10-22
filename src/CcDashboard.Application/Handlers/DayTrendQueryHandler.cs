@@ -13,9 +13,14 @@ namespace CcDashboard.Application.Handlers;
 public sealed class DayTrendQueryHandler(
     IBackendEmulationDbContextFactory beDbFactory,
     ITenantContext tenantContext,
-    ILogger<DayTrendQueryHandler> logger)
+    ILogger<DayTrendQueryHandler> logger,
+    IDisplayTimeZone? displayZone = null)
     : IRequestHandler<DayTrendQuery, DayTrendResult>
 {
+    // BL-234-INTERACTION-TIME-AHEAD-01: interval starts come back as true UTC; the chart labels them in the display zone,
+    // and "today" is today in that zone. Without a registered zone it is UTC (no conversion).
+    private TimeZoneInfo Zone => displayZone?.Zone ?? TimeZoneInfo.Utc;
+
     public async Task<DayTrendResult> Handle(DayTrendQuery query, CancellationToken ct)
     {
         if (!tenantContext.IsResolved)
@@ -38,7 +43,7 @@ public sealed class DayTrendQueryHandler(
             return DayTrendResult.NoQueues();
         }
 
-        var onDate = (query.OnDate ?? DateOnly.FromDateTime(DateTime.UtcNow))
+        var onDate = (query.OnDate ?? Zone.Today(DateTime.UtcNow))
             .ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
         var queueArray = queues.ToArray();
         var interval = query.IntervalMinutes;
@@ -85,7 +90,7 @@ public sealed class DayTrendQueryHandler(
         // Merge and pivot to per-interval dictionaries
         var intervals = interactionRows
             .Concat(agentRows)
-            .GroupBy(r => r.interval_start)
+            .GroupBy(r => Zone.ToDisplay(r.interval_start))
             .Select(g => new DayTrendIntervalData(
                 g.Key,
                 g.ToDictionary(r => r.metric_id, r => r.value)))

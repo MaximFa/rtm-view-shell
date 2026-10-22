@@ -30,6 +30,8 @@ public static class InfrastructureServiceExtensions
         // Core services
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
+        // BL-234-INTERACTION-TIME-AHEAD-01: the zone people read times in (DB holds true UTC). Config "Display:TimeZoneId", else server zone.
+        services.AddSingleton<IDisplayTimeZone, DisplayTimeZone>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddTransient<IEmailSender, SmtpEmailSender>();
 

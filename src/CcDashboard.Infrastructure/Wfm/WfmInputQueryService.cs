@@ -8,8 +8,8 @@ namespace CcDashboard.Infrastructure.Wfm;
 
 /// <summary>
 /// WFM Phase 1: queries λ, AHT, N for Erlang calculations.
-/// DBA-LOCKED FRAME (14:22): offset from interaction's OWN TimeZone column, app-side bounds.
-/// Mark: -- DBA-FRAME: INTERIM (collapses to ONE global one-pass when store-true-UTC fix lands).
+/// Bounds are true UTC (the engine stores true UTC since BL-234-INTERACTION-TIME-AHEAD-01). Queues are still grouped by
+/// their TimeZone - that grouping now only decides which queues are queried; every group uses the same UTC window.
 /// </summary>
 public sealed class WfmInputQueryService(
     IDbContextFactory<BackendEmulationDbContext> beFactory,
@@ -26,8 +26,8 @@ public sealed class WfmInputQueryService(
         int windowMinutes,
         CancellationToken ct = default)
     {
-        // -- DBA-FRAME: INTERIM -- collapses to ONE global one-pass (winHi=UtcNow, no per-TZ partition)
-        // when the backlogged store-true-UTC fix lands — tag for removal.
+        // The store-true-UTC fix has landed (BL-234-INTERACTION-TIME-AHEAD-01): winHi = UtcNow for every partition.
+        // Collapsing the partitions into one pass is a separate, behaviour-neutral clean-up, not done here.
 
         await using var ctx = await beFactory.CreateDbContextAsync(ct);
 
@@ -53,10 +53,10 @@ public sealed class WfmInputQueryService(
         // Step 3: For each TZ partition, compute app-side bounds + query
         foreach (var (tz, workgroups) in tzPartitions)
         {
-            // C1 PARITY: StampWallNow mirrors RTM/RTM/IDInteraction.getLocalDateTime EXACTLY
-            var wallNow = StampWallNow(tz);
-            var winHi = DateTime.SpecifyKind(wallNow, DateTimeKind.Utc);
-            var winLo = winHi.AddMinutes(-windowMinutes);
+            // BL-234-INTERACTION-TIME-AHEAD-01: the engine now stores TRUE UTC, so the window is plain UtcNow.
+            // (Before, this mirrored the engine's site-local-as-UTC stamp via StampWallNow; that mirror is removed in the
+            // same release as the engine fix - with one without the other the window is off by the site offset.)
+            var (winLo, winHi) = WindowFor(DateTime.UtcNow, windowMinutes);
 
             // λ query: SARGable on ix_rtsint_wfm_inq (bare InQueueDateTime range)
             // Scenario A: no exclusion — short-abandon + callback INCLUDED
@@ -207,46 +207,13 @@ public sealed class WfmInputQueryService(
     }
 
     /// <summary>
-    /// C1 PARITY: VERBATIM mirror of RTM/RTM/IDInteraction.getLocalDateTime (lines 253-288).
-    /// Edge cases: null/empty/whitespace -> UtcNow (offset 0); offset-form parse (TrimStart+/-, TimeSpan.TryParse,
-    /// Negate if negative); IANA/Windows id -> FindSystemTimeZoneById.GetUtcOffset; ANY exception -> UtcNow.
-    /// wallNow = UtcNow + offset (NOT ConvertTimeFromUtc).
+    /// The [winLo, winHi) bounds compared with RTSData_Interaction.InQueueDateTime / AnsweredDateTime, which hold
+    /// true UTC (BL-234-INTERACTION-TIME-AHEAD-01). Public so the contract is testable: winHi = now in UTC, no zone shift.
     /// </summary>
-    private static DateTime StampWallNow(string tz)
+    public static (DateTime WinLo, DateTime WinHi) WindowFor(DateTime utcNow, int windowMinutes)
     {
-        DateTime localTime = DateTime.UtcNow;
-
-        if (string.IsNullOrWhiteSpace(tz))
-            return localTime;
-
-        try
-        {
-            TimeSpan offset;
-
-            // Try offset format first: "+03:00", "-05:00", "03:00"
-            string cleaned = tz.Trim();
-            bool negative = cleaned.StartsWith("-");
-            string stripped = cleaned.TrimStart('+').TrimStart('-');
-
-            if (TimeSpan.TryParse(stripped, out offset))
-            {
-                if (negative) offset = offset.Negate();
-            }
-            else
-            {
-                // Fallback: Windows / IANA timezone ID (e.g. "Israel", "UTC")
-                var tzi = TimeZoneInfo.FindSystemTimeZoneById(tz);
-                offset = tzi.GetUtcOffset(DateTime.UtcNow);
-            }
-
-            localTime = localTime.Add(offset);
-        }
-        catch
-        {
-            // Unknown timezone format — return UTC silently (offset 0)
-        }
-
-        return localTime;
+        var hi = utcNow.Kind == DateTimeKind.Utc ? utcNow : utcNow.ToUniversalTime();
+        return (hi.AddMinutes(-windowMinutes), hi);
     }
 
     // Helper record types for SqlQueryRaw

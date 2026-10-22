@@ -161,6 +161,14 @@ namespace RTM
 
         public DateTime AnsweredDateTime { get; set; }
 
+        // BL-234-INTERACTION-TIME-AHEAD-01: the TRUE UTC instant of each stamp, taken at the moment of stamping.
+        // The row's TimeZone is overwritten every time the interaction is added to a bag (queue bag = site zone,
+        // agent bag = RTM:DefaultTimeZone, possibly empty), so the local stamp cannot be converted back reliably with
+        // the zone in force at WRITE time. These carry the instant itself; null = not stamped in this process (DBMng
+        // then falls back to converting the local value with the row's zone - see DbTime.ToDbUtc).
+        internal DateTime? InQueueUtc { get; set; }
+        internal DateTime? AnsweredUtc { get; set; }
+
 
         public DateTime DisconnectDateTime { get; set; }
 
@@ -326,7 +334,9 @@ namespace RTM
             if (!IsInQueue)
             { 
                 InQueueLocalDateTime = DateTime.Now;
-                InQueueDateTime = getLocalDateTime();
+                var inQueueUtc = DateTime.UtcNow;
+                InQueueUtc = inQueueUtc;
+                InQueueDateTime = toLocal(inQueueUtc);
                 IsInQueue = true;
 
                 addIntercationRequest();
@@ -345,7 +355,8 @@ namespace RTM
         private void addIntercationRequest()
         {
             _dbMng.addIntercationRequest(IsDBInserted, InteractionId, Segment, Workgroup, ClassificationCode, InteractionType, CallType, Direction, CustomCallData, RemoteAddress, 
-               UserId, IsTransferred, IsAnswered, IsInQueue, IsTalk, IsAbandoned, IsMessaging, TimeInQueue, TalkTime, InQueueDateTime, AnsweredDateTime, LastUserId, LastWorkgroup,
+               UserId, IsTransferred, IsAnswered, IsInQueue, IsTalk, IsAbandoned, IsMessaging, TimeInQueue, TalkTime,
+               InQueueUtc ?? InQueueDateTime, AnsweredUtc ?? AnsweredDateTime, LastUserId, LastWorkgroup, // UTC instants when known (Kind=Utc), else the local stamp
                CustomCallData1, CustomCallData2, CustomCallData3, CustomCallData4, CustomCallData5, CustomCallData6, CustomCallData7, CustomCallData8, CustomCallData9, CustomCallData10,
                CustomCallData11, CustomCallData12, CustomCallData13, CustomCallData14, CustomCallData15, CustomCallData16, CustomCallData17, CustomCallData18, CustomCallData19, CustomCallData20, 
                IsCallbackRequest, TimeZone, getLocalDateTime(), RowDate());
@@ -399,7 +410,9 @@ namespace RTM
             UserId = userId;
 
             AnsweredLocalDateTime = DateTime.Now;
-            AnsweredDateTime = getLocalDateTime();
+            var answeredUtc = DateTime.UtcNow;
+            AnsweredUtc = answeredUtc;
+            AnsweredDateTime = toLocal(answeredUtc);
 
             addIntercationRequest();
 
@@ -412,7 +425,9 @@ namespace RTM
         {
             IsMessaging = true;
             AnsweredLocalDateTime = DateTime.Now;
-            AnsweredDateTime = getLocalDateTime();
+            var answeredUtc = DateTime.UtcNow;
+            AnsweredUtc = answeredUtc;
+            AnsweredDateTime = toLocal(answeredUtc);
 
             addIntercationRequest();
 

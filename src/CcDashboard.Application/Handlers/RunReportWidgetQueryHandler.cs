@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CcDashboard.Application.HistoricalReports;
+using CcDashboard.Application.Interfaces;
 using CcDashboard.Application.HistoricalReports.Queries;
 using CcDashboard.Application.HistoricalReports.Validators;
 using CcDashboard.Domain.Domain.Reports;
@@ -18,9 +19,14 @@ public class RunReportWidgetQueryHandler(
     IHistoricalReportRepository repo,
     IReportWidgetScopeService scopeService,
     ICurrentUserAccessor currentUser,
-    ILogger<RunReportWidgetQueryHandler> logger)
+    ILogger<RunReportWidgetQueryHandler> logger,
+    IDisplayTimeZone? displayZone = null)
     : IRequestHandler<RunReportWidgetQuery, ReportWidgetResult>
 {
+    // BL-234-INTERACTION-TIME-AHEAD-01: DB holds true UTC; report days and interval starts are in the display zone.
+    // Without a registered zone (unit tests of other concerns) it is UTC, i.e. no conversion.
+    private TimeZoneInfo Zone => displayZone?.Zone ?? TimeZoneInfo.Utc;
+
     private const int ExportRowCap = 50000;
 
     private static readonly HashSet<ReportWidgetType> AgentWidgetTypes = new()
@@ -56,8 +62,9 @@ public class RunReportWidgetQueryHandler(
             return ReportWidgetResult.CreateError(query.WidgetType, errors);
         }
 
-        var from = DateTime.SpecifyKind(query.From.Date, DateTimeKind.Utc);
-        var toExclusive = DateTime.SpecifyKind(query.To.Date.AddDays(1), DateTimeKind.Utc);
+        // The picked days are days in the display zone: local midnight -> UTC instant.
+        var from = Zone.WallToUtc(query.From.Date);
+        var toExclusive = Zone.WallToUtc(query.To.Date.AddDays(1));
 
         // Compute effective columns: config.Columns if non-empty, else DefaultColumns per WidgetType
         var effectiveColumns = config.GetEffectiveColumns(query.WidgetType);
@@ -88,7 +95,7 @@ public class RunReportWidgetQueryHandler(
 
         // BU-AGGREGATED: GROUP BY IntervalStart only, SUM components, recompute metrics from sums
         var rows = intervals
-            .GroupBy(i => i.IntervalStart)
+            .GroupBy(i => Zone.ToDisplay(i.IntervalStart))
             .Select(g =>
             {
                 var offered      = g.Sum(i => i.Offered);
@@ -148,7 +155,7 @@ public class RunReportWidgetQueryHandler(
 
         // BU-AGGREGATED: GROUP BY IntervalStart only, SUM components, recompute metrics from sums
         var rows = intervals
-            .GroupBy(i => i.IntervalStart)
+            .GroupBy(i => Zone.ToDisplay(i.IntervalStart))
             .Select(g =>
             {
                 var answered     = g.Sum(i => i.Answered);
@@ -205,7 +212,7 @@ public class RunReportWidgetQueryHandler(
             scopeResult.EffectiveAgentIds, ct);
 
         var rows = intervals
-            .GroupBy(x => new { YearMonth = x.IntervalStart.ToString("yyyy-MM"), x.AgentExternalId })
+            .GroupBy(x => new { YearMonth = Zone.ToDisplay(x.IntervalStart).ToString("yyyy-MM"), x.AgentExternalId })
             .Select(g =>
             {
                 var sumAvailable = g.Sum(x => x.SumAvailableMs);
@@ -284,7 +291,7 @@ public class RunReportWidgetQueryHandler(
         {
             var occupancyDenom = i.SumAvailableMs + i.SumOnphoneMs + i.SumPaperworkMs;
             return new AgentShiftDetailRow(
-                i.IntervalStart,
+                Zone.ToDisplay(i.IntervalStart),
                 i.AgentExternalId,
                 i.AgentDisplayName,
                 i.SumAvailableMs,

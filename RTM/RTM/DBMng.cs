@@ -363,10 +363,11 @@ namespace RTM
                             parameters.Add(new NpgsqlParameter("@MaxDuration", userStatusRequest.MaxDuration.TotalSeconds));
                             parameters.Add(new NpgsqlParameter("@TotalCount", userStatusRequest.TotalCount));
                             parameters.Add(new NpgsqlParameter("@DisplayName", userStatusRequest.DisplayName ?? userStatusRequest.UserId));
-                            parameters.Add(new NpgsqlParameter("@StartTime", DateTime.SpecifyKind(userStatusRequest.StratTime, DateTimeKind.Utc)));
-                            parameters.Add(new NpgsqlParameter("@EndTime", DateTime.SpecifyKind(userStatusRequest.EndTime, DateTimeKind.Utc)));
+                            // BL-234-INTERACTION-TIME-AHEAD-01: true UTC at the DB boundary (see DbTime). Status start/end come from the adapter or DateTime.Now -> by Kind.
+                            parameters.Add(new NpgsqlParameter("@StartTime", DbTime.ExternalToUtc(userStatusRequest.StratTime)));
+                            parameters.Add(new NpgsqlParameter("@EndTime", DbTime.ExternalToUtc(userStatusRequest.EndTime)));
                             parameters.Add(new NpgsqlParameter("@TimeZone", userStatusRequest.TimeZone));
-                            parameters.Add(new NpgsqlParameter("@UpdateTime", DateTime.SpecifyKind(userStatusRequest.UpdateTime, DateTimeKind.Utc)));                           
+                            parameters.Add(new NpgsqlParameter("@UpdateTime", DbTime.EngineLocalToUtc(userStatusRequest.UpdateTime, userStatusRequest.TimeZone)));                           
                             parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
                             DBAdapter.ExecuteNonQuery("RTSData_SetUserStatus", parameters);
                         }
@@ -394,8 +395,9 @@ namespace RTM
                             parameters.Add(new NpgsqlParameter("@IsMessaging", interactionRequest.IsMessaging));
                             parameters.Add(new NpgsqlParameter("@TimeInQueue", interactionRequest.TimeInQueue));
                             parameters.Add(new NpgsqlParameter("@TalkTime", interactionRequest.TalkTime));
-                            parameters.Add(new NpgsqlParameter("@InQueueDateTime", DateTime.SpecifyKind(interactionRequest.InQueueDateTime, DateTimeKind.Utc)));
-                            parameters.Add(new NpgsqlParameter("@AnsweredDateTime", DateTime.SpecifyKind(interactionRequest.AnsweredDateTime, DateTimeKind.Utc)));
+                            // BL-234-INTERACTION-TIME-AHEAD-01: engine stamps are site-local (UTC + row TimeZone) -> back to true UTC; sentinels untouched.
+                            parameters.Add(new NpgsqlParameter("@InQueueDateTime", DbTime.ToDbUtc(interactionRequest.InQueueDateTime, interactionRequest.TimeZone)));
+                            parameters.Add(new NpgsqlParameter("@AnsweredDateTime", DbTime.ToDbUtc(interactionRequest.AnsweredDateTime, interactionRequest.TimeZone)));
                             parameters.Add(new NpgsqlParameter("@LastUserId", interactionRequest.LastUserId));
                             parameters.Add(new NpgsqlParameter("@LastWorkgroup", interactionRequest.LastWorkgroup));
                             parameters.Add(new NpgsqlParameter("@CustomCallData1", interactionRequest.CustomCallData1));
@@ -421,7 +423,7 @@ namespace RTM
                             parameters.Add(new NpgsqlParameter("@IsCallbackRequest", interactionRequest.IsCallbackRequest));
                             parameters.Add(new NpgsqlParameter("@TimeZone", interactionRequest.TimeZone));
                             parameters.Add(new NpgsqlParameter("@ServerId", interactionRequest.ServerId));
-                            parameters.Add(new NpgsqlParameter("@UpdateTime", DateTime.SpecifyKind(interactionRequest.UpdateTime, DateTimeKind.Utc)));
+                            parameters.Add(new NpgsqlParameter("@UpdateTime", DbTime.EngineLocalToUtc(interactionRequest.UpdateTime, interactionRequest.TimeZone)));
                             parameters.Add(new NpgsqlParameter("@OnDate", interactionRequest.OnDate));
                             parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
                             DBAdapter.ExecuteNonQuery("RTSData_SetInteraction", parameters);
@@ -441,9 +443,10 @@ namespace RTM
                             parameters.Add(new NpgsqlParameter("@SegmentId", interactionRequest.SegmentId));
                             parameters.Add(new NpgsqlParameter("@UserId", interactionRequest.UserId));                                                  
                             parameters.Add(new NpgsqlParameter("@ServerId", interactionRequest.ServerId));
-                            parameters.Add(new NpgsqlParameter("@UpdateTime", DateTime.SpecifyKind(interactionRequest.UpdateTime, DateTimeKind.Utc)));
+                            // BL-234-INTERACTION-TIME-AHEAD-01: both chat times are the adapter's message time stamp -> by Kind.
+                            parameters.Add(new NpgsqlParameter("@UpdateTime", DbTime.ExternalToUtc(interactionRequest.UpdateTime)));
                             parameters.Add(new NpgsqlParameter("@OnDate", interactionRequest.OnDate));
-                            parameters.Add(new NpgsqlParameter("@TimeStamp", interactionRequest.TimeStamp));
+                            parameters.Add(new NpgsqlParameter("@TimeStamp", DbTime.ExternalToUtc(interactionRequest.TimeStamp)));
                             parameters.Add(new NpgsqlParameter("@TenantId", _tenantId));
                             DBAdapter.ExecuteNonQuery("RTSData_SetChatMessage", parameters);
                         }
