@@ -29,6 +29,19 @@ def stamp(role, n):
         print("СТОП: строки %d нет, в файле %d" % (n, len(L))); return 2
     if not H.match(L[n-1]):
         print("СТОП: на строке %d не заголовок, а: %s" % (n, L[n-1][:80])); return 2
+    # Метка объявляет прочитанным ВСЁ до этой строки включительно. Поэтому прибор печатает,
+    # что именно объявляется прочитанным: иначе «stamp на последний заголовок» превращает курсор
+    # обратно в метку .read — механическую на вид, добросовестную по сути.
+    try:
+        prev = json.load(_io.open(os.path.join(CURS, role + ".cursor"), encoding="utf-8"))["line"]
+    except Exception:
+        prev = 0
+    covered = [(i+1, L[i]) for i in range(prev, n) if H.match(L[i])]
+    print("объявляется прочитанным: %d письмо(писем)" % len(covered))
+    for ln, h in covered:
+        print("   стр.%-6d %s" % (ln, h[:100]))
+    if not covered:
+        print("   (ни одного нового заголовка — метка только подтверждает прежнюю позицию)")
     c = {"role": role, "line": n, "header_sha": sha(L[n-1]), "header": L[n-1][:120],
          "inbox_bytes": os.path.getsize(p), "total_headers": sum(1 for l in L if H.match(l))}
     _io.open(os.path.join(CURS, role + ".cursor"), "w", encoding="utf-8", newline="\n").write(
