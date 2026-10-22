@@ -4,6 +4,7 @@
 @using static CcDashboard.Web.Components.Dashboard.ScreenEditorPage
 @using MediatR
 @using Microsoft.Extensions.Localization
+@using CcDashboard.Contracts.Common
 @implements IAsyncDisposable
 
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
@@ -34,7 +35,7 @@
                         @if (msg.Priority == "High") { <span class="is-star">★</span> }
                         @msg.Content
                         @if (ShowAuthor) { <span class="is-author">@msg.AuthorName</span> }
-                        @if (ShowTimestamp) { <span class="is-time">@msg.CreatedAt.ToString("HH:mm")</span> }
+                        @if (ShowTimestamp) { <span class="is-time">@WallClock.HourMinute(msg.CreatedAt)</span> }
                     </span>
                     <span class="is-sep">·····</span>
                 }
@@ -53,8 +54,8 @@
                 </div>
                 <div class="is-msg-meta">
                     @if (ShowAuthor) { <span>@msg.AuthorName</span> }
-                    @if (ShowTimestamp) { <span>@(ShowAuthor ? "· " : "")@msg.CreatedAt.ToString("HH:mm")</span> }
-                    @if (msg.ExpiresAt.HasValue) { <span>· @L["InfoSlots_ExpiresAt"]: @msg.ExpiresAt.Value.ToString("HH:mm")</span> }
+                    @if (ShowTimestamp) { <span>@(ShowAuthor ? "· " : "")@WallClock.HourMinute(msg.CreatedAt)</span> }
+                    @if (msg.ExpiresAt.HasValue) { <span>· @L["InfoSlots_ExpiresAt"]: @WallClock.HourMinute(msg.ExpiresAt.Value)</span> }
                 </div>
             }
         </div>

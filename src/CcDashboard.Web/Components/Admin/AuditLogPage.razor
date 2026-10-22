@@ -102,7 +102,7 @@ else
                 @foreach (var log in Result.Items)
                 {
                     <tr @key="log.Id">
-                        <td class="text-nowrap small">@log.CreatedAt.ToString("dd MMM HH:mm:ss")</td>
+                        <td class="text-nowrap small">@WallClock.ToServerLocal(log.CreatedAt).ToString("dd MMM HH:mm:ss")</td>
                         <td class="small fw-semibold">@log.EventType</td>
                         <td>@ResultBadge(log.EventResult)</td>
                         <td class="small">@(log.UserName ?? "-")</td>
