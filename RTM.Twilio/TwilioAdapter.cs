@@ -398,7 +398,10 @@ namespace RTM.Twilio
                 {
                     string workerId = worker.Sid;                   
                     bool? isAvailable = worker.Available;
-                    DateTime dateStatusChanged = DateTime.Now;  //worker.DateStatusChanged ?? DateTime.MinValue;
+                    // ADAPTER-SEED-STATUS-MOMENT-01: seed the real activity start (Twilio, UTC) in machine-local time like live events
+                    DateTime dateStatusChanged = SeedTime.ToEngineLocal(worker.DateStatusChanged, DateTime.Now, out bool seedFallback);
+                    if (seedFallback)
+                        AsyncLogger.Info($"Seed StatusChanged fallback to now: worker={worker.FriendlyName} DateStatusChanged={worker.DateStatusChanged:o}");
                     string workerName = worker.FriendlyName;
                     string workerSid = worker.Sid;
                     var activitySid = worker.ActivitySid;
