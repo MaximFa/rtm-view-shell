@@ -246,6 +246,28 @@ if (-not $skipGate) {
     Write-Host ("[E1] Drift gate SKIPPED (" + ($skipBy -join ' ') + ")." ) -ForegroundColor Yellow
 }
 
+# ── Which services this run cycles (PR234-INSTALLER-SHELL-MODE-RESTARTS-ENGINE-01) ───────────────
+# Before: [1/5], [5/5] and RECOVERY always stopped and started BOTH services, so a Shell-only package
+# restarted the engine and every agent's time-in-status started again from the restart.
+# Now a service is cycled only when this run changes what it runs on:
+#   RTMService   - not -SkipRTM and (RTM\ next to the script, or -MigrationList is not empty)
+#   RTMViewShell - not -SkipShell and Shell\ next to the script
+# A cache migration (Garnet package, not -SkipCacheMigration) swaps the cache under both, so it cycles both.
+function Get-ServicesToCycle {
+    param([bool]$SkipShell, [bool]$SkipRTM, [bool]$HasShellPkg, [bool]$HasRTMPkg, [bool]$HasMigrations, [bool]$CacheMigration)
+    $rtm   = $CacheMigration -or ((-not $SkipRTM) -and ($HasRTMPkg -or $HasMigrations))
+    $shell = $CacheMigration -or ((-not $SkipShell) -and $HasShellPkg)
+    return [pscustomobject]@{ RTM = [bool]$rtm; Shell = [bool]$shell }
+}
+$cycle = Get-ServicesToCycle -SkipShell ([bool]$SkipShell) -SkipRTM ([bool]$SkipRTM) `
+    -HasShellPkg (Test-Path (Join-Path $ScriptDir "Shell")) -HasRTMPkg (Test-Path (Join-Path $ScriptDir "RTM")) `
+    -HasMigrations ([bool]$hasMigrations) -CacheMigration ((-not $SkipCacheMigration) -and $hasGarnetPackage)
+$stopOrder  = @(); if ($cycle.Shell) { $stopOrder += $ShellSvcName }; if ($cycle.RTM) { $stopOrder += $RTMSvcName }
+$startOrder = @(); if ($cycle.RTM) { $startOrder += $RTMSvcName }; if ($cycle.Shell) { $startOrder += $ShellSvcName }
+Write-Host ""
+Write-Host ("Services cycled by this run: " + $(if ($startOrder.Count) { $startOrder -join ', ' } else { 'none' }) +
+    "   (RTMService: " + $(if ($cycle.RTM) { 'yes' } else { 'no - left running' }) + " ; RTMViewShell: " + $(if ($cycle.Shell) { 'yes' } else { 'no - left running' }) + ")") -ForegroundColor Cyan
+
 # ══════════════════════════════════════════════════════════════════════════════
 # DEPLOY REGION — services stopped here. Wrapped in try/finally for recovery.
 # ══════════════════════════════════════════════════════════════════════════════
@@ -256,8 +278,8 @@ $dbBackupPath = $null        # Will be set if backup succeeds
 try {
 
 Write-Host ""
-Write-Host "[ 1/5 ] Stopping services..." -ForegroundColor Cyan
-foreach ($svcName in @($ShellSvcName, $RTMSvcName)) {
+Write-Host "[ 1/5 ] Stopping services: $(if ($stopOrder.Count) { $stopOrder -join ', ' } else { 'none' })" -ForegroundColor Cyan
+foreach ($svcName in $stopOrder) {
     $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
     if ($svc -and $svc.Status -ne "Stopped") {
         Stop-Service -Name $svcName -Force
@@ -516,8 +538,8 @@ if (-not $SkipCacheMigration -and $hasGarnetPackage) {
 }
 
 Write-Host ""
-Write-Host "[ 5/5 ] Starting services..." -ForegroundColor Cyan
-foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
+Write-Host "[ 5/5 ] Starting services: $(if ($startOrder.Count) { $startOrder -join ', ' } else { 'none' })" -ForegroundColor Cyan
+foreach ($svcName in $startOrder) {
     $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
     if ($svc) {
         Start-Service -Name $svcName -ErrorAction SilentlyContinue
@@ -527,7 +549,7 @@ foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
     }
 }
 
-Start-Sleep -Seconds 8
+if ($startOrder.Count) { Start-Sleep -Seconds 8 }
 $script:started = $true
 Write-Host ""
 foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
@@ -563,8 +585,7 @@ foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
             }
             Write-Host ""
             Write-Host "  After restoring, manually start services:" -ForegroundColor Cyan
-            Write-Host "    Start-Service $RTMSvcName" -ForegroundColor White
-            Write-Host "    Start-Service $ShellSvcName" -ForegroundColor White
+            foreach ($svcName in $startOrder) { Write-Host "    Start-Service $svcName" -ForegroundColor White }
             Write-Host ""
         } else {
             # No DB changes — safe to auto-restart
@@ -573,10 +594,10 @@ foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
             } else {
                 Write-Host "[RECOVERY] Deploy failed before DB changes. Restarting services..." -ForegroundColor Yellow
 
-                # Start RTMService first (adapter depends on engine)
+                # Start RTMService first (adapter depends on engine) - only the services this run stopped
                 try {
                     $rtmSvc = Get-Service -Name $RTMSvcName -ErrorAction SilentlyContinue
-                    if ($rtmSvc) {
+                    if ($rtmSvc -and $cycle.RTM) {
                         Start-Service -Name $RTMSvcName -ErrorAction Stop
                         Write-Host "  [RECOVERY] Started: $RTMSvcName" -ForegroundColor Green
                     }
@@ -587,7 +608,7 @@ foreach ($svcName in @($RTMSvcName, $ShellSvcName)) {
                 # Then Shell
                 try {
                     $shellSvc = Get-Service -Name $ShellSvcName -ErrorAction SilentlyContinue
-                    if ($shellSvc) {
+                    if ($shellSvc -and $cycle.Shell) {
                         Start-Service -Name $ShellSvcName -ErrorAction Stop
                         Write-Host "  [RECOVERY] Started: $ShellSvcName" -ForegroundColor Green
                     }
