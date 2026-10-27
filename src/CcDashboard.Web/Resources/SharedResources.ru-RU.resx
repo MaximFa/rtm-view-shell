@@ -586,6 +586,11 @@
   <data name="Widget_Retry"><value>Повторить</value></data>
   <data name="Widget_ColumnTypesUnavailable"><value>Типы колонок недоступны: не удалось прочитать справочник метрик. Сортировка и пороги по числовым колонкам отключены до успешного чтения.</value></data>
   <data name="Widget_DataStale"><value>Нет связи с движком: показаны последние полученные значения, счёт времени остановлен.</value></data>
+  <data name="Wfm_Reason_Overloaded"><value>Нагрузка больше, чем могут обслужить имеющиеся агенты, — расчёт не имеет решения.</value></data>
+  <data name="Wfm_Reason_AgentCountUnknown"><value>Движок не сообщил, сколько агентов обслуживает эту очередь.</value></data>
+  <data name="Wfm_Reason_NobodyServing"><value>Очередь сейчас никто не обслуживает.</value></data>
+  <data name="Wfm_Reason_NoAnsweredCalls"><value>В этом окне не отвечен ни один вызов, поэтому нет средней длительности разговора для расчёта.</value></data>
+  <data name="Wfm_Reason_NoArrivals"><value>В этом окне вызовов не поступало.</value></data>
   <data name="Widget_Reconnecting"><value>Переподключение...</value></data>
   <data name="Widget_ReloadPage"><value>Обновить страницу</value></data>
   <data name="Widget_ActiveFilters"><value>активных фильтров</value></data>

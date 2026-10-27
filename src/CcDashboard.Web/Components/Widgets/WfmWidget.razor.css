@@ -91,6 +91,16 @@
     margin-top: auto;
 }
 
+/* BL-V4-WFM-NO-REASON-SHOWN-01: the line that says why the figures are dashes. Quieter than the
+   figures it explains, but not so quiet that it reads as decoration - it is the answer to the
+   operator's question, and on a wall display it has to survive being looked at from a distance. */
+.wfmreason {
+    color: var(--muted, #6c757d);
+    opacity: 0.85;
+    line-height: 1.25;
+    text-wrap: balance;
+}
+
 /* ---------- Empty / Loading states ---------- */
 .wfm-empty,
 .wfm-loading {

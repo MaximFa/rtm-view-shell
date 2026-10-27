@@ -110,6 +110,40 @@ public class StaleValuesMarkedGuardTests
     }
 
     [Fact]
+    public void Wfm_saysWhyTheFiguresAreDashes_andKeepsTheTechnicalReasonOutOfTheDisplay()
+    {
+        // BL-V4-WFM-NO-REASON-SHOWN-01: nine identical dashes answered none of the operator's
+        // question on 2026-10-22. The classification must come from WfmBlankReason (where it is
+        // tested), the text from the resources, and the engine's technical UnknownReason must stay
+        // in the tooltip - it is English log prose, not wall-display copy.
+        var source = Source("WfmWidget.razor");
+
+        source.Should().Contain("WfmBlankReason.Classify",
+            "the cause must be classified in one tested place, not re-derived in the markup");
+        source.Should().Contain("Wfm_Reason_", "and shown through the localised resources");
+        source.Should().Contain("title=\"@_snapshot.UnknownReason\"",
+            "the technical reason belongs in the tooltip, for whoever fixes it");
+
+        // The line must not be printed when there is nothing to explain.
+        source.Should().Contain("BlankReasonText is { Length: > 0 }",
+            "a permanent note beside working figures is noise, and noise is how a real warning gets ignored");
+
+        // All five causes must be reachable from the widget, or a situation would silently show
+        // no line at all - the defect again, narrower.
+        foreach (var key in new[] { "Overloaded", "AgentCountUnknown", "NobodyServing", "NoAnsweredCalls", "NoArrivals" })
+            source.Should().Contain($"Wfm_Reason_{key}", $"{key} must have a line of its own");
+
+        // And every code the classifier can return must be covered above: if someone adds a sixth,
+        // this fails rather than letting it fall through to "no explanation".
+        var reason = File.ReadAllText(Path.Combine(ContractsCommonDirectory(), "WfmBlankReason.cs"));
+        var codes = Regex.Matches(reason, @"public const string (\w+) =")
+            .Select(m => m.Groups[1].Value)
+            .Where(n => n != "None")
+            .ToList();
+        codes.Should().HaveCount(5, "a new cause needs a line in the widget and in three resx files");
+    }
+
+    [Fact]
     public void Guard_canGoRed()
     {
         // NEGATIVE HALF. Without this everything above passes on an empty area or a needle that

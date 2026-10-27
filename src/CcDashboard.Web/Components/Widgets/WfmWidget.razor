@@ -71,6 +71,18 @@
            the snapshot itself carries the instant it was computed - so "stale" here is the AGE of
            that instant. When the realtime loop stops, the figures below stay on screen and look
            exactly as current as ever. *@
+        @* BL-V4-WFM-NO-REASON-SHOWN-01: say WHY the figures are dashes. Without this line the
+           operator cannot tell a quiet line from an unconfigured business unit from a fault -
+           all three show the same nine dashes, and that is exactly the question we were asked
+           on 2026-10-22 ("why doesn't Wfm calculate?"). The technical UnknownReason from the
+           engine goes in the tooltip, for whoever has to fix it, not into the wall display. *@
+        @if (BlankReasonText is { Length: > 0 })
+        {
+            <div class="wfmreason" style="@GetNoteStyle()" title="@_snapshot.UnknownReason">
+                <i class="bi bi-info-circle me-1" aria-hidden="true"></i>@BlankReasonText
+            </div>
+        }
+
         <!-- Note: time + window only -->
         <div class="wfmnote @(IsDataStale ? "text-warning" : "")" style="@GetNoteStyle()">
             @if (IsDataStale)
@@ -98,6 +110,31 @@
     // success of our poll - the store can keep answering happily with a snapshot nobody refreshed.
     // PollInterval is the 5 s used below; the threshold and its reasoning live in DataFreshness.
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+
+    // BL-V4-WFM-NO-REASON-SHOWN-01. The classification lives in WfmBlankReason so a test can
+    // reach it; here it only becomes a localised line.
+    private string? BlankReasonText
+    {
+        get
+        {
+            if (_snapshot is null) return null;
+            var code = WfmBlankReason.Classify(
+                _snapshot.State,
+                _snapshot.Inputs.LambdaPerHour,
+                _snapshot.Inputs.AhtSec,
+                _snapshot.Inputs.NActual);
+
+            return code switch
+            {
+                WfmBlankReason.Overloaded        => L["Wfm_Reason_Overloaded"].Value,
+                WfmBlankReason.AgentCountUnknown => L["Wfm_Reason_AgentCountUnknown"].Value,
+                WfmBlankReason.NobodyServing     => L["Wfm_Reason_NobodyServing"].Value,
+                WfmBlankReason.NoAnsweredCalls   => L["Wfm_Reason_NoAnsweredCalls"].Value,
+                WfmBlankReason.NoArrivals        => L["Wfm_Reason_NoArrivals"].Value,
+                _ => null   // nothing to explain: the figures are there
+            };
+        }
+    }
 
     private bool _staleShown;
 

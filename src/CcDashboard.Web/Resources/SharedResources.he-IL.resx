@@ -550,6 +550,11 @@
   <data name="Widget_Retry"><value>נסה שוב</value></data>
   <data name="Widget_ColumnTypesUnavailable"><value>סוגי העמודות אינם זמינים: לא ניתן לקרוא את מאגר המדדים. מיון וספים בעמודות מספריות מושבתים עד שהקריאה תצליח.</value></data>
   <data name="Widget_DataStale"><value>אין קשר למנוע: אלה הנתונים האחרונים שהתקבלו, ומוני הזמן הוקפאו.</value></data>
+  <data name="Wfm_Reason_Overloaded"><value>העומס גדול ממה שהנציגים הקיימים יכולים לשרת, ולכן אין לחיזוי פתרון.</value></data>
+  <data name="Wfm_Reason_AgentCountUnknown"><value>המנוע לא דיווח כמה נציגים משרתים את התור הזה.</value></data>
+  <data name="Wfm_Reason_NobodyServing"><value>אף אחד לא משרת את התור הזה כרגע.</value></data>
+  <data name="Wfm_Reason_NoAnsweredCalls"><value>באשנב הזמן הזה לא נענתה שום שיחה, ולכן אין משך שיחה ממוצע לחשב לפיו.</value></data>
+  <data name="Wfm_Reason_NoArrivals"><value>באשנב הזמן הזה לא הגיעו שיחות.</value></data>
   <data name="Widget_Reconnecting"><value>מתחבר מחדש...</value></data>
   <data name="Widget_ReloadPage"><value>רענן דף</value></data>
   <data name="Widget_ActiveFilters"><value>מסננים פעילים</value></data>

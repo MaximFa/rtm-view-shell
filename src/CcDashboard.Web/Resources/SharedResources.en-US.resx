@@ -212,6 +212,11 @@
   <data name="Widget_Retry"><value>Retry</value></data>
   <data name="Widget_ColumnTypesUnavailable"><value>Column types unavailable: the metric catalogue could not be read. Sorting and thresholds for numeric columns are off until it is.</value></data>
   <data name="Widget_DataStale"><value>No connection to the engine: these are the last values received, and timers are frozen.</value></data>
+  <data name="Wfm_Reason_Overloaded"><value>More traffic than the agents on hand can serve, so the forecast has no answer.</value></data>
+  <data name="Wfm_Reason_AgentCountUnknown"><value>The engine has not reported how many agents are serving this queue.</value></data>
+  <data name="Wfm_Reason_NobodyServing"><value>Nobody is serving this queue right now.</value></data>
+  <data name="Wfm_Reason_NoAnsweredCalls"><value>No call was answered in this window, so there is no average talk time to calculate with.</value></data>
+  <data name="Wfm_Reason_NoArrivals"><value>No calls arrived in this window.</value></data>
   <data name="Widget_Reconnecting"><value>Reconnecting...</value></data>
   <data name="Widget_ReloadPage"><value>Reload page</value></data>
   <data name="Widget_ActiveFilters"><value>active filters</value></data>
