@@ -44,6 +44,21 @@ public interface IRtmRelayService
     /// </summary>
     event Func<RtmConnectionChanged, Task>? ConnectionChanged;
 
+    /// <summary>
+    /// Whether that channel's link to the RTM hub is up RIGHT NOW.
+    ///
+    /// The notice above is not enough on its own: a widget that subscribes AFTER the link went
+    /// down hears nothing and would show the last values as current - found on 2026-10-27, and it
+    /// is the same defect the notice was added for, just entered from the other side. A subscriber
+    /// asks this once after subscribing, and the notice keeps it up to date from then on.
+    ///
+    /// Asking is preferred over replaying the state to every subscriber on each new subscription:
+    /// the notice is broadcast, so a replay would also reach widgets that already know, and each
+    /// of them would repaint for nothing. Subscribe to the notice FIRST and ask second - in that
+    /// order a change that happens in between arrives as a notice instead of being lost.
+    /// </summary>
+    bool IsChannelUp(Guid tenantId, int channelId, RtmChannelKind kind);
+
     // ── Tenant lifecycle ─────────────────────────────────────────────────────
     /// <summary>
     /// Disconnect all active connections for a tenant (called on Suspend/Delete).

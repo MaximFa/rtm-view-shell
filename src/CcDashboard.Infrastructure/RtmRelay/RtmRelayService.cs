@@ -88,6 +88,21 @@ public sealed class RtmRelayService : IRtmRelayService
     public event Func<RtmConnectionChanged, Task>? ConnectionChanged;
 
     /// <summary>
+    /// Is that channel's link up right now? Read without taking the state lock on purpose: this is
+    /// called from a widget's render path, and a stale answer by microseconds is harmless - the
+    /// notice corrects it - while blocking a render on the relay's lock would not be.
+    /// </summary>
+    public bool IsChannelUp(Guid tenantId, int channelId, RtmChannelKind kind)
+        => kind switch
+        {
+            RtmChannelKind.Union => _unions.TryGetValue((tenantId, channelId), out var u)
+                                    && RtmChannelLink.IsUp(u.Connection?.State),
+            RtmChannelKind.Grid  => _grids.TryGetValue((tenantId, channelId), out var g)
+                                    && RtmChannelLink.IsUp(g.Connection?.State),
+            _ => false
+        };
+
+    /// <summary>
     /// Tell subscribers the link went down or came back. A subscriber that throws must not stop
     /// the others, and must never break reconnection itself - losing the hub is already the bad
     /// day; a failing notice handler on top of it would hide the recovery too.

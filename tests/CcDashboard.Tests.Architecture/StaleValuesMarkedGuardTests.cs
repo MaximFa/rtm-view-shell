@@ -34,6 +34,25 @@ public class StaleValuesMarkedGuardTests
             "the widget must learn the link state from the relay, not guess it from the screen");
         source.Should().Contain("RtmRelay.ConnectionChanged -=",
             "and must unsubscribe, or a disposed component keeps being called");
+        source.Should().Contain("RtmRelay.IsChannelUp(",
+            "a screen opened after the link dropped hears no notice, so it must ask the state once");
+
+        // Order: subscribe to the notice, THEN ask. Reversed, a change in between is lost.
+        var subscribedAt = source.IndexOf("RtmRelay.ConnectionChanged +=", StringComparison.Ordinal);
+        var askedAt = source.IndexOf("RtmRelay.IsChannelUp(", StringComparison.Ordinal);
+        askedAt.Should().BeGreaterThan(subscribedAt,
+            "asking before subscribing leaves a window where a drop is neither seen nor heard");
+
+        // And the mark must be cleared by DATA, not only by a "connected" notice. The relay raises
+        // that notice from its reconnect paths only - never on a first successful subscribe - so a
+        // mark raised by the state check at subscribe time (the connection may still be Connecting)
+        // would otherwise stay up forever. Measured on the operator's screen at 18:59:57Z on
+        // 2026-10-27: a strip while the link was already restored.
+        source.Should().Contain("data arriving IS the proof the link works",
+            "the data handler must clear the stale mark, or a false mark can never come off");
+        var handlerClears = Regex.IsMatch(source,
+            @"_linkDown\s*=\s*false;[\s\S]{0,120}_linkDownAtUtc\s*=\s*null;");
+        handlerClears.Should().BeTrue("clearing must reset both the flag and the frozen clock");
         source.Should().Contain("Widget_DataStale",
             "the viewer must be told the values are the last ones received");
 

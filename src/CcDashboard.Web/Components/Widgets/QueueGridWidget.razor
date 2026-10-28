@@ -623,6 +623,19 @@
 
             _gridHandler = async updates =>
             {
+                // BL-V4-STALE-VALUES-LOOK-LIVE-01: data arriving IS the proof the link works -
+                // stronger than any connection state. It is also the only proof available on a
+                // FIRST successful subscribe: the relay announces "connected" from its reconnect
+                // paths only, never from an initial one, so a strip raised by the state check at
+                // subscribe time (the connection may still be Connecting) would otherwise stay up
+                // forever. That is what the operator's screen showed at 18:59:57Z on 2026-10-27,
+                // with the link already restored.
+                if (_linkDown)
+                {
+                    _linkDown = false;
+                    _linkDownAtUtc = null;
+                }
+
                 // Retry the catalogue on fresh data: a one-off read failure must not keep the
                 // columns text until someone reloads the page.
                 await EnsureMetricValueTypesAsync();
@@ -659,6 +672,17 @@
                 return InvokeAsync(StateHasChanged);
             };
             RtmRelay.ConnectionChanged += _connectionHandler;
+
+            // Subscribed to the notice first, now ask the state once: a screen opened AFTER the
+            // link went down hears no notice and would otherwise show the last values as current.
+            // That gap was found on 2026-10-27 - the same defect entered from the other side.
+            // This order (subscribe, then ask) is what keeps a change in between from being lost.
+            if (!RtmRelay.IsChannelUp(_tenantId, _rtsGridId, RtmChannelKind.Grid))
+            {
+                _linkDown = true;
+                _linkDownAtUtc = DateTime.UtcNow;
+                Logger.LogWarning("QueueGrid {GridId}: engine link is already down at subscribe; values marked as stale", _rtsGridId);
+            }
 
             _connectionState = ConnectionState.Connected;
             _ = StartTickLoopAsync();
