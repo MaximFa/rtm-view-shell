@@ -311,8 +311,25 @@ namespace RTM
 
 
 
+        // PR234-ENGINE-NRE-DICTSERIALIZER-01: the adapter's setHoldAsync can send the empty shell of a call whose task handler
+        // exited early (isLateEvent): interactionId, workgroup, state are all null, only isHeld is set. Such a message carries
+        // nothing the engine can attach to a call; passed on it would reach getOrAddWGManager/interactionAction with null keys.
+        internal static bool IsInteractionChangedWithoutId(Dictionary<string, object> dic)
+        {
+            dic.TryGetValue("interactionId", out var id);
+            return string.IsNullOrEmpty(DictionarySerializer.getString(id));
+        }
+
         private async Task interactionChanged(Dictionary<string, object> dic, string jsnonString)
         {
+            if (IsInteractionChangedWithoutId(dic))
+            {
+                dic.TryGetValue("isHeld", out var held);
+                dic.TryGetValue("messageId", out var mid);
+                AsyncLogger.Info($"interactionChanged dropped: no interactionId (isHeld={DictionarySerializer.getString(held)} messageId={DictionarySerializer.getString(mid)})");
+                return;
+            }
+
             try
             {
                 string workgroup = DictionarySerializer.getString(dic["workgroup"]);

@@ -170,6 +170,12 @@ namespace RTM.Tools
         {
             List<string> list = new List<string>();
 
+            // PR234-ENGINE-NRE-DICTSERIALIZER-01: an absent list (JSON null) is an empty list, not a NullReferenceException.
+            if (obj is null)
+            {
+                return list;
+            }
+
             try
             {
                 //AsyncLogger.Info("GetList received object type: " + obj.GetType().FullName);
