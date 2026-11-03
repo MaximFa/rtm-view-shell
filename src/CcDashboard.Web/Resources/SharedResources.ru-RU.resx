@@ -1001,6 +1001,10 @@
   <data name="Report_NoData"><value>Данные не найдены за выбранный период. Ваш доступ может быть ограничен определёнными очередями или операторами.</value></data>
   <data name="Report_Interval"><value>Интервал</value></data>
   <data name="Report_Workgroup"><value>Очередь</value></data>
+  <data name="Report_EndOfShiftQueues"><value>Конец смены — очереди</value></data>
+  <data name="Report_Incomplete"><value>Самая свежая часть этого периода ещё не сведена, поэтому последние строки могут быть неполными. Данные до {0}.</value></data>
+  <data name="Report_SumTalk"><value>Суммарный разговор</value></data>
+  <data name="Report_QueueId"><value>Идентификатор очереди</value></data>
   <data name="Report_Offered"><value>Поступило</value></data>
   <data name="Report_Answered"><value>Принято</value></data>
   <data name="Report_Abandoned"><value>Потеряно</value></data>

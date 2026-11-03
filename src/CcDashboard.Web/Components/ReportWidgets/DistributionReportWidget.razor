@@ -4,6 +4,7 @@
 @using Microsoft.JSInterop
 @using CcDashboard.Application.HistoricalReports.Queries
 @using CcDashboard.Domain.Domain.Reports
+@using CcDashboard.Contracts.Common
 @inject IMediator Mediator
 @inject IJSRuntime JS
 @inject IStringLocalizer<SharedResources> L
@@ -43,7 +44,7 @@ else
             @if (_result.OverallAsa.HasValue)
             {
                 <div class="text-center mb-2">
-                    <strong>@L["Report_OverallASA"]:</strong> @FormatDuration(_result.OverallAsa)
+                    <strong>@L["Report_OverallASA"]:</strong> @ReportFormat.Duration(_result.OverallAsa)
                     <span class="text-muted">(@L["Report_Total"]: @_result.TotalCount)</span>
                 </div>
             }
@@ -186,14 +187,6 @@ else
         };
     }
 
-    private static string FormatDuration(double? seconds)
-    {
-        if (!seconds.HasValue) return "-";
-        var ts = TimeSpan.FromSeconds(seconds.Value);
-        return ts.TotalHours >= 1
-            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
-            : $"{ts.Minutes}:{ts.Seconds:D2}";
-    }
 
     public async ValueTask DisposeAsync()
     {

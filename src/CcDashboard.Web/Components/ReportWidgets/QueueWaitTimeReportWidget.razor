@@ -3,6 +3,7 @@
 @using Microsoft.Extensions.Logging
 @using CcDashboard.Application.HistoricalReports.Queries
 @using CcDashboard.Domain.Domain.Reports
+@using CcDashboard.Contracts.Common
 @inject IMediator Mediator
 @inject IStringLocalizer<SharedResources> L
 @inject ILogger<QueueWaitTimeReportWidget> Logger
@@ -38,7 +39,7 @@ else
     @if (_result.OverallAsa.HasValue)
     {
         <div class="alert alert-secondary mb-3">
-            <strong>@L["Report_OverallASA"]:</strong> @FormatDuration(_result.OverallAsa)
+            <strong>@L["Report_OverallASA"]:</strong> @ReportFormat.Duration(_result.OverallAsa)
         </div>
     }
 
@@ -65,9 +66,9 @@ else
                             <td>@row.Workgroup</td>
                             <td class="text-end">@row.Answered</td>
                             <td class="text-end">@FormatMs(row.SumWaitAnswered)</td>
-                            <td class="text-end">@FormatDuration(row.Asa)</td>
+                            <td class="text-end">@ReportFormat.Duration(row.Asa)</td>
                             <td class="text-end">@row.AnsweredInSl</td>
-                            <td class="text-end">@FormatPct(row.SlPct)</td>
+                            <td class="text-end">@ReportFormat.Pct(row.SlPct)</td>
                         </tr>
                     }
                 </tbody>
@@ -212,16 +213,7 @@ else
         }
     }
 
-    private static string FormatPct(double? val) => val.HasValue ? $"{val.Value:F1}%" : "-";
 
-    private static string FormatDuration(double? seconds)
-    {
-        if (!seconds.HasValue) return "-";
-        var ts = TimeSpan.FromSeconds(seconds.Value);
-        return ts.TotalHours >= 1
-            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
-            : $"{ts.Minutes}:{ts.Seconds:D2}";
-    }
 
     private static string FormatMs(long ms)
     {

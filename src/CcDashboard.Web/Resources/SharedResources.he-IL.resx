@@ -931,6 +931,10 @@
   <data name="Report_NoData"><value>לא נמצאו נתונים לתקופה שנבחרה. הגישה שלך עשויה להיות מוגבלת לתורים או נציגים מסוימים.</value></data>
   <data name="Report_Interval"><value>מרווח</value></data>
   <data name="Report_Workgroup"><value>תור</value></data>
+  <data name="Report_EndOfShiftQueues"><value>סוף משמרת — תורים</value></data>
+  <data name="Report_Incomplete"><value>החלק האחרון של הטווח הזה עוד לא עובד, ולכן השורות האחרונות עשויות להיות חלקיות. נתונים עד {0}.</value></data>
+  <data name="Report_SumTalk"><value>סך שיחה</value></data>
+  <data name="Report_QueueId"><value>מזהה תור</value></data>
   <data name="Report_Offered"><value>הוצעו</value></data>
   <data name="Report_Answered"><value>נענו</value></data>
   <data name="Report_Abandoned"><value>ננטשו</value></data>

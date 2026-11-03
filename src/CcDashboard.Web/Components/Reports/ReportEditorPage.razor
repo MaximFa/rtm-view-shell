@@ -232,8 +232,10 @@
     private PlacedReportWidget? ConfiguringWidget;
     private ReportWidgetConfig? _configInitial;
 
-    // All 5 widget types
-    private static readonly ReportWidgetType[] WidgetTypes = Enum.GetValues<ReportWidgetType>();
+    // Only the FINISHED types, from the one list that decides it (ReportWidgetPalette.Ready).
+    // Enum.GetValues was wrong here: the enum grows when the server side lands, so a type appeared
+    // in the palette before anything could draw it, and dropping it gave "unknown widget".
+    private static readonly IReadOnlyList<ReportWidgetType> WidgetTypes = ReportWidgetPalette.Ready;
 
     private readonly CancellationTokenSource _cts = new();
     private DotNetObjectReference<ReportEditorPage>? _dotNetRef;
@@ -680,43 +682,13 @@
         return GetWidgetName(widget.WidgetType);
     }
 
-    private static string GetWidgetCategory(ReportWidgetType type) => type switch
-    {
-        ReportWidgetType.QueueInterval or ReportWidgetType.QueueWaitTime => "Queues",
-        ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail => "Agents",
-        ReportWidgetType.Distribution => "Analytics",
-        _ => "Other"
-    };
+    private static string GetWidgetCategory(ReportWidgetType type) => ReportWidgetPalette.Category(type);
 
-    private static string GetWidgetName(ReportWidgetType type) => type switch
-    {
-        ReportWidgetType.QueueInterval => "Queue Interval",
-        ReportWidgetType.QueueWaitTime => "Queue Wait Time",
-        ReportWidgetType.AgentMonthly => "Agent Monthly",
-        ReportWidgetType.AgentShiftDetail => "Agent Shift Detail",
-        ReportWidgetType.Distribution => "Distribution",
-        _ => type.ToString()
-    };
+    private static string GetWidgetName(ReportWidgetType type) => ReportWidgetPalette.Name(type);
 
-    private static string GetWidgetDescription(ReportWidgetType type) => type switch
-    {
-        ReportWidgetType.QueueInterval => "Calls and service levels by time interval",
-        ReportWidgetType.QueueWaitTime => "Wait time distribution analysis",
-        ReportWidgetType.AgentMonthly => "Monthly agent performance summary",
-        ReportWidgetType.AgentShiftDetail => "Detailed shift-by-shift agent metrics",
-        ReportWidgetType.Distribution => "Call distribution charts",
-        _ => ""
-    };
+    private static string GetWidgetDescription(ReportWidgetType type) => ReportWidgetPalette.Description(type);
 
-    private static string GetWidgetIcon(ReportWidgetType type) => type switch
-    {
-        ReportWidgetType.QueueInterval => "bi-clock-history",
-        ReportWidgetType.QueueWaitTime => "bi-hourglass-split",
-        ReportWidgetType.AgentMonthly => "bi-calendar-month",
-        ReportWidgetType.AgentShiftDetail => "bi-person-lines-fill",
-        ReportWidgetType.Distribution => "bi-pie-chart",
-        _ => "bi-grid"
-    };
+    private static string GetWidgetIcon(ReportWidgetType type) => ReportWidgetPalette.Icon(type);
 
     public void Dispose()
     {

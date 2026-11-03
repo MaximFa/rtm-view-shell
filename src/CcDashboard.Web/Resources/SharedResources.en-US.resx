@@ -1024,6 +1024,10 @@
   <data name="Report_NoData"><value>No data found for the selected period. Your access may be limited to specific queues or agents.</value></data>
   <data name="Report_Interval"><value>Interval</value></data>
   <data name="Report_Workgroup"><value>Workgroup</value></data>
+  <data name="Report_EndOfShiftQueues"><value>End of shift — queues</value></data>
+  <data name="Report_Incomplete"><value>The newest part of this window is not aggregated yet, so the last rows may be incomplete. Data through {0}.</value></data>
+  <data name="Report_SumTalk"><value>Total talk</value></data>
+  <data name="Report_QueueId"><value>Queue id</value></data>
   <data name="Report_Offered"><value>Offered</value></data>
   <data name="Report_Answered"><value>Answered</value></data>
   <data name="Report_Abandoned"><value>Abandoned</value></data>

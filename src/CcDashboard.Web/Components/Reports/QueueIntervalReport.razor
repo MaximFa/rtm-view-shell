@@ -1,7 +1,8 @@
-﻿@using MediatR
+@using MediatR
 @using Microsoft.Extensions.Localization
 @using Microsoft.Extensions.Logging
 @using CcDashboard.Application.HistoricalReports.Queries
+@using CcDashboard.Contracts.Common
 @inject IMediator Mediator
 @inject IStringLocalizer<SharedResources> L
 @inject ILogger<QueueIntervalReport> Logger
@@ -52,11 +53,11 @@ else
                         <td class="text-end">@row.Offered</td>
                         <td class="text-end">@row.Answered</td>
                         <td class="text-end">@row.Abandoned</td>
-                        <td class="text-end">@FormatPct(row.AbandonPct)</td>
+                        <td class="text-end">@ReportFormat.Pct(row.AbandonPct)</td>
                         <td class="text-end">@row.AnsweredInSl</td>
-                        <td class="text-end">@FormatPct(row.SlPct)</td>
-                        <td class="text-end">@FormatDuration(row.Asa)</td>
-                        <td class="text-end">@FormatDuration(row.QueueAht)</td>
+                        <td class="text-end">@ReportFormat.Pct(row.SlPct)</td>
+                        <td class="text-end">@ReportFormat.Duration(row.Asa)</td>
+                        <td class="text-end">@ReportFormat.Duration(row.QueueAht)</td>
                     </tr>
                 }
             </tbody>
@@ -106,14 +107,5 @@ else
         }
     }
 
-    private string FormatPct(double? val) => val.HasValue ? $"{val.Value:F1}%" : "-";
 
-    private string FormatDuration(double? seconds)
-    {
-        if (!seconds.HasValue) return "-";
-        var ts = TimeSpan.FromSeconds(seconds.Value);
-        return ts.TotalHours >= 1 
-            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
-            : $"{ts.Minutes}:{ts.Seconds:D2}";
-    }
 }

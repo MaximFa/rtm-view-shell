@@ -1,7 +1,8 @@
-﻿@using MediatR
+@using MediatR
 @using Microsoft.Extensions.Localization
 @using Microsoft.Extensions.Logging
 @using CcDashboard.Application.HistoricalReports.Queries
+@using CcDashboard.Contracts.Common
 @inject IMediator Mediator
 @inject IStringLocalizer<SharedResources> L
 @inject ILogger<AgentShiftDetailReport> Logger
@@ -62,9 +63,9 @@ else
                         <td class="text-end">@FormatMs(row.SumTrainingMs)</td>
                         <td class="text-end">@FormatMs(row.SumLoggedInMs)</td>
                         <td class="text-end">@row.Handled</td>
-                        <td class="text-end">@FormatPct(row.OccupancyPct)</td>
-                        <td class="text-end">@FormatDuration(row.AgentAht)</td>
-                        <td class="text-end">@FormatPct(row.HoldPct)</td>
+                        <td class="text-end">@ReportFormat.Pct(row.OccupancyPct)</td>
+                        <td class="text-end">@ReportFormat.Duration(row.AgentAht)</td>
+                        <td class="text-end">@ReportFormat.Pct(row.HoldPct)</td>
                     </tr>
                 }
             </tbody>
@@ -114,16 +115,7 @@ else
         }
     }
 
-    private string FormatPct(double? val) => val.HasValue ? $"{val.Value:F1}%" : "-";
 
-    private string FormatDuration(double? seconds)
-    {
-        if (!seconds.HasValue) return "-";
-        var ts = TimeSpan.FromSeconds(seconds.Value);
-        return ts.TotalHours >= 1 
-            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
-            : $"{ts.Minutes}:{ts.Seconds:D2}";
-    }
 
     private string FormatMs(long ms)
     {
