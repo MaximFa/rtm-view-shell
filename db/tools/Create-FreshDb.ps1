@@ -82,6 +82,8 @@ if ($SkipMigrations) {
 } elseif (Test-Path $ShellExe) {
     Write-Host "  Running: $ShellExe migrate" -ForegroundColor Gray
     & $ShellExe migrate
+    # PR234-V4-WEB-MIGRATE-EXITCODE-01: a failed migrate must stop the run, not print "applied".
+    if ($LASTEXITCODE -ne 0) { throw "[ 2/4 ] '$ShellExe migrate' exited with code $LASTEXITCODE - EF migrations were NOT applied. Fix the cause and run this script again." }
     Write-Host "  EF Migrations + seed applied." -ForegroundColor Green
 } else {
     Write-Host "  Shell binary not found at: $ShellExe" -ForegroundColor Yellow

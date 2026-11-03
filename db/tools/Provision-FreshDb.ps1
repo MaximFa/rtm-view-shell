@@ -122,7 +122,11 @@ try {
     $env:ASPNETCORE_ENVIRONMENT = "Production"
     & $ShellExe migrate 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "  [WARN] migrate exited with code $LASTEXITCODE" -ForegroundColor Yellow
+        # PR234-V4-WEB-MIGRATE-EXITCODE-01: a failed migrate stops the provisioning; schema.sql and the
+        # later steps must not run over a database whose shell tables were never created.
+        Write-Host "  [FAIL] migrate exited with code $LASTEXITCODE - shell tables NOT created. Stopping." -ForegroundColor Red
+        $env:PGPASSWORD = ""
+        exit 1
     } else {
         Write-Host "  Shell migrate complete (shell tables + seed)." -ForegroundColor Green
     }
