@@ -3682,6 +3682,18 @@ button.clr-swatch,
 }
 
 /* Dark mode - report config modal elements (neutral-gray palette, dashboard-identical) */
+/* FEAT-REPORT-* column picker: two columns of ticks so a 16-field row type fits without the
+   dialog growing a scrollbar of its own. Logical properties throughout - this dialog is used on
+   the Hebrew UI too, and a physical gap here would repeat the arrow defect. */
+.report-columns-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 0.25rem 1rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    padding-inline-end: 0.25rem;
+}
+
 .report-config-modal.dark-mode .modal-content {
     background-color: #1E1E1E;
     color: #E4E4E7;

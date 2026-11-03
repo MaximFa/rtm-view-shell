@@ -1001,6 +1001,12 @@
   <data name="Report_NoData"><value>Данные не найдены за выбранный период. Ваш доступ может быть ограничен определёнными очередями или операторами.</value></data>
   <data name="Report_Interval"><value>Интервал</value></data>
   <data name="Report_Workgroup"><value>Очередь</value></data>
+  <data name="Report_AgentName"><value>Имя агента</value></data>
+  <data name="Report_Date"><value>Дата</value></data>
+  <data name="Report_Unavailable"><value>Недоступен</value></data>
+  <data name="Report_Label"><value>Значение</value></data>
+  <data name="Report_Count"><value>Количество</value></data>
+  <data name="Report_Percentage"><value>Процент</value></data>
   <data name="Report_EndOfShiftQueues"><value>Конец смены — очереди</value></data>
   <data name="Report_Incomplete"><value>Самая свежая часть этого периода ещё не сведена, поэтому последние строки могут быть неполными. Данные до {0}.</value></data>
   <data name="Report_SumTalk"><value>Суммарный разговор</value></data>
@@ -1033,7 +1039,10 @@
   <data name="Report_Distribution"><value>Распределение</value></data>
   <data name="ReportWidget_Configure"><value>Настройка виджета отчёта</value></data>
   <data name="ReportWidget_Title"><value>Заголовок</value></data>
-  <data name="ReportWidget_ColumnsHint"><value>Настройка столбцов будет доступна в будущем обновлении.</value></data>
+  <data name="ReportWidget_ColumnsHint"><value>Отметьте колонки, которые должен показывать отчёт.</value></data>
+  <data name="ReportWidget_ColumnsReset"><value>Стандартный набор</value></data>
+  <data name="ReportWidget_ColumnsFixed"><value>Колонки этого типа отчёта заданы жёстко.</value></data>
+  <data name="ReportWidget_ColumnsNoneChosen"><value>Ничего не отмечено: будет показан стандартный набор.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>Пороговые значения по столбцам — доступно в v1.1 (вместе с полным выбором столбцов).</value></data>
   <data name="Reports_Title"><value>Отчёты</value></data>
   <data name="Reports_New"><value>+ Новый отчёт</value></data>

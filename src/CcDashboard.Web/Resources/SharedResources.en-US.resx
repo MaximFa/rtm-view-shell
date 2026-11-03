@@ -1024,6 +1024,12 @@
   <data name="Report_NoData"><value>No data found for the selected period. Your access may be limited to specific queues or agents.</value></data>
   <data name="Report_Interval"><value>Interval</value></data>
   <data name="Report_Workgroup"><value>Workgroup</value></data>
+  <data name="Report_AgentName"><value>Agent name</value></data>
+  <data name="Report_Date"><value>Date</value></data>
+  <data name="Report_Unavailable"><value>Unavailable</value></data>
+  <data name="Report_Label"><value>Label</value></data>
+  <data name="Report_Count"><value>Count</value></data>
+  <data name="Report_Percentage"><value>Percentage</value></data>
   <data name="Report_EndOfShiftQueues"><value>End of shift — queues</value></data>
   <data name="Report_Incomplete"><value>The newest part of this window is not aggregated yet, so the last rows may be incomplete. Data through {0}.</value></data>
   <data name="Report_SumTalk"><value>Total talk</value></data>
@@ -1056,7 +1062,10 @@
   <data name="Report_Distribution"><value>Distribution</value></data>
   <data name="ReportWidget_Configure"><value>Configure Report Widget</value></data>
   <data name="ReportWidget_Title"><value>Title</value></data>
-  <data name="ReportWidget_ColumnsHint"><value>Column configuration will be available in a future update.</value></data>
+  <data name="ReportWidget_ColumnsHint"><value>Tick the columns this report should show.</value></data>
+  <data name="ReportWidget_ColumnsReset"><value>Standard set</value></data>
+  <data name="ReportWidget_ColumnsFixed"><value>The columns of this report type are fixed.</value></data>
+  <data name="ReportWidget_ColumnsNoneChosen"><value>Nothing is ticked: the standard set will be used.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>Per-column thresholds — available in v1.1 (together with the full Columns picker).</value></data>
   <data name="Reports_Title"><value>Reports</value></data>
   <data name="Reports_New"><value>+ New report</value></data>

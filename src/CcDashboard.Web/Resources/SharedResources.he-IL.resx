@@ -931,6 +931,12 @@
   <data name="Report_NoData"><value>לא נמצאו נתונים לתקופה שנבחרה. הגישה שלך עשויה להיות מוגבלת לתורים או נציגים מסוימים.</value></data>
   <data name="Report_Interval"><value>מרווח</value></data>
   <data name="Report_Workgroup"><value>תור</value></data>
+  <data name="Report_AgentName"><value>שם הנציג</value></data>
+  <data name="Report_Date"><value>תאריך</value></data>
+  <data name="Report_Unavailable"><value>לא זמין</value></data>
+  <data name="Report_Label"><value>ערך</value></data>
+  <data name="Report_Count"><value>כמות</value></data>
+  <data name="Report_Percentage"><value>אחוז</value></data>
   <data name="Report_EndOfShiftQueues"><value>סוף משמרת — תורים</value></data>
   <data name="Report_Incomplete"><value>החלק האחרון של הטווח הזה עוד לא עובד, ולכן השורות האחרונות עשויות להיות חלקיות. נתונים עד {0}.</value></data>
   <data name="Report_SumTalk"><value>סך שיחה</value></data>
@@ -963,7 +969,10 @@
   <data name="Report_Distribution"><value>התפלגות</value></data>
   <data name="ReportWidget_Configure"><value>הגדרת ווידג'ט דוח</value></data>
   <data name="ReportWidget_Title"><value>כותרת</value></data>
-  <data name="ReportWidget_ColumnsHint"><value>הגדרת עמודות תהיה זמינה בעדכון עתידי.</value></data>
+  <data name="ReportWidget_ColumnsHint"><value>סמן את העמודות שהדוח הזה יציג.</value></data>
+  <data name="ReportWidget_ColumnsReset"><value>מערכת ברירת המחדל</value></data>
+  <data name="ReportWidget_ColumnsFixed"><value>העמודות של סוג הדוח הזה קבועות.</value></data>
+  <data name="ReportWidget_ColumnsNoneChosen"><value>לא סומן דבר: יוצג מערך ברירת המחדל.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>ספים לפי עמודה — זמין בגרסה v1.1 (יחד עם בורר העמודות המלא).</value></data>
   <data name="Reports_Title"><value>דוחות</value></data>
   <data name="Reports_New"><value>+ דוח חדש</value></data>

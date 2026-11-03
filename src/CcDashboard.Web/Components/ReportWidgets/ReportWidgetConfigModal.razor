@@ -134,9 +134,46 @@
                     }
                     else if (_tab == "columns")
                     {
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>@L["ReportWidget_ColumnsHint"]
-                        </div>
+                        @* Operator, 2026-11-03: the user picks the columns. The offer comes from
+                           the SERVER's rule (AllowedColumns = the row record's fields), named in
+                           full because two types are called ReportWidgetConfig and the bare name
+                           binds to this one, which has no column rules. *@
+                        @if (_allowedColumns is null || _allowedColumns.Count == 0)
+                        {
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>@L["ReportWidget_ColumnsFixed"]
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small text-muted">@L["ReportWidget_ColumnsHint"]</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ResetColumns">
+                                    @L["ReportWidget_ColumnsReset"]
+                                </button>
+                            </div>
+                            @* An empty choice is refused rather than saved: a report with no
+                               columns renders an empty table, which reads as "no data". *@
+                            @if (_selectedColumns.Count == 0)
+                            {
+                                <div class="alert alert-warning py-1 px-2 small">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>@L["ReportWidget_ColumnsNoneChosen"]
+                                </div>
+                            }
+                            <div class="report-columns-picker">
+                                @foreach (var col in _allowedColumns)
+                                {
+                                    <div class="form-check" @key="col">
+                                        <input class="form-check-input" type="checkbox" id="@($"col-{col}")"
+                                               checked="@_selectedColumns.Contains(col)"
+                                               @onchange="e => ToggleColumn(col, e)" />
+                                        <label class="form-check-label" for="@($"col-{col}")">
+                                            @ColumnLabel(col)
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                        }
                     }
                     else if (_tab == "thresholds")
                     {
@@ -343,6 +380,11 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<ReportWidgetConfig> OnSave { get; set; }
     [Parameter] public ReportWidgetConfig? InitialConfig { get; set; }
+
+    // FEAT-REPORT-* column picker. The offer and the standard set both come from the server's
+    // rule, so the picker cannot disagree with what the server will actually return.
+    private IReadOnlyList<string>? _allowedColumns;
+    private readonly HashSet<string> _selectedColumns = new(StringComparer.Ordinal);
     [Parameter] public ReportWidgetType WidgetType { get; set; }
     [Parameter] public bool DarkMode { get; set; }
     [Parameter] public Guid? TenantId { get; set; }
@@ -385,6 +427,29 @@
     private List<string> _tenantBackgroundColors = [];
     private List<string> _tenantFontColors = [];
     private List<string> _tenantFontSizes = [];
+
+    private void ToggleColumn(string column, ChangeEventArgs e)
+    {
+        // ChangeEventArgs.Value for a checkbox is a bool, but read it as one rather than
+        // comparing against true: a null or a string would silently mean "unchecked" otherwise.
+        if (e.Value is bool isChecked && isChecked) _selectedColumns.Add(column);
+        else _selectedColumns.Remove(column);
+    }
+
+    private void ResetColumns()
+    {
+        _selectedColumns.Clear();
+        foreach (var c in CcDashboard.Application.HistoricalReports.ReportWidgetConfig.DefaultColumns(WidgetType))
+            _selectedColumns.Add(c);
+    }
+
+    // A column with no resource key shows its field name, not a blank: a blank header over real
+    // numbers reads as data that failed to load.
+    private string ColumnLabel(string column)
+    {
+        var key = ReportColumnLabels.KeyFor(column);
+        return key is null ? column : L[key].Value;
+    }
 
     private bool IsAgentWidget => WidgetType is ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail;
 
@@ -497,6 +562,16 @@
         if (IsOpen)
         {
             // Load initial config
+            _allowedColumns = CcDashboard.Application.HistoricalReports.ReportWidgetConfig
+                .AllowedColumns(WidgetType);
+            _selectedColumns.Clear();
+            // What is ticked: the user's own choice, else the standard set for this type - the same
+            // set the server falls back to, so an untouched widget shows exactly what it showed.
+            foreach (var c in (InitialConfig?.Columns is { Count: > 0 } chosen
+                        ? chosen
+                        : CcDashboard.Application.HistoricalReports.ReportWidgetConfig.DefaultColumns(WidgetType)))
+                _selectedColumns.Add(c);
+
             if (InitialConfig is not null)
             {
                 _title = InitialConfig.Title;
@@ -638,7 +713,13 @@
         {
             Title = _title,
             Scope = scope,
-            Columns = InitialConfig?.Columns,
+            // Keep the ORDER of AllowedColumns rather than the order ticks were made: the table
+            // must look the same after a reopen, and a set has no order to remember.
+            // An empty choice is not saved as empty - that would render a table with no columns;
+            // null means "the standard set", which is what an untouched widget already means.
+            Columns = (_allowedColumns is null || _selectedColumns.Count == 0)
+                ? null
+                : _allowedColumns.Where(_selectedColumns.Contains).ToList(),
             PageSize = InitialConfig?.PageSize ?? 25,
             Appearance = new AppearanceConfig
             {

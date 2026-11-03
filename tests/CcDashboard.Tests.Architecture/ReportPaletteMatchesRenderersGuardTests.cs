@@ -98,6 +98,65 @@ public class ReportPaletteMatchesRenderersGuardTests
                 "the fallback must name the server type in full - that is the whole point");
     }
 
+    [Fact]
+    public void EveryColumnAnyRowCanCarry_hasALabel()
+    {
+        // The picker offers AllowedColumns (a row record's fields) and a widget draws what was
+        // picked. A column offered without a label shows a technical identifier to the operator;
+        // measured before the picker was built, 27 of 30 columns already had a key, each under a
+        // different name than the field, so a field-to-key guess would have missed almost all.
+        var labels = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), "ReportColumnLabels.cs"));
+        var known = Regex.Matches(labels, @"\[""(?<c>\w+)""\]\s*=")
+            .Select(m => m.Groups["c"].Value).ToHashSet();
+
+        var rowColumns = RowColumns();
+        rowColumns.Should().NotBeEmpty("the row records must be readable, or this guard checks nothing");
+        rowColumns.Except(known).Should().BeEmpty("every column a row can carry needs a label");
+
+        // NEGATIVE HALF: a label naming a resource key that does not exist would render blank.
+        var resx = File.ReadAllText(Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "Resources", "SharedResources.en-US.resx"));
+        var resourceKeys = Regex.Matches(resx, @"name=""(?<k>Report_\w+)""").Select(m => m.Groups["k"].Value).ToHashSet();
+        var used = Regex.Matches(labels, @"=\s*""(?<k>Report_\w+)""").Select(m => m.Groups["k"].Value).Distinct();
+        used.Except(resourceKeys).Should().BeEmpty("a label pointing at a missing resource key shows an empty header");
+    }
+
+    [Fact]
+    public void ThePickerUsesTheServerColumnRule_byFullName()
+    {
+        // Two types are named ReportWidgetConfig; the bare name binds to the web one, which has no
+        // column rules. The picker must reach the server's rule by full name - both for what it
+        // offers and for the standard set - so the offer cannot differ from what the server
+        // returns.
+        var modal = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), "ReportWidgetConfigModal.razor"));
+
+        modal.Should().Contain("CcDashboard.Application.HistoricalReports.ReportWidgetConfig",
+            "the server's column rule must be named in full");
+        // The stub text lives in the resources, not in the markup - so check it where it is.
+        // (My first version of this line looked for it inside the .razor, which could never
+        // match and would have passed whatever the resources said.)
+        var resxForStub = File.ReadAllText(Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "Resources", "SharedResources.en-US.resx"));
+        resxForStub.Should().NotContain("Column configuration will be available",
+            "the \"future update\" stub must be gone now that the picker exists");
+
+        // An empty tick list must be stored as "standard set", never as an empty column list:
+        // a report with no columns renders an empty table, which reads as "no data".
+        modal.Should().Contain("_selectedColumns.Count == 0", "an empty choice must be handled, not saved");
+    }
+
+    private static IReadOnlyList<string> RowColumns()
+    {
+        var dir = Path.Combine(RepoRoot(), "src", "CcDashboard.Application", "HistoricalReports", "Queries");
+        var columns = new List<string>();
+        foreach (var file in Directory.GetFiles(dir, "*.cs"))
+        {
+            var text = File.ReadAllText(file);
+            foreach (var record in Regex.Matches(text, @"public record \w+Row\((?<body>[^)]*)\)", RegexOptions.Singleline).Cast<Match>())
+                columns.AddRange(Regex.Matches(record.Groups["body"].Value, @"[\w?<>.]+\s+(?<name>\w+)\s*(?:,|$)")
+                    .Select(m => m.Groups["name"].Value));
+        }
+        return columns.Distinct().ToList();
+    }
+
     private static IReadOnlyList<string> ReadyTypes()
     {
         var palette = PaletteSource();
