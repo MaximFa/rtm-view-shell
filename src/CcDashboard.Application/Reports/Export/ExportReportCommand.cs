@@ -16,11 +16,14 @@ public record ExportReportCommand(
     Guid ReportId,
     DateTime From,
     DateTime To,
-    Guid? TenantId = null
+    Guid? TenantId = null,
+    // FEAT-REPORT-EOS-*-01: passed to end-of-shift widgets; other widgets of the screen ignore them.
+    int? ShiftStartHour = null,
+    int? ShiftEndHour = null
 ) : IRequest<ReportExportResult>, IAuditable
 {
     public string AuditEventType => "ReportScreen.Exported";
-    public object? AuditDetails => new { ReportId, From, To };
+    public object? AuditDetails => new { ReportId, From, To, ShiftStartHour, ShiftEndHour };
 }
 
 public record ReportExportResult(byte[] Content, string FileName, string ContentType);
@@ -55,7 +58,9 @@ public class ExportReportCommandHandler(
                 cmd.To,
                 Page: 1,
                 TenantId: cmd.TenantId,
-                AllRows: true);
+                AllRows: true,
+                ShiftStartHour: widget.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues ? cmd.ShiftStartHour : null,
+                ShiftEndHour: widget.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues ? cmd.ShiftEndHour : null);
 
             var result = await mediator.Send(query, ct);
 
@@ -95,6 +100,10 @@ public class ExportReportCommandHandler(
                 (ProjectRows(result.AgentMonthly.Rows, columns), result.AgentMonthly.TotalCount),
             ReportWidgetType.AgentShiftDetail when result.AgentShiftDetail != null =>
                 (ProjectRows(result.AgentShiftDetail.Rows, columns), result.AgentShiftDetail.TotalCount),
+            ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentPerformance when result.AgentSummary != null =>
+                (ProjectRows(result.AgentSummary.Rows, columns), result.AgentSummary.TotalCount),
+            ReportWidgetType.EndOfShiftQueues when result.QueueSummary != null =>
+                (ProjectRows(result.QueueSummary.Rows, columns), result.QueueSummary.TotalCount),
             ReportWidgetType.Distribution when result.Distribution != null =>
                 (ProjectDistributionRows(result.Distribution.Buckets), result.Distribution.TotalCount),
             _ => (new List<object?[]>(), 0)

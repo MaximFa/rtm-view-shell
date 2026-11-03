@@ -14,7 +14,10 @@ public record RunReportWidgetQuery(
     DateTime To,
     int Page = 1,
     Guid? TenantId = null,
-    bool AllRows = false
+    bool AllRows = false,
+    // FEAT-REPORT-EOS-*-01: shift hours (site wall clock) on the single date From; required for EndOfShift*, empty otherwise.
+    int? ShiftStartHour = null,
+    int? ShiftEndHour = null
 ) : IRequest<ReportWidgetResult>;
 
 /// <summary>
@@ -52,6 +55,24 @@ public record ReportWidgetResult
 
     /// <summary>Distribution result (populated when WidgetType = Distribution).</summary>
     public DistributionReportResult? Distribution { get; init; }
+
+    /// <summary>EndOfShiftAgents / AgentPerformance result.</summary>
+    public AgentSummaryReportResult? AgentSummary { get; init; }
+
+    /// <summary>EndOfShiftQueues result.</summary>
+    public QueueSummaryReportResult? QueueSummary { get; init; }
+
+    /// <summary>
+    /// FEAT-REPORT-EOS-*-01: the instant the historical aggregation has reached (UTC); null when nothing was aggregated yet.
+    /// Set for the three summary types.
+    /// </summary>
+    public DateTime? DataThroughUtc { get; init; }
+
+    /// <summary>True when the window ends after DataThroughUtc: the newest part of the window is not aggregated yet.</summary>
+    public bool Incomplete { get; init; }
+
+    /// <summary>Known limit of the numbers, to show as the report hint (null when none). Set for the agent summary types.</summary>
+    public string? Caveat { get; init; }
 
     /// <summary>Create a denied result.</summary>
     public static ReportWidgetResult CreateDenied(ReportWidgetType type) => new()

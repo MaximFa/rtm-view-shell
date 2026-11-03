@@ -58,7 +58,32 @@ public class ReportWidgetConfigWithTypeValidator : AbstractValidator<(ReportWidg
         RuleFor(x => x)
             .Must(x => !IsAgentWidget(x.WidgetType) || x.Config.Scope.AgentAxis.HasValue)
             .WithMessage("AgentAxis required for agent widgets");
+
+        // FEAT-REPORT-*: the column picker is live for the summary types - every picked column must be a field of the row.
+        // (Older types keep accepting their saved configs as they are.)
+        RuleFor(x => x)
+            .Must(x => !IsSummaryWidget(x.WidgetType) || x.Config.Columns is null
+                       || x.Config.Columns.All(c => ReportWidgetConfig.AllowedColumns(x.WidgetType)!.Contains(c)))
+            .WithMessage(x => "Unknown column(s): " + string.Join(", ",
+                (x.Config.Columns ?? Array.Empty<string>()).Where(c => !(ReportWidgetConfig.AllowedColumns(x.WidgetType) ?? Array.Empty<string>()).Contains(c))));
+
+        RuleFor(x => x)
+            .Must(x => x.WidgetType != ReportWidgetType.AgentPerformance || x.Config.Mode.HasValue)
+            .WithMessage("Mode (summary|byDate) required for the agent performance report");
+
+        RuleFor(x => x.Config.AgentIds)
+            .Must(ids => ids is null || (ids.Count <= 500 && ids.All(i => !string.IsNullOrWhiteSpace(i) && i.Length <= 100)))
+            .WithMessage("AgentIds: at most 500 non-empty ids of up to 100 characters");
     }
+
+    private static readonly HashSet<ReportWidgetType> SummaryWidgetTypes = new()
+    {
+        ReportWidgetType.EndOfShiftAgents,
+        ReportWidgetType.EndOfShiftQueues,
+        ReportWidgetType.AgentPerformance
+    };
+
+    private static bool IsSummaryWidget(ReportWidgetType type) => SummaryWidgetTypes.Contains(type);
 
     private static bool IsAgentWidget(ReportWidgetType type) => AgentWidgetTypes.Contains(type);
 }
