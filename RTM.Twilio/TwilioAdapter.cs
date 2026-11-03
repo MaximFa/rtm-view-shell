@@ -1745,6 +1745,13 @@ namespace RTM.Twilio
                 Interaction interaction;
                 if (Interactions.TryGetValue(interactionId, out interaction))
                 {
+                    // PR234-ENGINE-NRE-DICTSERIALIZER-01: a shell left by an early-exited task handler has no InteractionId - do not send it
+                    if (!HoldGuard.CanSend(interaction))
+                    {
+                        AsyncLogger.Info($"setHold skipped: no InteractionId for {interactionId} event={statusCallbackEvent}");
+                        return;
+                    }
+
                     if (statusCallbackEvent == "participant-hold")
                     {                                          
                         interaction.IsHeld = true;
