@@ -151,7 +151,7 @@ try
         var migrator = migrateScope.ServiceProvider.GetRequiredService<IDatabaseInitializer>();
         await migrator.MigrateOnlyAsync();
         Log.Information("migrate-only complete — exiting (no seed, no hosted services, no web host).");
-        return;
+        return 0;
     }
 
     // Run database seed on startup (backend tables exist by now in the canonical flow)
@@ -191,11 +191,22 @@ try
 catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "Application terminated unexpectedly");
+
+    // PR234-V4-WEB-MIGRATE-EXITCODE-01: say it in the exit code too, not only in the log.
+    // Until this line, a failed `Web.exe migrate` wrote [FTL] Application terminated unexpectedly
+    // and still exited 0, because a top-level program that falls out of its catch returns success.
+    // The scripts that run migrate react to the code, not to the log: Rebuild-Proof.ps1:122-125
+    // throws on a non-zero code, so with 0 it built its "proof" on a half-migrated schema and
+    // called it good - a green that proves nothing is worse than a red.
+    return 1;
 }
 finally
 {
     Log.CloseAndFlush();
 }
+
+// Reached only when app.Run() returned normally (the web host stopped).
+return 0;
 
 // Make Program accessible to WebApplicationFactory for integration testing.
 // Required for top-level statements which generate an internal Program class by default.
