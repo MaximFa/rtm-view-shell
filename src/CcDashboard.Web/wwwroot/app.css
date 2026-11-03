@@ -1,4 +1,4 @@
-﻿/* ══════════════════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════════════════
    RTM View Shell — Enterprise Grade Stylesheet
    Uses design tokens from css/tokens.css (loaded before this file)
    Uses CSS logical properties for RTL support
@@ -547,6 +547,16 @@ a:hover {
     background-size: 10px;
 }
 
+/* FEAT-HE-DROPDOWNS-01: the arrow must sit on the side the padding was reserved on.
+   padding-inline-end above is logical, so under RTL the free strip is on the LEFT - but
+   background-position is physical and kept the arrow on the right, on top of the text. The
+   operator saw it on "כל הסטטוסים", "כל הקטגוריות", "כל הארגונים". Bootstrap's RTL build already
+   does this; our app.css loads after it and was overriding it back. Same [dir="rtl"] form as the
+   eight rules already in this file. */
+[dir="rtl"] .form-select {
+    background-position: left 0.5rem center;
+}
+
 .form-control::placeholder {
     color: var(--clr-text-faint);
 }
@@ -581,6 +591,11 @@ a:hover {
     padding-inline-end: 1.75rem;
     background-position: right 0.4rem center;
     background-size: 8px;
+}
+
+/* Second instance of the same defect: the small select has its own position. */
+[dir="rtl"] .form-select-sm {
+    background-position: left 0.4rem center;
 }
 
 /* Validation States */

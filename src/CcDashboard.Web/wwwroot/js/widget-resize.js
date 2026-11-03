@@ -289,11 +289,31 @@ window.widgetResize = {
         return result;
     },
 
+    // FEAT-RTL-RESIZE-01: the handles are placed with LOGICAL properties
+    // (.resize-handle.resize-e sits on inset-inline-end, see app.css), so under RTL the handle
+    // named "e" is physically on the LEFT - while the maths below is physical: it adds deltaX to
+    // the width for "e" and moves style.left for "w". Dragging the left edge therefore shrank the
+    // widget instead of growing it. Same shape of defect as FEAT-HE-DROPDOWNS-01: logical layout,
+    // physical arithmetic.
+    //
+    // Cure: translate the handle's NAME into the side it actually occupies, once, at the start of
+    // the gesture. The handles stay logical - that is what matches an RTL board, and the viewer's
+    // own RTL fix (PR234-V4-VIEWER-OVERFLOW-RTL-01) went the same way - and everything downstream
+    // keeps working in physical pixels, which is what style.left/width are.
+    physicalHandle: function (handle, widget) {
+        if (!handle) return handle;
+        const dir = getComputedStyle(widget.parentElement || widget).direction;
+        if (dir !== 'rtl') return handle;
+        // Only the inline axis flips; n/s are unaffected.
+        return handle.replace(/[ew]/g, c => (c === 'e' ? 'w' : 'e'));
+    },
+
     startResize: function (widgetId, handle, coords) {
         const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
         if (!widget) return;
 
         const style = window.getComputedStyle(widget);
+        handle = this.physicalHandle(handle, widget);
         this.activeWidget = { id: widgetId, element: widget, handle: handle };
         this.mode = 'resize';
         this.startX = coords.clientX;
