@@ -1008,6 +1008,7 @@
   <data name="Report_Count"><value>Количество</value></data>
   <data name="Report_Percentage"><value>Процент</value></data>
   <data name="Report_EndOfShiftQueues"><value>Конец смены — очереди</value></data>
+  <data name="Report_EndOfShiftAgents"><value>Конец смены — агенты</value></data>
   <data name="Report_Incomplete"><value>Самая свежая часть этого периода ещё не сведена, поэтому последние строки могут быть неполными. Данные до {0}.</value></data>
   <data name="Report_SumTalk"><value>Суммарный разговор</value></data>
   <data name="Report_QueueId"><value>Идентификатор очереди</value></data>

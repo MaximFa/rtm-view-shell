@@ -33,6 +33,9 @@
             case ReportWidgetType.EndOfShiftQueues:
                 <EndOfShiftQueuesReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
                 break;
+            case ReportWidgetType.EndOfShiftAgents:
+                <EndOfShiftAgentsReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
+                break;
             default:
                 <div class="report-widget-stub report-widget-unknown">
                     <i class="bi bi-question-circle"></i>

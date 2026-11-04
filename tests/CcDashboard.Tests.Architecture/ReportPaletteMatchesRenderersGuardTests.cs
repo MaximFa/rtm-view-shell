@@ -57,22 +57,33 @@ public class ReportPaletteMatchesRenderersGuardTests
     }
 
     [Fact]
-    public void AnUnfinishedTypeIsOutOfThePalette_andTheGuardWouldNoticeIfItWereAdded()
+    public void NoTypeWithoutARenderer_isInThePalette_andTheCheckCanStillGoRed()
     {
-        // NEGATIVE HALF #2: the two agent summary types have a server side and no renderer yet, so
-        // they must be absent. This also proves the guard can go red: adding either to Ready
-        // without a renderer breaks the first test - checked here on the real lists rather than
-        // asserted in prose.
-        var ready = ReadyTypes();
+        // This replaces a version that named EndOfShiftAgents as "the unfinished one". That made
+        // the guard a statement about today's backlog rather than about the rule, so the very
+        // batch that finished the type turned it red. The check now builds itself from the enum
+        // and the dispatcher, and names no type at all.
+        var allTypes = EnumTypes();
         var dispatched = DispatchedTypes();
+        var ready = ReadyTypes();
 
-        ready.Should().NotContain("EndOfShiftAgents", "its renderer does not exist yet");
-        ready.Should().NotContain("AgentPerformance", "its renderer does not exist yet");
+        allTypes.Should().NotBeEmpty("the enum must be readable, or this guard checks nothing");
 
-        var hypothetical = ready.Append("EndOfShiftAgents").ToList();
-        hypothetical.Except(dispatched).Should().NotBeEmpty(
-            "so Ready + a type without a renderer must fail the first test - that is the red this guard produces");
+        // Whatever the enum holds, anything the dispatcher cannot draw must stay out of the palette.
+        var withoutRenderer = allTypes.Except(dispatched).ToList();
+        ready.Intersect(withoutRenderer).Should().BeEmpty(
+            "a palette entry whose type has no dispatcher branch renders \"unknown widget\" when dropped");
+
+        // NEGATIVE HALF that does not depend on the backlog: a type that no renderer handles must be
+        // caught even when every real type happens to be finished. The synthetic name is not in the
+        // dispatcher by construction, so if this intersection came back empty the check above would
+        // be incapable of failing at all.
+        const string syntheticUnrendered = "__TypeWithNoRendererForTheGuard__";
+        var pretendReady = ready.Append(syntheticUnrendered).ToList();
+        pretendReady.Except(dispatched).Should().Contain(syntheticUnrendered,
+            "the comparison must still spot a type with no renderer - that is the red this guard produces");
     }
+
 
     [Fact]
     public void AWidgetTakesItsColumnsFromTheAnswer_notFromItsOwnCalculation()
@@ -165,6 +176,19 @@ public class ReportPaletteMatchesRenderersGuardTests
 
         return Regex.Matches(block.Groups["body"].Value, @"ReportWidgetType\.(?<t>\w+)")
             .Select(m => m.Groups["t"].Value)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> EnumTypes()
+    {
+        var path = Path.Combine(RepoRoot(), "src", "CcDashboard.Domain", "Domain", "Reports", "ReportWidgetType.cs");
+        File.Exists(path).Should().BeTrue("ReportWidgetType.cs must exist");
+
+        var body = Regex.Match(File.ReadAllText(path), @"enum ReportWidgetType\s*\{(?<body>[^}]*)\}");
+        body.Success.Should().BeTrue("the enum must be a plain declaration, readable here");
+
+        return Regex.Matches(body.Groups["body"].Value, @"^\s*(?<t>[A-Z]\w*)\s*,?\s*$", RegexOptions.Multiline)
+            .Select(x => x.Groups["t"].Value)
             .ToList();
     }
 

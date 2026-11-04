@@ -29,8 +29,9 @@ public static class ReportWidgetPalette
         ReportWidgetType.AgentShiftDetail,
         ReportWidgetType.Distribution,
         ReportWidgetType.EndOfShiftQueues,
-        // EndOfShiftAgents and AgentPerformance: the server side exists, the renderers do not yet.
-        // They stay out until their own commit brings both halves.
+        ReportWidgetType.EndOfShiftAgents,
+        // AgentPerformance: the server side exists, the renderer does not yet. It stays out until
+        // its own commit brings both halves.
     };
 
     public static string Category(ReportWidgetType type) => type switch
@@ -39,6 +40,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail => "Agents",
         ReportWidgetType.Distribution => "Analytics",
         ReportWidgetType.EndOfShiftQueues => "Queues",
+        ReportWidgetType.EndOfShiftAgents => "Agents",
         _ => "Other"
     };
 
@@ -50,6 +52,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.AgentShiftDetail => "Agent Shift Detail",
         ReportWidgetType.Distribution => "Distribution",
         ReportWidgetType.EndOfShiftQueues => "End of Shift — Queues",
+        ReportWidgetType.EndOfShiftAgents => "End of Shift — Agents",
         _ => type.ToString()
     };
 
@@ -61,6 +64,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.AgentShiftDetail => "Detailed shift-by-shift agent metrics",
         ReportWidgetType.Distribution => "Call distribution charts",
         ReportWidgetType.EndOfShiftQueues => "One row per queue for the shift window",
+        ReportWidgetType.EndOfShiftAgents => "One row per agent for the shift window",
         _ => ""
     };
 
@@ -72,6 +76,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.AgentShiftDetail => "bi-person-lines-fill",
         ReportWidgetType.Distribution => "bi-pie-chart",
         ReportWidgetType.EndOfShiftQueues => "bi-door-closed",
+        ReportWidgetType.EndOfShiftAgents => "bi-people",
         _ => "bi-grid"
     };
 }

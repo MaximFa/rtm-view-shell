@@ -1031,6 +1031,7 @@
   <data name="Report_Count"><value>Count</value></data>
   <data name="Report_Percentage"><value>Percentage</value></data>
   <data name="Report_EndOfShiftQueues"><value>End of shift — queues</value></data>
+  <data name="Report_EndOfShiftAgents"><value>End of shift — agents</value></data>
   <data name="Report_Incomplete"><value>The newest part of this window is not aggregated yet, so the last rows may be incomplete. Data through {0}.</value></data>
   <data name="Report_SumTalk"><value>Total talk</value></data>
   <data name="Report_QueueId"><value>Queue id</value></data>

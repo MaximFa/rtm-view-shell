@@ -1,0 +1,242 @@
+@using MediatR
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
+@using CcDashboard.Application.HistoricalReports
+@using CcDashboard.Application.HistoricalReports.Queries
+@using CcDashboard.Contracts.Common
+@using CcDashboard.Domain.Domain.Reports
+@inject IMediator Mediator
+@inject IStringLocalizer<SharedResources> L
+@inject ILogger<EndOfShiftAgentsReportWidget> Logger
+
+@* FEAT-REPORT-EOS-AGENTS-01: one row per agent for the shift window.
+   Built on QueueIntervalReportWidget: same states, paging, dark mode and appearance variables, so
+   a new report looks and behaves like the five that already exist. Two things differ, both from
+   the contract: the columns come from the widget's configuration rather than being fixed, and the
+   result can say its newest part is not aggregated yet. *@
+
+@if (_denied)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-shield-exclamation me-2"></i>@L["Report_AccessDenied"]
+    </div>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>@_error
+    </div>
+}
+else if (_loading)
+{
+    <div class="d-flex justify-content-center py-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@L["Common_Loading"]</span>
+        </div>
+    </div>
+}
+else if (_result is null || _result.Rows.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>@L["Report_NoData"]
+    </div>
+}
+else
+{
+    @* The window reaches past what has been aggregated: say so, with the instant it reaches. The
+       server sends DataThroughUtc in UTC - the only UTC value in this contract - so it goes
+       through WallClock, like every other stored instant on screen. *@
+    @* No "_result is not null" here: this whole branch already ran after the null check above, and
+       re-testing it told the compiler the opposite - that null was still possible - which is what
+       produced CS8602 on the @foreach below (line 76 in the run, column 42, on .Rows). The model
+       widget has no such re-test and no such warning. *@
+    @if (_incomplete)
+    {
+        <div class="alert alert-warning py-1 px-2 mb-1 small" role="status">
+            <i class="bi bi-hourglass-split me-1"></i>@IncompleteText
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_caveat))
+    {
+        <div class="report-widget-caveat small text-muted px-2 pb-1" role="note">
+            <i class="bi bi-info-circle me-1"></i>@_caveat
+        </div>
+    }
+
+    @* Two reports, one row type: the drawing lives in AgentSummaryTable, which knows nothing
+       about shift hours or modes - that is what keeps this report's settings out of the other's. *@
+    <AgentSummaryTable Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" Caption="@L["Report_EndOfShiftAgents"].Value" />
+
+    <div class="report-widget-footer">
+        <span class="report-widget-footer-pagesize">
+            <input type="number" class="form-control form-control-sm" style="width:70px"
+                   min="1" max="1000" step="1" value="@_pageSize" @onchange="OnPageSizeChanged" />
+            <span class="small text-muted ms-1">@L["Report_Rows"]</span>
+        </span>
+        <span class="report-widget-footer-info">
+            @L["Report_Showing"] @_result.Rows.Count @L["Report_Of"] @_result.TotalCount
+        </span>
+        @if (TotalPages > 1)
+        {
+            <span class="report-widget-footer-pager">
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <span class="mx-2">@_page / @TotalPages</span>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ReportWidgetConfig? Config { get; set; }
+    [Parameter, EditorRequired] public DateTime From { get; set; }
+    [Parameter, EditorRequired] public DateTime To { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public Guid? TenantId { get; set; }
+
+    private bool _loading;
+    private bool _denied;
+    private string? _error;
+    private AgentSummaryReportResult? _result;
+    private bool _incomplete;
+    private DateTime? _dataThroughUtc;
+    private string? _caveat;
+    private IReadOnlyList<string> _columns = Array.Empty<string>();
+    private int _page = 1;
+    private int _pageSize = 25;
+    private DateTime _lastFrom;
+    private DateTime _lastTo;
+    private string? _lastConfigJson;
+    private bool _initialized;
+
+    private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
+
+    private string IncompleteText => _dataThroughUtc is null
+        ? L["Report_Incomplete"].Value.Replace("{0}", "-")
+        : string.Format(L["Report_Incomplete"].Value,
+                        WallClock.ToServerLocal(_dataThroughUtc.Value).ToString("yyyy-MM-dd HH:mm"));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_initialized)
+        {
+            _pageSize = Config?.PageSize ?? 25;
+            _initialized = true;
+        }
+
+        var configJson = Config?.ToJson();
+        if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
+        {
+            _lastFrom = From;
+            _lastTo = To;
+            _lastConfigJson = configJson;
+            _page = 1;
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        _denied = false;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var effectiveConfig = (Config ?? new ReportWidgetConfig()) with { PageSize = _pageSize };
+            var configJson = effectiveConfig.ToJson();
+            var res = await Mediator.Send(new RunReportWidgetQuery(
+                ReportWidgetType.EndOfShiftAgents,
+                configJson,
+                From,
+                To,
+                _page,
+                TenantId));
+
+            if (res.Denied)
+            {
+                _denied = true;
+                _result = null;
+            }
+            else if (!string.IsNullOrEmpty(res.Error))
+            {
+                _error = res.Error;
+                _result = null;
+            }
+            else
+            {
+                _result = res.AgentSummary;
+                _incomplete = res.Incomplete;
+                _dataThroughUtc = res.DataThroughUtc;
+                _caveat = res.Caveat;
+                // The columns come from the ANSWER, not from a calculation here: the server already
+                // resolved "what the user picked, else the standard set" and sends it back as
+                // EffectiveColumns. Taking it from the response is what makes a disagreement
+                // between the header and the cells impossible, rather than merely unlikely.
+                //
+                // This replaces my first attempt, which called GetEffectiveColumns on the widget's
+                // own config and did not compile: there are TWO types named ReportWidgetConfig -
+                // this one (Web.Components.ReportWidgets, carries Appearance/Scope/PageSize) and
+                // the server's (Application.HistoricalReports, carries the column rules). The
+                // widget has `@using` for both, so the name bound to the type without the method.
+                // The fallback below names the server's type in full for exactly that reason, and
+                // the column rule stays in one place - the server's.
+                // Read the nullable property into a local first: a conditional whose branches are
+                // "nullable property" and "non-null value" can be assigned to a non-nullable field
+                // only if the compiler keeps the narrowing across the two reads of the property.
+                // With a local there is nothing to doubt - and nothing for the build to warn about.
+                var fromServer = res.EffectiveColumns;
+                _columns = fromServer is { Count: > 0 }
+                    ? fromServer
+                    : CcDashboard.Application.HistoricalReports.ReportWidgetConfig
+                        .DefaultColumns(ReportWidgetType.EndOfShiftAgents);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "EndOfShiftAgentsReportWidget load failed");
+            _error = ex.Message;
+            _result = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnPageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size))
+        {
+            _pageSize = Math.Clamp(size, 1, 1000);
+            _page = 1;
+            await LoadData();
+        }
+    }
+
+    private async Task PrevPage()
+    {
+        if (_page > 1)
+        {
+            _page--;
+            await LoadData();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_page < TotalPages)
+        {
+            _page++;
+            await LoadData();
+        }
+    }
+
+}
