@@ -50,7 +50,7 @@ public class RunReportWidgetQueryHandler(
         catch (JsonException ex)
         {
             logger.LogWarning(ex, "RunReportWidgetQuery: invalid ConfigJson");
-            return ReportWidgetResult.CreateError(query.WidgetType, "Invalid ConfigJson: " + ex.Message);
+            return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, "Invalid ConfigJson: " + ex.Message);
         }
 
         var validator = new ReportWidgetConfigWithTypeValidator();
@@ -59,7 +59,7 @@ public class RunReportWidgetQueryHandler(
         {
             var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
             logger.LogWarning("RunReportWidgetQuery: validation failed: {Errors}", errors);
-            return ReportWidgetResult.CreateError(query.WidgetType, errors);
+            return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, errors);
         }
 
         // FEAT-REPORT-EOS-*-01: an end-of-shift report is one date plus shift hours; every other type takes whole days
@@ -73,7 +73,7 @@ public class RunReportWidgetQueryHandler(
         if (shiftError != null)
         {
             logger.LogWarning("RunReportWidgetQuery: shift validation failed: {Error}", shiftError);
-            return ReportWidgetResult.CreateError(query.WidgetType, shiftError);
+            return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.ShiftHours, shiftError);
         }
 
         // The picked days are days in the display zone: local midnight -> UTC instant.
@@ -99,7 +99,7 @@ public class RunReportWidgetQueryHandler(
             ReportWidgetType.EndOfShiftAgents => await RunAgentSummaryAsync(query.WidgetType, null, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
             ReportWidgetType.AgentPerformance => await RunAgentSummaryAsync(query.WidgetType, config.Mode, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
             ReportWidgetType.EndOfShiftQueues => await RunQueueSummaryAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
-            _ => ReportWidgetResult.CreateError(query.WidgetType, $"Unknown widget type: {query.WidgetType}")
+            _ => ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, $"Unknown widget type: {query.WidgetType}")
         };
     }
 

@@ -32,7 +32,8 @@ public record ReportExportResult(byte[] Content, string FileName, string Content
     public IReadOnlyList<SkippedWidget> Skipped { get; init; } = Array.Empty<SkippedWidget>();
 }
 
-public record SkippedWidget(Guid WidgetId, string Title, string Reason);
+/// <summary>ReasonCode (<see cref="ReportReasonCodes"/>) is what the screen shows; Reason is for the log only.</summary>
+public record SkippedWidget(Guid WidgetId, string Title, string ReasonCode, string Reason);
 
 public class ExportReportCommandHandler(
     IReportScreenRepository repo,
@@ -70,14 +71,32 @@ public class ExportReportCommandHandler(
                 TenantId: cmd.TenantId,
                 AllRows: true);
 
-            var result = await mediator.Send(query, ct);
             var title = GetWidgetTitle(widget);
+            ReportWidgetResult result;
+            try
+            {
+                result = await mediator.Send(query, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // One widget that throws must not cost the user the whole file: it is listed, the rest is exported.
+                logger.LogError(ex, "Export: widget {WidgetId} ({Type}) threw; listed as not exported", widget.Id, widget.WidgetType);
+                skipped.Add(new SkippedWidget(widget.Id, title, ReportReasonCodes.Unrecognised, ex.GetType().Name + ": " + ex.Message));
+                continue;
+            }
 
             if (result.Denied || result.Error != null)
             {
                 logger.LogWarning("Export: widget {WidgetId} skipped (denied={Denied}, error={Error})",
                     widget.Id, result.Denied, result.Error);
-                skipped.Add(new SkippedWidget(widget.Id, title, result.Denied ? "No access" : result.Error!));
+                var code = result.Denied ? ReportReasonCodes.Denied : result.ErrorCode;
+                if (code is null || !ReportReasonCodes.All.Contains(code))
+                {
+                    // An error the screen cannot translate is still listed (general sentence), and the log names it.
+                    logger.LogWarning("Export: widget {WidgetId} failed with unrecognised reason code '{Code}'", widget.Id, code);
+                    code = ReportReasonCodes.Unrecognised;
+                }
+                skipped.Add(new SkippedWidget(widget.Id, title, code, result.Denied ? "No access" : result.Error ?? ""));
                 continue;
             }
 
@@ -85,14 +104,14 @@ public class ExportReportCommandHandler(
             if (sheet != null)
                 sheets.Add(sheet);
             else
-                skipped.Add(new SkippedWidget(widget.Id, title, "No data for the selected period"));
+                skipped.Add(new SkippedWidget(widget.Id, title, ReportReasonCodes.NoData, "No data for the selected period"));
         }
 
         if (skipped.Count > 0)
             sheets.Add(new WidgetExportSheet(
                 "Not exported",
                 new[] { "Widget", "Reason" },
-                skipped.Select(s => new object?[] { s.Title, s.Reason }).ToList(),
+                skipped.Select(s => new object?[] { s.Title, SheetText(s.ReasonCode) }).ToList(),
                 skipped.Count));
 
         var content = await exporter.ExportXlsxAsync(screen.Name, sheets, ct);
@@ -137,6 +156,16 @@ public class ExportReportCommandHandler(
 
         return new WidgetExportSheet(title, effectiveColumns, rows, totalCount);
     }
+
+    // The file carries a fixed sentence per code, never the validation text (which is for the log).
+    public static string SheetText(string code) => code switch
+    {
+        ReportReasonCodes.Denied => "No access to this widget's data",
+        ReportReasonCodes.NoData => "No data for the selected period",
+        ReportReasonCodes.ShiftHours => "Shift hours are not set or not valid for this widget",
+        ReportReasonCodes.InvalidConfig => "The widget settings are not valid",
+        _ => "Not exported - reason not recognised"
+    };
 
     private static string GetWidgetTitle(ReportWidget widget)
     {

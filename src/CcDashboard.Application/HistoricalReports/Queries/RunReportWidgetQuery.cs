@@ -32,8 +32,11 @@ public record ReportWidgetResult
     /// <summary>True if access was denied (empty PG for non-Superadmin).</summary>
     public bool Denied { get; init; }
 
-    /// <summary>Error message if validation or scope resolution failed.</summary>
+    /// <summary>Error message if validation or scope resolution failed. For the log only - never shown as is.</summary>
     public string? Error { get; init; }
+
+    /// <summary>Machine code of the error (<see cref="ReportReasonCodes"/>), set whenever Error is; the screen shows this.</summary>
+    public string? ErrorCode { get; init; }
 
     /// <summary>
     /// Effective columns to render: config.Columns if specified, else DefaultColumns for the widget type.
@@ -81,12 +84,33 @@ public record ReportWidgetResult
         Denied = true
     };
 
-    /// <summary>Create an error result.</summary>
-    public static ReportWidgetResult CreateError(ReportWidgetType type, string error) => new()
+    /// <summary>Create an error result. The code is required: an error without a code cannot be built.</summary>
+    public static ReportWidgetResult CreateError(ReportWidgetType type, string code, string error) => new()
     {
         WidgetType = type,
+        ErrorCode = string.IsNullOrWhiteSpace(code) ? throw new ArgumentException("error code required", nameof(code)) : code,
         Error = error
     };
+}
+
+/// <summary>
+/// Why a widget produced no data sheet / no rows - the codes the screen translates. A new reason gets a new code;
+/// the free-text Error/Reason stays in the log.
+/// </summary>
+public static class ReportReasonCodes
+{
+    public const string Denied = "denied";
+    public const string NoData = "no-data";
+    public const string ShiftHours = "shift-hours";
+    public const string InvalidConfig = "invalid-config";
+
+    public static readonly IReadOnlySet<string> All = new HashSet<string> { Denied, NoData, ShiftHours, InvalidConfig };
+
+    /// <summary>
+    /// Export only: the widget failed with an empty or unrecognised code, or its run threw. Not a reason of its own -
+    /// a defect to find in the log; the file is still built and the widget is still listed.
+    /// </summary>
+    public const string Unrecognised = "unrecognised";
 }
 
 /// <summary>
