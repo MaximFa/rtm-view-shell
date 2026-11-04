@@ -16,6 +16,7 @@
 @using Microsoft.Extensions.Logging
 @using System.Text.Json
 @using CcDashboard.Application.Reports.Export
+@using CcDashboard.Contracts.Common
 @implements IDisposable
 
 <PageTitle>@(_report?.Name ?? L["Reports_Title"]) — @L["Common_Fullscreen"]</PageTitle>
@@ -80,6 +81,24 @@
             </div>
         </div>
 
+        @* A widget the export left out is NAMED here. The handler skips a refused widget and logs
+           it, so before this block a person downloaded a file with sheets missing and the screen
+           said nothing. A warning, not an error: the file did download. An unrecognised reason
+           code still produces a line - the widget's name without an invented reason - because
+           hiding it would be the same silent skip one step further downstream. *@
+        @if (_skippedLines.Count > 0)
+        {
+            <div class="alert alert-warning py-1 px-2 small mb-2" role="status">
+                <i class="bi bi-exclamation-triangle me-1"></i><strong>@L["Reports_ExportSkipped"]</strong>
+                <ul class="mb-0 ps-3">
+                    @foreach (var line in _skippedLines)
+                    {
+                        <li>@line</li>
+                    }
+                </ul>
+            </div>
+        }
+
         <div class="fullscreen-canvas" style="@(_positionsApplied ? "" : "visibility: hidden;")">
             @if (_report.Widgets.Count == 0)
             {
@@ -141,6 +160,9 @@
     private readonly CancellationTokenSource _cts = new();
     private bool _exporting;
     private string? _exportError;
+    // Built once, when the export answers - not during render: the unknown-code branch writes to
+    // the log, and a render-time log would repeat on every redraw of the page.
+    private List<string> _skippedLines = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -274,11 +296,41 @@
         return widget.WidgetType.ToString();
     }
 
+    /// <summary>
+    /// One line per widget the export left out. A code this screen does not know is logged with
+    /// the server's own reason text and still shown by name: "unknown" must never render as
+    /// "nothing to report".
+    /// </summary>
+    private List<string> BuildSkippedLines(IReadOnlyList<SkippedWidget> skipped)
+    {
+        var lines = new List<string>(skipped.Count);
+        foreach (var item in skipped)
+        {
+            // A widget with no title would otherwise produce a line with a dash and no subject.
+            var title = string.IsNullOrWhiteSpace(item.Title) ? L["UnknownWidget"].Value : item.Title;
+            var reasonKey = ExportSkipReason.KeyFor(item.ReasonCode);
+
+            if (reasonKey is null)
+            {
+                Logger.LogWarning(
+                    "Export: widget {WidgetId} was skipped with an unrecognised reason code {ReasonCode} ({Reason})",
+                    item.WidgetId, item.ReasonCode, item.Reason);
+                lines.Add(string.Format(L[ExportSkipReason.ItemWithoutReasonKey].Value, title));
+            }
+            else
+            {
+                lines.Add(string.Format(L[ExportSkipReason.ItemKey].Value, title, L[reasonKey].Value));
+            }
+        }
+        return lines;
+    }
+
     private async Task ExportReport()
     {
         if (_report is null || _exporting) return;
         _exporting = true;
         _exportError = null;
+        _skippedLines = new();
         StateHasChanged();
 
         try
@@ -286,6 +338,7 @@
             var res = await Mediator.Send(
                 new ExportReportCommand(_report.Id, _rangeFrom, _rangeTo, _report.TenantId),
                 _cts.Token);
+            _skippedLines = BuildSkippedLines(res.Skipped);
             var base64 = Convert.ToBase64String(res.Content);
             await JS.InvokeVoidAsync("ccApp.downloadFile", base64, res.FileName, res.ContentType);
         }

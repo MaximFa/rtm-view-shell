@@ -996,7 +996,13 @@
   <data name="Reports_NoWidgets"><value>לדוח זה אין עדיין ווידג'טים</value></data>
   <data name="Reports_Export"><value>ייצוא</value></data>
   <data name="Reports_Schedule"><value>תזמון</value></data>
-  <data name="Reports_ExportStub"><value>פונקציית הייצוא תהיה זמינה בקרוב</value></data>
+  <data name="Reports_ExportSkipped"><value>לא נכלל בייצוא</value></data>
+  <data name="Reports_ExportSkippedItem"><value>{0} — {1}</value></data>
+  <data name="Reports_ExportSkippedItemNoReason"><value>{0}</value></data>
+  <data name="Reports_ExportSkippedDenied"><value>אין גישה לנתונים שלו</value></data>
+  <data name="Reports_ExportSkippedNoData"><value>אין נתונים לתקופה שנבחרה</value></data>
+  <data name="Reports_ExportSkippedInvalidConfig"><value>לא ניתן להשתמש בהגדרות שלו</value></data>
+  <data name="Reports_ExportSkippedShiftHours"><value>שעות המשמרת לא הוגדרו או אינן מתאימות לתאריך שנבחר</value></data>
   <data name="Reports_ExportFailed"><value>הייצוא נכשל. נסה שוב.</value></data>
   <data name="Reports_ScheduleStub"><value>פונקציית התזמון תהיה זמינה בקרוב</value></data>
   <data name="Reports_Description"><value>תיאור</value></data>

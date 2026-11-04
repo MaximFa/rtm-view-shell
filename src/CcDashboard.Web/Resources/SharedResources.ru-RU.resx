@@ -1066,7 +1066,13 @@
   <data name="Reports_NoWidgets"><value>В этом отчёте ещё нет виджетов</value></data>
   <data name="Reports_Export"><value>Экспорт</value></data>
   <data name="Reports_Schedule"><value>Расписание</value></data>
-  <data name="Reports_ExportStub"><value>Функция экспорта скоро будет доступна</value></data>
+  <data name="Reports_ExportSkipped"><value>Не вошло в экспорт</value></data>
+  <data name="Reports_ExportSkippedItem"><value>{0} — {1}</value></data>
+  <data name="Reports_ExportSkippedItemNoReason"><value>{0}</value></data>
+  <data name="Reports_ExportSkippedDenied"><value>нет доступа к его данным</value></data>
+  <data name="Reports_ExportSkippedNoData"><value>нет данных за выбранный период</value></data>
+  <data name="Reports_ExportSkippedInvalidConfig"><value>его настройки нельзя использовать</value></data>
+  <data name="Reports_ExportSkippedShiftHours"><value>часы смены не заданы или не подходят к выбранной дате</value></data>
   <data name="Reports_ExportFailed"><value>Ошибка экспорта. Попробуйте снова.</value></data>
   <data name="Reports_ScheduleStub"><value>Функция расписания скоро будет доступна</value></data>
   <data name="Reports_Description"><value>Описание</value></data>
