@@ -19,7 +19,9 @@ public class ClosedXmlReportExporter(ILogger<ClosedXmlReportExporter> logger) : 
 
         foreach (var sheet in sheets)
         {
-            var sheetName = SanitizeSheetName(sheet.Title, sheetIndex);
+            // Two widgets with the same title (e.g. two end-of-shift widgets left with the default title) must not
+            // break the whole export: Excel sheet names are unique case-insensitively, max 31 characters.
+            var sheetName = UniqueSheetName(SanitizeSheetName(sheet.Title, sheetIndex), sheetIndex, workbook);
             var worksheet = workbook.Worksheets.Add(sheetName);
 
             WriteHeaders(worksheet, sheet.Columns);
@@ -112,6 +114,18 @@ public class ClosedXmlReportExporter(ILogger<ClosedXmlReportExporter> logger) : 
         noteCell.Style.Font.Bold = true;
         noteCell.Style.Font.FontColor = XLColor.Red;
         ws.Range(noteRow, 1, noteRow, Math.Max(colCount, 3)).Merge();
+    }
+
+    internal static string UniqueSheetName(string name, int index, XLWorkbook workbook)
+    {
+        bool Taken(string n) => workbook.Worksheets.Any(w => string.Equals(w.Name, n, StringComparison.OrdinalIgnoreCase));
+        if (!Taken(name)) return name;
+        for (var k = index; ; k++)
+        {
+            var suffix = $" ({k})";
+            var candidate = (name.Length + suffix.Length > 31 ? name[..(31 - suffix.Length)] : name) + suffix;
+            if (!Taken(candidate)) return candidate;
+        }
     }
 
     private static string SanitizeSheetName(string title, int index)

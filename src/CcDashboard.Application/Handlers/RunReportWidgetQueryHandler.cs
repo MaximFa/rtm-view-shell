@@ -64,6 +64,11 @@ public class RunReportWidgetQueryHandler(
 
         // FEAT-REPORT-EOS-*-01: an end-of-shift report is one date plus shift hours; every other type takes whole days
         // and must not carry shift hours.
+        // PR234-V4-EOS-WIDGETS-NO-SHIFT-HOURS-01: hours on the query win; without them an end-of-shift widget runs with the
+        // hours saved in its own config. Other types never take hours from the config.
+        if (IsEndOfShift(query.WidgetType) && query.ShiftStartHour is null && query.ShiftEndHour is null)
+            query = query with { ShiftStartHour = config.ShiftStartHour, ShiftEndHour = config.ShiftEndHour };
+
         var shiftError = ValidateShift(query);
         if (shiftError != null)
         {

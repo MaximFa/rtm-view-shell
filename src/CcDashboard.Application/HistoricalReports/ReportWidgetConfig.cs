@@ -42,6 +42,16 @@ public record ReportWidgetConfig
     /// </summary>
     public IReadOnlyList<string>? AgentIds { get; init; }
 
+    /// <summary>
+    /// PR234-V4-EOS-WIDGETS-NO-SHIFT-HOURS-01: end-of-shift widgets keep their shift hours (site wall clock, start 0-23,
+    /// end 1-24) in their own config - two such widgets on one screen may have different shifts. The run uses these when
+    /// the query carries none (export, which runs every widget of the screen with the screen's date).
+    /// </summary>
+    public int? ShiftStartHour { get; init; }
+
+    /// <summary>See <see cref="ShiftStartHour"/>.</summary>
+    public int? ShiftEndHour { get; init; }
+
     /// <summary>Appearance settings (opaque, IGNORED server-side).</summary>
     public JsonElement? Appearance { get; init; }
 

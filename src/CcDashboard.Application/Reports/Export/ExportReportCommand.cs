@@ -16,17 +16,23 @@ public record ExportReportCommand(
     Guid ReportId,
     DateTime From,
     DateTime To,
-    Guid? TenantId = null,
-    // FEAT-REPORT-EOS-*-01: passed to end-of-shift widgets; other widgets of the screen ignore them.
-    int? ShiftStartHour = null,
-    int? ShiftEndHour = null
+    Guid? TenantId = null
 ) : IRequest<ReportExportResult>, IAuditable
 {
     public string AuditEventType => "ReportScreen.Exported";
-    public object? AuditDetails => new { ReportId, From, To, ShiftStartHour, ShiftEndHour };
+    public object? AuditDetails => new { ReportId, From, To };
 }
 
-public record ReportExportResult(byte[] Content, string FileName, string ContentType);
+/// <summary>
+/// The file plus every widget that did not become a data sheet, with the reason. The same list is the last sheet of the
+/// file ("Not exported"), so a missing widget is never silent - neither in the app nor in the file someone forwards.
+/// </summary>
+public record ReportExportResult(byte[] Content, string FileName, string ContentType)
+{
+    public IReadOnlyList<SkippedWidget> Skipped { get; init; } = Array.Empty<SkippedWidget>();
+}
+
+public record SkippedWidget(Guid WidgetId, string Title, string Reason);
 
 public class ExportReportCommandHandler(
     IReportScreenRepository repo,
@@ -48,33 +54,46 @@ public class ExportReportCommandHandler(
             ?? throw new NotFoundException(nameof(ReportScreen), cmd.ReportId);
 
         var sheets = new List<WidgetExportSheet>();
+        var skipped = new List<SkippedWidget>();
 
         foreach (var widget in screen.Widgets.Where(w => !w.IsDeleted))
         {
+            // PR234-V4-EOS-WIDGETS-NO-SHIFT-HOURS-01: an end-of-shift widget covers one date - the screen's first day - and
+            // its own shift hours, which the run takes from the widget config (no hours on the query).
+            var endOfShift = widget.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues;
             var query = new RunReportWidgetQuery(
                 widget.WidgetType,
                 widget.ConfigJson ?? "{}",
-                cmd.From,
-                cmd.To,
+                endOfShift ? cmd.From.Date : cmd.From,
+                endOfShift ? cmd.From.Date : cmd.To,
                 Page: 1,
                 TenantId: cmd.TenantId,
-                AllRows: true,
-                ShiftStartHour: widget.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues ? cmd.ShiftStartHour : null,
-                ShiftEndHour: widget.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues ? cmd.ShiftEndHour : null);
+                AllRows: true);
 
             var result = await mediator.Send(query, ct);
+            var title = GetWidgetTitle(widget);
 
             if (result.Denied || result.Error != null)
             {
                 logger.LogWarning("Export: widget {WidgetId} skipped (denied={Denied}, error={Error})",
                     widget.Id, result.Denied, result.Error);
+                skipped.Add(new SkippedWidget(widget.Id, title, result.Denied ? "No access" : result.Error!));
                 continue;
             }
 
             var sheet = BuildSheet(widget, result);
             if (sheet != null)
                 sheets.Add(sheet);
+            else
+                skipped.Add(new SkippedWidget(widget.Id, title, "No data for the selected period"));
         }
+
+        if (skipped.Count > 0)
+            sheets.Add(new WidgetExportSheet(
+                "Not exported",
+                new[] { "Widget", "Reason" },
+                skipped.Select(s => new object?[] { s.Title, s.Reason }).ToList(),
+                skipped.Count));
 
         var content = await exporter.ExportXlsxAsync(screen.Name, sheets, ct);
 
@@ -82,7 +101,7 @@ public class ExportReportCommandHandler(
         var fileName = $"{sanitizedName}_{cmd.From:yyyyMMdd}-{cmd.To:yyyyMMdd}_{clock.UtcNow:yyyyMMddHHmmss}.xlsx";
         var contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-        return new ReportExportResult(content, fileName, contentType);
+        return new ReportExportResult(content, fileName, contentType) { Skipped = skipped };
     }
 
     private static WidgetExportSheet? BuildSheet(ReportWidget widget, ReportWidgetResult result)
