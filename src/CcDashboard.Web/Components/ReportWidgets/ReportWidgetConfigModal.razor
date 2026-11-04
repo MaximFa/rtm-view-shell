@@ -459,7 +459,12 @@
     private IEnumerable<BusinessUnitDto> FilteredBusinessUnits =>
         string.IsNullOrWhiteSpace(_buSearch)
             ? _businessUnits
-            : _businessUnits.Where(b => b.BusinessUnitName.Contains(_buSearch, StringComparison.OrdinalIgnoreCase));
+            // BusinessUnitName is declared nullable (BusinessUnitDto), so the search dereferenced a
+            // possibly-null string - the CS8602 that predated this unit. A unit with no name simply
+            // does not match a search: "?." yields null and "== true" makes that a no-match, which
+            // is the honest answer. Coalescing to "" would have the same effect here, but reads as
+            // if an unnamed unit were an empty-named one.
+            : _businessUnits.Where(b => b.BusinessUnitName?.Contains(_buSearch, StringComparison.OrdinalIgnoreCase) == true);
 
     // Color palettes built from tenant settings
     private (string Name, string Value)[] BackgroundColors => BuildBackgroundColors();
