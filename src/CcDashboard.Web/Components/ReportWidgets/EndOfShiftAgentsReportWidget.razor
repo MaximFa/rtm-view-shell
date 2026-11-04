@@ -21,6 +21,15 @@
         <i class="bi bi-shield-exclamation me-2"></i>@L["Report_AccessDenied"]
     </div>
 }
+else if (_needsShiftHours)
+{
+    @* Said here, in the user's language, instead of letting the server's English refusal through:
+       without the shift hours the query cannot be built at all, and the cure is in this widget's
+       own settings, so the message names it. *@
+    <div class="alert alert-info">
+        <i class="bi bi-clock-history me-2"></i>@L["ReportWidget_ShiftHoursMissing"]
+    </div>
+}
 else if (!string.IsNullOrEmpty(_error))
 {
     <div class="alert alert-danger">
@@ -103,6 +112,7 @@ else
     private bool _loading;
     private bool _denied;
     private string? _error;
+    private bool _needsShiftHours;
     private AgentSummaryReportResult? _result;
     private bool _incomplete;
     private DateTime? _dataThroughUtc;
@@ -146,19 +156,45 @@ else
         _loading = true;
         _denied = false;
         _error = null;
+        _needsShiftHours = false;
+
+        // The shift hours are part of the query, not of the config the server parses: without them
+        // ValidateShift refuses before any data is read ("Shift start and end hours are required").
+        // Until this unit they were never sent from Web at all, so the widget could only ever draw
+        // that refusal. An unusable pair is caught here, in the user's language, and no query is
+        // sent - a request that is certain to be refused is not a measurement of anything.
+        var startHour = Config?.ShiftStartHour;
+        var endHour = Config?.ShiftEndHour;
+        if (startHour is null || endHour is null || endHour <= startHour)
+        {
+            _needsShiftHours = true;
+            _result = null;
+            _loading = false;
+            StateHasChanged();
+            return;
+        }
+
         StateHasChanged();
 
         try
         {
             var effectiveConfig = (Config ?? new ReportWidgetConfig()) with { PageSize = _pageSize };
             var configJson = effectiveConfig.ToJson();
+            // One date, both ends: the server requires an end-of-shift report to lie on a single
+            // date, and the date is the one picked on the page (operator, 2026-11-04: "from the
+            // screen, like the other reports"). The page's second date field does not take part
+            // for this widget - the shift is bounded by the hours, not by a second day.
+            var shiftDate = From.Date;
             var res = await Mediator.Send(new RunReportWidgetQuery(
                 ReportWidgetType.EndOfShiftAgents,
                 configJson,
-                From,
-                To,
+                shiftDate,
+                shiftDate,
                 _page,
-                TenantId));
+                TenantId,
+                false,
+                startHour,
+                endHour));
 
             if (res.Denied)
             {

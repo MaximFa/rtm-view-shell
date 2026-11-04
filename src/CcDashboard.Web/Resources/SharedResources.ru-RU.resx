@@ -1043,6 +1043,14 @@
   <data name="ReportWidget_ColumnsHint"><value>Отметьте колонки, которые должен показывать отчёт.</value></data>
   <data name="ReportWidget_ColumnsReset"><value>Стандартный набор</value></data>
   <data name="ReportWidget_ColumnsFixed"><value>Колонки этого типа отчёта заданы жёстко.</value></data>
+  <data name="ReportWidget_ShiftHours"><value>Часы смены</value></data>
+  <data name="ReportWidget_ShiftFrom"><value>с</value></data>
+  <data name="ReportWidget_ShiftTo"><value>по</value></data>
+  <data name="ReportWidget_ShiftHoursHint"><value>Дата берётся из поля даты на странице отчёта; только целые часы, смена через полночь не поддерживается.</value></data>
+  <data name="ReportWidget_ShiftHoursRequired"><value>Выберите час начала и час окончания смены.</value></data>
+  <data name="ReportWidget_ShiftEndBeforeStart"><value>Смена должна заканчиваться позже, чем начинается.</value></data>
+  <data name="ReportWidget_ShiftHoursMissing"><value>Часы смены не заданы. Откройте настройки виджета и выберите час начала и час окончания.</value></data>
+  <data name="Common_NotSelected"><value>не выбрано</value></data>
   <data name="ReportWidget_ColumnsNoneChosen"><value>Ничего не отмечено: будет показан стандартный набор.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>Пороговые значения по столбцам — доступно в v1.1 (вместе с полным выбором столбцов).</value></data>
   <data name="Reports_Title"><value>Отчёты</value></data>

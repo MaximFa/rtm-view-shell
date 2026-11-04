@@ -30,6 +30,21 @@ public record ReportWidgetConfig
     [JsonPropertyName("metric")]
     public string? Metric { get; init; }
 
+    /// <summary>
+    /// End-of-shift reports only: the shift hours in site wall clock, on the date picked on the page.
+    /// The DATE is not stored here - operator, 2026-11-04: "from the screen, like the other reports".
+    /// A date saved in a widget would be stale by the next morning and the dashboard would keep
+    /// showing yesterday's shift until somebody opened the settings.
+    /// The server contract (RunReportWidgetQueryHandler.ValidateShift): start 0-23, end 1-24,
+    /// end strictly greater than start, no shift across midnight.
+    /// </summary>
+    [JsonPropertyName("shiftStartHour")]
+    public int? ShiftStartHour { get; init; }
+
+    /// <summary>End-of-shift reports only: see <see cref="ShiftStartHour"/>. 1-24, where 24 is midnight.</summary>
+    [JsonPropertyName("shiftEndHour")]
+    public int? ShiftEndHour { get; init; }
+
     [JsonPropertyName("appearance")]
     public AppearanceConfig? Appearance { get; init; }
 

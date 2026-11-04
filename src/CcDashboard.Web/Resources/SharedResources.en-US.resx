@@ -1066,6 +1066,14 @@
   <data name="ReportWidget_ColumnsHint"><value>Tick the columns this report should show.</value></data>
   <data name="ReportWidget_ColumnsReset"><value>Standard set</value></data>
   <data name="ReportWidget_ColumnsFixed"><value>The columns of this report type are fixed.</value></data>
+  <data name="ReportWidget_ShiftHours"><value>Shift hours</value></data>
+  <data name="ReportWidget_ShiftFrom"><value>from</value></data>
+  <data name="ReportWidget_ShiftTo"><value>to</value></data>
+  <data name="ReportWidget_ShiftHoursHint"><value>The date comes from the date field on the report page; whole hours only, no shift across midnight.</value></data>
+  <data name="ReportWidget_ShiftHoursRequired"><value>Choose the start and the end hour of the shift.</value></data>
+  <data name="ReportWidget_ShiftEndBeforeStart"><value>The shift must end after it starts.</value></data>
+  <data name="ReportWidget_ShiftHoursMissing"><value>Shift hours are not set. Open the widget settings and choose the start and the end hour.</value></data>
+  <data name="Common_NotSelected"><value>not selected</value></data>
   <data name="ReportWidget_ColumnsNoneChosen"><value>Nothing is ticked: the standard set will be used.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>Per-column thresholds — available in v1.1 (together with the full Columns picker).</value></data>
   <data name="Reports_Title"><value>Reports</value></data>

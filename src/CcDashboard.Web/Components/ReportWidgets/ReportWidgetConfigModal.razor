@@ -131,6 +131,45 @@
                             <label class="form-label">@L["ReportWidget_Title"]</label>
                             <input type="text" class="form-control" @bind="_title" />
                         </div>
+                        @* End-of-shift reports need the shift hours; the DATE comes from the page,
+                           like every other report (operator, 2026-11-04). Without the hours the
+                           server refuses the query outright, so an unset pair blocks Save here
+                           instead of letting the widget render a server error on the dashboard. *@
+                        @if (IsEndOfShiftWidget)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    @L["ReportWidget_ShiftHours"] <span class="text-danger">*</span>
+                                </label>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="small text-muted">@L["ReportWidget_ShiftFrom"]</span>
+                                    <select class="form-select form-select-sm" style="width: auto;" @bind="_shiftStartHour">
+                                        <option value="">@L["Common_NotSelected"]</option>
+                                        @for (var h = 0; h <= 23; h++)
+                                        {
+                                            var hour = h;
+                                            <option value="@hour">@HourLabel(hour)</option>
+                                        }
+                                    </select>
+                                    <span class="small text-muted">@L["ReportWidget_ShiftTo"]</span>
+                                    <select class="form-select form-select-sm" style="width: auto;" @bind="_shiftEndHour">
+                                        <option value="">@L["Common_NotSelected"]</option>
+                                        @for (var h = 1; h <= 24; h++)
+                                        {
+                                            var hour = h;
+                                            <option value="@hour">@HourLabel(hour)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="small text-muted mt-1">@L["ReportWidget_ShiftHoursHint"]</div>
+                                @if (ShiftProblem is { } problem)
+                                {
+                                    <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>@problem
+                                    </div>
+                                }
+                            </div>
+                        }
                     }
                     else if (_tab == "columns")
                     {
@@ -392,6 +431,10 @@
     private string _tab = "scope";
     private string? _title;
     private int _pageSize = 25;
+    // Deliberately nullable with no invented default: a shift the operator never chose must not be
+    // saved as if they had. An unset pair blocks Save and says so next to the fields.
+    private int? _shiftStartHour;
+    private int? _shiftEndHour;
 
     // Typography
     private string _tableFontSize = "14";
@@ -453,7 +496,33 @@
 
     private bool IsAgentWidget => WidgetType is ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail;
 
-    private bool CanSave => _selectedBuIds.Count > 0;
+    private bool IsEndOfShiftWidget =>
+        WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues;
+
+    // 24 is midnight at the end of the shift, not an hour of the day: printing "24:00" keeps
+    // "ends at midnight" readable, where "00:00" would read as the start of the same date.
+    private static string HourLabel(int hour) => $"{hour:00}:00";
+
+    /// <summary>
+    /// The one message shown next to the hour fields, or null when the pair is usable. The order
+    /// matters: an unset pair is reported as unset, not as a wrong order, because a missing value
+    /// compared against anything would otherwise be described as a contradiction the user never made.
+    /// </summary>
+    private string? ShiftProblem
+    {
+        get
+        {
+            if (!IsEndOfShiftWidget)
+                return null;
+            if (_shiftStartHour is null || _shiftEndHour is null)
+                return L["ReportWidget_ShiftHoursRequired"].Value;
+            if (_shiftEndHour <= _shiftStartHour)
+                return L["ReportWidget_ShiftEndBeforeStart"].Value;
+            return null;
+        }
+    }
+
+    private bool CanSave => _selectedBuIds.Count > 0 && ShiftProblem is null;
 
     // Filtered BUs for searchable dropdown
     private IEnumerable<BusinessUnitDto> FilteredBusinessUnits =>
@@ -581,6 +650,8 @@
             {
                 _title = InitialConfig.Title;
                 _pageSize = InitialConfig.PageSize ?? 25;
+                _shiftStartHour = InitialConfig.ShiftStartHour;
+                _shiftEndHour = InitialConfig.ShiftEndHour;
 
                 // Appearance - typography
                 _tableFontSize = ResolveFontSizeToPixel(InitialConfig.Appearance?.TableFontSize);
@@ -606,6 +677,8 @@
                 // Reset to defaults for new widget
                 _title = null;
                 _pageSize = 25;
+                _shiftStartHour = null;
+                _shiftEndHour = null;
                 _tableFontSize = "14";
                 _headerFontSize = "14";
                 _lightBackground = "transparent";
@@ -726,6 +799,10 @@
                 ? null
                 : _allowedColumns.Where(_selectedColumns.Contains).ToList(),
             PageSize = InitialConfig?.PageSize ?? 25,
+            // Hours belong to the end-of-shift types only: the server rejects a query that carries
+            // them on any other type, so a leftover pair from a retyped widget must not be saved.
+            ShiftStartHour = IsEndOfShiftWidget ? _shiftStartHour : null,
+            ShiftEndHour = IsEndOfShiftWidget ? _shiftEndHour : null,
             Appearance = new AppearanceConfig
             {
                 TableFontSize = _tableFontSize,

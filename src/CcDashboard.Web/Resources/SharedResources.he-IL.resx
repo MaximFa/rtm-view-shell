@@ -973,6 +973,14 @@
   <data name="ReportWidget_ColumnsHint"><value>סמן את העמודות שהדוח הזה יציג.</value></data>
   <data name="ReportWidget_ColumnsReset"><value>מערכת ברירת המחדל</value></data>
   <data name="ReportWidget_ColumnsFixed"><value>העמודות של סוג הדוח הזה קבועות.</value></data>
+  <data name="ReportWidget_ShiftHours"><value>שעות המשמרת</value></data>
+  <data name="ReportWidget_ShiftFrom"><value>מ-</value></data>
+  <data name="ReportWidget_ShiftTo"><value>עד</value></data>
+  <data name="ReportWidget_ShiftHoursHint"><value>התאריך נלקח משדה התאריך בדף הדוח; שעות שלמות בלבד, ללא משמרת החוצה את חצות.</value></data>
+  <data name="ReportWidget_ShiftHoursRequired"><value>בחרו את שעת ההתחלה ואת שעת הסיום של המשמרת.</value></data>
+  <data name="ReportWidget_ShiftEndBeforeStart"><value>המשמרת חייבת להסתיים אחרי שהיא מתחילה.</value></data>
+  <data name="ReportWidget_ShiftHoursMissing"><value>שעות המשמרת לא הוגדרו. פתחו את הגדרות הווידג'ט ובחרו שעת התחלה ושעת סיום.</value></data>
+  <data name="Common_NotSelected"><value>לא נבחר</value></data>
   <data name="ReportWidget_ColumnsNoneChosen"><value>לא סומן דבר: יוצג מערך ברירת המחדל.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>ספים לפי עמודה — זמין בגרסה v1.1 (יחד עם בורר העמודות המלא).</value></data>
   <data name="Reports_Title"><value>דוחות</value></data>
