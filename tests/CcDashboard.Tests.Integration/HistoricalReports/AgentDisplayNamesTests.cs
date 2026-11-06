@@ -9,10 +9,10 @@ using Testcontainers.PostgreSql;
 namespace CcDashboard.Tests.Integration.HistoricalReports;
 
 /// <summary>
-/// FEAT-REPORT-AGENT-PERF-01: GetAgentDisplayNamesAsync on real PostgreSQL - the per-agent "newest non-empty name"
-/// query is translated by EF/Npgsql, which no unit test can check.
-/// Table shape copied from migration 20260621080000_AddHistoricalReportsTables (without partitioning).
-/// Control (negative half): order the names oldest-first in the repository -> NewestNonEmptyName goes red.
+/// PR234-V4-EOS-AGENTS-EMPTY-COLUMNS-01 / FEAT-REPORT-AGENT-PERF-01: the agent name rule (AgentNameRule) on real
+/// PostgreSQL, through the repository the picker uses. Source: RTSData_UserStatus (DDL copied from db/schema.sql).
+/// The rule: newest (UpdateTime) DisplayName that is neither empty nor the login (DisplayName = UserId).
+/// Control (negative half): drop the "not the login" filter -> NameAndLoginMixed goes red (the newest row is the login).
 /// </summary>
 public class AgentDisplayNamesFixture : IAsyncLifetime
 {
@@ -31,39 +31,34 @@ public class AgentDisplayNamesFixture : IAsyncLifetime
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            CREATE TABLE public.hist_agent_intervals (
-                "Id" uuid NOT NULL,
-                "TenantId" uuid NOT NULL,
-                "IntervalStart" timestamptz NOT NULL,
-                "AgentExternalId" varchar(100) NOT NULL,
-                "AgentDisplayName" varchar(200) NULL,
-                "SumAvailableMs" bigint NOT NULL DEFAULT 0,
-                "SumOnphoneMs" bigint NOT NULL DEFAULT 0,
-                "SumHoldMs" bigint NOT NULL DEFAULT 0,
-                "SumPaperworkMs" bigint NOT NULL DEFAULT 0,
-                "SumBreakMs" bigint NOT NULL DEFAULT 0,
-                "SumTrainingMs" bigint NOT NULL DEFAULT 0,
-                "SumUnavailableMs" bigint NOT NULL DEFAULT 0,
-                "SumLoggedInMs" bigint NOT NULL DEFAULT 0,
-                "Handled" int NOT NULL DEFAULT 0,
-                "CreatedAt" timestamptz NOT NULL DEFAULT now(),
-                "UpdatedAt" timestamptz NOT NULL DEFAULT now(),
-                PRIMARY KEY ("Id", "IntervalStart"));
-            INSERT INTO public.hist_agent_intervals ("Id","TenantId","IntervalStart","AgentExternalId","AgentDisplayName") VALUES
-              -- a1: renamed; the newest rows have no name -> the newest NON-EMPTY name wins ("New")
-              (gen_random_uuid(), @t, '2026-11-01 10:00Z', 'a1', 'Old'),
-              (gen_random_uuid(), @t, '2026-11-02 11:00Z', 'a1', 'New'),
-              (gen_random_uuid(), @t, '2026-11-03 12:00Z', 'a1', NULL),
-              (gen_random_uuid(), @t, '2026-11-03 13:00Z', 'a1', ''),
-              -- a2: one name
-              (gen_random_uuid(), @t, '2026-11-01 10:00Z', 'a2', 'Bob'),
-              -- a3: never a name
-              (gen_random_uuid(), @t, '2026-11-01 10:00Z', 'a3', NULL),
-              (gen_random_uuid(), @t, '2026-11-02 10:00Z', 'a3', ''),
-              -- a4: has a name but is not asked for
-              (gen_random_uuid(), @t, '2026-11-01 10:00Z', 'a4', 'Nobody asked'),
-              -- the same id in another tenant, newer than everything above
-              (gen_random_uuid(), @o, '2026-11-04 09:00Z', 'a1', 'Foreign');
+            CREATE TABLE public."RTSData_UserStatus" (
+                "TenantId" uuid,
+                "UserId" character varying(100) NOT NULL,
+                "StatusId" character varying(100) NOT NULL,
+                "ServerId" character varying(50) NOT NULL,
+                "OnDate" character varying(50) NOT NULL,
+                "StatusName" character varying(100),
+                "StatusGroup" character varying(100),
+                "TotalDuration" integer,
+                "MaxDuraction" integer,
+                "TotalCount" integer,
+                "UpdateTime" timestamp with time zone,
+                "DisplayName" character varying(100),
+                "TimeZone" character varying(64));
+            INSERT INTO public."RTSData_UserStatus" ("TenantId","UserId","StatusId","ServerId","OnDate","UpdateTime","DisplayName") VALUES
+              -- a1@x: name and login alternate on one day from one server; the NEWEST row is the login (as for 5 of 68 on 234)
+              (@t, 'a1@x', 'Available', 'S1', '05/11/2026', '2026-11-05 08:00Z', 'Dana Levi'),
+              (@t, 'a1@x', 'OnPhone',   'S1', '05/11/2026', '2026-11-05 09:00Z', 'a1@x'),
+              -- a2@x: only the login ever -> no real name, absent (the screen shows the id)
+              (@t, 'a2@x', 'Available', 'S1', '05/11/2026', '2026-11-05 08:00Z', 'a2@x'),
+              (@t, 'a2@x', 'Break',     'S1', '05/11/2026', '2026-11-05 09:00Z', ''),
+              -- a3@x: renamed between days -> the new name
+              (@t, 'a3@x', 'Available', 'S1', '04/11/2026', '2026-11-04 08:00Z', 'Old Name'),
+              (@t, 'a3@x', 'Available', 'S1', '05/11/2026', '2026-11-05 08:00Z', 'New Name'),
+              -- a4@x: has a name but is not asked for
+              (@t, 'a4@x', 'Available', 'S1', '05/11/2026', '2026-11-05 08:00Z', 'Nobody Asked'),
+              -- a1@x in another tenant, with a newer real name
+              (@o, 'a1@x', 'Available', 'S9', '06/11/2026', '2026-11-06 08:00Z', 'Foreign');
             """;
         cmd.Parameters.AddWithValue("t", Tenant);
         cmd.Parameters.AddWithValue("o", OtherTenant);
@@ -74,51 +69,62 @@ public class AgentDisplayNamesFixture : IAsyncLifetime
 
     public HistoricalReportRepository Repository()
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(ConnectionString).Options;
+        var app = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(ConnectionString).Options;
+        var be = new DbContextOptionsBuilder<BackendEmulationDbContext>().UseNpgsql(ConnectionString).Options;
         var tenant = Substitute.For<ITenantContext>();
         tenant.TenantId.Returns(Tenant);
-        return new HistoricalReportRepository(new AppDbContext(options, tenant), new Factory(options, tenant));
+        return new HistoricalReportRepository(new AppDbContext(app, tenant), new AppFactory(app, tenant), new BeFactory(be));
     }
 
-    private sealed class Factory(DbContextOptions<AppDbContext> options, ITenantContext tenant) : IDbContextFactory<AppDbContext>
+    private sealed class AppFactory(DbContextOptions<AppDbContext> options, ITenantContext tenant) : IDbContextFactory<AppDbContext>
     {
         public AppDbContext CreateDbContext() => new(options, tenant);
+    }
+
+    private sealed class BeFactory(DbContextOptions<BackendEmulationDbContext> options) : IDbContextFactory<BackendEmulationDbContext>
+    {
+        public BackendEmulationDbContext CreateDbContext() => new(options);
     }
 }
 
 public class AgentDisplayNamesTests(AgentDisplayNamesFixture fx) : IClassFixture<AgentDisplayNamesFixture>
 {
-    private Task<IReadOnlyDictionary<string, string>> Names(params string[] ids) =>
-        fx.Repository().GetAgentDisplayNamesAsync(AgentDisplayNamesFixture.Tenant, new HashSet<string>(ids), CancellationToken.None);
+    private Task<IReadOnlyDictionary<string, string>> Names(Guid tenant, params string[] ids) =>
+        fx.Repository().GetAgentDisplayNamesAsync(tenant, new HashSet<string>(ids), CancellationToken.None);
+
+    private Task<IReadOnlyDictionary<string, string>> Names(params string[] ids) => Names(AgentDisplayNamesFixture.Tenant, ids);
 
     [Fact]
-    public async Task NewestNonEmptyName_PerAgent()
+    public async Task NameAndLoginMixed_TheNameWins_EvenWhenTheLoginIsNewer()
     {
-        var names = await Names("a1", "a2");
-        names["a1"].Should().Be("New", "the newer rows have no name; 'Old' is older");
-        names["a2"].Should().Be("Bob");
+        (await Names("a1@x"))["a1@x"].Should().Be("Dana Levi");
     }
 
     [Fact]
-    public async Task AgentWithOnlyEmptyNames_IsAbsent()
+    public async Task OnlyTheLogin_IsAbsent_SoTheScreenShowsTheId()
     {
-        var names = await Names("a1", "a3");
-        names.Should().ContainKey("a1").And.NotContainKey("a3");
+        var names = await Names("a1@x", "a2@x");
+        names.Should().ContainKey("a1@x").And.NotContainKey("a2@x");
+    }
+
+    [Fact]
+    public async Task Renamed_TheNewName()
+    {
+        (await Names("a3@x"))["a3@x"].Should().Be("New Name");
     }
 
     [Fact]
     public async Task OtherTenant_SameId_IsNotMixedIn()
     {
-        (await Names("a1"))["a1"].Should().NotBe("Foreign");
-        var other = await fx.Repository().GetAgentDisplayNamesAsync(AgentDisplayNamesFixture.OtherTenant, new HashSet<string> { "a1" }, CancellationToken.None);
-        other["a1"].Should().Be("Foreign", "negative half: the row is there, only for its own tenant");
+        (await Names("a1@x"))["a1@x"].Should().NotBe("Foreign");
+        (await Names(AgentDisplayNamesFixture.OtherTenant, "a1@x"))["a1@x"].Should().Be("Foreign",
+            "negative half: the row is there, only for its own tenant");
     }
 
     [Fact]
     public async Task OnlyAskedIds_AreReturned()
     {
-        var names = await Names("a2");
-        names.Keys.Should().Equal("a2");
+        (await Names("a3@x")).Keys.Should().Equal("a3@x");
     }
 
     [Fact]

@@ -33,8 +33,9 @@ public interface IHistoricalReportRepository
         CancellationToken ct);
 
     /// <summary>
-    /// FEAT-REPORT-AGENT-PERF-01 agent picker: the newest non-empty display name of each given agent in
-    /// hist_agent_intervals of the tenant. Agents with no name there are absent from the result.
+    /// FEAT-REPORT-AGENT-PERF-01 agent picker: the display name of each given agent by the one name rule
+    /// (Infrastructure AgentNameRule: newest RTSData_UserStatus.DisplayName of the tenant that is not the login).
+    /// Agents with no such name are absent from the result (the caller shows the id).
     /// Callers pass an already scoped, non-empty id set - an empty set returns empty without a query.
     /// </summary>
     Task<IReadOnlyDictionary<string, string>> GetAgentDisplayNamesAsync(

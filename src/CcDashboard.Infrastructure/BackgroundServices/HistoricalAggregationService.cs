@@ -305,6 +305,11 @@ public class HistoricalAggregationService(
         var intervals = new List<HistAgentInterval>();
         var now = DateTime.UtcNow;
 
+        // PR234-V4-EOS-AGENTS-EMPTY-COLUMNS-01: the name was written as null into every row. Now the one rule
+        // (AgentNameRule: newest real name, never the login); an agent without one keeps null and the screen shows the id.
+        var agentIds = statusLogs.Where(s => !string.IsNullOrEmpty(s.UserId)).Select(s => s.UserId!).Distinct().ToList();
+        var names = await AgentNameRule.NewestRealNamesAsync(beDb, tenantId, agentIds, ct);
+
         foreach (var g in statusLogsByAgent)
         {
             var sumAvailable = g.Where(s => s.StatusGroup == "AVAILABLE").Sum(s => s.Duration ?? 0);
@@ -325,7 +330,7 @@ public class HistoricalAggregationService(
                 TenantId = tenantId,
                 IntervalStart = g.Key.IntervalStart,
                 AgentExternalId = g.Key.UserId!,
-                AgentDisplayName = null,
+                AgentDisplayName = names.TryGetValue(g.Key.UserId!, out var name) ? name : null,
                 SumAvailableMs = sumAvailable,
                 SumOnphoneMs = sumOnphone,
                 SumHoldMs = sumHold,

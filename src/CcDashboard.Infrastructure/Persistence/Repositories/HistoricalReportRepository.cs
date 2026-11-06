@@ -11,7 +11,8 @@ namespace CcDashboard.Infrastructure.Persistence.Repositories;
 /// </summary>
 public class HistoricalReportRepository(
     AppDbContext db,
-    IDbContextFactory<AppDbContext> dbFactory) : IHistoricalReportRepository
+    IDbContextFactory<AppDbContext> dbFactory,
+    IDbContextFactory<BackendEmulationDbContext> backendFactory) : IHistoricalReportRepository
 {
     public async Task<IReadOnlyList<HistQueueInterval>> GetQueueIntervalsAsync(
         Guid tenantId,
@@ -89,23 +90,10 @@ public class HistoricalReportRepository(
         if (agentIds.Count == 0)
             return new Dictionary<string, string>();
 
-        await using var ctx = await dbFactory.CreateDbContextAsync(ct);
-        var ids = agentIds.ToList();
-        var rows = await ctx.HistAgentIntervals
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(x => x.TenantId == tenantId
-                     && ids.Contains(x.AgentExternalId)
-                     && x.AgentDisplayName != null && x.AgentDisplayName != "")
-            .GroupBy(x => x.AgentExternalId)
-            .Select(g => new
-            {
-                Id = g.Key,
-                Name = g.OrderByDescending(x => x.IntervalStart).Select(x => x.AgentDisplayName).First()
-            })
-            .ToListAsync(ct);
-
-        return rows.ToDictionary(r => r.Id, r => r.Name!);
+        // Live source, same rule as the aggregator: hist_agent_intervals carried no name at all (0 of 29032 on 234),
+        // so the picker reads the name where it lives and is right before any history backfill.
+        await using var be = await backendFactory.CreateDbContextAsync(ct);
+        return await AgentNameRule.NewestRealNamesAsync(be, tenantId, agentIds, ct);
     }
 
     public async Task<HistAggregationWatermark?> GetWatermarkAsync(Guid tenantId, CancellationToken ct)
