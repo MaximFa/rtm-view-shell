@@ -67,7 +67,7 @@ public class ExportEndOfShiftTests
 
     private static List<string> SheetNames(byte[] xlsx)
     {
-        using var wb = new XLWorkbook(new MemoryStream(xlsx));
+        using var wb = XlsxDiagnostics.Open(xlsx);
         return wb.Worksheets.Select(w => w.Name).ToList();
     }
 
@@ -102,7 +102,7 @@ public class ExportEndOfShiftTests
         skip.Reason.Should().Contain("Shift start and end hours are required"); // log text kept for the log
         var names = SheetNames(res.Content);
         names.Should().HaveCount(2).And.Contain("Not exported");
-        using var wb = new XLWorkbook(new MemoryStream(res.Content));
+        using var wb = XlsxDiagnostics.Open(res.Content);
         wb.Worksheet("Not exported").Cell(2, 1).GetString().Should().Be("EndOfShiftQueues");
         // the file shows the fixed sentence of the code, not the validation text
         wb.Worksheet("Not exported").Cell(2, 2).GetString().Should().Be(ExportReportCommandHandler.SheetText(ReportReasonCodes.ShiftHours))
@@ -207,7 +207,7 @@ public class ExportNeverLosesTheFileTests
 
     private static (List<string> Sheets, string Reason) Read(byte[] xlsx)
     {
-        using var wb = new XLWorkbook(new MemoryStream(xlsx));
+        using var wb = XlsxDiagnostics.Open(xlsx);
         return (wb.Worksheets.Select(w => w.Name).ToList(), wb.Worksheet("Not exported").Cell(2, 2).GetString());
     }
 
@@ -263,5 +263,87 @@ public class SheetNameTests
         var longName = new string('x', 31);
         wb.Worksheets.Add(longName);
         ClosedXmlReportExporter.UniqueSheetName(longName.ToUpperInvariant(), 3, wb).Length.Should().BeLessThanOrEqualTo(31);
+    }
+}
+
+public class XlsxDiagnosticsTests
+{
+    [Fact]
+    public void DuplicateRelsDefault_IsReported_WithTheContentTypes_AndTheBytesKept()
+    {
+        // build a valid book, then duplicate the Default "rels" entry - the shape of the 21:34 failure
+        byte[] good;
+        using (var wb = new XLWorkbook())
+        {
+            wb.Worksheets.Add("S");
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            good = ms.ToArray();
+        }
+        XlsxDiagnostics.Open(good).Dispose(); // negative half: an untouched book opens
+
+        byte[] bad;
+        using (var ms = new MemoryStream())
+        {
+            ms.Write(good);
+            using (var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Update, leaveOpen: true))
+            {
+                var entry = zip.GetEntry("[Content_Types].xml")!;
+                string xml;
+                using (var r = new StreamReader(entry.Open())) xml = r.ReadToEnd();
+                var rels = System.Text.RegularExpressions.Regex.Match(xml, "<Default [^>]*Extension=\"rels\"[^>]*/>").Value;
+                rels.Should().NotBeEmpty("the book has a Default rels entry to duplicate");
+                entry.Delete();
+                using var w = new StreamWriter(zip.CreateEntry("[Content_Types].xml").Open());
+                w.Write(xml.Replace(rels, rels + rels));
+            }
+            bad = ms.ToArray();
+        }
+
+        var act = () => XlsxDiagnostics.Open(bad);
+        var ex = act.Should().Throw<InvalidOperationException>().Which;
+        ex.Message.Should().Contain("saved to").And.Contain("Extension=\"rels\"");
+        var path = System.Text.RegularExpressions.Regex.Match(ex.Message, @"saved to (.+?\.xlsx);").Groups[1].Value;
+        File.Exists(path).Should().BeTrue();
+        File.ReadAllBytes(path).Should().Equal(bad);
+        File.Delete(path);
+    }
+}
+
+/// <summary>
+/// PR234-TEST-EXPORT-XLSX-DUPLICATE-RELS-FLAKE-01 (diagnostics only, no behaviour change): when the produced xlsx cannot be
+/// read, keep the evidence. The bytes go to &lt;test bin&gt;/flake-xlsx/&lt;utc&gt;_&lt;guid&gt;.xlsx and the exception message
+/// carries the file path and the full text of [Content_Types].xml, so the test log alone shows what was duplicated.
+/// </summary>
+internal static class XlsxDiagnostics
+{
+    public static XLWorkbook Open(byte[] xlsx)
+    {
+        try
+        {
+            return new XLWorkbook(new MemoryStream(xlsx));
+        }
+        catch (Exception ex)
+        {
+            var dir = Path.Combine(AppContext.BaseDirectory, "flake-xlsx");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, $"{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid():N}.xlsx");
+            File.WriteAllBytes(path, xlsx);
+            string contentTypes;
+            try
+            {
+                using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(xlsx), System.IO.Compression.ZipArchiveMode.Read);
+                var entry = zip.GetEntry("[Content_Types].xml");
+                using var reader = new StreamReader(entry!.Open());
+                contentTypes = reader.ReadToEnd();
+            }
+            catch (Exception zipEx)
+            {
+                contentTypes = "<could not read [Content_Types].xml: " + zipEx.Message + ">";
+            }
+            throw new InvalidOperationException(
+                $"xlsx could not be read ({ex.GetType().Name}: {ex.Message}); bytes={xlsx.Length}; saved to {path}; " +
+                $"[Content_Types].xml = {contentTypes}", ex);
+        }
     }
 }
