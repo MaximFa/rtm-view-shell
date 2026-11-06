@@ -1,0 +1,15 @@
+& {
+  Set-Location 'D:\Claude\Projects\RTM View Shell'
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234 - run it on the workstation' -ForegroundColor Red; return }
+  $head = (git rev-parse --short HEAD).Trim(); Write-Host "HEAD expected aa34557 measured $head"
+  if ($head -ne 'aa34557') { Write-Host 'STOP: HEAD moved - do not commit' -ForegroundColor Red; return }
+  $paths = @('.probes/box_WS_20261106_head-cdb8316-green.txt','.probes/probe_WS_20261106_fullpkg-cdb8316.ps1','.probes/box_WS_20261106_fullpkg-cdb8316.txt','.probes/probe_234_20261106_install-cdb8316.ps1','.probes/probe_234_20261106_rollback-cdb8316-to-e8e67a1.ps1','.probes/box_234_20261106_install-cdb8316.txt','.probes/box_234_20261106_rollback-cdb8316-to-e8e67a1.txt','.probes/box_WS_20261106_commit-lesson-boxes.txt')
+  $want = @('24180976d4aa','ff446ea0450c','c1ecd09c6208','dcd40c02a78f','0faeb7146432','4e1242b64472','bb319fce39a2','9fa8c54e05c6')
+  git add -- $paths
+  git commit -q -m "devops-1106: cdb8316 head-green, package, install and rollback probes and boxes" -m "HEAD-GREEN cdb8316 (77/685/161/38/349, 0 errors, 737 warnings). Package 06112026.1831.zip B847327A, READY, 7 appearing needles. Install cdb8316 and rollback to e8e67a1 derived by diff from 7501c300/afa0462f (coordinator 4 of 14:58:46Z), lint exit 0, awaiting coordinator review. No product paths." -- $paths
+  Write-Host 'EXPECT: 8 x ok, status empty, 8 files changed'
+  for ($index = 0; $index -lt $paths.Count; $index++) { $tree = ((git ls-tree HEAD -- $paths[$index]) -split '\s+')[2]; $disk = (git hash-object -- $paths[$index]).Trim()
+    Write-Host ("{0}  expected {1}  tree {2}  disk {3}  {4}" -f $paths[$index], $want[$index], $tree.Substring(0,12), $disk.Substring(0,12), $(if (($tree -eq $disk) -and $tree.StartsWith($want[$index])) {'ok'} else {'RED'})) }
+  Write-Host ("status of these paths: [" + ((git status --porcelain -- $paths) -join ' ') + "]")
+  git show --stat --format="%h parent %p %s" HEAD
+}
