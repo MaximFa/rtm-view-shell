@@ -688,7 +688,7 @@
     // on the widget header and in the report list, whatever the board's language.
     private string GetWidgetName(ReportWidgetType type) => L[ReportWidgetPalette.NameKey(type)].Value;
 
-    private static string GetWidgetDescription(ReportWidgetType type) => ReportWidgetPalette.Description(type);
+    private string GetWidgetDescription(ReportWidgetType type) => L[ReportWidgetPalette.DescriptionKey(type)].Value;
 
     private static string GetWidgetIcon(ReportWidgetType type) => ReportWidgetPalette.Icon(type);
 

@@ -65,6 +65,13 @@ public static class ReportWidgetPalette
         _ => type.ToString()
     };
 
+    /// <summary>
+    /// Resource key of a type's description. The English constants below stay as the fallback for
+    /// places with no localizer; the palette itself shows the localised text, so a Hebrew board no
+    /// longer explains its reports in English.
+    /// </summary>
+    public static string DescriptionKey(ReportWidgetType type) => $"Report_Desc{type}";
+
     public static string Description(ReportWidgetType type) => type switch
     {
         ReportWidgetType.QueueInterval => "Calls and service levels by time interval",

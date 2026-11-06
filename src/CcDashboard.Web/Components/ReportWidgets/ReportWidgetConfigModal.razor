@@ -5,6 +5,7 @@
 @using CcDashboard.Contracts.DTOs.Configuration
 @using CcDashboard.Domain.Domain.Reports
 @using CcDashboard.Domain.Interfaces
+@using CcDashboard.Application.HistoricalReports.Queries
 @using Microsoft.Extensions.Logging
 @inject IStringLocalizer<SharedResources> L
 @inject IMediator Mediator
@@ -164,6 +165,76 @@
                                     <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">
                                         <i class="bi bi-exclamation-triangle me-1"></i>@modeProblem
                                     </div>
+                                }
+                            </div>
+
+                            @* The agents are the SERVER's list for the chosen business units
+                               (GetScopedAgentsQuery): never wider than what the report itself would
+                               show, so a foreign agent cannot be offered and then silently dropped.
+                               Nothing picked = every agent in scope - that is the default the
+                               report already had, so an untouched widget keeps behaving as before. *@
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">@L["ReportWidget_Agents"]</label>
+                                @if (_selectedBuIds.Count == 0)
+                                {
+                                    <div class="small text-muted">@L["ReportWidget_AgentsPickBuFirst"]</div>
+                                }
+                                else if (_agentsLoading)
+                                {
+                                    <div class="text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>
+                                }
+                                else
+                                {
+                                    <div class="small text-muted mb-1">
+                                        @if (_selectedAgentIds.Count == 0)
+                                        {
+                                            @L["ReportWidget_AgentsAll"]
+                                        }
+                                        else
+                                        {
+                                            @string.Format(L["ReportWidget_AgentsChosen"].Value, _selectedAgentIds.Count)
+                                        }
+                                    </div>
+                                    @if (_agentsTruncated)
+                                    {
+                                        @* The cut is never silent: a person who cannot find their agent
+                                           must know the list was shortened, not that the agent is gone. *@
+                                        <div class="alert alert-warning py-1 px-2 small">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>@string.Format(L["ReportWidget_AgentsTruncated"].Value, _agents.Count, _agentsTotal)
+                                        </div>
+                                    }
+                                    <div class="searchable-select">
+                                        <input type="text" class="form-control" placeholder="@L["Common_Search"]..."
+                                               value="@_agentSearch"
+                                               @oninput="OnAgentSearchInput"
+                                               @onfocus="OnAgentSearchFocus"
+                                               @onblur="OnAgentSearchBlur" />
+                                        @if (_agentDropdownOpen)
+                                        {
+                                            <div class="searchable-dropdown">
+                                                @foreach (var agent in FilteredAgents)
+                                                {
+                                                    var isPicked = _selectedAgentIds.Contains(agent.AgentId);
+                                                    <div class="dropdown-item d-flex align-items-center @(isPicked ? "active" : "")"
+                                                         @onmousedown="() => ToggleAgent(agent.AgentId)"
+                                                         @onmousedown:preventDefault="true">
+                                                        <i class="bi @(isPicked ? "bi-check-square-fill" : "bi-square") me-2"></i>
+                                                        @agent.DisplayName
+                                                    </div>
+                                                }
+                                                @if (!FilteredAgents.Any())
+                                                {
+                                                    <div class="dropdown-item text-muted"><em>@L["Common_NoResults"]</em></div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    @if (_selectedAgentIds.Count > 0)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" @onclick="ClearAgents">
+                                            @L["ReportWidget_AgentsClear"]
+                                        </button>
+                                    }
                                 }
                             </div>
                         }
@@ -470,6 +541,14 @@
     // No invented default here either: "summary" would silently decide for the operator which
     // report they asked for, and the two modes answer different questions.
     private string? _mode;
+    private IReadOnlyList<ScopedAgent> _agents = [];
+    private readonly HashSet<string> _selectedAgentIds = new(StringComparer.Ordinal);
+    private bool _agentsLoading;
+    private bool _agentsTruncated;
+    private int _agentsTotal;
+    private string _agentSearch = "";
+    private bool _agentDropdownOpen;
+    private string? _agentsLoadedForBus;
 
     // Typography
     private string _tableFontSize = "14";
@@ -662,17 +741,104 @@
         _buDropdownOpen = false;
     }
 
-    private void ToggleBu(int buId)
+    private IEnumerable<ScopedAgent> FilteredAgents =>
+        string.IsNullOrWhiteSpace(_agentSearch)
+            ? _agents
+            // Search both what is shown and the id behind it: until the display names arrive from
+            // the engine the two are the same string, and after they arrive a person who knows the
+            // login must still be able to find the row.
+            : _agents.Where(a => a.DisplayName.Contains(_agentSearch, StringComparison.OrdinalIgnoreCase)
+                                 || a.AgentId.Contains(_agentSearch, StringComparison.OrdinalIgnoreCase));
+
+    private void ToggleAgent(string agentId)
+    {
+        if (!_selectedAgentIds.Remove(agentId))
+            _selectedAgentIds.Add(agentId);
+    }
+
+    private void ClearAgents() => _selectedAgentIds.Clear();
+
+    private void OnAgentSearchInput(ChangeEventArgs e)
+    {
+        _agentSearch = e.Value?.ToString() ?? "";
+        _agentDropdownOpen = true;
+    }
+
+    private void OnAgentSearchFocus()
+    {
+        _agentSearch = string.Empty;
+        _agentDropdownOpen = true;
+    }
+
+    private async Task OnAgentSearchBlur()
+    {
+        await Task.Delay(150);
+        _agentDropdownOpen = false;
+    }
+
+    /// <summary>
+    /// Load the pickable agents for the chosen business units. Called when the dialog opens and
+    /// whenever the business units change: the list is a function of that choice, and showing the
+    /// agents of units the widget no longer covers is how a config ends up carrying ids the report
+    /// then drops server-side.
+    /// </summary>
+    private async Task LoadScopedAgentsAsync()
+    {
+        if (!IsAgentPerformanceWidget) return;
+
+        var key = string.Join(",", _selectedBuIds.OrderBy(x => x));
+        if (key == _agentsLoadedForBus) return;
+        _agentsLoadedForBus = key;
+
+        if (_selectedBuIds.Count == 0)
+        {
+            _agents = [];
+            _agentsTruncated = false;
+            _agentsTotal = 0;
+            return;
+        }
+
+        _agentsLoading = true;
+        StateHasChanged();
+        try
+        {
+            var res = await Mediator.Send(new GetScopedAgentsQuery(_selectedBuIds.ToList()));
+            _agents = res.Agents;
+            _agentsTruncated = res.Truncated;
+            _agentsTotal = res.TotalCount;
+
+            // Ids that are no longer offered cannot stay ticked: the report would drop them
+            // server-side without a word, and the dialog would keep claiming they are chosen.
+            var offered = _agents.Select(a => a.AgentId).ToHashSet(StringComparer.Ordinal);
+            _selectedAgentIds.RemoveWhere(id => !offered.Contains(id));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ReportWidgetConfigModal: failed to load the scoped agent list");
+            _agents = [];
+            _agentsTruncated = false;
+            _agentsTotal = 0;
+        }
+        finally
+        {
+            _agentsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleBu(int buId)
     {
         if (_selectedBuIds.Contains(buId))
             _selectedBuIds.Remove(buId);
         else
             _selectedBuIds.Add(buId);
+        await LoadScopedAgentsAsync();
     }
 
-    private void RemoveBu(int buId)
+    private async Task RemoveBu(int buId)
     {
         _selectedBuIds.Remove(buId);
+        await LoadScopedAgentsAsync();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -697,6 +863,9 @@
                 _shiftStartHour = InitialConfig.ShiftStartHour;
                 _shiftEndHour = InitialConfig.ShiftEndHour;
                 _mode = InitialConfig.Mode;
+                _selectedAgentIds.Clear();
+                foreach (var id in InitialConfig.AgentIds ?? new List<string>())
+                    _selectedAgentIds.Add(id);
 
                 // Appearance - typography
                 _tableFontSize = ResolveFontSizeToPixel(InitialConfig.Appearance?.TableFontSize);
@@ -725,6 +894,7 @@
                 _shiftStartHour = null;
                 _shiftEndHour = null;
                 _mode = null;
+                _selectedAgentIds.Clear();
                 _tableFontSize = "14";
                 _headerFontSize = "14";
                 _lightBackground = "transparent";
@@ -740,6 +910,12 @@
             // Reset search state
             _buSearch = "";
             _buDropdownOpen = false;
+            _agentSearch = "";
+            _agentDropdownOpen = false;
+            // Forget which units the list was built for: the dialog may be reopened on a DIFFERENT
+            // widget whose units happen to match the previous one, and the ticks must be rebuilt
+            // from THIS widget's configuration, not inherited from the last.
+            _agentsLoadedForBus = null;
 
             // Load data sources if not already loaded
             if (!_dataLoaded)
@@ -747,6 +923,8 @@
                 await LoadDataSources();
                 _dataLoaded = true;
             }
+
+            await LoadScopedAgentsAsync();
         }
         else
         {
@@ -854,7 +1032,12 @@
             // Carried through untouched: the agent pick has no control yet (backend owes the
             // "agents in scope" query), and a dialog that saved null here would erase a list a
             // later version let someone choose.
-            AgentIds = IsAgentPerformanceWidget ? InitialConfig?.AgentIds : null,
+            // Nothing ticked = every agent in scope, so an empty set is saved as null rather than
+            // as an empty list: an empty list would read as "these zero agents" to anything that
+            // later tells the two apart.
+            AgentIds = IsAgentPerformanceWidget && _selectedAgentIds.Count > 0
+                ? _agents.Select(a => a.AgentId).Where(_selectedAgentIds.Contains).ToList()
+                : null,
             Appearance = new AppearanceConfig
             {
                 TableFontSize = _tableFontSize,
