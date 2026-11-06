@@ -1,0 +1,18 @@
+& {
+  function Tick($t) { Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $t) -ForegroundColor Cyan }
+  if ($env:COMPUTERNAME -ne 'RTM') { Write-Host 'STOP: not server 234' -ForegroundColor Red; return }
+  $src = '\\tsclient\D\Claude\Projects\RTM View Shell'; $ops = 'C:\RTMView-Ops'; $m = "$src\.coord\measure\agentname-1105"
+  $stamp = Get-Date -Format yyyyMMdd_HHmmss; $work = "$ops\output\agentname5_$stamp"; New-Item -ItemType Directory -Force -Path "$ops\probes", $work | Out-Null
+  $sql = "$ops\probes\agentname-1105-p5.sql"; Copy-Item -LiteralPath "$m\PROBE5.sql" -Destination $sql -Force; Unblock-File -LiteralPath $sql
+  $h = (Get-FileHash -LiteralPath $sql -Algorithm SHA256).Hash; Tick "probe sha256 expected 51CE4ED1...  measured $h"
+  if ($h -ne '51CE4ED128BF748F565D842E013857E52EE3A69F09A044B4D3E22B5F7437F73E') { Write-Host 'STOP: sha differs' -ForegroundColor Red; return }
+  $cfg = [IO.File]::ReadAllText('C:\RTMView\Shell\appsettings.json') | ConvertFrom-Json; $cs = [string]$cfg.ConnectionStrings.Default
+  $port = [regex]::Match($cs, '(?i)Port\s*=\s*([^;]+)').Groups[1].Value.Trim(); $db = [regex]::Match($cs, '(?i)Database\s*=\s*([^;]+)').Groups[1].Value.Trim(); $user = [regex]::Match($cs, '(?i)(?:Username|User ID|UserId|User)\s*=\s*([^;]+)').Groups[1].Value.Trim()
+  Tick "db localhost port $port database $db user $user (expected 5433 rtmviewdb)"; if ($port -ne '5433') { Write-Host 'STOP' -ForegroundColor Red; return }
+  $sec = Read-Host -Prompt 'DB password (read-only check)' -AsSecureString; $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+  try { $env:PGPASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr); $env:PGOPTIONS = '-c default_transaction_read_only=on'; $env:PGCLIENTENCODING = 'UTF8'
+    Start-Process -FilePath 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -NoNewWindow -Wait -RedirectStandardError "$work\an.err" -ArgumentList @('-h','localhost','-p',$port,'-d',$db,'-U',$user,'-X','-v','ON_ERROR_STOP=0','-f',$sql,'-o',"$work\an.out")
+  } finally { $env:PGPASSWORD = $null; $env:PGOPTIONS = $null; [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+  Tick ("output lines " + @(Get-Content "$work\an.out" -ErrorAction SilentlyContinue).Count + " ; psql ERROR lines " + @(Get-Content "$work\an.err" -ErrorAction SilentlyContinue | Where-Object { $_ -match '\bERROR\b' }).Count)
+  foreach ($f in @('an.out','an.err')) { if (Test-Path "$work\$f") { Copy-Item "$work\$f" "$m\234_${stamp}_$f" -Force; Write-Host "copied $f  sha equal: $((Get-FileHash "$work\$f").Hash -eq (Get-FileHash "$m\234_${stamp}_$f").Hash)" } }
+}

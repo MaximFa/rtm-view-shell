@@ -1,0 +1,66 @@
+& {
+  function Tick($text) { Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $text) -ForegroundColor Cyan }
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234' -ForegroundColor Red; return }
+  $repo = 'D:\Claude\Projects\RTM-design'; $shellRoot = 'D:\Claude\Projects\RTM View Shell'
+  $out = Join-Path $shellRoot '.coord\measure\controls-1106'; New-Item -ItemType Directory -Force -Path $out | Out-Null
+  Start-Transcript -LiteralPath (Join-Path $out ('controls_{0}.txt' -f (Get-Date -Format 'yyyyMMdd_HHmmss'))) | Out-Null
+  $cloneRoot = Join-Path 'D:\RTMView-Ops\clones' ('ctl_' + (Get-Date -Format 'HHmmss'))
+  try {
+    Tick 'Controls, two batches on v4 aed65b1, one clone each: shell 7 paths (5 controls of shell 15:14:29Z), backend 5 paths (3 controls of backend 15:02:38Z). Each control: one edit, its test class only, exact red set compared, file restored byte-exact from the staged copy.'
+    $batches = @(
+      @{ Tag = 'shell';   Staged = Join-Path $shellRoot '.coord\staging\shell-agentpicker-1106';   Count = 7; Proj = 'tests\CcDashboard.Tests.Architecture\CcDashboard.Tests.Architecture.csproj'; Filter = 'FullyQualifiedName~AgentPickerAndPaletteTextGuardTests'; Pristine = 5 },
+      @{ Tag = 'backend'; Staged = Join-Path $shellRoot '.coord\staging\backend-agentname-1106'; Count = 5; Proj = 'tests\CcDashboard.Tests.Integration\CcDashboard.Tests.Integration.csproj'; Filter = 'FullyQualifiedName~HistoricalReports.AgentDisplayNamesTests'; Pristine = 6 } )
+    $modal = 'src/CcDashboard.Web/Components/ReportWidgets/ReportWidgetConfigModal.razor'
+    $controls = @(
+      @{ Batch = 'shell'; Name = 'C1 picker keeps ticks outside the offered list'; Rel = $modal; Pat = [regex]::Escape('_selectedAgentIds.RemoveWhere(id => !offered.Contains(id));'); New = '/* control C1 */'; Expect = @('ThePicker_offersTheServersScopedList_andNothingElse') },
+      @{ Batch = 'shell'; Name = 'C2 nothing ticked saved as an empty list'; Rel = $modal; Pat = [regex]::Escape('IsAgentPerformanceWidget && _selectedAgentIds.Count > 0'); New = 'IsAgentPerformanceWidget'; Expect = @('NothingTicked_isSavedAsNotSet_notAsAnEmptyList') },
+      @{ Batch = 'shell'; Name = 'C3 truncation text replaced by a literal'; Rel = $modal; Pat = [regex]::Escape('L["ReportWidget_AgentsTruncated"].Value'); New = '"[truncated]"'; Expect = @('ATruncatedList_saysSo') },
+      @{ Batch = 'shell'; Name = 'C4 Report_DescDistribution removed from he-IL only'; Rel = 'src/CcDashboard.Web/Resources/SharedResources.he-IL.resx'; Pat = '(?s)\r?\n[ \t]*<data name="Report_DescDistribution"[^>]*>.*?</data>'; New = ''; Expect = @('EveryTypeHasALocalisedDescription_inEveryLocale_andTheCheckCanGoRed') },
+      @{ Batch = 'shell'; Name = 'C5 ReportWidget_AgentsAll removed from ru-RU only'; Rel = 'src/CcDashboard.Web/Resources/SharedResources.ru-RU.resx'; Pat = '(?s)\r?\n[ \t]*<data name="ReportWidget_AgentsAll"[^>]*>.*?</data>'; New = ''; Expect = @('EveryPickerKeyUsedInTheDialog_existsInEveryLocale') },
+      @{ Batch = 'backend'; Name = 'K1 rule without "DisplayName != UserId"'; Rel = 'src/CcDashboard.Infrastructure/Persistence/AgentNameRule.cs'; Pat = '\r?\n[ \t]*&& s\.DisplayName != s\.UserId'; New = ''; Expect = @('NameAndLoginMixed_TheNameWins_EvenWhenTheLoginIsNewer','OnlyTheLogin_IsAbsent_SoTheScreenShowsTheId') },
+      @{ Batch = 'backend'; Name = 'K2 rule OrderByDescending -> OrderBy'; Rel = 'src/CcDashboard.Infrastructure/Persistence/AgentNameRule.cs'; Pat = [regex]::Escape('g.OrderByDescending(s => s.UpdateTime)'); New = 'g.OrderBy(s => s.UpdateTime)'; Expect = @('Renamed_TheNewName') },
+      @{ Batch = 'backend'; Name = 'K3 rule without the TenantId filter'; Rel = 'src/CcDashboard.Infrastructure/Persistence/AgentNameRule.cs'; Pat = 's\.TenantId == tenantId\s*&& '; New = ''; Expect = @('OtherTenant_SameId_IsNotMixedIn','NameAndLoginMixed_TheNameWins_EvenWhenTheLoginIsNewer') }
+    )
+    function Run-Filtered($clone, $batch, [string]$label) {
+      $proj = Join-Path $clone $batch.Proj
+      $buildText = dotnet build $proj -c Release 2>&1 | Out-String
+      if ($LASTEXITCODE -ne 0) { Tick "  [$label] BUILD FAILED"; ($buildText -split "`r?`n") | Where-Object { $_ -match ' error ' } | Select-Object -First 5 | ForEach-Object { Tick "    $_" }; return $null }
+      $testText = dotnet test $proj -c Release --no-build --filter $batch.Filter --logger 'console;verbosity=normal' 2>&1 | Out-String
+      $total = [regex]::Match($testText, 'Total tests:\s*(\d+)'); $failCount = [regex]::Match($testText, '(?m)^\s*Failed:\s*(\d+)')
+      $red = @(($testText -split "`r?`n") | Where-Object { $_ -match '^\s+Failed\s+\S' } | ForEach-Object { $name = ($_.Trim() -replace '^Failed\s+', '') -replace '\s+\[[^\]]*\]\s*$', ''; ($name -split '\(')[0].Split('.')[-1] } | Sort-Object -Unique)
+      Tick ("  [{0}] total {1} ; failed {2}" -f $label, $total.Groups[1].Value, $(if ($failCount.Success) { $failCount.Groups[1].Value } else { '0' }))
+      foreach ($r in $red) { Tick "      red: $r" }
+      return [pscustomobject]@{ Total = [int]$(if ($total.Success) { $total.Groups[1].Value } else { -1 }); Red = $red } }
+    $verdicts = @()
+    foreach ($batch in $batches) {
+      $files = @(Get-ChildItem -LiteralPath $batch.Staged -File); Tick "[$($batch.Tag)] staged copies $($files.Count) (expected $($batch.Count))"; if ($files.Count -ne $batch.Count) { Write-Host 'STOP' -ForegroundColor Red; return }
+      $same = 0; foreach ($file in $files) { $rel = $file.Name -replace '__', '/'; $diskBlob = (git -C $repo hash-object --path=$rel -- $rel).Trim(); $stagedBlob = (git -C $repo hash-object --path=$rel $file.FullName).Trim(); if ($diskBlob -eq $stagedBlob) { $same++ } else { Tick "  DIFFERS disk vs staged: $rel" } }
+      Tick "[$($batch.Tag)] disk == staged (the green-run batch): $same of $($batch.Count)"; if ($same -ne $batch.Count) { Write-Host 'STOP: batch changed since the green run' -ForegroundColor Red; return }
+      $clone = Join-Path $cloneRoot $batch.Tag; New-Item -ItemType Directory -Force -Path $cloneRoot | Out-Null
+      git clone -q --branch v4 $repo $clone; Tick "[$($batch.Tag)] clone $clone at $((git -C $clone rev-parse --short HEAD).Trim()) (expected aed65b1)"
+      foreach ($file in $files) { $rel = $file.Name -replace '__', '/'; $dest = Join-Path $clone $rel; New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null; Copy-Item -LiteralPath $file.FullName -Destination $dest -Force }
+      Tick "[$($batch.Tag)] PRISTINE - expected total $($batch.Pristine), failed 0"
+      $pristine = Run-Filtered $clone $batch 'pristine'
+      $pristineOk = ($null -ne $pristine) -and ($pristine.Total -eq $batch.Pristine) -and ($pristine.Red.Count -eq 0)
+      Tick "[$($batch.Tag)] pristine ok: $pristineOk"; if (-not $pristineOk) { Write-Host 'STOP: the pristine batch is not green - controls would prove nothing' -ForegroundColor Red; return }
+      foreach ($control in @($controls | Where-Object { $_.Batch -eq $batch.Tag })) {
+        $target = Join-Path $clone ($control.Rel -replace '/', '\'); $stagedCopy = Join-Path $batch.Staged ($control.Rel -replace '/', '__')
+        $orig = [IO.File]::ReadAllText($target); $hits = [regex]::Matches($orig, $control.Pat).Count
+        Tick "$($control.Name): pattern hits $hits (expected 1)"
+        if ($hits -ne 1) { Tick '  NOT APPLIED'; $verdicts += "$($control.Name) : NOT APPLIED"; continue }
+        [IO.File]::WriteAllText($target, [regex]::Replace($orig, $control.Pat, $control.New), (New-Object System.Text.UTF8Encoding($false)))
+        Tick ("  EXPECTED red exactly: " + ($control.Expect -join ', '))
+        $result = Run-Filtered $clone $batch $control.Name.Substring(0,2)
+        Copy-Item -LiteralPath $stagedCopy -Destination $target -Force
+        $restored = ((Get-FileHash -LiteralPath $target).Hash -eq (Get-FileHash -LiteralPath $stagedCopy).Hash); Tick "  restored byte-exact: $restored"
+        if ($null -eq $result) { $verdicts += "$($control.Name) : BUILD FAILED (not a test red)"; continue }
+        $missing = @($control.Expect | Where-Object { $result.Red -notcontains $_ }); $extra = @($result.Red | Where-Object { $control.Expect -notcontains $_ })
+        $verdict = $(if (($missing.Count -eq 0) -and ($extra.Count -eq 0)) { 'EXACT' } elseif ($missing.Count -eq 0) { 'EXPECTED + EXTRA: ' + ($extra -join ', ') } else { 'MISSING: ' + ($missing -join ', ') + $(if ($extra.Count) { ' ; EXTRA: ' + ($extra -join ', ') } else { '' }) })
+        Tick "  VERDICT: $verdict"; $verdicts += "$($control.Name) : $verdict" }
+      Tick "[$($batch.Tag)] RESTORED - expected total $($batch.Pristine), failed 0"
+      $after = Run-Filtered $clone $batch 'restored'; Tick "[$($batch.Tag)] restored ok: $(($null -ne $after) -and ($after.Total -eq $batch.Pristine) -and ($after.Red.Count -eq 0))" }
+    Tick 'SUMMARY (expected: 8 x EXACT)'; foreach ($line in $verdicts) { Tick "  $line" }
+  } finally {
+    if (Test-Path -LiteralPath $cloneRoot) { Remove-Item -LiteralPath $cloneRoot -Recurse -Force -ErrorAction SilentlyContinue; Tick "clones removed: $(-not (Test-Path -LiteralPath $cloneRoot))" }
+    Stop-Transcript | Out-Null }
+}

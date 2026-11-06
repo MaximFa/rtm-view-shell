@@ -1,0 +1,15 @@
+& {
+  Set-Location 'D:\Claude\Projects\RTM View Shell'
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234 - run it on the workstation' -ForegroundColor Red; return }
+  $head = (git rev-parse --short HEAD).Trim(); Write-Host "HEAD expected a6d828f measured $head"
+  if ($head -ne 'a6d828f') { Write-Host 'STOP: HEAD moved - do not commit' -ForegroundColor Red; return }
+  $paths = @('.probes/_core.ps1','.probes/probe_WS_20261106_fullpkg-aed65b1.ps1','.probes/box_WS_20261106_fullpkg-aed65b1.txt','.probes/probe_234_20261106_install-aed65b1.ps1','.probes/probe_234_20261106_rollback-e8e67a1.ps1','.probes/box_234_20261106_install-aed65b1.txt','.probes/box_234_20261106_rollback-e8e67a1.txt')
+  $want = @('7349e0e64d96','036da80ff6b7','02402f14c604','e4a0f9e861e2','9838c84dcc27','525ff6a86a83','7af05eb26822')
+  git add -- $paths
+  git commit -q -m "devops-1106: keep the probe core flush-on-every-line and the aed65b1 package, install and rollback probes" -m "_core.ps1 was modified on disk since 2026-10-18 (+15/-1, Flush-Tail) and never committed; every probe since ran on it (sha256 005188F8). New: fullpkg-aed65b1 probe+box (run READY, 06112026.1646.zip E2882155), install-aed65b1 and rollback-e8e67a1 probes+boxes (lint exit 0, awaiting coordinator review). No product paths." -- $paths
+  Write-Host 'EXPECT: 7 x blob ok, status empty, 7 files changed'
+  for ($i = 0; $i -lt $paths.Count; $i++) { $tree = ((git ls-tree HEAD -- $paths[$i]) -split '\s+')[2]; $disk = (git hash-object -- $paths[$i]).Trim()
+    Write-Host ("{0}  expected {1}  tree {2}  disk {3}  {4}" -f $paths[$i], $want[$i], $tree.Substring(0,12), $disk.Substring(0,12), $(if (($tree -eq $disk) -and $tree.StartsWith($want[$i])) {'ok'} else {'RED'})) }
+  Write-Host ("status of these paths: [" + ((git status --porcelain -- $paths) -join ' ') + "]")
+  git show --stat --format="%h parent %p %s" HEAD
+}

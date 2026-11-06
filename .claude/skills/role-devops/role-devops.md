@@ -622,6 +622,8 @@ hosted-цикл, который идёт сам.
      каждый бокс, меняющий дерево, обязан кончаться печатью пина и сверкой блоба с диском.
 
 
+2026-11-06 · ложное красное от «улучшенного» прибора: в боксе контролей я заменил возврат файла (WriteAllText) на Copy-Item из копии ради побайтной точности; Copy-Item сохраняет СТАРОЕ время, dotnet build без --no-incremental не пересобрал возвращённый файл, RESTORED backend показал красные K3 при byte-exact True · правило: возврат копией = копия + LastWriteTime = Get-Date (или --no-incremental); правка прибора против проверенного прогоняется до выдачи хотя бы на одной поломке И одном возврате; красное печатается «источник не установлен», пока перепрогон его не различил · SOURCE: .coord/measure/controls-1106/controls_20261106_175252.txt (red) vs controls_20261106_180633.txt (restored 6/0), .probes/box_WS_20261106_controls-shell-backend-v2.txt · status: active
+
 ## §C VERIFY  (run at init — OBJECT STORE ONLY, NORM-CUR-13; mismatch -> superseded, don't act)
 > Rewritten 2026-08-29 (curator acceptance): was `Select-String` over the mount = untrusted surface.
 > Amended 2026-11-06 (devops-1106): the branch is v4, not v3 - the product ships from v4 (D:\Claude\Projects\RTM-design);

@@ -1,0 +1,14 @@
+& {
+  Set-Location 'D:\Claude\Projects\RTM View Shell'
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234 - run it on the workstation' -ForegroundColor Red; return }
+  $head = (git rev-parse --short HEAD).Trim(); Write-Host "HEAD expected 58c4954 measured $head"
+  if ($head -ne '58c4954') { Write-Host 'STOP: HEAD moved - do not commit' -ForegroundColor Red; return }
+  $path = '.claude/skills/role-devops/role-devops.md'
+  git add -- $path
+  git commit -q -m "devops-1106: role-devops VERIFY reads the shipped installer in v4 and the post-8b3da25 text" -m "VERIFY counted v3:deploy/Update-RTMView.ps1 (9cb99c8) while the package ships v4 e115b8c, and its expectations predated 8b3da25 (tool search moved into the preflight). Re-measured on v4 aed65b1: pg_dump 6, Compare-ToBaseline 6, 'Compare-ToBaseline.ps1 not found in' 1, 'if (`$preflightFailed)' 1 - 9 of 9 as expected; the same needles on a386e5a^ miss 6 of 9 incl. 'skipping drift gate' 1, so the check still fails on the defect it guards. Only VERIFY changed: +15/-9, text before and after it byte-equal to 58c4954. Registry: DEVOPS-SKILL-VERIFY-STALE-01." -- $path
+  Write-Host 'EXPECT: blob 7520fa4d9234 in tree and on disk, status empty, 1 file changed 15 insertions 9 deletions'
+  $tree = ((git ls-tree HEAD -- $path) -split '\s+')[2]; $disk = (git hash-object -- $path).Trim()
+  Write-Host ("tree {0}  disk {1}  {2}" -f $tree.Substring(0,12), $disk.Substring(0,12), $(if (($tree -eq $disk) -and $tree.StartsWith('7520fa4d9234')) {'ok'} else {'RED'}))
+  Write-Host ("status: [" + ((git status --porcelain -- $path) -join ' ') + "]")
+  git show --stat --format="%h parent %p %s" HEAD
+}
