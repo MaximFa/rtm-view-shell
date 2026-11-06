@@ -1,0 +1,15 @@
+& {
+  Set-Location 'D:\Claude\Projects\RTM View Shell'
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234 - run it on the workstation' -ForegroundColor Red; return }
+  $head = (git rev-parse --short HEAD).Trim(); Write-Host "HEAD expected d3265ea measured $head"
+  if ($head -ne 'd3265ea') { Write-Host 'STOP: HEAD moved - do not commit' -ForegroundColor Red; return }
+  $paths = @('.claude/skills/role-devops/role-devops.md','.probes/box_234_20261106_agentname-probe4.txt','.probes/box_234_20261106_agentname-probe5.txt','.probes/box_WS_20261106_head-aed65b1-green.txt','.probes/box_WS_20261106_commit-probes.txt','.probes/box_WS_20261106_commit-skill-verify.txt','.probes/box_WS_20261106_shell-agentpicker-run.txt','.probes/box_WS_20261106_backend-agentname-run.txt','.probes/box_WS_20261106_controls-shell-backend.txt','.probes/box_WS_20261106_controls-shell-backend-v2.txt','.probes/box_WS_20261106_controls-backend-rerun.txt')
+  $want = @('085eb92e8cb2','c74b2b51d8de','6e46ad11180b','6307a8f8409b','130a6f2efb64','c05a3fbaafcd','9bc17bc629b6','2176b03a2518','d717bab80e60','a2f5cfe87ef5','549b221bdc57')
+  git add -- $paths
+  git commit -q -m "devops-1106: lesson on the restore-by-copy false red, and the run boxes of 2026-11-06" -m "role-devops LESSONS +1: Copy-Item keeps the old mtime, so the incremental build skipped the restored file and RESTORED read red with byte-exact True (controls_20261106_175252 6/2 vs controls_20261106_180633 6/0 after LastWriteTime = Get-Date). Boxes: PROBE4/PROBE5 on 234, head-green aed65b1, shell 7-path and backend 5-path runs (both GREEN), controls 8 of 8 EXACT, two commit boxes. No product paths." -- $paths
+  Write-Host 'EXPECT: 11 x ok, status empty, 11 files changed'
+  for ($index = 0; $index -lt $paths.Count; $index++) { $tree = ((git ls-tree HEAD -- $paths[$index]) -split '\s+')[2]; $disk = (git hash-object -- $paths[$index]).Trim()
+    Write-Host ("{0}  expected {1}  tree {2}  disk {3}  {4}" -f $paths[$index], $want[$index], $tree.Substring(0,12), $disk.Substring(0,12), $(if (($tree -eq $disk) -and $tree.StartsWith($want[$index])) {'ok'} else {'RED'})) }
+  Write-Host ("status of these paths: [" + ((git status --porcelain -- $paths) -join ' ') + "]")
+  git show --stat --format="%h parent %p %s" HEAD
+}

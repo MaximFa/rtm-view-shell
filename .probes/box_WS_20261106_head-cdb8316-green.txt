@@ -1,0 +1,26 @@
+& {
+  function Tick($t) { Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $t) -ForegroundColor Cyan }
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234' -ForegroundColor Red; return }
+  $repo = 'D:\Claude\Projects\RTM-design'
+  $out = 'D:\Claude\Projects\RTM View Shell\.coord\measure\deploy-prep-1104'
+  Start-Transcript -LiteralPath (Join-Path $out ('headgreen_{0}.txt' -f (Get-Date -Format 'yyyyMMdd_HHmmss'))) | Out-Null
+  $cl = Join-Path 'D:\RTMView-Ops\clones' ('head_cdb8316_' + (Get-Date -Format 'HHmmss')); $keep = $false
+  try {
+    Tick 'Deploy prep: full build + all test sets from a clean clone of v4 head cdb8316 (shell 10caa3c + backend cdb8316 over aed65b1), before the package is built (coordinator 16:24:02Z).'
+    $head = (git -C $repo rev-parse v4).Trim(); Tick "v4 head $($head.Substring(0,7)) (expected cdb8316)"; if (-not $head.StartsWith('cdb8316')) { Write-Host 'STOP: head moved' -ForegroundColor Red; return }
+    git clone -q --branch v4 $repo $cl; Tick "clone $cl at $((git -C $cl rev-parse --short HEAD).Trim()) ; dirty $(@(git -C $cl status --porcelain -uall).Count) (expected 0)"
+    $sln = Join-Path $cl 'CcDashboard.sln'
+    $b = dotnet build $sln -c Release --no-incremental 2>&1 | Out-String; $brc = $LASTEXITCODE
+    $e = [regex]::Matches($b, '(\d+) Error\(s\)') | Select-Object -Last 1; $w = [regex]::Matches($b, '(\d+) Warning\(s\)') | Select-Object -Last 1
+    Tick ("build exit {0} ; errors {1} ; warnings {2} (expected 0 / 737)" -f $brc, $(if ($e) { $e.Groups[1].Value } else { '?' }), $(if ($w) { $w.Groups[1].Value } else { '?' }))
+    if ($brc -ne 0) { $keep = $true; ($b -split "`r?`n") | Where-Object { $_ -match ' error ' } | Select-Object -First 10 | ForEach-Object { Tick "    $_" }; return }
+    $t = dotnet test $sln -c Release --no-build 2>&1 | Out-String; $k = 0; $failed = 0
+    foreach ($m in [regex]::Matches($t, '(Passed|Failed)!\s+-\s+Failed:\s+(\d+), Passed:\s+(\d+), Skipped:\s+(\d+), Total:\s+(\d+).*? - (\S+)\.dll')) { $k++; $failed += [int]$m.Groups[2].Value; Tick ("  {0}: failed {1} passed {2} total {3}" -f $m.Groups[6].Value, $m.Groups[2].Value, $m.Groups[3].Value, $m.Groups[5].Value) }
+    Tick "test sets parsed: $k (expected 5) ; failed total $failed (expected 0)"
+    Tick 'EXPECTED (coordinator 16:24:02Z): Architecture 77, Unit 685, Engine 161, Integration 38, Security 349; build 0 errors / 737 warnings'
+    if ($failed -or $k -ne 5) { $keep = $true; $ls = $t -split "`r?`n"; $i = [Array]::FindIndex($ls, [Predicate[string]]{ param($l) $l -match 'Error Message:' }); if ($i -ge 0) { Tick '  FIRST ERROR:'; $ls[$i..([Math]::Min($i+8, $ls.Count-1))] | ForEach-Object { Tick "    $($_.Trim())" } }; [IO.File]::WriteAllText((Join-Path $out ('headgreen_testlog_{0}.txt' -f (Get-Date -Format 'HHmmss'))), $t) }
+    Tick ("RESULT: " + $(if ($keep) { 'RED' } else { 'GREEN - the package may be built from cdb8316' }))
+  } finally {
+    if ((Test-Path -LiteralPath $cl) -and -not $keep) { Remove-Item -LiteralPath $cl -Recurse -Force -ErrorAction SilentlyContinue; Tick "clone removed: $(-not (Test-Path -LiteralPath $cl))" } elseif ($keep) { Tick "clone KEPT (red): $cl" }
+    Stop-Transcript | Out-Null }
+}
