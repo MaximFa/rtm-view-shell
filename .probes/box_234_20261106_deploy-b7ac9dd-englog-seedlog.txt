@@ -1,0 +1,17 @@
+& {
+  function Tick($text) { Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $text) -ForegroundColor Cyan }
+  if ($env:COMPUTERNAME -ne 'RTM') { Write-Host 'STOP: not server 234' -ForegroundColor Red; return }
+  $src = '\\tsclient\D\Claude\Projects\RTM View Shell'; $ops = 'C:\RTMView-Ops'; $back = "$src\.coord\measure\deploy-b7ac9dd"
+  $stamp = Get-Date -Format yyyyMMdd_HHmmss; $work = "$ops\output\deployb7_$stamp"; New-Item -ItemType Directory -Force -Path "$ops\probes", $work | Out-Null
+  $tools = @( @{ Name = 'ENGLOG.ps1'; Sha = '7661C865F99050187CF466AAF0B77E102BDFB3BC05060B6DAF2107C23E8A7704' }, @{ Name = 'SEEDLOG4.ps1'; Sha = '3D9C94848C3C14CF81D3267F299EC0CFDE5DD7728AFE245F4B4134332377E898' } )
+  foreach ($tool in $tools) { $dest = "$ops\probes\deployb7_" + $tool.Name; Copy-Item -LiteralPath "$back\$($tool.Name)" -Destination $dest -Force; Unblock-File -LiteralPath $dest
+    $hash = (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash; Tick ("{0} sha256 expected {1}... measured {2}" -f $tool.Name, $tool.Sha.Substring(0,8), $hash)
+    if ($hash -ne $tool.Sha) { Write-Host 'STOP: sha differs' -ForegroundColor Red; return }
+    $parseErrors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($dest, [ref]$null, [ref]$parseErrors); Tick ("  parse errors {0} (expected 0)" -f $parseErrors.Count); if ($parseErrors.Count) { Write-Host 'STOP: parse' -ForegroundColor Red; return } }
+  $controlErrors = $null; [void][System.Management.Automation.Language.Parser]::ParseInput('if ( {', [ref]$null, [ref]$controlErrors); Tick ("parser negative control errors {0} (expected more than 0)" -f $controlErrors.Count); if ($controlErrors.Count -eq 0) { Write-Host 'STOP: parser blind' -ForegroundColor Red; return }
+  Tick 'READ ONLY: engine log only, nothing written outside the output folder. Expected engine pid 8900 (install report 2e).'
+  & powershell.exe -ExecutionPolicy Bypass -NoProfile -File "$ops\probes\deployb7_ENGLOG.ps1" 2>&1 | Out-File -LiteralPath "$work\englog.txt" -Encoding utf8
+  & powershell.exe -ExecutionPolicy Bypass -NoProfile -File "$ops\probes\deployb7_SEEDLOG4.ps1" -ExpectedPid 8900 -Detail "$work\seedlog4_detail.csv" 2>&1 | Out-File -LiteralPath "$work\seedlog4.txt" -Encoding utf8
+  foreach ($name in @('englog.txt','seedlog4.txt')) { Tick ("{0}: lines {1} ; last line {2}" -f $name, @(Get-Content "$work\$name").Count, (Get-Content "$work\$name" | Select-Object -Last 1)) }
+  foreach ($name in @('englog.txt','seedlog4.txt','seedlog4_detail.csv')) { if (Test-Path "$work\$name") { Copy-Item "$work\$name" "$back\234_${stamp}_$name" -Force; Write-Host ("copied {0}  sha equal: {1}" -f $name, ((Get-FileHash "$work\$name").Hash -eq (Get-FileHash "$back\234_${stamp}_$name").Hash)) } }
+}
