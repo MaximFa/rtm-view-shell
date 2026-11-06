@@ -12,7 +12,8 @@ namespace CcDashboard.Tests.Integration.HistoricalReports;
 /// PR234-V4-EOS-AGENTS-EMPTY-COLUMNS-01 / FEAT-REPORT-AGENT-PERF-01: the agent name rule (AgentNameRule) on real
 /// PostgreSQL, through the repository the picker uses. Source: RTSData_UserStatus (DDL copied from db/schema.sql).
 /// The rule: newest (UpdateTime) DisplayName that is neither empty nor the login (DisplayName = UserId).
-/// Control (negative half): drop the "not the login" filter -> NameAndLoginMixed goes red (the newest row is the login).
+/// Control (negative half): drop the "not the login" filter -> NameAndLoginMixed goes red (the newest row is the login);
+/// compare without Trim -> PaddedLogin_And_BlankName_AreNoName goes red.
 /// </summary>
 public class AgentDisplayNamesFixture : IAsyncLifetime
 {
@@ -52,6 +53,10 @@ public class AgentDisplayNamesFixture : IAsyncLifetime
               -- a2@x: only the login ever -> no real name, absent (the screen shows the id)
               (@t, 'a2@x', 'Available', 'S1', '05/11/2026', '2026-11-05 08:00Z', 'a2@x'),
               (@t, 'a2@x', 'Break',     'S1', '05/11/2026', '2026-11-05 09:00Z', ''),
+              -- a5@x: the login padded with spaces is still the login; a blank-after-trim value is no name -> absent
+              -- the padded login is the NEWEST row, so comparing before trimming would pick it
+              (@t, 'a5@x', 'Break',     'S1', '05/11/2026', '2026-11-05 08:00Z', '   '),
+              (@t, 'a5@x', 'Available', 'S1', '05/11/2026', '2026-11-05 09:00Z', ' a5@x '),
               -- a3@x: renamed between days -> the new name
               (@t, 'a3@x', 'Available', 'S1', '04/11/2026', '2026-11-04 08:00Z', 'Old Name'),
               (@t, 'a3@x', 'Available', 'S1', '05/11/2026', '2026-11-05 08:00Z', 'New Name'),
@@ -105,6 +110,14 @@ public class AgentDisplayNamesTests(AgentDisplayNamesFixture fx) : IClassFixture
     {
         var names = await Names("a1@x", "a2@x");
         names.Should().ContainKey("a1@x").And.NotContainKey("a2@x");
+    }
+
+    [Fact]
+    public async Task PaddedLogin_And_BlankName_AreNoName()
+    {
+        // negative half: comparing before trimming lets " a5@x " through and it comes out as the "name" "a5@x"
+        var names = await Names("a1@x", "a5@x");
+        names.Should().ContainKey("a1@x").And.NotContainKey("a5@x");
     }
 
     [Fact]

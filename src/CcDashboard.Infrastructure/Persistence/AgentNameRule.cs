@@ -25,8 +25,11 @@ public static class AgentNameRule
             .AsNoTracking()
             .Where(s => s.TenantId == tenantId
                      && ids.Contains(s.UserId)
-                     && s.DisplayName != null && s.DisplayName != ""
-                     && s.DisplayName != s.UserId
+                     && s.DisplayName != null
+                     // PR234-V4-AGENTNAMERULE-TRIM-AFTER-COMPARE-01: compare the TRIMMED value - " login " is the login,
+                     // and a value that is blank after trimming is no name (EF: btrim on PostgreSQL).
+                     && s.DisplayName.Trim() != ""
+                     && s.DisplayName.Trim() != s.UserId
                      && s.UpdateTime != null)
             .GroupBy(s => s.UserId)
             .Select(g => new
