@@ -624,19 +624,23 @@ hosted-цикл, который идёт сам.
 
 ## §C VERIFY  (run at init — OBJECT STORE ONLY, NORM-CUR-13; mismatch -> superseded, don't act)
 > Rewritten 2026-08-29 (curator acceptance): was `Select-String` over the mount = untrusted surface.
+> Amended 2026-11-06 (devops-1106): the branch is v4, not v3 - the product ships from v4 (D:\Claude\Projects\RTM-design);
+> the v3 copy of the installer (9cb99c8) is not the shipped one (v4 e115b8c). Expectations re-measured on v4 aed65b1 after
+> 8b3da25 (2026-09-16, preflight + recovery) changed the counted text; the gate itself was never weakened.
 > Every item states its EXPECTED count BEFORE the run; a differing count is a failure, not a judgement call.
 > Every item must be able to return 0 — run item 0 first to prove the predicate can fail.
 
 0. **Negative control** (proves the predicate works):
-   `git show v3:deploy/Update-RTMView.ps1 | grep -c 'ThisMarkerMustNotExist'` — MUST be `0`.
+   `git show v4:deploy/Update-RTMView.ps1 | grep -c 'ThisMarkerMustNotExist'` — MUST be `0`.
    Non-zero, or an error instead of `0`, means the harness is broken: fix it before trusting items 1-4.
-1. `git show v3:deploy/Update-RTMView.ps1 | grep -c '@(Get-ChildItem'` — expect **1** (StrictMode @() wrap)
-2. `git show v3:deploy/Update-RTMView.ps1 | grep -c 'appsettings\.json'` — expect **2** (operator-config preserve)
-3. `git show v3:deploy/Update-RTMView.ps1 | grep -c 'pg_dump'` — expect **4** (pre-apply DB backup)
-4. `git show v3:deploy/Update-RTMView.ps1 | grep -c 'Compare-ToBaseline'` — expect **5** (E1 drift gate;
-   was 4 before PR234-INST-12 was fixed 2026-09-13 — the fix added the resolved-path line)
+1. `git show v4:deploy/Update-RTMView.ps1 | grep -c '@(Get-ChildItem'` — expect **1** (StrictMode @() wrap)
+2. `git show v4:deploy/Update-RTMView.ps1 | grep -c 'appsettings\.json'` — expect **2** (operator-config preserve)
+3. `git show v4:deploy/Update-RTMView.ps1 | grep -c 'pg_dump'` — expect **6** (preflight 4 + pre-apply DB backup 2; was 4 before 8b3da25)
+4. `git show v4:deploy/Update-RTMView.ps1 | grep -c 'Compare-ToBaseline'` — expect **6** (E1 drift gate;
+   4 before a386e5a, 5 after it, 6 after 8b3da25 moved the tool search into the preflight)
 5. **Store vs mount** (the reason the rule exists):
-   `git rev-parse v3:deploy/Update-RTMView.ps1` == `git hash-object deploy/Update-RTMView.ps1`.
+   `git rev-parse v4:deploy/Update-RTMView.ps1` == `git hash-object deploy/Update-RTMView.ps1` run IN the v4 worktree
+   D:\Claude\Projects\RTM-design (by box: the bridge reaches only the v3 folder).
    Differ -> the working tree is NOT what ships; verify against the store and say so.
 6. **Environment identity is a NUMBER, not an adjective.** Any validation artifact (rehearsal, prod-parity run,
    "identical environment" claim) must carry the DB engine version of BOTH sides, as the exact `SELECT version()`
@@ -647,7 +651,9 @@ hosted-цикл, который идёт сам.
    against the store:
    - `grep -c 'skipping drift gate'` — expect **0**. Non-zero means the WARN-skip came back and the
      §A.1 mandatory gate can silently go green again.
-   - `grep -c 'not found in either layout'` — expect **1**: a missing tool now THROWS. The operator's
+   - `grep -c 'Compare-ToBaseline.ps1 not found in'` — expect **1**, and `grep -cF 'if ($preflightFailed)'` — expect **1**:
+     a missing tool sets the preflight failure that stops the run. (8b3da25 replaced the old text 'not found in either
+     layout', which now counts 0 - the reason this item read red on 2026-11-06.) The operator's
      explicit way past the gate is `-SkipDrift` / `-ForceDeploy`, which is recorded; silence is not.
    - lines containing `db\tools\Compare-ToBaseline.ps1` — expect **2**: BOTH layouts are searched,
      `$ScriptDir\db\tools\` (package: Build-ProdRelease.ps1:361,396,438 put the deploy scripts in the
@@ -661,7 +667,7 @@ hosted-цикл, который идёт сам.
    blocks; a sensor promoted to a mandatory gate becomes the process-creep it exists to detect).
    **Two kinds of path, two predicates - and the reason is written here so nobody has to guess it:**
    - TRACKED paths live in the object store, so they are checked THERE, not on the mount:
-     `git cat-file -e v3:deploy/RUNBOOK-Install-Upgrade.md` · `...:deploy/Update-RTMView.ps1` ·
+     `git cat-file -e v4:deploy/RUNBOOK-Install-Upgrade.md` · `...:deploy/Update-RTMView.ps1` ·
      `...:deploy/Install-RTMView.ps1` · `...:tools/Build-ProdRelease.ps1` - each expected exit `0`.
    - UNTRACKED paths (`.coord/inbox/*`, `.coord/cc/*`) are NOT in git by design (only `.coord/protocols/`
      is tracked), so `cat-file` on them returns non-zero for a file that is present and correct. They are
