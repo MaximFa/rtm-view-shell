@@ -21,14 +21,28 @@ $script:ReportPath = $null
 $script:SayCount = 0
 $script:TrapFired = $false
 
+$script:FlushedCount = 0
 function Write-Report() {
   if ($null -eq $script:ReportPath) { return }
   [IO.File]::WriteAllLines($script:ReportPath, $script:ReportLines, (New-Object System.Text.UTF8Encoding($false)))
+  $script:FlushedCount = $script:ReportLines.Count
+}
+# FLUSH ON EVERY LINE, 2026-10-18 (BL-PROBE-CORE-FLUSH-HIDES-TAIL-01). Until now Say flushed every 20
+# lines: when shellpkg-effcd27 hung inside the archive block, the last 19 lines lived only in the window
+# and the report could not say where it stopped. Now every Say APPENDS the lines not yet on disk, so a
+# hung or killed process leaves its report ending exactly at its last printed line. Append, not
+# rewrite, so the cost stays linear in the length of the report.
+function Flush-Tail() {
+  if ($null -eq $script:ReportPath) { return }
+  $pending = $script:ReportLines.Count - $script:FlushedCount
+  if ($pending -le 0) { return }
+  [IO.File]::AppendAllLines($script:ReportPath, [string[]]$script:ReportLines.GetRange($script:FlushedCount, $pending), (New-Object System.Text.UTF8Encoding($false)))
+  $script:FlushedCount = $script:ReportLines.Count
 }
 function Say($text) {
   [void]$script:ReportLines.Add("$text"); Write-Host "$text"
   $script:SayCount++
-  if (($script:SayCount % 20) -eq 0) { Write-Report }
+  Flush-Tail
 }
 function Rule() {
   # FLUSH ON EVERY RULE, added 2026-10-14. A probe that dies mid-section used to lose every line it
