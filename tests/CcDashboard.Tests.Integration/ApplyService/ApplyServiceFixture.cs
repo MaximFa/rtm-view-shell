@@ -36,8 +36,7 @@ public class ApplyServiceFixture : IAsyncLifetime
 
     public ApplyServiceFixture()
     {
-        _container = new PostgreSqlBuilder()
-            .WithImage("postgres:16-alpine")
+        _container = new PostgreSqlBuilder("postgres:16-alpine")
             .WithDatabase("applyservice_test")
             .WithUsername("test")
             .WithPassword("test")

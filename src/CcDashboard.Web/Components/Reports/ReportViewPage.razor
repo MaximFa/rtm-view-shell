@@ -7,6 +7,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ILogger<ReportViewPage> Logger
+@inject CcDashboard.Application.Interfaces.IDisplayTimeZone DisplayZone
 @using MediatR
 @using CcDashboard.Application.Reports.Queries
 @using CcDashboard.Application.Reports.DTOs
@@ -46,11 +47,24 @@
                 <div class="report-header-datebar d-flex gap-2 align-items-center">
                     <label class="small mb-0">@L["Report_From"]</label>
                     <input type="date" class="form-control form-control-sm" style="width: auto;" @bind="_from" />
-                    <label class="small mb-0">@L["Report_To"]</label>
-                    <input type="date" class="form-control form-control-sm" style="width: auto;" @bind="_to" />
+                    @* Operator, 2026-11-05: one date field when the screen holds only end-of-shift
+                       reports, because they take a single date and the second field changed
+                       nothing - silently. With any other report on the screen both fields stay,
+                       and the end-of-shift widgets take the first one; their own caption says so. *@
+                    @if (!_singleDate)
+                    {
+                        <label class="small mb-0">@L["Report_To"]</label>
+                        <input type="date" class="form-control form-control-sm" style="width: auto;" @bind="_to" />
+                    }
                     <button class="btn btn-sm btn-primary" @onclick="ApplyDateRange">
                         <i class="bi bi-check2 me-1"></i>@L["Report_Apply"]
                     </button>
+                    @if (_rangeError is not null)
+                    {
+                        <span class="text-danger small">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@_rangeError
+                        </span>
+                    }
                 </div>
                 <button class="btn btn-sm @(_darkMode ? "btn-outline-light" : "btn-outline-secondary")"
                         @onclick="ToggleDarkMode" title="@(_darkMode ? L["WidgetCfg_LightMode"] : L["WidgetCfg_DarkMode"])">
@@ -152,8 +166,11 @@
     private int _designWidth = 1920;
     private int _designHeight = 1080;
 
-    private DateTime _from = DateTime.UtcNow.Date.AddDays(-7);
-    private DateTime _to = DateTime.UtcNow.Date;
+    // Set in OnInitializedAsync from the site's display zone, not from UtcNow: after local
+    // midnight a UTC "today" is still yesterday, and the report would open on the wrong day
+    // without anyone touching it.
+    private DateTime _from;
+    private DateTime _to;
     private DateTime _rangeFrom;
     private DateTime _rangeTo;
 
@@ -163,9 +180,37 @@
     // Built once, when the export answers - not during render: the unknown-code branch writes to
     // the log, and a render-time log would repeat on every redraw of the page.
     private List<string> _skippedLines = new();
+    private string? _rangeError;
+
+    /// <summary>
+    /// True when every widget on this screen is an end-of-shift report: then the second date field
+    /// is not drawn, and the single date is sent as both ends of the window.
+    /// An empty report is NOT "single": a screen with no widgets says nothing about what it will
+    /// hold, and hiding a field on that guess would surprise whoever drops another report on it.
+    /// </summary>
+    private bool _singleDate;
+
+    private void RecomputeDateFields()
+    {
+        // The rule itself is in ReportDateFields, where a test can reach it; the page only applies
+        // it. Keeping a second copy of "which types take one date" here is how the two would
+        // drift apart.
+        _singleDate = ReportDateFields.SingleDate(_report?.Widgets.Select(w => w.WidgetType));
+        if (_singleDate)
+        {
+            // One field means one date on both ends; a leftover "to" would send a window the
+            // screen no longer shows.
+            _to = _from;
+            _rangeTo = _rangeFrom;
+            _rangeError = null;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
+        var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, DisplayZone.Zone).Date;
+        _from = today.AddDays(-7);
+        _to = today;
         _rangeFrom = _from;
         _rangeTo = _to;
         _loading = true;
@@ -174,6 +219,7 @@
         {
             _report = await Mediator.Send(new GetReportScreenQuery(Id), _cts.Token);
             _darkMode = _report.IsDarkMode;
+            RecomputeDateFields();
 
             if (_report.Widgets.Count > 0)
             {
@@ -247,6 +293,23 @@
 
     private void ApplyDateRange()
     {
+        // PR234-V4-REPORT-DATE-RANGE-INVERTED-ACCEPTED-01: "from" later than "to" used to be
+        // accepted without a word. Every report then asked for a window that cannot contain
+        // anything, and the screen showed "no data" - which reads as "there was no traffic",
+        // not as "you asked for an impossible range". Refused here, before anything is sent.
+        if (_singleDate)
+            _to = _from;
+
+        // The order check belongs to the two-field screen only: with one field there is no pair to
+        // be out of order, and a message about an end date nobody can see would be nonsense.
+        if (!_singleDate && _from.Date > _to.Date)
+        {
+            _rangeError = L["Report_DateRangeInverted"].Value;
+            StateHasChanged();
+            return;
+        }
+
+        _rangeError = null;
         _rangeFrom = _from;
         _rangeTo = _to;
         StateHasChanged();
@@ -293,7 +356,10 @@
             }
             catch { }
         }
-        return widget.WidgetType.ToString();
+        // The enum name is not a name: an untitled widget used to show "EndOfShiftAgents" on the
+        // board. The localised name is the same one the palette offers, so the header and the
+        // place the widget was picked from say the same thing.
+        return L[ReportWidgetPalette.NameKey(widget.WidgetType)].Value;
     }
 
     /// <summary>

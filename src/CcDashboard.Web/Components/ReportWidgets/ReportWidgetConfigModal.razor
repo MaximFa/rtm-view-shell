@@ -135,6 +135,38 @@
                            like every other report (operator, 2026-11-04). Without the hours the
                            server refuses the query outright, so an unset pair blocks Save here
                            instead of letting the widget render a server error on the dashboard. *@
+                        @* AgentPerformance has no period of its own: the period is the page's date
+                           range, like every other report. What it does need is the mode - the
+                           server refuses the widget without it - and, later, the agent pick. *@
+                        @if (IsAgentPerformanceWidget)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    @L["ReportWidget_Mode"] <span class="text-danger">*</span>
+                                </label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="mode-summary"
+                                           name="agent-performance-mode"
+                                           checked="@(_mode == AgentPerformanceModes.Summary)"
+                                           @onchange="@(() => _mode = AgentPerformanceModes.Summary)" />
+                                    <label class="form-check-label" for="mode-summary">@L["ReportWidget_ModeSummary"]</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="mode-bydate"
+                                           name="agent-performance-mode"
+                                           checked="@(_mode == AgentPerformanceModes.ByDate)"
+                                           @onchange="@(() => _mode = AgentPerformanceModes.ByDate)" />
+                                    <label class="form-check-label" for="mode-bydate">@L["ReportWidget_ModeByDate"]</label>
+                                </div>
+                                <div class="small text-muted mt-1">@L["ReportWidget_ModeHint"]</div>
+                                @if (ModeProblem is { } modeProblem)
+                                {
+                                    <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>@modeProblem
+                                    </div>
+                                }
+                            </div>
+                        }
                         @if (IsEndOfShiftWidget)
                         {
                             <div class="mb-3">
@@ -435,6 +467,9 @@
     // saved as if they had. An unset pair blocks Save and says so next to the fields.
     private int? _shiftStartHour;
     private int? _shiftEndHour;
+    // No invented default here either: "summary" would silently decide for the operator which
+    // report they asked for, and the two modes answer different questions.
+    private string? _mode;
 
     // Typography
     private string _tableFontSize = "14";
@@ -496,6 +531,15 @@
 
     private bool IsAgentWidget => WidgetType is ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail;
 
+    private bool IsAgentPerformanceWidget => WidgetType is ReportWidgetType.AgentPerformance;
+
+    /// <summary>The message next to the mode choice, or null when a mode is chosen.</summary>
+    private string? ModeProblem => IsAgentPerformanceWidget
+                                   && _mode != AgentPerformanceModes.Summary
+                                   && _mode != AgentPerformanceModes.ByDate
+        ? L["ReportWidget_ModeRequired"].Value
+        : null;
+
     private bool IsEndOfShiftWidget =>
         WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues;
 
@@ -522,7 +566,7 @@
         }
     }
 
-    private bool CanSave => _selectedBuIds.Count > 0 && ShiftProblem is null;
+    private bool CanSave => _selectedBuIds.Count > 0 && ShiftProblem is null && ModeProblem is null;
 
     // Filtered BUs for searchable dropdown
     private IEnumerable<BusinessUnitDto> FilteredBusinessUnits =>
@@ -652,6 +696,7 @@
                 _pageSize = InitialConfig.PageSize ?? 25;
                 _shiftStartHour = InitialConfig.ShiftStartHour;
                 _shiftEndHour = InitialConfig.ShiftEndHour;
+                _mode = InitialConfig.Mode;
 
                 // Appearance - typography
                 _tableFontSize = ResolveFontSizeToPixel(InitialConfig.Appearance?.TableFontSize);
@@ -679,6 +724,7 @@
                 _pageSize = 25;
                 _shiftStartHour = null;
                 _shiftEndHour = null;
+                _mode = null;
                 _tableFontSize = "14";
                 _headerFontSize = "14";
                 _lightBackground = "transparent";
@@ -803,6 +849,12 @@
             // them on any other type, so a leftover pair from a retyped widget must not be saved.
             ShiftStartHour = IsEndOfShiftWidget ? _shiftStartHour : null,
             ShiftEndHour = IsEndOfShiftWidget ? _shiftEndHour : null,
+            // The mode belongs to AgentPerformance only; the server refuses it on other types.
+            Mode = IsAgentPerformanceWidget ? _mode : null,
+            // Carried through untouched: the agent pick has no control yet (backend owes the
+            // "agents in scope" query), and a dialog that saved null here would erase a list a
+            // later version let someone choose.
+            AgentIds = IsAgentPerformanceWidget ? InitialConfig?.AgentIds : null,
             Appearance = new AppearanceConfig
             {
                 TableFontSize = _tableFontSize,

@@ -1,0 +1,286 @@
+@using MediatR
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
+@using CcDashboard.Application.HistoricalReports
+@using CcDashboard.Application.HistoricalReports.Queries
+@using CcDashboard.Contracts.Common
+@using CcDashboard.Domain.Domain.Reports
+@inject IMediator Mediator
+@inject IStringLocalizer<SharedResources> L
+@inject ILogger<AgentPerformanceReportWidget> Logger
+
+@* FEAT-REPORT-AGENT-PERF-01: agent figures for the PERIOD picked on the page - one row per agent
+   ("summary"), or one row per agent per local date ("byDate").
+   It shares the row type and the drawing with the end-of-shift agents report, and nothing else:
+   that one takes shift hours on a single date, this one takes a period and a mode. Keeping the
+   settings apart is the whole reason the table is a separate component.
+   The period is NOT a setting of this widget: it comes from the page's date fields, like every
+   other report (operator, 2026-11-04). Two ways to set the time on one screen would leave nobody
+   able to say which one wins. *@
+
+@if (_denied)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-shield-exclamation me-2"></i>@L["Report_AccessDenied"]
+    </div>
+}
+else if (_needsMode)
+{
+    @* The server refuses this report without a mode ("Mode (summary|byDate) required"), in English,
+       before reading any data. Said here instead, in the user's language, naming where the cure is. *@
+    <div class="alert alert-info">
+        <i class="bi bi-sliders me-2"></i>@L["ReportWidget_ModeMissing"]
+    </div>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>@_error
+    </div>
+}
+else if (_loading)
+{
+    <div class="d-flex justify-content-center py-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@L["Common_Loading"]</span>
+        </div>
+    </div>
+}
+else if (_result is null || _result.Rows.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>@L["Report_NoData"]
+    </div>
+}
+else
+{
+    @* The window reaches past what has been aggregated: say so, with the instant it reaches. The
+       server sends DataThroughUtc in UTC - the only UTC value in this contract - so it goes
+       through WallClock, like every other stored instant on screen. *@
+    @* No "_result is not null" here: this whole branch already ran after the null check above, and
+       re-testing it told the compiler the opposite - that null was still possible - which is what
+       produced CS8602 on the @foreach below (line 76 in the run, column 42, on .Rows). The model
+       widget has no such re-test and no such warning. *@
+    @if (_incomplete)
+    {
+        <div class="alert alert-warning py-1 px-2 mb-1 small" role="status">
+            <i class="bi bi-hourglass-split me-1"></i>@IncompleteText
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_caveat))
+    {
+        <div class="report-widget-caveat small text-muted px-2 pb-1" role="note">
+            <i class="bi bi-info-circle me-1"></i>@_caveat
+        </div>
+    }
+
+    @* Two reports, one row type: the drawing lives in AgentSummaryTable, which knows nothing
+       about shift hours or modes - that is what keeps this report's settings out of the other's. *@
+    <AgentSummaryTable Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" Caption="@L["Report_AgentPerformance"].Value" />
+
+    <div class="report-widget-footer">
+        <span class="report-widget-footer-pagesize">
+            <input type="number" class="form-control form-control-sm" style="width:70px"
+                   min="1" max="1000" step="1" value="@_pageSize" @onchange="OnPageSizeChanged" />
+            <span class="small text-muted ms-1">@L["Report_Rows"]</span>
+        </span>
+        <span class="report-widget-footer-info">
+            @L["Report_Showing"] @_result.Rows.Count @L["Report_Of"] @_result.TotalCount
+        </span>
+        @if (TotalPages > 1)
+        {
+            <span class="report-widget-footer-pager">
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <span class="mx-2">@_page / @TotalPages</span>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ReportWidgetConfig? Config { get; set; }
+    [Parameter, EditorRequired] public DateTime From { get; set; }
+    [Parameter, EditorRequired] public DateTime To { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public Guid? TenantId { get; set; }
+
+    private bool _loading;
+    private bool _denied;
+    private string? _error;
+    private bool _needsMode;
+    private AgentSummaryReportResult? _result;
+    private bool _incomplete;
+    private DateTime? _dataThroughUtc;
+    private string? _caveat;
+    private IReadOnlyList<string> _columns = Array.Empty<string>();
+    private int _page = 1;
+    private int _pageSize = 25;
+    private DateTime _lastFrom;
+    private DateTime _lastTo;
+    private string? _lastConfigJson;
+    private bool _initialized;
+
+    private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
+
+    private string IncompleteText => _dataThroughUtc is null
+        ? L["Report_Incomplete"].Value.Replace("{0}", "-")
+        : string.Format(L["Report_Incomplete"].Value,
+                        WallClock.ToServerLocal(_dataThroughUtc.Value).ToString("yyyy-MM-dd HH:mm"));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_initialized)
+        {
+            _pageSize = Config?.PageSize ?? 25;
+            _initialized = true;
+        }
+
+        var configJson = Config?.ToJson();
+        if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
+        {
+            _lastFrom = From;
+            _lastTo = To;
+            _lastConfigJson = configJson;
+            _page = 1;
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        _denied = false;
+        _error = null;
+        _needsMode = false;
+
+        // The mode lives in the config the server parses, and its validator refuses the widget
+        // without it. An unset mode is caught here so no query is sent: a request certain to be
+        // refused measures nothing, and the refusal would arrive in English.
+        var mode = Config?.Mode;
+        if (mode != AgentPerformanceModes.Summary && mode != AgentPerformanceModes.ByDate)
+        {
+            _needsMode = true;
+            _result = null;
+            _loading = false;
+            StateHasChanged();
+            return;
+        }
+
+        StateHasChanged();
+
+        try
+        {
+            var effectiveConfig = (Config ?? new ReportWidgetConfig()) with { PageSize = _pageSize };
+            var configJson = effectiveConfig.ToJson();
+            // The period as picked on the page, whole days; no shift hours here - the server
+            // refuses them on any type but the end-of-shift pair ("Shift hours apply only to the
+            // end-of-shift reports"), so passing them "just in case" would break this report.
+            var res = await Mediator.Send(new RunReportWidgetQuery(
+                ReportWidgetType.AgentPerformance,
+                configJson,
+                From,
+                To,
+                _page,
+                TenantId));
+
+            if (res.Denied)
+            {
+                _denied = true;
+                _result = null;
+            }
+            else if (!string.IsNullOrEmpty(res.Error))
+            {
+                _error = res.Error;
+                _result = null;
+            }
+            else
+            {
+                _result = res.AgentSummary;
+                _incomplete = res.Incomplete;
+                _dataThroughUtc = res.DataThroughUtc;
+                // PR234-V4-EOS-CAVEAT-NOT-LOCALIZED-01: the server sends a CODE now; the sentence
+                // and its translations belong here. A code this screen cannot put into words
+                // shows nothing and goes to the log - a raw "status-start-bucket" on the board
+                // would tell the reader nothing and look like a fault in the report.
+                var caveatKey = ReportCaveat.KeyFor(res.CaveatCode);
+                if (ReportCaveat.IsUnknown(res.CaveatCode))
+                    Logger.LogWarning("Report widget received an unrecognised caveat code {CaveatCode}", res.CaveatCode);
+                _caveat = caveatKey is null ? null : L[caveatKey].Value;
+                // The columns come from the ANSWER, not from a calculation here: the server already
+                // resolved "what the user picked, else the standard set" and sends it back as
+                // EffectiveColumns. Taking it from the response is what makes a disagreement
+                // between the header and the cells impossible, rather than merely unlikely.
+                //
+                // This replaces my first attempt, which called GetEffectiveColumns on the widget's
+                // own config and did not compile: there are TWO types named ReportWidgetConfig -
+                // this one (Web.Components.ReportWidgets, carries Appearance/Scope/PageSize) and
+                // the server's (Application.HistoricalReports, carries the column rules). The
+                // widget has `@using` for both, so the name bound to the type without the method.
+                // The fallback below names the server's type in full for exactly that reason, and
+                // the column rule stays in one place - the server's.
+                // Read the nullable property into a local first: a conditional whose branches are
+                // "nullable property" and "non-null value" can be assigned to a non-nullable field
+                // only if the compiler keeps the narrowing across the two reads of the property.
+                // With a local there is nothing to doubt - and nothing for the build to warn about.
+                var fromServer = res.EffectiveColumns;
+                var columns = fromServer is { Count: > 0 }
+                    ? fromServer
+                    : CcDashboard.Application.HistoricalReports.ReportWidgetConfig
+                        .DefaultColumns(ReportWidgetType.AgentPerformance);
+
+                // The date column follows the MODE, not the picker: always shown in "byDate",
+                // never in "summary" (where Date is null and the column would be a stripe of
+                // dashes). The rule is in AgentSummaryColumns so a test can reach it - my first
+                // version only added the date when the SERVER's standard set lacked it, which a
+                // user picking the columns by hand would have defeated.
+                _columns = AgentSummaryColumns.ForMode(columns, mode == AgentPerformanceModes.ByDate);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AgentPerformanceReportWidget load failed");
+            _error = ex.Message;
+            _result = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnPageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size))
+        {
+            _pageSize = Math.Clamp(size, 1, 1000);
+            _page = 1;
+            await LoadData();
+        }
+    }
+
+    private async Task PrevPage()
+    {
+        if (_page > 1)
+        {
+            _page--;
+            await LoadData();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_page < TotalPages)
+        {
+            _page++;
+            await LoadData();
+        }
+    }
+
+}

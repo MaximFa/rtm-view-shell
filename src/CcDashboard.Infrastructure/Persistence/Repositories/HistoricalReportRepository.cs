@@ -81,6 +81,33 @@ public class HistoricalReportRepository(
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyDictionary<string, string>> GetAgentDisplayNamesAsync(
+        Guid tenantId,
+        IReadOnlySet<string> agentIds,
+        CancellationToken ct)
+    {
+        if (agentIds.Count == 0)
+            return new Dictionary<string, string>();
+
+        await using var ctx = await dbFactory.CreateDbContextAsync(ct);
+        var ids = agentIds.ToList();
+        var rows = await ctx.HistAgentIntervals
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId
+                     && ids.Contains(x.AgentExternalId)
+                     && x.AgentDisplayName != null && x.AgentDisplayName != "")
+            .GroupBy(x => x.AgentExternalId)
+            .Select(g => new
+            {
+                Id = g.Key,
+                Name = g.OrderByDescending(x => x.IntervalStart).Select(x => x.AgentDisplayName).First()
+            })
+            .ToListAsync(ct);
+
+        return rows.ToDictionary(r => r.Id, r => r.Name!);
+    }
+
     public async Task<HistAggregationWatermark?> GetWatermarkAsync(Guid tenantId, CancellationToken ct)
     {
         return await db.HistAggregationWatermarks

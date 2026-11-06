@@ -30,8 +30,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.Distribution,
         ReportWidgetType.EndOfShiftQueues,
         ReportWidgetType.EndOfShiftAgents,
-        // AgentPerformance: the server side exists, the renderer does not yet. It stays out until
-        // its own commit brings both halves.
+        ReportWidgetType.AgentPerformance,
     };
 
     public static string Category(ReportWidgetType type) => type switch
@@ -41,8 +40,17 @@ public static class ReportWidgetPalette
         ReportWidgetType.Distribution => "Analytics",
         ReportWidgetType.EndOfShiftQueues => "Queues",
         ReportWidgetType.EndOfShiftAgents => "Agents",
+        ReportWidgetType.AgentPerformance => "Agents",
         _ => "Other"
     };
+
+    /// <summary>
+    /// Resource key of a type's human name. PR234-V4-REPORT-WIDGET-TITLE-TECHNICAL-NAME-01: a
+    /// widget saved without a title showed the enum name ("EndOfShiftAgents") as its header - a
+    /// technical identifier on an operator's wall, in English, on a Hebrew board. The names below
+    /// stay as the English fallback for places that have no localizer.
+    /// </summary>
+    public static string NameKey(ReportWidgetType type) => $"Report_{type}";
 
     public static string Name(ReportWidgetType type) => type switch
     {
@@ -53,6 +61,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.Distribution => "Distribution",
         ReportWidgetType.EndOfShiftQueues => "End of Shift — Queues",
         ReportWidgetType.EndOfShiftAgents => "End of Shift — Agents",
+        ReportWidgetType.AgentPerformance => "Agent Performance",
         _ => type.ToString()
     };
 
@@ -65,6 +74,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.Distribution => "Call distribution charts",
         ReportWidgetType.EndOfShiftQueues => "One row per queue for the shift window",
         ReportWidgetType.EndOfShiftAgents => "One row per agent for the shift window",
+        ReportWidgetType.AgentPerformance => "Agent figures for the period: one row per agent, or one per agent per date",
         _ => ""
     };
 
@@ -77,6 +87,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.Distribution => "bi-pie-chart",
         ReportWidgetType.EndOfShiftQueues => "bi-door-closed",
         ReportWidgetType.EndOfShiftAgents => "bi-people",
+        ReportWidgetType.AgentPerformance => "bi-graph-up",
         _ => "bi-grid"
     };
 }

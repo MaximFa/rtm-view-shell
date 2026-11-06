@@ -938,6 +938,17 @@
   <data name="Report_Count"><value>כמות</value></data>
   <data name="Report_Percentage"><value>אחוז</value></data>
   <data name="Report_EndOfShiftQueues"><value>סוף משמרת — תורים</value></data>
+  <data name="Report_ShownForShift"><value>נתונים עבור {0}, {1}–{2}</value></data>
+  <data name="Report_ShownForDate"><value>נתונים עבור {0}</value></data>
+  <data name="Report_DateRangeInverted"><value>תאריך ההתחלה מאוחר מתאריך הסיום.</value></data>
+  <data name="Report_CaveatStatusStartBucket"><value>זמן הסטטוס נספר בחצי השעה שבה הסטטוס התחיל: בקצוות החלון סטטוס שהתחיל לפני ההתחלה אינו נכלל, וסטטוס שהתחיל בתוכו נספר במלואו.</value></data>
+  <data name="Report_AgentPerformance"><value>תפוקת נציגים</value></data>
+  <data name="ReportWidget_Mode"><value>מצב הדוח</value></data>
+  <data name="ReportWidget_ModeSummary"><value>מרוכז — שורה אחת לכל נציג לתקופה</value></data>
+  <data name="ReportWidget_ModeByDate"><value>לפי תאריך — שורה אחת לכל נציג לכל תאריך</value></data>
+  <data name="ReportWidget_ModeHint"><value>התקופה נלקחת משדות התאריך בדף הדוח.</value></data>
+  <data name="ReportWidget_ModeRequired"><value>בחרו את מצב הדוח.</value></data>
+  <data name="ReportWidget_ModeMissing"><value>מצב הדוח לא הוגדר. פתחו את הגדרות הווידג'ט ובחרו «מרוכז» או «לפי תאריך».</value></data>
   <data name="Report_EndOfShiftAgents"><value>סוף משמרת — נציגים</value></data>
   <data name="Report_Incomplete"><value>החלק האחרון של הטווח הזה עוד לא עובד, ולכן השורות האחרונות עשויות להיות חלקיות. נתונים עד {0}.</value></data>
   <data name="Report_SumTalk"><value>סך שיחה</value></data>

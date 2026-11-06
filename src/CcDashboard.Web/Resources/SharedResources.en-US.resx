@@ -1031,6 +1031,17 @@
   <data name="Report_Count"><value>Count</value></data>
   <data name="Report_Percentage"><value>Percentage</value></data>
   <data name="Report_EndOfShiftQueues"><value>End of shift — queues</value></data>
+  <data name="Report_ShownForShift"><value>Data for {0}, {1}–{2}</value></data>
+  <data name="Report_ShownForDate"><value>Data for {0}</value></data>
+  <data name="Report_DateRangeInverted"><value>The start date is later than the end date.</value></data>
+  <data name="Report_CaveatStatusStartBucket"><value>Status time is counted in the half-hour in which the status started: at the edges of the window, a status that began before the start is not included, and one that began inside is counted in full.</value></data>
+  <data name="Report_AgentPerformance"><value>Agent Performance</value></data>
+  <data name="ReportWidget_Mode"><value>Report mode</value></data>
+  <data name="ReportWidget_ModeSummary"><value>Summary — one row per agent for the period</value></data>
+  <data name="ReportWidget_ModeByDate"><value>By date — one row per agent per date</value></data>
+  <data name="ReportWidget_ModeHint"><value>The period comes from the date fields on the report page.</value></data>
+  <data name="ReportWidget_ModeRequired"><value>Choose the report mode.</value></data>
+  <data name="ReportWidget_ModeMissing"><value>The report mode is not set. Open the widget settings and choose summary or by date.</value></data>
   <data name="Report_EndOfShiftAgents"><value>End of shift — agents</value></data>
   <data name="Report_Incomplete"><value>The newest part of this window is not aggregated yet, so the last rows may be incomplete. Data through {0}.</value></data>
   <data name="Report_SumTalk"><value>Total talk</value></data>

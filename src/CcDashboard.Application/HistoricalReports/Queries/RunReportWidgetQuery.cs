@@ -74,8 +74,11 @@ public record ReportWidgetResult
     /// <summary>True when the window ends after DataThroughUtc: the newest part of the window is not aggregated yet.</summary>
     public bool Incomplete { get; init; }
 
-    /// <summary>Known limit of the numbers, to show as the report hint (null when none). Set for the agent summary types.</summary>
-    public string? Caveat { get; init; }
+    /// <summary>
+    /// PR234-V4-EOS-CAVEAT-NOT-LOCALIZED-01: code (<see cref="ReportCaveatCodes"/>) of a known limit of the numbers, which
+    /// the screen translates into the report hint; null when none. Never free text. Set for the agent summary types.
+    /// </summary>
+    public string? CaveatCode { get; init; }
 
     /// <summary>Create a denied result.</summary>
     public static ReportWidgetResult CreateDenied(ReportWidgetType type) => new()
@@ -91,6 +94,16 @@ public record ReportWidgetResult
         ErrorCode = string.IsNullOrWhiteSpace(code) ? throw new ArgumentException("error code required", nameof(code)) : code,
         Error = error
     };
+}
+
+/// <summary>Known limits of report numbers; the screen owns the sentence and its translations.</summary>
+public static class ReportCaveatCodes
+{
+    /// <summary>
+    /// hist_agent_intervals puts a status duration into the half-hour in which the status STARTED: at the edges of the
+    /// window a status that began before the start is missing, and one that began inside counts in full.
+    /// </summary>
+    public const string StatusStartBucket = "status-start-bucket";
 }
 
 /// <summary>

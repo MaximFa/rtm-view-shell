@@ -190,7 +190,7 @@ public class SummaryReportTests
         var r = await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, 8, 16); // ends 14:00Z
         r.Incomplete.Should().Be(incomplete);
         r.DataThroughUtc.Should().Be(through);
-        r.Caveat.Should().NotBeNullOrEmpty();
+        r.CaveatCode.Should().Be(ReportCaveatCodes.StatusStartBucket);
     }
 
     [Fact]
@@ -222,6 +222,7 @@ public class SummaryReportTests
         sales.AbandonPct.Should().Be(50.0);   // from sums: 10/20, not the mean of 20% and 80% that happens to match...
         sales.SlPct.Should().Be(80.0);        // ...8/10 from sums; the mean of the interval percentages would be 87.5
         sales.Asa.Should().Be(10.0);
+        r.CaveatCode.Should().BeNull("negative half: queue numbers have no status-start limit");
     }
 
     // ── saved config: the screen save path (SaveReportWidgetsCommand) and export both go through Parse + the type validator ──

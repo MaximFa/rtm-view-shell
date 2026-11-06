@@ -369,14 +369,8 @@ public class RunReportWidgetQueryHandler(
 
     // ── FEAT-REPORT-EOS-AGENTS-01 / FEAT-REPORT-EOS-QUEUES-01 / FEAT-REPORT-AGENT-PERF-01 ─────────────────────────
 
-    /// <summary>
-    /// hist_agent_intervals puts a status duration into the half-hour in which the status STARTED (aggregation by
-    /// status start). At the edges of a shift window a status that began before the start is missing, and one that began
-    /// inside the window counts in full even past its end. Shown to the user as the report hint.
-    /// </summary>
-    public const string AgentBoundaryCaveat =
-        "Status durations are counted in the half-hour in which the status started: at the edges of the window a status " +
-        "that began before the start is not counted, and one that began inside is counted in full.";
+    // The agent summary types carry ReportCaveatCodes.StatusStartBucket (status time sits in the half-hour the status
+    // started); the screen owns the sentence and its three translations (PR234-V4-EOS-CAVEAT-NOT-LOCALIZED-01).
 
     internal static bool IsEndOfShift(ReportWidgetType t) =>
         t is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues;
@@ -485,7 +479,7 @@ public class RunReportWidgetQueryHandler(
             AgentSummary = new AgentSummaryReportResult(pageRows, rows.Count, page, pageSize),
             DataThroughUtc = through,
             Incomplete = incomplete,
-            Caveat = AgentBoundaryCaveat
+            CaveatCode = ReportCaveatCodes.StatusStartBucket
         };
     }
 

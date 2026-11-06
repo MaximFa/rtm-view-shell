@@ -1008,6 +1008,17 @@
   <data name="Report_Count"><value>Количество</value></data>
   <data name="Report_Percentage"><value>Процент</value></data>
   <data name="Report_EndOfShiftQueues"><value>Конец смены — очереди</value></data>
+  <data name="Report_ShownForShift"><value>Данные за {0}, {1}–{2}</value></data>
+  <data name="Report_ShownForDate"><value>Данные за {0}</value></data>
+  <data name="Report_DateRangeInverted"><value>Начальная дата позже конечной.</value></data>
+  <data name="Report_CaveatStatusStartBucket"><value>Время статуса учитывается в том получасе, когда статус начался: на краях окна статус, начавшийся до начала, не учитывается, а начавшийся внутри — учитывается целиком.</value></data>
+  <data name="Report_AgentPerformance"><value>Работа агентов</value></data>
+  <data name="ReportWidget_Mode"><value>Режим отчёта</value></data>
+  <data name="ReportWidget_ModeSummary"><value>Сводно — одна строка на агента за период</value></data>
+  <data name="ReportWidget_ModeByDate"><value>По датам — одна строка на агента за каждую дату</value></data>
+  <data name="ReportWidget_ModeHint"><value>Период берётся из полей даты на странице отчёта.</value></data>
+  <data name="ReportWidget_ModeRequired"><value>Выберите режим отчёта.</value></data>
+  <data name="ReportWidget_ModeMissing"><value>Режим отчёта не задан. Откройте настройки виджета и выберите «сводно» или «по датам».</value></data>
   <data name="Report_EndOfShiftAgents"><value>Конец смены — агенты</value></data>
   <data name="Report_Incomplete"><value>Самая свежая часть этого периода ещё не сведена, поэтому последние строки могут быть неполными. Данные до {0}.</value></data>
   <data name="Report_SumTalk"><value>Суммарный разговор</value></data>

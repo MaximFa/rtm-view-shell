@@ -15,6 +15,13 @@
    the contract: the columns come from the widget's configuration rather than being fixed, and the
    result can say its newest part is not aggregated yet. *@
 
+@* PR234-V4-EOS-DATE-CHANGE-NO-EFFECT-01: say WHICH date and hours these numbers are for.
+   Measured on 234 on 2026-11-05: changing only the page's second date field changes nothing here -
+   the report takes the first date and the hours - and nothing on screen said so, so a person had
+   no way to see that their change had been ignored. Printed before every other branch, so it is
+   there when the widget is refusing as well as when it is showing rows. *@
+<div class="report-widget-shownfor small text-muted px-2 pt-1" role="note">@ShownForText</div>
+
 @if (_denied)
 {
     <div class="alert alert-warning">
@@ -147,6 +154,26 @@ else
     private string? _lastConfigJson;
     private bool _initialized;
 
+    /// <summary>
+    /// "Shown for 2026-11-04, 09:00-18:00" - the date that actually went into the query, not the
+    /// page's field, and the hours from the configuration. When the hours are missing the line
+    /// names the date alone: inventing a window here would hide the very defect it exists to show.
+    /// </summary>
+    private string ShownForText
+    {
+        get
+        {
+            // The page's own culture, not ISO: the date fields above show dd/MM/yyyy on a he-IL
+            // board, and a caption in another format reads as a different date entirely.
+            var date = From.Date.ToString("d");
+            var start = Config?.ShiftStartHour;
+            var end = Config?.ShiftEndHour;
+            return start is null || end is null
+                ? string.Format(L["Report_ShownForDate"].Value, date)
+                : string.Format(L["Report_ShownForShift"].Value, date, $"{start:00}:00", $"{end:00}:00");
+        }
+    }
+
     private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
 
     private string IncompleteText => _dataThroughUtc is null
@@ -233,7 +260,14 @@ else
                 _result = res.QueueSummary;
                 _incomplete = res.Incomplete;
                 _dataThroughUtc = res.DataThroughUtc;
-                _caveat = res.Caveat;
+                // PR234-V4-EOS-CAVEAT-NOT-LOCALIZED-01: the server sends a CODE now; the sentence
+                // and its translations belong here. A code this screen cannot put into words
+                // shows nothing and goes to the log - a raw "status-start-bucket" on the board
+                // would tell the reader nothing and look like a fault in the report.
+                var caveatKey = ReportCaveat.KeyFor(res.CaveatCode);
+                if (ReportCaveat.IsUnknown(res.CaveatCode))
+                    Logger.LogWarning("Report widget received an unrecognised caveat code {CaveatCode}", res.CaveatCode);
+                _caveat = caveatKey is null ? null : L[caveatKey].Value;
                 // The columns come from the ANSWER, not from a calculation here: the server already
                 // resolved "what the user picked, else the standard set" and sends it back as
                 // EffectiveColumns. Taking it from the response is what makes a disagreement

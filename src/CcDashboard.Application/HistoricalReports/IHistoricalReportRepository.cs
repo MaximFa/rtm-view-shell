@@ -32,6 +32,16 @@ public interface IHistoricalReportRepository
         IReadOnlySet<string> effectiveAgentIds,
         CancellationToken ct);
 
+    /// <summary>
+    /// FEAT-REPORT-AGENT-PERF-01 agent picker: the newest non-empty display name of each given agent in
+    /// hist_agent_intervals of the tenant. Agents with no name there are absent from the result.
+    /// Callers pass an already scoped, non-empty id set - an empty set returns empty without a query.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>> GetAgentDisplayNamesAsync(
+        Guid tenantId,
+        IReadOnlySet<string> agentIds,
+        CancellationToken ct);
+
     /// <summary>Get watermark for a tenant (aggregation progress).</summary>
     Task<HistAggregationWatermark?> GetWatermarkAsync(Guid tenantId, CancellationToken ct);
 

@@ -31,6 +31,28 @@ public record ReportWidgetConfig
     public string? Metric { get; init; }
 
     /// <summary>
+    /// AgentPerformance only: "summary" (one row per agent for the period) or "byDate" (one row per
+    /// agent per local date). REQUIRED there - the server's validator refuses the widget without it
+    /// ("Mode (summary|byDate) required"), so an unset mode is the same class of defect the shift
+    /// hours were: a widget that can only draw a refusal.
+    ///
+    /// Held as a string, not as the server's enum: this record is serialised with a camelCase
+    /// property policy and NO enum converter, so an enum here would go out as a number and the
+    /// server would not recognise it. The two accepted values live in
+    /// <see cref="AgentPerformanceModes"/> and are checked against the server enum by a guard.
+    /// </summary>
+    [JsonPropertyName("mode")]
+    public string? Mode { get; init; }
+
+    /// <summary>
+    /// AgentPerformance only: agent external ids to show; null or empty = every agent in scope.
+    /// The server narrows this to the user's scope and never widens it, dropping foreign ids
+    /// silently - so the screen must never offer an agent outside the scope in the first place.
+    /// </summary>
+    [JsonPropertyName("agentIds")]
+    public List<string>? AgentIds { get; init; }
+
+    /// <summary>
     /// End-of-shift reports only: the shift hours in site wall clock, on the date picked on the page.
     /// The DATE is not stored here - operator, 2026-11-04: "from the screen, like the other reports".
     /// A date saved in a widget would be stale by the next morning and the dashboard would keep
@@ -116,4 +138,18 @@ public record AppearanceConfig
 
     [JsonPropertyName("darkTableBackground")]
     public string? DarkTableBackground { get; init; }
+}
+
+/// <summary>
+/// The two values the server accepts for AgentPerformance.Mode, as they travel in JSON.
+///
+/// They are camelCase names of AgentPerformanceMode (Application.HistoricalReports.Queries): the
+/// server parses ConfigJson with a camelCase string-enum converter. Kept as constants so a typo
+/// cannot reach the server as "an unknown mode", and pinned to the enum by an architecture guard -
+/// if a third mode is added, the guard goes red rather than the dialog quietly offering two of three.
+/// </summary>
+public static class AgentPerformanceModes
+{
+    public const string Summary = "summary";
+    public const string ByDate = "byDate";
 }
