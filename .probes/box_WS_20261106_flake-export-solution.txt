@@ -1,0 +1,30 @@
+& {
+  function Tick($text) { Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $text) -ForegroundColor Cyan }
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234' -ForegroundColor Red; return }
+  $repo = 'D:\Claude\Projects\RTM-design'; $out = 'D:\Claude\Projects\RTM View Shell\.coord\measure\flake-export-1106'; New-Item -ItemType Directory -Force -Path $out | Out-Null
+  Start-Transcript -LiteralPath (Join-Path $out ('flakesln_{0}.txt' -f (Get-Date -Format 'yyyyMMdd_HHmmss'))) | Out-Null
+  $oldClones = @(Get-ChildItem -LiteralPath 'D:\RTMView-Ops\clones' -Directory -ErrorAction SilentlyContinue); foreach ($oldClone in $oldClones) { Remove-Item -LiteralPath $oldClone.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+  Tick ("old clones before " + $oldClones.Count + " ; left " + @(Get-ChildItem -LiteralPath 'D:\RTMView-Ops\clones' -Directory -ErrorAction SilentlyContinue).Count + " (expected 0)")
+  $clone = Join-Path 'D:\RTMView-Ops\clones' ('flakesln_' + (Get-Date -Format 'HHmmss'))
+  try {
+    Tick 'PR234-TEST-EXPORT-XLSX-DUPLICATE-RELS-FLAKE-01 frequency (coordinator 19:45:24Z): clean clone of v4 b7ac9dd, one build, dotnet test of the WHOLE solution x10 (the condition of the 21:34 red). Station only, nothing committed.'
+    $head = (git -C $repo rev-parse v4).Trim(); Tick "v4 head $($head.Substring(0,7)) (expected b7ac9dd)"; if (-not $head.StartsWith('b7ac9dd')) { Write-Host 'STOP: head moved' -ForegroundColor Red; return }
+    git clone -q --branch v4 $repo $clone; Tick "clone $clone at $((git -C $clone rev-parse --short HEAD).Trim()) ; dirty $(@(git -C $clone status --porcelain -uall).Count) (expected 0)"
+    $sln = Join-Path $clone 'CcDashboard.sln'
+    $buildText = dotnet build $sln -c Release --no-incremental 2>&1 | Out-String; Tick "build exit $LASTEXITCODE (expected 0)"; if ($LASTEXITCODE -ne 0) { Write-Host 'STOP: build' -ForegroundColor Red; return }
+    $runs = @()
+    for ($index = 1; $index -le 10; $index++) {
+      $text = dotnet test $sln -c Release --no-build 2>&1 | Out-String; $sets = @{}; $redSets = @()
+      foreach ($summary in [regex]::Matches($text, '(Passed|Failed)!\s+-\s+Failed:\s+(\d+), Passed:\s+(\d+), Skipped:\s+(\d+), Total:\s+(\d+).*? - (\S+)\.dll')) { $sets[$summary.Groups[6].Value] = ('{0}/{1}' -f $summary.Groups[2].Value, $summary.Groups[5].Value); if ($summary.Groups[2].Value -ne '0') { $redSets += $summary.Groups[6].Value } }
+      $line = ('solution #{0,2}: sets {1} (expected 5) ; failed/total {2}' -f $index, $sets.Count, (($sets.Keys | Sort-Object | ForEach-Object { $_.Replace('CcDashboard.Tests.','') + ' ' + $sets[$_] }) -join ', '))
+      if ($redSets.Count -or $sets.Count -ne 5) { $names = @(($text -split "`r?`n") | Where-Object { $_ -match '^\s+Failed\s+\S' } | ForEach-Object { ($_.Trim() -replace '^Failed\s+', '') -replace '\s+\[[^\]]*\]\s*$', '' } | Select-Object -First 8)
+        $lines = $text -split "`r?`n"; $at = [Array]::FindIndex($lines, [Predicate[string]]{ param($candidate) $candidate -match 'Error Message:' })
+        $line += (' ; RED sets: ' + ($redSets -join ',') + ' ; red: ' + ($names -join ', ') + ' ; first error: ' + $(if ($at -ge 0) { $lines[$at + 1].Trim() } else { '(none)' }))
+        [IO.File]::WriteAllText((Join-Path $out ('testlog_solution_{0:00}.txt' -f $index)), $text) }
+      Tick $line; $runs += [pscustomobject]@{ Red = $redSets.Count; Sets = $sets.Count; RelsHit = ($text -match 'Key: rels') } }
+    Tick ('SUMMARY: red runs {0} of 10 ; runs with "Key: rels" {1} of 10 ; runs with sets != 5: {2}' -f @($runs | Where-Object { $_.Red -gt 0 }).Count, @($runs | Where-Object { $_.RelsHit }).Count, @($runs | Where-Object { $_.Sets -ne 5 }).Count)
+    Tick 'NOTE: Security needs Docker; a Security red with the Docker message is the known PR234-TEST-SECURITY-FLAKE-01, not this flake.'
+  } finally {
+    if (Test-Path -LiteralPath $clone) { Remove-Item -LiteralPath $clone -Recurse -Force -ErrorAction SilentlyContinue; Tick "clone removed: $(-not (Test-Path -LiteralPath $clone))" }
+    Stop-Transcript | Out-Null }
+}

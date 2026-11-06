@@ -1,0 +1,15 @@
+& {
+  Set-Location 'D:\Claude\Projects\RTM View Shell'
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234 - run it on the workstation' -ForegroundColor Red; return }
+  $head = (git rev-parse --short HEAD).Trim(); Write-Host "HEAD expected f57b436 measured $head"
+  if ($head -ne 'f57b436') { Write-Host 'STOP: HEAD moved - do not commit' -ForegroundColor Red; return }
+  $paths = @('.probes/probe_234_20261106_install-b7ac9dd-logfix.ps1','.probes/probe_234_20261106_deploy-b7ac9dd-ENGLOG.ps1','.probes/probe_234_20261106_deploy-b7ac9dd-SEEDLOG4.ps1','.probes/box_234_20261106_deploy-b7ac9dd-englog-seedlog.txt','.probes/box_WS_20261106_commit-b7ac9dd-probes.txt')
+  $want = @('c48f0b726c08','952d8f1629f1','6808d22419b2','439c6bd21af9','a365d613811c')
+  git add -- $paths
+  git commit -q -m "devops-1106: b7ac9dd deploy readings on 234 and the install probe that reads the engine log by name" -m "Install b7ac9dd on 234 RESULT DONE (234_20261106_193937). Its 2j was blind (0 stamped lines) and 1e miscounted (32424): ENGLOG then read 0 exception lines before and after the 19:44:11 start (18559 stamped, POSCTL); SEEDLOG4 (method of SEEDLOG3, times from the process, pid 8900) gave 99 of 100 distinct seed StatusChanged, 0 in the outage window, 30 of 30 kept within 5 s. install-b7ac9dd-logfix = the run probe with 1e/2j ported line for line from the rollback probe (read RTM.log by name, stamped lines only, BLIND wording); base for the next install, not run itself. No product paths." -- $paths
+  Write-Host 'EXPECT: 5 x ok, status empty, 5 files changed'
+  for ($index = 0; $index -lt $paths.Count; $index++) { $tree = ((git ls-tree HEAD -- $paths[$index]) -split '\s+')[2]; $disk = (git hash-object -- $paths[$index]).Trim()
+    Write-Host ("{0}  expected {1}  tree {2}  disk {3}  {4}" -f $paths[$index], $want[$index], $tree.Substring(0,12), $disk.Substring(0,12), $(if (($tree -eq $disk) -and $tree.StartsWith($want[$index])) {'ok'} else {'RED'})) }
+  Write-Host ("status of these paths: [" + ((git status --porcelain -- $paths) -join ' ') + "]")
+  git show --stat --format="%h parent %p %s" HEAD
+}

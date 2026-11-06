@@ -1,0 +1,39 @@
+& {
+  function Tick($text) { Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $text) -ForegroundColor Cyan }
+  if ($env:COMPUTERNAME -ne 'RTM') { Write-Host 'STOP: not server 234' -ForegroundColor Red; return }
+  $src = '\\tsclient\D\Claude\Projects\RTM View Shell'; $ops = 'C:\RTMView-Ops'; $m = "$src\.coord\measure\namebackfill-1106"
+  $realFolder = "$ops\output\namebackfill_REAL_20261106_225341"; $snap = "$realFolder\snapshot_before.csv"; $snapSha = '9AAA8F23CAF3E9FC7D6FCDB30A7CF01EC5635E073AE2E2ADF7A46BD06F10CA74'
+  if (-not (Test-Path -LiteralPath $snap)) { Write-Host "STOP: no snapshot in $realFolder" -ForegroundColor Red; return }
+  $measured = (Get-FileHash -LiteralPath $snap -Algorithm SHA256).Hash; Tick ("snapshot of the 22:55 write: expected {0}... measured {1} ; lines {2} (expected 29763)" -f $snapSha.Substring(0,8), $measured, @(Get-Content -LiteralPath $snap).Count)
+  if ($measured -ne $snapSha) { Write-Host 'STOP: the snapshot is not the one of the write' -ForegroundColor Red; return }
+  $stamp = Get-Date -Format yyyyMMdd_HHmmss; $work = "$ops\output\namebackfill_rbdry_$stamp"
+  if (Test-Path -LiteralPath $work) { Write-Host 'STOP: output folder exists' -ForegroundColor Red; return }
+  New-Item -ItemType Directory -Force -Path "$ops\probes", $work | Out-Null
+  $sqls = @( @{ Name = 'PRE.sql'; Sha = '32315626165FFCF01BEA29DD77784065FE5BFFBB8CB9D73ED3021C0B2C0AE811' }, @{ Name = 'ROLLBACK.sql'; Sha = '85A5469C6BC5BFF2F64B2564A93CABB06EC240E3AEFB38E8FBC6BB87861DF171' } )
+  foreach ($sqlFile in $sqls) { $dest = "$ops\probes\namebackfill_" + $sqlFile.Name; Copy-Item -LiteralPath "$m\$($sqlFile.Name)" -Destination $dest -Force; Unblock-File -LiteralPath $dest
+    $hash = (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash; Tick ("{0} sha256 expected {1}... measured {2}" -f $sqlFile.Name, $sqlFile.Sha.Substring(0,8), $hash)
+    if ($hash -ne $sqlFile.Sha) { Write-Host 'STOP: sha differs' -ForegroundColor Red; return } }
+  $cfg = [IO.File]::ReadAllText('C:\RTMView\Shell\appsettings.json') | ConvertFrom-Json; $cs = [string]$cfg.ConnectionStrings.Default
+  $port = [regex]::Match($cs, '(?i)Port\s*=\s*([^;]+)').Groups[1].Value.Trim(); $db = [regex]::Match($cs, '(?i)Database\s*=\s*([^;]+)').Groups[1].Value.Trim(); $user = [regex]::Match($cs, '(?i)(?:Username|User ID|UserId|User)\s*=\s*([^;]+)').Groups[1].Value.Trim()
+  Tick "db localhost port $port database $db user $user (expected 5433 rtmviewdb)"; if ($port -ne '5433') { Write-Host 'STOP' -ForegroundColor Red; return }
+  $psql = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+  $rbArgs = @('-h','localhost','-p',$port,'-d',$db,'-U',$user,'-X','-v','commit=false','-f',"$ops\probes\namebackfill_ROLLBACK.sql",'-o',"$work\rollback.out")
+  Tick ("rollback mode argument: " + (@($rbArgs | Where-Object { $_ -like 'commit=*' }) -join ',') + " (expected commit=false)")
+  $sec = Read-Host -Prompt 'DB password' -AsSecureString; $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+  try { $env:PGPASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr); $env:PGCLIENTENCODING = 'UTF8'
+    Tick '1/3 PRE (read only)'; $env:PGOPTIONS = '-c default_transaction_read_only=on'
+    Start-Process -FilePath $psql -WorkingDirectory $work -NoNewWindow -Wait -RedirectStandardError "$work\pre1.err" -ArgumentList @('-h','localhost','-p',$port,'-d',$db,'-U',$user,'-X','-f',"$ops\probes\namebackfill_PRE.sql",'-o',"$work\pre1.out")
+    Tick '2/3 ROLLBACK.sql commit=false, run FROM the write folder (it reads snapshot_before.csv there; it writes no file)'; $env:PGOPTIONS = $null
+    Start-Process -FilePath $psql -WorkingDirectory $realFolder -NoNewWindow -Wait -RedirectStandardError "$work\rollback.err" -ArgumentList $rbArgs
+    Tick '3/3 PRE again (read only)'; $env:PGOPTIONS = '-c default_transaction_read_only=on'
+    Start-Process -FilePath $psql -WorkingDirectory $work -NoNewWindow -Wait -RedirectStandardError "$work\pre2.err" -ArgumentList @('-h','localhost','-p',$port,'-d',$db,'-U',$user,'-X','-f',"$ops\probes\namebackfill_PRE.sql",'-o',"$work\pre2.out")
+  } finally { $env:PGPASSWORD = $null; $env:PGOPTIONS = $null; [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+  Tick ("snapshot unchanged after the run: " + ((Get-FileHash -LiteralPath $snap -Algorithm SHA256).Hash -eq $snapSha) + " (expected True)")
+  $outcome = @(Get-Content "$work\rollback.out" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'ROLLED BACK|COMMITTED|K0 snapshot' }) -join ' || '
+  $checks = @(Get-Content "$work\rollback.err" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'ALL CHECKS PASSED|ERROR' }) -join ' '
+  Tick "outcome: [$outcome] (expected ROLLED BACK (dry run); K0 29762 / 29762; PRE 1/3 = 3/3 rows_unnamed 0) ; checks: [$checks] (expected ALL CHECKS PASSED: 29762 rows back, no ERROR)"
+  Tick ("PRE 1/3: " + (@(Get-Content "$work\pre1.out" | Where-Object { $_ -match '^\s*R[01] ' }) -join ' || ')); Tick ("PRE 3/3: " + (@(Get-Content "$work\pre2.out" | Where-Object { $_ -match '^\s*R[01] ' }) -join ' || '))
+  foreach ($name in @('pre1.err','rollback.err','pre2.err')) { Tick ("{0}: ERROR lines {1}" -f $name, @(Get-Content "$work\$name" -ErrorAction SilentlyContinue | Where-Object { $_ -match '\bERROR\b' }).Count) }
+  $backDir = "$m\run_rbdry_$stamp"; New-Item -ItemType Directory -Force -Path $backDir | Out-Null
+  foreach ($file in @(Get-ChildItem -LiteralPath $work -File)) { Copy-Item -LiteralPath $file.FullName -Destination "$backDir\$($file.Name)" -Force; Write-Host ("copied {0}  sha equal: {1}" -f $file.Name, ((Get-FileHash $file.FullName).Hash -eq (Get-FileHash "$backDir\$($file.Name)").Hash)) }
+}
