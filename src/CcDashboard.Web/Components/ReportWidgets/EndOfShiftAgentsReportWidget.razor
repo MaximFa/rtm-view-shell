@@ -22,6 +22,38 @@
    there when the widget is refusing as well as when it is showing rows. *@
 <div class="report-widget-shownfor small text-muted px-2 pt-1" role="note">@ShownForText</div>
 
+    @* PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01: two fields, one per column, exactly as the
+       operator named them - the login ("נציג") and the display name ("שם הנציג"). Both set means
+       BOTH must match: a row is what the person is looking for only if it answers both questions.
+       The labels are the COLUMN labels, because a person filters by the column they can see.
+       The filter goes into the QUERY, never over the page already in hand: cutting rows here
+       would leave "showing 7 of 342" standing over a filtered page - a lie about the data. *@
+    <div class="report-widget-filters d-flex flex-wrap align-items-end gap-2 px-2 pb-1">
+        <div class="filter-item">
+            <label class="form-label small mb-0">@L["Report_Agent"]</label>
+            <input type="text" class="form-control form-control-sm" maxlength="100"
+                   value="@_agentFilter"
+                   @oninput="e => OnFilterInput(e, isName: false)"
+                   @onkeydown="OnFilterKeyDown"
+                   placeholder="@L["Widgets_Filter_ValuePlaceholder"]" />
+        </div>
+        <div class="filter-item">
+            <label class="form-label small mb-0">@L["Report_AgentName"]</label>
+            <input type="text" class="form-control form-control-sm" maxlength="100"
+                   value="@_agentNameFilter"
+                   @oninput="e => OnFilterInput(e, isName: true)"
+                   @onkeydown="OnFilterKeyDown"
+                   placeholder="@L["Widgets_Filter_ValuePlaceholder"]" />
+        </div>
+        @if (HasFilter)
+        {
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">
+                @L["Widget_ClearFilters"]
+            </button>
+        }
+    </div>
+
+
 @if (_denied)
 {
     <div class="alert alert-warning">
@@ -115,6 +147,13 @@ else
     [Parameter] public bool DarkMode { get; set; }
     [Parameter] public int Page { get; set; } = 1;
     [Parameter] public Guid? TenantId { get; set; }
+    /// <summary>Identity of this widget on the screen; the page keys its filter dictionary by it.</summary>
+    [Parameter] public Guid WidgetId { get; set; }
+    /// <summary>
+    /// Tells the page what this widget is filtered by. The export is built by the page, so a
+    /// filter it never hears about would produce a file that disagrees with the screen.
+    /// </summary>
+    [Parameter] public EventCallback<ReportWidgetFilter> FilterChanged { get; set; }
 
     private bool _loading;
     private bool _denied;
@@ -151,6 +190,80 @@ else
                 : string.Format(L["Report_ShownForShift"].Value, date, $"{start:00}:00", $"{end:00}:00");
         }
     }
+
+    // Screen control, not a saved setting (coordinator, 2026-11-06): a filter stored in the
+    // configuration would open tomorrow's shift already narrowed, and whoever opens it reads an
+    // empty table as "no data".
+    private string _agentFilter = "";
+    private string _agentNameFilter = "";
+    private string _appliedAgentFilter = "";
+    private string _appliedAgentNameFilter = "";
+    private CancellationTokenSource? _filterDebounce;
+
+    private bool HasFilter => _agentFilter.Length > 0 || _agentNameFilter.Length > 0;
+
+    private void OnFilterInput(ChangeEventArgs e, bool isName)
+    {
+        var text = e.Value?.ToString() ?? "";
+        // The server refuses a value over 100 characters as an unusable configuration; such a
+        // thing must never leave the screen, so it is cut where it is typed.
+        if (text.Length > 100) text = text[..100];
+        if (isName) _agentNameFilter = text; else _agentFilter = text;
+        ScheduleFilter();
+    }
+
+    private async Task OnFilterKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter")
+        {
+            _filterDebounce?.Cancel();
+            await ApplyFilterAsync();
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        _filterDebounce?.Cancel();
+        _agentFilter = "";
+        _agentNameFilter = "";
+        await ApplyFilterAsync();
+    }
+
+    /// <summary>
+    /// Wait for the typing to stop before asking the server. Half a second, not a keystroke: a
+    /// query per letter would make a six-letter name six queries, five of them already stale.
+    /// </summary>
+    private void ScheduleFilter()
+    {
+        _filterDebounce?.Cancel();
+        var cts = new CancellationTokenSource();
+        _filterDebounce = cts;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500, cts.Token);
+                await InvokeAsync(ApplyFilterAsync);
+            }
+            catch (TaskCanceledException) { /* a newer keystroke won; nothing to do */ }
+        });
+    }
+
+    private async Task ApplyFilterAsync()
+    {
+        if (_appliedAgentFilter == _agentFilter && _appliedAgentNameFilter == _agentNameFilter)
+            return;
+        _appliedAgentFilter = _agentFilter;
+        _appliedAgentNameFilter = _agentNameFilter;
+        await FilterChanged.InvokeAsync(new ReportWidgetFilter(
+            WidgetId, NullIfEmpty(_appliedAgentFilter), NullIfEmpty(_appliedAgentNameFilter)));
+        // Back to the first page: page 4 of an unfiltered answer is usually past the end of a
+        // filtered one, and an empty page reads as "nothing found" rather than "you are past it".
+        _page = 1;
+        await LoadData();
+    }
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
 
@@ -221,7 +334,14 @@ else
                 TenantId,
                 false,
                 startHour,
-                endHour));
+                endHour)
+            {
+                // Empty means "no filter": an empty string sent as a filter would ask the server
+                // for rows whose value contains "", which is every row on a good day and an
+                // argument about it on a bad one.
+                AgentFilter = NullIfEmpty(_appliedAgentFilter),
+                AgentNameFilter = NullIfEmpty(_appliedAgentNameFilter)
+            });
 
             if (res.Denied)
             {

@@ -22,6 +22,27 @@
    there when the widget is refusing as well as when it is showing rows. *@
 <div class="report-widget-shownfor small text-muted px-2 pt-1" role="note">@ShownForText</div>
 
+    @* PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01: one field over the queue column, labelled
+       with that column's own label. The filter goes into the QUERY, not over the page already in
+       hand - otherwise "showing 3 of 48" would stand over a filtered page and read as data loss. *@
+    <div class="report-widget-filters d-flex flex-wrap align-items-end gap-2 px-2 pb-1">
+        <div class="filter-item">
+            <label class="form-label small mb-0">@L["Report_Workgroup"]</label>
+            <input type="text" class="form-control form-control-sm" maxlength="100"
+                   value="@_queueFilter"
+                   @oninput="OnFilterInput"
+                   @onkeydown="OnFilterKeyDown"
+                   placeholder="@L["Widgets_Filter_ValuePlaceholder"]" />
+        </div>
+        @if (HasFilter)
+        {
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">
+                @L["Widget_ClearFilters"]
+            </button>
+        }
+    </div>
+
+
 @if (_denied)
 {
     <div class="alert alert-warning">
@@ -137,6 +158,13 @@ else
     [Parameter] public bool DarkMode { get; set; }
     [Parameter] public int Page { get; set; } = 1;
     [Parameter] public Guid? TenantId { get; set; }
+    /// <summary>Identity of this widget on the screen; the page keys its filter dictionary by it.</summary>
+    [Parameter] public Guid WidgetId { get; set; }
+    /// <summary>
+    /// Tells the page what this widget is filtered by. The export is built by the page, so a
+    /// filter it never hears about would produce a file that disagrees with the screen.
+    /// </summary>
+    [Parameter] public EventCallback<ReportWidgetFilter> FilterChanged { get; set; }
 
     private bool _loading;
     private bool _denied;
@@ -173,6 +201,67 @@ else
                 : string.Format(L["Report_ShownForShift"].Value, date, $"{start:00}:00", $"{end:00}:00");
         }
     }
+
+    // Screen control, not a saved setting (coordinator, 2026-11-06).
+    private string _queueFilter = "";
+    private string _appliedQueueFilter = "";
+    private CancellationTokenSource? _filterDebounce;
+
+    private bool HasFilter => _queueFilter.Length > 0;
+
+    private void OnFilterInput(ChangeEventArgs e)
+    {
+        var text = e.Value?.ToString() ?? "";
+        // Over 100 characters the server answers "the settings cannot be used"; that must never
+        // be the answer to typing, so the value is cut where it is typed.
+        if (text.Length > 100) text = text[..100];
+        _queueFilter = text;
+        ScheduleFilter();
+    }
+
+    private async Task OnFilterKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter")
+        {
+            _filterDebounce?.Cancel();
+            await ApplyFilterAsync();
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        _filterDebounce?.Cancel();
+        _queueFilter = "";
+        await ApplyFilterAsync();
+    }
+
+    private void ScheduleFilter()
+    {
+        _filterDebounce?.Cancel();
+        var cts = new CancellationTokenSource();
+        _filterDebounce = cts;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500, cts.Token);
+                await InvokeAsync(ApplyFilterAsync);
+            }
+            catch (TaskCanceledException) { /* a newer keystroke won */ }
+        });
+    }
+
+    private async Task ApplyFilterAsync()
+    {
+        if (_appliedQueueFilter == _queueFilter) return;
+        _appliedQueueFilter = _queueFilter;
+        await FilterChanged.InvokeAsync(new ReportWidgetFilter(
+            WidgetId, QueueFilter: NullIfEmpty(_appliedQueueFilter)));
+        _page = 1;
+        await LoadData();
+    }
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
 
@@ -243,7 +332,10 @@ else
                 TenantId,
                 false,
                 startHour,
-                endHour));
+                endHour)
+            {
+                QueueFilter = NullIfEmpty(_appliedQueueFilter)
+            });
 
             if (res.Denied)
             {

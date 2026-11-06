@@ -42,6 +42,38 @@ public class ReportDateFieldsTests
     }
 
     [Fact]
+    public void AOneFieldScreen_opensOnToday()
+    {
+        // Measured on 234 on 2026-11-06: it opened on 30.10 with the site's today at 06.11,
+        // because the page chose the dates before it knew how many fields it would draw. On a
+        // one-field screen that date IS the window, so a week-old default shows a week-old shift
+        // to anyone who does not look at the field.
+        var today = new DateTime(2026, 11, 6);
+        ReportDateFields.DefaultRange(today, singleDate: true).Should().Be((today, today));
+    }
+
+    [Fact]
+    public void ATwoFieldScreen_opensOnTheLastWeek()
+    {
+        // THE OTHER HALF: on a two-field screen the same seven days are the sensible period, so
+        // the fix must not turn every report into a one-day report.
+        var today = new DateTime(2026, 11, 6);
+        ReportDateFields.DefaultRange(today, singleDate: false)
+            .Should().Be((new DateTime(2026, 10, 30), today));
+    }
+
+    [Fact]
+    public void TheDefaultRange_keepsOnlyTheDatePart()
+    {
+        // "Today" arrives as a wall-clock instant; a time of day left on it would travel into the
+        // query and shift the window by hours.
+        var noon = new DateTime(2026, 11, 6, 12, 34, 56);
+        var (from, to) = ReportDateFields.DefaultRange(noon, singleDate: true);
+        from.TimeOfDay.Should().Be(TimeSpan.Zero);
+        to.TimeOfDay.Should().Be(TimeSpan.Zero);
+    }
+
+    [Fact]
     public void TheTwoEndOfShiftTypes_areTheOnlySingleDateTypes()
     {
         // Pinned against the enum rather than listed again: a new type is NOT single-date until

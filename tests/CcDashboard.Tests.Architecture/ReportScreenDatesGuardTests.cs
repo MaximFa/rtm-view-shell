@@ -68,6 +68,55 @@ public class ReportScreenDatesGuardTests
     }
 
     [Fact]
+    public void TheDefaultDates_areChosenByTheRule_notByTheFieldCountBeingUnknown()
+    {
+        // The defect this replaces: the page set "today minus seven" before it knew whether it
+        // would draw one field or two, so a one-date screen opened on a week-old shift.
+        //
+        // The first version of this guard could not go red, and a control proved it: it asked for
+        // the words "ReportDateFields.DefaultRange" anywhere in the file - satisfied by a SECOND
+        // call further down - and forbade the old defect spelled with the variable name "today",
+        // which the page no longer uses. It held the wording of one old mistake instead of the
+        // rule. Now it holds the rule: wherever the opening dates are set, they come from the
+        // field-count-aware call, and no date arithmetic sits next to _from or _to under any name.
+        var page = ViewPage();
+
+        FieldCountAwareCall(page).Should().BeTrue(
+            "the opening dates must come from DefaultRange with the field count, not from a bare period");
+        DateArithmeticOnTheFields(page).Should().BeEmpty(
+            "the page must not compute its own period - the rule knows about the one-field screen");
+
+        // NEGATIVE HALF #1: exactly the control that exposed the hole - the call replaced by the
+        // old arithmetic, written with the page's current variable name.
+        const string brokenAsTheControlDidIt = """
+            _from = _siteToday.Date.AddDays(-7);
+            _to = _siteToday.Date;
+            """;
+        DateArithmeticOnTheFields(brokenAsTheControlDidIt).Should().NotBeEmpty(
+            "this is the break a control actually made; a guard that misses it watches nothing");
+        FieldCountAwareCall(brokenAsTheControlDidIt).Should().BeFalse();
+
+        // NEGATIVE HALF #2: the same break under a different name, because the rule is about what
+        // the code DOES, not about which variable somebody used that week.
+        const string brokenWithAnotherName = """
+            _from = whateverToday.Date.AddDays( -7 );
+            _to = whateverToday.Date;
+            """;
+        DateArithmeticOnTheFields(brokenWithAnotherName).Should().NotBeEmpty(
+            "a renamed variable must not make the defect invisible");
+    }
+
+    /// <summary>The opening dates are set by the call that knows how many date fields there are.</summary>
+    private static bool FieldCountAwareCall(string text)
+        => Regex.IsMatch(text, @"\(\s*_from\s*,\s*_to\s*\)\s*=\s*ReportDateFields\.DefaultRange\s*\([^)]*_singleDate");
+
+    /// <summary>Any date arithmetic assigned to the date fields, whatever it is written against.</summary>
+    private static IReadOnlyList<string> DateArithmeticOnTheFields(string text)
+        => Regex.Matches(text, @"_(?:from|to)\s*=\s*[^;\r\n]*Add(?:Days|Months|Years)\s*\(")
+            .Select(m => m.Value)
+            .ToList();
+
+    [Fact]
     public void NoWidgetTitleFallsBackToTheEnumName_andEveryTypeHasAName()
     {
         var page = ViewPage();

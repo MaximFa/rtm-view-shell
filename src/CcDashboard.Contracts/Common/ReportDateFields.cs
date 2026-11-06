@@ -34,6 +34,27 @@ public static class ReportDateFields
         return any;
     }
 
+    /// <summary>How many days back a two-field screen opens on.</summary>
+    public const int DefaultDaysBack = 7;
+
+    /// <summary>
+    /// The dates a screen opens on, given the site's today.
+    ///
+    /// Measured on 234 on 2026-11-06: a one-field screen opened on 30.10 while the site's today was
+    /// 06.11, because the page set "today minus seven" before it knew how many fields it would
+    /// draw. On a one-field screen that week-old date IS the whole window - the shift report then
+    /// shows a week-old shift to anyone who does not notice the field - while on a two-field
+    /// screen the same seven days are the sensible period. So the number of fields decides, and
+    /// the decision lives here rather than in the page, where it cannot be tested.
+    /// </summary>
+    public static (DateTime From, DateTime To) DefaultRange(DateTime siteToday, bool singleDate)
+    {
+        var today = siteToday.Date;
+        return singleDate
+            ? (today, today)
+            : (today.AddDays(-DefaultDaysBack), today);
+    }
+
     /// <summary>The types whose window is one date plus shift hours.</summary>
     public static bool IsEndOfShift(ReportWidgetType type)
         => type is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues;

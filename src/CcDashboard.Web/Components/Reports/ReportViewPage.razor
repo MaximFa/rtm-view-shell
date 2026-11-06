@@ -142,7 +142,9 @@
                                         From="_rangeFrom"
                                         To="_rangeTo"
                                         DarkMode="_darkMode"
-                                        TenantId="_report?.TenantId" />
+                                        TenantId="_report?.TenantId"
+                                        WidgetId="widget.Id"
+                                        FilterChanged="OnWidgetFilterChanged" />
                                 </div>
                             </div>
                         }
@@ -183,20 +185,55 @@
     private string? _rangeError;
 
     /// <summary>
+    /// What each widget is filtered by right now. The export is built here, so without this the
+    /// file would be made from unfiltered queries while the screen showed filtered rows - and
+    /// nobody would be told. Per widget, because two agent reports on one board may be filtered
+    /// differently and a single screen-wide filter would match neither.
+    /// A widget whose filter is empty is REMOVED rather than stored as empty: "no entry" and "an
+    /// entry that filters nothing" would otherwise be two ways of saying the same thing, and the
+    /// export would have to understand both.
+    /// </summary>
+    private readonly Dictionary<Guid, ReportWidgetFilter> _widgetFilters = new();
+
+    private void OnWidgetFilterChanged(ReportWidgetFilter filter)
+    {
+        if (filter.IsEmpty)
+            _widgetFilters.Remove(filter.WidgetId);
+        else
+            _widgetFilters[filter.WidgetId] = filter;
+    }
+
+    /// <summary>
     /// True when every widget on this screen is an end-of-shift report: then the second date field
     /// is not drawn, and the single date is sent as both ends of the window.
     /// An empty report is NOT "single": a screen with no widgets says nothing about what it will
     /// hold, and hiding a field on that guess would surprise whoever drops another report on it.
     /// </summary>
     private bool _singleDate;
+    private DateTime _siteToday;
+    // True once the person has applied dates of their own: after that the defaults never win back.
+    private bool _datesChosen;
 
     private void RecomputeDateFields()
     {
         // The rule itself is in ReportDateFields, where a test can reach it; the page only applies
         // it. Keeping a second copy of "which types take one date" here is how the two would
         // drift apart.
+        var wasSingle = _singleDate;
         _singleDate = ReportDateFields.SingleDate(_report?.Widgets.Select(w => w.WidgetType));
-        if (_singleDate)
+
+        if (_singleDate != wasSingle || !_datesChosen)
+        {
+            // The number of fields decides what "the default" means: a one-field screen opens on
+            // today, because that single date IS the window; a two-field screen opens on the last
+            // week. Applied only while the person has not chosen dates themselves - their choice
+            // must survive a reload of the widget list.
+            (_from, _to) = ReportDateFields.DefaultRange(_siteToday, _singleDate);
+            _rangeFrom = _from;
+            _rangeTo = _to;
+            _rangeError = null;
+        }
+        else if (_singleDate)
         {
             // One field means one date on both ends; a leftover "to" would send a window the
             // screen no longer shows.
@@ -208,9 +245,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, DisplayZone.Zone).Date;
-        _from = today.AddDays(-7);
-        _to = today;
+        // The site's today, not the server's UTC one; the dates themselves are set once the
+        // report is loaded and the number of date fields is known (RecomputeDateFields).
+        _siteToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, DisplayZone.Zone).Date;
+        (_from, _to) = ReportDateFields.DefaultRange(_siteToday, singleDate: false);
         _rangeFrom = _from;
         _rangeTo = _to;
         _loading = true;
@@ -310,6 +348,7 @@
         }
 
         _rangeError = null;
+        _datesChosen = true;
         _rangeFrom = _from;
         _rangeTo = _to;
         StateHasChanged();
@@ -402,7 +441,14 @@
         try
         {
             var res = await Mediator.Send(
-                new ExportReportCommand(_report.Id, _rangeFrom, _rangeTo, _report.TenantId),
+                // The file must be the screen. Each widget's own filter goes with it, keyed by the
+                // widget, so two agent reports filtered differently still produce two sheets that
+                // each match what their widget shows. A widget with no entry exports unfiltered -
+                // which is exactly what "no filter" looks like on screen.
+                new ExportReportCommand(_report.Id, _rangeFrom, _rangeTo, _report.TenantId,
+                    Filters: _widgetFilters.ToDictionary(
+                        e => e.Key,
+                        e => new WidgetViewFilter(e.Value.AgentFilter, e.Value.AgentNameFilter, e.Value.QueueFilter))),
                 _cts.Token);
             _skippedLines = BuildSkippedLines(res.Skipped);
             var base64 = Convert.ToBase64String(res.Content);

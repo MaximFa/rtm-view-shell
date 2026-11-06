@@ -132,9 +132,15 @@ public class EndOfShiftWidgetsSendShiftHoursGuardTests
             File.Exists(path).Should().BeTrue($"{type} is in the enum, so {type}ReportWidget.razor must exist");
 
             var text = File.ReadAllText(path);
-            var call = Regex.Match(text, @"new RunReportWidgetQuery\((?<body>[\s\S]*?)\)\s*\);");
+            // The query may be written as a constructor call alone, or as a constructor call
+            // followed by an object initializer - the filters were added that way on 2026-11-06,
+            // and the older pattern stopped matching, which turned three guards red without any
+            // of the things they watch having changed. Both forms are read, and BOTH parts are
+            // handed on: reading only the constructor would quietly stop seeing anything set in
+            // the initializer, which is weakening the guard rather than fixing it.
+            var call = Regex.Match(text, @"new RunReportWidgetQuery\((?<args>[\s\S]*?)\)\s*(?<init>\{[\s\S]*?\})?\s*\);");
             call.Success.Should().BeTrue($"{type}ReportWidget.razor must build a query, readable here");
-            found.Add((type, call.Groups["body"].Value));
+            found.Add((type, call.Groups["args"].Value + call.Groups["init"].Value));
         }
         return found;
     }

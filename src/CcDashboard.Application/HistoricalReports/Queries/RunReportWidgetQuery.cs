@@ -17,7 +17,13 @@ public record RunReportWidgetQuery(
     bool AllRows = false,
     // FEAT-REPORT-EOS-*-01: shift hours (site wall clock) on the single date From; required for EndOfShift*, empty otherwise.
     int? ShiftStartHour = null,
-    int? ShiftEndHour = null
+    int? ShiftEndHour = null,
+    // PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01: view-screen filters, case-insensitive substrings applied on the server
+    // BEFORE paging (TotalCount counts what matched). Agent = login column, AgentName = name column (AgentNameRule);
+    // both set = both must match. Queue = queue column of EndOfShiftQueues. Other types refuse them.
+    string? AgentFilter = null,
+    string? AgentNameFilter = null,
+    string? QueueFilter = null
 ) : IRequest<ReportWidgetResult>;
 
 /// <summary>

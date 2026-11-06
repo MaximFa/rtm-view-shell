@@ -69,6 +69,10 @@ public class RunReportWidgetQueryHandler(
         if (IsEndOfShift(query.WidgetType) && query.ShiftStartHour is null && query.ShiftEndHour is null)
             query = query with { ShiftStartHour = config.ShiftStartHour, ShiftEndHour = config.ShiftEndHour };
 
+        var filterError = ValidateFilters(query);
+        if (filterError != null)
+            return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, filterError);
+
         var shiftError = ValidateShift(query);
         if (shiftError != null)
         {
@@ -96,9 +100,9 @@ public class RunReportWidgetQueryHandler(
             ReportWidgetType.AgentMonthly => await RunAgentMonthlyAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
             ReportWidgetType.AgentShiftDetail => await RunAgentShiftDetailAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
             ReportWidgetType.Distribution => await RunDistributionAsync(tenantId, config, effectiveColumns, from, toExclusive, ct),
-            ReportWidgetType.EndOfShiftAgents => await RunAgentSummaryAsync(query.WidgetType, null, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
-            ReportWidgetType.AgentPerformance => await RunAgentSummaryAsync(query.WidgetType, config.Mode, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
-            ReportWidgetType.EndOfShiftQueues => await RunQueueSummaryAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
+            ReportWidgetType.EndOfShiftAgents => await RunAgentSummaryAsync(query.WidgetType, null, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
+            ReportWidgetType.AgentPerformance => await RunAgentSummaryAsync(query.WidgetType, config.Mode, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
+            ReportWidgetType.EndOfShiftQueues => await RunQueueSummaryAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             _ => ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, $"Unknown widget type: {query.WidgetType}")
         };
     }
@@ -393,6 +397,33 @@ public class RunReportWidgetQueryHandler(
         return null;
     }
 
+    // ── PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01 ────────────────────────────────────────────────────────────
+    // The rows are computed in memory, so a filter is an ordinary ordinal-ignore-case substring test: no SQL is built from
+    // it, and "%" / "_" are plain characters. It only removes rows of the scoped result - it can never add one.
+
+    /// <summary>Longest filter text accepted (a login or a name is at most 100 characters in the source tables).</summary>
+    public const int FilterMaxLength = 100;
+
+    internal static string? ValidateFilters(RunReportWidgetQuery q)
+    {
+        foreach (var (name, value) in new[] { ("Agent", q.AgentFilter), ("Agent name", q.AgentNameFilter), ("Queue", q.QueueFilter) })
+            if (value is { Length: > FilterMaxLength })
+                return $"{name} filter cannot exceed {FilterMaxLength} characters";
+
+        var agentType = q.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentPerformance;
+        var queueType = q.WidgetType is ReportWidgetType.EndOfShiftQueues;
+        if (!agentType && (!string.IsNullOrWhiteSpace(q.AgentFilter) || !string.IsNullOrWhiteSpace(q.AgentNameFilter)))
+            return "Agent filters apply only to the agent summary reports";
+        if (!queueType && !string.IsNullOrWhiteSpace(q.QueueFilter))
+            return "The queue filter applies only to the end-of-shift queues report";
+        return null;
+    }
+
+    /// <summary>Empty/blank filter = everything; otherwise the value must contain the trimmed text, ignoring case.</summary>
+    internal static bool Matches(string? value, string? filter) =>
+        string.IsNullOrWhiteSpace(filter)
+        || (value != null && value.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase));
+
     private async Task<(DateTime? Through, bool Incomplete)> FreshnessAsync(Guid tenantId, DateTime toExclusive, CancellationToken ct)
     {
         var wm = await repo.GetWatermarkAsync(tenantId, ct);
@@ -412,7 +443,7 @@ public class RunReportWidgetQueryHandler(
 
     private async Task<ReportWidgetResult> RunAgentSummaryAsync(
         ReportWidgetType type, AgentPerformanceMode? mode, Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns,
-        DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
+        DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
     {
         var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, AgentReportAxis.Detail, ct);
         if (scopeResult.Denied)
@@ -433,6 +464,13 @@ public class RunReportWidgetQueryHandler(
 
         var intervals = await ScopedAgentIntervalsAsync(tenantId, from, toExclusive, effective, ct);
 
+        // The name shown and filtered on is the one rule's (AgentNameRule, live source); the name stored in the history row
+        // is the fallback. History written before the name fix carries none, so without this the column stays "-".
+        var present = new HashSet<string>(intervals.Select(i => i.AgentExternalId).Where(effective.Contains));
+        var liveNames = present.Count == 0
+            ? (IReadOnlyDictionary<string, string>)new Dictionary<string, string>()
+            : await repo.GetAgentDisplayNamesAsync(tenantId, present, ct);
+
         var byDate = type == ReportWidgetType.AgentPerformance && mode == AgentPerformanceMode.ByDate;
         var rows = intervals
             .Where(i => effective.Contains(i.AgentExternalId))
@@ -449,7 +487,9 @@ public class RunReportWidgetQueryHandler(
                 return new AgentSummaryRow(
                     g.Key.Date,
                     g.Key.AgentExternalId,
-                    g.Select(x => x.AgentDisplayName).LastOrDefault(n => !string.IsNullOrEmpty(n)),
+                    liveNames.TryGetValue(g.Key.AgentExternalId, out var live) && !string.IsNullOrWhiteSpace(live)
+                        ? live
+                        : g.Select(x => x.AgentDisplayName).LastOrDefault(n => !string.IsNullOrEmpty(n)),
                     Sum(x => x.SumLoggedInMs),
                     available,
                     onphone,
@@ -464,6 +504,8 @@ public class RunReportWidgetQueryHandler(
                     onphone == 0 ? null : hold * 100.0 / onphone,
                     onphone - hold);
             })
+            // filters BEFORE paging, so a match on page 2 is found and TotalCount counts matches
+            .Where(r => Matches(r.AgentExternalId, query.AgentFilter) && Matches(r.AgentDisplayName, query.AgentNameFilter))
             .OrderBy(r => r.Date)
             .ThenBy(r => r.AgentDisplayName ?? r.AgentExternalId, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(r => r.AgentExternalId, StringComparer.Ordinal)
@@ -485,7 +527,7 @@ public class RunReportWidgetQueryHandler(
 
     private async Task<ReportWidgetResult> RunQueueSummaryAsync(
         Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns,
-        DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
+        DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
     {
         const ReportWidgetType type = ReportWidgetType.EndOfShiftQueues;
         var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
@@ -517,6 +559,7 @@ public class RunReportWidgetQueryHandler(
                     answered == 0 ? null : (double)wait / answered,
                     answered == 0 ? null : (double)talk / answered);
             })
+            .Where(r => Matches(r.Workgroup, query.QueueFilter))   // before paging
             .OrderBy(r => r.Workgroup, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 

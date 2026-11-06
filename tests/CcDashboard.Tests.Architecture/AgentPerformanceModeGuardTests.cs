@@ -151,9 +151,12 @@ public class AgentPerformanceModeGuardTests
 
     private static string QueryCall(string widget)
     {
-        var call = Regex.Match(widget, @"new RunReportWidgetQuery\((?<body>[\s\S]*?)\)\s*\);");
+        // Constructor call, with or without an object initializer after it (the filters arrived
+        // that way). Both parts are returned: a parser that read only the constructor would stop
+        // noticing anything the initializer sets - weaker, not fixed.
+        var call = Regex.Match(widget, @"new RunReportWidgetQuery\((?<args>[\s\S]*?)\)\s*(?<init>\{[\s\S]*?\})?\s*\);");
         call.Success.Should().BeTrue("the widget must build a query, readable here");
-        return call.Groups["body"].Value;
+        return call.Groups["args"].Value + call.Groups["init"].Value;
     }
 
     private static string ReportWidgetsDirectory()
