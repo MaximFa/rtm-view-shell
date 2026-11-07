@@ -1,0 +1,14 @@
+& {
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234 - run it on the workstation' -ForegroundColor Red; return }
+  $probe = 'D:\Claude\Projects\RTM View Shell\.probes\probe_WS_20261107_fullpkg-182129c.ps1'
+  $hash = (Get-FileHash -LiteralPath $probe -Algorithm SHA256).Hash
+  Write-Host "probe sha256 expected 7FF40C3E19CDEE4A839C4A9D2B86EB87E649D772C5DCA0307B80D874E386A49D"; Write-Host "probe sha256 measured $hash"
+  if ($hash -ne '7FF40C3E19CDEE4A839C4A9D2B86EB87E649D772C5DCA0307B80D874E386A49D') { Write-Host 'STOP: sha differs - do not run' -ForegroundColor Red; return }
+  $parseErrors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($probe, [ref]$null, [ref]$parseErrors)
+  $controlErrors = $null; [void][System.Management.Automation.Language.Parser]::ParseInput('if ( {', [ref]$null, [ref]$controlErrors)
+  Write-Host ("parser PS " + $PSVersionTable.PSVersion + " : probe errors " + $parseErrors.Count + " (expected 0) ; broken-text control errors " + $controlErrors.Count + " (expected more than 0)")
+  if (($parseErrors.Count -ne 0) -or ($controlErrors.Count -eq 0)) { Write-Host 'STOP: parser gate red - do not run' -ForegroundColor Red; return }
+  Unblock-File -LiteralPath $probe
+  powershell -ExecutionPolicy Bypass -NoProfile -File $probe
+  Write-Host ("probe exit " + $LASTEXITCODE + " (expected 0 = PACKAGE READY)")
+}

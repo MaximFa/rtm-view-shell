@@ -1,0 +1,38 @@
+& {
+  function Tick($t) { Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $t) -ForegroundColor Cyan }
+  if ($env:COMPUTERNAME -ne 'RTM') { Write-Host 'STOP: not server 234' -ForegroundColor Red; return }
+  $src = '\\tsclient\D\Claude\Projects\RTM View Shell'; $ops = 'C:\RTMView-Ops'; $inc = Join-Path $ops 'incoming'
+  New-Item -ItemType Directory -Force -Path (Join-Path $ops 'probes'), $inc | Out-Null
+  $prev = @(Get-ChildItem "$ops\output" -Recurse -File -Filter '*install-182129c*.txt' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+  $led = @(Get-Content -LiteralPath "$ops\applied\_ledger.txt" -Encoding UTF8 -ErrorAction SilentlyContinue | Where-Object { $_ -match '\| MANIFEST \| commit=182129c ' })
+  Tick ("already run? reports on 234: {0} ; ledger MANIFEST lines for 182129c: {1} (expected 0 / 0)" -f $prev.Count, $led.Count)
+  foreach ($r in $prev) { $dst = Join-Path "$src\.measurements" $r.Name; if (-not (Test-Path -LiteralPath $dst)) { Copy-Item -LiteralPath $r.FullName -Destination $dst -Force; Tick ("  earlier report copied to the workstation: {0} (written {1:s})" -f $r.Name, $r.LastWriteTime) } else { Tick ("  earlier report already on the workstation: {0}" -f $r.Name) } }
+  if ($prev.Count -gt 0 -or $led.Count -gt 0) { Write-Host 'STOP: this probe has run here before - read its report first, nothing installed now' -ForegroundColor Red; return }
+  $files = @(
+    @{ From = "$src\.probes\_core.ps1"; To = "$ops\probes\_core.ps1"; Sha = '005188F8E2AA7BA0C81550F44AB1888825E4449ADF9B379FEF8150942A34D661' },
+    @{ From = "$src\.probes\probe_234_20261107_install-182129c.ps1"; To = "$ops\probes\probe_234_20261107_install-182129c.ps1"; Sha = '21EDF1D9D480C9DEF6E068800CD5A5C61B2C6F3BF0D9EE97EF84852CE1887003' },
+    @{ From = "$src\Installations\07112026.0040.zip"; To = "$inc\07112026.0040.zip"; Sha = '2DB777F2CF488FE1DEE16B7BBF0B37C04C3B49E07776767B84414DE9365E02B2' },
+    @{ From = "$src\Installations\06112026.1925.zip"; To = "$inc\06112026.1925.zip"; Sha = 'D7913AD0CBD4C39C8C5AE0701923BBEACEB99B79157B467696C9C284B4140A2B' }
+  )
+  foreach ($f in $files) {
+    $name = Split-Path -Leaf $f.To
+    if (-not (Test-Path -LiteralPath $f.To) -or ((Get-FileHash -LiteralPath $f.To -Algorithm SHA256).Hash -ne $f.Sha)) {
+      Tick ("copying {0} ({1} MB) over RDP - silent for a minute or two" -f $name, [math]::Round((Get-Item -LiteralPath $f.From).Length / 1MB, 1))
+      Copy-Item -LiteralPath $f.From -Destination $f.To -Force
+    } else { Tick ("{0} already here" -f $name) }
+    Unblock-File -LiteralPath $f.To
+    $h = (Get-FileHash -LiteralPath $f.To -Algorithm SHA256).Hash
+    Tick ("{0}  expected {1}...  measured {2}" -f $name, $f.Sha.Substring(0,8), $h)
+    if ($h -ne $f.Sha) { Write-Host 'STOP: sha differs' -ForegroundColor Red; return }
+  }
+  $probe = "$ops\probes\probe_234_20261107_install-182129c.ps1"
+  $tk = $null; $pe = $null; $null = [System.Management.Automation.Language.Parser]::ParseFile($probe, [ref]$tk, [ref]$pe)
+  if ($pe) { Write-Host 'STOP: probe does not parse' -ForegroundColor Red; $pe; return }
+  Tick 'probe parses'
+  Tick 'SILENT STRETCHES: reading the inbox over RDP; after the password the updater works several minutes; the adapter is polled up to 7 min; then a 120 s wait before the DB check'
+  $runStart = Get-Date
+  & powershell.exe -ExecutionPolicy Bypass -NoProfile -File $probe
+  Tick 'probe finished'
+  $report = Get-ChildItem "$ops\output" -Recurse -File -Filter '*install-182129c*.txt' -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $runStart } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if ($report) { $dst = Join-Path "$src\.measurements" $report.Name; Copy-Item -LiteralPath $report.FullName -Destination $dst -Force; Write-Host ("report {0}  sha equal: {1}" -f $report.Name, ((Get-FileHash $report.FullName).Hash -eq (Get-FileHash $dst).Hash)) } else { Write-Host 'report not found by mask' -ForegroundColor Yellow }
+}

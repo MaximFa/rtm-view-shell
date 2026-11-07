@@ -1,0 +1,15 @@
+& {
+  Set-Location 'D:\Claude\Projects\RTM View Shell'
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234 - run it on the workstation' -ForegroundColor Red; return }
+  $head = (git rev-parse --short HEAD).Trim(); Write-Host "HEAD expected 2a79918 measured $head"
+  if ($head -ne '2a79918') { Write-Host 'STOP: HEAD moved - do not commit' -ForegroundColor Red; return }
+  $paths = @('.probes/box_234_20261106_namebackfill-dry.txt','.probes/box_234_20261106_namebackfill-REAL.txt','.probes/box_234_20261106_namebackfill-rollback-dry.txt','.probes/box_234_20261106_namebackfill-rollback-REAL.txt','.probes/box_WS_20261106_shell-defaultdate-run.txt','.probes/box_WS_20261106_backend-filters-run.txt','.probes/box_WS_20261106_controls-backend-filters.txt','.probes/box_WS_20261106_flake-export-frequency.txt','.probes/box_WS_20261106_flake-export-solution.txt','.probes/box_WS_20261106_joint-filters-run.txt','.probes/box_WS_20261106_commit-deploy-readings.txt')
+  $want = @('7a38f08ba909','ddd1c73eba5e','859f5644f4c7','cf4efb82d4da','51df8783c74a','492cc58cfc37','6c73d3b2656b','c2da06afcde9','7b41c944ca5c','16e05a0f4ae0','71f290b43a6c')
+  git add -- $paths
+  git commit -q -m "devops-1106: the evening boxes - names backfill on 234 (dry, real, rollback dry and real), filter runs and controls, xlsx flake frequency" -m "Names backfill on 234: dry run ALL CHECKS PASSED 29762 ROLLED BACK; real run 22:55 COMMITTED 29762, unnamed 29762 -> 0, snapshot 9AAA8F23 29763 lines kept in C:\RTMView-Ops\output\namebackfill_REAL_20261106_225341; rollback dry run K0 29762/29762 ALL CHECKS PASSED ROLLED BACK; real rollback box kept, gated by a coordinator letter. Runs: shell default date GREEN (688/78), backend filters GREEN (697) with a base export flake (Key: rels, 1 of 70 runs since), controls F3/F4 exact, F1/F2 wider; xlsx flake 0/40 class, 0/20 Unit, 0/10 solution; joint 15-path run red on three old guards (shell). No product paths." -- $paths
+  Write-Host 'EXPECT: 11 x ok, status empty, 11 files changed'
+  for ($index = 0; $index -lt $paths.Count; $index++) { $tree = ((git ls-tree HEAD -- $paths[$index]) -split '\s+')[2]; $disk = (git hash-object -- $paths[$index]).Trim()
+    Write-Host ("{0}  expected {1}  tree {2}  disk {3}  {4}" -f $paths[$index], $want[$index], $tree.Substring(0,12), $disk.Substring(0,12), $(if (($tree -eq $disk) -and $tree.StartsWith($want[$index])) {'ok'} else {'RED'})) }
+  Write-Host ("status of these paths: [" + ((git status --porcelain -- $paths) -join ' ') + "]")
+  git show --stat --format="%h parent %p %s" HEAD
+}

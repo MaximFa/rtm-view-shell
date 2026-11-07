@@ -1,0 +1,80 @@
+& {
+  function Tick($text) { Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $text) -ForegroundColor Cyan }
+  if ($env:COMPUTERNAME -eq 'RTM') { Write-Host 'STOP: this is server 234' -ForegroundColor Red; return }
+  $repo = 'D:\Claude\Projects\RTM-design'; $shellRoot = 'D:\Claude\Projects\RTM View Shell'; $staged = Join-Path $shellRoot '.coord\staging\joint-filters-1106'
+  $out = Join-Path $shellRoot '.coord\measure\controls-joint-1106'; New-Item -ItemType Directory -Force -Path $out | Out-Null
+  Start-Transcript -LiteralPath (Join-Path $out ('controls_{0}.txt' -f (Get-Date -Format 'yyyyMMdd_HHmmss'))) | Out-Null
+  $oldClones = @(Get-ChildItem -LiteralPath 'D:\RTMView-Ops\clones' -Directory -ErrorAction SilentlyContinue); foreach ($oldClone in $oldClones) { Remove-Item -LiteralPath $oldClone.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+  Write-Host ("old clones before " + $oldClones.Count + " ; left " + @(Get-ChildItem -LiteralPath 'D:\RTMView-Ops\clones' -Directory -ErrorAction SilentlyContinue).Count + " (expected 0)")
+  $clone = Join-Path 'D:\RTMView-Ops\clones' ('ctl_joint_' + (Get-Date -Format 'HHmmss'))
+  try {
+    Tick 'Controls of the joint 17-path batch (green run = the run2 box just before this one, guard c71abed40ec4) on v4 b7ac9dd, one clone: shell C1-C6 (20:51:14Z), G1-G3 (21:35:29Z); backend F1-F4 (19:24:30Z, expectations of F1-F3 = the sets MEASURED at 21:41, not named anew by backend; F4 test renamed in the new export); T1 the xlsx trap (20:54:53Z). Each control: one edit, its classes only, exact red set, file restored byte-exact with a fresh time.'
+    $files = @(Get-ChildItem -LiteralPath $staged -File); Tick "staged copies $($files.Count) (expected 17)"; if ($files.Count -ne 17) { Write-Host 'STOP' -ForegroundColor Red; return }
+    $same = 0; foreach ($file in $files) { $rel = $file.Name -replace '__', '/'; if ((git -C $repo hash-object --path=$rel -- $rel).Trim() -eq (git -C $repo hash-object --path=$rel $file.FullName).Trim()) { $same++ } else { Tick "  DIFFERS disk vs staged: $rel" } }
+    Tick "disk == staged (the green-run batch): $same of 17"; if ($same -ne 17) { Write-Host 'STOP: batch changed since the green run' -ForegroundColor Red; return }
+    git clone -q --branch v4 $repo $clone; Tick "clone $clone at $((git -C $clone rev-parse --short HEAD).Trim()) (expected b7ac9dd)"
+    foreach ($file in $files) { $rel = $file.Name -replace '__', '/'; $dest = Join-Path $clone $rel; New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null; Copy-Item -LiteralPath $file.FullName -Destination $dest -Force }
+    $unit = 'tests\CcDashboard.Tests.Unit\CcDashboard.Tests.Unit.csproj'; $arch = 'tests\CcDashboard.Tests.Architecture\CcDashboard.Tests.Architecture.csproj'
+    $sets = [ordered]@{
+      'U_date' = @{ Proj = $unit; Filter = 'FullyQualifiedName~Common.ReportDateFieldsTests'; Total = 7 }
+      'A_date' = @{ Proj = $arch; Filter = 'FullyQualifiedName~ReportScreenDatesGuardTests'; Total = 6 }
+      'A_flt'  = @{ Proj = $arch; Filter = 'FullyQualifiedName~ReportFilterReachesTheExportGuardTests'; Total = 6 }
+      'A_eos'  = @{ Proj = $arch; Filter = 'FullyQualifiedName~EndOfShiftWidgetsSendShiftHoursGuardTests'; Total = 3 }
+      'A_ap'   = @{ Proj = $arch; Filter = 'FullyQualifiedName~AgentPerformanceModeGuardTests'; Total = 4 }
+      'U_flt'  = @{ Proj = $unit; Filter = 'FullyQualifiedName~HistoricalReports.ReportFilterTests'; Total = 13 }
+      'U_trap' = @{ Proj = $unit; Filter = 'FullyQualifiedName~XlsxDiagnosticsTests'; Total = 1 } }
+    $page = 'src/CcDashboard.Web/Components/Reports/ReportViewPage.razor'; $queues = 'src/CcDashboard.Web/Components/ReportWidgets/EndOfShiftQueuesReportWidget.razor'; $agents = 'src/CcDashboard.Web/Components/ReportWidgets/EndOfShiftAgentsReportWidget.razor'; $perf = 'src/CcDashboard.Web/Components/ReportWidgets/AgentPerformanceReportWidget.razor'
+    $handler = 'src/CcDashboard.Application/Handlers/RunReportWidgetQueryHandler.cs'; $export = 'src/CcDashboard.Application/Reports/Export/ExportReportCommand.cs'
+    $controls = @(
+      @{ Name = 'C1 one field opens a week back'; Rel = 'src/CcDashboard.Contracts/Common/ReportDateFields.cs'; Sets = @('U_date','A_date'); Pat = [regex]::Escape('? (today, today)'); New = '? (today.AddDays(-DefaultDaysBack), today)'; Expect = @('AOneFieldScreen_opensOnToday','TheDefaultDates_areChosenByTheRule_notByTheFieldCountBeingUnknown') },
+      @{ Name = 'C2 page picks dates without the rule'; Rel = $page; Sets = @('A_date'); Pat = [regex]::Escape('(_from, _to) = ReportDateFields.DefaultRange(_siteToday, _singleDate);'); New = '_from = _siteToday.Date.AddDays(-7); _to = _siteToday.Date;'; Expect = @('TheDefaultDates_areChosenByTheRule_notByTheFieldCountBeingUnknown') },
+      @{ Name = 'C3 queues widget does not tell the page'; Rel = $queues; Sets = @('A_flt'); Pat = 'await FilterChanged\.InvokeAsync\(new ReportWidgetFilter\(\s*WidgetId, QueueFilter: NullIfEmpty\(_appliedQueueFilter\)\)\);'; New = '/* control C3 */'; Expect = @('AWidgetThatFilters_tellsThePage(widgetFile: "EndOfShiftQueuesReportWidget.razor")') },
+      @{ Name = 'C4 export without Filters'; Rel = $page; Sets = @('A_flt'); Pat = ',\s*Filters: _widgetFilters\.ToDictionary\(\s*e => e\.Key,\s*e => new WidgetViewFilter\(e\.Value\.AgentFilter, e\.Value\.AgentNameFilter, e\.Value\.QueueFilter\)\)'; New = ''; Expect = @('TheExport_carriesTheFilters') },
+      @{ Name = 'C5 one widget without WidgetId'; Rel = 'src/CcDashboard.Web/Components/ReportWidgets/RenderReportWidget.razor'; Sets = @('A_flt'); Pat = '(<AgentPerformanceReportWidget [^\r\n]*?) WidgetId="WidgetId"'; New = '$1'; Expect = @('TheWidgetIdReachesTheWidget') },
+      @{ Name = 'C6 page keeps empty filters'; Rel = $page; Sets = @('A_flt'); Pat = [regex]::Escape('_widgetFilters.Remove(filter.WidgetId);'); New = '_widgetFilters[filter.WidgetId] = filter;'; Expect = @('ThePage_keepsOneFilterPerWidget_andForgetsTheEmptyOnes') },
+      @{ Name = 'G1 queues widget sends no shift hours'; Rel = $queues; Sets = @('A_eos'); Pat = 'false,\s*startHour,\s*endHour\)'; New = 'false)'; Expect = @('EveryEndOfShiftWidget_sendsBothShiftHours_andTheCheckCanStillGoRed') },
+      @{ Name = 'G2 agents widget asks for From..To'; Rel = $agents; Sets = @('A_eos'); Pat = 'shiftDate,(\s*)shiftDate,'; New = 'From,$1To,'; Expect = @('EveryEndOfShiftWidget_asksForOneDate_andTheCheckCanStillGoRed') },
+      @{ Name = 'G3 period widget sends a shift hour in the initializer'; Rel = $perf; Sets = @('A_ap'); Pat = [regex]::Escape('AgentFilter = NullIfEmpty(_appliedAgentFilter),'); New = 'ShiftStartHour = 9, AgentFilter = NullIfEmpty(_appliedAgentFilter),'; Expect = @('TheWidget_refusesWithoutAMode_andSendsNoShiftHours') },
+      @{ Name = 'F1 agent filter on the page, not on the set'; Rel = $handler; Sets = @('U_flt'); Pat = '(?s)\r?\n[ \t]*\.Where\(r => Matches\(r\.AgentExternalId, query\.AgentFilter\) && Matches\(r\.AgentDisplayName, query\.AgentNameFilter\)\)(.*?var \(pageRows, pageSize\) = PageOf\(rows, config\.PageSize, page, allRows\);)'; New = '$1 pageRows = pageRows.Where(r => Matches(r.AgentExternalId, query.AgentFilter) && Matches(r.AgentDisplayName, query.AgentNameFilter)).ToList(); /* control F1 */'; Expect = @('MatchOnALaterPage_IsFound_AndTotalCountCountsMatches','BothFilters_MustBothMatch','ByLogin_Substring_IgnoringCase','NameFilter_AgentWithoutName_DoesNotMatch','PercentAndUnderscore_AreLetters', 'Export_EachWidgetGetsItsOwnFilters_OnlyThoseItsTypeTakes', 'Export_TwoAgentWidgets_DifferentFilters_EachSheetHasItsOwnRows') },
+      @{ Name = 'F2 Ordinal instead of OrdinalIgnoreCase'; Rel = $handler; Sets = @('U_flt'); Pat = [regex]::Escape('value.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase)'); New = 'value.Contains(filter.Trim(), StringComparison.Ordinal)'; Expect = @('ByName_Substring_IgnoringCase','ByLogin_Substring_IgnoringCase','BothFilters_MustBothMatch','MatchOnALaterPage_IsFound_AndTotalCountCountsMatches','QueueFilter_Substring_InsideTheScope', 'Export_EachWidgetGetsItsOwnFilters_OnlyThoseItsTypeTakes', 'Export_TwoAgentWidgets_DifferentFilters_EachSheetHasItsOwnRows') },
+      @{ Name = 'F3 length check switched off'; Rel = $handler; Sets = @('U_flt'); Pat = [regex]::Escape('if (value is { Length: > FilterMaxLength })'); New = 'if (value is { Length: > FilterMaxLength } && false)'; Expect = @('FilterLength_Limit100') },
+      @{ Name = 'F4 export gives the queue filter to every widget'; Rel = $export; Sets = @('U_flt'); Pat = [regex]::Escape('QueueFilter: widget.WidgetType is ReportWidgetType.EndOfShiftQueues ? filter?.QueueFilter : null'); New = 'QueueFilter: filter?.QueueFilter'; Expect = @('Export_EachWidgetGetsItsOwnFilters_OnlyThoseItsTypeTakes') },
+      @{ Name = 'T1 the trap without its try/catch'; Rel = 'tests/CcDashboard.Tests.Unit/HistoricalReports/ExportEndOfShiftTests.cs'; Sets = @('U_trap'); Pat = 'try\s*\{\s*return new XLWorkbook\(new MemoryStream\(xlsx\)\);'; New = 'return new XLWorkbook(new MemoryStream(xlsx)); try { if (xlsx.Length < 0) return null!;'; Expect = @('DuplicateRelsDefault_IsReported_WithTheContentTypes_AndTheBytesKept') }
+    )
+    function Run-Set($setName, [string]$label) {
+      $set = $sets[$setName]; $proj = Join-Path $clone $set.Proj
+      $buildText = dotnet build $proj -c Release 2>&1 | Out-String
+      if ($LASTEXITCODE -ne 0) { Tick "  [$label/$setName] BUILD FAILED"; ($buildText -split "`r?`n") | Where-Object { $_ -match ' error ' } | Select-Object -First 4 | ForEach-Object { Tick "    $($_.Trim())" }; return $null }
+      $testText = dotnet test $proj -c Release --no-build --filter $set.Filter --logger 'console;verbosity=normal' 2>&1 | Out-String
+      $total = [regex]::Match($testText, 'Total tests:\s*(\d+)')
+      $red = @(($testText -split "`r?`n") | Where-Object { $_ -match '^\s+Failed\s+\S' } | ForEach-Object { $name = ($_.Trim() -replace '^Failed\s+', '') -replace '\s+\[[^\]]*\]\s*$', ''; $bare = ($name -split '\(')[0]; $method = $bare.Split('.')[-1]; $method + $name.Substring($bare.Length) } | Sort-Object -Unique)
+      Tick ("  [{0}/{1}] total {2} (class {3}) ; red {4}" -f $label, $setName, $total.Groups[1].Value, $set.Total, $red.Count); foreach ($r in $red) { Tick "      red: $r" }
+      return [pscustomobject]@{ Total = [int]$(if ($total.Success) { $total.Groups[1].Value } else { -1 }); Red = $red } }
+    Tick 'PRISTINE - every set must be green at its class total'; $pristineOk = $true
+    foreach ($setName in $sets.Keys) { $result = Run-Set $setName 'pristine'; if (($null -eq $result) -or ($result.Total -ne $sets[$setName].Total) -or $result.Red.Count) { $pristineOk = $false } }
+    Tick "pristine ok: $pristineOk"; if (-not $pristineOk) { Write-Host 'STOP: the pristine batch is not green - controls would prove nothing' -ForegroundColor Red; return }
+    $verdicts = @()
+    foreach ($control in $controls) {
+      $target = Join-Path $clone ($control.Rel -replace '/', '\'); $stagedCopy = Join-Path $staged ($control.Rel -replace '/', '__')
+      $orig = [IO.File]::ReadAllText($target); $hits = [regex]::Matches($orig, $control.Pat).Count; Tick "$($control.Name): pattern hits $hits (expected 1)"
+      if ($hits -ne 1) { $verdicts += "$($control.Name) : NOT APPLIED"; continue }
+      [IO.File]::WriteAllText($target, [regex]::Replace($orig, $control.Pat, $control.New), (New-Object System.Text.UTF8Encoding($false)))
+      Tick ("  EXPECTED red exactly: " + ($control.Expect -join ', '))
+      $allRed = @(); $buildFailed = $false
+      foreach ($setName in $control.Sets) { $result = Run-Set $setName $control.Name.Substring(0,2); if ($null -eq $result) { $buildFailed = $true } else { $allRed += $result.Red } }
+      Copy-Item -LiteralPath $stagedCopy -Destination $target -Force; (Get-Item -LiteralPath $target).LastWriteTime = Get-Date
+      Tick ("  restored byte-exact: " + ((Get-FileHash -LiteralPath $target).Hash -eq (Get-FileHash -LiteralPath $stagedCopy).Hash))
+      if ($buildFailed) { $verdicts += "$($control.Name) : BUILD FAILED (not a test red)"; continue }
+      $covers = { param($expected, $redName) ($redName -eq $expected) -or ($redName.StartsWith($expected + '(')) }
+      $missing = @($control.Expect | Where-Object { $expected = $_; -not @($allRed | Where-Object { & $covers $expected $_ }).Count })
+      $extra = @($allRed | Where-Object { $redName = $_; -not @($control.Expect | Where-Object { & $covers $_ $redName }).Count } | Sort-Object -Unique)
+      $verdict = $(if (($missing.Count -eq 0) -and ($extra.Count -eq 0)) { 'EXACT' } elseif ($missing.Count -eq 0) { 'EXPECTED + EXTRA: ' + ($extra -join ', ') } else { 'MISSING: ' + ($missing -join ', ') + $(if ($extra.Count) { ' ; EXTRA: ' + ($extra -join ', ') } else { '' }) })
+      Tick "  VERDICT: $verdict"; $verdicts += "$($control.Name) : $verdict" }
+    Tick 'RESTORED - every set green again'; $restoredOk = $true
+    foreach ($setName in $sets.Keys) { $result = Run-Set $setName 'restored'; if (($null -eq $result) -or ($result.Total -ne $sets[$setName].Total) -or $result.Red.Count) { $restoredOk = $false } }
+    Tick "restored ok: $restoredOk"
+    Tick 'SUMMARY (expected: 14 x EXACT and restored ok True)'; foreach ($line in $verdicts) { Tick "  $line" }
+  } finally {
+    if (Test-Path -LiteralPath $clone) { Remove-Item -LiteralPath $clone -Recurse -Force -ErrorAction SilentlyContinue; Tick "clone removed: $(-not (Test-Path -LiteralPath $clone))" }
+    Stop-Transcript | Out-Null }
+}
