@@ -1,28 +1,33 @@
-using CcDashboard.Application.Reports.Export;
+using System.Text.RegularExpressions;
 using FluentAssertions;
 
 namespace CcDashboard.Tests.Architecture;
 
 /// <summary>
-/// FEAT-REPORT-EOS-CONFIGURABLE-01 (coordinator 11:22:59Z): the xlsx writes the cut-edge mark of a month / year row with the
-/// en-US sentences of the screen (Report_IntervalFrom / _To / _FromTo). The file cannot read the Web resources, so it holds
-/// the three sentences as constants; this guard MEASURES them against en-US.resx, so the two cannot drift apart.
+/// FEAT-REPORT-INTERVAL-LABEL-NO-EDGE-MARK-01 (operator 2026-11-07 18:51, «в дате убрать то, что в скобках»): the xlsx writes
+/// the start of an interval exactly as the screen does - ReportIntervalLabel.Cell(start, step), the one rule - and carries
+/// no edge-mark sentence of its own. Before this the file held the three en-US mark sentences as constants; a copy left
+/// behind would bring the brackets back into the file while the screen has none.
 /// </summary>
 public class ExportIntervalMarkTextGuardTests
 {
-    [Theory]
-    [InlineData("Report_IntervalFrom", ExportReportCommandHandler.IntervalFromText)]
-    [InlineData("Report_IntervalTo", ExportReportCommandHandler.IntervalToText)]
-    [InlineData("Report_IntervalFromTo", ExportReportCommandHandler.IntervalFromToText)]
-    public void TheFilesMark_isTheScreensEnglishSentence(string key, string fileText)
-        => EnUs().Should().Contain($"<data name=\"{key}\"><value>{fileText}</value></data>");
+    private static readonly Regex MarkLiteral = new("\"\\((from|to) ", RegexOptions.Compiled);
+    private static readonly Regex OneRuleCall = new(@"ReportIntervalLabel\.Cell\(start, step\)", RegexOptions.Compiled);
 
     [Fact]
-    public void NEGATIVE_aSentenceTheScreenDoesNotHave_isNotFound()
-        => EnUs().Should().NotContain("<data name=\"Report_IntervalFrom\"><value>(since {0})</value></data>");
+    public void TheFile_writesTheIntervalByTheOneRule_andHasNoMarkSentenceOfItsOwn()
+    {
+        var src = Export();
+        OneRuleCall.IsMatch(src).Should().BeTrue("the file must write the interval start by the screen's rule");
+        MarkLiteral.IsMatch(src).Should().BeFalse("no \"(from …\" / \"(to …\" sentence may live in the export");
+    }
 
-    private static string EnUs()
-        => File.ReadAllText(Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "Resources", "SharedResources.en-US.resx"));
+    [Fact]
+    public void NEGATIVE_theOldConstant_wouldBeCaught()
+        => MarkLiteral.IsMatch("    public const string IntervalFromText = \"(from {0})\";").Should().BeTrue();
+
+    private static string Export()
+        => File.ReadAllText(Path.Combine(RepoRoot(), "src", "CcDashboard.Application", "Reports", "Export", "ExportReportCommand.cs"));
 
     private static string RepoRoot()
     {

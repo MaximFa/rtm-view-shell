@@ -1237,9 +1237,6 @@
   <data name="Report_StepDay"><value>День</value></data>
   <data name="Report_StepMonth"><value>Месяц</value></data>
   <data name="Report_StepYear"><value>Год</value></data>
-  <data name="Report_IntervalFrom"><value>(с {0})</value></data>
-  <data name="Report_IntervalTo"><value>(по {0})</value></data>
-  <data name="Report_IntervalFromTo"><value>(с {0} по {1})</value></data>
   <data name="Report_ErrorNoData"><value>Нет данных за выбранный период.</value></data>
   <data name="Report_ErrorInvalidConfig"><value>Настройки этого отчёта нельзя использовать. Откройте настройки и проверьте их.</value></data>
   <data name="Report_ErrorShiftHours"><value>Часы смены не заданы или не подходят к выбранной дате.</value></data>

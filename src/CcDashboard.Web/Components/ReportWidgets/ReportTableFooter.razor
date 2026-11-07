@@ -1,0 +1,41 @@
+@* The footer of every table report: rows per page, "showing N of M", paging.
+
+   PR234-V4-REPORT-TABLE-FOOTER-TALL-01 (operator 2026-11-07 19:02-19:03): "the footer is very high, at least half,
+   to the necessary minimum, paddings too". Measured on 234 (f7006b5): 70px in every widget - the rows caption
+   wrapped UNDER the block-level number box (32 + 17), plus 8px padding top and bottom. One line now: the caption
+   stands beside the box, the box and the paging buttons are 22px, the padding 2px (rules in app.css).
+   Seven widgets had a copy of this markup each; they all draw this one now, so the next change is made once. *@
+
+<div class="report-widget-footer">
+    <span class="report-widget-footer-pagesize">
+        <input type="number" class="form-control form-control-sm"
+               min="1" max="1000" step="1" value="@PageSize" @onchange="OnPageSize" />
+        <span class="text-muted">@L["Report_Rows"]</span>
+    </span>
+    <span class="report-widget-footer-info">
+        @L["Report_Showing"] @Shown @L["Report_Of"] @Total
+    </span>
+    @if (Pages > 1)
+    {
+        <span class="report-widget-footer-pager">
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(Page <= 1)" @onclick="OnPrev">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <span>@Page / @Pages</span>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(Page >= Pages)" @onclick="OnNext">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int PageSize { get; set; }
+    [Parameter, EditorRequired] public EventCallback<ChangeEventArgs> OnPageSize { get; set; }
+    [Parameter, EditorRequired] public int Shown { get; set; }
+    [Parameter, EditorRequired] public int Total { get; set; }
+    [Parameter, EditorRequired] public int Page { get; set; }
+    [Parameter, EditorRequired] public int Pages { get; set; }
+    [Parameter, EditorRequired] public EventCallback OnPrev { get; set; }
+    [Parameter, EditorRequired] public EventCallback OnNext { get; set; }
+}

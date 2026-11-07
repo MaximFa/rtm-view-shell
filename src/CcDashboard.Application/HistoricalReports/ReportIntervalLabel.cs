@@ -17,10 +17,9 @@ namespace CcDashboard.Application.HistoricalReports;
 /// 11:24:50Z): a file whose interval reads differently from the screen it was exported from is the
 /// file and the screen disagreeing, which this whole line of work exists to stop.
 ///
-/// The cut edge is NOT computed here. Whether the first or last interval is cut is the server's
-/// answer (PartialFirst / PartialLast); the dates printed in the mark are the period that went into
-/// that same query. This class only tells which row IS the first or last interval - the one whose
-/// start is the start of the step that contains the period's first or last date.
+/// No mark of a cut edge (FEAT-REPORT-INTERVAL-LABEL-NO-EDGE-MARK-01, operator 2026-11-07 18:51: "in the date
+/// remove what is in brackets"): the cell is the start written for its step and nothing else, on the screen and in
+/// the file. The server still sends PartialFirst / PartialLast; nothing here reads them.
 /// </summary>
 public static class ReportIntervalLabel
 {
@@ -33,51 +32,6 @@ public static class ReportIntervalLabel
         _ => start.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture)
     };
 
-    /// <summary>
-    /// The start of the interval of <paramref name="step"/> that contains the local date
-    /// <paramref name="date"/> - used only to recognise the first / last row, never to decide a cut.
-    /// </summary>
-    public static DateTime IntervalOf(DateTime date, ReportStep step) => step switch
-    {
-        ReportStep.Year => new DateTime(date.Year, 1, 1),
-        ReportStep.Month => new DateTime(date.Year, date.Month, 1),
-        _ => date.Date
-    };
-
-    /// <summary>
-    /// The mark after a cut interval, e.g. "(from 05.11)" / "(to 20.11)", or null when the row is
-    /// whole. <paramref name="from"/> and <paramref name="to"/> are the period of the query that
-    /// produced the answer (both inclusive local dates); the three formats are the translated
-    /// sentences with {0} = from and {1} = to.
-    /// </summary>
-    public static string? EdgeMark(
-        DateTime rowStart, ReportStep step, bool partialFirst, bool partialLast,
-        DateTime from, DateTime to,
-        string fromFormat, string toFormat, string fromToFormat)
-    {
-        // Only a month or a year can be wider than the period; for the other steps the server sends
-        // false, and a stray true must not invent a mark on a day row.
-        if (step is not (ReportStep.Month or ReportStep.Year)) return null;
-
-        var isFirst = partialFirst && rowStart == IntervalOf(from, step);
-        var isLast = partialLast && rowStart == IntervalOf(to, step);
-        var f = from.ToString("dd.MM", CultureInfo.InvariantCulture);
-        var t = to.ToString("dd.MM", CultureInfo.InvariantCulture);
-
-        if (isFirst && isLast) return string.Format(CultureInfo.CurrentCulture, fromToFormat, f, t);
-        if (isFirst) return string.Format(CultureInfo.CurrentCulture, fromFormat, f);
-        if (isLast) return string.Format(CultureInfo.CurrentCulture, toFormat, t);
-        return null;
-    }
-
-    /// <summary>The whole cell: the start, and the mark when the interval is cut.</summary>
-    public static string Cell(
-        DateTime rowStart, ReportStep step, bool partialFirst, bool partialLast,
-        DateTime from, DateTime to,
-        string fromFormat, string toFormat, string fromToFormat)
-    {
-        var start = Start(rowStart, step);
-        var mark = EdgeMark(rowStart, step, partialFirst, partialLast, from, to, fromFormat, toFormat, fromToFormat);
-        return mark is null ? start : start + " " + mark;
-    }
+    /// <summary>The whole cell of the interval column: the start for its step, without any mark.</summary>
+    public static string Cell(DateTime rowStart, ReportStep step) => Start(rowStart, step);
 }

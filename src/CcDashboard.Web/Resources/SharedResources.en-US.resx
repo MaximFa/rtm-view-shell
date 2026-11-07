@@ -1241,9 +1241,6 @@
   <data name="Report_StepDay"><value>Day</value></data>
   <data name="Report_StepMonth"><value>Month</value></data>
   <data name="Report_StepYear"><value>Year</value></data>
-  <data name="Report_IntervalFrom"><value>(from {0})</value></data>
-  <data name="Report_IntervalTo"><value>(to {0})</value></data>
-  <data name="Report_IntervalFromTo"><value>(from {0} to {1})</value></data>
   <data name="Report_FilterNoMatch"><value>No rows match the filter.</value></data>
   <data name="Report_CanvasNoOverlap"><value>Widgets cannot overlap — the widget went back to its place.</value></data>
 </root>

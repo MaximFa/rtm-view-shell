@@ -38,7 +38,7 @@ public class ReportModalAndViewerLayoutGuardTests
 
         // NEGATIVE HALF: a host placed inside the layer is caught.
         const string inside = """
-            <div class="fullscreen-design-layer report-canvas">
+            <div class="fullscreen-design-layer report-widget-layer">
                 <div class="dashboard-widget"></div>
                 <ReportModalHost />
             </div>

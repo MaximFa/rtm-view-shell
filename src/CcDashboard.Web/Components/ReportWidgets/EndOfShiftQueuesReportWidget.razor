@@ -140,28 +140,9 @@ else
         </HeaderExtra>
     </ReportRowTable>
 
-    <div class="report-widget-footer">
-        <span class="report-widget-footer-pagesize">
-            <input type="number" class="form-control form-control-sm" style="width:70px"
-                   min="1" max="1000" step="1" value="@_pageSize" @onchange="OnPageSizeChanged" />
-            <span class="small text-muted ms-1">@L["Report_Rows"]</span>
-        </span>
-        <span class="report-widget-footer-info">
-            @L["Report_Showing"] @_result.Rows.Count @L["Report_Of"] @_result.TotalCount
-        </span>
-        @if (TotalPages > 1)
-        {
-            <span class="report-widget-footer-pager">
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">
-                    <i class="bi bi-chevron-left"></i>
-                </button>
-                <span class="mx-2">@_page / @TotalPages</span>
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">
-                    <i class="bi bi-chevron-right"></i>
-                </button>
-            </span>
-        }
-    </div>
+    <ReportTableFooter PageSize="_pageSize" OnPageSize="OnPageSizeChanged"
+                       Shown="_result.Rows.Count" Total="_result.TotalCount"
+                       Page="_page" Pages="TotalPages" OnPrev="PrevPage" OnNext="NextPage" />
 }
 
 @code {
@@ -478,22 +459,14 @@ else
 
     // ---- The interval column, written from the ANSWER ---------------------------------------------
 
-    // What the rows on screen were built with: the step the server used and the cut flags, with the
-    // period of the SAME query. The page's From/To may already be newer than the answer in hand,
-    // and a mark computed from them would describe a query that has not come back yet.
+    // What the rows on screen were built with: the step the server USED. The page's step may already be
+    // newer than the answer in hand, and the label must describe the numbers next to it.
     private ReportStep _answerStep = ReportStep.Day;
-    private bool _answerPartialFirst;
-    private bool _answerPartialLast;
-    private DateTime _answerFrom;
-    private DateTime _answerTo;
 
     private string? IntervalCellText(object row, string column)
     {
         if (column != nameof(QueueSummaryRow.IntervalStart) || row is not QueueSummaryRow r) return null;
-        return ReportIntervalLabel.Cell(
-            r.IntervalStart, _answerStep, _answerPartialFirst, _answerPartialLast,
-            _answerFrom, _answerTo,
-            L["Report_IntervalFrom"].Value, L["Report_IntervalTo"].Value, L["Report_IntervalFromTo"].Value);
+        return ReportIntervalLabel.Cell(r.IntervalStart, _answerStep);
     }
 
     private bool HasRows => _result is { Rows.Count: > 0 };
@@ -573,10 +546,6 @@ else
                 _result = res.QueueSummary;
                 // The step the server USED, not the one asked for; Day when an older server sends none.
                 _answerStep = res.Step ?? ReportStep.Day;
-                _answerPartialFirst = res.PartialFirst;
-                _answerPartialLast = res.PartialLast;
-                _answerFrom = query.From.Date;
-                _answerTo = query.To.Date;
                 _incomplete = res.Incomplete;
                 _dataThroughUtc = res.DataThroughUtc;
                 // PR234-V4-EOS-CAVEAT-NOT-LOCALIZED-01: the server sends a CODE now; the sentence

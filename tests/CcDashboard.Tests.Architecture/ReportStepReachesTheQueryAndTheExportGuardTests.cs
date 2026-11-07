@@ -146,7 +146,6 @@ public class ReportStepReachesTheQueryAndTheExportGuardTests
 
     // ---- the interval label -------------------------------------------------------------------------
 
-    private const string From = "(from {0})", To = "(to {0})", Both = "(from {0} to {1})";
 
     [Fact]
     public void TheStart_isWrittenByTheStep()
@@ -180,50 +179,59 @@ public class ReportStepReachesTheQueryAndTheExportGuardTests
         }
     }
 
-    [Fact]
-    public void ACutFirstAndLastMonth_areMarked_fromThePeriod_andTheMiddleIsNot()
-    {
-        var from = new DateTime(2026, 9, 5);
-        var to = new DateTime(2026, 11, 20);
+    // FEAT-REPORT-INTERVAL-LABEL-NO-EDGE-MARK-01 (operator 2026-11-07 18:51: "in the date remove what is in brackets").
+    // The five cases below asked "is a cut month / year marked from the period?"; the question is now "is the cell the
+    // start for its step and nothing else, however the period cuts it?" - same five cases, same dates.
 
-        Cell(new DateTime(2026, 9, 1), ReportStep.Month, true, true, from, to).Should().Be("09.2026 (from 05.09)");
-        Cell(new DateTime(2026, 10, 1), ReportStep.Month, true, true, from, to).Should().Be("10.2026");
-        Cell(new DateTime(2026, 11, 1), ReportStep.Month, true, true, from, to).Should().Be("11.2026 (to 20.11)");
+    [Fact]
+    public void ACutFirstAndLastMonth_readAsTheMonthAlone_andTheMiddleToo()
+    {
+        Cell(new DateTime(2026, 9, 1), ReportStep.Month).Should().Be("09.2026");
+        Cell(new DateTime(2026, 10, 1), ReportStep.Month).Should().Be("10.2026");
+        Cell(new DateTime(2026, 11, 1), ReportStep.Month).Should().Be("11.2026");
     }
 
     [Fact]
-    public void APeriodInsideOneMonth_isMarkedAtBothEnds_onTheOneRow()
+    public void APeriodInsideOneMonth_readsAsTheMonthAlone()
     {
-        Cell(new DateTime(2026, 11, 1), ReportStep.Month, true, true, new DateTime(2026, 11, 5), new DateTime(2026, 11, 20))
-            .Should().Be("11.2026 (from 05.11 to 20.11)");
+        Cell(new DateTime(2026, 11, 1), ReportStep.Month).Should().Be("11.2026");
     }
 
     [Fact]
-    public void AYearCutAtTheEnd_isMarkedAtTheEnd_only()
+    public void AYearCutAtTheEnd_readsAsTheYearAlone()
     {
-        // The server's own measured case: year 01.01-07.11 -> PartialFirst false, PartialLast true.
-        Cell(new DateTime(2026, 1, 1), ReportStep.Year, false, true, new DateTime(2026, 1, 1), new DateTime(2026, 11, 7))
-            .Should().Be("2026 (to 07.11)");
+        // The server's own measured case: year 01.01-07.11 -> PartialLast true; the label does not care.
+        Cell(new DateTime(2026, 1, 1), ReportStep.Year).Should().Be("2026");
     }
 
     [Fact]
-    public void NEGATIVE_withoutTheServersFlag_thereIsNoMark_evenWhenThePeriodStartsMidMonth()
+    public void TheCell_isTheStart_forEveryStep()
     {
-        // The mark comes from the ANSWER. A screen that decided "the 5th is not the 1st, so it is
-        // cut" would be a second copy of the server's rule - and two copies drift.
-        Cell(new DateTime(2026, 11, 1), ReportStep.Month, false, false, new DateTime(2026, 11, 5), new DateTime(2026, 11, 20))
-            .Should().Be("11.2026");
+        var at = new DateTime(2026, 11, 5, 9, 30, 0);
+        foreach (var step in Enum.GetValues<ReportStep>())
+            Cell(at, step).Should().Be(ReportIntervalLabel.Start(at, step), $"step {step}");
     }
 
     [Fact]
-    public void NEGATIVE_aDayRow_neverCarriesAMark_evenIfAFlagArrives()
+    public void NEGATIVE_noCodeBuildsAMark_neitherTheRuleNorTheScreen()
     {
-        Cell(new DateTime(2026, 11, 5), ReportStep.Day, true, true, new DateTime(2026, 11, 5), new DateTime(2026, 11, 20))
-            .Should().NotContain("(");
+        var rule = File.ReadAllText(Path.Combine(RepoRoot(), "src", "CcDashboard.Application", "HistoricalReports", "ReportIntervalLabel.cs"));
+        var screen = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), "EndOfShiftQueuesReportWidget.razor"));
+        BuildsAMark(rule).Should().BeFalse("the rule must write the start and nothing after it");
+        BuildsAMark(screen).Should().BeFalse("the screen must not add its own mark to the rule's cell");
+
+        // NEGATIVE HALF: the 3756cce shapes are caught - the method, the bracket glued on, the translated sentence.
+        BuildsAMark("public static string? EdgeMark(DateTime rowStart)").Should().BeTrue();
+        BuildsAMark("return mark is null ? start : start + \" \" + mark;").Should().BeTrue();
+        BuildsAMark("L[\"Report_IntervalFrom\"].Value").Should().BeTrue();
+        BuildsAMark("return Start(rowStart, step);").Should().BeFalse();
     }
 
-    private static string Cell(DateTime row, ReportStep step, bool first, bool last, DateTime from, DateTime to)
-        => ReportIntervalLabel.Cell(row, step, first, last, from, to, From, To, Both);
+    private static bool BuildsAMark(string code)
+        => code.Contains("EdgeMark(") || code.Contains("Report_IntervalFrom") || code.Contains("Report_IntervalTo")
+           || System.Text.RegularExpressions.Regex.IsMatch(code, @"start\s*\+\s*""\s");
+
+    private static string Cell(DateTime row, ReportStep step) => ReportIntervalLabel.Cell(row, step);
 
     private static string ReportWidgetsDirectory()
         => Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "Components", "ReportWidgets");

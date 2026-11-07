@@ -126,21 +126,26 @@ public class ExportEndOfShiftTests
     }
 
     [Fact]
-    public async Task MonthStep_TheFileWritesTheIntervalLikeTheScreen_WithTheCutEdgeMark()
+    public async Task MonthStep_TheFileWritesTheIntervalLikeTheScreen_NoBracketsEvenWhenThePeriodCutsTheMonth()
     {
-        // coordinator 11:22:59Z: file = screen; one label rule (ReportIntervalLabel), the period of the same query
+        // coordinator 11:22:59Z: file = screen, one label rule (ReportIntervalLabel); operator 2026-11-07 18:51: no cut-edge
+        // mark in brackets. The period 02.11-08.11 cuts November - the cell is still just the month.
         Widget(ReportWidgetType.EndOfShiftQueues, """{ "title": "Q", "scope": { "businessUnitIds": [1] }, "defaultStep": "month" }""");
 
         var cut = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
         using (var wb = XlsxDiagnostics.Open(cut.Content))
         {
             wb.Worksheet("Q").Cell(1, 1).GetString().Should().Be("IntervalStart");
-            wb.Worksheet("Q").Cell(2, 1).GetString().Should().Be("11.2026 (from 02.11 to 08.11)");
+            wb.Worksheet("Q").Cell(2, 1).GetString().Should().Be(ReportIntervalLabel.Start(new DateTime(2026, 11, 1), ReportStep.Month))
+                .And.Be("11.2026").And.NotContain("(");
         }
 
-        var whole = await _export.Handle(new ExportReportCommand(_screen.Id, new DateTime(2026, 11, 1), new DateTime(2026, 11, 30)), CancellationToken.None);
-        using (var wb = XlsxDiagnostics.Open(whole.Content))
-            wb.Worksheet("Q").Cell(2, 1).GetString().Should().Be("11.2026", "negative half: a whole month has no mark");
+        // negative half: the cell follows the step the server used - by day the same file writes a date, not "11.2026"
+        _screen.Widgets.Single().ConfigJson = """{ "title": "Q", "scope": { "businessUnitIds": [1] }, "defaultStep": "day" }""";
+        var byDay = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
+        using (var wb = XlsxDiagnostics.Open(byDay.Content))
+            wb.Worksheet("Q").Cell(2, 1).GetString().Should().Be(ReportIntervalLabel.Start(new DateTime(2026, 11, 2), ReportStep.Day))
+                .And.NotBe("11.2026");
     }
 
     [Fact]

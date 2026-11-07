@@ -122,28 +122,9 @@ else
         </HeaderExtra>
     </ReportRowTable>
 
-    <div class="report-widget-footer">
-        <span class="report-widget-footer-pagesize">
-            <input type="number" class="form-control form-control-sm" style="width:70px"
-                   min="1" max="1000" step="1" value="@_pageSize" @onchange="OnPageSizeChanged" />
-            <span class="small text-muted ms-1">@L["Report_Rows"]</span>
-        </span>
-        <span class="report-widget-footer-info">
-            @L["Report_Showing"] @_result.Rows.Count @L["Report_Of"] @_result.TotalCount
-        </span>
-        @if (TotalPages > 1)
-        {
-            <span class="report-widget-footer-pager">
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">
-                    <i class="bi bi-chevron-left"></i>
-                </button>
-                <span class="mx-2">@_page / @TotalPages</span>
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">
-                    <i class="bi bi-chevron-right"></i>
-                </button>
-            </span>
-        }
-    </div>
+    <ReportTableFooter PageSize="_pageSize" OnPageSize="OnPageSizeChanged"
+                       Shown="_result.Rows.Count" Total="_result.TotalCount"
+                       Page="_page" Pages="TotalPages" OnPrev="PrevPage" OnNext="NextPage" />
 }
 
 @code {

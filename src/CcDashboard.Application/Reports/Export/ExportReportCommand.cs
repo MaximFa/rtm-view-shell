@@ -117,7 +117,7 @@ public class ExportReportCommandHandler(
                 continue;
             }
 
-            var sheet = BuildSheet(widget, result, query.From, query.To);
+            var sheet = BuildSheet(widget, result);
             if (sheet != null)
                 sheets.Add(sheet);
             else
@@ -140,7 +140,7 @@ public class ExportReportCommandHandler(
         return new ReportExportResult(content, fileName, contentType) { Skipped = skipped };
     }
 
-    private static WidgetExportSheet? BuildSheet(ReportWidget widget, ReportWidgetResult result, DateTime from, DateTime to)
+    private static WidgetExportSheet? BuildSheet(ReportWidget widget, ReportWidgetResult result)
     {
         var title = GetWidgetTitle(widget);
         var columns = result.EffectiveColumns ?? Array.Empty<string>();
@@ -162,16 +162,16 @@ public class ExportReportCommandHandler(
             return null;
 
         // FEAT-REPORT-EOS-CONFIGURABLE-01 (coordinator 11:22:59Z): file = screen - the start of an interval is written by
-        // the one label rule the screen uses (ReportIntervalLabel: by the step the server used, with the cut-edge mark),
-        // with the period of the same query. The mark sentences are the en-US ones, like every other text of the file.
+        // the one label rule the screen uses (ReportIntervalLabel, by the step the server used).
+        // FEAT-REPORT-INTERVAL-LABEL-NO-EDGE-MARK-01 (operator 2026-11-07 18:51): no cut-edge mark in brackets, on the
+        // screen or in the file; PartialFirst / PartialLast stay in the answer.
         if (result.WidgetType == ReportWidgetType.EndOfShiftQueues && result.Step is { } step)
         {
             var at = columns.ToList().FindIndex(c => string.Equals(c, nameof(QueueSummaryRow.IntervalStart), StringComparison.OrdinalIgnoreCase));
             if (at >= 0)
                 foreach (var row in rows)
                     if (row[at] is DateTime start)
-                        row[at] = ReportIntervalLabel.Cell(start, step, result.PartialFirst, result.PartialLast, from, to,
-                            IntervalFromText, IntervalToText, IntervalFromToText);
+                        row[at] = ReportIntervalLabel.Cell(start, step);
         }
 
         // retired types (QueueInterval, QueueWaitTime, Distribution) never get here: their run returns ErrorCode retired
@@ -179,11 +179,6 @@ public class ExportReportCommandHandler(
 
         return new WidgetExportSheet(title, effectiveColumns, rows, totalCount);
     }
-
-    // the en-US values of Report_IntervalFrom / _To / _FromTo (Web SharedResources), as the rest of the file is English
-    public const string IntervalFromText = "(from {0})";
-    public const string IntervalToText = "(to {0})";
-    public const string IntervalFromToText = "(from {0} to {1})";
 
     // The file carries a fixed sentence per code, never the validation text (which is for the log).
     public static string SheetText(string code) => code switch

@@ -74,17 +74,62 @@ public class ReportCanvasEditorGuardTests
     public void EveryReportWidget_isItsOwnLayer_onTheReportCanvasOnly()
     {
         var css = File.ReadAllText(Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "wwwroot", "app.css"));
-        Regex.IsMatch(css, @"\.report-canvas \.dashboard-widget\s*\{[^}]*isolation:\s*isolate")
+        Regex.IsMatch(css, @"\.report-widget-layer \.dashboard-widget\s*\{[^}]*isolation:\s*isolate")
             .Should().BeTrue("each report widget must keep its own z-indexes inside itself");
         // NEGATIVE / reason: the thing being guarded against exists - a sticky table header with a z-index.
         Regex.IsMatch(css, @"table\.report-widget-table thead th\s*\{[^}]*position:\s*sticky[^}]*z-index")
             .Should().BeTrue("if the sticky header lost its z-index this guard would protect nothing - say so");
         // The two report canvases carry the class; the dashboards' general rule does not get isolation.
-        Editor().Should().Contain("dashboard-canvas-grid report-canvas");
+        Editor().Should().Contain("dashboard-canvas-grid report-widget-layer");
         File.ReadAllText(Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "Components", "Reports", "ReportViewPage.razor"))
-            .Should().Contain("fullscreen-design-layer report-canvas");
+            .Should().Contain("fullscreen-design-layer report-widget-layer");
         Regex.IsMatch(css, @"\n\.dashboard-canvas-grid \.dashboard-widget\s*\{[^}]*isolation")
             .Should().BeFalse("the dashboards' canvas is out of scope");
+    }
+
+    /// <summary>
+    /// PR234-V4-REPORT-WIDGET-FRAME-01 (operator 2026-11-07 18:44): a frame round the whole board in the viewer and the
+    /// editor. Cause measured on 234: the hook class report-canvas, put on both boards in f7006b5, revived a rule dead
+    /// since 25.06 (border, padding, background). Question: does any class that the report pages ADD to a board (every
+    /// class after the board's own first one) give the board a look - border, padding, margin, background, shadow?
+    /// </summary>
+    [Fact]
+    public void TheClassesAddedToAReportBoard_giveItNoLookOfTheirOwn()
+    {
+        var css = File.ReadAllText(Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "wwwroot", "app.css"));
+        var view = File.ReadAllText(Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "Components", "Reports", "ReportViewPage.razor"));
+        var added = AddedClasses(Editor(), "dashboard-canvas-grid").Concat(AddedClasses(view, "fullscreen-design-layer")).ToList();
+        added.Should().Contain("report-widget-layer", "both boards must still carry the hook the layer rules hang on");
+        foreach (var c in added)
+            StylesTheElement(css, c).Should().BeEmpty($"the class {c} on a report board must not draw anything on it");
+
+        // NEGATIVE HALF: the f7006b5 state - hook report-canvas with the dead rule alive - is caught;
+        // a class carrying only the layer rules for the widgets inside it is not.
+        const string dead = ".report-canvas {\n    border: 1px solid var(--clr-border);\n    padding: var(--sp-4);\n}\n";
+        StylesTheElement(dead, "report-canvas").Should().ContainSingle();
+        StylesTheElement(".report-widget-layer .dashboard-widget {\n    isolation: isolate;\n}\n", "report-widget-layer").Should().BeEmpty();
+        AddedClasses("<div class=\"dashboard-canvas-grid report-canvas\"", "dashboard-canvas-grid").Should().Equal("report-canvas");
+    }
+
+    private static IEnumerable<string> AddedClasses(string page, string baseClass)
+    {
+        var m = Regex.Match(page, "class=\"" + Regex.Escape(baseClass) + "([^\"]*)\"");
+        m.Success.Should().BeTrue($"the board with class {baseClass} must be findable");
+        return m.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(c => !c.Contains('@'));
+    }
+
+    /// <summary>Rules whose selector targets the element carrying the class itself (not a descendant) and draw on it.</summary>
+    private static List<string> StylesTheElement(string css, string cls)
+    {
+        var hits = new List<string>();
+        foreach (Match rule in Regex.Matches(css, @"([^{}]+)\{([^{}]*)\}"))
+        {
+            var selectors = rule.Groups[1].Value.Split(',').Select(x => Regex.Replace(x, @"/\*[\s\S]*?\*/", "").Trim());
+            var onIt = selectors.Any(x => Regex.IsMatch(x, @"\." + Regex.Escape(cls) + @"(:[\w-]+)*$"));
+            if (onIt && Regex.IsMatch(rule.Groups[2].Value, @"(^|[\s;])(border|padding|margin|background|box-shadow)[\w-]*\s*:"))
+                hits.Add(rule.Groups[1].Value.Trim());
+        }
+        return hits;
     }
 
     private static string Editor() => File.ReadAllText(Path.Combine(
