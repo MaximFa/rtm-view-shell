@@ -64,6 +64,22 @@
                    @onkeydown="OnKeyDown"
                    placeholder="@L["Widgets_Filter_ValuePlaceholder"]" />
         }
+        else if (IsTime && DateFormat is not null)
+        {
+            @* FEAT-REPORT-QUEUE-DATE-FORMAT-01: a report that writes its dates in its own format asks for them in it too.
+               The browser's date field shows the date as the browser's locale decides, and code cannot change that. *@
+            <input type="text" class="form-control form-control-sm mb-1" inputmode="numeric" maxlength="10"
+                   value="@_timeText" placeholder="@DatePlaceholder"
+                   @onchange="e => _timeText = e.Value?.ToString() ?? string.Empty"
+                   @onkeydown="OnKeyDown" />
+            @if (_op == "between")
+            {
+                <input type="text" class="form-control form-control-sm" inputmode="numeric" maxlength="10"
+                       value="@_timeToText" placeholder="@DatePlaceholder"
+                       @onchange="e => _timeToText = e.Value?.ToString() ?? string.Empty"
+                       @onkeydown="OnKeyDown" />
+            }
+        }
         else if (IsTime)
         {
             <input type="date" class="form-control form-control-sm mb-1"
@@ -150,6 +166,12 @@
     /// <summary>What the column holds - it decides which inputs the window offers.</summary>
     [Parameter, EditorRequired] public ReportColumnKind Kind { get; set; }
 
+    /// <summary>
+    /// FEAT-REPORT-QUEUE-DATE-FORMAT-01: a .NET date format (e.g. dd'/'MM'/'yyyy) in which this report asks for dates -
+    /// a text field read with exactly that format. Null: the browser's date field, as for every other report.
+    /// </summary>
+    [Parameter] public string? DateFormat { get; set; }
+
     /// <summary>The filter in force, so reopening the window shows what is applied.</summary>
     [Parameter] public string? Op { get; set; }
     [Parameter] public string? Text { get; set; }
@@ -194,8 +216,8 @@
         _text = Text ?? string.Empty;
         _numberText = Shown(Number);
         _numberToText = Shown(NumberTo);
-        _timeText = Time?.ToString("yyyy-MM-dd") ?? string.Empty;
-        _timeToText = TimeTo?.ToString("yyyy-MM-dd") ?? string.Empty;
+        _timeText = ShownDate(Time);
+        _timeToText = ShownDate(TimeTo);
         _values.Clear();
         foreach (var v in SelectedValues ?? Array.Empty<string>())
             _values.Add(v);
@@ -258,10 +280,14 @@
     private DateTime? ParseDate(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
-        if (DateTime.TryParse(text, out var parsed)) return parsed;
-        _problem = L["Report_FilterValueNotUnderstood"].Value;
-        return null;
+        var parsed = ColumnFilterDates.Parse(text, DateFormat);
+        if (parsed is null) _problem = L["Report_FilterValueNotUnderstood"].Value;
+        return parsed;
     }
+
+    private string ShownDate(DateTime? value) => ColumnFilterDates.Show(value, DateFormat);
+
+    private string DatePlaceholder => (DateFormat ?? string.Empty).Replace("'", string.Empty);
 
     private async Task ClearAsync()
     {

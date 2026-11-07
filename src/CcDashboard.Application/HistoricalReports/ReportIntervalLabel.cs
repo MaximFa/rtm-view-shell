@@ -8,10 +8,9 @@ namespace CcDashboard.Application.HistoricalReports;
 /// server ACTUALLY used (ReportWidgetResult.Step), not the step the screen asked for: if the two
 /// ever differ, the label must describe the numbers next to it.
 ///
-/// FEAT-REPORT-EOS-CONFIGURABLE-01, Month / Year (operator 2026-11-07 12:31, coordinator 10:38:32Z):
-/// month = "MM.yyyy", year = "yyyy", the same numerals in every language. Day = the date alone:
-/// a "00:00" on a day row would read as the first half-hour of that day. Hour / half-hour keep the
-/// time, written like every other instant in the reports.
+/// FEAT-REPORT-EOS-CONFIGURABLE-01 (operator 2026-11-07 12:31) and FEAT-REPORT-QUEUE-DATE-FORMAT-01 (22:32):
+/// year "yyyy", month "MM/yyyy", day "dd/MM/yyyy" (a "00:00" on a day row would read as the first half-hour of
+/// that day), hour / half-hour "dd/MM/yyyy HH:mm". The same numerals in every language.
 ///
 /// One rule for the screen AND the export (moved from Web on 2026-11-07, proposal backend-1015
 /// 11:24:50Z): a file whose interval reads differently from the screen it was exported from is the
@@ -23,14 +22,27 @@ namespace CcDashboard.Application.HistoricalReports;
 /// </summary>
 public static class ReportIntervalLabel
 {
-    /// <summary>The start of one interval, written for its step.</summary>
+    /// <summary>
+    /// The start of one interval, written for its step. FEAT-REPORT-QUEUE-DATE-FORMAT-01 (operator 2026-11-07 22:32):
+    /// "where only the month - MM/YYYY, where the day - DD/MM/YYYY, where half an hour / an hour - DD/MM/YYYY HH:MI";
+    /// the year stays yyyy. The same numerals and the same "/" in every language: the separator is a literal, not the
+    /// culture's date separator.
+    /// </summary>
     public static string Start(DateTime start, ReportStep step) => step switch
     {
         ReportStep.Year => start.ToString("yyyy", CultureInfo.InvariantCulture),
-        ReportStep.Month => start.ToString("MM.yyyy", CultureInfo.InvariantCulture),
-        ReportStep.Day => start.ToString("d", CultureInfo.CurrentCulture),
-        _ => start.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture)
+        ReportStep.Month => start.ToString(MonthFormat, CultureInfo.InvariantCulture),
+        ReportStep.Day => start.ToString(DayFormat, CultureInfo.InvariantCulture),
+        _ => start.ToString(InstantFormat, CultureInfo.InvariantCulture)
     };
+
+    /// <summary>Queue Report formats (FEAT-REPORT-QUEUE-DATE-FORMAT-01). The agents' reports do not use them.</summary>
+    public const string MonthFormat = "MM'/'yyyy";
+    public const string DayFormat = "dd'/'MM'/'yyyy";
+    public const string InstantFormat = "dd'/'MM'/'yyyy HH':'mm";
+
+    /// <summary>A value that is a date and a time by itself (a DateTime column, the "data through" stamp) in Queue Report.</summary>
+    public static string Instant(DateTime value) => value.ToString(InstantFormat, CultureInfo.InvariantCulture);
 
     /// <summary>The whole cell of the interval column: the start for its step, without any mark.</summary>
     public static string Cell(DateTime rowStart, ReportStep step) => Start(rowStart, step);

@@ -147,36 +147,47 @@ public class ReportStepReachesTheQueryAndTheExportGuardTests
     // ---- the interval label -------------------------------------------------------------------------
 
 
+    // FEAT-REPORT-QUEUE-DATE-FORMAT-01 (operator 2026-11-07 22:32): year yyyy, month MM/yyyy, day dd/MM/yyyy, hour and
+    // half-hour dd/MM/yyyy HH:mm. Literals on purpose: a wrong rule must not be able to agree with itself.
     [Fact]
     public void TheStart_isWrittenByTheStep()
     {
-        var start = new DateTime(2026, 11, 1);
-        ReportIntervalLabel.Start(start, ReportStep.Month).Should().Be("11.2026");
         ReportIntervalLabel.Start(new DateTime(2026, 1, 1), ReportStep.Year).Should().Be("2026");
-
-        // Day: the date alone. Hour and half hour: the time is part of the interval.
-        ReportIntervalLabel.Start(start, ReportStep.Day).Should().NotContain(":");
-        ReportIntervalLabel.Start(new DateTime(2026, 11, 5, 9, 30, 0), ReportStep.HalfHour).Should().Contain("09:30");
-        ReportIntervalLabel.Start(new DateTime(2026, 11, 5, 9, 0, 0), ReportStep.Hour).Should().Contain("09:00");
+        ReportIntervalLabel.Start(new DateTime(2026, 11, 1), ReportStep.Month).Should().Be("11/2026");
+        ReportIntervalLabel.Start(new DateTime(2026, 11, 3), ReportStep.Day).Should().Be("03/11/2026");
+        ReportIntervalLabel.Start(new DateTime(2026, 11, 3, 9, 0, 0), ReportStep.Hour).Should().Be("03/11/2026 09:00");
+        ReportIntervalLabel.Start(new DateTime(2026, 11, 3, 9, 30, 0), ReportStep.HalfHour).Should().Be("03/11/2026 09:30");
+        ReportIntervalLabel.Instant(new DateTime(2026, 11, 3, 21, 5, 0)).Should().Be("03/11/2026 21:05");
     }
 
     [Fact]
-    public void TheMonthAndYear_lookTheSame_inEveryLanguage()
+    public void EveryStep_looksTheSame_inEveryLanguage()
     {
-        foreach (var culture in new[] { "en-US", "ru-RU", "he-IL" })
+        // de-DE writes its own date separator as "." - the "/" must be a literal, not the culture's separator.
+        var at = new DateTime(2026, 11, 3, 9, 30, 0);
+        var expected = Enum.GetValues<ReportStep>().ToDictionary(s => s, s => Invariant(at, s));
+        foreach (var culture in new[] { "en-US", "ru-RU", "he-IL", "de-DE" })
         {
             var saved = CultureInfo.CurrentCulture;
             try
             {
                 CultureInfo.CurrentCulture = new CultureInfo(culture);
-                ReportIntervalLabel.Start(new DateTime(2026, 11, 1), ReportStep.Month).Should().Be("11.2026", culture);
-                ReportIntervalLabel.Start(new DateTime(2026, 1, 1), ReportStep.Year).Should().Be("2026", culture);
+                foreach (var step in expected.Keys)
+                    ReportIntervalLabel.Start(at, step).Should().Be(expected[step], $"{culture} {step}");
             }
             finally
             {
                 CultureInfo.CurrentCulture = saved;
             }
         }
+        expected[ReportStep.Day].Should().Be("03/11/2026", "the probe itself must be the operator's format");
+    }
+
+    private static string Invariant(DateTime at, ReportStep step)
+    {
+        var saved = CultureInfo.CurrentCulture;
+        try { CultureInfo.CurrentCulture = CultureInfo.InvariantCulture; return ReportIntervalLabel.Start(at, step); }
+        finally { CultureInfo.CurrentCulture = saved; }
     }
 
     // FEAT-REPORT-INTERVAL-LABEL-NO-EDGE-MARK-01 (operator 2026-11-07 18:51: "in the date remove what is in brackets").
@@ -186,15 +197,15 @@ public class ReportStepReachesTheQueryAndTheExportGuardTests
     [Fact]
     public void ACutFirstAndLastMonth_readAsTheMonthAlone_andTheMiddleToo()
     {
-        Cell(new DateTime(2026, 9, 1), ReportStep.Month).Should().Be("09.2026");
-        Cell(new DateTime(2026, 10, 1), ReportStep.Month).Should().Be("10.2026");
-        Cell(new DateTime(2026, 11, 1), ReportStep.Month).Should().Be("11.2026");
+        Cell(new DateTime(2026, 9, 1), ReportStep.Month).Should().Be("09/2026");
+        Cell(new DateTime(2026, 10, 1), ReportStep.Month).Should().Be("10/2026");
+        Cell(new DateTime(2026, 11, 1), ReportStep.Month).Should().Be("11/2026");
     }
 
     [Fact]
     public void APeriodInsideOneMonth_readsAsTheMonthAlone()
     {
-        Cell(new DateTime(2026, 11, 1), ReportStep.Month).Should().Be("11.2026");
+        Cell(new DateTime(2026, 11, 1), ReportStep.Month).Should().Be("11/2026");
     }
 
     [Fact]

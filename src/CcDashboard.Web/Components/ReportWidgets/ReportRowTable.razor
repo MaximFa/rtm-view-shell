@@ -24,9 +24,24 @@
                     @foreach (var column in Columns)
                     {
                         var meta = Meta(column);
-                        <th scope="col" class="@(meta is not null && ReportCellFormat.IsNumeric(meta.Kind) ? "text-end" : null)" @key="column">
+                        <th scope="col" class="@(meta is not null && ReportCellFormat.IsNumeric(meta.Kind) ? "text-end" : null)" @key="column"
+                            aria-sort="@AriaSort(column)">
                             <span class="d-inline-flex align-items-center gap-1">
-                                <span>@Header(column)</span>
+                                @if (OnSort.HasDelegate)
+                                {
+                                    @* FEAT-REPORT-QUEUE-COLUMN-SORT-01: the column name sorts; only where the widget asks for it. *@
+                                    <button type="button" class="report-widget-sort" @onclick="() => OnSort.InvokeAsync(column)">
+                                        <span>@Header(column)</span>
+                                        @if (SortColumn == column)
+                                        {
+                                            <i class="bi @(SortDescending ? "bi-sort-down" : "bi-sort-up")" aria-hidden="true"></i>
+                                        }
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span>@Header(column)</span>
+                                }
                                 @* The funnel is offered only where the rule says the column can be
                                    filtered - by rule, never by a list written in this markup. *@
                                 @if (HeaderExtra is not null && meta is { Filterable: true })
@@ -86,10 +101,27 @@
 
     /// <summary>
     /// A widget's own text for a cell, or null to let the column's kind write it. Exists for ONE
-    /// case today: the interval start of the end-of-shift queues report is written by the step of
-    /// the answer ("11.2026 (from 05.11)"), which a column kind alone cannot know.
+    /// case today: the dates of Queue Report - the interval start by the step of the answer ("11/2026"),
+    /// any other date by that report's own format - which a column kind alone cannot know.
     /// </summary>
     [Parameter] public Func<object, string, string?>? CellText { get; set; }
+
+    /// <summary>
+    /// FEAT-REPORT-QUEUE-COLUMN-SORT-01: a click on a column name asks the widget to sort by it. Without a handler the
+    /// header is plain text, as before - the reports that do not sort are not touched.
+    /// </summary>
+    [Parameter] public EventCallback<string> OnSort { get; set; }
+
+    /// <summary>The column the rows are sorted by now (null: the report's own order).</summary>
+    [Parameter] public string? SortColumn { get; set; }
+
+    /// <summary>True when the sort is descending.</summary>
+    [Parameter] public bool SortDescending { get; set; }
+
+    private string? AriaSort(string column)
+        => !OnSort.HasDelegate ? null
+         : SortColumn != column ? "none"
+         : SortDescending ? "descending" : "ascending";
 
     /// <summary>True while the widget has at least one filter applied.</summary>
     [Parameter] public bool FiltersActive { get; set; }

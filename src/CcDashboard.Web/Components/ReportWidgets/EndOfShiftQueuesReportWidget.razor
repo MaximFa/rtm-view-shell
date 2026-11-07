@@ -120,13 +120,15 @@ else
        can be filtered. The row of buttons above the table is gone - it named the columns a
        second time, and two namings drift (operator, 2026-11-07). *@
     <ReportRowTable FiltersActive="_filters.Any" OnClearFilters="ClearAllFiltersAsync" Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" WidgetType="ReportWidgetType.EndOfShiftQueues"
-                    CellText="IntervalCellText"
+                    CellText="QueueCellText"
+                    SortColumn="@_sortColumn" SortDescending="_sortDescending" OnSort="SortByAsync"
                     Updating="ReportLoadingView.ShowUpdatingMark(_loading, HasRows)"
                     Caption="@L["Report_EndOfShiftQueues"].Value">
         <HeaderExtra Context="column">
             <ColumnFilterHeader Column="@column.Name" Group="_filters"
                                 ColumnLabel="@ColumnLabel(column.Name)"
                                 Kind="column.Kind"
+                                DateFormat="@ReportIntervalLabel.DayFormat"
                                 Applied="_filters.For(column.Name)"
                                 IsOpen="_filters.OpenColumn == column.Name"
                                 Loading="_filters.ValuesLoading"
@@ -299,7 +301,9 @@ else
         {
             Filters = _filters.ForQuery(),
             ValuesForColumn = valuesFor,
-            Step = _step
+            Step = _step,
+            SortColumn = _sortColumn,
+            SortDescending = _sortDescending
         };
     }
 
@@ -463,10 +467,34 @@ else
     // newer than the answer in hand, and the label must describe the numbers next to it.
     private ReportStep _answerStep = ReportStep.Day;
 
-    private string? IntervalCellText(object row, string column)
+    // FEAT-REPORT-QUEUE-DATE-FORMAT-01 (operator 2026-11-07 22:29 / 22:32): every date of THIS report is written by the
+    // Queue Report rule - the interval by its step, any other date-and-time column dd/MM/yyyy HH:mm. The common
+    // ReportCellFormat stays as it is: the agents' reports keep their format (operator: "agents - not now").
+    private string? QueueCellText(object row, string column)
     {
-        if (column != nameof(QueueSummaryRow.IntervalStart) || row is not QueueSummaryRow r) return null;
-        return ReportIntervalLabel.Cell(r.IntervalStart, _answerStep);
+        if (row is not QueueSummaryRow r) return null;
+        if (column == nameof(QueueSummaryRow.IntervalStart)) return ReportIntervalLabel.Cell(r.IntervalStart, _answerStep);
+        var kind = ReportColumns.Find(ReportWidgetType.EndOfShiftQueues, column)?.Kind;
+        if (kind is not (ReportColumnKind.DateTime or ReportColumnKind.Date)) return null;
+        var value = typeof(QueueSummaryRow).GetProperty(column)?.GetValue(r) as DateTime?;
+        if (value is null) return "-";
+        return kind == ReportColumnKind.Date
+            ? value.Value.ToString(ReportIntervalLabel.DayFormat, System.Globalization.CultureInfo.InvariantCulture)
+            : ReportIntervalLabel.Instant(value.Value);
+    }
+
+    // ---- Sorting (FEAT-REPORT-QUEUE-COLUMN-SORT-01, operator 2026-11-07 22:29) ---------------------
+    // The server pages the rows, so the server sorts them - after the filters, before the pages. Sorting one page of
+    // twenty on the screen would show an order that is not the report's. A click on a column name: ascending ->
+    // descending -> the report's own order. A new order starts again from page 1.
+    private string? _sortColumn;
+    private bool _sortDescending;
+
+    private async Task SortByAsync(string column)
+    {
+        (_sortColumn, _sortDescending) = ReportSortCycle.Next(_sortColumn, _sortDescending, column);
+        _page = 1;
+        await LoadData();
     }
 
     private bool HasRows => _result is { Rows.Count: > 0 };
@@ -476,7 +504,7 @@ else
     private string IncompleteText => _dataThroughUtc is null
         ? L["Report_Incomplete"].Value.Replace("{0}", "-")
         : string.Format(L["Report_Incomplete"].Value,
-                        WallClock.ToServerLocal(_dataThroughUtc.Value).ToString("yyyy-MM-dd HH:mm"));
+                        ReportIntervalLabel.Instant(WallClock.ToServerLocal(_dataThroughUtc.Value)));
 
     protected override async Task OnParametersSetAsync()
     {

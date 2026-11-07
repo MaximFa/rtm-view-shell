@@ -77,6 +77,10 @@ public class RunReportWidgetQueryHandler(
         if (stepError != null)
             return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, stepError);
 
+        var sortError = ValidateSort(query);
+        if (sortError != null)
+            return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, sortError);
+
         var filterError = ValidateFilters(query);
         if (filterError != null)
             return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, filterError);
@@ -333,6 +337,15 @@ public class RunReportWidgetQueryHandler(
         k is ReportColumnKind.Count or ReportColumnKind.DurationMs or ReportColumnKind.DurationSec or ReportColumnKind.Percent;
 
     private static bool IsTime(ReportColumnKind k) => k is ReportColumnKind.DateTime or ReportColumnKind.Date;
+
+    /// <summary>FEAT-REPORT-QUEUE-COLUMN-SORT-01: a sort column of the queues report must be one of its columns (a white list,
+    /// never an arbitrary name into reflection). Other types ignore the sort.</summary>
+    internal static string? ValidateSort(RunReportWidgetQuery q)
+    {
+        if (q.SortColumn is null || q.WidgetType != ReportWidgetType.EndOfShiftQueues)
+            return null;
+        return ReportColumns.Find(q.WidgetType, q.SortColumn) is null ? "Unknown sort column" : null;
+    }
 
     internal static string? ValidateFilters(RunReportWidgetQuery q)
     {
@@ -597,6 +610,7 @@ public class RunReportWidgetQueryHandler(
         // start falls inside the interval; derived values recomputed from the sums.
         // the one rule: the viewer's own choice (on the query) -> the widget's default (editor) -> Day
         var step = query.Step ?? config.DefaultStep ?? ReportStep.Day;
+        var intervalKey = new Dictionary<object, DateTime>(ReferenceEqualityComparer.Instance);   // row -> UTC interval start
         var rows = intervals
             .Where(i => effective.Contains(i.Workgroup))
             .GroupBy(i => (Interval: StepKey(i.IntervalStart, step), i.Workgroup))
@@ -611,7 +625,7 @@ public class RunReportWidgetQueryHandler(
                 var inSl = g.Sum(i => i.AnsweredInSl);
                 var wait = g.Sum(i => i.SumWaitAnswered);
                 var talk = g.Sum(i => i.SumTalk);
-                return new QueueSummaryRow(
+                var row = new QueueSummaryRow(
                     g.Key.Interval.Shown,
                     g.Key.Workgroup,
                     g.Select(i => i.QueueId).FirstOrDefault(q => q.HasValue),
@@ -620,11 +634,15 @@ public class RunReportWidgetQueryHandler(
                     answered == 0 ? null : inSl * 100.0 / answered,
                     answered == 0 ? null : (double)wait / answered,
                     answered == 0 ? null : (double)talk / answered);
+                intervalKey[row] = g.Key.Interval.Key;
+                return row;
             })
             .ToList();
 
         var (filteredRows, columnValues) = ApplyFilters(type, rows, query);   // before paging
         rows = filteredRows;
+        if (query.SortColumn is { } sortColumn)
+            rows = SortQueueRows(rows, sortColumn, query.SortDescending, intervalKey);   // after the filters, before paging
 
         var (pageRows, pageSize) = PageOf(rows, config.PageSize, page, allRows);
         var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);
@@ -641,6 +659,27 @@ public class RunReportWidgetQueryHandler(
             PartialFirst = StepKey(from, step).Key != from,
             PartialLast = StepKey(toExclusive, step).Key != toExclusive
         };
+    }
+
+    /// <summary>
+    /// FEAT-REPORT-QUEUE-COLUMN-SORT-01: the rows ordered by one (white-listed) column. Nulls are always last, whatever the
+    /// direction; the sort is stable, so equal values keep the default order (interval, then queue). IntervalStart sorts
+    /// by the UTC start of the interval, so the two local "01:00" rows of the autumn change never swap.
+    /// </summary>
+    internal static List<QueueSummaryRow> SortQueueRows(
+        List<QueueSummaryRow> rows, string column, bool descending, IReadOnlyDictionary<object, DateTime> intervalKey)
+    {
+        var prop = typeof(QueueSummaryRow).GetProperty(column)
+            ?? throw new ArgumentException("not a column of the queues report: " + column, nameof(column));
+        object? Value(QueueSummaryRow r) =>
+            column == nameof(QueueSummaryRow.IntervalStart) ? intervalKey[r] : prop.GetValue(r);
+        IComparer<object?> comparer = prop.PropertyType == typeof(string)
+            ? Comparer<object?>.Create((a, b) => StringComparer.CurrentCultureIgnoreCase.Compare((string?)a, (string?)b))
+            : Comparer<object?>.Default;
+
+        var withValue = rows.Where(r => Value(r) is not null);
+        var ordered = descending ? withValue.OrderByDescending(Value, comparer) : withValue.OrderBy(Value, comparer);
+        return ordered.Concat(rows.Where(r => Value(r) is null)).ToList();
     }
 
     /// <summary>

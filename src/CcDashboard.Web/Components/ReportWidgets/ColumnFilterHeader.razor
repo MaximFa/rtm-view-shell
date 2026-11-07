@@ -39,6 +39,8 @@
 
     /// <summary>What the column holds: the window offers the inputs that kind allows.</summary>
     [Parameter, EditorRequired] public ReportColumnKind Kind { get; set; }
+    /// <summary>Passed on to the window: null keeps the browser's date field (FEAT-REPORT-QUEUE-DATE-FORMAT-01).</summary>
+    [Parameter] public string? DateFormat { get; set; }
 
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public bool Loading { get; set; }
@@ -74,6 +76,7 @@
         {
             <ColumnFilterPopup ColumnLabel="@ColumnLabel"
                                Kind="Kind"
+                               DateFormat="@DateFormat"
                                Op="@Applied?.Op"
                                Text="@Applied?.Text"
                                SelectedValues="Applied?.Values"

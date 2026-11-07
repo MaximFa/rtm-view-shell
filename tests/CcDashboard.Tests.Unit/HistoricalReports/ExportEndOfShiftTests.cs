@@ -129,7 +129,7 @@ public class ExportEndOfShiftTests
     public async Task MonthStep_TheFileWritesTheIntervalLikeTheScreen_NoBracketsEvenWhenThePeriodCutsTheMonth()
     {
         // coordinator 11:22:59Z: file = screen, one label rule (ReportIntervalLabel); operator 2026-11-07 18:51: no cut-edge
-        // mark in brackets. The period 02.11-08.11 cuts November - the cell is still just the month.
+        // mark in brackets. The period 02.11-08.11 cuts November - the cell is still just the month (MM/yyyy, 22:32).
         Widget(ReportWidgetType.EndOfShiftQueues, """{ "title": "Q", "scope": { "businessUnitIds": [1] }, "defaultStep": "month" }""");
 
         var cut = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
@@ -137,7 +137,7 @@ public class ExportEndOfShiftTests
         {
             wb.Worksheet("Q").Cell(1, 1).GetString().Should().Be("IntervalStart");
             wb.Worksheet("Q").Cell(2, 1).GetString().Should().Be(ReportIntervalLabel.Start(new DateTime(2026, 11, 1), ReportStep.Month))
-                .And.Be("11.2026").And.NotContain("(");
+                .And.Be("11/2026").And.NotContain("(");
         }
 
         // negative half: the cell follows the step the server used - by day the same file writes a date, not "11.2026"
@@ -145,7 +145,7 @@ public class ExportEndOfShiftTests
         var byDay = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
         using (var wb = XlsxDiagnostics.Open(byDay.Content))
             wb.Worksheet("Q").Cell(2, 1).GetString().Should().Be(ReportIntervalLabel.Start(new DateTime(2026, 11, 2), ReportStep.Day))
-                .And.NotBe("11.2026");
+                .And.NotBe("11/2026");
     }
 
     [Fact]
@@ -158,6 +158,28 @@ public class ExportEndOfShiftTests
 
         SheetNames(res.Content).Should().Equal("Queue Report", "Sales queues");
         SheetNames(res.Content).Should().NotContain("EndOfShiftQueues");
+    }
+
+    // FEAT-REPORT-QUEUE-DATE-FORMAT-01 (operator 2026-11-07 22:32): the file writes the interval start of the queue report
+    // by step - year yyyy, month MM/yyyy, day dd/MM/yyyy, hour and half-hour dd/MM/yyyy HH:mm - as the screen does.
+    // The expected strings are literal here (not ReportIntervalLabel.Start), so a wrong rule cannot agree with itself.
+    [Theory]
+    [InlineData("year", "2026")]
+    [InlineData("month", "11/2026")]
+    [InlineData("day", "02/11/2026")]
+    [InlineData("hour", "02/11/2026 09:00")]
+    [InlineData("halfHour", "02/11/2026 09:00")]
+    public async Task QueueReport_TheFileWritesTheIntervalStartInTheStepsFormat(string step, string expected)
+    {
+        Widget(ReportWidgetType.EndOfShiftQueues, $$"""{ "title": "Q", "scope": { "businessUnitIds": [1] }, "defaultStep": "{{step}}" }""");
+
+        var res = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
+
+        using var wb = XlsxDiagnostics.Open(res.Content);
+        var cell = wb.Worksheet("Q").Cell(2, 1).GetString();
+        cell.Should().Be(expected);
+        // negative half: none of the old shapes ("11.2026", "2026-11-02 09:00", a culture date with dots) survives
+        cell.Should().NotContain(".").And.NotContain("-");
     }
 
     [Fact]

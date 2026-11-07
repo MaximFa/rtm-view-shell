@@ -27,7 +27,13 @@ public record RunReportWidgetQuery(
     // (not the page), with the filters of the OTHER columns applied and its own left out - the checkbox list.
     string? ValuesForColumn = null,
     // FEAT-REPORT-EOS-CONFIGURABLE-01: the interval of the end-of-shift queues report (null = Day); other types refuse it.
-    ReportStep? Step = null
+    ReportStep? Step = null,
+    // FEAT-REPORT-QUEUE-COLUMN-SORT-01 (contract shell 20:36:54Z, coordinator 20:47:34Z): the end-of-shift queues report
+    // orders its final rows by this column - after the filters, before paging. The name must be a column of the report
+    // (ReportColumns), else invalid-config; nulls always last; equal values keep the default order (interval, queue).
+    // Other report types ignore it. The export does not take it (operator 2026-11-07 22:48).
+    string? SortColumn = null,
+    bool SortDescending = false
 ) : IRequest<ReportWidgetResult>;
 
 /// <summary>FEAT-REPORT-EOS-CONFIGURABLE-01: the interval of one row of the end-of-shift queues report.</summary>

@@ -3682,6 +3682,24 @@ button.clr-swatch,
     line-height: 1;
 }
 
+/* FEAT-REPORT-QUEUE-COLUMN-SORT-01: a column name that sorts - the header text itself, not a separate control. */
+.report-widget-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.report-widget-sort:focus-visible {
+    outline: 2px solid var(--clr-primary);
+    outline-offset: 2px;
+}
+
 /* Dark mode footer */
 .fullscreen-dashboard.dark-mode .report-widget-footer {
     background-color: #1a1a1a;
