@@ -3828,3 +3828,42 @@ button.clr-swatch,
     color: #FFFFFF;
 }
 .fullscreen-dashboard.dark-mode .fullscreen-header .btn:disabled { opacity: 0.5; }
+
+/* PR234-V4-REPORT-FILTER-POPUP-CLIPPED-01.
+   The filter window of a report column. It was written with these class names and no rules at
+   all, so it stood in the flow: it pushed the table out of a widget body that clips its overflow,
+   and the operator saw a cut-off window over an empty widget. Measured on 234 on 2026-11-07:
+   window 968px tall inside a 430px widget, 623px of it past the bottom edge.
+   Logical properties only - the board runs right-to-left, and a physical "left" would put the
+   window on the wrong side of its button there. */
+.column-filter-anchor {
+    position: relative;
+}
+
+.column-filter-popup {
+    position: absolute;
+    top: 100%;
+    inset-inline-start: 0;
+    z-index: 1060;
+    min-width: 220px;
+    max-width: 320px;
+    /* The window itself never grows past the screen; what does not fit scrolls inside it. */
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
+    background: var(--rw-bg, var(--bs-body-bg, #fff));
+    color: var(--rw-text, inherit);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* The list of values is the part that grows without limit - 32 agents made the window three times
+   the height of the widget. It scrolls on its own, so the buttons at the top of the window stay
+   reachable however many values a column has. */
+.column-filter-values {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+/* A refresh in progress: the rows stay, and this says they are one answer old. */
+.report-widget-updating {
+    opacity: 0.75;
+}

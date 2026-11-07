@@ -95,14 +95,20 @@ else if (!string.IsNullOrEmpty(_error))
         <i class="bi bi-exclamation-triangle me-2"></i>@_error
     </div>
 }
-else if (_loading)
+else if (ReportLoadingView.ShowSpinner(_loading, HasRows))
 {
+    @* The spinner belongs to the FIRST load only - when there is nothing to show yet. Replacing
+       rows that are already on screen makes every filter change blink the data away and back, and
+       teaches people that the report loses data. Rows that are one answer old are not wrong. *@
     <div class="d-flex justify-content-center py-4">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">@L["Common_Loading"]</span>
         </div>
     </div>
 }
+@* The explicit null test, not HasRows: the compiler does not carry a property's pattern into
+   the branch below, and without it every @_result.Rows read warns (CS8602) - the exact warning
+   this file collected once already. *@
 else if (_result is null || _result.Rows.Count == 0)
 {
     <div class="alert alert-info">
@@ -134,7 +140,18 @@ else
 
     @* Two reports, one row type: the drawing lives in AgentSummaryTable, which knows nothing
        about shift hours or modes - that is what keeps this report's settings out of the other's. *@
+    @if (ReportLoadingView.ShowUpdatingMark(_loading, HasRows))
+    {
+        @* The rows below are one answer old and a newer one is on its way. Said out loud: a silent
+           wait is exactly how a stuck screen looks healthy, which cost us a whole morning. *@
+        <div class="small text-muted px-2 pb-1" role="status">
+            <span class="spinner-border spinner-border-sm me-1"></span>@L["Common_Loading"]
+        </div>
+    }
+
+    <div class="@(ReportLoadingView.ShowUpdatingMark(_loading, HasRows) ? "report-widget-updating" : null)">
     <AgentSummaryTable Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" Caption="@L["Report_EndOfShiftAgents"].Value" />
+    </div>
 
     <div class="report-widget-footer">
         <span class="report-widget-footer-pagesize">
@@ -345,6 +362,8 @@ else
             ValuesForColumn = valuesFor
         };
     }
+
+    private bool HasRows => _result is { Rows.Count: > 0 };
 
     private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
 
