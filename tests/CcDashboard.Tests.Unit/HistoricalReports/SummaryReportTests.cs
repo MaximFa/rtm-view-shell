@@ -214,7 +214,8 @@ public class SummaryReportTests
             new HistQueueInterval { TenantId = TenantId, IntervalStart = new DateTime(2026, 11, 3, 6, 0, 0), Workgroup = "Secret", Offered = 99 }
         });
 
-        var r = await Eos(ReportWidgetType.EndOfShiftQueues, QueuesCfg, 8, 16);
+        // FEAT-REPORT-EOS-CONFIGURABLE-01: the queues report takes whole days (no shift hours); Day step = one row per queue
+        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QueuesCfg, Day, Day), CancellationToken.None);
 
         var sales = r.QueueSummary!.Rows.Should().ContainSingle().Which;
         sales.Workgroup.Should().Be("Sales");

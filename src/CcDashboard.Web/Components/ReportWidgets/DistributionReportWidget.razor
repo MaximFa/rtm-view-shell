@@ -125,7 +125,12 @@ else
             }
             else if (!string.IsNullOrEmpty(res.Error))
             {
-                _error = res.Error;
+                // The server sends a CODE; the sentence belongs here. Error is the log line
+                // ("never shown as is") and printing it put English on a Hebrew board - a retired
+                // report said "Report type QueueInterval is retired" to whoever opened it.
+                if (ReportErrorText.IsUnknown(res.ErrorCode))
+                    Logger.LogWarning("Report widget failed with an unrecognised error code {ErrorCode}: {Error}", res.ErrorCode, res.Error);
+                _error = L[ReportErrorText.KeyFor(res.ErrorCode)].Value;
                 _result = null;
             }
             else
@@ -136,7 +141,7 @@ else
         catch (Exception ex)
         {
             Logger.LogError(ex, "DistributionReportWidget load failed");
-            _error = ex.Message;
+            _error = L["Report_ErrorUnknown"].Value;
             _result = null;
         }
         finally

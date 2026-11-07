@@ -1227,5 +1227,20 @@
   <data name="Common_Fullscreen"><value>מסך מלא</value></data>
   <data name="Widget_SortedByColumn"><value>ממוין לפי: {0}</value></data>
   <data name="Widget_ShowingNofM"><value>מוצגים {0} מתוך {1}</value></data>
+  <data name="Report_Step"><value>מרווח זמן</value></data>
+  <data name="Report_StepHalfHour"><value>חצי שעה</value></data>
+  <data name="Report_StepHour"><value>שעה</value></data>
+  <data name="Report_StepDay"><value>יום</value></data>
+  <data name="Report_StepMonth"><value>חודש</value></data>
+  <data name="Report_StepYear"><value>שנה</value></data>
+  <data name="Report_IntervalFrom"><value>(מ-{0})</value></data>
+  <data name="Report_IntervalTo"><value>(עד {0})</value></data>
+  <data name="Report_IntervalFromTo"><value>(מ-{0} עד {1})</value></data>
+  <data name="Report_ErrorNoData"><value>אין נתונים לתקופה שנבחרה.</value></data>
+  <data name="Report_ErrorInvalidConfig"><value>לא ניתן להשתמש בהגדרות של דוח זה. יש לפתוח את ההגדרות ולבדוק אותן.</value></data>
+  <data name="Report_ErrorShiftHours"><value>שעות המשמרת לא הוגדרו או אינן מתאימות לתאריך שנבחר.</value></data>
+  <data name="Report_ErrorRetired"><value>דוח זה הוסר ואינו מופק עוד.</value></data>
+  <data name="Report_ErrorUnknown"><value>לא ניתן היה להפיק את הדוח.</value></data>
+  <data name="Report_ShownForRange"><value>נתונים עבור {0} – {1}</value></data>
 </root>
 

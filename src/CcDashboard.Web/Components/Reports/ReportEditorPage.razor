@@ -7,6 +7,7 @@
 @inject IStringLocalizer<CcDashboard.Web.Resources.SharedResources> L
 @inject ICurrentUserAccessor CurrentUser
 @inject ILogger<ReportEditorPage> Logger
+@inject CcDashboard.Application.Interfaces.IDisplayTimeZone DisplayZone
 @using MediatR
 @using CcDashboard.Domain.Interfaces
 @using Microsoft.Extensions.Localization
@@ -53,6 +54,28 @@
                 <span class="badge @(Report.Status == ReportScreenStatus.Published ? "bg-success" : "bg-warning text-dark")">
                     @Report.Status
                 </span>
+                @* FEAT-REPORT-DEFAULT-LAST-DATA-DAY-01 (coordinator 2026-11-07 09:05:58Z): the preview had
+                   no date field at all and always showed "UTC today minus seven" - an editor could not
+                   see the day the screen will open on, nor try another. Same rules as the viewer: one
+                   field or two by the widgets on the canvas, and the default is the last day with data. *@
+                <div class="report-header-datebar d-flex gap-2 align-items-center">
+                    <label class="small mb-0 text-white-50" for="report-editor-from">@L["Report_From"]</label>
+                    <input id="report-editor-from" type="date" class="form-control form-control-sm" style="width: auto;" @bind="_from" />
+                    @if (!SingleDateNow)
+                    {
+                        <label class="small mb-0 text-white-50" for="report-editor-to">@L["Report_To"]</label>
+                        <input id="report-editor-to" type="date" class="form-control form-control-sm" style="width: auto;" @bind="_to" />
+                    }
+                    <button class="btn btn-sm btn-outline-light" @onclick="ApplyDateRange">
+                        <i class="bi bi-check2 me-1"></i>@L["Report_Apply"]
+                    </button>
+                    @if (_rangeError is not null)
+                    {
+                        <span class="text-danger small">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@_rangeError
+                        </span>
+                    }
+                </div>
             </div>
             <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-light" @onclick="ToggleDarkMode" title="@(_darkMode ? L["WidgetCfg_LightMode"] : L["WidgetCfg_DarkMode"])">
@@ -172,7 +195,7 @@
                                 WidgetType="widget.WidgetType"
                                 ConfigJson="@widget.ConfigJson"
                                 From="_rangeFrom"
-                                To="_rangeTo"
+                                To="@(SingleDateNow ? _rangeFrom : _rangeTo)"
                                 DarkMode="_darkMode"
                                 TenantId="Report?.TenantId" />
                         </div>
@@ -216,9 +239,35 @@
     private bool _darkMode = false;
     private bool _positionsApplied;
 
-    // Date range for preview
-    private DateTime _rangeFrom = DateTime.UtcNow.Date.AddDays(-7);
-    private DateTime _rangeTo = DateTime.UtcNow.Date;
+    // Date range for preview. Set in OnInitializedAsync from the site's zone and the last day with
+    // data (ReportDefaultDay); UtcNow was the server's day, a day behind after local midnight.
+    private DateTime _from;
+    private DateTime _to;
+    private DateTime _rangeFrom;
+    private DateTime _rangeTo;
+    private string? _rangeError;
+
+    /// <summary>
+    /// One date field or two, from the widgets on the canvas NOW (the shared rule, not a copy):
+    /// a widget dropped onto the canvas changes the answer before it is saved.
+    /// </summary>
+    private bool SingleDateNow => CcDashboard.Contracts.Common.ReportDateFields.SingleDate(PlacedWidgets.Select(w => w.WidgetType));
+
+    private void ApplyDateRange()
+    {
+        // Same refusal as the viewer: a "from" after "to" asks every widget for a window that cannot
+        // hold anything, and the preview would say "no data" instead of "impossible range".
+        if (SingleDateNow)
+            _to = _from;
+        if (!SingleDateNow && _from.Date > _to.Date)
+        {
+            _rangeError = L["Report_DateRangeInverted"].Value;
+            return;
+        }
+        _rangeError = null;
+        _rangeFrom = _from;
+        _rangeTo = _to;
+    }
 
     // Palette state
     private bool PaletteOpen = false;
@@ -257,6 +306,14 @@
                 ConfigJson = w.ConfigJson,
                 DisplayName = GetWidgetDisplayName(w)
             }).ToList();
+
+            var siteToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, DisplayZone.Zone).Date;
+            var day = await ReportDefaultDay.LatestAsync(
+                Mediator, Report.Widgets.Select(w => (w.Id, w.WidgetType, w.ConfigJson)), Report.TenantId, Logger, _cts.Token)
+                ?? siteToday;
+            (_from, _to) = CcDashboard.Contracts.Common.ReportDateFields.DefaultRange(day, SingleDateNow);
+            _rangeFrom = _from;
+            _rangeTo = _to;
 
             // Load saved palette state
             var userId = CurrentUser?.UserId?.ToString() ?? "anon";

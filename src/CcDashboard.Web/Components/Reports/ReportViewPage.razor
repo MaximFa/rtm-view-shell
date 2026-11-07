@@ -144,7 +144,8 @@
                                         DarkMode="_darkMode"
                                         TenantId="_report?.TenantId"
                                         WidgetId="widget.Id"
-                                        FilterChanged="OnWidgetFilterChanged" />
+                                        FilterChanged="OnWidgetFilterChanged"
+                                        StepChanged="OnWidgetStepChanged" />
                                 </div>
                             </div>
                         }
@@ -204,6 +205,16 @@
     }
 
     /// <summary>
+    /// The step each end-of-shift queues widget is drawn with (FEAT-REPORT-EOS-CONFIGURABLE-01).
+    /// Kept for the same reason as the filters: the export is built here, and a file grouped by
+    /// days next to a screen grouped by months would disagree with it without a word. Every widget
+    /// reports its step, Day included - the export must not assume a step it was never told.
+    /// </summary>
+    private readonly Dictionary<Guid, CcDashboard.Application.HistoricalReports.Queries.ReportStep> _widgetSteps = new();
+
+    private void OnWidgetStepChanged(ReportWidgetStep step) => _widgetSteps[step.WidgetId] = step.Step;
+
+    /// <summary>
     /// True when every widget on this screen is an end-of-shift report: then the second date field
     /// is not drawn, and the single date is sent as both ends of the window.
     /// An empty report is NOT "single": a screen with no widgets says nothing about what it will
@@ -211,6 +222,9 @@
     /// </summary>
     private bool _singleDate;
     private DateTime _siteToday;
+    // The day the defaults are anchored on: the site's today until the server names the last day
+    // that has data (FEAT-REPORT-DEFAULT-LAST-DATA-DAY-01).
+    private DateTime _defaultDay;
     // True once the person has applied dates of their own: after that the defaults never win back.
     private bool _datesChosen;
 
@@ -228,7 +242,7 @@
             // today, because that single date IS the window; a two-field screen opens on the last
             // week. Applied only while the person has not chosen dates themselves - their choice
             // must survive a reload of the widget list.
-            (_from, _to) = ReportDateFields.DefaultRange(_siteToday, _singleDate);
+            (_from, _to) = ReportDateFields.DefaultRange(_defaultDay, _singleDate);
             _rangeFrom = _from;
             _rangeTo = _to;
             _rangeError = null;
@@ -243,11 +257,31 @@
         }
     }
 
+    /// <summary>
+    /// The screen opens on the last day that has data (ReportDefaultDay - the one rule, shared with
+    /// the editor). A day the person chose themselves always wins.
+    /// </summary>
+    private async Task ApplyLastDataDayAsync()
+    {
+        if (_report is null || _datesChosen) return;
+
+        var latest = await ReportDefaultDay.LatestAsync(
+            Mediator, _report.Widgets.Select(w => (w.Id, w.WidgetType, w.ConfigJson)), _report.TenantId, Logger, _cts.Token);
+
+        if (latest is null || _datesChosen) return;
+        _defaultDay = latest.Value;
+        (_from, _to) = ReportDateFields.DefaultRange(_defaultDay, _singleDate);
+        _rangeFrom = _from;
+        _rangeTo = _to;
+        _rangeError = null;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         // The site's today, not the server's UTC one; the dates themselves are set once the
         // report is loaded and the number of date fields is known (RecomputeDateFields).
         _siteToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, DisplayZone.Zone).Date;
+        _defaultDay = _siteToday;
         (_from, _to) = ReportDateFields.DefaultRange(_siteToday, singleDate: false);
         _rangeFrom = _from;
         _rangeTo = _to;
@@ -258,6 +292,7 @@
             _report = await Mediator.Send(new GetReportScreenQuery(Id), _cts.Token);
             _darkMode = _report.IsDarkMode;
             RecomputeDateFields();
+            await ApplyLastDataDayAsync();
 
             if (_report.Widgets.Count > 0)
             {
@@ -448,7 +483,8 @@
                 new ExportReportCommand(_report.Id, _rangeFrom, _rangeTo, _report.TenantId,
                     Filters: _widgetFilters
                         .Where(e => e.Value.Filters is { Count: > 0 })
-                        .ToDictionary(e => e.Key, e => e.Value.Filters!)),
+                        .ToDictionary(e => e.Key, e => e.Value.Filters!),
+                    Steps: new Dictionary<Guid, CcDashboard.Application.HistoricalReports.Queries.ReportStep>(_widgetSteps)),
                 _cts.Token);
             _skippedLines = BuildSkippedLines(res.Skipped);
             var base64 = Convert.ToBase64String(res.Content);

@@ -76,7 +76,7 @@ public class SaveReportWidgetsTests
         var handler = new SaveReportWidgetsCommandHandler(_repo, _user, _clock);
         var cmd = new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>
         {
-            new(null, ReportWidgetType.QueueInterval, "{}", "{ invalid json }", false)
+            new(null, ReportWidgetType.EndOfShiftQueues, "{}", "{ invalid json }", false)
         });
 
         var act = () => handler.Handle(cmd, CancellationToken.None);
@@ -111,13 +111,13 @@ public class SaveReportWidgetsTests
         var handler = new SaveReportWidgetsCommandHandler(_repo, _user, _clock);
         var cmd = new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>
         {
-            new(null, ReportWidgetType.QueueInterval, "{}", validConfigJson, false)
+            new(null, ReportWidgetType.EndOfShiftQueues, "{}", validConfigJson, false)
         });
 
         var result = await handler.Handle(cmd, CancellationToken.None);
 
         result.Should().HaveCount(1);
-        result[0].WidgetType.Should().Be(ReportWidgetType.QueueInterval);
+        result[0].WidgetType.Should().Be(ReportWidgetType.EndOfShiftQueues);
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public class SaveReportWidgetsTests
             Id = Guid.NewGuid(),
             ReportScreenId = ScreenId,
             TenantId = TenantId,
-            WidgetType = ReportWidgetType.QueueInterval,
+            WidgetType = ReportWidgetType.EndOfShiftAgents,
             PositionJson = "{}",
             ConfigJson = "{}",
             IsDeleted = false
@@ -187,13 +187,13 @@ public class SaveReportWidgetsTests
         var handler = new SaveReportWidgetsCommandHandler(_repo, _user, _clock);
         var cmd = new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>
         {
-            new(existingWidget.Id, ReportWidgetType.QueueWaitTime, newPositionJson, null, false)
+            new(existingWidget.Id, ReportWidgetType.EndOfShiftQueues, newPositionJson, null, false)
         });
 
         var result = await handler.Handle(cmd, CancellationToken.None);
 
         result.Should().HaveCount(1);
-        existingWidget.WidgetType.Should().Be(ReportWidgetType.QueueWaitTime);
+        existingWidget.WidgetType.Should().Be(ReportWidgetType.EndOfShiftQueues);
         existingWidget.PositionJson.Should().Be(newPositionJson);
     }
 
@@ -221,6 +221,73 @@ public class SaveReportWidgetsTests
 
         // No permission check expected
         await _repo.DidNotReceive().GetUserAccessLevelAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    // FEAT-REPORT-EOS-CONFIGURABLE-01: retired report types cannot be added to a screen or switched to.
+    private SaveReportWidgetsCommandHandler RetiredScreen(params ReportWidget[] existing)
+    {
+        var screen = new ReportScreen { Id = ScreenId, TenantId = TenantId, Name = "Test", IsPublic = false,
+            Widgets = existing.ToList(), UpdatedByUserId = UserId, UpdatedAt = _clock.UtcNow.AddDays(-1) };
+        _repo.GetByIdWithWidgetsAsync(ScreenId, It.IsAny<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
+        _repo.GetUserAccessLevelAsync(ScreenId, PgId, false, false, Arg.Any<CancellationToken>()).Returns(7);
+        return new SaveReportWidgetsCommandHandler(_repo, _user, _clock);
+    }
+
+    [Theory]
+    [InlineData(ReportWidgetType.QueueInterval)]
+    [InlineData(ReportWidgetType.QueueWaitTime)]
+    [InlineData(ReportWidgetType.Distribution)]
+    public async Task SaveWidgets_NewRetiredWidget_IsRefused(ReportWidgetType retired)
+    {
+        var handler = RetiredScreen();
+        var act = () => handler.Handle(new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>
+            { new(null, retired, "{}", null, false) }), CancellationToken.None);
+
+        await act.Should().ThrowAsync<DomainValidationException>().WithMessage("*retired*");
+        await _repo.DidNotReceiveWithAnyArgs().AddWidgetAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task SaveWidgets_SwitchingExistingWidgetToRetiredType_IsRefused()
+    {
+        var w = new ReportWidget { Id = Guid.NewGuid(), ReportScreenId = ScreenId, TenantId = TenantId,
+            WidgetType = ReportWidgetType.EndOfShiftQueues, PositionJson = "{}", ConfigJson = "{}" };
+        var handler = RetiredScreen(w);
+        var act = () => handler.Handle(new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>
+            { new(w.Id, ReportWidgetType.QueueInterval, "{}", null, false) }), CancellationToken.None);
+
+        await act.Should().ThrowAsync<DomainValidationException>().WithMessage("*retired*");
+        w.WidgetType.Should().Be(ReportWidgetType.EndOfShiftQueues);
+    }
+
+    [Fact]
+    public async Task SaveWidgets_ExistingRetiredWidgetKeptAsIs_IsAllowed()
+    {
+        // Negative half: a screen that already holds a retired widget can still be saved (it shows "retired").
+        var w = new ReportWidget { Id = Guid.NewGuid(), ReportScreenId = ScreenId, TenantId = TenantId,
+            WidgetType = ReportWidgetType.Distribution, PositionJson = "{}", ConfigJson = "{}" };
+        var handler = RetiredScreen(w);
+        var result = await handler.Handle(new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>
+            { new(w.Id, ReportWidgetType.Distribution, """{"x":1}""", null, false) }), CancellationToken.None);
+
+        result.Should().HaveCount(1);
+        w.PositionJson.Should().Be("""{"x":1}""");
+    }
+
+    [Fact]
+    public async Task SaveWidgets_DefaultStep_IsKeptOnTheQueuesReport_AndRefusedOnAnother()
+    {
+        const string cfg = """{ "scope": { "businessUnitIds": [1] }, "defaultStep": "month" }""";
+        var handler = RetiredScreen();
+        var saved = await handler.Handle(new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>
+            { new(null, ReportWidgetType.EndOfShiftQueues, "{}", cfg, false) }), CancellationToken.None);
+        saved.Should().HaveCount(1);
+        await _repo.Received(1).AddWidgetAsync(Arg.Is<ReportWidget>(w => w.ConfigJson == cfg), Arg.Any<CancellationToken>());
+
+        var refused = () => RetiredScreen().Handle(new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>
+            { new(null, ReportWidgetType.AgentPerformance, "{}", """{ "scope": { "businessUnitIds": [1] }, "mode": "summary", "defaultStep": "month" }""", false) }),
+            CancellationToken.None);
+        await refused.Should().ThrowAsync<DomainValidationException>().WithMessage("*default interval step*");
     }
 }
 

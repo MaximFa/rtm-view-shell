@@ -67,10 +67,11 @@ public class ReportFunnelFiltersTests
     private static ReportColumnFilter Tm(string col, string op, DateTime from, DateTime? to = null) => new(col, op, Time: from, TimeTo: to);
 
     private Task<ReportWidgetResult> Intervals(int pageSize = 100, params ReportColumnFilter[] f) =>
-        _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.QueueInterval,
-            QCfg.Replace("\"pageSize\": 100", $"\"pageSize\": {pageSize}"), Day, Day, Filters: f), CancellationToken.None);
+        // FEAT-REPORT-EOS-CONFIGURABLE-01: the queue report left is EndOfShiftQueues; HalfHour gives one row per bucket here
+        _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues,
+            QCfg.Replace("\"pageSize\": 100", $"\"pageSize\": {pageSize}"), Day, Day, Filters: f, Step: ReportStep.HalfHour), CancellationToken.None);
 
-    private static IEnumerable<int> Offered(ReportWidgetResult r) => r.QueueInterval!.Rows.Select(x => x.Offered);
+    private static IEnumerable<int> Offered(ReportWidgetResult r) => r.QueueSummary!.Rows.Select(x => x.Offered);
 
     [Fact]
     public async Task Greater_IsStrict_Less_IsStrict()
@@ -121,9 +122,9 @@ public class ReportFunnelFiltersTests
     public async Task Filters_AreBeforePaging_AndTotalCountCountsMatches()
     {
         var r = await Intervals(1, N("Offered", "greater", 5));
-        r.QueueInterval!.TotalCount.Should().Be(2);
+        r.QueueSummary!.TotalCount.Should().Be(2);
         Offered(r).Should().Equal(10);
-        (await Intervals(1)).QueueInterval!.TotalCount.Should().Be(4, "negative half: unfiltered");
+        (await Intervals(1)).QueueSummary!.TotalCount.Should().Be(4, "negative half: unfiltered");
     }
 
     [Fact]
@@ -152,18 +153,15 @@ public class ReportFunnelFiltersTests
     }
 
     [Theory]
-    [InlineData(ReportWidgetType.QueueInterval, "Offered", "contains", "operator does not fit")]       // text op on a number
-    [InlineData(ReportWidgetType.EndOfShiftQueues, "Workgroup", "greater", "operator does not fit")]  // number op on text
-    [InlineData(ReportWidgetType.QueueInterval, "Workgroup", "contains", "takes no filter")]          // always empty there
-    [InlineData(ReportWidgetType.EndOfShiftQueues, "QueueId", "greater", "takes no filter")]          // id
-    [InlineData(ReportWidgetType.QueueInterval, "NoSuchColumn", "greater", "Unknown filter column")]
-    [InlineData(ReportWidgetType.Distribution, "Label", "contains", "takes no column filters")]
+    [InlineData(ReportWidgetType.EndOfShiftQueues, "Offered", "contains", "operator does not fit")]        // text op on a number
+    [InlineData(ReportWidgetType.EndOfShiftQueues, "Workgroup", "greater", "operator does not fit")]       // number op on text
+    [InlineData(ReportWidgetType.EndOfShiftQueues, "IntervalStart", "contains", "operator does not fit")]  // text op on a time
+    [InlineData(ReportWidgetType.EndOfShiftQueues, "QueueId", "greater", "takes no filter")]               // id
+    [InlineData(ReportWidgetType.EndOfShiftQueues, "NoSuchColumn", "greater", "Unknown filter column")]
     public async Task IncompatibleOrUnknown_IsRefused(ReportWidgetType type, string column, string op, string message)
     {
         var f = op is "greater" ? new ReportColumnFilter(column, op, Number: 1) : new ReportColumnFilter(column, op, Text: "x");
-        var r = await _handler.Handle(new RunReportWidgetQuery(type, QCfg, Day, Day,
-            ShiftStartHour: type == ReportWidgetType.EndOfShiftQueues ? 0 : null, ShiftEndHour: type == ReportWidgetType.EndOfShiftQueues ? 24 : null,
-            Filters: new[] { f }), CancellationToken.None);
+        var r = await _handler.Handle(new RunReportWidgetQuery(type, QCfg, Day, Day, Filters: new[] { f }), CancellationToken.None);
         r.Error.Should().Contain(message);
         r.ErrorCode.Should().Be(ReportReasonCodes.InvalidConfig);
     }
@@ -183,10 +181,12 @@ public class ReportFunnelFiltersTests
     [Fact]
     public async Task ValueList_OnlyForAFilterableTextColumn()
     {
-        (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.QueueInterval, QCfg, Day, Day, ValuesForColumn: "Offered"),
+        (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QCfg, Day, Day, ValuesForColumn: "Offered"),
             CancellationToken.None)).Error.Should().Contain("value list");
-        (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.QueueInterval, QCfg, Day, Day, ValuesForColumn: "Workgroup"),
-            CancellationToken.None)).Error.Should().Contain("value list", "Workgroup is always empty in this report");
+        (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QCfg, Day, Day, ValuesForColumn: "QueueId"),
+            CancellationToken.None)).Error.Should().Contain("value list", "an id column takes no funnel");
+        (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QCfg, Day, Day, ValuesForColumn: "Workgroup"),
+            CancellationToken.None)).Error.Should().BeNull("negative half: the queue name is a filterable text column");
     }
 
     [Fact]
@@ -196,7 +196,7 @@ public class ReportFunnelFiltersTests
         mediator.Send(Arg.Any<RunReportWidgetQuery>(), Arg.Any<CancellationToken>())
             .Returns(ci => _handler.Handle(ci.Arg<RunReportWidgetQuery>(), CancellationToken.None));
         var screen = new ReportScreen { Id = Guid.NewGuid(), TenantId = TenantId, Name = "S" };
-        var w = new ReportWidget { Id = Guid.NewGuid(), WidgetType = ReportWidgetType.QueueInterval, ConfigJson = QCfg };
+        var w = new ReportWidget { Id = Guid.NewGuid(), WidgetType = ReportWidgetType.EndOfShiftQueues, ConfigJson = QCfg };
         screen.Widgets.Add(w);
         var screens = Substitute.For<IReportScreenRepository>();
         screens.GetByIdWithWidgetsAsync(screen.Id, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(screen);
@@ -206,9 +206,11 @@ public class ReportFunnelFiltersTests
             Substitute.For<ILogger<ExportReportCommandHandler>>());
         var filters = new[] { N("Offered", "between", 5, 20) };
 
-        var screenRows = (await Intervals(f: filters)).QueueInterval!.TotalCount;
+        var screenRows = (await Intervals(f: filters)).QueueSummary!.TotalCount;
         await export.Handle(new ExportReportCommand(screen.Id, Day, Day,
-            Filters: new Dictionary<Guid, IReadOnlyList<ReportColumnFilter>> { [w.Id] = filters }), CancellationToken.None);
+            Filters: new Dictionary<Guid, IReadOnlyList<ReportColumnFilter>> { [w.Id] = filters },
+            // the screen (Intervals) shows half-hours; the file must carry the same step, or it sums a different row set
+            Steps: new Dictionary<Guid, ReportStep> { [w.Id] = ReportStep.HalfHour }), CancellationToken.None);
 
         screenRows.Should().Be(3);
         await exporter.Received(1).ExportXlsxAsync(Arg.Any<string>(),

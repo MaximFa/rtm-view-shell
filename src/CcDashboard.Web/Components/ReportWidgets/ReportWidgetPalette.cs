@@ -23,11 +23,13 @@ public static class ReportWidgetPalette
     /// </summary>
     public static readonly IReadOnlyList<ReportWidgetType> Ready = new[]
     {
-        ReportWidgetType.QueueInterval,
-        ReportWidgetType.QueueWaitTime,
+        // QueueInterval, QueueWaitTime and Distribution are RETIRED (operator, 2026-11-07): the
+        // configurable end-of-shift queues report covers what they did, with a step of a day, an
+        // hour or half an hour. They stay in the enum and keep their renderers - widgets already
+        // standing on boards must still draw, and they say "retired" instead of going blank.
+        // Blank would be the worse ending: a person reads an empty report as "there was no work".
         ReportWidgetType.AgentMonthly,
         ReportWidgetType.AgentShiftDetail,
-        ReportWidgetType.Distribution,
         ReportWidgetType.EndOfShiftQueues,
         ReportWidgetType.EndOfShiftAgents,
         ReportWidgetType.AgentPerformance,

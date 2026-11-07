@@ -15,7 +15,8 @@ public record RunReportWidgetQuery(
     int Page = 1,
     Guid? TenantId = null,
     bool AllRows = false,
-    // FEAT-REPORT-EOS-*-01: shift hours (site wall clock) on the single date From; required for EndOfShift*, empty otherwise.
+    // FEAT-REPORT-EOS-*-01: shift hours (site wall clock) on the single date From; required for EndOfShiftAgents, empty otherwise
+    // (FEAT-REPORT-EOS-CONFIGURABLE-01: the queues report takes From..To and a Step instead).
     int? ShiftStartHour = null,
     int? ShiftEndHour = null,
     // FEAT-REPORT-COLUMN-FUNNEL-FILTERS-01 (contract 07:23:21Z): funnel filters on any column of a table report, one per
@@ -24,8 +25,39 @@ public record RunReportWidgetQuery(
     IReadOnlyList<ReportColumnFilter>? Filters = null,
     // When set (a Text column), the result also carries the distinct values of that column over the WHOLE window and scope
     // (not the page), with the filters of the OTHER columns applied and its own left out - the checkbox list.
-    string? ValuesForColumn = null
+    string? ValuesForColumn = null,
+    // FEAT-REPORT-EOS-CONFIGURABLE-01: the interval of the end-of-shift queues report (null = Day); other types refuse it.
+    ReportStep? Step = null
 ) : IRequest<ReportWidgetResult>;
+
+/// <summary>FEAT-REPORT-EOS-CONFIGURABLE-01: the interval of one row of the end-of-shift queues report.</summary>
+/// Month / Year (operator 2026-11-07 12:31, contract 10:32:55Z): the local month / year of the site; IntervalStart = local
+/// 1st of the month / 1 January 00:00. Only the days inside From..To are summed (see ReportWidgetResult.PartialFirst/Last).
+/// New values are appended - the numbers of the existing ones do not move.
+public enum ReportStep
+{
+    Day,
+    Hour,
+    HalfHour,
+    Month,
+    Year
+}
+
+/// <summary>
+/// FEAT-REPORT-EOS-CONFIGURABLE-01: the queue reports taken out of the product (operator 2026-11-07 10:46). A saved widget of
+/// such a type still opens and says so (ErrorCode retired); a new one cannot be created.
+/// </summary>
+public static class RetiredReports
+{
+    public static readonly IReadOnlySet<ReportWidgetType> Types = new HashSet<ReportWidgetType>
+    {
+        ReportWidgetType.QueueInterval,
+        ReportWidgetType.QueueWaitTime,
+        ReportWidgetType.Distribution
+    };
+
+    public static bool IsRetired(ReportWidgetType type) => Types.Contains(type);
+}
 
 /// <summary>
 /// One funnel filter. Column = a field name from ReportColumns.For(type). Op by the column kind:
@@ -109,6 +141,19 @@ public record ReportWidgetResult
     /// </summary>
     public string? CaveatCode { get; init; }
 
+    /// <summary>The interval the rows are grouped by (end-of-shift queues); null for the other types.</summary>
+    public ReportStep? Step { get; init; }
+
+    /// <summary>
+    /// FEAT-REPORT-EOS-CONFIGURABLE-01 (Month/Year, 10:38:32Z): the first / last interval of the step is cut by the period
+    /// (e.g. Month from 05.11): its row sums only the days inside From..To. Set from the period, not from the rows.
+    /// Always false for Day / Hour / HalfHour (the period is whole days).
+    /// </summary>
+    public bool PartialFirst { get; init; }
+
+    /// <summary>See <see cref="PartialFirst"/>.</summary>
+    public bool PartialLast { get; init; }
+
     /// <summary>The checkbox list asked for with ValuesForColumn; null otherwise.</summary>
     public ReportColumnValues? ColumnValues { get; init; }
 
@@ -148,8 +193,10 @@ public static class ReportReasonCodes
     public const string NoData = "no-data";
     public const string ShiftHours = "shift-hours";
     public const string InvalidConfig = "invalid-config";
+    /// <summary>FEAT-REPORT-EOS-CONFIGURABLE-01: the report type was taken out of the product.</summary>
+    public const string Retired = "retired";
 
-    public static readonly IReadOnlySet<string> All = new HashSet<string> { Denied, NoData, ShiftHours, InvalidConfig };
+    public static readonly IReadOnlySet<string> All = new HashSet<string> { Denied, NoData, ShiftHours, InvalidConfig, Retired };
 
     /// <summary>
     /// Export only: the widget failed with an empty or unrecognised code, or its run threw. Not a reason of its own -

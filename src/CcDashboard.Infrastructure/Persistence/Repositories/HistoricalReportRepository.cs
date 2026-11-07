@@ -48,6 +48,30 @@ public class HistoricalReportRepository(
             .ToListAsync(ct);
     }
 
+    public async Task<DateTime?> GetLastIntervalStartAsync(
+        Guid tenantId,
+        ReportDataSet dataSet,
+        IReadOnlySet<string> scopedKeys,
+        CancellationToken ct)
+    {
+        // nothing in scope - nothing asked, never "the whole tenant"
+        if (scopedKeys.Count == 0)
+            return null;
+
+        await using var ctx = await dbFactory.CreateDbContextAsync(ct);
+        return dataSet switch
+        {
+            // (TenantId, IntervalStart[, Workgroup]) index: a backward scan that stops at the first row in scope
+            // (measured on 234, .coord/measure/lastday-1107: 7-13 ms)
+            ReportDataSet.Queues => await ctx.HistQueueIntervals
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenantId && scopedKeys.Contains(x.Workgroup))
+                .MaxAsync(x => (DateTime?)x.IntervalStart, ct),
+            _ => throw new ArgumentOutOfRangeException(nameof(dataSet), dataSet, "Unknown report data set")
+        };
+    }
+
     public async Task<IReadOnlyList<HistAgentInterval>> GetAgentIntervalsAsync(
         Guid tenantId,
         DateTime from,

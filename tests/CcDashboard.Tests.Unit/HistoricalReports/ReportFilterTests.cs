@@ -80,7 +80,7 @@ public class ReportFilterTests
 
     private Task<ReportWidgetResult> QueuesF(ReportColumnFilter? queue, string? values = null) =>
         _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QueueCfg, Day, Day,
-            ShiftStartHour: 0, ShiftEndHour: 24, Filters: On((Queue, queue)), ValuesForColumn: values), CancellationToken.None);
+            Filters: On((Queue, queue)), ValuesForColumn: values), CancellationToken.None);
 
     private static IEnumerable<string> Ids(ReportWidgetResult r) => r.AgentSummary!.Rows.Select(x => x.AgentExternalId);
 
@@ -164,7 +164,7 @@ public class ReportFilterTests
     public async Task FiltersOnATypeThatHasNoSuchColumn_AreRefused()
     {
         var agentOnQueues = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QueueCfg, Day, Day,
-            ShiftStartHour: 0, ShiftEndHour: 24, Filters: On((Login, T("ann")))), CancellationToken.None);
+            Filters: On((Login, T("ann")))), CancellationToken.None);
         agentOnQueues.Error.Should().Contain("Unknown filter column");
         (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, PerfCfg, Day, Day, Filters: On((Queue, T("sales")))),
             CancellationToken.None)).Error.Should().Contain("Unknown filter column");

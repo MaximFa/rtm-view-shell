@@ -1,5 +1,6 @@
 using CcDashboard.Application.Behaviors;
 using CcDashboard.Application.HistoricalReports;
+using CcDashboard.Application.HistoricalReports.Queries;
 using CcDashboard.Application.HistoricalReports.Validators;
 using CcDashboard.Application.Reports.DTOs;
 using CcDashboard.Application.Reports.Interfaces;
@@ -48,6 +49,12 @@ public class SaveReportWidgetsCommandHandler(
 
         foreach (var widgetReq in cmd.Widgets)
         {
+            // FEAT-REPORT-EOS-CONFIGURABLE-01: a retired report type cannot be created, nor can a widget be switched to one;
+            // a widget already saved with it is kept as it is (it opens and says "retired").
+            if (!widgetReq.IsDeleted && RetiredReports.IsRetired(widgetReq.WidgetType)
+                && !(widgetReq.Id.HasValue && existingWidgets.TryGetValue(widgetReq.Id.Value, out var kept) && kept.WidgetType == widgetReq.WidgetType))
+                throw new ValidationException($"Report type {widgetReq.WidgetType} is retired and cannot be added");
+
             // Validate ConfigJson using Ф2.5 validator
             if (!string.IsNullOrEmpty(widgetReq.ConfigJson))
             {

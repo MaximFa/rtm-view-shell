@@ -59,16 +59,13 @@ public class FullScopeEmptyLeakTests
 
     private Task<ReportWidgetResult> Run(ReportWidgetType t)
     {
-        var eos = t is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues;
+        var eos = t is ReportWidgetType.EndOfShiftAgents;   // the queues report takes dates, not shift hours (FEAT-REPORT-EOS-CONFIGURABLE-01)
         return _handler.Handle(new RunReportWidgetQuery(t, Cfg, Day, Day, ShiftStartHour: eos ? 0 : null, ShiftEndHour: eos ? 24 : null), CancellationToken.None);
     }
 
     /// <summary>The volume the result carries: rows, or calls for the BU-aggregated queue types.</summary>
     private static int Volume(ReportWidgetResult r) => r.WidgetType switch
     {
-        ReportWidgetType.QueueInterval => r.QueueInterval!.Rows.Sum(x => x.Offered),
-        ReportWidgetType.QueueWaitTime => r.QueueWaitTime!.Rows.Sum(x => x.Answered),
-        ReportWidgetType.Distribution => r.Distribution!.TotalCount,
         ReportWidgetType.AgentMonthly => r.AgentMonthly!.Rows.Sum(x => x.Handled),
         ReportWidgetType.AgentShiftDetail => r.AgentShiftDetail!.Rows.Sum(x => x.Handled),
         ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentPerformance => r.AgentSummary!.Rows.Sum(x => x.Handled),
@@ -76,19 +73,15 @@ public class FullScopeEmptyLeakTests
         _ => throw new ArgumentOutOfRangeException()
     };
 
-    // own data: queue Offered 3 / Answered 2; agent Handled 1. The foreign rows would add 100 / 90 / 50.
+    // own data: queue Offered 3; agent Handled 1. The foreign rows would add 100 / 50.
+    // (QueueInterval, QueueWaitTime, Distribution are retired: they answer "retired" before any scope or store call.)
     private static int OwnVolume(ReportWidgetType t) => t switch
     {
-        ReportWidgetType.QueueWaitTime => 2,
-        ReportWidgetType.Distribution => 2, // TotalCount = answered
         _ when IsAgentType(t) => 1,
         _ => 3
     };
 
     [Theory]
-    [InlineData(ReportWidgetType.QueueInterval)]
-    [InlineData(ReportWidgetType.QueueWaitTime)]
-    [InlineData(ReportWidgetType.Distribution)]
     [InlineData(ReportWidgetType.AgentMonthly)]
     [InlineData(ReportWidgetType.AgentShiftDetail)]
     [InlineData(ReportWidgetType.EndOfShiftAgents)]
@@ -107,9 +100,6 @@ public class FullScopeEmptyLeakTests
     }
 
     [Theory]
-    [InlineData(ReportWidgetType.QueueInterval)]
-    [InlineData(ReportWidgetType.QueueWaitTime)]
-    [InlineData(ReportWidgetType.Distribution)]
     [InlineData(ReportWidgetType.AgentMonthly)]
     [InlineData(ReportWidgetType.AgentShiftDetail)]
     [InlineData(ReportWidgetType.EndOfShiftAgents)]

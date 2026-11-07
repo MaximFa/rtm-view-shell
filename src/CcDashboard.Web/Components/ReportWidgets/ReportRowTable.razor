@@ -71,6 +71,13 @@
     /// so the window it opens never has to guess what the column holds.</summary>
     [Parameter] public RenderFragment<ReportColumn>? HeaderExtra { get; set; }
 
+    /// <summary>
+    /// A widget's own text for a cell, or null to let the column's kind write it. Exists for ONE
+    /// case today: the interval start of the end-of-shift queues report is written by the step of
+    /// the answer ("11.2026 (from 05.11)"), which a column kind alone cannot know.
+    /// </summary>
+    [Parameter] public Func<object, string, string?>? CellText { get; set; }
+
     private IReadOnlyList<ReportColumn> _meta = Array.Empty<ReportColumn>();
     private ReportWidgetType _metaFor;
 
@@ -95,6 +102,8 @@
     // carries gives a dash rather than an exception: one renamed field must not blank a report.
     private string Cell(object row, string column)
     {
+        if (CellText?.Invoke(row, column) is { } own) return own;
+
         var property = row.GetType().GetProperty(column, BindingFlags.Public | BindingFlags.Instance);
         if (property is null) return "-";
 

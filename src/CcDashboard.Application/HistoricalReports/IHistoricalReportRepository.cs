@@ -43,6 +43,17 @@ public interface IHistoricalReportRepository
         IReadOnlySet<string> agentIds,
         CancellationToken ct);
 
+    /// <summary>
+    /// FEAT-REPORT-DEFAULT-LAST-DATA-DAY-01: the newest interval start (UTC) of a data set for the tenant, within the given,
+    /// already scoped keys (workgroups for <see cref="ReportDataSet.Queues"/>). Null when there is no row. An empty key set
+    /// returns null without a query (PR234-V4-REPORT-FULLSCOPE-EMPTY-LEAK-01 shape: nothing in scope - nothing asked).
+    /// </summary>
+    Task<DateTime?> GetLastIntervalStartAsync(
+        Guid tenantId,
+        ReportDataSet dataSet,
+        IReadOnlySet<string> scopedKeys,
+        CancellationToken ct);
+
     /// <summary>Get watermark for a tenant (aggregation progress).</summary>
     Task<HistAggregationWatermark?> GetWatermarkAsync(Guid tenantId, CancellationToken ct);
 
@@ -63,4 +74,13 @@ public interface IHistoricalReportRepository
 
     /// <summary>Ensure partitions exist for aggregation window.</summary>
     Task EnsurePartitionsAsync(int monthsBack, int monthsAhead, CancellationToken ct);
+}
+
+/// <summary>
+/// FEAT-REPORT-DEFAULT-LAST-DATA-DAY-01: which history a report reads, for the one "last day with data" rule. Agents join
+/// later as a value here (and a branch in the repository), never as a second rule.
+/// </summary>
+public enum ReportDataSet
+{
+    Queues
 }

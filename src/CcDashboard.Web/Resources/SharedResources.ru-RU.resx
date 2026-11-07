@@ -1231,5 +1231,20 @@
   <data name="Common_Fullscreen"><value>Полноэкранный режим</value></data>
   <data name="Widget_SortedByColumn"><value>Сортировка: {0}</value></data>
   <data name="Widget_ShowingNofM"><value>Показано {0} из {1}</value></data>
+  <data name="Report_Step"><value>Интервал</value></data>
+  <data name="Report_StepHalfHour"><value>Полчаса</value></data>
+  <data name="Report_StepHour"><value>Час</value></data>
+  <data name="Report_StepDay"><value>День</value></data>
+  <data name="Report_StepMonth"><value>Месяц</value></data>
+  <data name="Report_StepYear"><value>Год</value></data>
+  <data name="Report_IntervalFrom"><value>(с {0})</value></data>
+  <data name="Report_IntervalTo"><value>(по {0})</value></data>
+  <data name="Report_IntervalFromTo"><value>(с {0} по {1})</value></data>
+  <data name="Report_ErrorNoData"><value>Нет данных за выбранный период.</value></data>
+  <data name="Report_ErrorInvalidConfig"><value>Настройки этого отчёта нельзя использовать. Откройте настройки и проверьте их.</value></data>
+  <data name="Report_ErrorShiftHours"><value>Часы смены не заданы или не подходят к выбранной дате.</value></data>
+  <data name="Report_ErrorRetired"><value>Этот отчёт снят и больше не строится.</value></data>
+  <data name="Report_ErrorUnknown"><value>Не удалось построить отчёт.</value></data>
+  <data name="Report_ShownForRange"><value>Данные за {0} – {1}</value></data>
 </root>
 

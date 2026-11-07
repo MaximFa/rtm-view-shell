@@ -1,3 +1,4 @@
+@using System.Text.Json
 @using MediatR
 @using Microsoft.Extensions.Localization
 @using Microsoft.Extensions.Logging
@@ -7,11 +8,14 @@
 @using ReportColumns = CcDashboard.Application.HistoricalReports.ReportColumns
 @using ReportColumnKind = CcDashboard.Application.HistoricalReports.ReportColumnKind
 @using ReportColumn = CcDashboard.Application.HistoricalReports.ReportColumn
+@using ReportIntervalLabel = CcDashboard.Application.HistoricalReports.ReportIntervalLabel
 @inject IMediator Mediator
 @inject IStringLocalizer<SharedResources> L
 @inject ILogger<EndOfShiftQueuesReportWidget> Logger
 
-@* FEAT-REPORT-EOS-QUEUES-01: one row per queue for the shift window.
+@* FEAT-REPORT-EOS-QUEUES-01, made configurable by FEAT-REPORT-EOS-CONFIGURABLE-01 (2026-11-07):
+   one row per (interval of the step, queue) over the page's period; the step is the viewer's own.
+   Originally one row per queue for the shift window.
    Built on QueueIntervalReportWidget: same states, paging, dark mode and appearance variables, so
    a new report looks and behaves like the five that already exist. Two things differ, both from
    the contract: the columns come from the widget's configuration rather than being fixed, and the
@@ -22,21 +26,73 @@
    the report takes the first date and the hours - and nothing on screen said so, so a person had
    no way to see that their change had been ignored. Printed before every other branch, so it is
    there when the widget is refusing as well as when it is showing rows. *@
-<div class="report-widget-shownfor small text-muted px-2 pt-1" role="note">@ShownForText</div>
+<div class="report-widget-shownfor d-flex align-items-center justify-content-between gap-2 small text-muted px-2 pt-1">
+    <span role="note">@ShownForText</span>
+    @* FEAT-REPORT-EOS-CONFIGURABLE-01: the step is the viewer's own setting, kept per widget the
+       same way DayTrend keeps its interval (user view settings by widget id). Offered only where
+       the widget has an identity to keep it under - in the editor it has none, and a button
+       whose choice is forgotten on the next redraw is a control that controls nothing. *@
+    @if (WidgetId != Guid.Empty)
+    {
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 report-step-button"
+                title="@L["Widget_LocalViewSettings"]" @onclick="OpenStepWindow">
+            <i class="bi bi-calendar3-range me-1" aria-hidden="true"></i>@L["Report_Step"]: @StepName(_step)
+            @if (_personalStep is null)
+            {
+                @* Says that nobody chose this step on this screen - it is the widget's own default,
+                   set in the editor; "Reset" in the window returns here. *@
+                <span class="ms-1 opacity-75">(@L["Common_Default"])</span>
+            }
+        </button>
+    }
+</div>
+
+@if (_showStepWindow)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="@StepTitleId">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title mb-0" id="@StepTitleId">@L["Widget_LocalViewSettings"]</h6>
+                    <button type="button" class="btn-close" aria-label="@L["Cancel"]" @onclick="CloseStepWindow"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">@L["Report_Step"]</label>
+                    @* Ascending, as the operator ordered them (2026-11-07 12:31): half hour, hour,
+                       day, month, year. The order is the list below and nothing else. *@
+                    <div class="btn-group w-100" role="group" aria-label="@L["Report_Step"]">
+                        @foreach (var step in ReportWidgetSteps.Ascending)
+                        {
+                            var stepOption = step;
+                            <button type="button"
+                                    class="btn btn-sm @(_viewStep == stepOption ? "btn-primary" : "btn-outline-secondary")"
+                                    aria-pressed="@(_viewStep == stepOption ? "true" : "false")"
+                                    @onclick="() => _viewStep = stepOption">@StepName(stepOption)</button>
+                        }
+                    </div>
+                    <div class="small text-muted mt-2">@L["Common_Default"]: @StepName(WidgetDefaultStep)</div>
+                </div>
+                <div class="modal-footer py-2 d-flex justify-content-between">
+                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ResetStepAsync">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>@L["Widget_ResetToDefault"]
+                    </button>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-secondary me-2" @onclick="CloseStepWindow">@L["Cancel"]</button>
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="ApplyStepAsync">
+                            <i class="bi bi-check2 me-1"></i>@L["Apply"]
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
 
 @if (_denied)
 {
     <div class="alert alert-warning">
         <i class="bi bi-shield-exclamation me-2"></i>@L["Report_AccessDenied"]
-    </div>
-}
-else if (_needsShiftHours)
-{
-    @* Said here, in the user's language, instead of letting the server's English refusal through:
-       without the shift hours the query cannot be built at all, and the cure is in this widget's
-       own settings, so the message names it. *@
-    <div class="alert alert-info">
-        <i class="bi bi-clock-history me-2"></i>@L["ReportWidget_ShiftHoursMissing"]
     </div>
 }
 else if (!string.IsNullOrEmpty(_error))
@@ -101,6 +157,7 @@ else
        can be filtered. The row of buttons above the table is gone - it named the columns a
        second time, and two namings drift (operator, 2026-11-07). *@
     <ReportRowTable Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" WidgetType="ReportWidgetType.EndOfShiftQueues"
+                    CellText="IntervalCellText"
                     Updating="ReportLoadingView.ShowUpdatingMark(_loading, HasRows)"
                     Caption="@L["Report_EndOfShiftQueues"].Value">
         <HeaderExtra Context="column">
@@ -158,11 +215,15 @@ else
     /// filter it never hears about would produce a file that disagrees with the screen.
     /// </summary>
     [Parameter] public EventCallback<ReportWidgetFilter> FilterChanged { get; set; }
+    /// <summary>
+    /// Tells the page which step this widget is drawn with - on load and on every change - so the
+    /// export the page builds is grouped like the screen.
+    /// </summary>
+    [Parameter] public EventCallback<ReportWidgetStep> StepChanged { get; set; }
 
     private bool _loading;
     private bool _denied;
     private string? _error;
-    private bool _needsShiftHours;
     private QueueSummaryReportResult? _result;
     private bool _incomplete;
     private DateTime? _dataThroughUtc;
@@ -176,9 +237,9 @@ else
     private bool _initialized;
 
     /// <summary>
-    /// "Shown for 2026-11-04, 09:00-18:00" - the date that actually went into the query, not the
-    /// page's field, and the hours from the configuration. When the hours are missing the line
-    /// names the date alone: inventing a window here would hide the very defect it exists to show.
+    /// "Data for 01.11.2026 - 07.11.2026": the period that actually went into the query. The
+    /// caption exists because a report that silently ignores a control is unreadable - that is how
+    /// the second date field went unnoticed for a day.
     /// </summary>
     private string ShownForText
     {
@@ -186,12 +247,11 @@ else
         {
             // The page's own culture, not ISO: the date fields above show dd/MM/yyyy on a he-IL
             // board, and a caption in another format reads as a different date entirely.
-            var date = From.Date.ToString("d");
-            var start = Config?.ShiftStartHour;
-            var end = Config?.ShiftEndHour;
-            return start is null || end is null
-                ? string.Format(L["Report_ShownForDate"].Value, date)
-                : string.Format(L["Report_ShownForShift"].Value, date, $"{start:00}:00", $"{end:00}:00");
+            var from = From.Date.ToString("d");
+            var to = To.Date.ToString("d");
+            return from == to
+                ? string.Format(L["Report_ShownForDate"].Value, from)
+                : string.Format(L["Report_ShownForRange"].Value, from, to);
         }
     }
 
@@ -267,27 +327,155 @@ else
     /// The one place this widget builds its query. The page of rows and the list of values the
     /// filter window offers are asked for here both - so they cannot end up describing different
     /// windows or different filters, which would offer a choice the table cannot contain.
-    /// One date on both ends: an end-of-shift report lies on a single date, the one picked on the
-    /// page; the hours come from the widget's settings.
+    /// The period is the page's From..To and the step is this viewer's own (FEAT-REPORT-EOS-CONFIGURABLE-01).
     /// </summary>
     private RunReportWidgetQuery BuildQuery(string? valuesFor = null)
     {
         var effectiveConfig = (Config ?? new ReportWidgetConfig()) with { PageSize = _pageSize };
-        var shiftDate = From.Date;
+        // A period now, like every other report, and no shift hours at all: the server refuses
+        // them on this type (FEAT-REPORT-EOS-CONFIGURABLE-01). Sending a value that is ignored
+        // would be worse than refusing it - the screen would carry a setting that decides nothing.
         return new RunReportWidgetQuery(
             ReportWidgetType.EndOfShiftQueues,
             effectiveConfig.ToJson(),
-            shiftDate,
-            shiftDate,
+            From,
+            To,
             _page,
-            TenantId,
-            false,
-            Config?.ShiftStartHour,
-            Config?.ShiftEndHour)
+            TenantId)
         {
             Filters = _filters.ForQuery(),
-            ValuesForColumn = valuesFor
+            ValuesForColumn = valuesFor,
+            Step = _step
         };
+    }
+
+    // ---- Step (FEAT-REPORT-EOS-CONFIGURABLE-01) -------------------------------------------------
+
+    // The key under which the step is kept in the user's view settings of this widget.
+    private const string StepSettingKey = "reportStep";
+
+    /// <summary>The step in force: ReportWidgetSteps.Effective(personal, widget default) - one rule.</summary>
+    private ReportStep _step = ReportStep.Day;
+    /// <summary>This viewer's own choice on this widget, or null when they have made none.</summary>
+    private ReportStep? _personalStep;
+    /// <summary>The widget's default from its configuration (editor), Day when unset.</summary>
+    private ReportStep WidgetDefaultStep => ReportWidgetSteps.FromConfig(Config?.DefaultStep) ?? ReportStep.Day;
+    /// <summary>The selection inside the window, applied only by Apply.</summary>
+    private ReportStep _viewStep = ReportStep.Day;
+    private bool _showStepWindow;
+    private bool _stepLoaded;
+
+    private string StepTitleId => $"report-step-title-{WidgetId:N}";
+
+    private string StepName(ReportStep step) => L[ReportWidgetSteps.NameKey(step)].Value;
+
+    /// <summary>
+    /// Reads the viewer's step before the first query, so the first answer is already in it. A
+    /// stored value this build does not know is logged and read as Day - not thrown: a settings row
+    /// written by a later version must not take the report down.
+    /// The settings row is keyed by WidgetId, which here is a REPORT widget's id: UserWidgetSettings
+    /// has no foreign key to dashboard widgets (AppDbContext.cs:348-357), and the coordinator
+    /// decided to use it as it is, without a schema change (2026-11-07 09:09:23Z).
+    /// </summary>
+    private async Task LoadStepAsync()
+    {
+        if (WidgetId == Guid.Empty) return;
+        try
+        {
+            var json = await Mediator.Send(new CcDashboard.Application.Queries.Widgets.GetUserWidgetSettingsQuery(WidgetId));
+            if (string.IsNullOrEmpty(json)) return;
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty(StepSettingKey, out var el)
+                && el.ValueKind == JsonValueKind.String)
+            {
+                var text = el.GetString();
+                if (Enum.TryParse<ReportStep>(text, ignoreCase: true, out var stored) && Enum.IsDefined(stored))
+                    _personalStep = stored;
+                else
+                    Logger.LogWarning("Report widget {WidgetId}: unknown stored step {Step}, using Day", WidgetId, text);
+            }
+        }
+        catch (Exception ex)
+        {
+            // An unreadable setting is not a reason to refuse the report: it opens by days.
+            Logger.LogWarning(ex, "Report widget {WidgetId}: view settings could not be read", WidgetId);
+        }
+    }
+
+    private void OpenStepWindow()
+    {
+        _viewStep = _step;
+        _showStepWindow = true;
+    }
+
+    private void CloseStepWindow() => _showStepWindow = false;
+
+    private async Task ApplyStepAsync()
+    {
+        _showStepWindow = false;
+        if (_viewStep == _step) return;
+        try
+        {
+            var json = JsonSerializer.Serialize(new Dictionary<string, string> { [StepSettingKey] = _viewStep.ToString() });
+            await Mediator.Send(new CcDashboard.Application.Commands.Widgets.SaveUserWidgetSettingsCommand(WidgetId, json));
+            _personalStep = _viewStep;
+        }
+        catch (Exception ex)
+        {
+            // Said in the log, and the step still applies to this screen: the person chose it and
+            // sees it; only tomorrow's default is lost.
+            Logger.LogWarning(ex, "Report widget {WidgetId}: step could not be saved", WidgetId);
+            _personalStep = _viewStep;   // in force on this screen all the same
+        }
+        await ChangeStepAsync(_viewStep);
+    }
+
+    private async Task ResetStepAsync()
+    {
+        _showStepWindow = false;
+        try
+        {
+            await Mediator.Send(new CcDashboard.Application.Commands.Widgets.DeleteUserWidgetSettingsCommand(WidgetId));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Report widget {WidgetId}: view settings could not be deleted", WidgetId);
+        }
+        // Back to the widget's own default, not to Day: "reset" undoes the viewer's choice only.
+        _personalStep = null;
+        await ChangeStepAsync(ReportWidgetSteps.Effective(null, Config?.DefaultStep));
+    }
+
+    private async Task ChangeStepAsync(ReportStep step)
+    {
+        var changed = step != _step;
+        _step = step;
+        await StepChanged.InvokeAsync(new ReportWidgetStep(WidgetId, _step));
+        if (!changed) return;
+        // Back to the first page, as after a filter: page 4 of days is past the end of months.
+        _page = 1;
+        await LoadData();
+    }
+
+    // ---- The interval column, written from the ANSWER ---------------------------------------------
+
+    // What the rows on screen were built with: the step the server used and the cut flags, with the
+    // period of the SAME query. The page's From/To may already be newer than the answer in hand,
+    // and a mark computed from them would describe a query that has not come back yet.
+    private ReportStep _answerStep = ReportStep.Day;
+    private bool _answerPartialFirst;
+    private bool _answerPartialLast;
+    private DateTime _answerFrom;
+    private DateTime _answerTo;
+
+    private string? IntervalCellText(object row, string column)
+    {
+        if (column != nameof(QueueSummaryRow.IntervalStart) || row is not QueueSummaryRow r) return null;
+        return ReportIntervalLabel.Cell(
+            r.IntervalStart, _answerStep, _answerPartialFirst, _answerPartialLast,
+            _answerFrom, _answerTo,
+            L["Report_IntervalFrom"].Value, L["Report_IntervalTo"].Value, L["Report_IntervalFromTo"].Value);
     }
 
     private bool HasRows => _result is { Rows.Count: > 0 };
@@ -307,6 +495,15 @@ else
             _initialized = true;
         }
 
+        if (!_stepLoaded)
+        {
+            _stepLoaded = true;
+            await LoadStepAsync();
+            _step = ReportWidgetSteps.Effective(_personalStep, Config?.DefaultStep);
+            // Told even when nothing was stored: the page must not assume a step it was never told.
+            await StepChanged.InvokeAsync(new ReportWidgetStep(WidgetId, _step));
+        }
+
         var configJson = Config?.ToJson();
         if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
         {
@@ -314,6 +511,13 @@ else
             _lastTo = To;
             _lastConfigJson = configJson;
             _page = 1;
+            // A new default from the editor moves the step - unless this viewer chose their own.
+            var effective = ReportWidgetSteps.Effective(_personalStep, Config?.DefaultStep);
+            if (effective != _step)
+            {
+                _step = effective;
+                await StepChanged.InvokeAsync(new ReportWidgetStep(WidgetId, _step));
+            }
             await LoadData();
         }
     }
@@ -323,29 +527,13 @@ else
         _loading = true;
         _denied = false;
         _error = null;
-        _needsShiftHours = false;
-
-        // The shift hours are part of the query, not of the config the server parses: without them
-        // ValidateShift refuses before any data is read ("Shift start and end hours are required").
-        // Until this unit they were never sent from Web at all, so the widget could only ever draw
-        // that refusal. An unusable pair is caught here, in the user's language, and no query is
-        // sent - a request that is certain to be refused is not a measurement of anything.
-        var startHour = Config?.ShiftStartHour;
-        var endHour = Config?.ShiftEndHour;
-        if (startHour is null || endHour is null || endHour <= startHour)
-        {
-            _needsShiftHours = true;
-            _result = null;
-            _loading = false;
-            StateHasChanged();
-            return;
-        }
 
         StateHasChanged();
 
         try
         {
-            var res = await Mediator.Send(BuildQuery());
+            var query = BuildQuery();
+            var res = await Mediator.Send(query);
 
             if (res.Denied)
             {
@@ -354,12 +542,23 @@ else
             }
             else if (!string.IsNullOrEmpty(res.Error))
             {
-                _error = res.Error;
+                // The server sends a CODE; the sentence belongs here. Error is the log line
+                // ("never shown as is") and printing it put English on a Hebrew board - a retired
+                // report said "Report type QueueInterval is retired" to whoever opened it.
+                if (ReportErrorText.IsUnknown(res.ErrorCode))
+                    Logger.LogWarning("Report widget failed with an unrecognised error code {ErrorCode}: {Error}", res.ErrorCode, res.Error);
+                _error = L[ReportErrorText.KeyFor(res.ErrorCode)].Value;
                 _result = null;
             }
             else
             {
                 _result = res.QueueSummary;
+                // The step the server USED, not the one asked for; Day when an older server sends none.
+                _answerStep = res.Step ?? ReportStep.Day;
+                _answerPartialFirst = res.PartialFirst;
+                _answerPartialLast = res.PartialLast;
+                _answerFrom = query.From.Date;
+                _answerTo = query.To.Date;
                 _incomplete = res.Incomplete;
                 _dataThroughUtc = res.DataThroughUtc;
                 // PR234-V4-EOS-CAVEAT-NOT-LOCALIZED-01: the server sends a CODE now; the sentence
@@ -396,7 +595,7 @@ else
         catch (Exception ex)
         {
             Logger.LogError(ex, "EndOfShiftQueuesReportWidget load failed");
-            _error = ex.Message;
+            _error = L["Report_ErrorUnknown"].Value;
             _result = null;
         }
         finally
@@ -432,48 +631,4 @@ else
             await LoadData();
         }
     }
-
-    // One place that knows what a column is called and how it is drawn. A column the user picks
-    // but nobody listed here would otherwise show an empty header over real numbers, which reads
-    // as missing data rather than as an unfinished picker.
-    private string Header(string column) => column switch
-    {
-        "Workgroup"        => L["Report_Workgroup"].Value,
-        "QueueId"          => L["Report_QueueId"].Value,
-        "Offered"          => L["Report_Offered"].Value,
-        "Answered"         => L["Report_Answered"].Value,
-        "Abandoned"        => L["Report_Abandoned"].Value,
-        "AnsweredInSl"     => L["Report_AnsweredInSL"].Value,
-        "SumWaitAnswered"  => L["Report_SumWaitAnswered"].Value,
-        "SumTalk"          => L["Report_SumTalk"].Value,
-        "AbandonPct"       => L["Report_AbandonPct"].Value,
-        "SlPct"            => L["Report_SLPct"].Value,
-        "Asa"              => L["Report_ASA"].Value,
-        "QueueAht"         => L["Report_AHT"].Value,
-        _                  => column
-    };
-
-    private static bool IsNumeric(string column) => column is not ("Workgroup" or "QueueId");
-
-    private string Cell(QueueSummaryRow row, string column) => column switch
-    {
-        "Workgroup"        => row.Workgroup,
-        "QueueId"          => row.QueueId?.ToString() ?? "-",
-        "Offered"          => row.Offered.ToString(),
-        "Answered"         => row.Answered.ToString(),
-        "Abandoned"        => row.Abandoned.ToString(),
-        "AnsweredInSl"     => row.AnsweredInSl.ToString(),
-        // SECONDS, not milliseconds - checked, not assumed. The queue sums carry no "Ms" suffix
-        // (unlike the agent ones, SumLoggedInMs etc.), and QueueMetrics.cs:22-23 derives ASA from
-        // SumWaitAnswered / Answered and documents the result "in seconds"; the existing widgets
-        // print that same ASA through FormatDuration. Dividing by 1000 here, as I first wrote,
-        // would have shown a nine-hour total as 32 seconds.
-        "SumWaitAnswered"  => ReportFormat.Duration(row.SumWaitAnswered),
-        "SumTalk"          => ReportFormat.Duration(row.SumTalk),
-        "AbandonPct"       => ReportFormat.Pct(row.AbandonPct),
-        "SlPct"            => ReportFormat.Pct(row.SlPct),
-        "Asa"              => ReportFormat.Duration(row.Asa),
-        "QueueAht"         => ReportFormat.Duration(row.QueueAht),
-        _                  => string.Empty
-    };
 }

@@ -21,11 +21,13 @@ public record ExportReportCommand(
     // widget's columns), keyed by WidgetId, so the file equals the screen even when two widgets are filtered differently.
     // A widget without an entry is exported unfiltered; a filter on a column the type does not have is refused by the run
     // (the widget is then listed in Skipped with invalid-config, never silently exported unfiltered).
-    IReadOnlyDictionary<Guid, IReadOnlyList<ReportColumnFilter>>? Filters = null
+    IReadOnlyDictionary<Guid, IReadOnlyList<ReportColumnFilter>>? Filters = null,
+    // FEAT-REPORT-EOS-CONFIGURABLE-01: each end-of-shift queues widget's interval step, keyed by WidgetId (absent = Day).
+    IReadOnlyDictionary<Guid, ReportStep>? Steps = null
 ) : IRequest<ReportExportResult>, IAuditable
 {
     public string AuditEventType => "ReportScreen.Exported";
-    public object? AuditDetails => new { ReportId, From, To, Filters };
+    public object? AuditDetails => new { ReportId, From, To, Filters, Steps };
 }
 
 
@@ -68,7 +70,11 @@ public class ExportReportCommandHandler(
         {
             // PR234-V4-EOS-WIDGETS-NO-SHIFT-HOURS-01: an end-of-shift widget covers one date - the screen's first day - and
             // its own shift hours, which the run takes from the widget config (no hours on the query).
-            var endOfShift = widget.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues;
+            // only the end-of-shift AGENTS report is one date with shift hours; the queues report takes From..To and a step
+            var endOfShift = widget.WidgetType is ReportWidgetType.EndOfShiftAgents;
+            ReportStep? step = null;
+            if (widget.WidgetType is ReportWidgetType.EndOfShiftQueues && cmd.Steps != null && cmd.Steps.TryGetValue(widget.Id, out var s))
+                step = s;
             IReadOnlyList<ReportColumnFilter>? filters = null;
             cmd.Filters?.TryGetValue(widget.Id, out filters);
             var query = new RunReportWidgetQuery(
@@ -79,7 +85,8 @@ public class ExportReportCommandHandler(
                 Page: 1,
                 TenantId: cmd.TenantId,
                 AllRows: true,
-                Filters: filters);
+                Filters: filters,
+                Step: step);
 
             var title = GetWidgetTitle(widget);
             ReportWidgetResult result;
@@ -110,7 +117,7 @@ public class ExportReportCommandHandler(
                 continue;
             }
 
-            var sheet = BuildSheet(widget, result);
+            var sheet = BuildSheet(widget, result, query.From, query.To);
             if (sheet != null)
                 sheets.Add(sheet);
             else
@@ -133,17 +140,13 @@ public class ExportReportCommandHandler(
         return new ReportExportResult(content, fileName, contentType) { Skipped = skipped };
     }
 
-    private static WidgetExportSheet? BuildSheet(ReportWidget widget, ReportWidgetResult result)
+    private static WidgetExportSheet? BuildSheet(ReportWidget widget, ReportWidgetResult result, DateTime from, DateTime to)
     {
         var title = GetWidgetTitle(widget);
         var columns = result.EffectiveColumns ?? Array.Empty<string>();
 
         var (rows, totalCount) = result.WidgetType switch
         {
-            ReportWidgetType.QueueInterval when result.QueueInterval != null =>
-                (ProjectRows(result.QueueInterval.Rows, columns), result.QueueInterval.TotalCount),
-            ReportWidgetType.QueueWaitTime when result.QueueWaitTime != null =>
-                (ProjectRows(result.QueueWaitTime.Rows, columns), result.QueueWaitTime.TotalCount),
             ReportWidgetType.AgentMonthly when result.AgentMonthly != null =>
                 (ProjectRows(result.AgentMonthly.Rows, columns), result.AgentMonthly.TotalCount),
             ReportWidgetType.AgentShiftDetail when result.AgentShiftDetail != null =>
@@ -152,20 +155,35 @@ public class ExportReportCommandHandler(
                 (ProjectRows(result.AgentSummary.Rows, columns), result.AgentSummary.TotalCount),
             ReportWidgetType.EndOfShiftQueues when result.QueueSummary != null =>
                 (ProjectRows(result.QueueSummary.Rows, columns), result.QueueSummary.TotalCount),
-            ReportWidgetType.Distribution when result.Distribution != null =>
-                (ProjectDistributionRows(result.Distribution.Buckets), result.Distribution.TotalCount),
             _ => (new List<object?[]>(), 0)
         };
 
         if (rows.Count == 0)
             return null;
 
-        var effectiveColumns = result.WidgetType == ReportWidgetType.Distribution
-            ? new[] { "Label", "Count", "Percentage" }
-            : columns.ToArray();
+        // FEAT-REPORT-EOS-CONFIGURABLE-01 (coordinator 11:22:59Z): file = screen - the start of an interval is written by
+        // the one label rule the screen uses (ReportIntervalLabel: by the step the server used, with the cut-edge mark),
+        // with the period of the same query. The mark sentences are the en-US ones, like every other text of the file.
+        if (result.WidgetType == ReportWidgetType.EndOfShiftQueues && result.Step is { } step)
+        {
+            var at = columns.ToList().FindIndex(c => string.Equals(c, nameof(QueueSummaryRow.IntervalStart), StringComparison.OrdinalIgnoreCase));
+            if (at >= 0)
+                foreach (var row in rows)
+                    if (row[at] is DateTime start)
+                        row[at] = ReportIntervalLabel.Cell(start, step, result.PartialFirst, result.PartialLast, from, to,
+                            IntervalFromText, IntervalToText, IntervalFromToText);
+        }
+
+        // retired types (QueueInterval, QueueWaitTime, Distribution) never get here: their run returns ErrorCode retired
+        var effectiveColumns = columns.ToArray();
 
         return new WidgetExportSheet(title, effectiveColumns, rows, totalCount);
     }
+
+    // the en-US values of Report_IntervalFrom / _To / _FromTo (Web SharedResources), as the rest of the file is English
+    public const string IntervalFromText = "(from {0})";
+    public const string IntervalToText = "(to {0})";
+    public const string IntervalFromToText = "(from {0} to {1})";
 
     // The file carries a fixed sentence per code, never the validation text (which is for the log).
     public static string SheetText(string code) => code switch
@@ -174,6 +192,7 @@ public class ExportReportCommandHandler(
         ReportReasonCodes.NoData => "No data for the selected period",
         ReportReasonCodes.ShiftHours => "Shift hours are not set or not valid for this widget",
         ReportReasonCodes.InvalidConfig => "The widget settings are not valid",
+        ReportReasonCodes.Retired => "This report type has been retired",
         _ => "Not exported - reason not recognised"
     };
 
@@ -217,12 +236,6 @@ public class ExportReportCommandHandler(
         return result;
     }
 
-    private static List<object?[]> ProjectDistributionRows(IReadOnlyList<DistributionBucket> buckets)
-    {
-        return buckets
-            .Select(b => new object?[] { b.Label, b.Count, b.Percentage })
-            .ToList();
-    }
 
     private static string SanitizeFileName(string name)
     {

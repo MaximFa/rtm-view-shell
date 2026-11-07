@@ -29,8 +29,12 @@ public record AgentSummaryReportResult(
     int Page,
     int PageSize);
 
-/// <summary>FEAT-REPORT-EOS-QUEUES-01: one row per queue (workgroup) for the shift window.</summary>
+/// <summary>
+/// FEAT-REPORT-EOS-QUEUES-01 / FEAT-REPORT-EOS-CONFIGURABLE-01: one row per (interval, queue). IntervalStart = the start of
+/// the interval in site wall-clock time (Day: the local date at 00:00; Hour / HalfHour: the local start of it).
+/// </summary>
 public record QueueSummaryRow(
+    DateTime IntervalStart,
     string Workgroup,
     Guid? QueueId,
     int Offered,

@@ -52,6 +52,13 @@ public record ReportWidgetConfig
     /// <summary>See <see cref="ShiftStartHour"/>.</summary>
     public int? ShiftEndHour { get; init; }
 
+    /// <summary>
+    /// FEAT-REPORT-EOS-CONFIGURABLE-01, default step (operator 2026-11-07 13:25): the interval the end-of-shift queues
+    /// widget opens with, set in the editor. One rule: the viewer's own choice (query Step) -> this -> Day. A query without
+    /// a step (export, an old client) therefore gets the same rows the screen shows. Other types: refused by the validator.
+    /// </summary>
+    public ReportStep? DefaultStep { get; init; }
+
     /// <summary>Appearance settings (opaque, IGNORED server-side).</summary>
     public JsonElement? Appearance { get; init; }
 
@@ -117,7 +124,7 @@ public record ReportWidgetConfig
         },
         ReportWidgetType.EndOfShiftQueues => new[]
         {
-            "Workgroup", "Offered", "Answered", "Abandoned", "AbandonPct", "SlPct", "Asa", "QueueAht"
+            "IntervalStart", "Workgroup", "Offered", "Answered", "Abandoned", "AbandonPct", "SlPct", "Asa", "QueueAht"
         },
         _ => Array.Empty<string>()
     };

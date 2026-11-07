@@ -37,11 +37,11 @@ public class RunReportWidgetQueryTests
     public async Task InvalidConfigJson_ReturnsError()
     {
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, "{ invalid json }", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, "{ invalid json }", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
 
         result.Error.Should().NotBeNullOrEmpty();
-        result.WidgetType.Should().Be(ReportWidgetType.QueueInterval);
+        result.WidgetType.Should().Be(ReportWidgetType.EndOfShiftQueues);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class RunReportWidgetQueryTests
         """;
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
 
         result.Error.Should().NotBeNullOrEmpty();
@@ -64,7 +64,7 @@ public class RunReportWidgetQueryTests
     }
 
     [Fact]
-    public async Task QueueInterval_Denied_ReturnsDenied()
+    public async Task QueueSummary_Denied_ReturnsDenied()
     {
         var configJson = """
         {
@@ -78,15 +78,15 @@ public class RunReportWidgetQueryTests
             .Returns(new ReportWidgetScopeResult { FullScope = false, EffectiveWorkgroups = new HashSet<string>(), DroppedCount = 0 });
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
 
         result.Denied.Should().BeTrue();
-        result.QueueInterval.Should().BeNull();
+        result.QueueSummary.Should().BeNull();
     }
 
     [Fact]
-    public async Task QueueInterval_Superadmin_ReturnsData()
+    public async Task QueueSummary_Superadmin_ReturnsData()
     {
         var configJson = """
         {
@@ -111,15 +111,14 @@ public class RunReportWidgetQueryTests
             .Returns(intervals);
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
 
         result.Denied.Should().BeFalse();
         result.Error.Should().BeNull();
-        result.QueueInterval.Should().NotBeNull();
-        result.QueueInterval!.Rows.Should().HaveCount(1);
-        // BU-aggregated mode: Workgroup is null (grouped by interval, not by queue)
-        result.QueueInterval.Rows[0].Offered.Should().Be(10);
+        result.QueueSummary.Should().NotBeNull();
+        result.QueueSummary!.Rows.Should().HaveCount(1);
+        result.QueueSummary.Rows[0].Offered.Should().Be(10);
     }
 
     [Fact]
@@ -181,40 +180,35 @@ public class RunReportWidgetQueryTests
         result.AgentMonthly.Rows[0].Handled.Should().Be(22);
     }
 
-    [Fact]
-    public async Task Distribution_ReturnsDistributionBuckets()
+    // FEAT-REPORT-EOS-CONFIGURABLE-01: the three retired queue reports answer "retired" and touch no store
+    [Theory]
+    [InlineData(ReportWidgetType.QueueInterval)]
+    [InlineData(ReportWidgetType.QueueWaitTime)]
+    [InlineData(ReportWidgetType.Distribution)]
+    public async Task RetiredTypes_AnswerRetired_WithoutTouchingTheStore(ReportWidgetType widgetType)
     {
-        var configJson = """
-        {
-            "scope": { "businessUnitIds": [1] },
-            "columns": ["Distribution"],
-            "pageSize": 25
-        }
-        """;
-
-        _scopeService.ResolveQueueScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), Arg.Any<CancellationToken>())
-            .Returns(new ReportWidgetScopeResult
-            {
-                FullScope = true,
-                EffectiveWorkgroups = new HashSet<string> { "Sales" }
-            });
-
-        var intervals = new List<HistQueueInterval>
-        {
-            new() { Id = Guid.NewGuid(), TenantId = TenantId, IntervalStart = DateTime.UtcNow.AddHours(-1), Workgroup = "Sales", Offered = 100, Answered = 80, Abandoned = 20, AnsweredInSl = 60, SumWaitAnswered = 1000, SumTalk = 5000 }
-        };
-        _repo.GetQueueIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
-            .Returns(intervals);
-
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.Distribution, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            new RunReportWidgetQuery(widgetType, """{ "scope": { "businessUnitIds": [1] } }""", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
 
-        result.Distribution.Should().NotBeNull();
-        result.Distribution!.Buckets.Should().HaveCount(3);
-        result.Distribution.TotalCount.Should().Be(80);
-        result.Distribution.Buckets.Should().Contain(b => b.Label == "Answered in SL" && b.Count == 60);
-        result.Distribution.Buckets.Should().Contain(b => b.Label == "Abandoned" && b.Count == 20);
+        result.ErrorCode.Should().Be(ReportReasonCodes.Retired);
+        result.Denied.Should().BeFalse();
+        await _scopeService.DidNotReceiveWithAnyArgs().ResolveQueueScopeAsync(default, default!, default);
+        await _repo.DidNotReceiveWithAnyArgs().GetQueueIntervalsAsync(default, default, default, default!, default!, default);
+    }
+
+    [Fact]
+    public async Task EndOfShiftQueues_IsNotRetired()
+    {
+        // negative half of the theory above
+        _scopeService.ResolveQueueScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), Arg.Any<CancellationToken>())
+            .Returns(new ReportWidgetScopeResult { FullScope = true, EffectiveWorkgroups = new HashSet<string> { "Sales" } });
+        _repo.GetQueueIntervalsAsync(default, default, default, default!, default!, default).ReturnsForAnyArgs(new List<HistQueueInterval>());
+        var result = await _handler.Handle(
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, """{ "scope": { "businessUnitIds": [1] } }""", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            CancellationToken.None);
+        result.ErrorCode.Should().BeNull();
+        result.QueueSummary.Should().NotBeNull();
     }
 
     [Fact]
@@ -242,7 +236,7 @@ public class RunReportWidgetQueryTests
         var to = new DateTime(2026, 6, 10);
 
         await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, configJson, from, to),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, configJson, from, to),
             CancellationToken.None);
 
         await _repo.Received(1).GetQueueIntervalsAsync(
@@ -287,12 +281,11 @@ public class RunReportWidgetQueryTests
             .Returns(intervals);
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, configJson, DateTime.UtcNow.AddDays(-3), DateTime.UtcNow, Page: 1),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, configJson, DateTime.UtcNow.AddDays(-3), DateTime.UtcNow, Page: 1),
             CancellationToken.None);
 
-        result.QueueInterval.Should().NotBeNull();
-        result.QueueInterval!.PageSize.Should().Be(50);
-        // BU-aggregated: grouped by IntervalStart only, so we get fewer rows than 100
+        result.QueueSummary.Should().NotBeNull();
+        result.QueueSummary!.PageSize.Should().Be(50);
     }
 
     [Fact]
@@ -361,13 +354,13 @@ public class RunReportWidgetQueryTests
             });
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
 
         result.Error.Should().BeNull();
         result.Denied.Should().BeFalse();
         result.EffectiveColumns.Should().NotBeNull();
-        result.EffectiveColumns.Should().BeEquivalentTo(ReportWidgetConfig.DefaultColumns(ReportWidgetType.QueueInterval));
+        result.EffectiveColumns.Should().BeEquivalentTo(ReportWidgetConfig.DefaultColumns(ReportWidgetType.EndOfShiftQueues));
     }
 
     [Fact]
@@ -392,40 +385,10 @@ public class RunReportWidgetQueryTests
             .Returns(new List<HistQueueInterval>());
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.QueueInterval, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
 
         result.EffectiveColumns.Should().BeEquivalentTo(new[] { "Offered", "Answered" });
-    }
-
-    [Theory]
-    [InlineData(ReportWidgetType.QueueInterval)]
-    [InlineData(ReportWidgetType.QueueWaitTime)]
-    [InlineData(ReportWidgetType.Distribution)]
-    public async Task AllQueueWidgetTypes_NoColumns_UseDefaultColumns(ReportWidgetType widgetType)
-    {
-        var configJson = """
-        {
-            "scope": { "businessUnitIds": [1] },
-            "pageSize": 25
-        }
-        """;
-
-        _scopeService.ResolveQueueScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), Arg.Any<CancellationToken>())
-            .Returns(new ReportWidgetScopeResult
-            {
-                FullScope = true,
-                EffectiveWorkgroups = new HashSet<string> { "Sales" }
-            });
-
-        _repo.GetQueueIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<HistQueueInterval>());
-
-        var result = await _handler.Handle(
-            new RunReportWidgetQuery(widgetType, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
-            CancellationToken.None);
-
-        result.EffectiveColumns.Should().BeEquivalentTo(ReportWidgetConfig.DefaultColumns(widgetType));
     }
 
     [Fact]

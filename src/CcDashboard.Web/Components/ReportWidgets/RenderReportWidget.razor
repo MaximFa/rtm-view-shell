@@ -31,7 +31,7 @@
                 <DistributionReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
                 break;
             case ReportWidgetType.EndOfShiftQueues:
-                <EndOfShiftQueuesReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" />
+                <EndOfShiftQueuesReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" StepChanged="StepChanged" />
                 break;
             case ReportWidgetType.EndOfShiftAgents:
                 <EndOfShiftAgentsReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" />
@@ -61,6 +61,8 @@
     [Parameter] public Guid WidgetId { get; set; }
     /// <summary>Passed through: a widget's filter must reach the page that builds the export.</summary>
     [Parameter] public EventCallback<ReportWidgetFilter> FilterChanged { get; set; }
+    /// <summary>Passed through: a widget's step must reach the page that builds the export.</summary>
+    [Parameter] public EventCallback<ReportWidgetStep> StepChanged { get; set; }
 
     private ReportWidgetConfig? _config;
     private bool _unconfigured;

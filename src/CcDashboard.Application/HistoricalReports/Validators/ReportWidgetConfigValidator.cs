@@ -1,3 +1,4 @@
+using CcDashboard.Application.HistoricalReports.Queries;
 using CcDashboard.Domain.Domain.Reports;
 using FluentValidation;
 
@@ -70,6 +71,14 @@ public class ReportWidgetConfigWithTypeValidator : AbstractValidator<(ReportWidg
         RuleFor(x => x)
             .Must(x => x.WidgetType != ReportWidgetType.AgentPerformance || x.Config.Mode.HasValue)
             .WithMessage("Mode (summary|byDate) required for the agent performance report");
+
+        // FEAT-REPORT-EOS-CONFIGURABLE-01: a default step only on the end-of-shift queues report, and only a known one
+        RuleFor(x => x)
+            .Must(x => x.Config.DefaultStep is null || x.WidgetType == ReportWidgetType.EndOfShiftQueues)
+            .WithMessage("The default interval step applies only to the end-of-shift queues report");
+        RuleFor(x => x.Config.DefaultStep)
+            .Must(s => s is null || Enum.IsDefined(s.Value))
+            .WithMessage("Unknown default interval step");
 
         RuleFor(x => x.Config.AgentIds)
             .Must(ids => ids is null || (ids.Count <= 500 && ids.All(i => !string.IsNullOrWhiteSpace(i) && i.Length <= 100)))

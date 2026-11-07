@@ -42,6 +42,10 @@ public class RunReportWidgetQueryHandler(
             ? (query.TenantId ?? currentUser.TenantId!.Value)
             : currentUser.TenantId!.Value;
 
+        // FEAT-REPORT-EOS-CONFIGURABLE-01: a widget of a retired type (saved before the change) says so instead of running
+        if (RetiredReports.IsRetired(query.WidgetType))
+            return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.Retired, $"Report type {query.WidgetType} is retired");
+
         ReportWidgetConfig config;
         try
         {
@@ -66,8 +70,12 @@ public class RunReportWidgetQueryHandler(
         // and must not carry shift hours.
         // PR234-V4-EOS-WIDGETS-NO-SHIFT-HOURS-01: hours on the query win; without them an end-of-shift widget runs with the
         // hours saved in its own config. Other types never take hours from the config.
-        if (IsEndOfShift(query.WidgetType) && query.ShiftStartHour is null && query.ShiftEndHour is null)
+        if (TakesShiftHours(query.WidgetType) && query.ShiftStartHour is null && query.ShiftEndHour is null)
             query = query with { ShiftStartHour = config.ShiftStartHour, ShiftEndHour = config.ShiftEndHour };
+
+        var stepError = ValidateStep(query);
+        if (stepError != null)
+            return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, stepError);
 
         var filterError = ValidateFilters(query);
         if (filterError != null)
@@ -83,7 +91,7 @@ public class RunReportWidgetQueryHandler(
         // The picked days are days in the display zone: local midnight -> UTC instant.
         var from = Zone.WallToUtc(query.From.Date);
         var toExclusive = Zone.WallToUtc(query.To.Date.AddDays(1));
-        if (IsEndOfShift(query.WidgetType))
+        if (TakesShiftHours(query.WidgetType))
         {
             // Shift hours are site wall-clock hours on the picked date; whole hours fall on the 30-minute bucket edges.
             from = Zone.WallToUtc(query.From.Date.AddHours(query.ShiftStartHour!.Value));
@@ -95,134 +103,12 @@ public class RunReportWidgetQueryHandler(
 
         return query.WidgetType switch
         {
-            ReportWidgetType.QueueInterval => await RunQueueIntervalAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
-            ReportWidgetType.QueueWaitTime => await RunQueueWaitTimeAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.AgentMonthly => await RunAgentMonthlyAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.AgentShiftDetail => await RunAgentShiftDetailAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
-            ReportWidgetType.Distribution => await RunDistributionAsync(tenantId, config, effectiveColumns, from, toExclusive, ct),
             ReportWidgetType.EndOfShiftAgents => await RunAgentSummaryAsync(query.WidgetType, null, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.AgentPerformance => await RunAgentSummaryAsync(query.WidgetType, config.Mode, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.EndOfShiftQueues => await RunQueueSummaryAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             _ => ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, $"Unknown widget type: {query.WidgetType}")
-        };
-    }
-
-    private async Task<ReportWidgetResult> RunQueueIntervalAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
-    {
-        var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
-
-        if (scopeResult.Denied)
-            return ReportWidgetResult.CreateDenied(ReportWidgetType.QueueInterval);
-
-        var intervals = await ScopedQueueIntervalsAsync(tenantId, from, toExclusive, scopeResult.EffectiveWorkgroups, ct);
-
-        // BU-AGGREGATED: GROUP BY IntervalStart only, SUM components, recompute metrics from sums
-        var rows = intervals
-            .GroupBy(i => Zone.ToDisplay(i.IntervalStart))
-            .Select(g =>
-            {
-                var offered      = g.Sum(i => i.Offered);
-                var answered     = g.Sum(i => i.Answered);
-                var abandoned    = g.Sum(i => i.Abandoned);
-                var answeredInSl = g.Sum(i => i.AnsweredInSl);
-                var sumWait      = g.Sum(i => i.SumWaitAnswered);
-                var sumTalk      = g.Sum(i => i.SumTalk);
-                return new QueueIntervalRow(
-                    g.Key,
-                    null,                       // Workgroup: BU-aggregated, no single queue
-                    null,                       // QueueId: aggregated
-                    offered, answered, abandoned, answeredInSl, sumWait, sumTalk,
-                    offered  == 0 ? null : abandoned * 100.0 / offered,        // AbandonPct from SUMS
-                    answered == 0 ? null : answeredInSl * 100.0 / answered,    // SlPct
-                    answered == 0 ? null : (double)sumWait / answered,         // Asa
-                    answered == 0 ? null : (double)sumTalk / answered);        // QueueAht
-            })
-            .OrderBy(r => r.IntervalStart)
-            .ToList();
-
-        var (filtered, columnValues) = ApplyFilters(query.WidgetType, rows, query);
-        rows = filtered;
-        var totalCount = rows.Count;
-        List<QueueIntervalRow> resultRows;
-        int pageSize;
-
-        if (allRows)
-        {
-            resultRows = rows.Take(ExportRowCap).ToList();
-            pageSize = resultRows.Count;
-        }
-        else
-        {
-            pageSize = config.PageSize;
-            resultRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        }
-
-        return new ReportWidgetResult
-        {
-            WidgetType = ReportWidgetType.QueueInterval,
-            EffectiveColumns = effectiveColumns,
-            ColumnValues = columnValues,
-            QueueInterval = new QueueIntervalReportResult(resultRows, totalCount, page, pageSize)
-        };
-    }
-
-    private async Task<ReportWidgetResult> RunQueueWaitTimeAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
-    {
-        var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
-
-        if (scopeResult.Denied)
-            return ReportWidgetResult.CreateDenied(ReportWidgetType.QueueWaitTime);
-
-        var intervals = await ScopedQueueIntervalsAsync(tenantId, from, toExclusive, scopeResult.EffectiveWorkgroups, ct);
-
-        // BU-AGGREGATED: GROUP BY IntervalStart only, SUM components, recompute metrics from sums
-        var rows = intervals
-            .GroupBy(i => Zone.ToDisplay(i.IntervalStart))
-            .Select(g =>
-            {
-                var answered     = g.Sum(i => i.Answered);
-                var sumWait      = g.Sum(i => i.SumWaitAnswered);
-                var answeredInSl = g.Sum(i => i.AnsweredInSl);
-                return new QueueWaitTimeRow(
-                    g.Key, null, answered, sumWait,
-                    answered == 0 ? null : (double)sumWait / answered,        // Asa
-                    answeredInSl,
-                    answered == 0 ? null : answeredInSl * 100.0 / answered);  // SlPct
-            })
-            .OrderBy(r => r.IntervalStart)
-            .ToList();
-
-        // filtered first: the overall ASA under the table is of the rows the table shows
-        var (filtered, columnValues) = ApplyFilters(query.WidgetType, rows, query);
-        rows = filtered;
-
-        var totalAnswered = rows.Sum(r => r.Answered);
-        var totalWait = rows.Sum(r => r.SumWaitAnswered);
-        var overallAsa = totalAnswered == 0 ? null : (double?)totalWait / totalAnswered;
-
-        var totalCount = rows.Count;
-        List<QueueWaitTimeRow> resultRows;
-        int pageSize;
-
-        if (allRows)
-        {
-            resultRows = rows.Take(ExportRowCap).ToList();
-            pageSize = resultRows.Count;
-        }
-        else
-        {
-            pageSize = config.PageSize;
-            resultRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        }
-
-        return new ReportWidgetResult
-        {
-            WidgetType = ReportWidgetType.QueueWaitTime,
-            EffectiveColumns = effectiveColumns,
-            ColumnValues = columnValues,
-            QueueWaitTime = new QueueWaitTimeReportResult(resultRows, totalCount, page, pageSize, overallAsa)
         };
     }
 
@@ -390,14 +276,28 @@ public class RunReportWidgetQueryHandler(
     // The agent summary types carry ReportCaveatCodes.StatusStartBucket (status time sits in the half-hour the status
     // started); the screen owns the sentence and its three translations (PR234-V4-EOS-CAVEAT-NOT-LOCALIZED-01).
 
-    internal static bool IsEndOfShift(ReportWidgetType t) =>
-        t is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues;
+    /// <summary>
+    /// Only the end-of-shift AGENTS report still takes shift hours. FEAT-REPORT-EOS-CONFIGURABLE-01: the end-of-shift queues
+    /// report covers whole local days From..To with a Step; hours saved in an old widget's config are ignored.
+    /// </summary>
+    internal static bool TakesShiftHours(ReportWidgetType t) => t is ReportWidgetType.EndOfShiftAgents;
+
+    internal static string? ValidateStep(RunReportWidgetQuery q)
+    {
+        if (q.Step is not null && q.WidgetType != ReportWidgetType.EndOfShiftQueues)
+            return "The interval step applies only to the end-of-shift queues report";
+        if (q.Step is not null && !Enum.IsDefined(q.Step.Value))
+            return "Unknown interval step";
+        if (q.WidgetType == ReportWidgetType.EndOfShiftQueues && (q.ShiftStartHour.HasValue || q.ShiftEndHour.HasValue))
+            return "The end-of-shift queues report takes dates from-to, not shift hours";
+        return null;
+    }
 
     internal static string? ValidateShift(RunReportWidgetQuery q)
     {
-        if (!IsEndOfShift(q.WidgetType))
+        if (!TakesShiftHours(q.WidgetType))
             return q.ShiftStartHour.HasValue || q.ShiftEndHour.HasValue
-                ? "Shift hours apply only to the end-of-shift reports"
+                ? "Shift hours apply only to the end-of-shift agents report"
                 : null;
 
         if (!q.ShiftStartHour.HasValue || !q.ShiftEndHour.HasValue)
@@ -693,11 +593,16 @@ public class RunReportWidgetQueryHandler(
         var effective = new HashSet<string>(scopeResult.EffectiveWorkgroups);
         var intervals = await ScopedQueueIntervalsAsync(tenantId, from, toExclusive, effective, ct);
 
-        // One row per queue: sums of the half-hour buckets that start inside the window (whole shift hours are bucket
-        // edges); derived values are recomputed from the sums, as in the BU-aggregated QueueInterval.
+        // FEAT-REPORT-EOS-CONFIGURABLE-01: one row per (interval of the step, queue); sums of the half-hour buckets whose
+        // start falls inside the interval; derived values recomputed from the sums.
+        // the one rule: the viewer's own choice (on the query) -> the widget's default (editor) -> Day
+        var step = query.Step ?? config.DefaultStep ?? ReportStep.Day;
         var rows = intervals
             .Where(i => effective.Contains(i.Workgroup))
-            .GroupBy(i => i.Workgroup)
+            .GroupBy(i => (Interval: StepKey(i.IntervalStart, step), i.Workgroup))
+            // by the UTC start (the two local 01:00 of the autumn change stay in time order), then by queue name
+            .OrderBy(g => g.Key.Interval.Key)
+            .ThenBy(g => g.Key.Workgroup, StringComparer.CurrentCultureIgnoreCase)
             .Select(g =>
             {
                 var offered = g.Sum(i => i.Offered);
@@ -707,7 +612,8 @@ public class RunReportWidgetQueryHandler(
                 var wait = g.Sum(i => i.SumWaitAnswered);
                 var talk = g.Sum(i => i.SumTalk);
                 return new QueueSummaryRow(
-                    g.Key,
+                    g.Key.Interval.Shown,
+                    g.Key.Workgroup,
                     g.Select(i => i.QueueId).FirstOrDefault(q => q.HasValue),
                     offered, answered, abandoned, inSl, wait, talk,
                     offered == 0 ? null : abandoned * 100.0 / offered,
@@ -715,7 +621,6 @@ public class RunReportWidgetQueryHandler(
                     answered == 0 ? null : (double)wait / answered,
                     answered == 0 ? null : (double)talk / answered);
             })
-            .OrderBy(r => r.Workgroup, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
         var (filteredRows, columnValues) = ApplyFilters(type, rows, query);   // before paging
@@ -731,50 +636,47 @@ public class RunReportWidgetQueryHandler(
             QueueSummary = new QueueSummaryReportResult(pageRows, rows.Count, page, pageSize),
             DataThroughUtc = through,
             Incomplete = incomplete,
-            ColumnValues = columnValues
+            ColumnValues = columnValues,
+            Step = step,
+            PartialFirst = StepKey(from, step).Key != from,
+            PartialLast = StepKey(toExclusive, step).Key != toExclusive
         };
     }
 
-    private async Task<ReportWidgetResult> RunDistributionAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, CancellationToken ct)
+    /// <summary>
+    /// The interval a half-hour bucket (UTC start) belongs to, for a step. Key = the UTC instant the interval starts (so the
+    /// repeated local hour of the autumn change gives two intervals, never one mixing two real hours - coordinator
+    /// 09:05:19Z, variant (a)); Shown = that start in site wall-clock time. Day: the local date, whatever its length
+    /// (23 / 24 / 25 hours).
+    /// </summary>
+    internal (DateTime Key, DateTime Shown) StepKey(DateTime bucketUtc, ReportStep step)
     {
-        var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
-
-        if (scopeResult.Denied)
-            return ReportWidgetResult.CreateDenied(ReportWidgetType.Distribution);
-
-        var intervals = await ScopedQueueIntervalsAsync(tenantId, from, toExclusive, scopeResult.EffectiveWorkgroups, ct);
-
-        var totalAnswered = intervals.Sum(x => x.Answered);
-        var totalWait = intervals.Sum(x => x.SumWaitAnswered);
-        var overallAsa = totalAnswered == 0 ? null : (double?)totalWait / totalAnswered;
-
-        var buckets = BuildDistributionBuckets(intervals, config.Metric);
-
-        return new ReportWidgetResult
+        var utc = DateTime.SpecifyKind(bucketUtc, DateTimeKind.Utc);
+        var local = Zone.ToDisplay(utc);
+        switch (step)
         {
-            WidgetType = ReportWidgetType.Distribution,
-            EffectiveColumns = effectiveColumns,
-            Distribution = new DistributionReportResult(buckets, totalAnswered, overallAsa)
-        };
-    }
-
-    private static List<DistributionBucket> BuildDistributionBuckets(
-        IReadOnlyList<Domain.Domain.Historical.HistQueueInterval> intervals, string? metric)
-    {
-        var answeredInSl = intervals.Sum(x => x.AnsweredInSl);
-        var answered = intervals.Sum(x => x.Answered);
-        var abandoned = intervals.Sum(x => x.Abandoned);
-        var total = answered + abandoned;
-
-        if (total == 0)
-            return new List<DistributionBucket>();
-
-        return new List<DistributionBucket>
-        {
-            new("Answered in SL", 0, null, answeredInSl, total == 0 ? 0 : answeredInSl * 100.0 / total),
-            new("Answered out of SL", 0, null, answered - answeredInSl, total == 0 ? 0 : (answered - answeredInSl) * 100.0 / total),
-            new("Abandoned", 0, null, abandoned, total == 0 ? 0 : abandoned * 100.0 / total)
-        };
+            case ReportStep.HalfHour:
+                return (utc, local);
+            case ReportStep.Month:
+            {
+                var month = new DateTime(local.Year, local.Month, 1);
+                return (Zone.WallToUtc(month), month);
+            }
+            case ReportStep.Year:
+            {
+                var year = new DateTime(local.Year, 1, 1);
+                return (Zone.WallToUtc(year), year);
+            }
+            case ReportStep.Hour:
+            {
+                var localHour = new DateTime(local.Year, local.Month, local.Day, local.Hour, 0, 0, DateTimeKind.Unspecified);
+                return (utc - (local - localHour), localHour);   // the UTC start of the local hour this bucket is in
+            }
+            default:
+            {
+                var day = local.Date;
+                return (Zone.WallToUtc(day), day);
+            }
+        }
     }
 }

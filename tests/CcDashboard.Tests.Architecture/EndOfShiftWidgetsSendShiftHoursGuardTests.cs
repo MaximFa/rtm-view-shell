@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using CcDashboard.Contracts.Common;
+using CcDashboard.Domain.Domain.Reports;
 using FluentAssertions;
 
 namespace CcDashboard.Tests.Architecture;
@@ -22,6 +24,13 @@ namespace CcDashboard.Tests.Architecture;
 ///
 /// The widget files are found through the enum, not by a list of names written here: a third
 /// end-of-shift type would be covered the day it is added, without touching this file.
+///
+/// Narrowed 2026-11-07 (FEAT-REPORT-EOS-CONFIGURABLE-01): the two rules hold for the types that
+/// take shift hours - ReportDateFields.TakesShiftHours, today the agents report only. The queues
+/// report takes the page's period and a step, and the server REFUSES hours on it; so for an
+/// end-of-shift type without hours the opposite is held: no hours, and the page's From..To.
+/// Selecting by the name prefix "EndOfShift", as before, would have demanded hours from a report
+/// the server now refuses them on.
 /// </summary>
 public class EndOfShiftWidgetsSendShiftHoursGuardTests
 {
@@ -110,6 +119,57 @@ public class EndOfShiftWidgetsSendShiftHoursGuardTests
         }
     }
 
+    [Fact]
+    public void AnEndOfShiftWidgetWithoutHours_sendsNoHours_andThePagesPeriod()
+    {
+        var types = EnumTypes()
+            .Select(t => Enum.Parse<ReportWidgetType>(t))
+            .Where(t => ReportDateFields.IsEndOfShift(t) && !ReportDateFields.TakesShiftHours(t))
+            .ToList();
+        types.Should().NotBeEmpty("the end-of-shift queues report takes no hours since 2026-11-07 - it must be findable here");
+
+        foreach (var type in types)
+        {
+            var text = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), $"{type}ReportWidget.razor"));
+            var call = QueryStatement(text);
+            SendsAnyHour(call).Should().BeFalse($"{type}: the server refuses shift hours on this type");
+            ForwardsThePeriod(call).Should().BeTrue($"{type}: the window is the page's From..To");
+        }
+
+        // NEGATIVE HALVES, on the shapes that were there before 2026-11-07: hours from the config
+        // and one date on both ends. Each must fail its predicate, or the loop above cannot go red.
+        const string before = """
+            new RunReportWidgetQuery(
+                ReportWidgetType.EndOfShiftQueues,
+                effectiveConfig.ToJson(),
+                shiftDate,
+                shiftDate,
+                _page,
+                TenantId,
+                false,
+                Config?.ShiftStartHour,
+                Config?.ShiftEndHour);
+            """;
+        SendsAnyHour(before).Should().BeTrue("a query that still sends the hours must be seen");
+        ForwardsThePeriod(before).Should().BeFalse("one date on both ends is not the page's period");
+    }
+
+    /// <summary>The query from "new RunReportWidgetQuery(" to the end of its statement.</summary>
+    private static string QueryStatement(string text)
+    {
+        var start = text.IndexOf("new RunReportWidgetQuery(", StringComparison.Ordinal);
+        start.Should().BeGreaterThanOrEqualTo(0, "the widget must build a query, readable here");
+        var end = text.IndexOf(';', start);
+        end.Should().BeGreaterThan(start);
+        return text[start..end];
+    }
+
+    private static bool SendsAnyHour(string call) => Regex.IsMatch(call, @"[Ss]tartHour|[Ee]ndHour");
+
+    private static bool ForwardsThePeriod(string call)
+        => Regex.IsMatch(call, @"^\s*From\s*,\s*$", RegexOptions.Multiline)
+           && Regex.IsMatch(call, @"^\s*To\s*,\s*$", RegexOptions.Multiline);
+
     /// <summary>Both hour arguments reach the query, under any name a widget gives the locals.</summary>
     private static bool SendsBothHours(string queryCall)
         => Regex.IsMatch(queryCall, @"[Ss]tartHour") && Regex.IsMatch(queryCall, @"[Ee]ndHour");
@@ -126,7 +186,7 @@ public class EndOfShiftWidgetsSendShiftHoursGuardTests
     private static IReadOnlyList<(string Name, string Call)> EndOfShiftWidgetSources()
     {
         var found = new List<(string, string)>();
-        foreach (var type in EnumTypes().Where(t => t.StartsWith("EndOfShift", StringComparison.Ordinal)))
+        foreach (var type in EnumTypes().Where(t => ReportDateFields.TakesShiftHours(Enum.Parse<ReportWidgetType>(t))))
         {
             var path = Path.Combine(ReportWidgetsDirectory(), $"{type}ReportWidget.razor");
             File.Exists(path).Should().BeTrue($"{type} is in the enum, so {type}ReportWidget.razor must exist");
