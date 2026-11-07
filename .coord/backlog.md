@@ -928,3 +928,68 @@ v4 (D:\Claude\Projects\RTM-design): коммит 21139e9 (shell, «the export na
 
 ## 2026-11-05T07:57:25Z coordinator-1104 · BL-V4-TESTCONTAINERS-TWO-VERSIONS-01 · кандидат
 v4 (D:\Claude\Projects\RTM-design): Testcontainers.PostgreSql — две версии в одном решении: Tests.Integration 4.11.0, Tests.Security 4.4.0 [измерено по .csproj coordinator-1104]. Найдено 2026-11-05 при разборе CS0618: беспараметрический PostgreSqlBuilder() устарел только в 4.11, поэтому в Security предупреждения нет (базовый транскрипт commit-nre-1028: CS0618 PostgreSqlBuilder только ApplyServiceFixture). Выравнивание — смена пакета тестов безопасности, отдельная единица backend, с прогоном Security до/после.
+
+## 2026-11-07T05:07:33Z coordinator-1104 · BL-V4-GRID-FILTER-SHARED-COMPONENT-01 · кандидат
+Перевести фильтр колонок сеток реального времени (AgentGridWidget / QueueGridWidget, RenderFilterDropdown) на общий компонент ColumnFilterPopup, созданный shell для отчётов (2026-11-07). В партию фильтров отчётов НЕ вошло по решению координатора: фильтр сеток сросся с внутренностями сетки (черновик, стили из настроек виджета, числовые сравнения, значения из пришедших строк) — правка рабочего экрана смены с ненулевым риском. Приёмка — живая проверка на 234 числами: строк до/после на обоих виджетах, текст и галочки, применение и сброс.
+
+## 2026-11-07T05:09:40Z coordinator-1104 · BL-V4-GRID-FILTER-SHARED-COMPONENT-01 · уточнение по вопросу оператора: тип колонки
+Вопрос оператора 2026-11-07 07:09 (+02:00): «фильтры в реальном времени учитывают тип данных колонки по типу метрики — как это может быть вынесено во внешний компонент?». Факт по коду 182129c [измерено]: сетка решает режим по метрике — IsNumericColumn(metricId) = MetricValueType.IsOrdered(GetMetricValueType(metricId)); упорядоченный тип -> less/lessOrEqual/greater/greaterOrEqual/equal + поле времени, без списка; текст -> contains/equal/startsWith/endsWith + список значений с галочками. ColumnFilterPopup shell — только текстовый режим (достаточно для логина, имени, очереди).
+Условие единицы: компонент получает ТИП КОЛОНКИ параметром от вызывающего (сетка берёт его из каталога метрик, как сейчас) и сам реализует числовой режим; без этого числовые колонки сеток потеряют свои сравнения. Приёмка — по каждой колонке сетки: текстовая и числовая, до/после.
+
+## 2026-11-07T05:11:40Z coordinator-1104 · BL-V4-GRID-FILTER-SHARED-COMPONENT-01 · слово оператора: в бэклог
+Слово оператора 2026-11-07 07:11 (+02:00), дословно: «изменение фильтров в сетках реального времени убери в бэклог, это большой объём, сейчас работаем только по отчётам». Статус — бэклог; в работу не берётся до отдельного слова.
+
+## 2026-11-07T06:11:28Z coordinator-1104 · BL-V4-REPORT-METRICS-MECHANISM-01 · справка + 4 вопроса к метрикам · слово оператора: записать
+Слово оператора 2026-11-07 08:11 (+02:00): «да, запиши, чтобы не гонять исследование каждый раз». Источник — чтение кода v4 на 84b7fdd coordinator-1104 06:00–06:10Z; на 234 не замерялось.
+
+СПРАВКА — как устроено (чтобы не исследовать заново):
+- Сбор: src/CcDashboard.Infrastructure/BackgroundServices/HistoricalAggregationService.cs. Корзины 30 мин → hist_agent_intervals / hist_queue_intervals (только суммы и счётчики; DELETE окна + INSERT, идемпотентно). Старт: окно 24ч; далее каждые 2ч с окном 2ч; флаг Historical:BackfillOnStartup — разовый полный пересбор.
+- Очереди (стр. ~205–265): RTSData_Interactions, IsInQueue=false, Call/External/Incoming; корзина по UpdateTime (решение оператора 2026-06-26). Offered=все, Answered=IsAnswered, Abandoned=IsAbandoned && !IsCallbackRequest, AnsweredInSl=TimeInQueue<=порог (tenant SlThresholdSeconds, по умолчанию 20), SumWaitAnswered, SumTalk.
+- Агенты (стр. ~270–345): RTSData_UserStatusLog по StatusGroup: AVAILABLE/ONPHONE/PAPERWORK/BREAK/TRAINING/UNAVAILABLE; Hold = ONPHONE && StatusId=="Hold"; LoggedIn = сумма всех статусов; Handled = отвеченные взаимодействия по AnsweredDateTime; имя — AgentNameRule.
+- Производные считаются при запросе ИЗ СУММ периода: src/CcDashboard.Domain/Domain/Historical/AgentMetrics.cs (Occupancy=(OnPhone+Paperwork)/(Avail+OnPhone+Paperwork), AgentAht=(OnPhone+Paperwork)/1000/Handled, HoldPct=Hold/OnPhone, TalkPure=OnPhone−Hold) и src/CcDashboard.Application/Handlers/RunReportWidgetQueryHandler.cs (AbandonPct=Abandoned/Offered, SlPct=InSl/Answered, Asa=Wait/Answered, QueueAht=Talk/Answered; Distribution — 3 доли). Строки: Application/HistoricalReports/Queries/SummaryReports.cs и Get*ReportQuery.cs.
+- Колонки: стандартный набор и допустимые — Application/HistoricalReports/ReportWidgetConfig.cs (AllowedColumns = поля строки, отражением); названия — Web/Components/ReportWidgets/ReportColumnLabels.cs + ресурсы; формат числа — switch в каждом виджете (напр. AgentSummaryTable.razor); выгрузка — Application/Reports/Export/ExportReportCommand.cs.
+- Новая метрика: (а) из существующих сумм — поле строки + формула + название (3 языка) + формат во всех виджетах + выгрузка; без БД. (б) нужны новые сырые данные — миграция hist_* (выкат с БД), сбор, замер наличия поля в сырье на 234, пересчёт истории (снимок/сухой/откат), затем как (а).
+
+ВОПРОСЫ (кандидаты, не дефекты до разбора):
+1. Статус целиком в корзину своего НАЧАЛА (группировка по StartTime, без разреза по границам корзин): длинный статус искажает получасовые корзины; статус, начатый до начала смены, в отчёт конца смены не попадает вовсе.
+2. Handled агента — любые отвеченные взаимодействия (без фильтра Call/External/Incoming), Answered очереди — только внешние входящие: суммы по агентам и по очередям могут не сходиться.
+3. Два AHT: агентский включает постобработку, очередной — только разговор; на одном экране — разные числа под одним смыслом.
+4. Отставание до 2ч: отчёт сразу после смены может быть неполным; данные, дописанные в сырьё позже окна 2ч, в корзину не попадут до полного пересбора.
+— coordinator-1104
+
+## 2026-11-07T07:35:15Z coordinator-1104 · BL-V4-LEGACY-REPORT-QUERIES-DEAD-01 · кандидат · не входит в партию без слова оператора
+После удаления /reports-legacy (FEAT-REPORT-LEGACY-PAGE-REMOVE-01) серверные запросы GetQueueIntervalReportQuery / GetQueueWaitTimeReportQuery / GetAgentMonthlyReportQuery / GetAgentShiftDetailReportQuery из приложения не зовёт никто [замер shell 07:32:49Z; подтверждён coordinator-1104 по src c2e71b9: вне legacy-страниц — только HistoricalReportHandlers.cs, ReportQueryValidators.cs и сами файлы запросов; в CcDashboard.Api — 0]. Их зовут тесты (HistoricalReportHandlerTests, ReportValidatorTests, ReportScopeSecurityTests, DisplayTimeTests). Внимание при удалении: записи строк QueueIntervalRow / QueueWaitTimeRow / AgentMonthlyRow / AgentShiftDetailRow ОБЪЯВЛЕНЫ в этих же файлах и живы в виджетах; проверки области из ReportScopeSecurityTests должны остаться покрытыми через RunReportWidgetQuery. Не трогаем в этой партии: оператор велел убрать страницу, объём шире — только его словом.
+— coordinator-1104
+
+## 2026-11-07T08:18:28Z coordinator-1104 · BL-V4-REPORT-CHEAP-METRICS-01 · кандидат · список дешёвых метрик · слово оператора: записать
+Слово оператора 2026-11-07 10:18 (+02:00): «да, так же запиши в беклог» (к анализу 10:14 «какие дешевые метрики мы можем добавить по агентам и очередям»). Связано: BL-V4-REPORT-METRICS-MECHANISM-01 (справка, вопросы 1–4). Источник — чтение кода v4 c2e71b9; на 234 не замерялось. «Дешёвая» = формула из уже собранных сумм hist_agent_intervals / hist_queue_intervals: без миграции, без пересчёта истории, работает и за прошлые даты.
+
+АГЕНТЫ (AgentMonthly, AgentShiftDetail, EndOfShiftAgents, AgentPerformance; суммы Available/Onphone/Hold/Paperwork/Break/Training/Unavailable/LoggedIn в мс, Handled):
+- доли от LoggedIn: AvailablePct, BreakPct, TrainingPct, UnavailablePct, PaperworkPct;
+- UtilizationPct = (Onphone+Paperwork)/LoggedIn — в отличие от OccupancyPct видит перерывы;
+- AvgTalkPure = (Onphone−Hold)/Handled; AvgHold = Hold/Handled; AvgAcw = Paperwork/Handled — раскладка AgentAht (сек);
+- CallsPerHour = Handled / (LoggedIn в часах);
+- UnclassifiedMs = LoggedIn − (Available+Onphone+Paperwork+Break+Training+Unavailable) — контроль качества данных (статусы вне известных групп).
+ОЧЕРЕДИ (QueueInterval, EndOfShiftQueues; QueueWaitTimeRow несёт только часть счётчиков — без Offered там не считается):
+- AnswerPct = Answered/Offered;
+- AnsweredOutOfSl = Answered−AnsweredInSl (шт.) и его %;
+- SlOfOfferedPct = AnsweredInSl/Offered — вторая принятая формула SL (с брошенными в знаменателе);
+- OtherOutcomes = Offered−Answered−Abandoned (обратные звонки и прочие исходы) и %.
+НЕ дешёвые (нужны новое поле hist_*, сбор, пересчёт истории): ожидание брошенных (среднее/макс.), самое долгое ожидание, число обратных звонков, переводы, удержание/постобработка в разрезе очереди.
+Оговорки: агентские доли наследуют вопрос 1 справки (статус в получасовку своего начала — сильнее в получасовых корзинах); Handled агента шире Answered очереди (вопрос 2) — CallsPerHour агентов и очередей могут не сходиться.
+Цена одной метрики: поле строки + формула от сумм + вид в ReportColumns + название en/ru/he; выбор полей, воронки, формат, выгрузка — подхватывают сами (после партии FEAT-REPORT-COLUMN-FUNNEL-FILTERS-01). Одна небольшая партия backend + переводы.
+— coordinator-1104
+
+## 2026-11-07T08:22:10Z coordinator-1104 · BL-V4-REPORT-AGENT-UNAVAILABLE-MISSING-01 · кандидат · слово оператора: записать
+Слово оператора 2026-11-07 10:21 (+02:00): «да» на «записать в бэклог отсутствие колонки «недоступен» в отчёте по сменам и в месячном?».
+[измерено coordinator-1104 по v4, рабочее дерево поверх c2e71b9] SumUnavailableMs: AgentMonthlyRow (GetAgentMonthlyReportQuery.cs) — 0, AgentShiftDetailRow (GetAgentShiftDetailReportQuery.cs) — 0; положительный контроль AgentSummaryRow (SummaryReports.cs) — есть. Сумма собирается в hist_agent_intervals.SumUnavailableMs.
+Следствие [вывод]: в AgentShiftDetail и AgentMonthly «всего в системе» (SumLoggedInMs = сумма всех статусов) больше суммы показанных групп, и разница не объяснена на экране.
+Цена: поле в двух строках + сумма в обработчике + вид DurationMs в ReportColumns (тест «каждое поле имеет вид» это потребует) + существующее название колонки. Дешёвая; может идти вместе с BL-V4-REPORT-CHEAP-METRICS-01.
+Связано: вопрос 1 справки BL-V4-REPORT-METRICS-MECHANISM-01 — статус целиком в получасовку своего начала; для AgentShiftDetail (смысл — интервалы) это главный недостаток.
+— coordinator-1104
+
+## 2026-11-07T10:38:32Z coordinator-1104 · BL-V4-REPORT-PREAGGREGATED-STEPS-01 · названо, не взято · слово оператора «нет, пока оставляем так»
+Вопрос оператора backend-1015 (12:36–12:37 +02:00): почему не считать итоги по каждому шагу заранее при переносе в историю, как в DWH. Ответ оператора: «нет, пока оставляем так» (со слов backend 10:37:45Z).
+Факты [замер devops 10:08:47Z]: hist_queue_intervals на 234 — 6009 строк за 2026-09-08…2026-11-06, 28 очередей, ~100 строк/сутки; потолок полной загрузки ~490 тыс. строк/год (28 × 48 × 365) — для сложения в памяти много.
+Когда брать: при росте данных или жалобе на скорость шагов месяц/год. Варианты: группировка в SQL по местной зоне; готовые итоги по дню/месяцу при переносе (учесть зону площадки, пересчёт при поздних данных, обрезанные края периода).
+— coordinator-1104
