@@ -16,6 +16,12 @@
 @using CcDashboard.Web.Components.Auth
 @using CcDashboard.Web.Components.Dashboard
 @using CcDashboard.Web.Components.Shared
+@* The report widgets' own namespace, so no report file depends on remembering an import of it -
+   the same build error had already happened twice.
+   CcDashboard.Application.HistoricalReports is deliberately NOT here: it carries a second type
+   named ReportWidgetConfig, and importing it for everyone made that name ambiguous in ten files
+   at once (CS0104). Files that need the column rule import those types by alias instead. *@
+@using CcDashboard.Web.Components.ReportWidgets
 @using CcDashboard.Web.Resources
 @using CcDashboard.Contracts.DTOs.Auth
 @using CcDashboard.Contracts.DTOs.Dashboards

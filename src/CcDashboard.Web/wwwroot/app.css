@@ -3867,3 +3867,14 @@ button.clr-swatch,
 .report-widget-updating {
     opacity: 0.75;
 }
+
+/* While a filter window is open inside a widget, that widget stops clipping its content.
+   Measured on 234 on 2026-11-07: with the clip in force a 350px window inside a 206px widget
+   showed 121px and lost 229px - the list, the Apply tick, everything below the fold.
+   Only while open, and only on the container that holds the window: the clip is what keeps a long
+   table inside its widget, so it comes straight back when the window closes. */
+.widget-content:has(.column-filter-popup),
+.report-widget-render:has(.column-filter-popup),
+.report-widget-table-container:has(.column-filter-popup) {
+    overflow: visible;
+}

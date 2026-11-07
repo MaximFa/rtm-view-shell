@@ -912,18 +912,12 @@
 
   <!-- ── Historical Reports ── -->
   <data name="Nav_Reports"><value>דוחות</value></data>
-  <data name="Report_Title"><value>דוחות היסטוריים</value></data>
   <data name="Report_QueueInterval"><value>מרווחי תורים</value></data>
   <data name="Report_QueueWaitTime"><value>זמני המתנה</value></data>
   <data name="Report_AgentMonthly"><value>סיכום חודשי נציג</value></data>
   <data name="Report_AgentShiftDetail"><value>פרטי משמרת</value></data>
   <data name="Report_From"><value>מתאריך</value></data>
   <data name="Report_To"><value>עד תאריך</value></data>
-  <data name="Report_Workgroups"><value>תורים</value></data>
-  <data name="Report_WorkgroupsPlaceholder"><value>Queue1, Queue2... (ריק = כל המורשים)</value></data>
-  <data name="Report_Agents"><value>נציגים</value></data>
-  <data name="Report_AgentsPlaceholder"><value>Agent1, Agent2... (ריק = כל המורשים)</value></data>
-  <data name="Report_PageSize"><value>גודל עמוד</value></data>
   <data name="Report_Apply"><value>החל</value></data>
   <data name="Report_Showing"><value>מציג</value></data>
   <data name="Report_Rows"><value>שורות</value></data>
@@ -956,6 +950,9 @@
   <data name="Report_DescEndOfShiftQueues"><value>שורה אחת לכל תור בחלון המשמרת</value></data>
   <data name="Report_DescEndOfShiftAgents"><value>שורה אחת לכל נציג בחלון המשמרת</value></data>
   <data name="Report_DescAgentPerformance"><value>נתוני נציגים לתקופה: שורה לכל נציג, או לכל נציג לפי תאריך</value></data>
+  <data name="Report_Between"><value>בין</value></data>
+  <data name="Report_DurationHint"><value>זמן בתבנית שעות:דקות:שניות</value></data>
+  <data name="Report_FilterValueNotUnderstood"><value>לא ניתן לקרוא את הערך — יש לבדוק את הפורמט.</value></data>
   <data name="Report_AgentPerformance"><value>תפוקת נציגים</value></data>
   <data name="ReportWidget_Mode"><value>מצב הדוח</value></data>
   <data name="ReportWidget_ModeSummary"><value>מרוכז — שורה אחת לכל נציג לתקופה</value></data>

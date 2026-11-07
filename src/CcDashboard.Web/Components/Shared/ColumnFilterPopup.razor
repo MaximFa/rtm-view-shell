@@ -1,18 +1,24 @@
 @using Microsoft.Extensions.Localization
+@using ReportColumns = CcDashboard.Application.HistoricalReports.ReportColumns
+@using ReportColumnKind = CcDashboard.Application.HistoricalReports.ReportColumnKind
+@using ReportColumn = CcDashboard.Application.HistoricalReports.ReportColumn
+@* The draft this window hands back lives with the filter state it feeds (ReportWidgets). The
+   build found this missing on 2026-11-07: the type was moved there and this file, sitting in
+   Shared, kept using it unqualified - the very place I had named as the first one to watch. *@
+@using CcDashboard.Web.Components.ReportWidgets
 @inject IStringLocalizer<SharedResources> L
 
-@* The one filter window of the product: a match type, a text, and - when the column has a list of
-   values - checkboxes for them, applied on purpose by the tick.
+@* The one filter window of the product: an operator, a value, and - for a text column - the
+   column's own values as checkboxes. Applied on purpose by the tick or by Enter.
 
-   It exists because the same window is now needed in two places (the real-time grids and the
-   reports), and two copies of a filter drift: the grid's version already carries behaviour nobody
-   would think to reproduce, such as "a filter is off until the operator applies it" and "closing
-   the window does not apply anything". A copy would look identical on the day it was written and
-   differ a month later, which is how a person learns not to trust what the screen says.
+   It holds a DRAFT: what is typed or ticked is not what the report is filtered by until Apply.
+   That is what removed both the flicker (a request per letter) and the stuck spinner (work
+   scheduled off the render path) - while the person types, nothing happens at all.
 
-   It holds a DRAFT: what the person is typing or ticking is not what the report is filtered by
-   until Apply. That is deliberate, and it is also what removed the flicker and the stuck spinner
-   from the reports - no work happens while typing, so nothing can be redrawn out of turn. *@
+   The inputs follow the column's KIND, from the one rule both sides share: a duration is typed
+   the way the cell shows it (h:mm:ss) and converted to the column's own unit before it is sent;
+   a count or a percentage is a plain number; a date or an instant is a date field. The window
+   never guesses a kind from a column's name. *@
 
 <div class="column-filter-popup rounded shadow-lg p-2" @onclick:stopPropagation="true">
     <div class="d-flex justify-content-between align-items-center mb-1">
@@ -31,30 +37,82 @@
     </div>
 
     <div class="mb-1">
-        <select class="form-select form-select-sm mb-1" value="@_draftMatchType"
-                @onchange="e => _draftMatchType = e.Value?.ToString() ?? ContainsMatch">
-            <option value="contains">@L["Widgets_MatchType_Contains"]</option>
-            <option value="equal">@L["Widgets_MatchType_Equal"]</option>
-            <option value="startsWith">@L["Widgets_MatchType_StartsWith"]</option>
-            <option value="endsWith">@L["Widgets_MatchType_EndsWith"]</option>
+        <select class="form-select form-select-sm mb-1" value="@_op"
+                @onchange="e => _op = e.Value?.ToString() ?? DefaultOp">
+            @if (IsText)
+            {
+                <option value="contains">@L["Widgets_MatchType_Contains"]</option>
+                <option value="equal">@L["Widgets_MatchType_Equal"]</option>
+                <option value="startsWith">@L["Widgets_MatchType_StartsWith"]</option>
+                <option value="endsWith">@L["Widgets_MatchType_EndsWith"]</option>
+            }
+            else
+            {
+                <option value="greater">@L["Widgets_MatchType_GreaterThan"]</option>
+                <option value="less">@L["Widgets_MatchType_LessThan"]</option>
+                <option value="between">@L["Report_Between"]</option>
+            }
         </select>
-        @* maxlength, not a validator: over 100 characters the server answers that the settings
-           cannot be used, and that must never be the answer to typing. *@
-        <input type="text" class="form-control form-control-sm" maxlength="100"
-               value="@_draftText"
-               @onchange="e => _draftText = e.Value?.ToString() ?? string.Empty"
-               @onkeydown="OnKeyDown"
-               placeholder="@L["Widgets_Filter_ValuePlaceholder"]" />
+
+        @if (IsText)
+        {
+            @* maxlength, not a validator: over 100 characters the server answers that the settings
+               cannot be used, and that must never be the answer to typing. *@
+            <input type="text" class="form-control form-control-sm" maxlength="100"
+                   value="@_text"
+                   @onchange="e => _text = e.Value?.ToString() ?? string.Empty"
+                   @onkeydown="OnKeyDown"
+                   placeholder="@L["Widgets_Filter_ValuePlaceholder"]" />
+        }
+        else if (IsTime)
+        {
+            <input type="date" class="form-control form-control-sm mb-1"
+                   value="@_timeText"
+                   @onchange="e => _timeText = e.Value?.ToString() ?? string.Empty" />
+            @if (_op == "between")
+            {
+                <input type="date" class="form-control form-control-sm"
+                       value="@_timeToText"
+                       @onchange="e => _timeToText = e.Value?.ToString() ?? string.Empty" />
+            }
+        }
+        else
+        {
+            <input type="text" class="form-control form-control-sm mb-1"
+                   value="@_numberText"
+                   @onchange="e => _numberText = e.Value?.ToString() ?? string.Empty"
+                   @onkeydown="OnKeyDown"
+                   placeholder="@NumberPlaceholder" />
+            @if (_op == "between")
+            {
+                <input type="text" class="form-control form-control-sm"
+                       value="@_numberToText"
+                       @onchange="e => _numberToText = e.Value?.ToString() ?? string.Empty"
+                       @onkeydown="OnKeyDown"
+                       placeholder="@NumberPlaceholder" />
+            }
+            @if (IsDuration)
+            {
+                <div class="small text-muted mt-1">@L["Report_DurationHint"]</div>
+            }
+        }
+
+        @if (_problem is not null)
+        {
+            @* Said here rather than sent: a value the column cannot hold would come back as
+               "the settings cannot be used", which reads as a broken report, not as a typo. *@
+            <div class="alert alert-warning py-1 px-2 small mt-1 mb-0">
+                <i class="bi bi-exclamation-triangle me-1"></i>@_problem
+            </div>
+        }
     </div>
 
-    @if (Values.Count > 0)
+    @if (IsText && Values.Count > 0)
     {
         <div class="border-top pt-2 mt-2">
             <div class="small mb-1 opacity-75">@L["Widgets_Filter_List"]</div>
             @if (Truncated)
             {
-                @* Never a silent cut: a person who cannot find a value must know the list was
-                   shortened rather than conclude the value does not exist. *@
                 <div class="alert alert-warning py-1 px-2 small mb-1">
                     <i class="bi bi-exclamation-triangle me-1"></i>@string.Format(L["ReportWidget_AgentsTruncated"].Value, Values.Count, TotalCount)
                 </div>
@@ -69,7 +127,7 @@
             <div class="column-filter-values">
                 @foreach (var value in FilteredValues)
                 {
-                    var isChecked = _draftValues.Contains(value);
+                    var isChecked = _values.Contains(value);
                     <div class="d-flex align-items-center gap-2 px-1 py-1" @key="value">
                         <input type="checkbox" class="form-check-input m-0"
                                checked="@isChecked"
@@ -87,42 +145,69 @@
 </div>
 
 @code {
-    public const string ContainsMatch = "contains";
-
     [Parameter, EditorRequired] public string ColumnLabel { get; set; } = string.Empty;
 
-    /// <summary>The filter currently in force, so reopening the window shows what is applied.</summary>
-    [Parameter] public string? MatchType { get; set; }
+    /// <summary>What the column holds - it decides which inputs the window offers.</summary>
+    [Parameter, EditorRequired] public ReportColumnKind Kind { get; set; }
+
+    /// <summary>The filter in force, so reopening the window shows what is applied.</summary>
+    [Parameter] public string? Op { get; set; }
     [Parameter] public string? Text { get; set; }
     [Parameter] public IReadOnlyList<string>? SelectedValues { get; set; }
+    [Parameter] public double? Number { get; set; }
+    [Parameter] public double? NumberTo { get; set; }
+    [Parameter] public DateTime? Time { get; set; }
+    [Parameter] public DateTime? TimeTo { get; set; }
 
-    /// <summary>The distinct values offered as checkboxes; empty = no list for this column.</summary>
     [Parameter] public IReadOnlyList<string> Values { get; set; } = Array.Empty<string>();
     [Parameter] public int TotalCount { get; set; }
     [Parameter] public bool Truncated { get; set; }
 
-    /// <summary>Applied: match type, text, ticked values. The caller decides what to do with it.</summary>
     [Parameter] public EventCallback<ColumnFilterDraft> OnApply { get; set; }
     [Parameter] public EventCallback OnClear { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 
-    private string _draftMatchType = ContainsMatch;
-    private string _draftText = string.Empty;
-    private readonly HashSet<string> _draftValues = new(StringComparer.Ordinal);
+    private string _op = "contains";
+    private string _text = string.Empty;
+    private readonly HashSet<string> _values = new(StringComparer.Ordinal);
+    private string _numberText = string.Empty;
+    private string _numberToText = string.Empty;
+    private string _timeText = string.Empty;
+    private string _timeToText = string.Empty;
     private string _listSearch = string.Empty;
+    private string? _problem;
     private bool _loaded;
+
+    private bool IsText => Kind is ReportColumnKind.Text or ReportColumnKind.Id;
+    private bool IsTime => Kind is ReportColumnKind.DateTime or ReportColumnKind.Date;
+    private bool IsDuration => Kind is ReportColumnKind.DurationMs or ReportColumnKind.DurationSec;
+    private string DefaultOp => IsText ? "contains" : "greater";
+    private string NumberPlaceholder => IsDuration ? "0:00:00" : L["Widgets_Filter_ValuePlaceholder"].Value;
 
     protected override void OnParametersSet()
     {
-        // Load the applied filter once, when the window opens. Re-reading it on every render would
-        // throw away what the person is typing the moment anything else on the page redraws.
+        // Loaded once, when the window opens: re-reading on every render would throw away what the
+        // person is typing the moment anything else on the page redraws.
         if (_loaded) return;
         _loaded = true;
-        _draftMatchType = string.IsNullOrWhiteSpace(MatchType) ? ContainsMatch : MatchType!;
-        _draftText = Text ?? string.Empty;
-        _draftValues.Clear();
+        _op = string.IsNullOrWhiteSpace(Op) ? DefaultOp : Op!;
+        _text = Text ?? string.Empty;
+        _numberText = Shown(Number);
+        _numberToText = Shown(NumberTo);
+        _timeText = Time?.ToString("yyyy-MM-dd") ?? string.Empty;
+        _timeToText = TimeTo?.ToString("yyyy-MM-dd") ?? string.Empty;
+        _values.Clear();
         foreach (var v in SelectedValues ?? Array.Empty<string>())
-            _draftValues.Add(v);
+            _values.Add(v);
+    }
+
+    /// <summary>A stored value shown the way it was typed: a duration back in h:mm:ss, in the column's unit.</summary>
+    private string Shown(double? stored)
+    {
+        if (stored is null) return string.Empty;
+        if (!IsDuration) return stored.Value.ToString("0.##");
+        var seconds = Kind == ReportColumnKind.DurationMs ? stored.Value / 1000.0 : stored.Value;
+        return TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss");
     }
 
     private IEnumerable<string> FilteredValues =>
@@ -132,33 +217,61 @@
 
     private void ToggleValue(string value)
     {
-        if (!_draftValues.Remove(value))
-            _draftValues.Add(value);
+        if (!_values.Remove(value)) _values.Add(value);
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key is "Enter" or "NumpadEnter")
-            await ApplyAsync();
+        if (e.Key is "Enter" or "NumpadEnter") await ApplyAsync();
     }
 
-    private Task ApplyAsync()
-        => OnApply.InvokeAsync(new ColumnFilterDraft(_draftMatchType, _draftText, _draftValues.ToList()));
+    private async Task ApplyAsync()
+    {
+        _problem = null;
+        double? number = null, numberTo = null;
+        DateTime? time = null, timeTo = null;
+
+        if (!IsText && !IsTime)
+        {
+            number = ParseTyped(_numberText);
+            numberTo = _op == "between" ? ParseTyped(_numberToText) : null;
+            if (_problem is not null) return;
+        }
+        else if (IsTime)
+        {
+            time = ParseDate(_timeText);
+            timeTo = _op == "between" ? ParseDate(_timeToText) : null;
+            if (_problem is not null) return;
+        }
+
+        await OnApply.InvokeAsync(new ColumnFilterDraft(_op, _text, _values.ToList(), number, numberTo, time, timeTo));
+    }
+
+    private double? ParseTyped(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var value = IsDuration ? ReportFilterState.ParseDuration(text) : ReportFilterState.ParseNumber(text);
+        if (value is null) _problem = L["Report_FilterValueNotUnderstood"].Value;
+        return value;
+    }
+
+    private DateTime? ParseDate(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        if (DateTime.TryParse(text, out var parsed)) return parsed;
+        _problem = L["Report_FilterValueNotUnderstood"].Value;
+        return null;
+    }
 
     private async Task ClearAsync()
     {
-        _draftMatchType = ContainsMatch;
-        _draftText = string.Empty;
-        _draftValues.Clear();
-        _listSearch = string.Empty;
+        _op = DefaultOp;
+        _text = string.Empty;
+        _values.Clear();
+        _numberText = _numberToText = _timeText = _timeToText = _listSearch = string.Empty;
+        _problem = null;
         await OnClear.InvokeAsync();
     }
 
     private Task CloseAsync() => OnClose.InvokeAsync();
-
-    /// <summary>What the window hands back on Apply. Text and values together: the caller refuses the pair it cannot send.</summary>
-    public record ColumnFilterDraft(string MatchType, string Text, IReadOnlyList<string> Values)
-    {
-        public bool IsEmpty => string.IsNullOrWhiteSpace(Text) && Values.Count == 0;
-    }
 }

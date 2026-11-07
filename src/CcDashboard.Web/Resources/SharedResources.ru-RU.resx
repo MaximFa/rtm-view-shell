@@ -982,18 +982,12 @@
 
   <!-- ── Historical Reports ── -->
   <data name="Nav_Reports"><value>Отчёты</value></data>
-  <data name="Report_Title"><value>Исторические отчёты</value></data>
   <data name="Report_QueueInterval"><value>Интервалы очередей</value></data>
   <data name="Report_QueueWaitTime"><value>Время ожидания</value></data>
   <data name="Report_AgentMonthly"><value>Операторы за месяц</value></data>
   <data name="Report_AgentShiftDetail"><value>Детали смены</value></data>
   <data name="Report_From"><value>С</value></data>
   <data name="Report_To"><value>По</value></data>
-  <data name="Report_Workgroups"><value>Очереди</value></data>
-  <data name="Report_WorkgroupsPlaceholder"><value>Queue1, Queue2... (пусто = все доступные)</value></data>
-  <data name="Report_Agents"><value>Операторы</value></data>
-  <data name="Report_AgentsPlaceholder"><value>Agent1, Agent2... (пусто = все доступные)</value></data>
-  <data name="Report_PageSize"><value>На странице</value></data>
   <data name="Report_Apply"><value>Применить</value></data>
   <data name="Report_Showing"><value>Показано</value></data>
   <data name="Report_Rows"><value>строк</value></data>
@@ -1026,6 +1020,9 @@
   <data name="Report_DescEndOfShiftQueues"><value>Одна строка на очередь за окно смены</value></data>
   <data name="Report_DescEndOfShiftAgents"><value>Одна строка на оператора за окно смены</value></data>
   <data name="Report_DescAgentPerformance"><value>Показатели операторов за период: строка на оператора или на оператора и дату</value></data>
+  <data name="Report_Between"><value>Между</value></data>
+  <data name="Report_DurationHint"><value>Время в формате ч:мм:сс</value></data>
+  <data name="Report_FilterValueNotUnderstood"><value>Не удаётся прочитать значение — проверьте формат.</value></data>
   <data name="Report_AgentPerformance"><value>Работа агентов</value></data>
   <data name="ReportWidget_Mode"><value>Режим отчёта</value></data>
   <data name="ReportWidget_ModeSummary"><value>Сводно — одна строка на агента за период</value></data>

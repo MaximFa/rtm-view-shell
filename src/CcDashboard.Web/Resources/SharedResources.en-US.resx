@@ -1005,18 +1005,12 @@
 
   <!-- ── Historical Reports ── -->
   <data name="Nav_Reports"><value>Reports</value></data>
-  <data name="Report_Title"><value>Historical Reports</value></data>
   <data name="Report_QueueInterval"><value>Queue Interval</value></data>
   <data name="Report_QueueWaitTime"><value>Queue Wait Time</value></data>
   <data name="Report_AgentMonthly"><value>Agent Monthly</value></data>
   <data name="Report_AgentShiftDetail"><value>Agent Shift Detail</value></data>
   <data name="Report_From"><value>From</value></data>
   <data name="Report_To"><value>To</value></data>
-  <data name="Report_Workgroups"><value>Workgroups</value></data>
-  <data name="Report_WorkgroupsPlaceholder"><value>Queue1, Queue2... (empty = all allowed)</value></data>
-  <data name="Report_Agents"><value>Agents</value></data>
-  <data name="Report_AgentsPlaceholder"><value>Agent1, Agent2... (empty = all allowed)</value></data>
-  <data name="Report_PageSize"><value>Page Size</value></data>
   <data name="Report_Apply"><value>Apply</value></data>
   <data name="Report_Showing"><value>Showing</value></data>
   <data name="Report_Rows"><value>rows</value></data>
@@ -1049,6 +1043,9 @@
   <data name="Report_DescEndOfShiftQueues"><value>One row per queue for the shift window</value></data>
   <data name="Report_DescEndOfShiftAgents"><value>One row per agent for the shift window</value></data>
   <data name="Report_DescAgentPerformance"><value>Agent figures for the period: one row per agent, or one per agent per date</value></data>
+  <data name="Report_Between"><value>Between</value></data>
+  <data name="Report_DurationHint"><value>Time as h:mm:ss</value></data>
+  <data name="Report_FilterValueNotUnderstood"><value>This value cannot be read — check the format.</value></data>
   <data name="Report_AgentPerformance"><value>Agent Performance</value></data>
   <data name="ReportWidget_Mode"><value>Report mode</value></data>
   <data name="ReportWidget_ModeSummary"><value>Summary — one row per agent for the period</value></data>

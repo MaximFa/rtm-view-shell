@@ -1,0 +1,75 @@
+@using CcDashboard.Application.HistoricalReports.Queries
+@using ReportColumns = CcDashboard.Application.HistoricalReports.ReportColumns
+@using ReportColumnKind = CcDashboard.Application.HistoricalReports.ReportColumnKind
+@using ReportColumn = CcDashboard.Application.HistoricalReports.ReportColumn
+@inject IStringLocalizer<SharedResources> L
+
+@* The funnel that sits next to a column's name, and the window it opens.
+
+   Operator, 2026-11-07: "why didn't we make the filter like the real-time grids - a funnel at the
+   column? I want filters on all the fields, and this way we just build another filter bar that
+   duplicates the columns." He is right: a row of buttons above a table names the columns a second
+   time, and the two namings drift.
+
+   The funnel appears only where the rule says the column can be filtered - ReportColumns decides
+   that, not this markup - and the window itself is the one the whole product uses. *@
+
+<span class="column-filter-anchor">
+    <button type="button"
+            class="btn btn-sm btn-link p-0 align-baseline @(Applied is null ? "text-muted" : "text-primary")"
+            title="@(Applied is null ? L["Widgets_Filter_List"].Value : L["Widget_ClearFilters"].Value)"
+            @onclick="() => OnToggle.InvokeAsync(Column)"
+            @onclick:stopPropagation="true">
+        <i class="bi @(Applied is null ? "bi-funnel" : "bi-funnel-fill")"></i>
+    </button>
+
+    @if (IsOpen)
+    {
+        @if (Loading)
+        {
+            <div class="column-filter-popup rounded shadow-lg p-2 text-center">
+                <span class="spinner-border spinner-border-sm"></span>
+            </div>
+        }
+        else
+        {
+            <ColumnFilterPopup ColumnLabel="@ColumnLabel"
+                               Kind="Kind"
+                               Op="@Applied?.Op"
+                               Text="@Applied?.Text"
+                               SelectedValues="Applied?.Values"
+                               Number="Applied?.Number"
+                               NumberTo="Applied?.NumberTo"
+                               Time="Applied?.Time"
+                               TimeTo="Applied?.TimeTo"
+                               Values="Values"
+                               TotalCount="TotalCount"
+                               Truncated="Truncated"
+                               OnApply="draft => OnApply.InvokeAsync((Column, draft))"
+                               OnClear="() => OnClear.InvokeAsync(Column)"
+                               OnClose="OnClose" />
+        }
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Column { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string ColumnLabel { get; set; } = string.Empty;
+
+    /// <summary>The filter in force on this column, or null.</summary>
+    [Parameter] public ReportColumnFilter? Applied { get; set; }
+
+    /// <summary>What the column holds: the window offers the inputs that kind allows.</summary>
+    [Parameter, EditorRequired] public ReportColumnKind Kind { get; set; }
+
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public IReadOnlyList<string> Values { get; set; } = Array.Empty<string>();
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public bool Truncated { get; set; }
+
+    [Parameter] public EventCallback<string> OnToggle { get; set; }
+    [Parameter] public EventCallback<(string Column, ColumnFilterDraft Draft)> OnApply { get; set; }
+    [Parameter] public EventCallback<string> OnClear { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+}

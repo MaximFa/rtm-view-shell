@@ -17,18 +17,18 @@ public record ExportReportCommand(
     DateTime From,
     DateTime To,
     Guid? TenantId = null,
-    // PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01: each widget's own view filters (a filter lives in its widget, over that
+    // FEAT-REPORT-COLUMN-FUNNEL-FILTERS-01: each widget's own funnel filters (a filter lives in its widget, over that
     // widget's columns), keyed by WidgetId, so the file equals the screen even when two widgets are filtered differently.
-    // A widget without an entry is exported unfiltered; a filter its type has no column for is not passed on.
-    IReadOnlyDictionary<Guid, WidgetViewFilter>? Filters = null
+    // A widget without an entry is exported unfiltered; a filter on a column the type does not have is refused by the run
+    // (the widget is then listed in Skipped with invalid-config, never silently exported unfiltered).
+    IReadOnlyDictionary<Guid, IReadOnlyList<ReportColumnFilter>>? Filters = null
 ) : IRequest<ReportExportResult>, IAuditable
 {
     public string AuditEventType => "ReportScreen.Exported";
     public object? AuditDetails => new { ReportId, From, To, Filters };
 }
 
-/// <summary>One widget's view filters: Agent = login column, AgentName = name column, Queue = queue column.</summary>
-public record WidgetViewFilter(ReportColumnFilter? AgentFilter = null, ReportColumnFilter? AgentNameFilter = null, ReportColumnFilter? QueueFilter = null);
+
 
 /// <summary>
 /// The file plus every widget that did not become a data sheet, with the reason. The same list is the last sheet of the
@@ -69,9 +69,8 @@ public class ExportReportCommandHandler(
             // PR234-V4-EOS-WIDGETS-NO-SHIFT-HOURS-01: an end-of-shift widget covers one date - the screen's first day - and
             // its own shift hours, which the run takes from the widget config (no hours on the query).
             var endOfShift = widget.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.EndOfShiftQueues;
-            var agentType = widget.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentPerformance;
-            WidgetViewFilter? filter = null;
-            cmd.Filters?.TryGetValue(widget.Id, out filter);
+            IReadOnlyList<ReportColumnFilter>? filters = null;
+            cmd.Filters?.TryGetValue(widget.Id, out filters);
             var query = new RunReportWidgetQuery(
                 widget.WidgetType,
                 widget.ConfigJson ?? "{}",
@@ -80,9 +79,7 @@ public class ExportReportCommandHandler(
                 Page: 1,
                 TenantId: cmd.TenantId,
                 AllRows: true,
-                AgentFilter: agentType ? filter?.AgentFilter : null,
-                AgentNameFilter: agentType ? filter?.AgentNameFilter : null,
-                QueueFilter: widget.WidgetType is ReportWidgetType.EndOfShiftQueues ? filter?.QueueFilter : null);
+                Filters: filters);
 
             var title = GetWidgetTitle(widget);
             ReportWidgetResult result;

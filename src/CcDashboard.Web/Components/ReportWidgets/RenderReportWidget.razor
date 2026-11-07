@@ -16,16 +16,16 @@
         @switch (WidgetType)
         {
             case ReportWidgetType.QueueInterval:
-                <QueueIntervalReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
+                <QueueIntervalReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" />
                 break;
             case ReportWidgetType.QueueWaitTime:
-                <QueueWaitTimeReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
+                <QueueWaitTimeReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" />
                 break;
             case ReportWidgetType.AgentMonthly:
-                <AgentMonthlyReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
+                <AgentMonthlyReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" />
                 break;
             case ReportWidgetType.AgentShiftDetail:
-                <AgentShiftDetailReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />
+                <AgentShiftDetailReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" />
                 break;
             case ReportWidgetType.Distribution:
                 <DistributionReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" />

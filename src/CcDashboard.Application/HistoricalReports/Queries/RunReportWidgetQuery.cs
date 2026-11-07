@@ -18,35 +18,36 @@ public record RunReportWidgetQuery(
     // FEAT-REPORT-EOS-*-01: shift hours (site wall clock) on the single date From; required for EndOfShift*, empty otherwise.
     int? ShiftStartHour = null,
     int? ShiftEndHour = null,
-    // PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01: column filters of the view screen, as in the real-time grids - text with
-    // an operator, OR a set of picked values. Applied on the server BEFORE paging (TotalCount counts what matched).
-    // Agent = login column, AgentName = name column (AgentNameRule), Queue = queue column of EndOfShiftQueues; filters on
-    // several columns must all match. A type without the column refuses its filter.
-    ReportColumnFilter? AgentFilter = null,
-    ReportColumnFilter? AgentNameFilter = null,
-    ReportColumnFilter? QueueFilter = null,
-    // When set, the result also carries the distinct values of that column over the WHOLE window and scope (not the page),
-    // with the filters of the OTHER columns applied and its own left out - the checkbox list of the column filter.
-    ReportFilterColumn? ValuesForColumn = null
+    // FEAT-REPORT-COLUMN-FUNNEL-FILTERS-01 (contract 07:23:21Z): funnel filters on any column of a table report, one per
+    // column, all must match; applied to the final rows (after grouping and derived values), before sorting and paging,
+    // in memory - never in SQL. Column kinds and which columns take a funnel: ReportColumns.For(type).
+    IReadOnlyList<ReportColumnFilter>? Filters = null,
+    // When set (a Text column), the result also carries the distinct values of that column over the WHOLE window and scope
+    // (not the page), with the filters of the OTHER columns applied and its own left out - the checkbox list.
+    string? ValuesForColumn = null
 ) : IRequest<ReportWidgetResult>;
 
-/// <summary>The filterable columns of the summary reports.</summary>
-public enum ReportFilterColumn
-{
-    Agent,
-    AgentName,
-    Queue
-}
-
 /// <summary>
-/// One column filter, the same shape as the real-time grid filter (AgentGridWidget): EITHER Text with MatchType
-/// ("contains" default, "equal", "startsWith", "endsWith"; ignoring case) OR Values (exact, any of them). Both = refused.
-/// Empty Text and no Values = no filter.
+/// One funnel filter. Column = a field name from ReportColumns.For(type). Op by the column kind:
+/// Text - "contains" (default) / "equal" / "startsWith" / "endsWith" on Text (ignoring case), OR Values (exact, any of
+///        them), never both;
+/// Count / DurationMs / DurationSec / Percent - "greater" (&gt; Number), "less" (&lt; Number), "between"
+///        (Number &lt;= x &lt;= NumberTo, both bounds included), in the column's own unit;
+/// DateTime / Date - the same three operators on Time / TimeTo (site wall clock, as the cell shows it).
+/// A null cell matches no number or time filter.
 /// </summary>
-public record ReportColumnFilter(string? MatchType = null, string? Text = null, IReadOnlyList<string>? Values = null);
+public record ReportColumnFilter(
+    string Column,
+    string? Op = null,
+    string? Text = null,
+    IReadOnlyList<string>? Values = null,
+    double? Number = null,
+    double? NumberTo = null,
+    DateTime? Time = null,
+    DateTime? TimeTo = null);
 
 /// <summary>Distinct values of one column for the checkbox list; Truncated = more than the limit exist.</summary>
-public record ReportColumnValues(ReportFilterColumn Column, IReadOnlyList<string> Values, int TotalCount, bool Truncated);
+public record ReportColumnValues(string Column, IReadOnlyList<string> Values, int TotalCount, bool Truncated);
 
 /// <summary>
 /// Tagged union result: exactly one of the typed results is populated based on WidgetType.

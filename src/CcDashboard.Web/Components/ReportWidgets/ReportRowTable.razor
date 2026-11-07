@@ -1,0 +1,106 @@
+@using System.Reflection
+@using CcDashboard.Domain.Domain.Reports
+@using ReportColumns = CcDashboard.Application.HistoricalReports.ReportColumns
+@using ReportColumnKind = CcDashboard.Application.HistoricalReports.ReportColumnKind
+@using ReportColumn = CcDashboard.Application.HistoricalReports.ReportColumn
+@inject IStringLocalizer<SharedResources> L
+
+@* The table every report widget draws.
+
+   It exists because four of the seven table reports ignored the column picker entirely: they drew
+   a fixed set of headers and a hand-written cell for each, so the operator could choose columns
+   and nothing happened. Those four hand-written sets also disagreed about units - one printed a
+   total in seconds through the milliseconds formatter, showing nine hours as thirty-two seconds.
+
+   What a column holds comes from ReportColumns - the one rule, shared with the server, which also
+   decides which columns can be filtered. The table asks it; it never guesses from a name. *@
+
+<div class="report-widget-table-container @(Updating ? "report-widget-updating" : null)">
+    <div class="report-widget-table-scroll">
+        <table class="table table-sm table-hover report-table report-widget-table" aria-label="@Caption">
+            <caption class="visually-hidden">@Caption</caption>
+            <thead class="@(DarkMode ? "table-dark" : "table-light")">
+                <tr>
+                    @foreach (var column in Columns)
+                    {
+                        var meta = Meta(column);
+                        <th scope="col" class="@(meta is not null && ReportCellFormat.IsNumeric(meta.Kind) ? "text-end" : null)" @key="column">
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <span>@Header(column)</span>
+                                @* The funnel is offered only where the rule says the column can be
+                                   filtered - by rule, never by a list written in this markup. *@
+                                @if (HeaderExtra is not null && meta is { Filterable: true })
+                                {
+                                    @HeaderExtra(meta)
+                                }
+                            </span>
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Rows)
+                {
+                    <tr>
+                        @foreach (var column in Columns)
+                        {
+                            var meta = Meta(column);
+                            <td class="@(meta is not null && ReportCellFormat.IsNumeric(meta.Kind) ? "text-end" : null)">@Cell(row, column)</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<object> Rows { get; set; } = Array.Empty<object>();
+    [Parameter, EditorRequired] public IReadOnlyList<string> Columns { get; set; } = Array.Empty<string>();
+    [Parameter, EditorRequired] public string Caption { get; set; } = string.Empty;
+
+    /// <summary>The widget's type: it decides which columns exist and which of them take a filter.</summary>
+    [Parameter, EditorRequired] public ReportWidgetType WidgetType { get; set; }
+
+    [Parameter] public bool DarkMode { get; set; }
+
+    /// <summary>True while a newer answer is on its way: the rows stay, dimmed, rather than vanish.</summary>
+    [Parameter] public bool Updating { get; set; }
+
+    /// <summary>Drawn next to a filterable column's name - the funnel. Gets the column WITH its kind,
+    /// so the window it opens never has to guess what the column holds.</summary>
+    [Parameter] public RenderFragment<ReportColumn>? HeaderExtra { get; set; }
+
+    private IReadOnlyList<ReportColumn> _meta = Array.Empty<ReportColumn>();
+    private ReportWidgetType _metaFor;
+
+    protected override void OnParametersSet()
+    {
+        if (_meta.Count > 0 && _metaFor == WidgetType) return;
+        _meta = ReportColumns.For(WidgetType);
+        _metaFor = WidgetType;
+    }
+
+    private ReportColumn? Meta(string column) => _meta.FirstOrDefault(c => c.Name == column);
+
+    // A column with no resource key shows its field name, never a blank: a blank header over real
+    // numbers reads as data that failed to load.
+    private string Header(string column)
+    {
+        var key = ReportColumnLabels.KeyFor(column);
+        return key is null ? column : L[key].Value;
+    }
+
+    // The value is read by the column's own name, and written by the column's kind. A name no row
+    // carries gives a dash rather than an exception: one renamed field must not blank a report.
+    private string Cell(object row, string column)
+    {
+        var property = row.GetType().GetProperty(column, BindingFlags.Public | BindingFlags.Instance);
+        if (property is null) return "-";
+
+        var meta = Meta(column);
+        return meta is null
+            ? property.GetValue(row)?.ToString() ?? "-"
+            : ReportCellFormat.Cell(property.GetValue(row), meta.Kind);
+    }
+}

@@ -130,10 +130,13 @@ public class AgentPerformanceModeGuardTests
         AgentSummaryColumns.ForMode(new[] { "Handled" }, byDate: true).Should().Equal("Date", "Handled");
         AgentSummaryColumns.ForMode(new[] { "Date", "Handled" }, byDate: false).Should().Equal("Handled");
 
-        // The shared table must still know how to print it, or the column would render as an
-        // empty cell - the same silence one layer down.
-        File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), "AgentSummaryTable.razor"))
-            .Should().Contain("\"Date\"", "the shared table must know how to print the date column");
+        // The shared table must still be able to print it, or the column would render as an empty
+        // cell - the same silence one layer down. It is no longer a question of a hand-written
+        // switch: the table asks ReportColumns what the column holds, so what this now checks is
+        // that the rule knows the column at all.
+        CcDashboard.Application.HistoricalReports.ReportColumns
+            .Find(CcDashboard.Domain.Domain.Reports.ReportWidgetType.AgentPerformance, "Date")
+            .Should().NotBeNull("the date column must be known to the one column rule");
     }
 
     private static string CamelCase(string name) => char.ToLowerInvariant(name[0]) + name[1..];

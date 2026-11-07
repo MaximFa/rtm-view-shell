@@ -95,10 +95,10 @@ public class RunReportWidgetQueryHandler(
 
         return query.WidgetType switch
         {
-            ReportWidgetType.QueueInterval => await RunQueueIntervalAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
-            ReportWidgetType.QueueWaitTime => await RunQueueWaitTimeAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
-            ReportWidgetType.AgentMonthly => await RunAgentMonthlyAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
-            ReportWidgetType.AgentShiftDetail => await RunAgentShiftDetailAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, ct),
+            ReportWidgetType.QueueInterval => await RunQueueIntervalAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
+            ReportWidgetType.QueueWaitTime => await RunQueueWaitTimeAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
+            ReportWidgetType.AgentMonthly => await RunAgentMonthlyAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
+            ReportWidgetType.AgentShiftDetail => await RunAgentShiftDetailAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.Distribution => await RunDistributionAsync(tenantId, config, effectiveColumns, from, toExclusive, ct),
             ReportWidgetType.EndOfShiftAgents => await RunAgentSummaryAsync(query.WidgetType, null, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.AgentPerformance => await RunAgentSummaryAsync(query.WidgetType, config.Mode, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
@@ -108,7 +108,7 @@ public class RunReportWidgetQueryHandler(
     }
 
     private async Task<ReportWidgetResult> RunQueueIntervalAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
     {
         var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
 
@@ -141,6 +141,8 @@ public class RunReportWidgetQueryHandler(
             .OrderBy(r => r.IntervalStart)
             .ToList();
 
+        var (filtered, columnValues) = ApplyFilters(query.WidgetType, rows, query);
+        rows = filtered;
         var totalCount = rows.Count;
         List<QueueIntervalRow> resultRows;
         int pageSize;
@@ -160,12 +162,13 @@ public class RunReportWidgetQueryHandler(
         {
             WidgetType = ReportWidgetType.QueueInterval,
             EffectiveColumns = effectiveColumns,
+            ColumnValues = columnValues,
             QueueInterval = new QueueIntervalReportResult(resultRows, totalCount, page, pageSize)
         };
     }
 
     private async Task<ReportWidgetResult> RunQueueWaitTimeAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
     {
         var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
 
@@ -191,6 +194,10 @@ public class RunReportWidgetQueryHandler(
             .OrderBy(r => r.IntervalStart)
             .ToList();
 
+        // filtered first: the overall ASA under the table is of the rows the table shows
+        var (filtered, columnValues) = ApplyFilters(query.WidgetType, rows, query);
+        rows = filtered;
+
         var totalAnswered = rows.Sum(r => r.Answered);
         var totalWait = rows.Sum(r => r.SumWaitAnswered);
         var overallAsa = totalAnswered == 0 ? null : (double?)totalWait / totalAnswered;
@@ -214,12 +221,13 @@ public class RunReportWidgetQueryHandler(
         {
             WidgetType = ReportWidgetType.QueueWaitTime,
             EffectiveColumns = effectiveColumns,
+            ColumnValues = columnValues,
             QueueWaitTime = new QueueWaitTimeReportResult(resultRows, totalCount, page, pageSize, overallAsa)
         };
     }
 
     private async Task<ReportWidgetResult> RunAgentMonthlyAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
     {
         var axis = config.Scope.AgentAxis ?? AgentReportAxis.Detail;
         var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, axis, ct);
@@ -268,6 +276,8 @@ public class RunReportWidgetQueryHandler(
             .ThenBy(x => x.AgentExternalId)
             .ToList();
 
+        var (filtered, columnValues) = ApplyFilters(query.WidgetType, rows, query);
+        rows = filtered;
         var totalCount = rows.Count;
         List<AgentMonthlyRow> resultRows;
         int pageSize;
@@ -287,12 +297,13 @@ public class RunReportWidgetQueryHandler(
         {
             WidgetType = ReportWidgetType.AgentMonthly,
             EffectiveColumns = effectiveColumns,
+            ColumnValues = columnValues,
             AgentMonthly = new AgentMonthlyReportResult(resultRows, totalCount, page, pageSize)
         };
     }
 
     private async Task<ReportWidgetResult> RunAgentShiftDetailAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, CancellationToken ct)
+        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
     {
         var axis = config.Scope.AgentAxis ?? AgentReportAxis.Detail;
         var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, axis, ct);
@@ -323,6 +334,8 @@ public class RunReportWidgetQueryHandler(
                 i.SumOnphoneMs - i.SumHoldMs);
         }).ToList();
 
+        var (filtered, columnValues) = ApplyFilters(query.WidgetType, rows, query);
+        rows = filtered;
         var totalCount = rows.Count;
         List<AgentShiftDetailRow> resultRows;
         int pageSize;
@@ -342,6 +355,7 @@ public class RunReportWidgetQueryHandler(
         {
             WidgetType = ReportWidgetType.AgentShiftDetail,
             EffectiveColumns = effectiveColumns,
+            ColumnValues = columnValues,
             AgentShiftDetail = new AgentShiftDetailReportResult(resultRows, totalCount, page, pageSize)
         };
     }
@@ -397,10 +411,11 @@ public class RunReportWidgetQueryHandler(
         return null;
     }
 
-    // ── PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01 ────────────────────────────────────────────────────────────
-    // The rows are computed in memory, so a filter is an ordinary string test (ignore case for text, ordinal for picked
-    // values): no SQL is built from it, and "%" / "_" are plain characters. It only removes rows of the scoped result -
+    // ── FEAT-REPORT-COLUMN-FUNNEL-FILTERS-01 (contract 07:23:21Z) ──────────────────────────────────────────────────
+    // The rows are computed in memory, so a filter is an ordinary value test on the final row (after grouping and derived
+    // values): no SQL is built from it, "%" / "_" are plain characters, and it only removes rows of the scoped result -
     // it can never add one. The checkbox list is built from the same scoped rows, so it cannot show a value from outside.
+    // Column kinds and which columns take a funnel: ReportColumns (one rule with the screen).
 
     /// <summary>Longest filter text / picked value accepted (a login or a name is at most 100 characters in the source).</summary>
     public const int FilterMaxLength = 100;
@@ -411,57 +426,151 @@ public class RunReportWidgetQueryHandler(
     /// <summary>Longest checkbox list returned for one column; beyond it Truncated is set and the user narrows by text.</summary>
     public const int ColumnValuesLimit = 1000;
 
-    private static readonly HashSet<string> MatchTypes = new(StringComparer.OrdinalIgnoreCase) { "contains", "equal", "startsWith", "endsWith" };
+    private static readonly HashSet<string> TextOps = new(StringComparer.OrdinalIgnoreCase) { "contains", "equal", "startsWith", "endsWith" };
+    private static readonly HashSet<string> RangeOps = new(StringComparer.OrdinalIgnoreCase) { "greater", "less", "between" };
+
+    private static bool IsNumber(ReportColumnKind k) =>
+        k is ReportColumnKind.Count or ReportColumnKind.DurationMs or ReportColumnKind.DurationSec or ReportColumnKind.Percent;
+
+    private static bool IsTime(ReportColumnKind k) => k is ReportColumnKind.DateTime or ReportColumnKind.Date;
 
     internal static string? ValidateFilters(RunReportWidgetQuery q)
     {
-        foreach (var (name, f) in new[] { ("Agent", q.AgentFilter), ("Agent name", q.AgentNameFilter), ("Queue", q.QueueFilter) })
+        var filters = q.Filters ?? Array.Empty<ReportColumnFilter>();
+        var columns = ReportColumns.For(q.WidgetType);
+        if (columns.Count == 0 && (filters.Count > 0 || q.ValuesForColumn != null))
+            return "This report type takes no column filters";
+        if (filters.Count > columns.Count)
+            return "More filters than columns";
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var f in filters)
         {
-            if (f is null) continue;
-            if (f.Text is { Length: > FilterMaxLength })
-                return $"{name} filter cannot exceed {FilterMaxLength} characters";
-            if (f.MatchType is not null && !MatchTypes.Contains(f.MatchType))
-                return $"{name} filter: unknown match type";
-            if (f.Values is { Count: > 0 } && !string.IsNullOrWhiteSpace(f.Text))
-                return $"{name} filter: either text or picked values, not both";
-            if (f.Values is { Count: > FilterMaxValues })
-                return $"{name} filter cannot pick more than {FilterMaxValues} values";
-            if (f.Values is not null && f.Values.Any(v => v is null || v.Length > FilterMaxLength))
-                return $"{name} filter: a picked value is empty or longer than {FilterMaxLength} characters";
+            if (f is null) return "Empty filter";
+            var col = ReportColumns.Find(q.WidgetType, f.Column);
+            if (col is null) return "Unknown filter column";
+            if (!col.Filterable) return $"Column {col.Name} takes no filter";
+            if (!seen.Add(col.Name)) return $"Column {col.Name} is filtered twice";
+
+            if (col.Kind == ReportColumnKind.Text)
+            {
+                if (f.Op is not null && !TextOps.Contains(f.Op)) return $"{col.Name}: operator does not fit a text column";
+                if (f.Number is not null || f.NumberTo is not null || f.Time is not null || f.TimeTo is not null)
+                    return $"{col.Name}: a text column takes text or picked values";
+                if (f.Text is { Length: > FilterMaxLength }) return $"{col.Name}: filter cannot exceed {FilterMaxLength} characters";
+                if (f.Values is { Count: > 0 } && !string.IsNullOrWhiteSpace(f.Text)) return $"{col.Name}: either text or picked values, not both";
+                if (f.Values is { Count: > FilterMaxValues }) return $"{col.Name}: cannot pick more than {FilterMaxValues} values";
+                if (f.Values is not null && f.Values.Any(v => v is null || v.Length > FilterMaxLength))
+                    return $"{col.Name}: a picked value is empty or longer than {FilterMaxLength} characters";
+                continue;
+            }
+
+            // number and time columns
+            if (f.Op is null || !RangeOps.Contains(f.Op)) return $"{col.Name}: operator does not fit a {col.Kind} column";
+            if (f.Text is not null || f.Values is not null) return $"{col.Name}: a {col.Kind} column takes no text";
+            var between = f.Op.Equals("between", StringComparison.OrdinalIgnoreCase);
+            if (IsNumber(col.Kind))
+            {
+                if (f.Time is not null || f.TimeTo is not null) return $"{col.Name}: a number column takes a number";
+                if (f.Number is null || (between && f.NumberTo is null)) return $"{col.Name}: bound missing";
+                if (!double.IsFinite(f.Number.Value) || (f.NumberTo is { } t && !double.IsFinite(t))) return $"{col.Name}: bound is not a finite number";
+                if (between && f.Number > f.NumberTo) return $"{col.Name}: lower bound above upper bound";
+                if (!between && f.NumberTo is not null) return $"{col.Name}: one bound only";
+            }
+            else if (IsTime(col.Kind))
+            {
+                if (f.Number is not null || f.NumberTo is not null) return $"{col.Name}: a time column takes a time";
+                if (f.Time is null || (between && f.TimeTo is null)) return $"{col.Name}: bound missing";
+                if (between && f.Time > f.TimeTo) return $"{col.Name}: lower bound above upper bound";
+                if (!between && f.TimeTo is not null) return $"{col.Name}: one bound only";
+            }
+            else return $"Column {col.Name} takes no filter";
         }
 
-        var agentType = q.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentPerformance;
-        var queueType = q.WidgetType is ReportWidgetType.EndOfShiftQueues;
-        if (!agentType && (IsActive(q.AgentFilter) || IsActive(q.AgentNameFilter)
-                           || q.ValuesForColumn is ReportFilterColumn.Agent or ReportFilterColumn.AgentName))
-            return "Agent filters apply only to the agent summary reports";
-        if (!queueType && (IsActive(q.QueueFilter) || q.ValuesForColumn is ReportFilterColumn.Queue))
-            return "The queue filter applies only to the end-of-shift queues report";
+        if (q.ValuesForColumn != null)
+        {
+            var col = ReportColumns.Find(q.WidgetType, q.ValuesForColumn);
+            if (col is null || !col.Filterable || col.Kind != ReportColumnKind.Text)
+                return "A value list is given only for a filterable text column";
+        }
         return null;
     }
 
-    internal static bool IsActive(ReportColumnFilter? f) =>
-        f is not null && (f.Values is { Count: > 0 } || !string.IsNullOrWhiteSpace(f.Text));
+    private static bool IsActive(ReportColumnFilter f) =>
+        f.Values is { Count: > 0 } || !string.IsNullOrWhiteSpace(f.Text) || f.Number is not null || f.Time is not null;
 
-    /// <summary>No filter = everything. Picked values: exact (ordinal), any of them. Text: by the operator, ignoring case.</summary>
-    internal static bool Matches(string? value, ReportColumnFilter? f)
+    /// <summary>
+    /// Does one cell pass one (already validated) filter? Text: picked values exact (ordinal), else the operator ignoring
+    /// case. Number / time: greater &gt;, less &lt;, between inclusive. A null cell passes no active filter.
+    /// </summary>
+    internal static bool Passes(object? cell, ReportColumnKind kind, ReportColumnFilter f)
     {
         if (!IsActive(f)) return true;
-        if (value is null) return false;
-        if (f!.Values is { Count: > 0 })
-            return f.Values.Contains(value, StringComparer.Ordinal);
-        var text = f.Text!.Trim();
-        return (f.MatchType ?? "contains").ToLowerInvariant() switch
+        if (cell is null) return false;
+        if (kind == ReportColumnKind.Text)
         {
-            "equal" => value.Equals(text, StringComparison.OrdinalIgnoreCase),
-            "startswith" => value.StartsWith(text, StringComparison.OrdinalIgnoreCase),
-            "endswith" => value.EndsWith(text, StringComparison.OrdinalIgnoreCase),
-            _ => value.Contains(text, StringComparison.OrdinalIgnoreCase)
+            var value = cell.ToString()!;
+            if (f.Values is { Count: > 0 }) return f.Values.Contains(value, StringComparer.Ordinal);
+            var text = f.Text!.Trim();
+            return (f.Op ?? "contains").ToLowerInvariant() switch
+            {
+                "equal" => value.Equals(text, StringComparison.OrdinalIgnoreCase),
+                "startswith" => value.StartsWith(text, StringComparison.OrdinalIgnoreCase),
+                "endswith" => value.EndsWith(text, StringComparison.OrdinalIgnoreCase),
+                _ => value.Contains(text, StringComparison.OrdinalIgnoreCase)
+            };
+        }
+        var op = f.Op!.ToLowerInvariant();
+        if (IsNumber(kind))
+        {
+            var x = Convert.ToDouble(cell, System.Globalization.CultureInfo.InvariantCulture);
+            return op switch
+            {
+                "greater" => x > f.Number!.Value,
+                "less" => x < f.Number!.Value,
+                _ => x >= f.Number!.Value && x <= f.NumberTo!.Value
+            };
+        }
+        var d = (DateTime)cell;
+        return op switch
+        {
+            "greater" => d > f.Time!.Value,
+            "less" => d < f.Time!.Value,
+            _ => d >= f.Time!.Value && d <= f.TimeTo!.Value
         };
     }
 
+    /// <summary>
+    /// The funnel filters on a type's final rows (all must pass), plus the checkbox list of ValuesForColumn over the same
+    /// rows with every OTHER column's filter applied and its own left out (as in Excel). Before paging.
+    /// </summary>
+    internal static (List<T> Rows, ReportColumnValues? Values) ApplyFilters<T>(ReportWidgetType type, List<T> rows, RunReportWidgetQuery q)
+    {
+        var filters = q.Filters ?? Array.Empty<ReportColumnFilter>();
+        if (filters.Count == 0 && q.ValuesForColumn == null) return (rows, null);
+
+        var props = typeof(T);
+        var checks = filters.Select(f =>
+        {
+            var col = ReportColumns.Find(type, f.Column)!;
+            var prop = props.GetProperty(col.Name)!;
+            return (Column: col.Name, Test: (Func<T, bool>)(row => Passes(prop.GetValue(row), col.Kind, f)));
+        }).ToList();
+
+        ReportColumnValues? values = null;
+        if (q.ValuesForColumn != null)
+        {
+            var prop = props.GetProperty(q.ValuesForColumn)!;
+            var others = checks.Where(c => c.Column != q.ValuesForColumn).ToList();
+            values = ColumnValuesOf(q.ValuesForColumn,
+                rows.Where(r => others.All(c => c.Test(r))).Select(r => prop.GetValue(r)?.ToString()));
+        }
+
+        return (checks.Count == 0 ? rows : rows.Where(r => checks.All(c => c.Test(r))).ToList(), values);
+    }
+
     /// <summary>The checkbox list: distinct non-empty values, sorted, at most ColumnValuesLimit.</summary>
-    public static ReportColumnValues ColumnValuesOf(ReportFilterColumn column, IEnumerable<string?> values)
+    public static ReportColumnValues ColumnValuesOf(string column, IEnumerable<string?> values)
     {
         var all = values.Where(v => !string.IsNullOrEmpty(v)).Select(v => v!).Distinct(StringComparer.Ordinal)
             .OrderBy(v => v, StringComparer.CurrentCultureIgnoreCase).ThenBy(v => v, StringComparer.Ordinal).ToList();
@@ -553,20 +662,9 @@ public class RunReportWidgetQueryHandler(
             .ThenBy(r => r.AgentExternalId, StringComparer.Ordinal)
             .ToList();
 
-        var allRowsUnfiltered = rows;
-
-        // checkbox list: the whole scoped window with the OTHER column's filter applied, its own left out (as in Excel)
-        ReportColumnValues? columnValues = query.ValuesForColumn switch
-        {
-            ReportFilterColumn.Agent => ColumnValuesOf(ReportFilterColumn.Agent,
-                allRowsUnfiltered.Where(r => Matches(r.AgentDisplayName, query.AgentNameFilter)).Select(r => r.AgentExternalId)),
-            ReportFilterColumn.AgentName => ColumnValuesOf(ReportFilterColumn.AgentName,
-                allRowsUnfiltered.Where(r => Matches(r.AgentExternalId, query.AgentFilter)).Select(r => r.AgentDisplayName)),
-            _ => null
-        };
-
-        // filters BEFORE paging, so a match on page 2 is found and TotalCount counts matches
-        rows = rows.Where(r => Matches(r.AgentExternalId, query.AgentFilter) && Matches(r.AgentDisplayName, query.AgentNameFilter)).ToList();
+        // funnel filters on the final rows, before paging; the checkbox list over the whole window (FEAT-REPORT-COLUMN-FUNNEL-FILTERS-01)
+        var (filteredRows, columnValues) = ApplyFilters(type, rows, query);
+        rows = filteredRows;
 
         var (pageRows, pageSize) = PageOf(rows, config.PageSize, page, allRows);
         var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);
@@ -620,11 +718,8 @@ public class RunReportWidgetQueryHandler(
             .OrderBy(r => r.Workgroup, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
-        // checkbox list: the queue column has no other filter, so it is every queue of the scoped window
-        var columnValues = query.ValuesForColumn == ReportFilterColumn.Queue
-            ? ColumnValuesOf(ReportFilterColumn.Queue, rows.Select(r => r.Workgroup))
-            : null;
-        rows = rows.Where(r => Matches(r.Workgroup, query.QueueFilter)).ToList();   // before paging
+        var (filteredRows, columnValues) = ApplyFilters(type, rows, query);   // before paging
+        rows = filteredRows;
 
         var (pageRows, pageSize) = PageOf(rows, config.PageSize, page, allRows);
         var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);

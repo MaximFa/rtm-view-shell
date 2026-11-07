@@ -20,15 +20,9 @@ namespace CcDashboard.Web.Components.ReportWidgets;
 /// single screen-wide filter would make the file equal to neither of them.
 /// </summary>
 /// <param name="WidgetId">The widget this filter belongs to.</param>
-/// <param name="AgentFilter">The login column's filter, or null.</param>
-/// <param name="AgentNameFilter">The display-name column's filter, or null.</param>
-/// <param name="QueueFilter">The queue column's filter, or null.</param>
-public record ReportWidgetFilter(
-    Guid WidgetId,
-    ReportColumnFilter? AgentFilter = null,
-    ReportColumnFilter? AgentNameFilter = null,
-    ReportColumnFilter? QueueFilter = null)
+/// <param name="Filters">The funnel filters in force on that widget, or null when none are.</param>
+public record ReportWidgetFilter(Guid WidgetId, IReadOnlyList<ReportColumnFilter>? Filters = null)
 {
     /// <summary>True when nothing is filtered: the page may forget this widget entirely.</summary>
-    public bool IsEmpty => AgentFilter is null && AgentNameFilter is null && QueueFilter is null;
+    public bool IsEmpty => Filters is null || Filters.Count == 0;
 }

@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using CcDashboard.Application.HistoricalReports;
+using CcDashboard.Domain.Domain.Reports;
 using FluentAssertions;
 
 namespace CcDashboard.Tests.Architecture;
@@ -6,37 +8,55 @@ namespace CcDashboard.Tests.Architecture;
 /// <summary>
 /// A filter the person can see must reach everything the screen produces.
 ///
-/// The filter lives over the columns of its own widget - that is where the operator asked for it -
-/// but the export file is built by the PAGE. So a widget that filters without telling the page
-/// would hand somebody a file with rows their screen was not showing, and nothing would say so.
-/// That is the same family as the silently skipped export widget and the ignored second date:
-/// the screen acting on something it never told anyone about.
+/// The filter lives on the column it filters - a funnel in the header - but the export file is
+/// built by the PAGE. So a widget that filters without telling the page would hand somebody a file
+/// with rows their screen was not showing, and nothing would say so. That is the same family as
+/// the silently skipped export widget and the ignored second date: the screen acting on something
+/// it never told anyone about.
 ///
-/// Held here, and deliberately as two separate facts: a widget can fall silent, and a page can
-/// stop listening, and each failure looks exactly like the other from the file.
+/// Rewritten on 2026-11-07, when the funnels replaced the row of filter buttons. The questions it
+/// asks are unchanged - that is the point of rewriting rather than deleting - but two of them had
+/// been written against the shape of the day: "the three filtering widgets" and "AgentFilter =
+/// AppliedFilter(...)". Both are now derived: every TABLE report filters, and the filters travel
+/// as a list built by the shared state. A guard that counts today's widgets goes red the day an
+/// eighth report is added, and a guard that names today's spelling goes red the day the spelling
+/// changes - neither failure would be about the rule it is meant to hold.
 /// </summary>
 public class ReportFilterReachesTheExportGuardTests
 {
-    [Theory]
-    [InlineData("EndOfShiftAgentsReportWidget.razor")]
-    [InlineData("AgentPerformanceReportWidget.razor")]
-    [InlineData("EndOfShiftQueuesReportWidget.razor")]
-    public void AWidgetThatFilters_tellsThePage(string widgetFile)
+    /// <summary>
+    /// The report types that draw a table, from the one rule - not a list typed here. Distribution
+    /// has no row record and therefore no columns to filter.
+    /// </summary>
+    private static IReadOnlyList<ReportWidgetType> TableTypes()
+        => Enum.GetValues<ReportWidgetType>()
+            .Where(t => ReportColumns.RowTypeOf(t) is not null)
+            .ToList();
+
+    private static string WidgetFile(ReportWidgetType type) => $"{type}ReportWidget.razor";
+
+    [Fact]
+    public void EveryTableReport_sendsItsFilterIntoTheQuery_andTellsThePage()
     {
-        var widget = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), widgetFile));
+        var types = TableTypes();
+        types.Should().NotBeEmpty("the table reports must be findable, or this guard watches nothing");
 
-        // It filters at all - otherwise this guard is watching a widget that cannot go wrong. The
-        // filter must reach the QUERY: cutting rows out of the page already in hand would leave
-        // "showing 7 of 342" standing over a filtered table.
-        Regex.IsMatch(widget, @"(Agent|AgentName|Queue)Filter\s*=\s*AppliedFilter\(")
-            .Should().BeTrue($"{widgetFile} must send its applied filter into the query");
+        foreach (var type in types)
+        {
+            var widget = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), WidgetFile(type)));
 
-        widget.Should().Contain("FilterChanged.InvokeAsync",
-            $"{widgetFile} filters but never tells the page - the export would disagree with the screen");
+            // Into the QUERY, not over the page already in hand: cutting rows here would leave
+            // "showing 7 of 342" standing over a filtered table - a lie about the data.
+            widget.Should().Contain("Filters = _filters.ForQuery()",
+                $"{WidgetFile(type)} must send its funnel filters with the query");
 
-        // And it must say WHICH widget: one board can hold two agent reports filtered differently.
-        Regex.IsMatch(widget, @"ReportWidgetFilter\s*BuildWidgetFilter\(\)[\s\S]{0,200}?WidgetId")
-            .Should().BeTrue($"{widgetFile} must identify itself, or the page cannot tell two widgets apart");
+            widget.Should().Contain("FilterChanged.InvokeAsync",
+                $"{WidgetFile(type)} filters but never tells the page - the export would disagree with the screen");
+
+            // And it must say WHICH widget: one board can hold two agent reports filtered differently.
+            Regex.IsMatch(widget, @"new ReportWidgetFilter\(\s*WidgetId")
+                .Should().BeTrue($"{WidgetFile(type)} must identify itself, or the page cannot tell two widgets apart");
+        }
     }
 
     [Fact]
@@ -51,10 +71,10 @@ public class ReportFilterReachesTheExportGuardTests
         page.Should().Contain("_widgetFilters.Remove",
             "a widget that stopped filtering must be forgotten, not stored as an empty filter");
 
-        // NEGATIVE HALF: a single screen-wide filter field would make the file match neither of
-        // two differently filtered widgets. Named as a shape so it cannot return as a shortcut.
-        Regex.IsMatch(page, @"private\s+string\??\s+_agentFilter\b")
-            .Should().BeFalse("the page must not hold a filter of its own - the filter belongs to the widget");
+        // NEGATIVE HALF: a single screen-wide filter would make the file match neither of two
+        // differently filtered widgets. Named as a shape so it cannot return as a shortcut.
+        Regex.IsMatch(page, @"private\s+(?:readonly\s+)?(?:string|ReportColumnFilter)\??\s+_filter\b")
+            .Should().BeFalse("the page must not hold a filter of its own - a filter belongs to its widget");
     }
 
     [Fact]
@@ -73,17 +93,28 @@ public class ReportFilterReachesTheExportGuardTests
     }
 
     [Fact]
-    public void TheWidgetIdReachesTheWidget()
+    public void TheDispatcherPassesTheIdAndTheCallback_toEveryTableReport()
     {
-        // The dispatcher is the only path from the page to the widget: if it stops passing the id
-        // or the callback, every widget reports filters for Guid.Empty and the page overwrites one
-        // with another - two widgets, one entry, and the file matches whichever spoke last.
+        // The dispatcher is the only path from the page to a widget: if it stops passing the id or
+        // the callback, widgets report filters for Guid.Empty and the page overwrites one with
+        // another - two widgets, one entry, and the file matches whichever spoke last.
+        //
+        // The expected number comes from the rule, not from a number typed here: when an eighth
+        // table report is added, this guard must ask about eight, not go red about seven.
         var dispatcher = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), "RenderReportWidget.razor"));
+        var expected = TableTypes().Count;
+
+        foreach (var type in TableTypes())
+        {
+            var branch = Regex.Match(dispatcher, $@"<{type}ReportWidget[^>]*>");
+            branch.Success.Should().BeTrue($"the dispatcher must draw {type}");
+            branch.Value.Should().Contain("WidgetId=\"WidgetId\"", $"{type} must receive its id");
+            branch.Value.Should().Contain("FilterChanged=\"FilterChanged\"", $"{type} must receive the callback");
+        }
 
         Regex.Matches(dispatcher, @"WidgetId=""WidgetId""").Count
-            .Should().Be(3, "all three filtering widgets must receive their id");
-        Regex.Matches(dispatcher, @"FilterChanged=""FilterChanged""").Count
-            .Should().Be(3, "all three filtering widgets must receive the callback");
+            .Should().BeGreaterThanOrEqualTo(expected,
+                "every table report must receive its id - counted from the rule, not from today's markup");
     }
 
     private static string ViewPage()

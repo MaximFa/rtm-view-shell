@@ -4,6 +4,9 @@
 @using CcDashboard.Application.HistoricalReports.Queries
 @using CcDashboard.Domain.Domain.Reports
 @using CcDashboard.Contracts.Common
+@using ReportColumns = CcDashboard.Application.HistoricalReports.ReportColumns
+@using ReportColumnKind = CcDashboard.Application.HistoricalReports.ReportColumnKind
+@using ReportColumn = CcDashboard.Application.HistoricalReports.ReportColumn
 @inject IMediator Mediator
 @inject IStringLocalizer<SharedResources> L
 @inject ILogger<QueueIntervalReportWidget> Logger
@@ -20,7 +23,7 @@ else if (!string.IsNullOrEmpty(_error))
         <i class="bi bi-exclamation-triangle me-2"></i>@_error
     </div>
 }
-else if (_loading)
+else if (ReportLoadingView.ShowSpinner(_loading, HasRows))
 {
     <div class="d-flex justify-content-center py-4">
         <div class="spinner-border text-primary" role="status">
@@ -36,44 +39,28 @@ else if (_result is null || _result.Rows.Count == 0)
 }
 else
 {
-    <div class="report-widget-table-container">
-        <div class="report-widget-table-scroll">
-            <table class="table table-sm table-hover report-table report-widget-table" aria-label="@L["Report_QueueInterval"]">
-                <caption class="visually-hidden">@L["Report_QueueInterval"]</caption>
-                <thead class="@(DarkMode ? "table-dark" : "table-light")">
-                    <tr>
-                        <th scope="col">@L["Report_Interval"]</th>
-                        <th scope="col">@L["Report_Workgroup"]</th>
-                        <th scope="col" class="text-end">@L["Report_Offered"]</th>
-                        <th scope="col" class="text-end">@L["Report_Answered"]</th>
-                        <th scope="col" class="text-end">@L["Report_Abandoned"]</th>
-                        <th scope="col" class="text-end">@L["Report_AbandonPct"]</th>
-                        <th scope="col" class="text-end">@L["Report_AnsweredInSL"]</th>
-                        <th scope="col" class="text-end">@L["Report_SLPct"]</th>
-                        <th scope="col" class="text-end">@L["Report_ASA"]</th>
-                        <th scope="col" class="text-end">@L["Report_AHT"]</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var row in _result.Rows)
-                    {
-                        <tr>
-                            <td>@row.IntervalStart.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@row.Workgroup</td>
-                            <td class="text-end">@row.Offered</td>
-                            <td class="text-end">@row.Answered</td>
-                            <td class="text-end">@row.Abandoned</td>
-                            <td class="text-end">@ReportFormat.Pct(row.AbandonPct)</td>
-                            <td class="text-end">@row.AnsweredInSl</td>
-                            <td class="text-end">@ReportFormat.Pct(row.SlPct)</td>
-                            <td class="text-end">@ReportFormat.Duration(row.Asa)</td>
-                            <td class="text-end">@ReportFormat.Duration(row.QueueAht)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
+    @* One table for every report: the columns are the ones the SERVER says are in
+       force, and each cell is formatted by its column's kind. This widget used to
+       draw a fixed set of headers and ignore the column picker entirely. *@
+    <ReportRowTable Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" WidgetType="ReportWidgetType.QueueInterval"
+                    Updating="ReportLoadingView.ShowUpdatingMark(_loading, HasRows)"
+                    Caption="@L["Report_QueueInterval"].Value">
+        <HeaderExtra Context="column">
+            <ColumnFilterHeader Column="@column.Name"
+                                ColumnLabel="@ColumnLabel(column.Name)"
+                                Kind="column.Kind"
+                                Applied="_filters.For(column.Name)"
+                                IsOpen="_filters.OpenColumn == column.Name"
+                                Loading="_filters.ValuesLoading"
+                                Values="_filters.Values"
+                                TotalCount="_filters.ValuesTotal"
+                                Truncated="_filters.ValuesTruncated"
+                                OnToggle="ToggleFilterAsync"
+                                OnApply="ApplyFilterAsync"
+                                OnClear="ClearFilterAsync"
+                                OnClose="CloseFilter" />
+        </HeaderExtra>
+    </ReportRowTable>
     <div class="report-widget-footer">
         <span class="report-widget-footer-pagesize">
             <input type="number" class="form-control form-control-sm" style="width:70px"
@@ -105,6 +92,10 @@ else
     [Parameter] public bool DarkMode { get; set; }
     [Parameter] public int Page { get; set; } = 1;
     [Parameter] public Guid? TenantId { get; set; }
+    /// <summary>Identity of this widget on the screen; the page keys its filters by it.</summary>
+    [Parameter] public Guid WidgetId { get; set; }
+    /// <summary>Tells the page what this widget is filtered by, so the export equals the screen.</summary>
+    [Parameter] public EventCallback<ReportWidgetFilter> FilterChanged { get; set; }
 
     private bool _loading;
     private bool _denied;
@@ -116,6 +107,99 @@ else
     private DateTime _lastTo;
     private string? _lastConfigJson;
     private bool _initialized;
+
+    private IReadOnlyList<string> _columns = Array.Empty<string>();
+
+    // Funnel filters live on the screen only (operator, 2026-11-07): a filter kept in the widget's
+    // configuration would open tomorrow's shift already narrowed, and whoever opened it would read
+    // an empty table as "there was no work". One object, shared by every report - the last time
+    // this state was written by hand it was written three times and already differed.
+    private readonly ReportFilterState _filters = new();
+
+    private string ColumnLabel(string column)
+    {
+        var key = ReportColumnLabels.KeyFor(column);
+        return key is null ? column : L[key].Value;
+    }
+
+    private void CloseFilter() => _filters.Close();
+
+    /// <summary>
+    /// Open a column's window. For a text column the checkbox values come from the SERVER, over
+    /// the whole window and scope - not from the page in hand, which holds 25 rows of possibly
+    /// hundreds and would offer a choice that is not the real one.
+    /// </summary>
+    private async Task ToggleFilterAsync(string column)
+    {
+        if (!_filters.Toggle(column)) return;
+
+        var kind = ReportColumns.Find(ReportWidgetType.QueueInterval, column)?.Kind;
+        if (kind is not (ReportColumnKind.Text or ReportColumnKind.Id)) return;
+
+        _filters.BeginLoadingValues();
+        try
+        {
+            var res = await Mediator.Send(BuildQuery(valuesFor: column));
+            if (res.ColumnValues is { } values && values.Column == column)
+                _filters.SetValues(values);
+        }
+        catch (Exception ex)
+        {
+            // An unreachable list is not a reason to refuse the window: the text filter still
+            // works, and saying nothing would look like a column with no values at all.
+            Logger.LogWarning(ex, "Filter values for {Column} could not be loaded", column);
+        }
+        finally
+        {
+            _filters.EndLoadingValues();
+        }
+    }
+
+    private async Task ApplyFilterAsync((string Column, ColumnFilterDraft Draft) applied)
+    {
+        var (column, draft) = applied;
+        var kind = ReportColumns.Find(ReportWidgetType.QueueInterval, column)?.Kind ?? ReportColumnKind.Text;
+        _filters.Apply(column, ReportFilterState.Build(column, kind, draft));
+        await AfterFilterChangedAsync();
+    }
+
+    private async Task ClearFilterAsync(string column)
+    {
+        _filters.Clear(column);
+        await AfterFilterChangedAsync();
+    }
+
+    private async Task AfterFilterChangedAsync()
+    {
+        await FilterChanged.InvokeAsync(new ReportWidgetFilter(WidgetId, _filters.ForQuery()));
+        // Back to the first page: page 4 of an unfiltered answer is usually past the end of a
+        // filtered one, and an empty page reads as "nothing found" rather than "you are past it".
+        _page = 1;
+        await LoadData();
+    }
+
+    /// <summary>
+    /// The one place this widget builds its query: the page of rows and the list of values a
+    /// funnel offers are asked for here both, so they cannot describe different windows or
+    /// different filters - which would offer a choice the table cannot contain.
+    /// </summary>
+    private RunReportWidgetQuery BuildQuery(string? valuesFor = null)
+    {
+        var effectiveConfig = (Config ?? new ReportWidgetConfig()) with { PageSize = _pageSize };
+        return new RunReportWidgetQuery(
+            ReportWidgetType.QueueInterval,
+            effectiveConfig.ToJson(),
+            From,
+            To,
+            _page,
+            TenantId)
+        {
+            Filters = _filters.ForQuery(),
+            ValuesForColumn = valuesFor
+        };
+    }
+
+    private bool HasRows => _result is { Rows.Count: > 0 };
 
     private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
 
@@ -148,14 +232,7 @@ else
         try
         {
             var effectiveConfig = (Config ?? new ReportWidgetConfig()) with { PageSize = _pageSize };
-            var configJson = effectiveConfig.ToJson();
-            var res = await Mediator.Send(new RunReportWidgetQuery(
-                ReportWidgetType.QueueInterval,
-                configJson,
-                From,
-                To,
-                _page,
-                TenantId));
+            var res = await Mediator.Send(BuildQuery());
 
             if (res.Denied)
             {
@@ -170,6 +247,14 @@ else
             else
             {
                 _result = res.QueueInterval;
+                // The columns come from the ANSWER: the server resolved "what the user picked,
+                // else the standard set" and sends it back, so the header cannot disagree with
+                // the cells. Before this the widget drew a fixed set and the picker did nothing.
+                var fromServer = res.EffectiveColumns;
+                _columns = fromServer is { Count: > 0 }
+                    ? fromServer
+                    : CcDashboard.Application.HistoricalReports.ReportWidgetConfig
+                        .DefaultColumns(ReportWidgetType.QueueInterval);
             }
         }
         catch (Exception ex)
