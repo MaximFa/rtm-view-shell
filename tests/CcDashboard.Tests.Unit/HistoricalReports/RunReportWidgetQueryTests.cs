@@ -388,7 +388,8 @@ public class RunReportWidgetQueryTests
             new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
             CancellationToken.None);
 
-        result.EffectiveColumns.Should().BeEquivalentTo(new[] { "Offered", "Answered" });
+        // the picked columns keep their order; PR234-V4-EOS-QUEUES-SAVED-COLUMNS-NO-INTERVAL-01 puts the interval start first
+        result.EffectiveColumns.Should().Equal("IntervalStart", "Offered", "Answered");
     }
 
     [Fact]

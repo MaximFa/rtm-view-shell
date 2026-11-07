@@ -931,7 +931,7 @@
   <data name="Report_Label"><value>ערך</value></data>
   <data name="Report_Count"><value>כמות</value></data>
   <data name="Report_Percentage"><value>אחוז</value></data>
-  <data name="Report_EndOfShiftQueues"><value>סוף משמרת — תורים</value></data>
+  <data name="Report_EndOfShiftQueues"><value>דוח תורים</value></data>
   <data name="Report_ShownForShift"><value>נתונים עבור {0}, {1}–{2}</value></data>
   <data name="Report_ShownForDate"><value>נתונים עבור {0}</value></data>
   <data name="Report_DateRangeInverted"><value>תאריך ההתחלה מאוחר מתאריך הסיום.</value></data>
@@ -947,7 +947,7 @@
   <data name="Report_DescAgentMonthly"><value>סיכום ביצועי נציגים חודשי</value></data>
   <data name="Report_DescAgentShiftDetail"><value>מדדי נציגים מפורטים לפי משמרת</value></data>
   <data name="Report_DescDistribution"><value>תרשימי התפלגות שיחות</value></data>
-  <data name="Report_DescEndOfShiftQueues"><value>שורה אחת לכל תור בחלון המשמרת</value></data>
+  <data name="Report_DescEndOfShiftQueues"><value>שורה אחת לכל תור בכל מרווח בתקופה שנבחרה</value></data>
   <data name="Report_DescEndOfShiftAgents"><value>שורה אחת לכל נציג בחלון המשמרת</value></data>
   <data name="Report_DescAgentPerformance"><value>נתוני נציגים לתקופה: שורה לכל נציג, או לכל נציג לפי תאריך</value></data>
   <data name="Report_Between"><value>בין</value></data>
@@ -1242,5 +1242,7 @@
   <data name="Report_ErrorRetired"><value>דוח זה הוסר ואינו מופק עוד.</value></data>
   <data name="Report_ErrorUnknown"><value>לא ניתן היה להפיק את הדוח.</value></data>
   <data name="Report_ShownForRange"><value>נתונים עבור {0} – {1}</value></data>
+  <data name="Report_FilterNoMatch"><value>אין שורות שתואמות את הסינון.</value></data>
+  <data name="Report_CanvasNoOverlap"><value>ווידג'טים לא יכולים לחפוף — הווידג'ט חזר למקומו.</value></data>
 </root>
 

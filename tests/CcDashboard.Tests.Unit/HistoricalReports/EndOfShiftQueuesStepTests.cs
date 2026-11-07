@@ -260,6 +260,37 @@ public class EndOfShiftQueuesStepTests
         r.ErrorCode.Should().Be(ReportReasonCodes.InvalidConfig);
     }
 
+    // ---- PR234-V4-EOS-QUEUES-SAVED-COLUMNS-NO-INTERVAL-01: IntervalStart is always a column of this report ----
+
+    [Fact]
+    public async Task ASavedColumnListWithoutIntervalStart_GetsItFirst_TheRestInItsOrder()
+    {
+        ThreeBuckets();
+        var r = await Run(null, new DateTime(2026, 11, 3),
+            cfg: """{ "scope": { "businessUnitIds": [1] }, "columns": ["Offered", "Workgroup"] }""");
+
+        r.Error.Should().BeNull();
+        r.EffectiveColumns.Should().Equal("IntervalStart", "Offered", "Workgroup");
+    }
+
+    [Fact]
+    public async Task ASavedColumnListWithIntervalStart_IsKeptAsIs_NotDoubled()
+    {
+        ThreeBuckets();
+        var r = await Run(null, new DateTime(2026, 11, 3),
+            cfg: """{ "scope": { "businessUnitIds": [1] }, "columns": ["Workgroup", "IntervalStart", "Offered"] }""");
+
+        r.EffectiveColumns.Should().Equal("Workgroup", "IntervalStart", "Offered");
+    }
+
+    [Fact]
+    public void NEGATIVE_anotherReportsSavedColumns_AreNotTouched()
+    {
+        var cfg = ReportWidgetConfig.Parse("""{ "scope": { "businessUnitIds": [1] }, "columns": ["Handled"] }""");
+        cfg.GetEffectiveColumns(ReportWidgetType.EndOfShiftAgents).Should().Equal("Handled");
+        cfg.GetEffectiveColumns(ReportWidgetType.EndOfShiftQueues).Should().Equal("IntervalStart", "Handled");
+    }
+
     // ---- what is refused / ignored ----
 
     [Fact]

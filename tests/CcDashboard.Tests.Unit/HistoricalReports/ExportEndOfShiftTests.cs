@@ -144,6 +144,18 @@ public class ExportEndOfShiftTests
     }
 
     [Fact]
+    public async Task AWidgetWithoutATitle_NamesItsSheetByTheTypesEnglishName_NotTheEnumName()
+    {
+        Widget(ReportWidgetType.EndOfShiftQueues, Cfg(null, null));
+        Widget(ReportWidgetType.EndOfShiftQueues, """{ "title": "Sales queues", "scope": { "businessUnitIds": [1] } }""");
+
+        var res = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
+
+        SheetNames(res.Content).Should().Equal("Queue Report", "Sales queues");
+        SheetNames(res.Content).Should().NotContain("EndOfShiftQueues");
+    }
+
+    [Fact]
     public async Task WidgetWithoutHours_IsListedWithTheReason_NotDropped()
     {
         Widget(ReportWidgetType.EndOfShiftAgents, Cfg(8, 16));
@@ -157,7 +169,7 @@ public class ExportEndOfShiftTests
         var names = SheetNames(res.Content);
         names.Should().HaveCount(2).And.Contain("Not exported");
         using var wb = XlsxDiagnostics.Open(res.Content);
-        wb.Worksheet("Not exported").Cell(2, 1).GetString().Should().Be("EndOfShiftAgents");
+        wb.Worksheet("Not exported").Cell(2, 1).GetString().Should().Be("End of shift — agents", "the type's English name, not the enum name (coordinator 15:05:51Z)");
         // the file shows the fixed sentence of the code, not the validation text
         wb.Worksheet("Not exported").Cell(2, 2).GetString().Should().Be(ExportReportCommandHandler.SheetText(ReportReasonCodes.ShiftHours))
             .And.NotContain("required");

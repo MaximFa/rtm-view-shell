@@ -814,10 +814,12 @@ window.viewerScale = {
     designHeight: 0,
     _onResize: null,
     
-    init: function (designEl, designWidth, designHeight) {
+    init: function (designEl, designWidth, designHeight, options) {
         this.designEl = designEl;
         this.designWidth = designWidth;
         this.designHeight = designHeight;
+        // 'centre' (default, dashboards: unchanged) or 'editor' (report viewer): see applyScale.
+        this.align = (options && options.align) || 'centre';
         
         // Initial scale
         this.applyScale();
@@ -841,6 +843,22 @@ window.viewerScale = {
         const scaleX = wrapW / this.designWidth;
         const scaleY = wrapH / this.designHeight;
         const scale = Math.min(scaleX, scaleY);
+
+        // PR234-V4-REPORT-VIEW-LAYOUT-DIFFERS-FROM-EDITOR-01 (operator 2026-11-07 16:32): the REPORT viewer lays the board
+        // out as the report editor does - top to top, from the same physical LEFT edge the editor's widget coordinates
+        // (style left/top) count from. Centring added an empty band above the board (measured on 234: margin-top
+        // 196.771px with a 476px board in an 870px window) that the editor never shows. Only with align 'editor';
+        // the default branch below is the dashboards' and is unchanged.
+        if (this.align === 'editor') {
+            this.designEl.style.transform = 'scale(' + scale + ')';
+            this.designEl.style.transformOrigin = 'top left';
+            this.designEl.style.marginInlineStart = '';
+            this.designEl.style.marginLeft = '0px';
+            this.designEl.style.marginRight = 'auto';
+            this.designEl.style.marginTop = '0px';
+            this._notifyCharts();
+            return;
+        }
         
         // Apply transform. The origin must be the INLINE START of the wrapper, not a
         // physical side: in an RTL board the un-scaled layer is flush right, so scaling

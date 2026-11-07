@@ -31,7 +31,9 @@ else if (ReportLoadingView.ShowSpinner(_loading, HasRows))
         </div>
     </div>
 }
-else if (_result is null || _result.Rows.Count == 0)
+@* PR234-V4-REPORT-FILTER-EMPTY-RESULT-STUCK-01: "no data" only when nothing is filtered. Empty WITH
+   filters keeps the table - its header carries the funnels, the only way back out of the filter. *@
+else if (_result is null || (_result.Rows.Count == 0 && !_filters.Any))
 {
     <div class="alert alert-info">
         <i class="bi bi-info-circle me-2"></i>@L["Report_NoData"]
@@ -42,11 +44,11 @@ else
     @* One table for every report: the columns are the ones the SERVER says are in
        force, and each cell is formatted by its column's kind. This widget used to
        draw a fixed set of headers and ignore the column picker entirely. *@
-    <ReportRowTable Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" WidgetType="ReportWidgetType.AgentMonthly"
+    <ReportRowTable FiltersActive="_filters.Any" OnClearFilters="ClearAllFiltersAsync" Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" WidgetType="ReportWidgetType.AgentMonthly"
                     Updating="ReportLoadingView.ShowUpdatingMark(_loading, HasRows)"
                     Caption="@L["Report_AgentMonthly"].Value">
         <HeaderExtra Context="column">
-            <ColumnFilterHeader Column="@column.Name"
+            <ColumnFilterHeader Column="@column.Name" Group="_filters"
                                 ColumnLabel="@ColumnLabel(column.Name)"
                                 Kind="column.Kind"
                                 Applied="_filters.For(column.Name)"
@@ -166,6 +168,16 @@ else
     private async Task ClearFilterAsync(string column)
     {
         _filters.Clear(column);
+        await AfterFilterChangedAsync();
+    }
+
+    /// <summary>
+    /// PR234-V4-REPORT-FILTER-EMPTY-RESULT-STUCK-01: "Clear filters" in an empty filtered table. The
+    /// same path as clearing one funnel - FilterChanged included - so the export drops the filters too.
+    /// </summary>
+    private async Task ClearAllFiltersAsync()
+    {
+        _filters.ClearAll();
         await AfterFilterChangedAsync();
     }
 

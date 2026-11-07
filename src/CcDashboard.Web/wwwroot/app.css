@@ -1483,6 +1483,17 @@ a:hover {
     position: absolute;
 }
 
+/* PR234-V4-REPORT-EDITOR-WIDGET-OVERLAP-STUCK-01: every widget on a REPORT canvas (editor and viewer) is its own
+   stacking layer. Without it the sticky table header of one widget (z-index: 1) painted over the header - the drag
+   handle - of any widget near it, and that widget could not be grabbed. The selected widget sits above the others.
+   Report canvas only: the dashboards' canvas is not touched (coordinator 2026-11-07T15:05:51Z). */
+.report-canvas .dashboard-widget {
+    isolation: isolate;
+}
+.report-canvas .dashboard-widget.selected {
+    z-index: 5;
+}
+
 .dashboard-widget {
     background-color: var(--clr-surface);
     border: 1px solid var(--clr-border-solid);
@@ -3840,26 +3851,17 @@ button.clr-swatch,
     position: relative;
 }
 
+/* FEAT-REPORT-FILTER-MODAL-01: the filter window lives in the page's modal (ReportModalHost) now - centred on the
+   screen, never inside a widget. The absolute positioning under the funnel and the z-index are gone with it. */
 .column-filter-popup {
-    position: absolute;
-    top: 100%;
-    inset-inline-start: 0;
-    z-index: 1060;
     min-width: 220px;
-    max-width: 320px;
-    /* The window itself never grows past the screen; what does not fit scrolls inside it. */
-    max-height: min(60vh, 420px);
-    overflow-y: auto;
-    background: var(--rw-bg, var(--bs-body-bg, #fff));
-    color: var(--rw-text, inherit);
-    border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
 /* The list of values is the part that grows without limit - 32 agents made the window three times
    the height of the widget. It scrolls on its own, so the buttons at the top of the window stay
    reachable however many values a column has. */
 .column-filter-values {
-    max-height: 180px;
+    max-height: min(50vh, 420px);
     overflow-y: auto;
 }
 
@@ -3868,13 +3870,5 @@ button.clr-swatch,
     opacity: 0.75;
 }
 
-/* While a filter window is open inside a widget, that widget stops clipping its content.
-   Measured on 234 on 2026-11-07: with the clip in force a 350px window inside a 206px widget
-   showed 121px and lost 229px - the list, the Apply tick, everything below the fold.
-   Only while open, and only on the container that holds the window: the clip is what keeps a long
-   table inside its widget, so it comes straight back when the window closes. */
-.widget-content:has(.column-filter-popup),
-.report-widget-render:has(.column-filter-popup),
-.report-widget-table-container:has(.column-filter-popup) {
-    overflow: visible;
-}
+/* FEAT-REPORT-FILTER-MODAL-01: the rule that stopped a widget clipping while a filter window hung inside it is gone -
+   no filter window lives inside a widget any more. One device, not two. */

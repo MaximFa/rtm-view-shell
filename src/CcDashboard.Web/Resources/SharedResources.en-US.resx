@@ -1024,7 +1024,7 @@
   <data name="Report_Label"><value>Label</value></data>
   <data name="Report_Count"><value>Count</value></data>
   <data name="Report_Percentage"><value>Percentage</value></data>
-  <data name="Report_EndOfShiftQueues"><value>End of shift — queues</value></data>
+  <data name="Report_EndOfShiftQueues"><value>Queue Report</value></data>
   <data name="Report_ShownForShift"><value>Data for {0}, {1}–{2}</value></data>
   <data name="Report_ShownForRange"><value>Data for {0} – {1}</value></data>
   <data name="Report_ShownForDate"><value>Data for {0}</value></data>
@@ -1041,7 +1041,7 @@
   <data name="Report_DescAgentMonthly"><value>Monthly agent performance summary</value></data>
   <data name="Report_DescAgentShiftDetail"><value>Detailed shift-by-shift agent metrics</value></data>
   <data name="Report_DescDistribution"><value>Call distribution charts</value></data>
-  <data name="Report_DescEndOfShiftQueues"><value>One row per queue for the shift window</value></data>
+  <data name="Report_DescEndOfShiftQueues"><value>One row per queue for each interval of the chosen period</value></data>
   <data name="Report_DescEndOfShiftAgents"><value>One row per agent for the shift window</value></data>
   <data name="Report_DescAgentPerformance"><value>Agent figures for the period: one row per agent, or one per agent per date</value></data>
   <data name="Report_Between"><value>Between</value></data>
@@ -1244,5 +1244,7 @@
   <data name="Report_IntervalFrom"><value>(from {0})</value></data>
   <data name="Report_IntervalTo"><value>(to {0})</value></data>
   <data name="Report_IntervalFromTo"><value>(from {0} to {1})</value></data>
+  <data name="Report_FilterNoMatch"><value>No rows match the filter.</value></data>
+  <data name="Report_CanvasNoOverlap"><value>Widgets cannot overlap — the widget went back to its place.</value></data>
 </root>
 

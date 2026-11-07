@@ -3,6 +3,8 @@
 @using ReportColumnKind = CcDashboard.Application.HistoricalReports.ReportColumnKind
 @using ReportColumn = CcDashboard.Application.HistoricalReports.ReportColumn
 @inject IStringLocalizer<SharedResources> L
+@inject CcDashboard.Web.Services.ReportModalService Modal
+@implements IDisposable
 
 @* The funnel that sits next to a column's name, and the window it opens.
 
@@ -12,7 +14,11 @@
    time, and the two namings drift.
 
    The funnel appears only where the rule says the column can be filtered - ReportColumns decides
-   that, not this markup - and the window itself is the one the whole product uses. *@
+   that, not this markup - and the window itself is the one the whole product uses.
+
+   FEAT-REPORT-FILTER-MODAL-01 (operator 2026-11-07 16:22): the window is a MODAL now, drawn by the page's
+   ReportModalHost outside the scaled board and titled with the column's name. It used to hang under the button inside
+   the widget - clipped in a short widget, slid under the sticky header. Same window, same logic, one place. *@
 
 <span class="column-filter-anchor">
     <button type="button"
@@ -22,34 +28,6 @@
             @onclick:stopPropagation="true">
         <i class="bi @(Applied is null ? "bi-funnel" : "bi-funnel-fill")"></i>
     </button>
-
-    @if (IsOpen)
-    {
-        @if (Loading)
-        {
-            <div class="column-filter-popup rounded shadow-lg p-2 text-center">
-                <span class="spinner-border spinner-border-sm"></span>
-            </div>
-        }
-        else
-        {
-            <ColumnFilterPopup ColumnLabel="@ColumnLabel"
-                               Kind="Kind"
-                               Op="@Applied?.Op"
-                               Text="@Applied?.Text"
-                               SelectedValues="Applied?.Values"
-                               Number="Applied?.Number"
-                               NumberTo="Applied?.NumberTo"
-                               Time="Applied?.Time"
-                               TimeTo="Applied?.TimeTo"
-                               Values="Values"
-                               TotalCount="TotalCount"
-                               Truncated="Truncated"
-                               OnApply="draft => OnApply.InvokeAsync((Column, draft))"
-                               OnClear="() => OnClear.InvokeAsync(Column)"
-                               OnClose="OnClose" />
-        }
-    }
 </span>
 
 @code {
@@ -72,4 +50,45 @@
     [Parameter] public EventCallback<(string Column, ColumnFilterDraft Draft)> OnApply { get; set; }
     [Parameter] public EventCallback<string> OnClear { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>The widget's filter state: the funnels of one widget replace each other's window quietly.</summary>
+    [Parameter] public object? Group { get; set; }
+
+    // ---- FEAT-REPORT-FILTER-MODAL-01: the window goes to the page's host ------------------------------------------
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen)
+            await Modal.ShowAsync(this, Group, ColumnLabel, Window, () => OnClose.InvokeAsync());
+        else
+            Modal.Hide(this);
+    }
+
+    /// <summary>The window's body: the column's filter, or a spinner while its values load.</summary>
+    private RenderFragment Window => __builder =>
+    {
+        if (Loading)
+        {
+            <div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span></div>
+        }
+        else
+        {
+            <ColumnFilterPopup ColumnLabel="@ColumnLabel"
+                               Kind="Kind"
+                               Op="@Applied?.Op"
+                               Text="@Applied?.Text"
+                               SelectedValues="Applied?.Values"
+                               Number="Applied?.Number"
+                               NumberTo="Applied?.NumberTo"
+                               Time="Applied?.Time"
+                               TimeTo="Applied?.TimeTo"
+                               Values="Values"
+                               TotalCount="TotalCount"
+                               Truncated="Truncated"
+                               OnApply="draft => OnApply.InvokeAsync((Column, draft))"
+                               OnClear="() => OnClear.InvokeAsync(Column)"
+                               OnClose="OnClose" />
+        }
+    };
+
+    public void Dispose() => Modal.Hide(this);
 }

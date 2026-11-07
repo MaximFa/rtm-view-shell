@@ -23,32 +23,46 @@ namespace CcDashboard.Tests.Architecture;
 public class ReportFilterPopupAndLoadingGuardTests
 {
     [Fact]
-    public void TheFilterWindowHasRules_andTheyTakeItOutOfTheFlow()
+    public void TheFilterWindow_isTheModal_outOfTheTable_andItsListScrolls()
     {
+        // Rewritten 2026-11-07 for FEAT-REPORT-FILTER-MODAL-01 (operator 16:22: "делаем модалку"). The questions are the
+        // same - the window must not sit in the table's flow, must not grow past the screen, its list must scroll, and
+        // no physical side may place it - but the window is the page's modal now (ReportModalHost, outside the scaled
+        // board), so they are asked of that. The old rules (absolute + z-index under the funnel) were removed with it.
+        var header = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), "ColumnFilterHeader.razor"));
+        WindowGoesToTheModal(header).Should().BeTrue("the funnel must hand its window to the page's modal, not draw it inline");
+
+        var host = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), "ReportModalHost.razor"));
+        host.Should().Contain("modal show d-block", "the product's own modal mechanism");
+        host.Should().Contain("modal-dialog-scrollable", "the window itself must not grow past the screen");
+
         var css = AppCss();
-
-        var popup = RuleBody(css, ".column-filter-popup");
-        popup.Should().NotBeNull("the window had no rules at all, which is how it ended up in the flow");
-        Regex.IsMatch(popup!, @"position\s*:\s*(absolute|fixed)")
-            .Should().BeTrue("a window in the flow pushes the table out of the widget");
-        Regex.IsMatch(popup!, @"z-index\s*:\s*\d+").Should().BeTrue("it must sit above the table, not inside it");
-        Regex.IsMatch(popup!, @"max-height\s*:").Should().BeTrue("the window itself must not grow past the screen");
-
         var values = RuleBody(css, ".column-filter-values");
         values.Should().NotBeNull("the list of values is the part that grows without limit");
         Regex.IsMatch(values!, @"max-height\s*:").Should().BeTrue("32 agents made the window three times the widget's height");
         Regex.IsMatch(values!, @"overflow-y\s*:\s*(auto|scroll)")
             .Should().BeTrue("what does not fit must scroll inside the window, not spill out of it");
 
-        // Right-to-left is the production board: a physical side would put the window on the wrong
-        // side of its own button there.
+        var popup = RuleBody(css, ".column-filter-popup");
+        popup.Should().NotBeNull();
         Regex.IsMatch(popup!, @"\bleft\s*:|\bright\s*:")
-            .Should().BeFalse("the window must be placed with logical properties, not left/right");
+            .Should().BeFalse("right-to-left is the production board: no physical side");
 
-        // NEGATIVE HALF, built here: the state this guard was written against - a rule block with
-        // no positioning at all - must fail the same predicate.
-        const string ruleWithoutPositioning = "min-width: 220px; background: #fff;";
-        Regex.IsMatch(ruleWithoutPositioning, @"position\s*:\s*(absolute|fixed)").Should().BeFalse();
+        // NEGATIVE HALF, built here: the funnel as it was - the window drawn inline under the button - must fail.
+        const string inline = """
+            <span class="column-filter-anchor">
+                <button type="button">f</button>
+                @if (IsOpen) { <ColumnFilterPopup ColumnLabel="@ColumnLabel" /> }
+            </span>
+            """;
+        WindowGoesToTheModal(inline).Should().BeFalse();
+    }
+
+    /// <summary>The window is built only inside the fragment handed to Modal.ShowAsync, never in the markup.</summary>
+    private static bool WindowGoesToTheModal(string header)
+    {
+        var markup = header.Contains("@code") ? header[..header.IndexOf("@code", StringComparison.Ordinal)] : header;
+        return header.Contains("Modal.ShowAsync") && !markup.Contains("<ColumnFilterPopup");
     }
 
     [Fact]

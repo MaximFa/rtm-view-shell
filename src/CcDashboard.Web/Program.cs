@@ -128,6 +128,8 @@ try
 
     services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
     services.AddScoped<IFilterPopupCoordinator, FilterPopupCoordinator>();
+    // FEAT-REPORT-FILTER-MODAL-01: the report screens' one modal window, drawn at page level (ReportModalHost).
+    services.AddScoped<CcDashboard.Web.Services.ReportModalService>();
 
     // Blazor circuit handler: resolves tenant context for SignalR circuits [ARCH-03]
     services.AddScoped<CircuitHandler, TenantCircuitHandler>();

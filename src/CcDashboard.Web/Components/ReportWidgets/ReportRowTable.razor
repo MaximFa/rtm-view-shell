@@ -39,6 +39,19 @@
                 </tr>
             </thead>
             <tbody>
+                @if (FiltersActive && !Rows.Any())
+                {
+                    @* PR234-V4-REPORT-FILTER-EMPTY-RESULT-STUCK-01: the filter left nothing. Said here, inside
+                       the table, so the header and its funnels stay - and with the way back out. *@
+                    <tr class="report-widget-filter-nomatch">
+                        <td colspan="@Math.Max(1, Columns.Count)" class="text-center text-muted py-3">
+                            <span class="me-2">@L["Report_FilterNoMatch"]</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnClearFilters">
+                                <i class="bi bi-funnel me-1" aria-hidden="true"></i>@L["Widget_ClearFilters"]
+                            </button>
+                        </td>
+                    </tr>
+                }
                 @foreach (var row in Rows)
                 {
                     <tr>
@@ -77,6 +90,12 @@
     /// the answer ("11.2026 (from 05.11)"), which a column kind alone cannot know.
     /// </summary>
     [Parameter] public Func<object, string, string?>? CellText { get; set; }
+
+    /// <summary>True while the widget has at least one filter applied.</summary>
+    [Parameter] public bool FiltersActive { get; set; }
+
+    /// <summary>Clears every filter of the widget (and tells the page, so the export follows).</summary>
+    [Parameter] public EventCallback OnClearFilters { get; set; }
 
     private IReadOnlyList<ReportColumn> _meta = Array.Empty<ReportColumn>();
     private ReportWidgetType _metaFor;

@@ -35,13 +35,34 @@ public class ReportPaletteMatchesRenderersGuardTests
         // the operator saw. The switches must name it explicitly.
         var palette = PaletteSource();
 
+        // Since 2026-11-07 the NAME is not a switch here: Name delegates to ReportTypeNames.English (one rule, measured
+        // against en-US by ReportTypeNamesGuardTests for every type). So Ready plus three switches - category,
+        // description, icon - and the name is held by the test below.
         foreach (var type in ReadyTypes())
         {
             Regex.Matches(palette, $@"ReportWidgetType\.{Regex.Escape(type)}\b").Count
-                .Should().BeGreaterThanOrEqualTo(5,
-                    $"{type} must be named in Ready plus all four presentation switches (category, name, description, icon)");
+                .Should().BeGreaterThanOrEqualTo(4,
+                    $"{type} must be named in Ready plus the three presentation switches (category, description, icon)");
         }
     }
+
+    [Fact]
+    public void ThePaletteHasNoEnglishNamesOfItsOwn_theNameIsTheOneRule()
+    {
+        // Coordinator 2026-11-07T15:34:29Z: the palette's own English names were a second copy of ReportTypeNames, and
+        // they had drifted ("End of Shift — Agents" vs "End of shift — agents"). One rule; no literal names here.
+        var palette = PaletteSource();
+        Regex.IsMatch(palette, @"public static string Name\(ReportWidgetType type\)\s*=>\s*CcDashboard\.Application\.HistoricalReports\.ReportTypeNames\.English\(type\)")
+            .Should().BeTrue("the palette's Name must be ReportTypeNames.English");
+        foreach (var type in Enum.GetValues<CcDashboard.Domain.Domain.Reports.ReportWidgetType>())
+            HasLiteralName(palette, CcDashboard.Application.HistoricalReports.ReportTypeNames.English(type))
+                .Should().BeFalse($"{type}: its English name must not be written in the palette a second time");
+
+        // NEGATIVE HALF: the switch as it was is caught.
+        HasLiteralName("""ReportWidgetType.AgentMonthly => "Agent Monthly",""", "Agent Monthly").Should().BeTrue();
+    }
+
+    private static bool HasLiteralName(string source, string name) => source.Contains("\"" + name + "\"");
 
     [Fact]
     public void ThePaletteDoesNotEnumerateTheEnum()

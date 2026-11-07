@@ -85,6 +85,12 @@
                 {
                     <span class="text-danger small me-2">@Error</span>
                 }
+                @if (_layoutNotice is not null)
+                {
+                    <span class="text-warning small me-2" role="status">
+                        <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>@_layoutNotice
+                    </span>
+                }
                 @if (Report.Status == ReportScreenStatus.Draft)
                 {
                     <button class="btn btn-warning btn-sm" @onclick="PublishReport" disabled="@Saving">
@@ -164,7 +170,7 @@
                     <p>@L["Widgets_DragHere"]</p>
                 </div>
             }
-            <div class="dashboard-canvas-grid"
+            <div class="dashboard-canvas-grid report-canvas"
                  style="position: relative; min-height: calc(100vh - 60px); @(_positionsApplied || PlacedWidgets.Count == 0 ? "" : "visibility: hidden;")">
                 @foreach (var widget in PlacedWidgets)
                 {
@@ -225,6 +231,9 @@
     TenantId="Report?.TenantId"
     OnSave="OnWidgetConfigSaved"
     OnClose="CloseWidgetConfig" />
+
+@* FEAT-REPORT-FILTER-MODAL-01: the one modal window of the report screens, outside the canvas. *@
+<ReportModalHost />
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -394,14 +403,23 @@
     private async Task OnDropAtPosition(DragEventArgs e)
     {
         if (DraggedWidgetType is null) return;
+        var type = DraggedWidgetType.Value;
+
+        // PR234-V4-REPORT-EDITOR-NEW-WIDGET-POSITION-01: where the mouse was let go - the same JS helper the dashboard
+        // editor uses (ScreenEditorPage) - not a fixed (50, 50) that put every new widget in one corner.
+        // PR234-V4-REPORT-EDITOR-WIDGET-OVERLAP-STUCK-01: and never on top of another widget.
+        var drop = await JS.InvokeAsync<DropPosition>("widgetResize.getDropPosition", e.ClientX, e.ClientY);
+        var rect = ReportCanvasLayout.PlaceFree(
+            new CanvasRect(drop.X, drop.Y, 400, 300),
+            PlacedWidgets.Select(w => RectOf(w)).ToList());
 
         var newWidget = new PlacedReportWidget
         {
             Id = Guid.NewGuid(),
-            WidgetType = DraggedWidgetType.Value,
-            PositionJson = JsonSerializer.Serialize(new { x = 50, y = 50, width = 400, height = 300 }),
+            WidgetType = type,
+            PositionJson = JsonSerializer.Serialize(new { x = rect.X, y = rect.Y, width = rect.Width, height = rect.Height }),
             ConfigJson = null,
-            DisplayName = GetWidgetName(DraggedWidgetType.Value),
+            DisplayName = GetWidgetName(type),
             IsNew = true
         };
 
@@ -644,35 +662,92 @@
     }
 
     [JSInvokable]
-    public void OnWidgetMoved(string widgetIdStr, int left, int top)
+    public async Task OnWidgetMoved(string widgetIdStr, int left, int top)
     {
-        if (Guid.TryParse(widgetIdStr, out var id))
-        {
-            ApplyPos(id, x: left, y: top);
-            StateHasChanged();
-        }
+        if (!Guid.TryParse(widgetIdStr, out var id)) return;
+        var first = RememberBefore(id);
+        ApplyPos(id, x: left, y: top);
+        StateHasChanged();
+        if (first) await RefuseOverlapAsync(new[] { id });
     }
 
     [JSInvokable]
-    public void OnWidgetResized(string widgetIdStr, int width, int height)
+    public async Task OnWidgetResized(string widgetIdStr, int width, int height)
     {
-        if (Guid.TryParse(widgetIdStr, out var id))
-        {
-            ApplyPos(id, w: width, h: height);
-            StateHasChanged();
-        }
+        if (!Guid.TryParse(widgetIdStr, out var id)) return;
+        var first = RememberBefore(id);
+        ApplyPos(id, w: width, h: height);
+        StateHasChanged();
+        if (first) await RefuseOverlapAsync(new[] { id });
     }
 
     [JSInvokable]
-    public void OnWidgetsMoved(List<WidgetMoveData> moves)
+    public async Task OnWidgetsMoved(List<WidgetMoveData> moves)
     {
+        var ids = new List<Guid>();
         foreach (var m in moves)
         {
             if (Guid.TryParse(m.Id, out var id))
+            {
+                RememberBefore(id);
                 ApplyPos(id, x: m.Left, y: m.Top);
+                ids.Add(id);
+            }
         }
         StateHasChanged();
+        await RefuseOverlapAsync(ids);
     }
+
+    // ---- PR234-V4-REPORT-EDITOR-WIDGET-OVERLAP-STUCK-01: no widget ends a gesture on top of another ----------------
+    // A resize from the left or top edge arrives as TWO calls (size, then position). The rectangle BEFORE the gesture is
+    // remembered on the first call and the check waits for the second, so a half-applied resize is never judged.
+    private readonly Dictionary<Guid, string?> _before = new();
+    private string? _layoutNotice;
+
+    private bool RememberBefore(Guid id)
+    {
+        if (_before.ContainsKey(id)) return false;
+        _before[id] = PlacedWidgets.FirstOrDefault(p => p.Id == id)?.PositionJson;
+        return true;
+    }
+
+    private async Task RefuseOverlapAsync(IReadOnlyCollection<Guid> changed)
+    {
+        await Task.Delay(150);   // lets the position call of the same gesture land first
+        var moved = PlacedWidgets.Where(w => changed.Contains(w.Id)).ToList();
+        var bad = moved.Any(m => ReportCanvasLayout.OverlapsAny(RectOf(m),
+            PlacedWidgets.Where(o => o.Id != m.Id).Select(o => RectOf(o))));
+
+        if (bad)
+        {
+            foreach (var m in moved)
+            {
+                if (_before.TryGetValue(m.Id, out var old) && old is not null)
+                {
+                    m.PositionJson = old;
+                    var p = ParsePosition(old);
+                    await JS.InvokeVoidAsync("widgetResize.applyWidgetPosition", m.Id.ToString(), p.X, p.Y, p.Width, p.Height);
+                }
+            }
+            // Said, not silent: a widget that jumps back without a word reads as the editor being broken.
+            _layoutNotice = L["Report_CanvasNoOverlap"].Value;
+        }
+        else
+        {
+            _layoutNotice = null;
+        }
+
+        foreach (var id in changed) _before.Remove(id);
+        StateHasChanged();
+    }
+
+    private static CanvasRect RectOf(PlacedReportWidget w)
+    {
+        var p = ParsePosition(w.PositionJson);
+        return new CanvasRect(p.X, p.Y, p.Width, p.Height);
+    }
+
+    private record DropPosition(int X, int Y);
 
     [JSInvokable]
     public void OnMarqueeSelect(string[] widgetIds)

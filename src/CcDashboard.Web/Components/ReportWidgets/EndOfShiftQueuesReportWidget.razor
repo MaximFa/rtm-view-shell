@@ -12,6 +12,8 @@
 @inject IMediator Mediator
 @inject IStringLocalizer<SharedResources> L
 @inject ILogger<EndOfShiftQueuesReportWidget> Logger
+@inject CcDashboard.Web.Services.ReportModalService Modal
+@implements IDisposable
 
 @* FEAT-REPORT-EOS-QUEUES-01, made configurable by FEAT-REPORT-EOS-CONFIGURABLE-01 (2026-11-07):
    one row per (interval of the step, queue) over the page's period; the step is the viewer's own.
@@ -47,47 +49,6 @@
     }
 </div>
 
-@if (_showStepWindow)
-{
-    <div class="modal show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="@StepTitleId">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header py-2">
-                    <h6 class="modal-title mb-0" id="@StepTitleId">@L["Widget_LocalViewSettings"]</h6>
-                    <button type="button" class="btn-close" aria-label="@L["Cancel"]" @onclick="CloseStepWindow"></button>
-                </div>
-                <div class="modal-body">
-                    <label class="form-label fw-semibold">@L["Report_Step"]</label>
-                    @* Ascending, as the operator ordered them (2026-11-07 12:31): half hour, hour,
-                       day, month, year. The order is the list below and nothing else. *@
-                    <div class="btn-group w-100" role="group" aria-label="@L["Report_Step"]">
-                        @foreach (var step in ReportWidgetSteps.Ascending)
-                        {
-                            var stepOption = step;
-                            <button type="button"
-                                    class="btn btn-sm @(_viewStep == stepOption ? "btn-primary" : "btn-outline-secondary")"
-                                    aria-pressed="@(_viewStep == stepOption ? "true" : "false")"
-                                    @onclick="() => _viewStep = stepOption">@StepName(stepOption)</button>
-                        }
-                    </div>
-                    <div class="small text-muted mt-2">@L["Common_Default"]: @StepName(WidgetDefaultStep)</div>
-                </div>
-                <div class="modal-footer py-2 d-flex justify-content-between">
-                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ResetStepAsync">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i>@L["Widget_ResetToDefault"]
-                    </button>
-                    <div>
-                        <button type="button" class="btn btn-sm btn-secondary me-2" @onclick="CloseStepWindow">@L["Cancel"]</button>
-                        <button type="button" class="btn btn-sm btn-primary" @onclick="ApplyStepAsync">
-                            <i class="bi bi-check2 me-1"></i>@L["Apply"]
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
 
 @if (_denied)
 {
@@ -115,7 +76,9 @@ else if (ReportLoadingView.ShowSpinner(_loading, HasRows))
 @* The explicit null test, not HasRows: the compiler does not carry a property's pattern into
    the branch below, and without it every @_result.Rows read warns (CS8602) - the exact warning
    this file collected once already. *@
-else if (_result is null || _result.Rows.Count == 0)
+@* PR234-V4-REPORT-FILTER-EMPTY-RESULT-STUCK-01: "no data" only when nothing is filtered. Empty WITH
+   filters keeps the table - its header carries the funnels, the only way back out of the filter. *@
+else if (_result is null || (_result.Rows.Count == 0 && !_filters.Any))
 {
     <div class="alert alert-info">
         <i class="bi bi-info-circle me-2"></i>@L["Report_NoData"]
@@ -156,12 +119,12 @@ else
     @* One table for every report; the funnel sits in the header of each column the rule says
        can be filtered. The row of buttons above the table is gone - it named the columns a
        second time, and two namings drift (operator, 2026-11-07). *@
-    <ReportRowTable Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" WidgetType="ReportWidgetType.EndOfShiftQueues"
+    <ReportRowTable FiltersActive="_filters.Any" OnClearFilters="ClearAllFiltersAsync" Rows="_result.Rows" Columns="_columns" DarkMode="DarkMode" WidgetType="ReportWidgetType.EndOfShiftQueues"
                     CellText="IntervalCellText"
                     Updating="ReportLoadingView.ShowUpdatingMark(_loading, HasRows)"
                     Caption="@L["Report_EndOfShiftQueues"].Value">
         <HeaderExtra Context="column">
-            <ColumnFilterHeader Column="@column.Name"
+            <ColumnFilterHeader Column="@column.Name" Group="_filters"
                                 ColumnLabel="@ColumnLabel(column.Name)"
                                 Kind="column.Kind"
                                 Applied="_filters.For(column.Name)"
@@ -314,6 +277,16 @@ else
         await AfterFilterChangedAsync();
     }
 
+    /// <summary>
+    /// PR234-V4-REPORT-FILTER-EMPTY-RESULT-STUCK-01: "Clear filters" in an empty filtered table. The
+    /// same path as clearing one funnel - FilterChanged included - so the export drops the filters too.
+    /// </summary>
+    private async Task ClearAllFiltersAsync()
+    {
+        _filters.ClearAll();
+        await AfterFilterChangedAsync();
+    }
+
     private async Task AfterFilterChangedAsync()
     {
         await FilterChanged.InvokeAsync(new ReportWidgetFilter(WidgetId, _filters.ForQuery()));
@@ -362,10 +335,8 @@ else
     private ReportStep WidgetDefaultStep => ReportWidgetSteps.FromConfig(Config?.DefaultStep) ?? ReportStep.Day;
     /// <summary>The selection inside the window, applied only by Apply.</summary>
     private ReportStep _viewStep = ReportStep.Day;
-    private bool _showStepWindow;
     private bool _stepLoaded;
 
-    private string StepTitleId => $"report-step-title-{WidgetId:N}";
 
     private string StepName(ReportStep step) => L[ReportWidgetSteps.NameKey(step)].Value;
 
@@ -403,17 +374,64 @@ else
         }
     }
 
-    private void OpenStepWindow()
+    // FEAT-REPORT-FILTER-MODAL-01 (coordinator 2026-11-07T15:05:51Z, the same subject): the step window is drawn by
+    // the page's ReportModalHost, outside the scaled board. Measured on 234 the same day: drawn inside the widget, its
+    // backdrop darkened only the board and left the date bar above bright and clickable.
+    private async Task OpenStepWindow()
     {
         _viewStep = _step;
-        _showStepWindow = true;
+        await Modal.ShowAsync(this, this, L["Widget_LocalViewSettings"].Value, StepBody, CloseStepWindow, StepFooter);
     }
 
-    private void CloseStepWindow() => _showStepWindow = false;
+    private Task CloseStepWindow()
+    {
+        Modal.Hide(this);
+        return Task.CompletedTask;
+    }
+
+    private void PickStep(ReportStep step)
+    {
+        _viewStep = step;
+        Modal.Refresh(this);   // the window shows this widget's state, but the page draws it
+    }
+
+    private RenderFragment StepBody => __builder =>
+    {
+        <label class="form-label fw-semibold">@L["Report_Step"]</label>
+        @* Ascending, as the operator ordered them (2026-11-07 12:31): half hour, hour, day, month, year. *@
+        <div class="btn-group w-100" role="group" aria-label="@L["Report_Step"]">
+            @foreach (var step in ReportWidgetSteps.Ascending)
+            {
+                var stepOption = step;
+                <button type="button"
+                        class="btn btn-sm @(_viewStep == stepOption ? "btn-primary" : "btn-outline-secondary")"
+                        aria-pressed="@(_viewStep == stepOption ? "true" : "false")"
+                        @onclick="() => PickStep(stepOption)">@StepName(stepOption)</button>
+            }
+        </div>
+        <div class="small text-muted mt-2">@L["Common_Default"]: @StepName(WidgetDefaultStep)</div>
+    };
+
+    private RenderFragment StepFooter => __builder =>
+    {
+        <div class="d-flex justify-content-between w-100">
+            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ResetStepAsync">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>@L["Widget_ResetToDefault"]
+            </button>
+            <div>
+                <button type="button" class="btn btn-sm btn-secondary me-2" @onclick="CloseStepWindow">@L["Cancel"]</button>
+                <button type="button" class="btn btn-sm btn-primary" @onclick="ApplyStepAsync">
+                    <i class="bi bi-check2 me-1"></i>@L["Apply"]
+                </button>
+            </div>
+        </div>
+    };
+
+    public void Dispose() => Modal.Hide(this);
 
     private async Task ApplyStepAsync()
     {
-        _showStepWindow = false;
+        Modal.Hide(this);
         if (_viewStep == _step) return;
         try
         {
@@ -433,7 +451,7 @@ else
 
     private async Task ResetStepAsync()
     {
-        _showStepWindow = false;
+        Modal.Hide(this);
         try
         {
             await Mediator.Send(new CcDashboard.Application.Commands.Widgets.DeleteUserWidgetSettingsCommand(WidgetId));

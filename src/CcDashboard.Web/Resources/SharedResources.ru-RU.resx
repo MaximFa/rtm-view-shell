@@ -1001,7 +1001,7 @@
   <data name="Report_Label"><value>Значение</value></data>
   <data name="Report_Count"><value>Количество</value></data>
   <data name="Report_Percentage"><value>Процент</value></data>
-  <data name="Report_EndOfShiftQueues"><value>Конец смены — очереди</value></data>
+  <data name="Report_EndOfShiftQueues"><value>Отчёт по очередям</value></data>
   <data name="Report_ShownForShift"><value>Данные за {0}, {1}–{2}</value></data>
   <data name="Report_ShownForDate"><value>Данные за {0}</value></data>
   <data name="Report_DateRangeInverted"><value>Начальная дата позже конечной.</value></data>
@@ -1017,7 +1017,7 @@
   <data name="Report_DescAgentMonthly"><value>Месячная сводка по операторам</value></data>
   <data name="Report_DescAgentShiftDetail"><value>Показатели операторов по сменам</value></data>
   <data name="Report_DescDistribution"><value>Диаграммы распределения звонков</value></data>
-  <data name="Report_DescEndOfShiftQueues"><value>Одна строка на очередь за окно смены</value></data>
+  <data name="Report_DescEndOfShiftQueues"><value>Одна строка на очередь за каждый интервал выбранного периода</value></data>
   <data name="Report_DescEndOfShiftAgents"><value>Одна строка на оператора за окно смены</value></data>
   <data name="Report_DescAgentPerformance"><value>Показатели операторов за период: строка на оператора или на оператора и дату</value></data>
   <data name="Report_Between"><value>Между</value></data>
@@ -1246,5 +1246,7 @@
   <data name="Report_ErrorRetired"><value>Этот отчёт снят и больше не строится.</value></data>
   <data name="Report_ErrorUnknown"><value>Не удалось построить отчёт.</value></data>
   <data name="Report_ShownForRange"><value>Данные за {0} – {1}</value></data>
+  <data name="Report_FilterNoMatch"><value>Нет строк, подходящих под фильтр.</value></data>
+  <data name="Report_CanvasNoOverlap"><value>Виджеты не могут перекрываться — виджет вернулся на место.</value></data>
 </root>
 

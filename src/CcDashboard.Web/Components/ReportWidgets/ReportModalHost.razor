@@ -1,0 +1,61 @@
+@using CcDashboard.Web.Services
+@inject ReportModalService Modal
+@inject IStringLocalizer<SharedResources> L
+@implements IDisposable
+
+@* FEAT-REPORT-FILTER-MODAL-01: the report screens' one modal window. It stands in the PAGE, outside the scaled design
+   layer, so position: fixed is fixed to the screen: centred on it, the backdrop covering all of it (the date bar
+   included), never clipped by a widget and never scaled with the board. Esc and a click on the background close it
+   without applying - the owner is told and keeps its own state. *@
+@if (Modal.Body is not null)
+{
+    <div class="modal-backdrop fade show report-modal-backdrop"></div>
+    <div class="modal show d-block report-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="report-modal-title"
+         @ref="_dialogRef" @onclick="DismissAsync" @onkeydown="OnKeyDown">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" @onclick:stopPropagation="true">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title mb-0" id="report-modal-title">@Modal.Title</h6>
+                    <button type="button" class="btn-close" aria-label="@L["Cancel"]" @onclick="DismissAsync"></button>
+                </div>
+                <div class="modal-body">@Modal.Body</div>
+                @if (Modal.Footer is not null)
+                {
+                    <div class="modal-footer py-2">@Modal.Footer</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private ElementReference _dialogRef;
+    private object? _focusedFor;
+
+    protected override void OnInitialized() => Modal.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Focus the window once per opening, so Esc reaches it without a click first.
+        if (Modal.Owner is not null && !ReferenceEquals(_focusedFor, Modal.Owner))
+        {
+            _focusedFor = Modal.Owner;
+            try { await _dialogRef.FocusAsync(); } catch (Exception) { /* the window closed in between */ }
+        }
+        else if (Modal.Owner is null)
+        {
+            _focusedFor = null;
+        }
+    }
+
+    private Task DismissAsync() => Modal.DismissAsync();
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await Modal.DismissAsync();
+    }
+
+    public void Dispose() => Modal.Changed -= OnChanged;
+}

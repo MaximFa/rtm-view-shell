@@ -83,9 +83,17 @@ public record ReportWidgetConfig
     /// </summary>
     public IReadOnlyList<string> GetEffectiveColumns(ReportWidgetType widgetType)
     {
-        if (Columns is { Count: > 0 })
-            return Columns;
-        return DefaultColumns(widgetType);
+        if (Columns is not { Count: > 0 })
+            return DefaultColumns(widgetType);
+
+        // PR234-V4-EOS-QUEUES-SAVED-COLUMNS-NO-INTERVAL-01: a queues widget saved before the step existed keeps its own
+        // column list without IntervalStart - its rows (interval, queue) would be indistinguishable. The interval start is
+        // always the first column of this report: added in front when missing, never doubled, the rest keeps its order.
+        if (widgetType == ReportWidgetType.EndOfShiftQueues
+            && !Columns.Contains(nameof(QueueSummaryRow.IntervalStart), StringComparer.OrdinalIgnoreCase))
+            return new[] { nameof(QueueSummaryRow.IntervalStart) }.Concat(Columns).ToList();
+
+        return Columns;
     }
 
     /// <summary>

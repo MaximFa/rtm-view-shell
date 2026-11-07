@@ -54,18 +54,13 @@ public static class ReportWidgetPalette
     /// </summary>
     public static string NameKey(ReportWidgetType type) => $"Report_{type}";
 
-    public static string Name(ReportWidgetType type) => type switch
-    {
-        ReportWidgetType.QueueInterval => "Queue Interval",
-        ReportWidgetType.QueueWaitTime => "Queue Wait Time",
-        ReportWidgetType.AgentMonthly => "Agent Monthly",
-        ReportWidgetType.AgentShiftDetail => "Agent Shift Detail",
-        ReportWidgetType.Distribution => "Distribution",
-        ReportWidgetType.EndOfShiftQueues => "End of Shift — Queues",
-        ReportWidgetType.EndOfShiftAgents => "End of Shift — Agents",
-        ReportWidgetType.AgentPerformance => "Agent Performance",
-        _ => type.ToString()
-    };
+    /// <summary>
+    /// The English name, for places without a localizer. ONE rule: ReportTypeNames.English (Application), which the export
+    /// uses too and which its guard measures against en-US Report_{type}. This file used to carry a second copy that had
+    /// already drifted («End of Shift — Agents» against the resource's «End of shift — agents») - coordinator 15:34:29Z.
+    /// </summary>
+    public static string Name(ReportWidgetType type)
+        => CcDashboard.Application.HistoricalReports.ReportTypeNames.English(type);
 
     /// <summary>
     /// Resource key of a type's description. The English constants below stay as the fallback for

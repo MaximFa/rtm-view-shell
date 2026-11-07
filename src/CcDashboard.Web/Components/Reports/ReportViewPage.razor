@@ -124,7 +124,7 @@
             else
             {
                 <div class="fullscreen-scale-wrap">
-                    <div class="fullscreen-design-layer" @ref="_designLayerRef"
+                    <div class="fullscreen-design-layer report-canvas" @ref="_designLayerRef"
                          style="width: @(_designWidth)px; height: @(_designHeight)px; position: relative;">
                         @foreach (var widget in _report.Widgets)
                         {
@@ -154,6 +154,9 @@
             }
         </div>
     }
+    @* FEAT-REPORT-FILTER-MODAL-01: the one modal window of this screen (column filters, the step window). Here, in the
+       page and OUTSIDE the scaled design layer, so it is fixed to the screen and never clipped or scaled with the board. *@
+    <ReportModalHost />
 </div>
 
 @code {
@@ -359,7 +362,8 @@
 
         if (_positionsApplied && !_scaleApplied && _report?.Widgets.Count > 0)
         {
-            await JS.InvokeVoidAsync("viewerScale.init", _designLayerRef, _designWidth, _designHeight);
+            // PR234-V4-REPORT-VIEW-LAYOUT-DIFFERS-FROM-EDITOR-01: the board as the editor shows it (top, same edge).
+            await JS.InvokeVoidAsync("viewerScale.init", _designLayerRef, _designWidth, _designHeight, new { align = "editor" });
             _scaleApplied = true;
         }
     }

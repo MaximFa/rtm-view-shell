@@ -209,7 +209,8 @@ public class ExportReportCommandHandler(
             catch { }
         }
 
-        return widget.WidgetType.ToString();
+        // PR234 (coordinator 15:05:51Z): the type's English human name, not the enum name
+        return ReportTypeNames.English(widget.WidgetType);
     }
 
     private static List<object?[]> ProjectRows<T>(IReadOnlyList<T> rows, IReadOnlyList<string> columns) where T : class
