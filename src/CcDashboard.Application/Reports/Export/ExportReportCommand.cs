@@ -28,7 +28,7 @@ public record ExportReportCommand(
 }
 
 /// <summary>One widget's view filters: Agent = login column, AgentName = name column, Queue = queue column.</summary>
-public record WidgetViewFilter(string? AgentFilter = null, string? AgentNameFilter = null, string? QueueFilter = null);
+public record WidgetViewFilter(ReportColumnFilter? AgentFilter = null, ReportColumnFilter? AgentNameFilter = null, ReportColumnFilter? QueueFilter = null);
 
 /// <summary>
 /// The file plus every widget that did not become a data sheet, with the reason. The same list is the last sheet of the

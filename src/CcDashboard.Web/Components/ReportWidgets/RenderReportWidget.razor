@@ -60,7 +60,7 @@
     /// <summary>Passed through to the widgets that carry a filter, so the page can key it.</summary>
     [Parameter] public Guid WidgetId { get; set; }
     /// <summary>Passed through: a widget's filter must reach the page that builds the export.</summary>
-    [Parameter] public EventCallback<CcDashboard.Contracts.Common.ReportWidgetFilter> FilterChanged { get; set; }
+    [Parameter] public EventCallback<ReportWidgetFilter> FilterChanged { get; set; }
 
     private ReportWidgetConfig? _config;
     private bool _unconfigured;

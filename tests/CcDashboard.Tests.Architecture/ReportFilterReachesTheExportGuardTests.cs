@@ -25,15 +25,17 @@ public class ReportFilterReachesTheExportGuardTests
     {
         var widget = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), widgetFile));
 
-        // It filters at all - otherwise this guard is watching a widget that cannot go wrong.
-        widget.Should().Contain("Filter = NullIfEmpty",
-            $"{widgetFile} must send its filter into the query, not cut the page it already has");
+        // It filters at all - otherwise this guard is watching a widget that cannot go wrong. The
+        // filter must reach the QUERY: cutting rows out of the page already in hand would leave
+        // "showing 7 of 342" standing over a filtered table.
+        Regex.IsMatch(widget, @"(Agent|AgentName|Queue)Filter\s*=\s*AppliedFilter\(")
+            .Should().BeTrue($"{widgetFile} must send its applied filter into the query");
 
         widget.Should().Contain("FilterChanged.InvokeAsync",
             $"{widgetFile} filters but never tells the page - the export would disagree with the screen");
 
         // And it must say WHICH widget: one board can hold two agent reports filtered differently.
-        Regex.IsMatch(widget, @"new ReportWidgetFilter\(\s*WidgetId")
+        Regex.IsMatch(widget, @"ReportWidgetFilter\s*BuildWidgetFilter\(\)[\s\S]{0,200}?WidgetId")
             .Should().BeTrue($"{widgetFile} must identify itself, or the page cannot tell two widgets apart");
     }
 

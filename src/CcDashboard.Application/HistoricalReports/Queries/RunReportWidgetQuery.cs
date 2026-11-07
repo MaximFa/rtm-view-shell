@@ -18,13 +18,35 @@ public record RunReportWidgetQuery(
     // FEAT-REPORT-EOS-*-01: shift hours (site wall clock) on the single date From; required for EndOfShift*, empty otherwise.
     int? ShiftStartHour = null,
     int? ShiftEndHour = null,
-    // PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01: view-screen filters, case-insensitive substrings applied on the server
-    // BEFORE paging (TotalCount counts what matched). Agent = login column, AgentName = name column (AgentNameRule);
-    // both set = both must match. Queue = queue column of EndOfShiftQueues. Other types refuse them.
-    string? AgentFilter = null,
-    string? AgentNameFilter = null,
-    string? QueueFilter = null
+    // PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01: column filters of the view screen, as in the real-time grids - text with
+    // an operator, OR a set of picked values. Applied on the server BEFORE paging (TotalCount counts what matched).
+    // Agent = login column, AgentName = name column (AgentNameRule), Queue = queue column of EndOfShiftQueues; filters on
+    // several columns must all match. A type without the column refuses its filter.
+    ReportColumnFilter? AgentFilter = null,
+    ReportColumnFilter? AgentNameFilter = null,
+    ReportColumnFilter? QueueFilter = null,
+    // When set, the result also carries the distinct values of that column over the WHOLE window and scope (not the page),
+    // with the filters of the OTHER columns applied and its own left out - the checkbox list of the column filter.
+    ReportFilterColumn? ValuesForColumn = null
 ) : IRequest<ReportWidgetResult>;
+
+/// <summary>The filterable columns of the summary reports.</summary>
+public enum ReportFilterColumn
+{
+    Agent,
+    AgentName,
+    Queue
+}
+
+/// <summary>
+/// One column filter, the same shape as the real-time grid filter (AgentGridWidget): EITHER Text with MatchType
+/// ("contains" default, "equal", "startsWith", "endsWith"; ignoring case) OR Values (exact, any of them). Both = refused.
+/// Empty Text and no Values = no filter.
+/// </summary>
+public record ReportColumnFilter(string? MatchType = null, string? Text = null, IReadOnlyList<string>? Values = null);
+
+/// <summary>Distinct values of one column for the checkbox list; Truncated = more than the limit exist.</summary>
+public record ReportColumnValues(ReportFilterColumn Column, IReadOnlyList<string> Values, int TotalCount, bool Truncated);
 
 /// <summary>
 /// Tagged union result: exactly one of the typed results is populated based on WidgetType.
@@ -85,6 +107,9 @@ public record ReportWidgetResult
     /// the screen translates into the report hint; null when none. Never free text. Set for the agent summary types.
     /// </summary>
     public string? CaveatCode { get; init; }
+
+    /// <summary>The checkbox list asked for with ValuesForColumn; null otherwise.</summary>
+    public ReportColumnValues? ColumnValues { get; init; }
 
     /// <summary>Create a denied result.</summary>
     public static ReportWidgetResult CreateDenied(ReportWidgetType type) => new()

@@ -398,31 +398,75 @@ public class RunReportWidgetQueryHandler(
     }
 
     // ── PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01 ────────────────────────────────────────────────────────────
-    // The rows are computed in memory, so a filter is an ordinary ordinal-ignore-case substring test: no SQL is built from
-    // it, and "%" / "_" are plain characters. It only removes rows of the scoped result - it can never add one.
+    // The rows are computed in memory, so a filter is an ordinary string test (ignore case for text, ordinal for picked
+    // values): no SQL is built from it, and "%" / "_" are plain characters. It only removes rows of the scoped result -
+    // it can never add one. The checkbox list is built from the same scoped rows, so it cannot show a value from outside.
 
-    /// <summary>Longest filter text accepted (a login or a name is at most 100 characters in the source tables).</summary>
+    /// <summary>Longest filter text / picked value accepted (a login or a name is at most 100 characters in the source).</summary>
     public const int FilterMaxLength = 100;
+
+    /// <summary>Most picked values in one column filter (= the AgentIds limit of the report config).</summary>
+    public const int FilterMaxValues = 500;
+
+    /// <summary>Longest checkbox list returned for one column; beyond it Truncated is set and the user narrows by text.</summary>
+    public const int ColumnValuesLimit = 1000;
+
+    private static readonly HashSet<string> MatchTypes = new(StringComparer.OrdinalIgnoreCase) { "contains", "equal", "startsWith", "endsWith" };
 
     internal static string? ValidateFilters(RunReportWidgetQuery q)
     {
-        foreach (var (name, value) in new[] { ("Agent", q.AgentFilter), ("Agent name", q.AgentNameFilter), ("Queue", q.QueueFilter) })
-            if (value is { Length: > FilterMaxLength })
+        foreach (var (name, f) in new[] { ("Agent", q.AgentFilter), ("Agent name", q.AgentNameFilter), ("Queue", q.QueueFilter) })
+        {
+            if (f is null) continue;
+            if (f.Text is { Length: > FilterMaxLength })
                 return $"{name} filter cannot exceed {FilterMaxLength} characters";
+            if (f.MatchType is not null && !MatchTypes.Contains(f.MatchType))
+                return $"{name} filter: unknown match type";
+            if (f.Values is { Count: > 0 } && !string.IsNullOrWhiteSpace(f.Text))
+                return $"{name} filter: either text or picked values, not both";
+            if (f.Values is { Count: > FilterMaxValues })
+                return $"{name} filter cannot pick more than {FilterMaxValues} values";
+            if (f.Values is not null && f.Values.Any(v => v is null || v.Length > FilterMaxLength))
+                return $"{name} filter: a picked value is empty or longer than {FilterMaxLength} characters";
+        }
 
         var agentType = q.WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentPerformance;
         var queueType = q.WidgetType is ReportWidgetType.EndOfShiftQueues;
-        if (!agentType && (!string.IsNullOrWhiteSpace(q.AgentFilter) || !string.IsNullOrWhiteSpace(q.AgentNameFilter)))
+        if (!agentType && (IsActive(q.AgentFilter) || IsActive(q.AgentNameFilter)
+                           || q.ValuesForColumn is ReportFilterColumn.Agent or ReportFilterColumn.AgentName))
             return "Agent filters apply only to the agent summary reports";
-        if (!queueType && !string.IsNullOrWhiteSpace(q.QueueFilter))
+        if (!queueType && (IsActive(q.QueueFilter) || q.ValuesForColumn is ReportFilterColumn.Queue))
             return "The queue filter applies only to the end-of-shift queues report";
         return null;
     }
 
-    /// <summary>Empty/blank filter = everything; otherwise the value must contain the trimmed text, ignoring case.</summary>
-    internal static bool Matches(string? value, string? filter) =>
-        string.IsNullOrWhiteSpace(filter)
-        || (value != null && value.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase));
+    internal static bool IsActive(ReportColumnFilter? f) =>
+        f is not null && (f.Values is { Count: > 0 } || !string.IsNullOrWhiteSpace(f.Text));
+
+    /// <summary>No filter = everything. Picked values: exact (ordinal), any of them. Text: by the operator, ignoring case.</summary>
+    internal static bool Matches(string? value, ReportColumnFilter? f)
+    {
+        if (!IsActive(f)) return true;
+        if (value is null) return false;
+        if (f!.Values is { Count: > 0 })
+            return f.Values.Contains(value, StringComparer.Ordinal);
+        var text = f.Text!.Trim();
+        return (f.MatchType ?? "contains").ToLowerInvariant() switch
+        {
+            "equal" => value.Equals(text, StringComparison.OrdinalIgnoreCase),
+            "startswith" => value.StartsWith(text, StringComparison.OrdinalIgnoreCase),
+            "endswith" => value.EndsWith(text, StringComparison.OrdinalIgnoreCase),
+            _ => value.Contains(text, StringComparison.OrdinalIgnoreCase)
+        };
+    }
+
+    /// <summary>The checkbox list: distinct non-empty values, sorted, at most ColumnValuesLimit.</summary>
+    public static ReportColumnValues ColumnValuesOf(ReportFilterColumn column, IEnumerable<string?> values)
+    {
+        var all = values.Where(v => !string.IsNullOrEmpty(v)).Select(v => v!).Distinct(StringComparer.Ordinal)
+            .OrderBy(v => v, StringComparer.CurrentCultureIgnoreCase).ThenBy(v => v, StringComparer.Ordinal).ToList();
+        return new ReportColumnValues(column, all.Take(ColumnValuesLimit).ToList(), all.Count, all.Count > ColumnValuesLimit);
+    }
 
     private async Task<(DateTime? Through, bool Incomplete)> FreshnessAsync(Guid tenantId, DateTime toExclusive, CancellationToken ct)
     {
@@ -504,12 +548,25 @@ public class RunReportWidgetQueryHandler(
                     onphone == 0 ? null : hold * 100.0 / onphone,
                     onphone - hold);
             })
-            // filters BEFORE paging, so a match on page 2 is found and TotalCount counts matches
-            .Where(r => Matches(r.AgentExternalId, query.AgentFilter) && Matches(r.AgentDisplayName, query.AgentNameFilter))
             .OrderBy(r => r.Date)
             .ThenBy(r => r.AgentDisplayName ?? r.AgentExternalId, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(r => r.AgentExternalId, StringComparer.Ordinal)
             .ToList();
+
+        var allRowsUnfiltered = rows;
+
+        // checkbox list: the whole scoped window with the OTHER column's filter applied, its own left out (as in Excel)
+        ReportColumnValues? columnValues = query.ValuesForColumn switch
+        {
+            ReportFilterColumn.Agent => ColumnValuesOf(ReportFilterColumn.Agent,
+                allRowsUnfiltered.Where(r => Matches(r.AgentDisplayName, query.AgentNameFilter)).Select(r => r.AgentExternalId)),
+            ReportFilterColumn.AgentName => ColumnValuesOf(ReportFilterColumn.AgentName,
+                allRowsUnfiltered.Where(r => Matches(r.AgentExternalId, query.AgentFilter)).Select(r => r.AgentDisplayName)),
+            _ => null
+        };
+
+        // filters BEFORE paging, so a match on page 2 is found and TotalCount counts matches
+        rows = rows.Where(r => Matches(r.AgentExternalId, query.AgentFilter) && Matches(r.AgentDisplayName, query.AgentNameFilter)).ToList();
 
         var (pageRows, pageSize) = PageOf(rows, config.PageSize, page, allRows);
         var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);
@@ -521,7 +578,8 @@ public class RunReportWidgetQueryHandler(
             AgentSummary = new AgentSummaryReportResult(pageRows, rows.Count, page, pageSize),
             DataThroughUtc = through,
             Incomplete = incomplete,
-            CaveatCode = ReportCaveatCodes.StatusStartBucket
+            CaveatCode = ReportCaveatCodes.StatusStartBucket,
+            ColumnValues = columnValues
         };
     }
 
@@ -559,9 +617,14 @@ public class RunReportWidgetQueryHandler(
                     answered == 0 ? null : (double)wait / answered,
                     answered == 0 ? null : (double)talk / answered);
             })
-            .Where(r => Matches(r.Workgroup, query.QueueFilter))   // before paging
             .OrderBy(r => r.Workgroup, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
+
+        // checkbox list: the queue column has no other filter, so it is every queue of the scoped window
+        var columnValues = query.ValuesForColumn == ReportFilterColumn.Queue
+            ? ColumnValuesOf(ReportFilterColumn.Queue, rows.Select(r => r.Workgroup))
+            : null;
+        rows = rows.Where(r => Matches(r.Workgroup, query.QueueFilter)).ToList();   // before paging
 
         var (pageRows, pageSize) = PageOf(rows, config.PageSize, page, allRows);
         var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);
@@ -572,7 +635,8 @@ public class RunReportWidgetQueryHandler(
             EffectiveColumns = effectiveColumns,
             QueueSummary = new QueueSummaryReportResult(pageRows, rows.Count, page, pageSize),
             DataThroughUtc = through,
-            Incomplete = incomplete
+            Incomplete = incomplete,
+            ColumnValues = columnValues
         };
     }
 

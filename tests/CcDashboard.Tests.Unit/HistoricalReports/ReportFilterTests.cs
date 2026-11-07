@@ -61,13 +61,22 @@ public class ReportFilterTests
     private const string PerfCfg = """{ "scope": { "businessUnitIds": [1] }, "mode": "Summary", "pageSize": 2 }""";
     private const string QueueCfg = """{ "scope": { "businessUnitIds": [1] }, "pageSize": 2 }""";
 
-    private Task<ReportWidgetResult> Agents_(int page = 1, string? agent = null, string? name = null) =>
-        _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, PerfCfg, Day, Day, Page: page,
-            AgentFilter: agent, AgentNameFilter: name), CancellationToken.None);
+    private static ReportColumnFilter? T(string? text, string? match = null) => text is null ? null : new(match, text);
+    private static ReportColumnFilter V(params string[] values) => new(Values: values);
 
-    private Task<ReportWidgetResult> Queues(string? queue) =>
+    private Task<ReportWidgetResult> Agents_(int page = 1, string? agent = null, string? name = null) =>
+        AgentsF(page, T(agent), T(name));
+
+    private Task<ReportWidgetResult> AgentsF(int page = 1, ReportColumnFilter? agent = null, ReportColumnFilter? name = null,
+        ReportFilterColumn? values = null) =>
+        _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, PerfCfg, Day, Day, Page: page,
+            AgentFilter: agent, AgentNameFilter: name, ValuesForColumn: values), CancellationToken.None);
+
+    private Task<ReportWidgetResult> Queues(string? queue) => QueuesF(T(queue));
+
+    private Task<ReportWidgetResult> QueuesF(ReportColumnFilter? queue, ReportFilterColumn? values = null) =>
         _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QueueCfg, Day, Day,
-            ShiftStartHour: 0, ShiftEndHour: 24, QueueFilter: queue), CancellationToken.None);
+            ShiftStartHour: 0, ShiftEndHour: 24, QueueFilter: queue, ValuesForColumn: values), CancellationToken.None);
 
     private static IEnumerable<string> Ids(ReportWidgetResult r) => r.AgentSummary!.Rows.Select(x => x.AgentExternalId);
 
@@ -151,10 +160,101 @@ public class ReportFilterTests
     public async Task FiltersOnATypeThatHasNoSuchColumn_AreRefused()
     {
         var agentOnQueues = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QueueCfg, Day, Day,
-            ShiftStartHour: 0, ShiftEndHour: 24, AgentFilter: "ann"), CancellationToken.None);
+            ShiftStartHour: 0, ShiftEndHour: 24, AgentFilter: T("ann")), CancellationToken.None);
         agentOnQueues.Error.Should().Contain("Agent filters");
-        (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, PerfCfg, Day, Day, QueueFilter: "sales"),
+        (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, PerfCfg, Day, Day, QueueFilter: T("sales")),
             CancellationToken.None)).Error.Should().Contain("queue filter");
+    }
+
+    // ── operators and picked values (the grid filter) ──────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("equal", "ben levi", "ben@x")]
+    [InlineData("startsWith", "ZOE", "zoe@x")]
+    [InlineData("endsWith", "MIZRAHI", "cat@x")]
+    [InlineData("contains", "100%", "dan_1@x")]
+    public async Task MatchTypes_IgnoringCase(string match, string text, string expected)
+    {
+        Ids(await AgentsF(name: T(text, match))).Should().Equal(expected);
+    }
+
+    [Fact]
+    public async Task Equal_IsNotContains()
+    {
+        (await AgentsF(name: T("Levi", "equal"))).AgentSummary!.TotalCount.Should().Be(0, "'Levi' is only part of 'Ben Levi'");
+        (await AgentsF(name: T("Levi", "contains"))).AgentSummary!.TotalCount.Should().Be(1, "negative half: contains finds it");
+    }
+
+    [Fact]
+    public async Task PickedValues_AnyOfThem_Exact()
+    {
+        Ids(await AgentsF(agent: V("ann@x", "zoe@x"))).Should().BeEquivalentTo(new[] { "ann@x", "zoe@x" });
+        (await AgentsF(agent: V("ANN@X"))).AgentSummary!.TotalCount.Should().Be(0, "a picked value is exact, as the grid's list");
+        (await AgentsF(agent: V("ann"))).AgentSummary!.TotalCount.Should().Be(0, "a picked value is not a substring");
+        (await QueuesF(V("Sales", "VIP_1"))).QueueSummary!.Rows.Select(x => x.Workgroup).Should().Equal("Sales", "VIP_1");
+    }
+
+    [Fact]
+    public async Task PickedValueOutsideTheScope_FindsNothing()
+    {
+        (await QueuesF(V("Secret"))).QueueSummary!.TotalCount.Should().Be(0);
+        (await AgentsF(agent: V("x9@x"))).AgentSummary!.TotalCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task TextAndValuesTogether_UnknownMatchType_TooManyValues_AreRefused()
+    {
+        (await AgentsF(agent: new ReportColumnFilter("contains", "ann", new[] { "ann@x" }))).Error.Should().Contain("not both");
+        (await AgentsF(agent: T("ann", "regex"))).Error.Should().Contain("unknown match type");
+        (await AgentsF(agent: new ReportColumnFilter(Values: Enumerable.Range(0, 501).Select(i => $"a{i}").ToArray()))).Error
+            .Should().Contain("500");
+        (await AgentsF(agent: new ReportColumnFilter(Values: Enumerable.Range(0, 500).Select(i => $"a{i}").ToArray()))).Error
+            .Should().BeNull("negative half: 500 is allowed");
+        (await AgentsF(agent: V(new string('a', 101)))).Error.Should().Contain("longer than");
+    }
+
+    // ── the checkbox list ───────────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ColumnValues_WholeWindow_NotThePage()
+    {
+        var r = await AgentsF(page: 1, values: ReportFilterColumn.Agent);   // page size 2
+        r.AgentSummary!.Rows.Should().HaveCount(2);
+        r.ColumnValues!.Values.Should().HaveCount(6, "the list is over the whole scoped window, not the page");
+        r.ColumnValues.Truncated.Should().BeFalse();
+        (await AgentsF(page: 1)).ColumnValues.Should().BeNull("negative half: no list unless asked");
+    }
+
+    [Fact]
+    public async Task ColumnValues_OtherColumnsFilterApplies_OwnDoesNot()
+    {
+        // list of logins while the login filter picks ann and the name filter says "e"
+        var r = await AgentsF(agent: V("ann@x"), name: T("e"), values: ReportFilterColumn.Agent);
+        r.ColumnValues!.Values.Should().BeEquivalentTo(new[] { "ann@x", "ben@x", "zoe@x" },
+            "the name filter ('e': Ann Cohen, Ben Levi, Zoe Peretz) applies; the login column's own pick does not");
+        Ids(r).Should().Equal("ann@x");
+        // names list: no name filter -> every name; the agent without a name has no entry
+        (await AgentsF(values: ReportFilterColumn.AgentName)).ColumnValues!.Values.Should()
+            .Equal("Ann Cohen", "Ben Levi", "Cat Mizrahi", "Dan 100%", "Zoe Peretz");
+    }
+
+    [Fact]
+    public async Task ColumnValues_Queues_InsideTheScopeOnly()
+    {
+        (await QueuesF(V("Sales"), ReportFilterColumn.Queue)).ColumnValues!.Values.Should()
+            .BeEquivalentTo(new[] { "Sales", "Support", "VIP_1", "VIPX1" }); // "Secret" is outside the scope
+        (await AgentsF(values: ReportFilterColumn.Queue)).Error.Should().Contain("queue filter", "no queue column there");
+    }
+
+    [Theory]
+    [InlineData(1000, 1000, false)]
+    [InlineData(1001, 1000, true)]
+    public void ColumnValues_Limit1000_TheCutIsFlagged(int distinct, int listed, bool truncated)
+    {
+        var v = RunReportWidgetQueryHandler.ColumnValuesOf(ReportFilterColumn.Agent, Enumerable.Range(0, distinct).Select(i => $"a{i:D5}"));
+        v.Values.Should().HaveCount(listed);
+        v.TotalCount.Should().Be(distinct);
+        v.Truncated.Should().Be(truncated);
     }
 
     private (ExportReportCommandHandler Export, IReportExporter Exporter, List<RunReportWidgetQuery> Sent, ReportScreen Screen) ExportSetup()
@@ -186,15 +286,15 @@ public class ReportFilterTests
 
         var res = await export.Handle(new ExportReportCommand(screen.Id, Day, Day, Filters: new Dictionary<Guid, WidgetViewFilter>
         {
-            [agents.Id] = new("zoe", "peretz", "sup"),   // a queue filter on an agent widget is not passed on
-            [queues.Id] = new("ann", null, "sup")        // an agent filter on a queue widget is not passed on
+            [agents.Id] = new(T("zoe"), T("peretz"), T("sup")),   // a queue filter on an agent widget is not passed on
+            [queues.Id] = new(T("ann"), null, T("sup"))          // an agent filter on a queue widget is not passed on
         }), CancellationToken.None);
 
         res.Skipped.Should().BeEmpty("no widget received a filter it has no column for");
         sent.Single(q => q.WidgetType == ReportWidgetType.AgentPerformance).Should().Match<RunReportWidgetQuery>(q =>
-            q.AgentFilter == "zoe" && q.AgentNameFilter == "peretz" && q.QueueFilter == null);
+            q.AgentFilter!.Text == "zoe" && q.AgentNameFilter!.Text == "peretz" && q.QueueFilter == null);
         sent.Single(q => q.WidgetType == ReportWidgetType.EndOfShiftQueues).Should().Match<RunReportWidgetQuery>(q =>
-            q.AgentFilter == null && q.AgentNameFilter == null && q.QueueFilter == "sup");
+            q.AgentFilter == null && q.AgentNameFilter == null && q.QueueFilter!.Text == "sup");
         await exporter.Received(1).ExportXlsxAsync(Arg.Any<string>(),
             Arg.Is<IReadOnlyList<WidgetExportSheet>>(s => s.Count == 2 && s[0].TotalCount == 1 && s[1].TotalCount == 1), Arg.Any<CancellationToken>());
     }
@@ -212,8 +312,8 @@ public class ReportFilterTests
 
         await export.Handle(new ExportReportCommand(screen.Id, Day, Day, Filters: new Dictionary<Guid, WidgetViewFilter>
         {
-            [first.Id] = new(AgentNameFilter: "levi"),
-            [second.Id] = new(AgentFilter: "cat")
+            [first.Id] = new(AgentNameFilter: T("levi")),
+            [second.Id] = new(AgentFilter: V("cat@x"))   // picked values travel to the export the same way
         }), CancellationToken.None);
 
         // negative half: one filter for the whole screen would give the first two sheets the same rows
@@ -221,6 +321,6 @@ public class ReportFilterTests
                 s.Count == 3 && s[0].TotalCount == 1 && s[1].TotalCount == 1 && s[2].TotalCount == 6
                 && !s[0].Rows[0].SequenceEqual(s[1].Rows[0])),
             Arg.Any<CancellationToken>());
-        sent.Select(q => (q.AgentFilter, q.AgentNameFilter)).Should().Equal((null, "levi"), ("cat", null), (null, null));
+        sent.Select(q => (q.AgentFilter?.Values?.Single(), q.AgentNameFilter?.Text)).Should().Equal((null, "levi"), ("cat@x", null), (null, null));
     }
 }

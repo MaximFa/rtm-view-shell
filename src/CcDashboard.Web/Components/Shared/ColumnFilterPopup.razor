@@ -1,0 +1,164 @@
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<SharedResources> L
+
+@* The one filter window of the product: a match type, a text, and - when the column has a list of
+   values - checkboxes for them, applied on purpose by the tick.
+
+   It exists because the same window is now needed in two places (the real-time grids and the
+   reports), and two copies of a filter drift: the grid's version already carries behaviour nobody
+   would think to reproduce, such as "a filter is off until the operator applies it" and "closing
+   the window does not apply anything". A copy would look identical on the day it was written and
+   differ a month later, which is how a person learns not to trust what the screen says.
+
+   It holds a DRAFT: what the person is typing or ticking is not what the report is filtered by
+   until Apply. That is deliberate, and it is also what removed the flicker and the stuck spinner
+   from the reports - no work happens while typing, so nothing can be redrawn out of turn. *@
+
+<div class="column-filter-popup rounded shadow-lg p-2" @onclick:stopPropagation="true">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="small opacity-75">@ColumnLabel</span>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-link btn-sm p-0 text-success" title="@L["Common_Apply"]" @onclick="ApplyAsync">
+                <i class="bi bi-check-lg"></i>
+            </button>
+            <button type="button" class="btn btn-link btn-sm p-0 text-danger" title="@L["Common_Clear"]" @onclick="ClearAsync">
+                <i class="bi bi-trash"></i>
+            </button>
+            <button type="button" class="btn btn-link btn-sm p-0" title="@L["Common_Close"]" @onclick="CloseAsync">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="mb-1">
+        <select class="form-select form-select-sm mb-1" value="@_draftMatchType"
+                @onchange="e => _draftMatchType = e.Value?.ToString() ?? ContainsMatch">
+            <option value="contains">@L["Widgets_MatchType_Contains"]</option>
+            <option value="equal">@L["Widgets_MatchType_Equal"]</option>
+            <option value="startsWith">@L["Widgets_MatchType_StartsWith"]</option>
+            <option value="endsWith">@L["Widgets_MatchType_EndsWith"]</option>
+        </select>
+        @* maxlength, not a validator: over 100 characters the server answers that the settings
+           cannot be used, and that must never be the answer to typing. *@
+        <input type="text" class="form-control form-control-sm" maxlength="100"
+               value="@_draftText"
+               @onchange="e => _draftText = e.Value?.ToString() ?? string.Empty"
+               @onkeydown="OnKeyDown"
+               placeholder="@L["Widgets_Filter_ValuePlaceholder"]" />
+    </div>
+
+    @if (Values.Count > 0)
+    {
+        <div class="border-top pt-2 mt-2">
+            <div class="small mb-1 opacity-75">@L["Widgets_Filter_List"]</div>
+            @if (Truncated)
+            {
+                @* Never a silent cut: a person who cannot find a value must know the list was
+                   shortened rather than conclude the value does not exist. *@
+                <div class="alert alert-warning py-1 px-2 small mb-1">
+                    <i class="bi bi-exclamation-triangle me-1"></i>@string.Format(L["ReportWidget_AgentsTruncated"].Value, Values.Count, TotalCount)
+                </div>
+            }
+            @if (Values.Count > 8)
+            {
+                <input type="text" class="form-control form-control-sm mb-1"
+                       value="@_listSearch"
+                       @onchange="e => _listSearch = e.Value?.ToString() ?? string.Empty"
+                       placeholder="@L["Common_Search"]" />
+            }
+            <div class="column-filter-values">
+                @foreach (var value in FilteredValues)
+                {
+                    var isChecked = _draftValues.Contains(value);
+                    <div class="d-flex align-items-center gap-2 px-1 py-1" @key="value">
+                        <input type="checkbox" class="form-check-input m-0"
+                               checked="@isChecked"
+                               @onchange="() => ToggleValue(value)" />
+                        <span class="small">@value</span>
+                    </div>
+                }
+                @if (!FilteredValues.Any())
+                {
+                    <div class="small text-muted px-1 py-1"><em>@L["Common_NoResults"]</em></div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    public const string ContainsMatch = "contains";
+
+    [Parameter, EditorRequired] public string ColumnLabel { get; set; } = string.Empty;
+
+    /// <summary>The filter currently in force, so reopening the window shows what is applied.</summary>
+    [Parameter] public string? MatchType { get; set; }
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public IReadOnlyList<string>? SelectedValues { get; set; }
+
+    /// <summary>The distinct values offered as checkboxes; empty = no list for this column.</summary>
+    [Parameter] public IReadOnlyList<string> Values { get; set; } = Array.Empty<string>();
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public bool Truncated { get; set; }
+
+    /// <summary>Applied: match type, text, ticked values. The caller decides what to do with it.</summary>
+    [Parameter] public EventCallback<ColumnFilterDraft> OnApply { get; set; }
+    [Parameter] public EventCallback OnClear { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _draftMatchType = ContainsMatch;
+    private string _draftText = string.Empty;
+    private readonly HashSet<string> _draftValues = new(StringComparer.Ordinal);
+    private string _listSearch = string.Empty;
+    private bool _loaded;
+
+    protected override void OnParametersSet()
+    {
+        // Load the applied filter once, when the window opens. Re-reading it on every render would
+        // throw away what the person is typing the moment anything else on the page redraws.
+        if (_loaded) return;
+        _loaded = true;
+        _draftMatchType = string.IsNullOrWhiteSpace(MatchType) ? ContainsMatch : MatchType!;
+        _draftText = Text ?? string.Empty;
+        _draftValues.Clear();
+        foreach (var v in SelectedValues ?? Array.Empty<string>())
+            _draftValues.Add(v);
+    }
+
+    private IEnumerable<string> FilteredValues =>
+        string.IsNullOrWhiteSpace(_listSearch)
+            ? Values
+            : Values.Where(v => v.Contains(_listSearch, StringComparison.OrdinalIgnoreCase));
+
+    private void ToggleValue(string value)
+    {
+        if (!_draftValues.Remove(value))
+            _draftValues.Add(value);
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter")
+            await ApplyAsync();
+    }
+
+    private Task ApplyAsync()
+        => OnApply.InvokeAsync(new ColumnFilterDraft(_draftMatchType, _draftText, _draftValues.ToList()));
+
+    private async Task ClearAsync()
+    {
+        _draftMatchType = ContainsMatch;
+        _draftText = string.Empty;
+        _draftValues.Clear();
+        _listSearch = string.Empty;
+        await OnClear.InvokeAsync();
+    }
+
+    private Task CloseAsync() => OnClose.InvokeAsync();
+
+    /// <summary>What the window hands back on Apply. Text and values together: the caller refuses the pair it cannot send.</summary>
+    public record ColumnFilterDraft(string MatchType, string Text, IReadOnlyList<string> Values)
+    {
+        public bool IsEmpty => string.IsNullOrWhiteSpace(Text) && Values.Count == 0;
+    }
+}

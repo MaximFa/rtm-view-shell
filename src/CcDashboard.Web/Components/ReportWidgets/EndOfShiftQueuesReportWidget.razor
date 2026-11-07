@@ -22,21 +22,52 @@
    there when the widget is refusing as well as when it is showing rows. *@
 <div class="report-widget-shownfor small text-muted px-2 pt-1" role="note">@ShownForText</div>
 
-    @* PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01: one field over the queue column, labelled
-       with that column's own label. The filter goes into the QUERY, not over the page already in
-       hand - otherwise "showing 3 of 48" would stand over a filtered page and read as data loss. *@
-    <div class="report-widget-filters d-flex flex-wrap align-items-end gap-2 px-2 pb-1">
-        <div class="filter-item">
-            <label class="form-label small mb-0">@L["Report_Workgroup"]</label>
-            <input type="text" class="form-control form-control-sm" maxlength="100"
-                   value="@_queueFilter"
-                   @oninput="OnFilterInput"
-                   @onkeydown="OnFilterKeyDown"
-                   placeholder="@L["Widgets_Filter_ValuePlaceholder"]" />
-        </div>
+    @* PR234-V4-REPORT-VIEW-NO-AGENT-QUEUE-FILTER-01 + ...-FLICKER-01 + ...-SPINNER-STUCK-01.
+       One filter window per column, the same window the real-time grids use (ColumnFilterPopup):
+       a match type, a text, and the column's own values as checkboxes. Applied by the tick or by
+       Enter - never while typing. Typing used to fire a request per letter and hide the table each
+       time; worse, the request was scheduled from a background task, so the widget could sit
+       spinning for minutes after its data had arrived. Both are gone by construction here: no work
+       happens except on an event. *@
+    <div class="report-widget-filters d-flex flex-wrap align-items-center gap-2 px-2 pb-1">
+        @foreach (var column in new[] { ReportFilterColumn.Queue })
+        {
+            var col = column;
+            var applied = AppliedFilter(col);
+            <div class="position-relative" @key="col">
+                <button type="button" class="btn btn-sm @(applied is null ? "btn-outline-secondary" : "btn-primary")"
+                        @onclick="() => ToggleFilterAsync(col)">
+                    <i class="bi bi-funnel me-1"></i>@ColumnLabel(col)@(applied is null ? "" : " •")
+                </button>
+                @if (_openFilter == col)
+                {
+                    <div class="column-filter-anchor">
+                        @if (_filterValuesLoading)
+                        {
+                            <div class="column-filter-popup rounded shadow-lg p-2 text-center">
+                                <span class="spinner-border spinner-border-sm"></span>
+                            </div>
+                        }
+                        else
+                        {
+                            <ColumnFilterPopup ColumnLabel="@ColumnLabel(col)"
+                                               MatchType="@applied?.MatchType"
+                                               Text="@applied?.Text"
+                                               SelectedValues="applied?.Values"
+                                               Values="_filterValues"
+                                               TotalCount="_filterValuesTotal"
+                                               Truncated="_filterValuesTruncated"
+                                               OnApply="draft => ApplyFilterAsync(col, draft)"
+                                               OnClear="() => ClearFilterAsync(col)"
+                                               OnClose="CloseFilter" />
+                        }
+                    </div>
+                }
+            </div>
+        }
         @if (HasFilter)
         {
-            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearAllFiltersAsync">
                 @L["Widget_ClearFilters"]
             </button>
         }
@@ -202,66 +233,139 @@ else
         }
     }
 
-    // Screen control, not a saved setting (coordinator, 2026-11-06).
-    private string _queueFilter = "";
-    private string _appliedQueueFilter = "";
-    private CancellationTokenSource? _filterDebounce;
+    // Screen controls, not saved settings (coordinator, 2026-11-06): a filter kept in the
+    // configuration would open tomorrow's shift already narrowed, and whoever opened it would read
+    // an empty table as "no data".
+    private readonly Dictionary<ReportFilterColumn, ReportColumnFilter> _applied = new();
+    private ReportFilterColumn? _openFilter;
+    private IReadOnlyList<string> _filterValues = Array.Empty<string>();
+    private int _filterValuesTotal;
+    private bool _filterValuesTruncated;
+    private bool _filterValuesLoading;
 
-    private bool HasFilter => _queueFilter.Length > 0;
+    private bool HasFilter => _applied.Count > 0;
 
-    private void OnFilterInput(ChangeEventArgs e)
+    private ReportColumnFilter? AppliedFilter(ReportFilterColumn column)
+        => _applied.TryGetValue(column, out var f) ? f : null;
+
+    private string ColumnLabel(ReportFilterColumn column) => column switch
     {
-        var text = e.Value?.ToString() ?? "";
-        // Over 100 characters the server answers "the settings cannot be used"; that must never
-        // be the answer to typing, so the value is cut where it is typed.
-        if (text.Length > 100) text = text[..100];
-        _queueFilter = text;
-        ScheduleFilter();
-    }
+        ReportFilterColumn.Agent => L["Report_Agent"].Value,
+        ReportFilterColumn.AgentName => L["Report_AgentName"].Value,
+        ReportFilterColumn.Queue => L["Report_Workgroup"].Value,
+        _ => column.ToString()
+    };
 
-    private async Task OnFilterKeyDown(KeyboardEventArgs e)
+    private void CloseFilter() => _openFilter = null;
+
+    /// <summary>
+    /// Open the window for a column, loading the values it offers as checkboxes. The list comes
+    /// from the SERVER over the whole window and scope - not from the page in hand, which holds
+    /// 25 rows of possibly hundreds and would quietly offer a choice that is not the real one.
+    /// </summary>
+    private async Task ToggleFilterAsync(ReportFilterColumn column)
     {
-        if (e.Key is "Enter" or "NumpadEnter")
+        if (_openFilter == column)
         {
-            _filterDebounce?.Cancel();
-            await ApplyFilterAsync();
+            _openFilter = null;
+            return;
+        }
+
+        _openFilter = column;
+        _filterValues = Array.Empty<string>();
+        _filterValuesTotal = 0;
+        _filterValuesTruncated = false;
+        _filterValuesLoading = true;
+
+        try
+        {
+            var res = await Mediator.Send(BuildQuery(valuesFor: column));
+            if (res.ColumnValues is { } values && values.Column == column)
+            {
+                _filterValues = values.Values;
+                _filterValuesTotal = values.TotalCount;
+                _filterValuesTruncated = values.Truncated;
+            }
+        }
+        catch (Exception ex)
+        {
+            // An unreachable list is not a reason to refuse the window: the text filter still
+            // works, and saying nothing here would look like a column with no values at all.
+            Logger.LogWarning(ex, "Filter values for {Column} could not be loaded", column);
+        }
+        finally
+        {
+            _filterValuesLoading = false;
         }
     }
 
-    private async Task ClearFilters()
+    private async Task ApplyFilterAsync(ReportFilterColumn column, ColumnFilterPopup.ColumnFilterDraft draft)
     {
-        _filterDebounce?.Cancel();
-        _queueFilter = "";
-        await ApplyFilterAsync();
+        // Text and checkboxes are two ways of saying the same thing, and the server refuses both
+        // at once; the ticked values win, because they are the more exact statement of the two.
+        var filter = draft.Values.Count > 0
+            ? new ReportColumnFilter(Values: draft.Values)
+            : string.IsNullOrWhiteSpace(draft.Text)
+                ? null
+                : new ReportColumnFilter(draft.MatchType, draft.Text.Trim());
+
+        if (filter is null) _applied.Remove(column); else _applied[column] = filter;
+        _openFilter = null;
+        await AfterFilterChangedAsync();
     }
 
-    private void ScheduleFilter()
+    private async Task ClearFilterAsync(ReportFilterColumn column)
     {
-        _filterDebounce?.Cancel();
-        var cts = new CancellationTokenSource();
-        _filterDebounce = cts;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(500, cts.Token);
-                await InvokeAsync(ApplyFilterAsync);
-            }
-            catch (TaskCanceledException) { /* a newer keystroke won */ }
-        });
+        _applied.Remove(column);
+        _openFilter = null;
+        await AfterFilterChangedAsync();
     }
 
-    private async Task ApplyFilterAsync()
+    private async Task ClearAllFiltersAsync()
     {
-        if (_appliedQueueFilter == _queueFilter) return;
-        _appliedQueueFilter = _queueFilter;
-        await FilterChanged.InvokeAsync(new ReportWidgetFilter(
-            WidgetId, QueueFilter: NullIfEmpty(_appliedQueueFilter)));
+        _applied.Clear();
+        _openFilter = null;
+        await AfterFilterChangedAsync();
+    }
+
+    private async Task AfterFilterChangedAsync()
+    {
+        await FilterChanged.InvokeAsync(BuildWidgetFilter());
+        // Back to the first page: page 4 of an unfiltered answer is usually past the end of a
+        // filtered one, and an empty page reads as "nothing found" rather than "you are past it".
         _page = 1;
         await LoadData();
     }
 
-    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private ReportWidgetFilter BuildWidgetFilter()
+        => new(WidgetId, QueueFilter: AppliedFilter(ReportFilterColumn.Queue));
+
+    /// <summary>
+    /// The one place this widget builds its query. The page of rows and the list of values the
+    /// filter window offers are asked for here both - so they cannot end up describing different
+    /// windows or different filters, which would offer a choice the table cannot contain.
+    /// One date on both ends: an end-of-shift report lies on a single date, the one picked on the
+    /// page; the hours come from the widget's settings.
+    /// </summary>
+    private RunReportWidgetQuery BuildQuery(ReportFilterColumn? valuesFor = null)
+    {
+        var effectiveConfig = (Config ?? new ReportWidgetConfig()) with { PageSize = _pageSize };
+        var shiftDate = From.Date;
+        return new RunReportWidgetQuery(
+            ReportWidgetType.EndOfShiftQueues,
+            effectiveConfig.ToJson(),
+            shiftDate,
+            shiftDate,
+            _page,
+            TenantId,
+            false,
+            Config?.ShiftStartHour,
+            Config?.ShiftEndHour)
+        {
+            QueueFilter = AppliedFilter(ReportFilterColumn.Queue),
+            ValuesForColumn = valuesFor
+        };
+    }
 
     private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
 
@@ -316,26 +420,7 @@ else
 
         try
         {
-            var effectiveConfig = (Config ?? new ReportWidgetConfig()) with { PageSize = _pageSize };
-            var configJson = effectiveConfig.ToJson();
-            // One date, both ends: the server requires an end-of-shift report to lie on a single
-            // date, and the date is the one picked on the page (operator, 2026-11-04: "from the
-            // screen, like the other reports"). The page's second date field does not take part
-            // for this widget - the shift is bounded by the hours, not by a second day.
-            var shiftDate = From.Date;
-            var res = await Mediator.Send(new RunReportWidgetQuery(
-                ReportWidgetType.EndOfShiftQueues,
-                configJson,
-                shiftDate,
-                shiftDate,
-                _page,
-                TenantId,
-                false,
-                startHour,
-                endHour)
-            {
-                QueueFilter = NullIfEmpty(_appliedQueueFilter)
-            });
+            var res = await Mediator.Send(BuildQuery());
 
             if (res.Denied)
             {
