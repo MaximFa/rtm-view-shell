@@ -783,14 +783,7 @@ window.widgetResize = {
         x = Math.max(0, x);
         y = Math.max(0, y);
 
-        // width: the canvas' own width, so a new widget is never placed past its right edge (report editor, 2026-11-08).
-        return { x: x, y: y, width: Math.round(canvas.clientWidth) };
-    },
-
-    // PR234-V4-REPORT-EDITOR-NEW-WIDGET-POSITION-01: a new widget is brought into view, never left below the edge.
-    scrollWidgetIntoView: function (widgetId) {
-        const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
-        if (widget) widget.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        return { x: x, y: y };
     },
 
     applyWidgetPosition: function (widgetId, x, y, width, height) {

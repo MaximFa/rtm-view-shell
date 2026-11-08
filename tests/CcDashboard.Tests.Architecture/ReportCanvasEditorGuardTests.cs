@@ -26,69 +26,36 @@ public class ReportCanvasEditorGuardTests
         a.Overlaps(new CanvasRect(0, 100, 100, 100)).Should().BeFalse();
     }
 
-    // PR234-V4-REPORT-EDITOR-NEW-WIDGET-POSITION-01 (operator 2026-11-08 10:50 / 11:02). The layout measured on 234
-    // (ba72973, report "test"): canvas 1785 wide; "queues" (0,0) 920x390; "agents" (0,400) 2080x530. The drops are the
-    // four measured ones; the old rule put three of them at y=940, below the visible edge (878).
-    private static readonly CanvasRect[] Board234 = { new(0, 0, 920, 390), new(0, 400, 2080, 530) };
-    private const int Width234 = 1785;
-
-    private static CanvasRect Drop(int x, int y, IReadOnlyCollection<CanvasRect>? others = null)
-        => ReportCanvasLayout.NearestFree(ReportCanvasLayout.AnchoredAt(x, y, 400, 300), others ?? Board234, Width234);
+    // PR234-V4-REPORT-EDITOR-NEW-WIDGET-POSITION-01. Operator 2026-11-08 11:57: "put the widget exactly where the mouse is,
+    // even if it goes over another widget". Two rules in turn moved the widget away from the mouse - "below everything"
+    // (f7006b5, three drops of four at y=940 on 234) and "nearest free place" (9c0be65: on the operator's next layout the
+    // nearest free 400x300 was again below the agents report). The question now: does the widget land at the mouse?
 
     [Fact]
-    public void ADropOnAFreePlace_staysWhereItWasLetGo()
-        => Drop(1300, 100).Should().Be(new CanvasRect(1300, 100, 400, 300), "measured drop 1: the free place right of the queues");
-
-    [Fact]
-    public void ADropNextToAWidget_goesToTheNearestFreePlace_notBelowEverything()
+    public void ANewWidget_isAnchoredByItsTopLeftCorner_atTheMouse()
     {
-        var placed = Drop(1000, 300);   // measured drop 2: the old rule gave (1000, 940)
-        ReportCanvasLayout.OverlapsAny(placed, Board234).Should().BeFalse();
-        placed.Should().Be(new CanvasRect(1000, 100, 400, 300), "200 px up is free (its bottom touches the agents report)");
+        ReportCanvasLayout.AnchoredAt(1000, 300, 400, 300).Should().Be(new CanvasRect(1000, 300, 400, 300));
 
-        // NEGATIVE HALF: the measured outcome of the old rule is far from the drop - this case would be red on it.
-        Distance(new CanvasRect(1000, 940, 400, 300), new CanvasRect(1000, 300, 400, 300))
-            .Should().BeGreaterThan(Distance(placed, new CanvasRect(1000, 300, 400, 300)));
+        // NEGATIVE HALF: the measured drop 3 lands ON the queues report - and that is now allowed, not corrected.
+        var onTop = ReportCanvasLayout.AnchoredAt(300, 200, 400, 300);
+        ReportCanvasLayout.OverlapsAny(onTop, new[] { new CanvasRect(0, 0, 920, 390) }).Should().BeTrue(
+            "the case exists: a drop over a widget - and the page must still put it at the mouse (next case)");
     }
-
-    [Fact]
-    public void ADropOnTopOfAWidget_staysNearTheMouse_andCoversNothing()
-    {
-        var placed = Drop(300, 200);   // measured drop 3, on top of the queues report; the old rule gave (300, 940)
-        ReportCanvasLayout.OverlapsAny(placed, Board234).Should().BeFalse();
-        placed.Bottom.Should().BeLessThanOrEqualTo(878, "it must be on the visible part of the canvas measured on 234");
-        placed.Should().Be(new CanvasRect(920, 100, 400, 300), "the nearest free place: touching the queues report on the right");
-    }
-
-    [Fact]
-    public void ADropNextToANewWidget_andAtTheRightEdge_staysInsideTheCanvas()
-    {
-        var withFirst = Board234.Append(new CanvasRect(1300, 100, 400, 300)).ToList();
-        var placed = Drop(1500, 20, withFirst);   // measured drop 4; the old rule gave (1500, 940), right edge 1900
-        ReportCanvasLayout.OverlapsAny(placed, withFirst).Should().BeFalse();
-        placed.Right.Should().BeLessThanOrEqualTo(Width234, "never past the canvas' right edge");
-        // Here no free place exists above the agents report (worked out by hand: right of the first new widget is past
-        // the edge, left of it is the queues report) - the nearest is below it, and the page scrolls it into view.
-        placed.Should().Be(new CanvasRect(1380, 930, 400, 300));
-
-        // NEGATIVE HALF: a drop at the very right edge is pulled in, not left hanging out.
-        Drop(1700, 0).Right.Should().BeLessThanOrEqualTo(Width234);
-    }
-
-    private static double Distance(CanvasRect a, CanvasRect b) => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
 
     // ---- the page uses it ---------------------------------------------------------------------------------------
 
     [Fact]
-    public void TheEditor_dropsWhereTheMouseWasLetGo_andNeverOnAnotherWidget()
+    public void TheEditor_dropsExactlyWhereTheMouseWasLetGo_evenOnAnotherWidget()
     {
         var drop = Regex.Match(Editor(), @"private async Task OnDropAtPosition\(DragEventArgs e\)[\s\S]*?\n    \}");
         drop.Success.Should().BeTrue("the drop handler must be readable here");
         drop.Value.Should().Contain("widgetResize.getDropPosition", "the drop point, as the dashboard editor takes it");
-        drop.Value.Should().Contain("ReportCanvasLayout.NearestFree").And.Contain("ReportCanvasLayout.AnchoredAt")
-            .And.Contain("drop.Width", "the canvas width bounds the search");
-        drop.Value.Should().Contain("widgetResize.scrollWidgetIntoView", "a new widget is brought into view");
-        drop.Value.Should().NotContain("PlaceFree", "the rule that threw widgets below everything is gone");
+        drop.Value.Should().Contain("ReportCanvasLayout.AnchoredAt(drop.X, drop.Y", "the widget's corner is the drop point itself");
+        SearchesForAPlace(drop.Value).Should().BeEmpty("operator 11:57: exactly at the mouse, even over another widget");
+
+        // NEGATIVE HALF: both rules that moved it away are caught.
+        SearchesForAPlace("var rect = ReportCanvasLayout.PlaceFree(new CanvasRect(drop.X, drop.Y, 400, 300), others);").Should().NotBeEmpty();
+        SearchesForAPlace("var rect = ReportCanvasLayout.NearestFree(anchored, others, drop.Width);").Should().NotBeEmpty();
         // NEGATIVE: the fixed corner of the old code.
         Regex.IsMatch(drop.Value, @"x\s*=\s*50\s*,\s*y\s*=\s*50").Should().BeFalse();
     }
@@ -167,6 +134,9 @@ public class ReportCanvasEditorGuardTests
         }
         return hits;
     }
+
+    private static List<string> SearchesForAPlace(string text)
+        => Regex.Matches(text, @"PlaceFree|NearestFree|OverlapsAny").Select(m => m.Value).ToList();
 
     private static string Editor() => File.ReadAllText(Path.Combine(
         RepoRoot(), "src", "CcDashboard.Web", "Components", "Reports", "ReportEditorPage.razor"));

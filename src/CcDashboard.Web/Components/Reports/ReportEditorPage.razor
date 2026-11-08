@@ -397,13 +397,11 @@
         // PR234-V4-REPORT-EDITOR-NEW-WIDGET-POSITION-01: where the mouse was let go - the same JS helper the dashboard
         // editor uses (ScreenEditorPage) - not a fixed (50, 50) that put every new widget in one corner.
         // PR234-V4-REPORT-EDITOR-WIDGET-OVERLAP-STUCK-01: and never on top of another widget.
-        // PR234-V4-REPORT-EDITOR-NEW-WIDGET-POSITION-01 (2026-11-08): and when that place is taken, the nearest free one -
-        // inside the canvas width - not "below everything", which threw it past the visible edge.
+        // PR234-V4-REPORT-EDITOR-NEW-WIDGET-POSITION-01, operator 2026-11-08 11:57: "put the widget exactly where the mouse
+        // is, even if it goes over another widget". No search for a free place - every search moved the widget away from
+        // the mouse ("it flies down and the mouse stays where it was"). Moving and resizing still refuse an overlap.
         var drop = await JS.InvokeAsync<DropPosition>("widgetResize.getDropPosition", e.ClientX, e.ClientY);
-        var rect = ReportCanvasLayout.NearestFree(
-            ReportCanvasLayout.AnchoredAt(drop.X, drop.Y, 400, 300),
-            PlacedWidgets.Select(w => RectOf(w)).ToList(),
-            drop.Width);
+        var rect = ReportCanvasLayout.AnchoredAt(drop.X, drop.Y, 400, 300);
 
         var newWidget = new PlacedReportWidget
         {
@@ -430,8 +428,6 @@
         }).ToArray();
         await JS.InvokeVoidAsync("widgetResize.applyAllWidgetPositions", (object)positions);
         _positionsApplied = true;
-        // Seen without searching (operator 11:02): if the nearest free place is outside the visible part, scroll to it.
-        await JS.InvokeVoidAsync("widgetResize.scrollWidgetIntoView", newWidget.Id.ToString());
     }
 
     private void OnCanvasClick() => SelectedWidgetId = null;
@@ -741,7 +737,7 @@
         return new CanvasRect(p.X, p.Y, p.Width, p.Height);
     }
 
-    private record DropPosition(int X, int Y, int Width);
+    private record DropPosition(int X, int Y);
 
     [JSInvokable]
     public void OnMarqueeSelect(string[] widgetIds)
