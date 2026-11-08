@@ -73,7 +73,7 @@ public class ExportReportCommandHandler(
         foreach (var widget in screen.Widgets.Where(w => !w.IsDeleted))
         {
             // FEAT-REPORT-QUEUE-TREND-COMPARE-01 (operator 2026-11-08 18:22, «пока не выгружаем»): a chart is listed, not run
-            if (widget.WidgetType == ReportWidgetType.QueueTrend)
+            if (CcDashboard.Application.Handlers.RunReportWidgetQueryHandler.IsTrend(widget.WidgetType))
             {
                 skipped.Add(new SkippedWidget(widget.Id, GetWidgetTitle(widget), ReportReasonCodes.NotExportable, "A chart is not exported"));
                 continue;

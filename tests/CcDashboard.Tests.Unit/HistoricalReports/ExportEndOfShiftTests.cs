@@ -211,11 +211,13 @@ public class ExportEndOfShiftTests
         // FEAT-REPORT-QUEUE-TREND-COMPARE-01 (operator 2026-11-08 18:22): a chart is not exported - listed, never silently lost
         Widget(ReportWidgetType.QueueTrend, """{ "title": "Trend", "scope": { "businessUnitIds": [1] } }""");
         Widget(ReportWidgetType.EndOfShiftQueues, Cfg(null, null));
+        Widget(ReportWidgetType.AgentStateTrend, """{ "title": "States", "scope": { "businessUnitIds": [1] } }""");   // FEAT-REPORT-AGENT-STATE-TREND-01
 
         var res = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
 
-        res.Skipped.Should().ContainSingle().Which.Should().Match<SkippedWidget>(x => x.Title == "Trend" && x.ReasonCode == ReportReasonCodes.NotExportable);
-        _sent.Should().NotContain(q => q.WidgetType == ReportWidgetType.QueueTrend, "the chart is not run for the file");
+        res.Skipped.Select(x => (x.Title, x.ReasonCode)).Should().Equal(("Trend", ReportReasonCodes.NotExportable), ("States", ReportReasonCodes.NotExportable));
+        _sent.Should().NotContain(q => q.WidgetType == ReportWidgetType.QueueTrend || q.WidgetType == ReportWidgetType.AgentStateTrend,
+            "the charts are not run for the file");
         SheetNames(res.Content).Should().Equal("Queue Report", "Not exported");
         ExportReportCommandHandler.SheetText(ReportReasonCodes.NotExportable).Should().Be("A chart is not exported");
     }

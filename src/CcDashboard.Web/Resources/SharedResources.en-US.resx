@@ -1238,6 +1238,8 @@
   <data name="Report_StepNotInSummary"><value>The step does not apply in summary mode.</value></data>
   <data name="Report_QueueTrend"><value>Queue Trend</value></data>
   <data name="Report_DescQueueTrend"><value>Queue metrics over the period by step, with an optional comparison period</value></data>
+  <data name="Report_AgentStateTrend"><value>Agent State Trend</value></data>
+  <data name="Report_DescAgentStateTrend"><value>Share of the agents' login time in each state group over the period by step, with an optional comparison period</value></data>
   <data name="Report_ErrorNotExportable"><value>A chart is not exported to the file.</value></data>
   <data name="Reports_ExportSkippedNotExportable"><value>a chart is not exported to the file</value></data>
   <data name="Report_Metrics"><value>Metrics</value></data>

@@ -29,7 +29,7 @@ public class ReportColumnsTests
         // a new table type added to the enum without a row in RowTypeOf would be missed by the theory above;
         // the types without a table: Distribution (retired) and the queue trend chart (FEAT-REPORT-QUEUE-TREND-COMPARE-01)
         Enum.GetValues<ReportWidgetType>().Where(t => ReportColumns.RowTypeOf(t) is null)
-            .Should().Equal(ReportWidgetType.Distribution, ReportWidgetType.QueueTrend);
+            .Should().Equal(ReportWidgetType.Distribution, ReportWidgetType.QueueTrend, ReportWidgetType.AgentStateTrend);
     }
 
     [Fact]

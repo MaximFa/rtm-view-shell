@@ -40,7 +40,8 @@ public class AgentPickerAndPaletteTextGuardTests
         // every agent in scope, which is what an untouched widget has always meant.
         var modal = Modal();
 
-        Regex.IsMatch(modal, @"AgentIds\s*=\s*IsAgentPerformanceWidget\s*&&\s*_selectedAgentIds\.Count\s*>\s*0")
+        // TakesAgentPick = Agent Performance or Agent State Trend (FEAT-REPORT-AGENT-STATE-TREND-01) - the same rule for both.
+        Regex.IsMatch(modal, @"AgentIds\s*=\s*TakesAgentPick\s*&&\s*_selectedAgentIds\.Count\s*>\s*0")
             .Should().BeTrue("an empty tick set must be stored as null");
         Regex.IsMatch(modal, @"AgentIds\s*=\s*.*new List<string>\(\)")
             .Should().BeFalse("an empty list would read as \"these zero agents\"");

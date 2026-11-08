@@ -96,6 +96,7 @@ public class RunReportWidgetQueryHandler(
             ReportWidgetType.EndOfShiftAgents => await RunAgentSummaryAsync(rowMode, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.EndOfShiftQueues => await RunQueueSummaryAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.QueueTrend => await RunQueueTrendAsync(tenantId, config, from, toExclusive, query, ct),
+            ReportWidgetType.AgentStateTrend => await RunAgentStateTrendAsync(tenantId, config, from, toExclusive, query, ct),
             _ => ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, $"Unknown widget type: {query.WidgetType}")
         };
     }
@@ -133,7 +134,11 @@ public class RunReportWidgetQueryHandler(
     /// <summary>The report types that take a step (and From..To). FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: both end-of-shift
     /// reports; no report takes shift hours any more.</summary>
     internal static bool TakesStep(ReportWidgetType t) =>
-        t is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents or ReportWidgetType.QueueTrend;
+        t is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents || IsTrend(t);
+
+    /// <summary>The trend charts (FEAT-REPORT-QUEUE-TREND-COMPARE-01, FEAT-REPORT-AGENT-STATE-TREND-01): a grid by step, an
+    /// optional comparison period; no columns, filters or sort; not exported.</summary>
+    internal static bool IsTrend(ReportWidgetType t) => t is ReportWidgetType.QueueTrend or ReportWidgetType.AgentStateTrend;
 
     /// <summary>The table reports that sort on the server (FEAT-REPORT-QUEUE-COLUMN-SORT-01); a chart has no columns.</summary>
     internal static bool TakesSort(ReportWidgetType t) => t is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents;
@@ -150,8 +155,8 @@ public class RunReportWidgetQueryHandler(
             return "Unknown row mode";
         if (q.ShiftStartHour.HasValue || q.ShiftEndHour.HasValue)
             return "Reports take dates from-to, not shift hours";
-        if (q.CompareFrom is not null && q.WidgetType != ReportWidgetType.QueueTrend)
-            return "A comparison period applies only to the queue trend chart";
+        if (q.CompareFrom is not null && !IsTrend(q.WidgetType))
+            return "A comparison period applies only to the trend charts";
         return null;
     }
 
@@ -182,8 +187,8 @@ public class RunReportWidgetQueryHandler(
     /// never an arbitrary name into reflection). Other types ignore the sort.</summary>
     internal static string? ValidateSort(RunReportWidgetQuery q)
     {
-        if (q.SortColumn is not null && q.WidgetType == ReportWidgetType.QueueTrend)
-            return "The queue trend chart has no columns to sort";
+        if (q.SortColumn is not null && IsTrend(q.WidgetType))
+            return "A trend chart has no columns to sort";
         if (q.SortColumn is null || !TakesSort(q.WidgetType))
             return null;
         return ReportColumns.Find(q.WidgetType, q.SortColumn) is null ? "Unknown sort column" : null;
@@ -568,6 +573,106 @@ public class RunReportWidgetQueryHandler(
         Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, RunReportWidgetQuery query, CancellationToken ct)
     {
         const ReportWidgetType type = ReportWidgetType.QueueTrend;
+        var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
+        if (scopeResult.Denied)
+            return ReportWidgetResult.CreateDenied(type);
+        var (effective, dropped) = NarrowToPicked(scopeResult.EffectiveWorkgroups, config.Workgroups);
+        if (dropped.Count > 0)
+            logger.LogWarning(
+                "SF-BI-002: User {UserId} PG {PgId} requested {RequestedCount} queues in {Type}, {DroppedCount} out-of-scope dropped (sample: {DroppedSample})",
+                currentUser.UserId, currentUser.PermissionGroupId, config.Workgroups!.Count, type, dropped.Count, string.Join(", ", dropped.Take(5)));
+
+        // one value per interval over all the widget's queues, by the queues report's own formula
+        var empty = QueueRow(default, "", Array.Empty<CcDashboard.Domain.Domain.Historical.HistQueueInterval>());
+        return await RunTrendAsync(type, tenantId, config, from, toExclusive, query, ReportWidgetConfig.QueueTrendMetrics,
+            (f, t) => ScopedQueueIntervalsAsync(tenantId, f, t, effective, ct),
+            i => i.IntervalStart,
+            bucket =>
+            {
+                var row = bucket.Count == 0 ? empty : QueueRow(default, "", bucket);
+                return metric => typeof(QueueSummaryRow).GetProperty(metric)!.GetValue(row) switch
+                {
+                    null => null,
+                    var v => Convert.ToDouble(v, System.Globalization.CultureInfo.InvariantCulture)
+                };
+            },
+            (r, trend) => r with { QueueTrend = trend }, ct);
+    }
+
+    /// <summary>
+    /// FEAT-REPORT-AGENT-STATE-TREND-01 (contract 20:02:22Z, accepted 20:05:25Z): the share of logged-in time per status group
+    /// of one interval, summed over the agents first (never the mean of shares). Onphone = SumOnphoneMs (Hold is inside it,
+    /// HistoricalAggregationService); Paperwork = SumPaperworkMs + SumUnavailableMs (operator 21:59); Other = LoggedIn minus
+    /// the five (unmapped statuses, operator 22:04). No login in the interval: null for all six.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, double?> AgentStateShares(IReadOnlyCollection<CcDashboard.Domain.Domain.Historical.HistAgentInterval> bucket)
+    {
+        long loggedIn = bucket.Sum(i => i.SumLoggedInMs);
+        long available = bucket.Sum(i => i.SumAvailableMs);
+        long onphone = bucket.Sum(i => i.SumOnphoneMs);
+        long paperwork = bucket.Sum(i => i.SumPaperworkMs + i.SumUnavailableMs);
+        long brk = bucket.Sum(i => i.SumBreakMs);
+        long training = bucket.Sum(i => i.SumTrainingMs);
+        long other = loggedIn - (available + onphone + paperwork + brk + training);
+        double? Pct(long ms) => loggedIn == 0 ? null : ms * 100.0 / loggedIn;
+        return new Dictionary<string, double?>
+        {
+            ["Available"] = Pct(available),
+            ["Onphone"] = Pct(onphone),
+            ["Paperwork"] = Pct(paperwork),
+            ["Break"] = Pct(brk),
+            ["Training"] = Pct(training),
+            ["Other"] = Pct(other),
+        };
+    }
+
+    private async Task<ReportWidgetResult> RunAgentStateTrendAsync(
+        Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, RunReportWidgetQuery query, CancellationToken ct)
+    {
+        const ReportWidgetType type = ReportWidgetType.AgentStateTrend;
+        var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, AgentReportAxis.Detail, ct);
+        if (scopeResult.Denied)
+            return ReportWidgetResult.CreateDenied(type);
+        var (effective, dropped) = NarrowToPicked(scopeResult.EffectiveAgentIds, config.AgentIds);
+        if (dropped.Count > 0)
+            logger.LogWarning(
+                "SF-BI-002: User {UserId} PG {PgId} requested {RequestedCount} agents in {Type}, {DroppedCount} out-of-scope dropped (sample: {DroppedSample})",
+                currentUser.UserId, currentUser.PermissionGroupId, config.AgentIds!.Count, type, dropped.Count, string.Join(", ", dropped.Take(5)));
+
+        var negativeOther = 0;
+        var result = await RunTrendAsync(type, tenantId, config, from, toExclusive, query, ReportWidgetConfig.AgentStateTrendMetrics,
+            (f, t) => ScopedAgentIntervalsAsync(tenantId, f, t, effective, ct),
+            i => i.IntervalStart,
+            bucket =>
+            {
+                var shares = AgentStateShares(bucket);
+                if (shares["Other"] < 0) negativeOther++;
+                return metric => shares[metric];
+            },
+            (r, trend) => r with { AgentStateTrend = trend, CaveatCode = ReportCaveatCodes.StatusStartBucket }, ct);
+
+        // coordinator 20:05:25Z: a negative Other (a negative duration in the source) is shown as it is, never hidden - and
+        // counted in the log (a count only, no agent ids), so the PROBE in .coord/measure/agent-state-trend-1108 is run if needed
+        if (negativeOther > 0)
+            logger.LogWarning("AgentStateTrend: {Count} interval(s) with a negative Other share (status durations larger than the login time)", negativeOther);
+        return result;
+    }
+
+    /// <summary>
+    /// FEAT-REPORT-QUEUE-TREND-COMPARE-01 / FEAT-REPORT-AGENT-STATE-TREND-01: the one rule of a trend chart - the grid of the
+    /// main period by step (from the period, not the data), the comparison from CompareFrom with the main period's length in
+    /// local days, paired by index (missing = null, extra dropped), the point limit, the freshness. Each chart gives only how
+    /// its buckets are read and what one interval's values are.
+    /// </summary>
+    private async Task<ReportWidgetResult> RunTrendAsync<TBucket>(
+        ReportWidgetType type, Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, RunReportWidgetQuery query,
+        IReadOnlyList<ReportColumn> metrics,
+        Func<DateTime, DateTime, Task<IReadOnlyList<TBucket>>> read,
+        Func<TBucket, DateTime> bucketStart,
+        Func<IReadOnlyCollection<TBucket>, Func<string, double?>> valuesOf,
+        Func<ReportWidgetResult, QueueTrendResult, ReportWidgetResult> place,
+        CancellationToken ct)
+    {
         var step = query.Step ?? config.DefaultStep ?? ReportStep.Day;
 
         // the comparison period: from its first local day, as many local days as the main period (operator 18:08)
@@ -585,66 +690,45 @@ public class RunReportWidgetQueryHandler(
             return ReportWidgetResult.CreateError(type, ReportReasonCodes.InvalidConfig,
                 $"More than {TrendMaxPoints} intervals in the period - choose a larger step");
 
-        var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
-        if (scopeResult.Denied)
-            return ReportWidgetResult.CreateDenied(type);
-        var (effective, dropped) = NarrowToPicked(scopeResult.EffectiveWorkgroups, config.Workgroups);
-        if (dropped.Count > 0)
-            logger.LogWarning(
-                "SF-BI-002: User {UserId} PG {PgId} requested {RequestedCount} queues in {Type}, {DroppedCount} out-of-scope dropped (sample: {DroppedSample})",
-                currentUser.UserId, currentUser.PermissionGroupId, config.Workgroups!.Count, type, dropped.Count, string.Join(", ", dropped.Take(5)));
-
-        // one value per interval over all the widget's queues, by the queues report's own formula
-        async Task<Dictionary<DateTime, QueueSummaryRow>> SeriesRows(DateTime f, DateTime t)
+        async Task<List<Func<string, double?>>> Values(DateTime f, DateTime t, List<(DateTime Key, DateTime Shown)> g)
         {
-            var intervals = await ScopedQueueIntervalsAsync(tenantId, f, t, effective, ct);
-            return intervals
-                .GroupBy(i => StepKey(i.IntervalStart, step))
-                .ToDictionary(g => g.Key.Key, g => QueueRow(g.Key.Shown, "", g));
+            var byKey = (await read(f, t))
+                .GroupBy(b => StepKey(bucketStart(b), step).Key)
+                .ToDictionary(x => x.Key, x => (IReadOnlyCollection<TBucket>)x.ToList());
+            return g.Select(p => valuesOf(byKey.TryGetValue(p.Key, out var b) ? b : Array.Empty<TBucket>())).ToList();
         }
 
-        var main = await SeriesRows(from, toExclusive);
-        var compare = cFrom is null ? null : await SeriesRows(cFrom.Value, cToExclusive!.Value);
-        var empty = QueueRow(default, "", Array.Empty<CcDashboard.Domain.Domain.Historical.HistQueueInterval>());
+        var main = await Values(from, toExclusive, grid);
+        var compare = cFrom is null ? null : await Values(cFrom.Value, cToExclusive!.Value, compareGrid!);
 
-        double? ValueOf(QueueSummaryRow r, string metric) =>
-            typeof(QueueSummaryRow).GetProperty(metric)!.GetValue(r) switch
-            {
-                null => null,
-                var v => Convert.ToDouble(v, System.Globalization.CultureInfo.InvariantCulture)
-            };
-
-        var series = ReportWidgetConfig.QueueTrendMetrics.Select(m => new QueueTrendSeries(
+        var series = metrics.Select(m => new QueueTrendSeries(
                 m.Name,
                 m.Kind,
-                grid.Select(p => ValueOf(main.TryGetValue(p.Key, out var r) ? r : empty, m.Name)).ToList(),
-                compareGrid is null ? null
-                    // paired by index (the 1st with the 1st); intervals of the comparison past the main grid are dropped,
-                    // missing ones are null
-                    : grid.Select((_, i) => i < compareGrid.Count
-                        ? ValueOf(compare!.TryGetValue(compareGrid[i].Key, out var r) ? r : empty, m.Name)
-                        : null).ToList()))
+                main.Select(v => v(m.Name)).ToList(),
+                compare is null ? null
+                    // paired by index (the 1st with the 1st); comparison intervals past the main grid are dropped, missing are null
+                    : grid.Select((_, i) => i < compare.Count ? compare[i](m.Name) : null).ToList()))
             .ToList();
 
         var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);
         var compareDays = (query.To.Date - query.From.Date).Days;
-        return new ReportWidgetResult
+        var trend = new QueueTrendResult(
+            step,
+            grid.Select(p => p.Shown).ToList(),
+            compareGrid?.Take(grid.Count).Select(p => p.Shown).ToList(),
+            series,
+            query.From.Date,
+            query.To.Date,
+            query.CompareFrom?.Date,
+            query.CompareFrom?.Date.AddDays(compareDays));
+        return place(new ReportWidgetResult
         {
             WidgetType = type,
             EffectiveColumns = Array.Empty<string>(),
-            QueueTrend = new QueueTrendResult(
-                step,
-                grid.Select(p => p.Shown).ToList(),
-                compareGrid?.Take(grid.Count).Select(p => p.Shown).ToList(),
-                series,
-                query.From.Date,
-                query.To.Date,
-                query.CompareFrom?.Date,
-                query.CompareFrom?.Date.AddDays(compareDays)),
             DataThroughUtc = through,
             Incomplete = incomplete,
             Step = step
-        };
+        }, trend);
     }
 
     /// <summary>

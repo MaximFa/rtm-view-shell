@@ -162,7 +162,10 @@ window.dayTrendChart = {
                         label: function (context) {
                             let label = context.dataset.metric || context.dataset.label || '';
                             if (label) label += ': ';
-                            if (context.parsed.y !== null) {
+                            if (context.parsed.y !== null && options?.percent) {
+                                // percent (Agent State Trend): one decimal and the sign
+                                label += context.parsed.y.toFixed(1) + '%';
+                            } else if (context.parsed.y !== null) {
                                 // Format time metrics as mm:ss (hh:mm:ss for an hour or more, when the caller asks)
                                 if (context.dataset.isTimeMetric) {
                                     label += window.dayTrendChart._formatSeconds(context.parsed.y, options?.timeHours);
@@ -217,6 +220,11 @@ window.dayTrendChart = {
         if (options?.compareLabels) {
             const tick = { font: { size: options?.fontSize || 11, family: this._getPageFont() }, color: options?.fontColor || undefined };
             defaultOptions.scales.x2 = { position: 'top', labels: options.compareLabels, grid: { display: false }, ticks: tick };
+        }
+        //   percent       - every line is a share of 100 (Agent State Trend): the Y axis is 0..100 with a % sign.
+        if (options?.percent) {
+            defaultOptions.scales.y.max = 100;
+            defaultOptions.scales.y.ticks.callback = function (value) { return value + '%'; };
         }
         if (options?.periodLabels) {
             const main = options.periodLabels, compare = options.compareLabels || [];

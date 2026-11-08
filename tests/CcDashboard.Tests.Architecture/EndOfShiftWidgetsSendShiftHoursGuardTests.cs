@@ -26,7 +26,9 @@ public class EndOfShiftWidgetsSendShiftHoursGuardTests
 
         foreach (var type in types)
         {
-            var text = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), $"{type}ReportWidget.razor"));
+            // Both trend charts are drawn by ONE body (FEAT-REPORT-AGENT-STATE-TREND-01): their query is that file's.
+            var file = CcDashboard.Web.Components.ReportWidgets.QueueTrendView.IsTrend(type) ? "QueueTrendReportWidget.razor" : $"{type}ReportWidget.razor";
+            var text = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), file));
             var call = QueryStatement(text);
             SendsAnyHour(call).Should().BeFalse($"{type}: the server refuses shift hours");
             ForwardsThePeriod(call).Should().BeTrue($"{type}: the window is the page's From..To");

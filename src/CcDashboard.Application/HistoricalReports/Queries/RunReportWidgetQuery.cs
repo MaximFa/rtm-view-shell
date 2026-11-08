@@ -153,6 +153,9 @@ public record ReportWidgetResult
     /// <summary>FEAT-REPORT-QUEUE-TREND-COMPARE-01: the series of the queue trend chart; null for the other types.</summary>
     public QueueTrendResult? QueueTrend { get; init; }
 
+    /// <summary>FEAT-REPORT-AGENT-STATE-TREND-01: the series of the agent state trend chart (the same shape); null otherwise.</summary>
+    public QueueTrendResult? AgentStateTrend { get; init; }
+
     /// <summary>
     /// FEAT-REPORT-EOS-*-01: the instant the historical aggregation has reached (UTC); null when nothing was aggregated yet.
     /// Set for the three summary types.

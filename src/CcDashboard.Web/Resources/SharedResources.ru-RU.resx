@@ -1240,6 +1240,8 @@
   <data name="Report_StepNotInSummary"><value>В сводном режиме шаг не применяется.</value></data>
   <data name="Report_QueueTrend"><value>Тренд очередей</value></data>
   <data name="Report_DescQueueTrend"><value>Метрики очередей за период по шагу, с периодом сравнения по выбору</value></data>
+  <data name="Report_AgentStateTrend"><value>Динамика статусов агентов</value></data>
+  <data name="Report_DescAgentStateTrend"><value>Доля времени входа агентов в каждой группе статусов за период по интервалу, с выбираемым периодом сравнения</value></data>
   <data name="Report_ErrorNotExportable"><value>График в файл не выгружается.</value></data>
   <data name="Reports_ExportSkippedNotExportable"><value>график в файл не выгружается</value></data>
   <data name="Report_Metrics"><value>Метрики</value></data>

@@ -20,7 +20,9 @@
    DayTrend chart module (daytrendChart.js) through its opt-in options - no second copy of the chart code. Agreed with the
    operator on the mockup (.coord/measure/queue-trend-1108/mockup.html): X left to right (18:20); two Y axes - counts and
    percent on the left, time on the right (18:21); the legend names each metric once by its colour, the hover shows the
-   date and value of the point under the mouse (18:17); not exported (18:22). *@
+   date and value of the point under the mouse (18:17); not exported (18:22).
+   Agent State Trend (FEAT-REPORT-AGENT-STATE-TREND-01, operator 2026-11-08 21:54) is drawn by THIS body too (Type): the
+   share of the agents' login time in each ASD group, one Y axis 0..100 %, everything else the same - no second copy. *@
 
 <div class="report-widget-shownfor d-flex align-items-center justify-content-between gap-2 small text-muted px-2 pt-1">
     <span role="note">@ShownForText</span>
@@ -64,7 +66,7 @@ else
     <div class="report-trend-legend small px-2">
         @foreach (var m in _metrics)
         {
-            <span class="report-trend-legend-item"><i style="border-color:@QueueTrendView.Color(m)"></i>@MetricName(m)</span>
+            <span class="report-trend-legend-item"><i style="border-color:@QueueTrendView.ColorOf(Type, m)"></i>@MetricName(m)</span>
         }
     </div>
     <div class="report-trend-chart">
@@ -80,6 +82,8 @@ else
     [Parameter] public int Page { get; set; } = 1;
     [Parameter] public Guid? TenantId { get; set; }
     [Parameter] public Guid WidgetId { get; set; }
+    /// <summary>Which trend: QueueTrend (queue metrics) or AgentStateTrend (shares of login time by ASD group).</summary>
+    [Parameter] public ReportWidgetType Type { get; set; } = ReportWidgetType.QueueTrend;
 
     private readonly string _chartId = "qt-" + Guid.NewGuid().ToString("N");
     private bool _denied;
@@ -115,7 +119,7 @@ else
     private bool _viewCompareBad;
 
     private string StepName(ReportStep s) => L[ReportWidgetSteps.NameKey(s)].Value;
-    private string MetricName(string m) => L[ReportColumnLabels.KeyFor(m) ?? m].Value;
+    private string MetricName(string m) => L[QueueTrendView.LabelKeyOf(Type, m)].Value;
     private static string Day(DateTime d) => ReportPeriodText.Day(d);
 
     private string ShownForText
@@ -136,7 +140,7 @@ else
     private void ApplyEffective()
     {
         _step = _personal?.Step ?? ReportWidgetSteps.FromConfig(Config?.DefaultStep) ?? ReportStep.Day;
-        _metrics = QueueTrendView.Effective(_personal?.Metrics?.ToList(), Config?.DefaultMetrics);
+        _metrics = QueueTrendView.EffectiveOf(Type, _personal?.Metrics?.ToList(), Config?.DefaultMetrics);
         _compareFrom = _personal?.CompareFrom;
         _chartType = QueueTrendView.ChartType(_personal?.ChartType, Config?.DefaultChartType, comparing: _compareFrom is not null);
     }
@@ -172,7 +176,7 @@ else
             ReportStep? step = root.TryGetProperty(StepKey, out var s) && s.ValueKind == JsonValueKind.String
                 && Enum.TryParse<ReportStep>(s.GetString(), true, out var st) && Enum.IsDefined(st) ? st : null;
             IReadOnlyList<string>? metrics = root.TryGetProperty(MetricsKey, out var m) && m.ValueKind == JsonValueKind.String
-                ? m.GetString()!.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(QueueTrendView.Metrics.Contains).ToList()
+                ? m.GetString()!.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(QueueTrendView.MetricsOf(Type).Contains).ToList()
                 : null;
             DateTime? compare = root.TryGetProperty(CompareKey, out var c) && c.ValueKind == JsonValueKind.String
                 ? QueueTrendView.FromStored(c.GetString()) : null;
@@ -197,7 +201,7 @@ else
             var effectiveConfig = Config ?? new ReportWidgetConfig();
             // The page's period, no shift hours - as every report since 2026-11-08.
             var res = await Mediator.Send(new RunReportWidgetQuery(
-                ReportWidgetType.QueueTrend,
+                Type,
                 effectiveConfig.ToJson(),
                 From,
                 To,
@@ -217,7 +221,7 @@ else
             }
             else
             {
-                _result = res.QueueTrend;
+                _result = Type == ReportWidgetType.AgentStateTrend ? res.AgentStateTrend : res.QueueTrend;
                 _incomplete = res.Incomplete;
                 _dataThroughUtc = res.DataThroughUtc;
                 _needsDraw = _result is not null;
@@ -247,7 +251,7 @@ else
             if (series is null) continue;
             var isTime = series.Kind == ReportColumnKind.DurationSec;
             var name = MetricName(metric);
-            var color = QueueTrendView.Color(metric);
+            var color = QueueTrendView.ColorOf(Type, metric);
             datasets.Add(new { label = name, metric = name, data = series.Values, color, isTimeMetric = isTime, period = "main", dashed = false });
             if (compareLabels is not null && series.CompareValues is not null)
                 datasets.Add(new { label = name, metric = name, data = series.CompareValues, color, isTimeMetric = isTime, period = "compare", dashed = true });
@@ -258,6 +262,7 @@ else
             fontColor = DarkMode ? "#e4e4e7" : (string?)null,
             fontSize = 11,
             keepNulls = true,
+            percent = Type == ReportWidgetType.AgentStateTrend,
             timeHours = true,
             periodLabels = labels,
             compareLabels
@@ -308,12 +313,12 @@ else
     {
         <label class="form-label fw-semibold">@L["Report_Metrics"]</label>
         <div class="mb-1">
-            @foreach (var metric in QueueTrendView.Metrics)
+            @foreach (var metric in QueueTrendView.MetricsOf(Type))
             {
                 var m = metric;
                 <label class="d-flex align-items-center gap-2 mb-1">
                     <input type="checkbox" class="form-check-input m-0" checked="@_viewMetrics.Contains(m)" @onchange="() => ToggleMetric(m)" />
-                    <span class="report-trend-swatch" style="background:@QueueTrendView.Color(m)"></span>
+                    <span class="report-trend-swatch" style="background:@QueueTrendView.ColorOf(Type, m)"></span>
                     <span>@MetricName(m)</span>
                 </label>
             }
@@ -322,7 +327,7 @@ else
         {
             <div class="small text-danger mb-2">@L["Report_NoMetricsChosen"]</div>
         }
-        <div class="small text-muted mb-3">@L["Common_Default"]: @string.Join(", ", QueueTrendView.Effective(null, Config?.DefaultMetrics).Select(MetricName))</div>
+        <div class="small text-muted mb-3">@L["Common_Default"]: @string.Join(", ", QueueTrendView.EffectiveOf(Type, null, Config?.DefaultMetrics).Select(MetricName))</div>
 
         <label class="form-label fw-semibold">@L["Report_Step"]</label>
         <div class="btn-group w-100" role="group" aria-label="@L["Report_Step"]">
@@ -391,7 +396,7 @@ else
     {
         if (!CanApply) return;
         Modal.Hide(this);
-        var metrics = QueueTrendView.Metrics.Where(_viewMetrics.Contains).ToList();
+        var metrics = QueueTrendView.MetricsOf(Type).Where(_viewMetrics.Contains).ToList();
         var view = new PersonalView(_viewStep, metrics, ViewCompare, _viewChartType);
         try
         {

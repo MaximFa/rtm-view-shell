@@ -34,6 +34,8 @@ public static class ReportWidgetPalette
         ReportWidgetType.EndOfShiftAgents,
         // FEAT-REPORT-QUEUE-TREND-COMPARE-01 (operator 2026-11-08): queue metrics as lines, with a comparison period.
         ReportWidgetType.QueueTrend,
+        // FEAT-REPORT-AGENT-STATE-TREND-01 (operator 2026-11-08 21:54): shares of the agents' login time by ASD group as lines.
+        ReportWidgetType.AgentStateTrend,
     };
 
     public static string Category(ReportWidgetType type) => type switch
@@ -45,6 +47,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.EndOfShiftAgents => "Agents",
         ReportWidgetType.AgentPerformance => "Agents",
         ReportWidgetType.QueueTrend => "Queues",
+        ReportWidgetType.AgentStateTrend => "Agents",
         _ => "Other"
     };
 
@@ -82,6 +85,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.EndOfShiftAgents => "One row per agent for the shift window",
         ReportWidgetType.AgentPerformance => "Agent figures for the period: one row per agent, or one per agent per date",
         ReportWidgetType.QueueTrend => "Queue metrics over the period by step, with an optional comparison period",
+        ReportWidgetType.AgentStateTrend => "Share of the agents' login time in each state group over the period by step, with an optional comparison period",
         _ => ""
     };
 
@@ -99,6 +103,8 @@ public static class ReportWidgetPalette
         ReportWidgetType.AgentPerformance => "bi-graph-up",
         // Working icon until the operator's word (coordinator 17:02:51Z); bi-graph-up belongs to the retired AgentPerformance.
         ReportWidgetType.QueueTrend => "bi-graph-up-arrow",
+        // Working icon until the operator's word (coordinator 20:05:25Z): free in src, db and deploy; "a person at work".
+        ReportWidgetType.AgentStateTrend => "bi-person-workspace",
         _ => "bi-grid"
     };
 }

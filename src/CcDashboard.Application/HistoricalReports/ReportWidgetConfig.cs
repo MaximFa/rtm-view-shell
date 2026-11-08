@@ -85,6 +85,23 @@ public record ReportWidgetConfig
         .Where(c => c.Kind is ReportColumnKind.Count or ReportColumnKind.Percent or ReportColumnKind.DurationSec)
         .ToList();
 
+    /// <summary>
+    /// FEAT-REPORT-AGENT-STATE-TREND-01 (operator 2026-11-08 21:58-22:04): the six lines of the agent state trend chart, as in
+    /// ASD - the share of logged-in time, all Percent. How each is summed: RunReportWidgetQueryHandler.AgentStateShares.
+    /// </summary>
+    public static IReadOnlyList<ReportColumn> AgentStateTrendMetrics { get; } =
+        new[] { "Available", "Onphone", "Paperwork", "Break", "Training", "Other" }
+            .Select(n => new ReportColumn(n, ReportColumnKind.Percent, false))
+            .ToList();
+
+    /// <summary>The metrics of a trend chart type; empty for the other types.</summary>
+    public static IReadOnlyList<ReportColumn> TrendMetrics(ReportWidgetType type) => type switch
+    {
+        ReportWidgetType.QueueTrend => QueueTrendMetrics,
+        ReportWidgetType.AgentStateTrend => AgentStateTrendMetrics,
+        _ => Array.Empty<ReportColumn>()
+    };
+
     /// <summary>Appearance settings (opaque, IGNORED server-side).</summary>
     public JsonElement? Appearance { get; init; }
 

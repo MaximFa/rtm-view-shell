@@ -1,5 +1,6 @@
 using System.Globalization;
 using CcDashboard.Application.HistoricalReports.Queries;
+using CcDashboard.Domain.Domain.Reports;
 
 namespace CcDashboard.Web.Components.ReportWidgets;
 
@@ -34,6 +35,52 @@ public static class QueueTrendView
     };
 
     public static string Color(string metric) => Colors.TryGetValue(metric, out var c) ? c : "#6c757d";
+
+    // ---- the two trend charts (FEAT-REPORT-AGENT-STATE-TREND-01): one screen, the type picks the metrics ----------------
+
+    /// <summary>The report types drawn by the trend screen (QueueTrendReportWidget): one body, no second copy.</summary>
+    public static bool IsTrend(ReportWidgetType type) => type is ReportWidgetType.QueueTrend or ReportWidgetType.AgentStateTrend;
+
+    /// <summary>The metrics of a trend type, in the server's order (ReportWidgetConfig.TrendMetrics - one list).</summary>
+    public static IReadOnlyList<string> MetricsOf(ReportWidgetType type) =>
+        CcDashboard.Application.HistoricalReports.ReportWidgetConfig.TrendMetrics(type).Select(c => c.Name).ToList();
+
+    /// <summary>What Agent State Trend shows when nobody chose: every group - the six lines are the whole of the login time.</summary>
+    public static IReadOnlyList<string> FallbackOf(ReportWidgetType type) =>
+        type == ReportWidgetType.AgentStateTrend ? MetricsOf(type) : FallbackMetrics;
+
+    // Agent State Trend: ASD's own default group colours (ScreenEditorPage AsdGroupFallbackColors), so the real-time
+    // board and the report agree; ASD's colours can be changed per widget, these are its defaults.
+    private static readonly IReadOnlyDictionary<string, string> AgentStateColors = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["Available"] = "#22c55e",
+        ["Onphone"] = "#3b82f6",
+        ["Break"] = "#f59e0b",
+        ["Paperwork"] = "#8b5cf6",
+        ["Training"] = "#06b6d4",
+        ["Other"] = "#6b7280",
+    };
+
+    public static string ColorOf(ReportWidgetType type, string metric) =>
+        type == ReportWidgetType.AgentStateTrend
+            ? (AgentStateColors.TryGetValue(metric, out var c) ? c : "#6c757d")
+            : Color(metric);
+
+    /// <summary>The resource key of a metric's name. Agent State Trend uses ASD's own group names (one name per group on
+    /// both screens); Queue Trend the column labels of Queue Report.</summary>
+    public static string LabelKeyOf(ReportWidgetType type, string metric) => type == ReportWidgetType.AgentStateTrend
+        ? "Widget_ASD_Segment_" + (metric == "Onphone" ? "OnPhone" : metric)
+        : ReportColumnLabels.KeyFor(metric) ?? metric;
+
+    /// <summary>The metrics in force for a type: the viewer's own -> the editor's default -> the type's fallback.</summary>
+    public static IReadOnlyList<string> EffectiveOf(ReportWidgetType type, IReadOnlyCollection<string>? personal, IReadOnlyCollection<string>? configDefault)
+    {
+        var all = MetricsOf(type);
+        var fallback = FallbackOf(type);
+        var pick = personal is { Count: > 0 } ? personal : configDefault is { Count: > 0 } ? configDefault : fallback;
+        var known = all.Where(pick.Contains).ToList();
+        return known.Count > 0 ? known : fallback.ToList();
+    }
 
     /// <summary>The metrics in force: the viewer's own -> the editor's default -> the fallback; only known names, in the
     /// server's order.</summary>

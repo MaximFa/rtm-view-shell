@@ -176,4 +176,15 @@ public class LastDataDayTests
         await _repo.Received(1).GetLastIntervalStartAsync(TenantId, ReportDataSet.Queues,
             Arg.Is<IReadOnlySet<string>>(k => k.SetEquals(new[] { "Support" })), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task AgentStateTrend_IsTheAgentsRule_NarrowedByItsPickedAgents()
+    {
+        AgentScope("a1", "a2");
+        LastAt(new DateTime(2026, 11, 6, 11, 30, 0, DateTimeKind.Utc));
+        (await Run(ReportWidgetType.AgentStateTrend, """{ "scope": { "businessUnitIds": [1] }, "agentIds": ["a1", "x9"] }"""))
+            .Should().Be(new LastDataDayResult(new DateOnly(2026, 11, 6)));
+        await _repo.Received(1).GetLastIntervalStartAsync(TenantId, ReportDataSet.Agents,
+            Arg.Is<IReadOnlySet<string>>(k => k.SetEquals(new[] { "a1" })), Arg.Any<CancellationToken>());
+    }
 }

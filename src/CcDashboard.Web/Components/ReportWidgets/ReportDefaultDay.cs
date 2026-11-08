@@ -26,7 +26,9 @@ public static class ReportDefaultDay
         // Agent Report (coordinator 2026-11-08T06:27:37Z, p.6: part of the same configuration): ReportDataSet.Agents on the server.
         ReportWidgetType.EndOfShiftAgents,
         // Queue Trend: ReportDataSet.Queues on the server, narrowed by the widget's queues (backend 16:34:21Z).
-        ReportWidgetType.QueueTrend
+        ReportWidgetType.QueueTrend,
+        // Agent State Trend: ReportDataSet.Agents on the server, narrowed by the widget's agents (backend 20:15:57Z).
+        ReportWidgetType.AgentStateTrend
     };
 
     /// <summary>

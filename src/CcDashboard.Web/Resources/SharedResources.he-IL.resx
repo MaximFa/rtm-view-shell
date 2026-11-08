@@ -1236,6 +1236,8 @@
   <data name="Report_StepNotInSummary"><value>המרווח לא חל במצב מרוכז.</value></data>
   <data name="Report_QueueTrend"><value>מגמת תורים</value></data>
   <data name="Report_DescQueueTrend"><value>מדדי תורים לאורך התקופה לפי מרווח, עם תקופת השוואה לבחירה</value></data>
+  <data name="Report_AgentStateTrend"><value>מגמת מצבי נציגים</value></data>
+  <data name="Report_DescAgentStateTrend"><value>אחוז זמן הנציגים בכל קבוצת מצבים מתוך זמן הכניסה, לפי מרווח, עם תקופת השוואה לבחירה</value></data>
   <data name="Report_ErrorNotExportable"><value>גרף אינו מיוצא לקובץ.</value></data>
   <data name="Reports_ExportSkippedNotExportable"><value>גרף אינו מיוצא לקובץ</value></data>
   <data name="Report_Metrics"><value>מדדים</value></data>

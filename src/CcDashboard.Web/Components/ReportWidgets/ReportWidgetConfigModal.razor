@@ -33,9 +33,9 @@
                                 @L["WidgetCfg_General"]
                             </button>
                         </li>
-                        @if (!IsQueueTrendWidget)
+                        @if (!IsTrendWidget)
                         {
-                            @* A chart has no columns: the server refuses Columns on Queue Trend. *@
+                            @* A chart has no columns: the server refuses Columns on both trend charts. *@
                             <li class="nav-item">
                                 <button class="nav-link @(_tab == "columns" ? "active" : "")" @onclick='() => _tab = "columns"'>
                                     @L["WidgetCfg_Columns"]
@@ -212,7 +212,10 @@
                                     </div>
                                 }
                             </div>
-
+                        }
+                        @* Agent State Trend narrows to picked agents as Agent Performance did (FEAT-REPORT-AGENT-STATE-TREND-01). *@
+                        @if (TakesAgentPick)
+                        {
                             @* The agents are the SERVER's list for the chosen business units
                                (GetScopedAgentsQuery): never wider than what the report itself would
                                show, so a foreign agent cannot be offered and then silently dropped.
@@ -302,25 +305,25 @@
                                 </div>
                             </div>
                         }
-                        @if (IsQueueTrendWidget)
+                        @if (IsTrendWidget)
                         {
                             @* The metrics the chart opens with; the viewer can change them on the view screen. Names are the
                                column labels of Queue Report - one name per metric for the table and the chart. *@
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">@L["Report_Metrics"] (@L["Common_Default"])</label>
-                                @foreach (var metric in QueueTrendView.Metrics)
+                                @foreach (var metric in QueueTrendView.MetricsOf(WidgetType))
                                 {
                                     var name = metric;
                                     <label class="d-flex align-items-center gap-2 mb-1">
                                         <input type="checkbox" class="form-check-input m-0" checked="@_defaultMetrics.Contains(name)"
                                                @onchange="() => ToggleDefaultMetric(name)" />
-                                        <span class="report-trend-swatch" style="background:@QueueTrendView.Color(name)"></span>
-                                        <span>@L[ReportColumnLabels.KeyFor(name) ?? name]</span>
+                                        <span class="report-trend-swatch" style="background:@QueueTrendView.ColorOf(WidgetType, name)"></span>
+                                        <span>@L[QueueTrendView.LabelKeyOf(WidgetType, name)]</span>
                                     </label>
                                 }
                                 @if (_defaultMetrics.Count == 0)
                                 {
-                                    <div class="small text-muted">@L["Common_Default"]: @string.Join(", ", QueueTrendView.FallbackMetrics.Select(m => L[ReportColumnLabels.KeyFor(m) ?? m].Value))</div>
+                                    <div class="small text-muted">@L["Common_Default"]: @string.Join(", ", QueueTrendView.FallbackOf(WidgetType).Select(m => L[QueueTrendView.LabelKeyOf(WidgetType, m)].Value))</div>
                                 }
                             </div>
                             @* The chart type the widget opens with (FEAT-REPORT-QUEUE-TREND-CHART-TYPE-01); a comparison draws lines. *@
@@ -619,8 +622,12 @@
     // End-of-shift queues: the step the widget opens with (Day when nothing is stored).
     private ReportStep _defaultStep = ReportStep.Day;
     // Queue Report and Agent Report open with a step; Agent Report also with a row mode (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01).
-    private bool TakesDefaultStep => WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents or ReportWidgetType.QueueTrend;
+    private bool TakesDefaultStep => WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents or ReportWidgetType.QueueTrend or ReportWidgetType.AgentStateTrend;
     private bool IsQueueTrendWidget => WidgetType == ReportWidgetType.QueueTrend;
+    // Both trend charts (Queue Trend, Agent State Trend): no columns, default metrics and chart type, one view body.
+    private bool IsTrendWidget => QueueTrendView.IsTrend(WidgetType);
+    // The agent pick: Agent Performance (retired, kept drawing) and Agent State Trend (AgentIds, backend 20:15:57Z).
+    private bool TakesAgentPick => IsAgentPerformanceWidget || WidgetType == ReportWidgetType.AgentStateTrend;
     private readonly HashSet<string> _defaultMetrics = new(StringComparer.Ordinal);
     private string _defaultChartType = "line";
     private void ToggleDefaultMetric(string m) { if (!_defaultMetrics.Remove(m)) _defaultMetrics.Add(m); }
@@ -888,7 +895,7 @@
     /// </summary>
     private async Task LoadScopedAgentsAsync()
     {
-        if (!IsAgentPerformanceWidget) return;
+        if (!TakesAgentPick) return;
 
         var key = string.Join(",", _selectedBuIds.OrderBy(x => x));
         if (key == _agentsLoadedForBus) return;
@@ -1138,7 +1145,7 @@
             // must look the same after a reopen, and a set has no order to remember.
             // An empty choice is not saved as empty - that would render a table with no columns;
             // null means "the standard set", which is what an untouched widget already means.
-            Columns = (IsQueueTrendWidget || _allowedColumns is null || _selectedColumns.Count == 0)
+            Columns = (IsTrendWidget || _allowedColumns is null || _selectedColumns.Count == 0)
                 ? null
                 : _allowedColumns.Where(_selectedColumns.Contains).ToList(),
             PageSize = InitialConfig?.PageSize ?? 25,
@@ -1149,11 +1156,11 @@
             // The default step belongs to Queue Report and Agent Report; the server refuses it on any other type.
             DefaultStep = TakesDefaultStep ? ReportWidgetSteps.ToConfig(_defaultStep) : null,
             DefaultRowMode = TakesDefaultRowMode ? ReportRowModes.ToConfig(_defaultRowMode) : null,
-            // Queue Trend only; the server refuses both on any other type. Metrics in the chart's own order.
+            // Workgroups: Queue Trend only; DefaultMetrics: both trend charts, in the chart's own order. The server refuses them elsewhere.
             Workgroups = IsQueueTrendWidget && _selectedQueues.Count > 0 ? _selectedQueues.OrderBy(w => w, StringComparer.CurrentCultureIgnoreCase).ToList() : null,
-            DefaultMetrics = IsQueueTrendWidget && _defaultMetrics.Count > 0 ? QueueTrendView.Metrics.Where(_defaultMetrics.Contains).ToList() : null,
+            DefaultMetrics = IsTrendWidget && _defaultMetrics.Count > 0 ? QueueTrendView.MetricsOf(WidgetType).Where(_defaultMetrics.Contains).ToList() : null,
             // Line is the default, so it is not written; any other type only on Queue Trend.
-            DefaultChartType = IsQueueTrendWidget && _defaultChartType != "line" ? _defaultChartType : null,
+            DefaultChartType = IsTrendWidget && _defaultChartType != "line" ? _defaultChartType : null,
             // The mode belongs to AgentPerformance only; the server refuses it on other types.
             Mode = IsAgentPerformanceWidget ? _mode : null,
             // Carried through untouched: the agent pick has no control yet (backend owes the
@@ -1162,7 +1169,7 @@
             // Nothing ticked = every agent in scope, so an empty set is saved as null rather than
             // as an empty list: an empty list would read as "these zero agents" to anything that
             // later tells the two apart.
-            AgentIds = IsAgentPerformanceWidget && _selectedAgentIds.Count > 0
+            AgentIds = TakesAgentPick && _selectedAgentIds.Count > 0
                 ? _agents.Select(a => a.AgentId).Where(_selectedAgentIds.Contains).ToList()
                 : null,
             Appearance = new AppearanceConfig
