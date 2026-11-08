@@ -117,6 +117,9 @@ public class QueueTrendViewGuardTests
 
     private static string IncompleteNote(string text) => Regex.Match(text, @"@if \(_incomplete\)[\s\S]*?</div>|@if \(_incomplete\)[\s\S]*$").Value;
 
+    private static string MissingDrawnAs(string js)
+        => System.Text.RegularExpressions.Regex.Match(js, @"\(v === null \|\| v === undefined\) \? (.+?) : v\)?").Groups[1].Value;
+
     private static List<string> NewChartCode(string text) => Regex.Matches(text, @"new\s+Chart\s*\(").Select(m => m.Value).ToList();
 
     [Fact]
@@ -125,10 +128,17 @@ public class QueueTrendViewGuardTests
         var js = Read("src", "CcDashboard.Web", "wwwroot", "js", "daytrendChart.js");
         js.Should().Contain("if (options?.compareLabels)", "the top axis only when a comparison is passed");
         js.Should().Contain("if (options?.periodLabels)", "the per-point date tooltip only when asked");
-        js.Should().Contain("(options?.keepNulls ? null : 0)", "DayTrend keeps its zeros; only Queue Trend keeps gaps");
+        // PR234-V4-TREND-GAPS-AND-OVERSHOOT-01 (operator 2026-11-08 23:21): a missing value is 0 on every chart; the trends
+        // ask for a monotone curve, which never goes past its points.
+        MissingDrawnAs(js).Should().Be("0", "zeros, not gaps - one rule for DayTrend and both trends");
+        js.Should().Contain("cubicInterpolationMode: options?.monotone ? 'monotone' : 'default'");
+        var widget = Read("src", "CcDashboard.Web", "Components", "ReportWidgets", "QueueTrendReportWidget.razor");
+        widget.Should().Contain("monotone = true").And.NotContain("keepNulls");
+        // NEGATIVE HALF: the gap rule deployed in 12faa24..27e4161 is seen.
+        MissingDrawnAs("(v === null || v === undefined) ? (options?.keepNulls ? null : 0) : v").Should().NotBe("0");
         js.Split("new Chart(").Length.Should().Be(2, "still one place that creates a chart");
         Read("src", "CcDashboard.Web", "Components", "Widgets", "DayTrendWidget.razor")
-            .Should().NotContain("compareLabels").And.NotContain("keepNulls", "DayTrend passes none of the new options");
+            .Should().NotContain("compareLabels").And.NotContain("monotone", "DayTrend passes none of the new options");
     }
 
     [Fact]

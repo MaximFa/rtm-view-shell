@@ -261,7 +261,8 @@ else
             chartType = _chartType,
             fontColor = DarkMode ? "#e4e4e7" : (string?)null,
             fontSize = 11,
-            keepNulls = true,
+            // Both trends (operator 2026-11-08 23:21): no interval is a 0, not a gap; the curve stays within its points.
+            monotone = true,
             percent = Type == ReportWidgetType.AgentStateTrend,
             timeHours = true,
             periodLabels = labels,

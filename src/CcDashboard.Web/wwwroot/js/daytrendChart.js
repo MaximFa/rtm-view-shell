@@ -243,14 +243,18 @@ window.dayTrendChart = {
         const configuredDatasets = datasets.map(ds => {
             const baseConfig = {
                 label: ds.label,
-                // keepNulls (Queue Trend): a derived value with nothing under it is a gap, not a false zero.
-                data: ds.data.map(v => (v === null || v === undefined) ? (options?.keepNulls ? null : 0) : v),
+                // A missing value is drawn as 0 - for DayTrend as always, and for both report trends too (operator 2026-11-08
+                // 23:21, PR234-V4-TREND-GAPS-AND-OVERSHOOT-01: zeros, not gaps). The tooltip still shows the value as 0.
+                data: ds.data.map(v => (v === null || v === undefined) ? 0 : v),
                 borderColor: ds.color,
                 backgroundColor: ds.color + '40',
                 borderWidth: ds.isAgentMetric ? 2 : 2,
                 borderDash: ds.isAgentMetric ? [5, 5] : (ds.dashed ? [6, 4] : []),
                 fill: options?.chartType === 'area',
                 tension: 0.3,
+                // monotone (report trends, PR234-V4-TREND-GAPS-AND-OVERSHOOT-01): the curve never leaves the range of its
+                // points - "Other" went below 0 % between two zero-ish points. DayTrend passes nothing and keeps its curve.
+                cubicInterpolationMode: options?.monotone ? 'monotone' : 'default',
                 pointRadius: options?.showDataLabels ? 4 : 2,
                 pointHoverRadius: 6,
                 yAxisID: ds.isTimeMetric ? 'y1' : 'y',
