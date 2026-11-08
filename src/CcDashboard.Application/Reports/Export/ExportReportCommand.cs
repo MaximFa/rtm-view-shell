@@ -72,6 +72,13 @@ public class ExportReportCommandHandler(
 
         foreach (var widget in screen.Widgets.Where(w => !w.IsDeleted))
         {
+            // FEAT-REPORT-QUEUE-TREND-COMPARE-01 (operator 2026-11-08 18:22, «пока не выгружаем»): a chart is listed, not run
+            if (widget.WidgetType == ReportWidgetType.QueueTrend)
+            {
+                skipped.Add(new SkippedWidget(widget.Id, GetWidgetTitle(widget), ReportReasonCodes.NotExportable, "A chart is not exported"));
+                continue;
+            }
+
             // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: every report covers the screen's From..To; the step and the row mode the
             // screen shows travel per widget (a type that does not take them gets none, so it is not refused for them)
             ReportStep? step = null;
@@ -190,6 +197,7 @@ public class ExportReportCommandHandler(
         ReportReasonCodes.NoData => "No data for the selected period",
         ReportReasonCodes.InvalidConfig => "The widget settings are not valid",
         ReportReasonCodes.Retired => "This report type has been retired",
+        ReportReasonCodes.NotExportable => "A chart is not exported",
         _ => "Not exported - reason not recognised"
     };
 

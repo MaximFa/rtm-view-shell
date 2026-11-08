@@ -165,4 +165,15 @@ public class LastDataDayTests
         (await Run(ReportWidgetType.EndOfShiftAgents)).Should().Be(new LastDataDayResult(null, ReportReasonCodes.Denied));
         await NoStoreCall();
     }
+
+    [Fact]
+    public async Task QueueTrend_IsTheQueuesRule_NarrowedByItsPickedQueues()
+    {
+        LastAt(new DateTime(2026, 11, 6, 11, 30, 0, DateTimeKind.Utc));
+        var r = await Run(ReportWidgetType.QueueTrend, """{ "scope": { "businessUnitIds": [1] }, "workgroups": ["Support", "Foreign"] }""");
+
+        r.Should().Be(new LastDataDayResult(new DateOnly(2026, 11, 6)));
+        await _repo.Received(1).GetLastIntervalStartAsync(TenantId, ReportDataSet.Queues,
+            Arg.Is<IReadOnlySet<string>>(k => k.SetEquals(new[] { "Support" })), Arg.Any<CancellationToken>());
+    }
 }

@@ -38,7 +38,8 @@ public class GetLastDataDayQueryHandler(
         new Dictionary<ReportWidgetType, ReportDataSet>
         {
             [ReportWidgetType.EndOfShiftQueues] = ReportDataSet.Queues,
-            [ReportWidgetType.EndOfShiftAgents] = ReportDataSet.Agents
+            [ReportWidgetType.EndOfShiftAgents] = ReportDataSet.Agents,
+            [ReportWidgetType.QueueTrend] = ReportDataSet.Queues
         };
 
     private TimeZoneInfo Zone => displayZone?.Zone ?? TimeZoneInfo.Utc;
@@ -77,7 +78,8 @@ public class GetLastDataDayQueryHandler(
                 var scope = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
                 if (scope.Denied)
                     return new LastDataDayResult(null, ReportReasonCodes.Denied);
-                keys = scope.EffectiveWorkgroups;
+                // narrowed by the trend chart's picked queues (none on the queues report) - the run's own rule
+                keys = CcDashboard.Application.Handlers.RunReportWidgetQueryHandler.NarrowToPicked(scope.EffectiveWorkgroups, config.Workgroups).Effective;
                 break;
             }
             case ReportDataSet.Agents:

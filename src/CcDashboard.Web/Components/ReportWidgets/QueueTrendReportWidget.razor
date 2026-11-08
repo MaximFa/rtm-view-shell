@@ -1,0 +1,406 @@
+@using System.Globalization
+@using System.Text.Json
+@using MediatR
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
+@using CcDashboard.Application.HistoricalReports.Queries
+@using CcDashboard.Contracts.Common
+@using CcDashboard.Domain.Domain.Reports
+@using ReportColumnKind = CcDashboard.Application.HistoricalReports.ReportColumnKind
+@using ReportIntervalLabel = CcDashboard.Application.HistoricalReports.ReportIntervalLabel
+@inject IMediator Mediator
+@inject IStringLocalizer<SharedResources> L
+@inject ILogger<QueueTrendReportWidget> Logger
+@inject IJSRuntime JS
+@inject CcDashboard.Web.Services.ReportModalService Modal
+@implements IAsyncDisposable
+
+@* Queue Trend (FEAT-REPORT-QUEUE-TREND-COMPARE-01, operator 2026-11-07 / 2026-11-08): queue metrics over the page's period by
+   step, as lines, with an optional comparison period of the same length drawn dashed in the same colour. Drawn by the
+   DayTrend chart module (daytrendChart.js) through its opt-in options - no second copy of the chart code. Agreed with the
+   operator on the mockup (.coord/measure/queue-trend-1108/mockup.html): X left to right (18:20); two Y axes - counts and
+   percent on the left, time on the right (18:21); the legend names each metric once by its colour, the hover shows the
+   date and value of the point under the mouse (18:17); not exported (18:22). *@
+
+<div class="report-widget-shownfor d-flex align-items-center justify-content-between gap-2 small text-muted px-2 pt-1">
+    <span role="note">@ShownForText</span>
+    @if (WidgetId != Guid.Empty)
+    {
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 report-step-button"
+                title="@L["Widget_LocalViewSettings"]" @onclick="OpenWindow">
+            <i class="bi bi-calendar3-range me-1" aria-hidden="true"></i>@L["Report_Step"]: @StepName(_step)@if (_compareFrom is { } cf){<text> · @string.Format(L["Report_CompareFromShort"].Value, Day(cf))</text>}
+            @if (_personal is null)
+            {
+                <span class="ms-1 opacity-75">(@L["Common_Default"])</span>
+            }
+        </button>
+    }
+</div>
+
+@if (_denied)
+{
+    <div class="alert alert-warning"><i class="bi bi-shield-exclamation me-2"></i>@L["Report_AccessDenied"]</div>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>@_error</div>
+}
+else if (_result is null)
+{
+    <div class="d-flex justify-content-center py-4">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">@L["Common_Loading"]</span></div>
+    </div>
+}
+else
+{
+    @if (_incomplete)
+    {
+        <div class="alert alert-warning py-1 px-2 mb-1 small" role="status">
+            <i class="bi bi-hourglass-split me-1"></i>@IncompleteText
+        </div>
+    }
+    @* The legend names each metric ONCE, by its colour (operator 18:17): the comparison is the same colour, dashed. *@
+    <div class="report-trend-legend small px-2">
+        @foreach (var m in _metrics)
+        {
+            <span class="report-trend-legend-item"><i style="border-color:@QueueTrendView.Color(m)"></i>@MetricName(m)</span>
+        }
+    </div>
+    <div class="report-trend-chart">
+        <canvas id="@_chartId"></canvas>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ReportWidgetConfig? Config { get; set; }
+    [Parameter, EditorRequired] public DateTime From { get; set; }
+    [Parameter, EditorRequired] public DateTime To { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public Guid? TenantId { get; set; }
+    [Parameter] public Guid WidgetId { get; set; }
+
+    private readonly string _chartId = "qt-" + Guid.NewGuid().ToString("N");
+    private bool _denied;
+    private string? _error;
+    private QueueTrendResult? _result;
+    private bool _incomplete;
+    private DateTime? _dataThroughUtc;
+    private bool _needsDraw;
+    private DateTime _lastFrom;
+    private DateTime _lastTo;
+    private string? _lastConfigJson;
+
+    // ---- the viewer's own view: step, metrics, comparison start (UserWidgetSettings, one row, written whole) ----------
+    private const string StepKey = "reportStep";
+    private const string MetricsKey = "reportMetrics";
+    private const string CompareKey = "reportCompareFrom";
+
+    private record PersonalView(ReportStep? Step, IReadOnlyList<string>? Metrics, DateTime? CompareFrom);
+    private PersonalView? _personal;
+    private bool _personalLoaded;
+
+    private ReportStep _step = ReportStep.Day;
+    private IReadOnlyList<string> _metrics = QueueTrendView.FallbackMetrics;
+    private DateTime? _compareFrom;
+
+    // the window's draft
+    private ReportStep _viewStep;
+    private readonly HashSet<string> _viewMetrics = new(StringComparer.Ordinal);
+    private string _viewCompareText = string.Empty;
+    private bool _viewCompareBad;
+
+    private string StepName(ReportStep s) => L[ReportWidgetSteps.NameKey(s)].Value;
+    private string MetricName(string m) => L[ReportColumnLabels.KeyFor(m) ?? m].Value;
+    private static string Day(DateTime d) => d.ToString(ReportIntervalLabel.DayFormat, CultureInfo.InvariantCulture);
+
+    private string ShownForText
+    {
+        get
+        {
+            var main = string.Format(L["Report_ShownForRange"].Value, Day(From), Day(To));
+            return _compareFrom is { } cf
+                ? main + " · " + string.Format(L["Report_ComparePeriod"].Value, Day(cf), Day(QueueTrendView.CompareTo(cf, From, To)))
+                : main;
+        }
+    }
+
+    private string IncompleteText => _dataThroughUtc is null
+        ? L["Report_Incomplete"].Value.Replace("{0}", "-")
+        : string.Format(L["Report_Incomplete"].Value, ReportIntervalLabel.Instant(WallClock.ToServerLocal(_dataThroughUtc.Value)));
+
+    private void ApplyEffective()
+    {
+        _step = _personal?.Step ?? ReportWidgetSteps.FromConfig(Config?.DefaultStep) ?? ReportStep.Day;
+        _metrics = QueueTrendView.Effective(_personal?.Metrics?.ToList(), Config?.DefaultMetrics);
+        _compareFrom = _personal?.CompareFrom;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_personalLoaded)
+        {
+            _personalLoaded = true;
+            await LoadPersonalAsync();
+        }
+        var configJson = Config?.ToJson();
+        if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
+        {
+            _lastFrom = From;
+            _lastTo = To;
+            _lastConfigJson = configJson;
+            ApplyEffective();
+            await LoadData();
+        }
+    }
+
+    private async Task LoadPersonalAsync()
+    {
+        if (WidgetId == Guid.Empty) return;
+        try
+        {
+            var json = await Mediator.Send(new CcDashboard.Application.Queries.Widgets.GetUserWidgetSettingsQuery(WidgetId));
+            if (string.IsNullOrEmpty(json)) return;
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return;
+            ReportStep? step = root.TryGetProperty(StepKey, out var s) && s.ValueKind == JsonValueKind.String
+                && Enum.TryParse<ReportStep>(s.GetString(), true, out var st) && Enum.IsDefined(st) ? st : null;
+            IReadOnlyList<string>? metrics = root.TryGetProperty(MetricsKey, out var m) && m.ValueKind == JsonValueKind.String
+                ? m.GetString()!.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(QueueTrendView.Metrics.Contains).ToList()
+                : null;
+            DateTime? compare = root.TryGetProperty(CompareKey, out var c) && c.ValueKind == JsonValueKind.String
+                ? QueueTrendView.FromStored(c.GetString()) : null;
+            if (step is not null || metrics is { Count: > 0 } || compare is not null)
+                _personal = new PersonalView(step, metrics is { Count: > 0 } ? metrics : null, compare);
+        }
+        catch (Exception ex)
+        {
+            // An unreadable setting is not a reason to refuse the chart: it opens with the widget's defaults.
+            Logger.LogWarning(ex, "Queue trend {WidgetId}: view settings could not be read", WidgetId);
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _error = null;
+        _denied = false;
+        try
+        {
+            var effectiveConfig = Config ?? new ReportWidgetConfig();
+            // The page's period, no shift hours - as every report since 2026-11-08.
+            var res = await Mediator.Send(new RunReportWidgetQuery(
+                ReportWidgetType.QueueTrend,
+                effectiveConfig.ToJson(),
+                From,
+                To,
+                1,
+                TenantId)
+            {
+                Step = _step,
+                CompareFrom = _compareFrom
+            });
+            if (res.Denied) { _denied = true; _result = null; }
+            else if (!string.IsNullOrEmpty(res.Error))
+            {
+                if (ReportErrorText.IsUnknown(res.ErrorCode))
+                    Logger.LogWarning("Queue trend failed with an unrecognised error code {ErrorCode}: {Error}", res.ErrorCode, res.Error);
+                _error = L[ReportErrorText.KeyFor(res.ErrorCode)].Value;
+                _result = null;
+            }
+            else
+            {
+                _result = res.QueueTrend;
+                _incomplete = res.Incomplete;
+                _dataThroughUtc = res.DataThroughUtc;
+                _needsDraw = _result is not null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "QueueTrendReportWidget load failed");
+            _error = L["Report_ErrorUnknown"].Value;
+            _result = null;
+        }
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_needsDraw || _result is null) return;
+        _needsDraw = false;
+        var r = _result;
+        // Both axes are written by the ONE interval rule (dates by step, operator 2026-11-07 22:32), the answer's step.
+        var labels = r.Points.Select(p => ReportIntervalLabel.Cell(p, r.Step)).ToArray();
+        var compareLabels = r.ComparePoints?.Select(p => ReportIntervalLabel.Cell(p, r.Step)).ToArray();
+        var datasets = new List<object>();
+        foreach (var metric in _metrics)
+        {
+            var series = r.Series.FirstOrDefault(s => s.Metric == metric);
+            if (series is null) continue;
+            var isTime = series.Kind == ReportColumnKind.DurationSec;
+            var name = MetricName(metric);
+            var color = QueueTrendView.Color(metric);
+            datasets.Add(new { label = name, metric = name, data = series.Values, color, isTimeMetric = isTime, period = "main", dashed = false });
+            if (compareLabels is not null && series.CompareValues is not null)
+                datasets.Add(new { label = name, metric = name, data = series.CompareValues, color, isTimeMetric = isTime, period = "compare", dashed = true });
+        }
+        var options = new
+        {
+            chartType = "line",
+            fontColor = DarkMode ? "#e4e4e7" : (string?)null,
+            fontSize = 11,
+            keepNulls = true,
+            timeHours = true,
+            periodLabels = labels,
+            compareLabels
+        };
+        try
+        {
+            await JS.InvokeVoidAsync("dayTrendChart.render", _chartId, labels, datasets, options);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "QueueTrendReportWidget: chart render failed");
+        }
+    }
+
+    // ---- the view window, drawn by the page's ReportModalHost ----------------------------------------------------------
+
+    private async Task OpenWindow()
+    {
+        _viewStep = _step;
+        _viewMetrics.Clear();
+        foreach (var m in _metrics) _viewMetrics.Add(m);
+        _viewCompareText = _compareFrom is { } cf ? Day(cf) : string.Empty;
+        _viewCompareBad = false;
+        await Modal.ShowAsync(this, this, L["Widget_LocalViewSettings"].Value, WindowBody, CloseWindow, WindowFooter);
+    }
+
+    private Task CloseWindow() { Modal.Hide(this); return Task.CompletedTask; }
+
+    private void PickStep(ReportStep s) { _viewStep = s; Modal.Refresh(this); }
+    private void ToggleMetric(string m) { if (!_viewMetrics.Remove(m)) _viewMetrics.Add(m); Modal.Refresh(this); }
+    private void OnCompareInput(ChangeEventArgs e)
+    {
+        _viewCompareText = e.Value?.ToString() ?? string.Empty;
+        _viewCompareBad = !string.IsNullOrWhiteSpace(_viewCompareText) && ViewCompare is null;
+        Modal.Refresh(this);
+    }
+
+    private DateTime? ViewCompare => CcDashboard.Web.Components.Shared.ColumnFilterDates.Parse(_viewCompareText, ReportIntervalLabel.DayFormat);
+
+    private bool CanApply => _viewMetrics.Count > 0 && !_viewCompareBad;
+
+    private RenderFragment WindowBody => __builder =>
+    {
+        <label class="form-label fw-semibold">@L["Report_Metrics"]</label>
+        <div class="mb-1">
+            @foreach (var metric in QueueTrendView.Metrics)
+            {
+                var m = metric;
+                <label class="d-flex align-items-center gap-2 mb-1">
+                    <input type="checkbox" class="form-check-input m-0" checked="@_viewMetrics.Contains(m)" @onchange="() => ToggleMetric(m)" />
+                    <span class="report-trend-swatch" style="background:@QueueTrendView.Color(m)"></span>
+                    <span>@MetricName(m)</span>
+                </label>
+            }
+        </div>
+        @if (_viewMetrics.Count == 0)
+        {
+            <div class="small text-danger mb-2">@L["Report_NoMetricsChosen"]</div>
+        }
+        <div class="small text-muted mb-3">@L["Common_Default"]: @string.Join(", ", QueueTrendView.Effective(null, Config?.DefaultMetrics).Select(MetricName))</div>
+
+        <label class="form-label fw-semibold">@L["Report_Step"]</label>
+        <div class="btn-group w-100" role="group" aria-label="@L["Report_Step"]">
+            @foreach (var step in ReportWidgetSteps.Ascending)
+            {
+                var s = step;
+                <button type="button" class="btn btn-sm @(_viewStep == s ? "btn-primary" : "btn-outline-secondary")"
+                        aria-pressed="@(_viewStep == s ? "true" : "false")" @onclick="() => PickStep(s)">@StepName(s)</button>
+            }
+        </div>
+        <div class="small text-muted mt-1 mb-3">@L["Common_Default"]: @StepName(ReportWidgetSteps.FromConfig(Config?.DefaultStep) ?? ReportStep.Day)</div>
+
+        @* Operator 18:08: only the START of the comparison is chosen; its end follows from the report's number of days. *@
+        <label class="form-label fw-semibold" for="@(_chartId + "-cmp")">@L["Report_CompareFrom"]</label>
+        <input id="@(_chartId + "-cmp")" type="text" class="form-control form-control-sm @(_viewCompareBad ? "is-invalid" : null)"
+               style="width: 140px;" inputmode="numeric" maxlength="10" placeholder="dd/MM/yyyy"
+               value="@_viewCompareText" @onchange="OnCompareInput" />
+        @if (ViewCompare is { } vc)
+        {
+            <div class="small text-muted mt-1">@string.Format(L["Report_CompareToComputed"].Value, QueueTrendView.Days(From, To), Day(QueueTrendView.CompareTo(vc, From, To)))</div>
+        }
+        else if (_viewCompareBad)
+        {
+            <div class="small text-danger mt-1">@L["Report_FilterValueNotUnderstood"]</div>
+        }
+        else
+        {
+            <div class="small text-muted mt-1">@L["Report_CompareEmpty"]</div>
+        }
+    };
+
+    private RenderFragment WindowFooter => __builder =>
+    {
+        <div class="d-flex justify-content-between w-100">
+            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ResetAsync">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>@L["Widget_ResetToDefault"]
+            </button>
+            <div>
+                <button type="button" class="btn btn-sm btn-secondary me-2" @onclick="CloseWindow">@L["Cancel"]</button>
+                <button type="button" class="btn btn-sm btn-primary" disabled="@(!CanApply)" @onclick="ApplyAsync">
+                    <i class="bi bi-check2 me-1"></i>@L["Apply"]
+                </button>
+            </div>
+        </div>
+    };
+
+    private async Task ApplyAsync()
+    {
+        if (!CanApply) return;
+        Modal.Hide(this);
+        var metrics = QueueTrendView.Metrics.Where(_viewMetrics.Contains).ToList();
+        var view = new PersonalView(_viewStep, metrics, ViewCompare);
+        try
+        {
+            // One settings row, written whole: saving one part alone would erase the others.
+            var stored = new Dictionary<string, string> { [StepKey] = view.Step!.Value.ToString(), [MetricsKey] = string.Join(",", metrics) };
+            if (view.CompareFrom is { } c) stored[CompareKey] = QueueTrendView.ToStored(c);
+            await Mediator.Send(new CcDashboard.Application.Commands.Widgets.SaveUserWidgetSettingsCommand(WidgetId, JsonSerializer.Serialize(stored)));
+        }
+        catch (Exception ex)
+        {
+            // In force on this screen all the same; only tomorrow's view is lost.
+            Logger.LogWarning(ex, "Queue trend {WidgetId}: view settings could not be saved", WidgetId);
+        }
+        _personal = view;
+        ApplyEffective();
+        await LoadData();
+    }
+
+    private async Task ResetAsync()
+    {
+        Modal.Hide(this);
+        try
+        {
+            await Mediator.Send(new CcDashboard.Application.Commands.Widgets.DeleteUserWidgetSettingsCommand(WidgetId));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Queue trend {WidgetId}: view settings could not be deleted", WidgetId);
+        }
+        _personal = null;
+        ApplyEffective();
+        await LoadData();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Modal.Hide(this);
+        try { await JS.InvokeVoidAsync("dayTrendChart.destroy", _chartId); }
+        catch (JSDisconnectedException) { }
+        catch (Exception ex) { Logger.LogDebug(ex, "Queue trend chart destroy"); }
+    }
+}

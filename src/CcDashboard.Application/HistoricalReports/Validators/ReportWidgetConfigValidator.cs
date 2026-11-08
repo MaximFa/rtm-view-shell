@@ -76,8 +76,21 @@ public class ReportWidgetConfigWithTypeValidator : AbstractValidator<(ReportWidg
 
         // FEAT-REPORT-EOS-CONFIGURABLE-01: a default step only on the end-of-shift queues report, and only a known one
         RuleFor(x => x)
-            .Must(x => x.Config.DefaultStep is null || x.WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents)
-            .WithMessage("The default interval step applies only to the end-of-shift queues and agents reports");
+            .Must(x => x.Config.DefaultStep is null || x.WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents or ReportWidgetType.QueueTrend)
+            .WithMessage("The default interval step applies only to the queues, agents and queue trend reports");
+        // FEAT-REPORT-QUEUE-TREND-COMPARE-01: the chart's own settings, and nothing of a table
+        RuleFor(x => x)
+            .Must(x => (x.Config.Workgroups is null && x.Config.DefaultMetrics is null) || x.WidgetType == ReportWidgetType.QueueTrend)
+            .WithMessage("Queues and default metrics apply only to the queue trend chart");
+        RuleFor(x => x.Config.Workgroups)
+            .Must(w => w is null || (w.Count <= 500 && w.All(i => !string.IsNullOrWhiteSpace(i) && i.Length <= 100)))
+            .WithMessage("Workgroups: at most 500 non-empty names of up to 100 characters");
+        RuleFor(x => x.Config.DefaultMetrics)
+            .Must(m => m is null || m.All(n => ReportWidgetConfig.QueueTrendMetrics.Any(c => c.Name == n)))
+            .WithMessage("Unknown metric(s) for the queue trend chart");
+        RuleFor(x => x)
+            .Must(x => x.WidgetType != ReportWidgetType.QueueTrend || x.Config.Columns is null)
+            .WithMessage("The queue trend chart has no columns");
         RuleFor(x => x)
             .Must(x => x.Config.DefaultRowMode is null || x.WidgetType == ReportWidgetType.EndOfShiftAgents)
             .WithMessage("The default row mode applies only to the end-of-shift agents report");

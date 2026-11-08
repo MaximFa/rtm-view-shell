@@ -95,6 +95,7 @@ public class RunReportWidgetQueryHandler(
         {
             ReportWidgetType.EndOfShiftAgents => await RunAgentSummaryAsync(rowMode, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.EndOfShiftQueues => await RunQueueSummaryAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
+            ReportWidgetType.QueueTrend => await RunQueueTrendAsync(tenantId, config, from, toExclusive, query, ct),
             _ => ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, $"Unknown widget type: {query.WidgetType}")
         };
     }
@@ -131,12 +132,16 @@ public class RunReportWidgetQueryHandler(
 
     /// <summary>The report types that take a step (and From..To). FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: both end-of-shift
     /// reports; no report takes shift hours any more.</summary>
-    internal static bool TakesStep(ReportWidgetType t) => t is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents;
+    internal static bool TakesStep(ReportWidgetType t) =>
+        t is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents or ReportWidgetType.QueueTrend;
+
+    /// <summary>The table reports that sort on the server (FEAT-REPORT-QUEUE-COLUMN-SORT-01); a chart has no columns.</summary>
+    internal static bool TakesSort(ReportWidgetType t) => t is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents;
 
     internal static string? ValidateStep(RunReportWidgetQuery q)
     {
         if (q.Step is not null && !TakesStep(q.WidgetType))
-            return "The interval step applies only to the end-of-shift queues and agents reports";
+            return "The interval step applies only to the queues, agents and queue trend reports";
         if (q.Step is not null && !Enum.IsDefined(q.Step.Value))
             return "Unknown interval step";
         if (q.RowMode is not null && q.WidgetType != ReportWidgetType.EndOfShiftAgents)
@@ -145,6 +150,8 @@ public class RunReportWidgetQueryHandler(
             return "Unknown row mode";
         if (q.ShiftStartHour.HasValue || q.ShiftEndHour.HasValue)
             return "Reports take dates from-to, not shift hours";
+        if (q.CompareFrom is not null && q.WidgetType != ReportWidgetType.QueueTrend)
+            return "A comparison period applies only to the queue trend chart";
         return null;
     }
 
@@ -175,7 +182,9 @@ public class RunReportWidgetQueryHandler(
     /// never an arbitrary name into reflection). Other types ignore the sort.</summary>
     internal static string? ValidateSort(RunReportWidgetQuery q)
     {
-        if (q.SortColumn is null || !TakesStep(q.WidgetType))
+        if (q.SortColumn is not null && q.WidgetType == ReportWidgetType.QueueTrend)
+            return "The queue trend chart has no columns to sort";
+        if (q.SortColumn is null || !TakesSort(q.WidgetType))
             return null;
         return ReportColumns.Find(q.WidgetType, q.SortColumn) is null ? "Unknown sort column" : null;
     }
@@ -345,6 +354,11 @@ public class RunReportWidgetQueryHandler(
     /// report run and for the last-day-with-data query (FEAT-REPORT-DEFAULT-LAST-DATA-DAY-01, agents).
     /// </summary>
     internal static (HashSet<string> Effective, IReadOnlyList<string> Dropped) NarrowToPickedAgents(
+        IReadOnlySet<string> scoped, IReadOnlyList<string>? picked) => NarrowToPicked(scoped, picked);
+
+    /// <summary>A widget's set: its scope, narrowed (never widened) by what its config picked (agents, or the trend's
+    /// queues). One rule for the runs and the last-day-with-data query.</summary>
+    internal static (HashSet<string> Effective, IReadOnlyList<string> Dropped) NarrowToPicked(
         IReadOnlySet<string> scoped, IReadOnlyList<string>? picked)
     {
         var effective = new HashSet<string>(scoped);
@@ -477,21 +491,7 @@ public class RunReportWidgetQueryHandler(
             .ThenBy(g => g.Key.Workgroup, StringComparer.CurrentCultureIgnoreCase)
             .Select(g =>
             {
-                var offered = g.Sum(i => i.Offered);
-                var answered = g.Sum(i => i.Answered);
-                var abandoned = g.Sum(i => i.Abandoned);
-                var inSl = g.Sum(i => i.AnsweredInSl);
-                var wait = g.Sum(i => i.SumWaitAnswered);
-                var talk = g.Sum(i => i.SumTalk);
-                var row = new QueueSummaryRow(
-                    g.Key.Interval.Shown,
-                    g.Key.Workgroup,
-                    g.Select(i => i.QueueId).FirstOrDefault(q => q.HasValue),
-                    offered, answered, abandoned, inSl, wait, talk,
-                    offered == 0 ? null : abandoned * 100.0 / offered,
-                    answered == 0 ? null : inSl * 100.0 / answered,
-                    answered == 0 ? null : (double)wait / answered,
-                    answered == 0 ? null : (double)talk / answered);
+                var row = QueueRow(g.Key.Interval.Shown, g.Key.Workgroup, g);
                 intervalKey[row] = g.Key.Interval.Key;
                 return row;
             })
@@ -516,6 +516,134 @@ public class RunReportWidgetQueryHandler(
             Step = step,
             PartialFirst = StepKey(from, step).Key != from,
             PartialLast = StepKey(toExclusive, step).Key != toExclusive
+        };
+    }
+
+    /// <summary>
+    /// The one formula of a queue row: sums of the half-hour buckets, derived values from the sums (never the mean of
+    /// per-interval percentages). Used by the queues report (per queue) and the queue trend chart (over its queues).
+    /// </summary>
+    internal static QueueSummaryRow QueueRow(DateTime shown, string workgroup,
+        IEnumerable<CcDashboard.Domain.Domain.Historical.HistQueueInterval> buckets)
+    {
+        var g = buckets as IReadOnlyCollection<CcDashboard.Domain.Domain.Historical.HistQueueInterval> ?? buckets.ToList();
+        var offered = g.Sum(i => i.Offered);
+        var answered = g.Sum(i => i.Answered);
+        var abandoned = g.Sum(i => i.Abandoned);
+        var inSl = g.Sum(i => i.AnsweredInSl);
+        var wait = g.Sum(i => i.SumWaitAnswered);
+        var talk = g.Sum(i => i.SumTalk);
+        return new QueueSummaryRow(
+            shown,
+            workgroup,
+            g.Select(i => i.QueueId).FirstOrDefault(q => q.HasValue),
+            offered, answered, abandoned, inSl, wait, talk,
+            offered == 0 ? null : abandoned * 100.0 / offered,
+            answered == 0 ? null : inSl * 100.0 / answered,
+            answered == 0 ? null : (double)wait / answered,
+            answered == 0 ? null : (double)talk / answered);
+    }
+
+    // ── FEAT-REPORT-QUEUE-TREND-COMPARE-01 ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Most intervals in one period of the trend chart (half-hours: ~41 days); beyond it: choose a larger step.</summary>
+    public const int TrendMaxPoints = 2000;
+
+    /// <summary>The intervals of a period by step, in time order - built from the period, not from the data, so an interval
+    /// without data is still a point. Key = UTC start (the two autumn 01:00 hours stay two), Shown = local start.</summary>
+    internal List<(DateTime Key, DateTime Shown)> TrendGrid(DateTime fromUtc, DateTime toExclusiveUtc, ReportStep step)
+    {
+        var grid = new List<(DateTime Key, DateTime Shown)>();
+        var seen = new HashSet<DateTime>();
+        for (var t = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc); t < toExclusiveUtc; t = t.AddMinutes(30))
+        {
+            var k = StepKey(t, step);
+            if (seen.Add(k.Key)) grid.Add(k);
+            if (grid.Count > TrendMaxPoints) break;
+        }
+        return grid;
+    }
+
+    private async Task<ReportWidgetResult> RunQueueTrendAsync(
+        Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, RunReportWidgetQuery query, CancellationToken ct)
+    {
+        const ReportWidgetType type = ReportWidgetType.QueueTrend;
+        var step = query.Step ?? config.DefaultStep ?? ReportStep.Day;
+
+        // the comparison period: from its first local day, as many local days as the main period (operator 18:08)
+        DateTime? cFrom = null, cToExclusive = null;
+        if (query.CompareFrom is { } compareDay)
+        {
+            var days = (query.To.Date - query.From.Date).Days + 1;
+            cFrom = Zone.WallToUtc(compareDay.Date);
+            cToExclusive = Zone.WallToUtc(compareDay.Date.AddDays(days));
+        }
+
+        var grid = TrendGrid(from, toExclusive, step);
+        var compareGrid = cFrom is null ? null : TrendGrid(cFrom.Value, cToExclusive!.Value, step);
+        if (grid.Count > TrendMaxPoints || compareGrid?.Count > TrendMaxPoints)
+            return ReportWidgetResult.CreateError(type, ReportReasonCodes.InvalidConfig,
+                $"More than {TrendMaxPoints} intervals in the period - choose a larger step");
+
+        var scopeResult = await scopeService.ResolveQueueScopeAsync(tenantId, config, ct);
+        if (scopeResult.Denied)
+            return ReportWidgetResult.CreateDenied(type);
+        var (effective, dropped) = NarrowToPicked(scopeResult.EffectiveWorkgroups, config.Workgroups);
+        if (dropped.Count > 0)
+            logger.LogWarning(
+                "SF-BI-002: User {UserId} PG {PgId} requested {RequestedCount} queues in {Type}, {DroppedCount} out-of-scope dropped (sample: {DroppedSample})",
+                currentUser.UserId, currentUser.PermissionGroupId, config.Workgroups!.Count, type, dropped.Count, string.Join(", ", dropped.Take(5)));
+
+        // one value per interval over all the widget's queues, by the queues report's own formula
+        async Task<Dictionary<DateTime, QueueSummaryRow>> SeriesRows(DateTime f, DateTime t)
+        {
+            var intervals = await ScopedQueueIntervalsAsync(tenantId, f, t, effective, ct);
+            return intervals
+                .GroupBy(i => StepKey(i.IntervalStart, step))
+                .ToDictionary(g => g.Key.Key, g => QueueRow(g.Key.Shown, "", g));
+        }
+
+        var main = await SeriesRows(from, toExclusive);
+        var compare = cFrom is null ? null : await SeriesRows(cFrom.Value, cToExclusive!.Value);
+        var empty = QueueRow(default, "", Array.Empty<CcDashboard.Domain.Domain.Historical.HistQueueInterval>());
+
+        double? ValueOf(QueueSummaryRow r, string metric) =>
+            typeof(QueueSummaryRow).GetProperty(metric)!.GetValue(r) switch
+            {
+                null => null,
+                var v => Convert.ToDouble(v, System.Globalization.CultureInfo.InvariantCulture)
+            };
+
+        var series = ReportWidgetConfig.QueueTrendMetrics.Select(m => new QueueTrendSeries(
+                m.Name,
+                m.Kind,
+                grid.Select(p => ValueOf(main.TryGetValue(p.Key, out var r) ? r : empty, m.Name)).ToList(),
+                compareGrid is null ? null
+                    // paired by index (the 1st with the 1st); intervals of the comparison past the main grid are dropped,
+                    // missing ones are null
+                    : grid.Select((_, i) => i < compareGrid.Count
+                        ? ValueOf(compare!.TryGetValue(compareGrid[i].Key, out var r) ? r : empty, m.Name)
+                        : null).ToList()))
+            .ToList();
+
+        var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);
+        var compareDays = (query.To.Date - query.From.Date).Days;
+        return new ReportWidgetResult
+        {
+            WidgetType = type,
+            EffectiveColumns = Array.Empty<string>(),
+            QueueTrend = new QueueTrendResult(
+                step,
+                grid.Select(p => p.Shown).ToList(),
+                compareGrid?.Take(grid.Count).Select(p => p.Shown).ToList(),
+                series,
+                query.From.Date,
+                query.To.Date,
+                query.CompareFrom?.Date,
+                query.CompareFrom?.Date.AddDays(compareDays)),
+            DataThroughUtc = through,
+            Incomplete = incomplete,
+            Step = step
         };
     }
 

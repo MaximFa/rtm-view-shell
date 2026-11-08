@@ -36,6 +36,9 @@
             case ReportWidgetType.EndOfShiftAgents:
                 <EndOfShiftAgentsReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" StepChanged="StepChanged" RowModeChanged="RowModeChanged" />
                 break;
+            case ReportWidgetType.QueueTrend:
+                <QueueTrendReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" />
+                break;
             case ReportWidgetType.AgentPerformance:
                 <AgentPerformanceReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" />
                 break;

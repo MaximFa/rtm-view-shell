@@ -24,6 +24,7 @@ public static class ReportErrorText
         "no-data" => "Report_ErrorNoData",
         "invalid-config" => "Report_ErrorInvalidConfig",
         "retired" => "Report_ErrorRetired",
+        "not-exportable" => "Report_ErrorNotExportable",
         _ => "Report_ErrorUnknown"
     };
 

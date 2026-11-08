@@ -52,6 +52,14 @@ public record ReportWidgetConfig
     [JsonPropertyName("agentIds")]
     public List<string>? AgentIds { get; init; }
 
+    /// <summary>Queue Trend only (FEAT-REPORT-QUEUE-TREND-COMPARE-01): the picked queues; null/empty = every queue in scope.</summary>
+    [JsonPropertyName("workgroups")]
+    public List<string>? Workgroups { get; init; }
+
+    /// <summary>Queue Trend only: the metrics the chart shows by default (editor); the viewer's own pick lives on the screen.</summary>
+    [JsonPropertyName("defaultMetrics")]
+    public List<string>? DefaultMetrics { get; init; }
+
     /// <summary>
     /// End-of-shift reports only: the shift hours in site wall clock, on the date picked on the page.
     /// The DATE is not stored here - operator, 2026-11-04: "from the screen, like the other reports".

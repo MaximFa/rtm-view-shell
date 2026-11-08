@@ -65,6 +65,26 @@ public record ReportWidgetConfig
     /// </summary>
     public ReportRowMode? DefaultRowMode { get; init; }
 
+    /// <summary>
+    /// FEAT-REPORT-QUEUE-TREND-COMPARE-01: the queues of the trend chart. Narrows the BU scope, never widens it (queues
+    /// outside it are dropped and logged, SF-BI-002). Null/empty = every queue in scope. Queue trend only.
+    /// </summary>
+    public IReadOnlyList<string>? Workgroups { get; init; }
+
+    /// <summary>
+    /// FEAT-REPORT-QUEUE-TREND-COMPARE-01: the metrics the chart shows by default (editor); the viewer's own pick lives on
+    /// the screen. Names from <see cref="QueueTrendMetrics"/>. Queue trend only.
+    /// </summary>
+    public IReadOnlyList<string>? DefaultMetrics { get; init; }
+
+    /// <summary>
+    /// FEAT-REPORT-QUEUE-TREND-COMPARE-01: the metrics of the queue trend chart = the Count / Percent / DurationSec columns
+    /// of the queues report row (ReportColumns, one rule), in its order.
+    /// </summary>
+    public static IReadOnlyList<ReportColumn> QueueTrendMetrics { get; } = ReportColumns.For(ReportWidgetType.EndOfShiftQueues)
+        .Where(c => c.Kind is ReportColumnKind.Count or ReportColumnKind.Percent or ReportColumnKind.DurationSec)
+        .ToList();
+
     /// <summary>Appearance settings (opaque, IGNORED server-side).</summary>
     public JsonElement? Appearance { get; init; }
 

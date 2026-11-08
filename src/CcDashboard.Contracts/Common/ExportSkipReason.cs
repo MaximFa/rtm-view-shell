@@ -32,6 +32,9 @@ public static class ExportSkipReason
     /// </summary>
     public const string InvalidConfig = "invalid-config";
 
+    /// <summary>The widget is a chart (Queue Trend): charts are not exported, the file is built without it (operator 2026-11-08 18:22).</summary>
+    public const string NotExportable = "not-exportable";
+
     /// <summary>Resource key for the line that names the widget and its reason: "{0} — {1}".</summary>
     public const string ItemKey = "Reports_ExportSkippedItem";
 
@@ -50,6 +53,7 @@ public static class ExportSkipReason
         Denied => "Reports_ExportSkippedDenied",
         NoData => "Reports_ExportSkippedNoData",
         InvalidConfig => "Reports_ExportSkippedInvalidConfig",
+        NotExportable => "Reports_ExportSkippedNotExportable",
         _ => null
     };
 

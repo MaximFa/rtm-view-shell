@@ -52,6 +52,26 @@ public record QueueSummaryRow(
     double? Asa,
     double? QueueAht);
 
+/// <summary>
+/// FEAT-REPORT-QUEUE-TREND-COMPARE-01 (contract 16:1xZ). Points = the intervals of the main period by step (local start);
+/// ComparePoints = the intervals of the comparison period (null without one), paired with Points by index. Each series:
+/// Values[i] at Points[i], CompareValues[i] at ComparePoints[i] (null where the comparison has no i-th interval). Sums over
+/// the widget's queues; percentages and averages from the sums of the interval. An interval without data: counts 0,
+/// derived values null.
+/// </summary>
+public record QueueTrendResult(
+    ReportStep Step,
+    IReadOnlyList<DateTime> Points,
+    IReadOnlyList<DateTime>? ComparePoints,
+    IReadOnlyList<QueueTrendSeries> Series,
+    DateTime PeriodFrom,
+    DateTime PeriodTo,
+    DateTime? CompareFrom,
+    DateTime? CompareTo);
+
+/// <summary>One metric of the queue trend chart; Kind from ReportColumns (Count / Percent / DurationSec).</summary>
+public record QueueTrendSeries(string Metric, ReportColumnKind Kind, IReadOnlyList<double?> Values, IReadOnlyList<double?>? CompareValues);
+
 public record QueueSummaryReportResult(
     IReadOnlyList<QueueSummaryRow> Rows,
     int TotalCount,

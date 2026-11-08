@@ -3700,6 +3700,45 @@ button.clr-swatch,
     outline-offset: 2px;
 }
 
+/* Queue Trend (FEAT-REPORT-QUEUE-TREND-COMPARE-01): the chart fills the widget; the legend names each metric once by its
+   colour (operator 2026-11-08 18:17). */
+.report-trend-chart {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 180px;
+}
+
+.report-trend-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    padding-block: 2px;
+}
+
+.report-trend-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.report-trend-legend-item i {
+    display: inline-block;
+    width: 22px;
+    border-top: 2px solid;
+}
+
+.report-trend-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.report-trend-queue-list {
+    max-height: min(40vh, 320px);
+    overflow-y: auto;
+}
+
 /* Dark mode footer */
 .fullscreen-dashboard.dark-mode .report-widget-footer {
     background-color: #1a1a1a;

@@ -32,6 +32,8 @@ public static class ReportWidgetPalette
         // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01): Agent Report covers them - for the period, or by a step.
         ReportWidgetType.EndOfShiftQueues,
         ReportWidgetType.EndOfShiftAgents,
+        // FEAT-REPORT-QUEUE-TREND-COMPARE-01 (operator 2026-11-08): queue metrics as lines, with a comparison period.
+        ReportWidgetType.QueueTrend,
     };
 
     public static string Category(ReportWidgetType type) => type switch
@@ -42,6 +44,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.EndOfShiftQueues => "Queues",
         ReportWidgetType.EndOfShiftAgents => "Agents",
         ReportWidgetType.AgentPerformance => "Agents",
+        ReportWidgetType.QueueTrend => "Queues",
         _ => "Other"
     };
 
@@ -78,6 +81,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.EndOfShiftQueues => "One row per queue for the shift window",
         ReportWidgetType.EndOfShiftAgents => "One row per agent for the shift window",
         ReportWidgetType.AgentPerformance => "Agent figures for the period: one row per agent, or one per agent per date",
+        ReportWidgetType.QueueTrend => "Queue metrics over the period by step, with an optional comparison period",
         _ => ""
     };
 
@@ -93,6 +97,8 @@ public static class ReportWidgetPalette
         ReportWidgetType.EndOfShiftQueues => "bi-ticket-perforated",
         ReportWidgetType.EndOfShiftAgents => "bi-people",
         ReportWidgetType.AgentPerformance => "bi-graph-up",
+        // Working icon until the operator's word (coordinator 17:02:51Z); bi-graph-up belongs to the retired AgentPerformance.
+        ReportWidgetType.QueueTrend => "bi-graph-up-arrow",
         _ => "bi-grid"
     };
 }

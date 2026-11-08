@@ -33,11 +33,15 @@
                                 @L["WidgetCfg_General"]
                             </button>
                         </li>
-                        <li class="nav-item">
-                            <button class="nav-link @(_tab == "columns" ? "active" : "")" @onclick='() => _tab = "columns"'>
-                                @L["WidgetCfg_Columns"]
-                            </button>
-                        </li>
+                        @if (!IsQueueTrendWidget)
+                        {
+                            @* A chart has no columns: the server refuses Columns on Queue Trend. *@
+                            <li class="nav-item">
+                                <button class="nav-link @(_tab == "columns" ? "active" : "")" @onclick='() => _tab = "columns"'>
+                                    @L["WidgetCfg_Columns"]
+                                </button>
+                            </li>
+                        }
                         <li class="nav-item">
                             <button class="nav-link @(_tab == "thresholds" ? "active" : "")" @onclick='() => _tab = "thresholds"'>
                                 @L["WidgetCfg_Thresholds"]
@@ -115,6 +119,47 @@
                             }
                         </div>
 
+                        @if (IsQueueTrendWidget)
+                        {
+                            @* Queue Trend (FEAT-REPORT-QUEUE-TREND-COMPARE-01): the queues summed on the chart - the SERVER's list for
+                               the chosen business units (GetScopedQueuesQuery), never wider than what the chart itself reads.
+                               Nothing picked = every queue in scope. *@
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">@L["Report_Queues"]</label>
+                                @if (_selectedBuIds.Count == 0)
+                                {
+                                    <div class="small text-muted">@L["ReportWidget_AgentsPickBuFirst"]</div>
+                                }
+                                else if (_queuesLoading)
+                                {
+                                    <div class="text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>
+                                }
+                                else
+                                {
+                                    <div class="small text-muted mb-1">
+                                        @if (_selectedQueues.Count == 0) { @L["Report_QueuesAllInScope"] }
+                                        else { @string.Format(L["ReportWidget_AgentsChosen"].Value, _selectedQueues.Count) }
+                                    </div>
+                                    @if (_queuesTruncated)
+                                    {
+                                        <div class="alert alert-warning py-1 px-2 small">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>@string.Format(L["ReportWidget_AgentsTruncated"].Value, _queues.Count, _queuesTotal)
+                                        </div>
+                                    }
+                                    <div class="report-trend-queue-list border rounded p-2">
+                                        @foreach (var q in _queues)
+                                        {
+                                            var workgroup = q.Workgroup;
+                                            <label class="d-flex align-items-center gap-2 mb-1">
+                                                <input type="checkbox" class="form-check-input m-0" checked="@_selectedQueues.Contains(workgroup)"
+                                                       @onchange="() => ToggleQueue(workgroup)" />
+                                                <span>@(q.DisplayName ?? q.Workgroup)</span>
+                                            </label>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
                         @if (IsAgentWidget)
                         {
                             <div class="mb-3">
@@ -255,6 +300,28 @@
                                                 @onclick="() => _defaultStep = stepChoice">@L[ReportWidgetSteps.NameKey(stepChoice)]</button>
                                     }
                                 </div>
+                            </div>
+                        }
+                        @if (IsQueueTrendWidget)
+                        {
+                            @* The metrics the chart opens with; the viewer can change them on the view screen. Names are the
+                               column labels of Queue Report - one name per metric for the table and the chart. *@
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">@L["Report_Metrics"] (@L["Common_Default"])</label>
+                                @foreach (var metric in QueueTrendView.Metrics)
+                                {
+                                    var name = metric;
+                                    <label class="d-flex align-items-center gap-2 mb-1">
+                                        <input type="checkbox" class="form-check-input m-0" checked="@_defaultMetrics.Contains(name)"
+                                               @onchange="() => ToggleDefaultMetric(name)" />
+                                        <span class="report-trend-swatch" style="background:@QueueTrendView.Color(name)"></span>
+                                        <span>@L[ReportColumnLabels.KeyFor(name) ?? name]</span>
+                                    </label>
+                                }
+                                @if (_defaultMetrics.Count == 0)
+                                {
+                                    <div class="small text-muted">@L["Common_Default"]: @string.Join(", ", QueueTrendView.FallbackMetrics.Select(m => L[ReportColumnLabels.KeyFor(m) ?? m].Value))</div>
+                                }
                             </div>
                         }
                         @if (TakesDefaultRowMode)
@@ -541,7 +608,52 @@
     // End-of-shift queues: the step the widget opens with (Day when nothing is stored).
     private ReportStep _defaultStep = ReportStep.Day;
     // Queue Report and Agent Report open with a step; Agent Report also with a row mode (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01).
-    private bool TakesDefaultStep => WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents;
+    private bool TakesDefaultStep => WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents or ReportWidgetType.QueueTrend;
+    private bool IsQueueTrendWidget => WidgetType == ReportWidgetType.QueueTrend;
+    private readonly HashSet<string> _defaultMetrics = new(StringComparer.Ordinal);
+    private void ToggleDefaultMetric(string m) { if (!_defaultMetrics.Remove(m)) _defaultMetrics.Add(m); }
+    private IReadOnlyList<ScopedQueue> _queues = Array.Empty<ScopedQueue>();
+    private readonly HashSet<string> _selectedQueues = new(StringComparer.Ordinal);
+    private bool _queuesLoading;
+    private bool _queuesTruncated;
+    private int _queuesTotal;
+    private string? _queuesLoadedForBus;
+    private void ToggleQueue(string w) { if (!_selectedQueues.Remove(w)) _selectedQueues.Add(w); }
+
+    /// <summary>
+    /// The pickable queues for the chosen business units (Queue Trend). As the agent list: a function of that choice, and
+    /// a picked queue the server no longer offers is unticked - otherwise the config would carry a name the chart drops.
+    /// </summary>
+    private async Task LoadScopedQueuesAsync()
+    {
+        if (!IsQueueTrendWidget) return;
+        var key = string.Join(",", _selectedBuIds.OrderBy(x => x));
+        if (key == _queuesLoadedForBus) return;
+        _queuesLoadedForBus = key;
+        if (_selectedBuIds.Count == 0) { _queues = Array.Empty<ScopedQueue>(); _queuesTruncated = false; _queuesTotal = 0; return; }
+        _queuesLoading = true;
+        StateHasChanged();
+        try
+        {
+            var res = await Mediator.Send(new GetScopedQueuesQuery(_selectedBuIds.ToList()));
+            _queues = res.Queues;
+            _queuesTruncated = res.Truncated;
+            _queuesTotal = res.TotalCount;
+            var offered = _queues.Select(q => q.Workgroup).ToHashSet(StringComparer.Ordinal);
+            _selectedQueues.RemoveWhere(w => !offered.Contains(w));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ReportWidgetConfigModal: failed to load the scoped queue list");
+            _queues = Array.Empty<ScopedQueue>();
+            _queuesTruncated = false;
+            _queuesTotal = 0;
+        }
+        finally
+        {
+            _queuesLoading = false;
+        }
+    }
     private bool TakesDefaultRowMode => WidgetType == ReportWidgetType.EndOfShiftAgents;
     private ReportRowMode _defaultRowMode = ReportRowMode.Summary;
     // No invented default here either: "summary" would silently decide for the operator which
@@ -813,12 +925,14 @@
         else
             _selectedBuIds.Add(buId);
         await LoadScopedAgentsAsync();
+        await LoadScopedQueuesAsync();
     }
 
     private async Task RemoveBu(int buId)
     {
         _selectedBuIds.Remove(buId);
         await LoadScopedAgentsAsync();
+        await LoadScopedQueuesAsync();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -846,6 +960,13 @@
                 _selectedAgentIds.Clear();
                 foreach (var id in InitialConfig.AgentIds ?? new List<string>())
                     _selectedAgentIds.Add(id);
+                _selectedQueues.Clear();
+                foreach (var w in InitialConfig.Workgroups ?? new List<string>())
+                    _selectedQueues.Add(w);
+                _queuesLoadedForBus = null;
+                _defaultMetrics.Clear();
+                foreach (var m in InitialConfig.DefaultMetrics ?? new List<string>())
+                    _defaultMetrics.Add(m);
 
                 // Appearance - typography
                 _tableFontSize = ResolveFontSizeToPixel(InitialConfig.Appearance?.TableFontSize);
@@ -875,6 +996,9 @@
                 _defaultRowMode = ReportRowMode.Summary;
                 _mode = null;
                 _selectedAgentIds.Clear();
+                _selectedQueues.Clear();
+                _queuesLoadedForBus = null;
+                _defaultMetrics.Clear();
                 _tableFontSize = "14";
                 _headerFontSize = "14";
                 _lightBackground = "transparent";
@@ -905,6 +1029,7 @@
             }
 
             await LoadScopedAgentsAsync();
+            await LoadScopedQueuesAsync();
         }
         else
         {
@@ -999,7 +1124,7 @@
             // must look the same after a reopen, and a set has no order to remember.
             // An empty choice is not saved as empty - that would render a table with no columns;
             // null means "the standard set", which is what an untouched widget already means.
-            Columns = (_allowedColumns is null || _selectedColumns.Count == 0)
+            Columns = (IsQueueTrendWidget || _allowedColumns is null || _selectedColumns.Count == 0)
                 ? null
                 : _allowedColumns.Where(_selectedColumns.Contains).ToList(),
             PageSize = InitialConfig?.PageSize ?? 25,
@@ -1010,6 +1135,9 @@
             // The default step belongs to Queue Report and Agent Report; the server refuses it on any other type.
             DefaultStep = TakesDefaultStep ? ReportWidgetSteps.ToConfig(_defaultStep) : null,
             DefaultRowMode = TakesDefaultRowMode ? ReportRowModes.ToConfig(_defaultRowMode) : null,
+            // Queue Trend only; the server refuses both on any other type. Metrics in the chart's own order.
+            Workgroups = IsQueueTrendWidget && _selectedQueues.Count > 0 ? _selectedQueues.OrderBy(w => w, StringComparer.CurrentCultureIgnoreCase).ToList() : null,
+            DefaultMetrics = IsQueueTrendWidget && _defaultMetrics.Count > 0 ? QueueTrendView.Metrics.Where(_defaultMetrics.Contains).ToList() : null,
             // The mode belongs to AgentPerformance only; the server refuses it on other types.
             Mode = IsAgentPerformanceWidget ? _mode : null,
             // Carried through untouched: the agent pick has no control yet (backend owes the

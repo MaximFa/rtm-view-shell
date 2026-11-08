@@ -1234,5 +1234,18 @@
   <data name="Report_CanvasNoOverlap"><value>ווידג'טים לא יכולים לחפוף — הווידג'ט חזר למקומו.</value></data>
   <data name="Report_RowModeByStep"><value>לפי מרווח — שורה אחת לכל נציג לכל מרווח</value></data>
   <data name="Report_StepNotInSummary"><value>המרווח לא חל במצב מרוכז.</value></data>
+  <data name="Report_QueueTrend"><value>מגמת תורים</value></data>
+  <data name="Report_DescQueueTrend"><value>מדדי תורים לאורך התקופה לפי מרווח, עם תקופת השוואה לבחירה</value></data>
+  <data name="Report_ErrorNotExportable"><value>גרף אינו מיוצא לקובץ.</value></data>
+  <data name="Reports_ExportSkippedNotExportable"><value>גרף אינו מיוצא לקובץ</value></data>
+  <data name="Report_Metrics"><value>מדדים</value></data>
+  <data name="Report_CompareFrom"><value>תאריך התחלה להשוואה</value></data>
+  <data name="Report_CompareToComputed"><value>סיום (מחושב לפי {0} ימי הדוח): {1}</value></data>
+  <data name="Report_CompareEmpty"><value>ריק — בלי השוואה</value></data>
+  <data name="Report_ComparePeriod"><value>השוואה: {0} – {1}</value></data>
+  <data name="Report_CompareFromShort"><value>השוואה מ-{0}</value></data>
+  <data name="Report_NoMetricsChosen"><value>בחרו לפחות מדד אחד.</value></data>
+  <data name="Report_Queues"><value>תורים</value></data>
+  <data name="Report_QueuesAllInScope"><value>לא נבחר — כל התורים של היחידות העסקיות שנבחרו</value></data>
 </root>
 

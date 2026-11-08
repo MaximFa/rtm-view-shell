@@ -53,6 +53,15 @@ window.dayTrendChart = {
         canvas.style.height = '';
     },
 
+    // Seconds as mm:ss; with withHours, an hour or more as h:mm:ss (Queue Trend: "mm:ss / hh:mm:ss", operator 2026-11-08 18:21).
+    _formatSeconds: function (value, withHours) {
+        const total = Math.round(value);
+        const pad = n => n.toString().padStart(2, '0');
+        if (withHours && total >= 3600)
+            return Math.floor(total / 3600) + ':' + pad(Math.floor((total % 3600) / 60)) + ':' + pad(total % 60);
+        return pad(Math.floor(total / 60)) + ':' + pad(total % 60);
+    },
+
     // Read page font from --font-family token
     _getPageFont: function () {
         return getComputedStyle(document.documentElement).getPropertyValue('--font-family').trim() || undefined;
@@ -151,15 +160,12 @@ window.dayTrendChart = {
                     enabled: true,
                     callbacks: {
                         label: function (context) {
-                            let label = context.dataset.label || '';
+                            let label = context.dataset.metric || context.dataset.label || '';
                             if (label) label += ': ';
                             if (context.parsed.y !== null) {
-                                // Format time metrics as mm:ss
+                                // Format time metrics as mm:ss (hh:mm:ss for an hour or more, when the caller asks)
                                 if (context.dataset.isTimeMetric) {
-                                    const totalSeconds = Math.round(context.parsed.y);
-                                    const mins = Math.floor(totalSeconds / 60);
-                                    const secs = totalSeconds % 60;
-                                    label += mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+                                    label += window.dayTrendChart._formatSeconds(context.parsed.y, options?.timeHours);
                                 } else {
                                     label += context.parsed.y.toLocaleString();
                                 }
@@ -198,11 +204,27 @@ window.dayTrendChart = {
                     font: { size: options?.fontSize || 11, family: this._getPageFont() },
                     color: options?.fontColor || undefined,
                     callback: function (value) {
-                        const mins = Math.floor(value / 60);
-                        const secs = value % 60;
-                        return mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+                        return window.dayTrendChart._formatSeconds(value, options?.timeHours);
                     }
                 }
+            };
+        }
+
+        // FEAT-REPORT-QUEUE-TREND-COMPARE-01 (Queue Trend, operator 2026-11-08 18:08 / 18:17 / 18:20 / 18:21), all OPT-IN - DayTrend
+        // passes none of these and draws as before:
+        //   compareLabels - the comparison period's interval labels on a second X axis at the top (interval i over interval i);
+        //   periodLabels  - the main period's labels, for the tooltip title; a point's title is the date of ITS period.
+        if (options?.compareLabels) {
+            const tick = { font: { size: options?.fontSize || 11, family: this._getPageFont() }, color: options?.fontColor || undefined };
+            defaultOptions.scales.x2 = { position: 'top', labels: options.compareLabels, grid: { display: false }, ticks: tick };
+        }
+        if (options?.periodLabels) {
+            const main = options.periodLabels, compare = options.compareLabels || [];
+            defaultOptions.interaction = { mode: 'nearest', intersect: false };
+            defaultOptions.plugins.tooltip.callbacks.title = function (items) {
+                if (!items.length) return '';
+                const i = items[0].dataIndex;
+                return (items[0].dataset.period === 'compare' ? compare : main)[i] || '';
             };
         }
 
@@ -213,17 +235,20 @@ window.dayTrendChart = {
         const configuredDatasets = datasets.map(ds => {
             const baseConfig = {
                 label: ds.label,
-                data: ds.data.map(v => (v === null || v === undefined) ? 0 : v),
+                // keepNulls (Queue Trend): a derived value with nothing under it is a gap, not a false zero.
+                data: ds.data.map(v => (v === null || v === undefined) ? (options?.keepNulls ? null : 0) : v),
                 borderColor: ds.color,
                 backgroundColor: ds.color + '40',
                 borderWidth: ds.isAgentMetric ? 2 : 2,
-                borderDash: ds.isAgentMetric ? [5, 5] : [],
+                borderDash: ds.isAgentMetric ? [5, 5] : (ds.dashed ? [6, 4] : []),
                 fill: options?.chartType === 'area',
                 tension: 0.3,
                 pointRadius: options?.showDataLabels ? 4 : 2,
                 pointHoverRadius: 6,
                 yAxisID: ds.isTimeMetric ? 'y1' : 'y',
-                isTimeMetric: ds.isTimeMetric
+                isTimeMetric: ds.isTimeMetric,
+                metric: ds.metric,    // the metric's own name for the tooltip (Queue Trend)
+                period: ds.period     // 'main' | 'compare' (Queue Trend)
             };
             return baseConfig;
         });

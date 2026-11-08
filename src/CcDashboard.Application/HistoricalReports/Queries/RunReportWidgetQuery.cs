@@ -37,7 +37,10 @@ public record RunReportWidgetQuery(
     // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01 (contract 06:08:14Z): the end-of-shift agents report - Summary (one row per agent
     // for the period, no step) or ByStep (one row per interval of the step and agent). Null = the widget's DefaultRowMode,
     // else Summary. Other types refuse it.
-    ReportRowMode? RowMode = null
+    ReportRowMode? RowMode = null,
+    // FEAT-REPORT-QUEUE-TREND-COMPARE-01 (operator 2026-11-08 18:08): the first local day of the comparison period of the
+    // queue trend chart; its end is computed on the server from the length of From..To (no CompareTo). Other types refuse it.
+    DateTime? CompareFrom = null
 ) : IRequest<ReportWidgetResult>;
 
 /// <summary>FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: how the end-of-shift agents report lays out its rows. Appended only.</summary>
@@ -147,6 +150,9 @@ public record ReportWidgetResult
     /// <summary>EndOfShiftQueues result.</summary>
     public QueueSummaryReportResult? QueueSummary { get; init; }
 
+    /// <summary>FEAT-REPORT-QUEUE-TREND-COMPARE-01: the series of the queue trend chart; null for the other types.</summary>
+    public QueueTrendResult? QueueTrend { get; init; }
+
     /// <summary>
     /// FEAT-REPORT-EOS-*-01: the instant the historical aggregation has reached (UTC); null when nothing was aggregated yet.
     /// Set for the three summary types.
@@ -218,8 +224,10 @@ public static class ReportReasonCodes
     public const string InvalidConfig = "invalid-config";
     /// <summary>FEAT-REPORT-EOS-CONFIGURABLE-01: the report type was taken out of the product.</summary>
     public const string Retired = "retired";
+    /// <summary>FEAT-REPORT-QUEUE-TREND-COMPARE-01 (operator 2026-11-08 18:22): the type is not exported (a chart).</summary>
+    public const string NotExportable = "not-exportable";
 
-    public static readonly IReadOnlySet<string> All = new HashSet<string> { Denied, NoData, InvalidConfig, Retired };
+    public static readonly IReadOnlySet<string> All = new HashSet<string> { Denied, NoData, InvalidConfig, Retired, NotExportable };
 
     /// <summary>
     /// Export only: the widget failed with an empty or unrecognised code, or its run threw. Not a reason of its own -
