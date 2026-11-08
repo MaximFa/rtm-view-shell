@@ -12,7 +12,7 @@ using NSubstitute;
 namespace CcDashboard.Tests.Unit.HistoricalReports;
 
 /// <summary>
-/// FEAT-REPORT-EOS-AGENTS-01 / FEAT-REPORT-EOS-QUEUES-01 / FEAT-REPORT-AGENT-PERF-01.
+/// FEAT-REPORT-EOS-AGENTS-01 / FEAT-REPORT-EOS-QUEUES-01; FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01 (no shift hours, row mode).
 /// Every rule has its negative half: the same input one step to the other side of the rule gives the other answer.
 /// </summary>
 public class SummaryReportTests
@@ -66,48 +66,41 @@ public class SummaryReportTests
         SumLoggedInMs = 1800000, Handled = handled
     };
 
-    private Task<ReportWidgetResult> Eos(ReportWidgetType t, string cfg, int? start, int? end, DateTime? to = null) =>
-        _handler.Handle(new RunReportWidgetQuery(t, cfg, Day, to ?? Day, ShiftStartHour: start, ShiftEndHour: end), CancellationToken.None);
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: both end-of-shift reports take whole local days From..To, no shift hours
+    private Task<ReportWidgetResult> Eos(ReportWidgetType t, string cfg, DateTime? to = null, ReportRowMode? mode = null, ReportStep? step = null) =>
+        _handler.Handle(new RunReportWidgetQuery(t, cfg, Day, to ?? Day, Step: step, RowMode: mode), CancellationToken.None);
 
-    // ── shift validation ─────────────────────────────────────────────────────────────────────────
+    // ── no shift hours any more ──────────────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(16, 8, "across midnight")]
-    [InlineData(8, 8, "across midnight")]
-    [InlineData(null, 16, "required")]
-    [InlineData(8, 25, "0-23")]
-    public async Task Shift_Invalid_IsRejected(int? start, int? end, string message)
+    [InlineData(ReportWidgetType.EndOfShiftAgents)]
+    [InlineData(ReportWidgetType.EndOfShiftQueues)]
+    public async Task ShiftHoursOnTheQuery_AreRefused_OnBothEndOfShiftReports(ReportWidgetType type)
     {
         AgentScope(true, "a1");
-        var r = await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, start, end);
-        r.Error.Should().Contain(message);
+        QueueScope("Sales");
+        var r = await _handler.Handle(new RunReportWidgetQuery(type, AgentsCfg, Day, Day, ShiftStartHour: 8, ShiftEndHour: 16), CancellationToken.None);
+        r.ErrorCode.Should().Be(ReportReasonCodes.InvalidConfig);
         await _repo.DidNotReceiveWithAnyArgs().GetAgentIntervalsAsync(default, default, default, default!, default!, default);
-    }
-
-    [Fact]
-    public async Task Shift_Valid_Passes_AndOtherTypesRefuseShiftHours()
-    {
-        AgentScope(true, "a1");
-        (await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, 8, 16)).Error.Should().BeNull("negative half of the rejections above");
-        (await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, 8, 16, Day.AddDays(1))).Error.Should().Contain("one date");
-        var perf = """{ "scope": { "businessUnitIds": [1] }, "mode": "Summary" }""";
-        (await Eos(ReportWidgetType.AgentPerformance, perf, 8, 16)).Error.Should().Contain("only to the end-of-shift");
-        (await Eos(ReportWidgetType.AgentPerformance, perf, null, null)).Error.Should().BeNull();
+        await _repo.DidNotReceiveWithAnyArgs().GetQueueIntervalsAsync(default, default, default, default!, default!, default);
+        // negative half: the same query without hours runs
+        (await _handler.Handle(new RunReportWidgetQuery(type, AgentsCfg, Day, Day), CancellationToken.None)).Error.Should().BeNull();
     }
 
     // ── window ───────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Shift_Window_IsSiteWallHours_InUtc()
+    public async Task Agents_Window_IsTheWholeLocalDays_FromTo_HoursSavedInTheConfigAreIgnored()
     {
         AgentScope(true, "a1");
-        await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, 8, 16);
-        // 08:00-16:00 local on 03.11 (+02:00) = 06:00Z-14:00Z, end exclusive; not the whole day 22:00Z..22:00Z
+        await Eos(ReportWidgetType.EndOfShiftAgents,
+            """{ "scope": { "businessUnitIds": [1] }, "shiftStartHour": 8, "shiftEndHour": 16 }""", Day.AddDays(1));
+        // 03.11 00:00 local (+02:00) = 02.11 22:00Z .. 05.11 00:00 local = 04.11 22:00Z; not the old 06:00Z-14:00Z shift
         await _repo.Received(1).GetAgentIntervalsAsync(TenantId,
-            new DateTime(2026, 11, 3, 6, 0, 0), new DateTime(2026, 11, 3, 14, 0, 0),
+            new DateTime(2026, 11, 2, 22, 0, 0), new DateTime(2026, 11, 4, 22, 0, 0),
             Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
         await _repo.DidNotReceive().GetAgentIntervalsAsync(TenantId,
-            Arg.Is<DateTime>(d => d == new DateTime(2026, 11, 2, 22, 0, 0)), Arg.Any<DateTime>(),
+            Arg.Is<DateTime>(d => d == new DateTime(2026, 11, 3, 6, 0, 0)), Arg.Any<DateTime>(),
             Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
     }
 
@@ -121,8 +114,8 @@ public class SummaryReportTests
         {
             A("a1", Day.AddHours(1), 60000), A("x9", Day.AddHours(1), 60000) // x9: outside the PG, slipped through the store
         });
-        var cfg = """{ "scope": { "businessUnitIds": [1] }, "mode": "Summary", "agentIds": ["a1", "x9"] }""";
-        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, cfg, Day, Day), CancellationToken.None);
+        var cfg = """{ "scope": { "businessUnitIds": [1] }, "agentIds": ["a1", "x9"] }""";
+        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, cfg, Day, Day), CancellationToken.None);
 
         r.AgentSummary!.Rows.Select(x => x.AgentExternalId).Should().Equal("a1");
         await _repo.Received(1).GetAgentIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(),
@@ -132,22 +125,21 @@ public class SummaryReportTests
     [Fact]
     public async Task EmptyEffectiveSet_DoesNotQuery_EvenForFullScope()
     {
-        AgentScope(true, "a1");
-        var cfg = """{ "scope": { "businessUnitIds": [1] }, "mode": "Summary", "agentIds": ["zz"] }""";
+        var cfg = """{ "scope": { "businessUnitIds": [1] }, "agentIds": ["zz"] }""";
         _scope.ResolveAgentScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), AgentReportAxis.Detail, Arg.Any<CancellationToken>())
             .Returns(new ReportWidgetScopeResult { FullScope = true, EffectiveAgentIds = new HashSet<string> { "a1" } });
 
-        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, cfg, Day, Day), CancellationToken.None);
+        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, cfg, Day, Day), CancellationToken.None);
 
         r.AgentSummary!.Rows.Should().BeEmpty();
         // a full-scope query with an empty set would return every agent of the tenant
         await _repo.DidNotReceiveWithAnyArgs().GetAgentIntervalsAsync(default, default, default, default!, default!, default);
     }
 
-    // ── modes ────────────────────────────────────────────────────────────────────────────────────
+    // ── row mode (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01) ────────────────────────────────────────
 
     [Fact]
-    public async Task ByDate_OneRowPerLocalDate_Summary_OneRowPerAgent()
+    public async Task ByStepDay_OneRowPerLocalDate_Summary_OneRowPerAgent_WithoutAStep()
     {
         AgentScope(true, "a1");
         _repo.GetAgentIntervalsAsync(default, default, default, default!, default!, default).ReturnsForAnyArgs(new[]
@@ -155,31 +147,33 @@ public class SummaryReportTests
             A("a1", new DateTime(2026, 11, 3, 10, 0, 0), 60000),
             A("a1", new DateTime(2026, 11, 3, 22, 30, 0), 120000) // 04.11 00:30 local: next local date, same UTC date
         });
-        var byDate = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance,
-            """{ "scope": { "businessUnitIds": [1] }, "mode": "ByDate" }""", Day, Day.AddDays(1)), CancellationToken.None);
-        var summary = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance,
-            """{ "scope": { "businessUnitIds": [1] }, "mode": "Summary" }""", Day, Day.AddDays(1)), CancellationToken.None);
+        var byStep = await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, Day.AddDays(1), ReportRowMode.ByStep, ReportStep.Day);
+        var summary = await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, Day.AddDays(1), ReportRowMode.Summary, ReportStep.Day);
 
-        byDate.AgentSummary!.Rows.Select(r => r.Date).Should().Equal(new DateTime(2026, 11, 3), new DateTime(2026, 11, 4));
+        byStep.AgentSummary!.Rows.Select(r => r.IntervalStart).Should().Equal(new DateTime(2026, 11, 3), new DateTime(2026, 11, 4));
+        (byStep.RowMode, byStep.Step).Should().Be((ReportRowMode.ByStep, ReportStep.Day));
         summary.AgentSummary!.Rows.Should().ContainSingle().Which.SumOnphoneMs.Should().Be(180000);
-        summary.AgentSummary.Rows[0].Date.Should().BeNull();
+        summary.AgentSummary.Rows[0].IntervalStart.Should().BeNull();
         summary.AgentSummary.Rows[0].AgentAht.Should().Be(90.0);
+        (summary.RowMode, summary.Step).Should().Be((ReportRowMode.Summary, (ReportStep?)null), "in Summary the step does not apply");
     }
 
     [Fact]
-    public async Task ModeIsRequired_ForAgentPerformance()
+    public async Task RowMode_OnTheQueuesReport_OrUnknown_IsInvalidConfig()
     {
+        QueueScope("Sales");
         AgentScope(true, "a1");
-        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, AgentsCfg, Day, Day), CancellationToken.None);
-        r.Error.Should().Contain("Mode");
+        (await Eos(ReportWidgetType.EndOfShiftQueues, QueuesCfg, mode: ReportRowMode.ByStep)).ErrorCode.Should().Be(ReportReasonCodes.InvalidConfig);
+        (await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, mode: (ReportRowMode)7)).ErrorCode.Should().Be(ReportReasonCodes.InvalidConfig);
+        (await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, mode: ReportRowMode.ByStep)).Error.Should().BeNull("negative half");
     }
 
     // ── freshness ────────────────────────────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(13, true)]
-    [InlineData(14, false)]
-    [InlineData(15, false)]
+    [InlineData(21, true)]
+    [InlineData(22, false)]
+    [InlineData(23, false)]
     public async Task Incomplete_WhenWindowEndsAfterWatermark(int watermarkHourUtc, bool incomplete)
     {
         AgentScope(true, "a1");
@@ -187,7 +181,7 @@ public class SummaryReportTests
         _repo.GetWatermarkAsync(TenantId, Arg.Any<CancellationToken>())
             .Returns(new HistAggregationWatermark { TenantId = TenantId, AggregatedThrough = through });
 
-        var r = await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, 8, 16); // ends 14:00Z
+        var r = await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg); // the whole local 03.11 ends 03.11 22:00Z
         r.Incomplete.Should().Be(incomplete);
         r.DataThroughUtc.Should().Be(through);
         r.CaveatCode.Should().Be(ReportCaveatCodes.StatusStartBucket);
@@ -198,7 +192,7 @@ public class SummaryReportTests
     {
         AgentScope(true, "a1");
         _repo.GetWatermarkAsync(TenantId, Arg.Any<CancellationToken>()).Returns((HistAggregationWatermark?)null);
-        (await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg, 8, 16)).Incomplete.Should().BeTrue();
+        (await Eos(ReportWidgetType.EndOfShiftAgents, AgentsCfg)).Incomplete.Should().BeTrue();
     }
 
     // ── queues ───────────────────────────────────────────────────────────────────────────────────
@@ -231,18 +225,19 @@ public class SummaryReportTests
     [Fact]
     public async Task SavedConfig_RoundTrips_ThroughTheSameParseAndValidator()
     {
-        var json = """{ "scope": { "businessUnitIds": [3] }, "columns": ["AgentDisplayName", "Handled"], "mode": "byDate", "agentIds": ["a1", "a2"] }""";
+        var json = """{ "scope": { "businessUnitIds": [3] }, "columns": ["AgentDisplayName", "Handled"], "defaultRowMode": "byStep", "defaultStep": "hour", "agentIds": ["a1", "a2"] }""";
         var cfg = ReportWidgetConfig.Parse(json);
-        cfg.Mode.Should().Be(AgentPerformanceMode.ByDate);
+        cfg.DefaultRowMode.Should().Be(ReportRowMode.ByStep);
+        cfg.DefaultStep.Should().Be(ReportStep.Hour);
         cfg.AgentIds.Should().Equal("a1", "a2");
         cfg.Columns.Should().Equal("AgentDisplayName", "Handled");
 
         var validator = new CcDashboard.Application.HistoricalReports.Validators.ReportWidgetConfigWithTypeValidator();
-        (await validator.ValidateAsync((cfg, ReportWidgetType.AgentPerformance))).IsValid.Should().BeTrue();
-        // negative half: the same config without mode is refused on save, not only at run time
-        var noMode = ReportWidgetConfig.Parse(json.Replace("\"mode\": \"byDate\", ", ""));
-        noMode.Mode.Should().BeNull();
-        (await validator.ValidateAsync((noMode, ReportWidgetType.AgentPerformance))).IsValid.Should().BeFalse();
+        (await validator.ValidateAsync((cfg, ReportWidgetType.EndOfShiftAgents))).IsValid.Should().BeTrue();
+        // negative half: a default row mode on the queues report, or an unknown one, is refused on save, not only at run time
+        (await validator.ValidateAsync((cfg, ReportWidgetType.EndOfShiftQueues))).IsValid.Should().BeFalse();
+        var unknown = ReportWidgetConfig.Parse(json.Replace("\"byStep\"", "7"));
+        (await validator.ValidateAsync((unknown, ReportWidgetType.EndOfShiftAgents))).IsValid.Should().BeFalse();
     }
 
     // ── columns ──────────────────────────────────────────────────────────────────────────────────
@@ -253,8 +248,8 @@ public class SummaryReportTests
         AgentScope(true, "a1");
         var bad = """{ "scope": { "businessUnitIds": [1] }, "columns": ["Handled", "LongestWait"] }""";
         var good = """{ "scope": { "businessUnitIds": [1] }, "columns": ["Handled", "AgentAht"] }""";
-        (await Eos(ReportWidgetType.EndOfShiftAgents, bad, 8, 16)).Error.Should().Contain("LongestWait");
-        var ok = await Eos(ReportWidgetType.EndOfShiftAgents, good, 8, 16);
+        (await Eos(ReportWidgetType.EndOfShiftAgents, bad)).Error.Should().Contain("LongestWait");
+        var ok = await Eos(ReportWidgetType.EndOfShiftAgents, good);
         ok.Error.Should().BeNull();
         ok.EffectiveColumns.Should().Equal("Handled", "AgentAht");
         ReportWidgetConfig.AllowedColumns(ReportWidgetType.EndOfShiftQueues).Should().Contain("Workgroup").And.NotContain("Label");

@@ -152,16 +152,40 @@ public class QueueReportSortTests
         await _repo.DidNotReceiveWithAnyArgs().GetQueueIntervalsAsync(default, default, default, default!, default!, default);
     }
 
-    [Fact]
-    public async Task OtherReports_IgnoreTheSort()
-    {
-        _repo.GetAgentIntervalsAsync(default, default, default, default!, default!, default).ReturnsForAnyArgs(new[]
-            { new HistAgentInterval { TenantId = TenantId, IntervalStart = U(3, 9, 0), AgentExternalId = "a1", Handled = 2 } });
-        var r = await new RunReportWidgetQueryHandler(_repo, _scope, _user, Substitute.For<ILogger<RunReportWidgetQueryHandler>>())
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: the agents report sorts by the same rule (was: ignored the sort)
+    private Task<ReportWidgetResult> Agents(string sort, bool desc, ReportRowMode mode = ReportRowMode.Summary) =>
+        new RunReportWidgetQueryHandler(_repo, _scope, _user, Substitute.For<ILogger<RunReportWidgetQueryHandler>>())
             .Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, """{ "scope": { "businessUnitIds": [1] } }""", Day, Day,
-                ShiftStartHour: 8, ShiftEndHour: 16, SortColumn: "NoSuchColumn", SortDescending: true), CancellationToken.None);
+                Step: ReportStep.Hour, RowMode: mode, SortColumn: sort, SortDescending: desc), CancellationToken.None);
 
-        r.Error.Should().BeNull();
-        r.AgentSummary!.Rows.Should().ContainSingle();
+    private void AgentData()
+    {
+        _scope.ResolveAgentScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), Arg.Any<AgentReportAxis>(), Arg.Any<CancellationToken>())
+            .Returns(new ReportWidgetScopeResult { EffectiveAgentIds = new HashSet<string> { "a1", "a2", "a3" } });
+        _repo.GetAgentIntervalsAsync(default, default, default, default!, default!, default).ReturnsForAnyArgs(new[]
+        {
+            new HistAgentInterval { TenantId = TenantId, IntervalStart = U(3, 9, 0), AgentExternalId = "a1", AgentDisplayName = "Cara", Handled = 2 },
+            new HistAgentInterval { TenantId = TenantId, IntervalStart = U(3, 9, 0), AgentExternalId = "a2", AgentDisplayName = "anna", Handled = 9 },
+            new HistAgentInterval { TenantId = TenantId, IntervalStart = U(3, 10, 0), AgentExternalId = "a3", AgentDisplayName = "Bob", Handled = 5 },
+        });
+    }
+
+    [Fact]
+    public async Task TheAgentsReport_SortsByTheSameRule()
+    {
+        AgentData();
+        (await Agents("Handled", desc: true)).AgentSummary!.Rows.Select(x => x.AgentExternalId).Should().Equal("a2", "a3", "a1");
+        (await Agents("AgentDisplayName", desc: false)).AgentSummary!.Rows.Select(x => x.AgentDisplayName).Should().Equal("anna", "Bob", "Cara");
+        // ByStep, IntervalStart descending: 10:00 first; negative half - ascending keeps 09:00 first
+        (await Agents("IntervalStart", desc: true, ReportRowMode.ByStep)).AgentSummary!.Rows.Select(x => x.AgentExternalId).Should().Equal("a3", "a2", "a1");
+        (await Agents("IntervalStart", desc: false, ReportRowMode.ByStep)).AgentSummary!.Rows.Select(x => x.AgentExternalId).Should().Equal("a2", "a1", "a3");
+    }
+
+    [Fact]
+    public async Task TheAgentsReport_RefusesAColumnItDoesNotHave()
+    {
+        AgentData();
+        (await Agents("Offered", desc: false)).ErrorCode.Should().Be(ReportReasonCodes.InvalidConfig, "a queues column is not an agents column");
+        await _repo.DidNotReceiveWithAnyArgs().GetAgentIntervalsAsync(default, default, default, default!, default!, default);
     }
 }

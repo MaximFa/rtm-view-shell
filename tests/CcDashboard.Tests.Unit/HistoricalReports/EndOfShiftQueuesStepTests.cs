@@ -251,13 +251,14 @@ public class EndOfShiftQueuesStepTests
     }
 
     [Fact]
-    public async Task ADefaultStepOnAnotherReport_IsInvalidConfig()
+    public async Task ADefaultStepOnAReportWithoutSteps_IsInvalidConfig()
     {
-        var r = await Handler().Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents,
-            """{ "scope": { "businessUnitIds": [1] }, "defaultStep": "hour", "shiftStartHour": 8, "shiftEndHour": 16 }""",
-            new DateTime(2026, 11, 3), new DateTime(2026, 11, 3)), CancellationToken.None);
-
-        r.ErrorCode.Should().Be(ReportReasonCodes.InvalidConfig);
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: the agents report takes a step now; the retired types still may not,
+        // so the refusal is checked on the validator (a retired run answers "retired" before the config is read)
+        var cfg = ReportWidgetConfig.Parse("""{ "scope": { "businessUnitIds": [1] }, "defaultStep": "hour" }""");
+        var validator = new CcDashboard.Application.HistoricalReports.Validators.ReportWidgetConfigWithTypeValidator();
+        (await validator.ValidateAsync((cfg, ReportWidgetType.AgentPerformance))).IsValid.Should().BeFalse();
+        (await validator.ValidateAsync((cfg, ReportWidgetType.EndOfShiftAgents))).IsValid.Should().BeTrue("negative half");
     }
 
     // ---- PR234-V4-EOS-QUEUES-SAVED-COLUMNS-NO-INTERVAL-01: IntervalStart is always a column of this report ----

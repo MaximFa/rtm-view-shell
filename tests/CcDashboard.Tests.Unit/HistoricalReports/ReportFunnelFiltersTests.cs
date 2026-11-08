@@ -60,8 +60,9 @@ public class ReportFunnelFiltersTests
     { TenantId = TenantId, IntervalStart = t, AgentExternalId = id, Handled = handled, SumOnphoneMs = onphoneMs, SumAvailableMs = 1000 };
 
     private const string QCfg = """{ "scope": { "businessUnitIds": [1] }, "pageSize": 100 }""";
-    private const string PerfCfg = """{ "scope": { "businessUnitIds": [1] }, "mode": "ByDate", "pageSize": 100 }""";
-    private const string MonthCfg = """{ "scope": { "businessUnitIds": [1], "agentAxis": "Detail" }, "pageSize": 100 }""";
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: AgentPerformance and AgentMonthly are retired; their cases run on the agents
+    // report - by day step (was ByDate) and Summary (was the month row: the two days of the window are one row per agent)
+    private const string AgentsCfg = """{ "scope": { "businessUnitIds": [1] }, "pageSize": 100 }""";
 
     private static ReportColumnFilter N(string col, string op, double from, double? to = null) => new(col, op, Number: from, NumberTo: to);
     private static ReportColumnFilter Tm(string col, string op, DateTime from, DateTime? to = null) => new(col, op, Time: from, TimeTo: to);
@@ -111,10 +112,10 @@ public class ReportFunnelFiltersTests
     }
 
     [Fact]
-    public async Task Date_OnTheByDateRows()
+    public async Task IntervalStart_OnTheAgentsByStepRows()
     {
-        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, PerfCfg, Day, Day.AddDays(1),
-            Filters: new[] { Tm("Date", "greater", Day) }), CancellationToken.None);
+        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, AgentsCfg, Day, Day.AddDays(1),
+            Filters: new[] { Tm("IntervalStart", "greater", Day) }, Step: ReportStep.Day, RowMode: ReportRowMode.ByStep), CancellationToken.None);
         r.AgentSummary!.Rows.Select(x => x.AgentExternalId).Should().Equal("a3");
     }
 
@@ -134,22 +135,22 @@ public class ReportFunnelFiltersTests
     }
 
     [Fact]
-    public async Task DerivedColumn_OnGroupedRows_AgentMonthly()
+    public async Task DerivedColumn_OnGroupedRows_AgentsSummary()
     {
-        // AgentAht = onphone ms / 1000 / handled: a1 30 s, a2 75 s, a3 0 s - filtered on the MONTH row, not on intervals
-        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentMonthly, MonthCfg, Day, Day.AddDays(1),
+        // AgentAht = onphone ms / 1000 / handled: a1 30 s, a2 75 s, a3 0 s - filtered on the period row, not on intervals
+        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, AgentsCfg, Day, Day.AddDays(1),
             Filters: new[] { N("AgentAht", "greater", 30) }), CancellationToken.None);
-        r.AgentMonthly!.Rows.Select(x => x.AgentExternalId).Should().Equal("a2");
+        r.AgentSummary!.Rows.Select(x => x.AgentExternalId).Should().Equal("a2");
     }
 
     [Fact]
     public async Task ValueList_OfATextColumn_TakesTheOtherColumnsNumberFilter()
     {
-        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentMonthly, MonthCfg, Day, Day.AddDays(1),
+        var r = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, AgentsCfg, Day, Day.AddDays(1),
             Filters: new[] { N("Handled", "greater", 4), new ReportColumnFilter("AgentExternalId", Values: new[] { "a2" }) },
             ValuesForColumn: "AgentExternalId"), CancellationToken.None);
         r.ColumnValues!.Values.Should().Equal(new[] { "a2", "a3" }, "Handled > 4 applies; the login column's own pick does not");
-        r.AgentMonthly!.Rows.Select(x => x.AgentExternalId).Should().Equal("a2");
+        r.AgentSummary!.Rows.Select(x => x.AgentExternalId).Should().Equal("a2");
     }
 
     [Theory]

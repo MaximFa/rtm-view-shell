@@ -58,7 +58,8 @@ public class ReportFilterTests
         });
     }
 
-    private const string PerfCfg = """{ "scope": { "businessUnitIds": [1] }, "mode": "Summary", "pageSize": 2 }""";
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: AgentPerformance is retired - its rows now come from the agents report (Summary)
+    private const string PerfCfg = """{ "scope": { "businessUnitIds": [1] }, "pageSize": 2 }""";
     private const string QueueCfg = """{ "scope": { "businessUnitIds": [1] }, "pageSize": 2 }""";
 
     // FEAT-REPORT-COLUMN-FUNNEL-FILTERS-01: filters now name their column; these helpers bind the column of the call
@@ -73,7 +74,7 @@ public class ReportFilterTests
 
     private Task<ReportWidgetResult> AgentsF(int page = 1, ReportColumnFilter? agent = null, ReportColumnFilter? name = null,
         string? values = null) =>
-        _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, PerfCfg, Day, Day, Page: page,
+        _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, PerfCfg, Day, Day, Page: page,
             Filters: On((Login, agent), (Name, name)), ValuesForColumn: values), CancellationToken.None);
 
     private Task<ReportWidgetResult> Queues(string? queue) => QueuesF(T(queue));
@@ -166,7 +167,7 @@ public class ReportFilterTests
         var agentOnQueues = await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QueueCfg, Day, Day,
             Filters: On((Login, T("ann")))), CancellationToken.None);
         agentOnQueues.Error.Should().Contain("Unknown filter column");
-        (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, PerfCfg, Day, Day, Filters: On((Queue, T("sales")))),
+        (await _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, PerfCfg, Day, Day, Filters: On((Queue, T("sales")))),
             CancellationToken.None)).Error.Should().Contain("Unknown filter column");
     }
 
@@ -283,7 +284,7 @@ public class ReportFilterTests
     public async Task Export_EachWidgetGetsItsOwnFilters_OnlyThoseItsTypeTakes()
     {
         var (export, exporter, sent, screen) = ExportSetup();
-        var agents = W(ReportWidgetType.AgentPerformance, PerfCfg);
+        var agents = W(ReportWidgetType.EndOfShiftAgents, PerfCfg);
         var queues = W(ReportWidgetType.EndOfShiftQueues, """{ "scope": { "businessUnitIds": [1] }, "shiftStartHour": 0, "shiftEndHour": 24 }""");
         screen.Widgets.Add(agents);
         screen.Widgets.Add(queues);
@@ -295,7 +296,7 @@ public class ReportFilterTests
         }), CancellationToken.None);
 
         res.Skipped.Should().BeEmpty();
-        sent.Single(q => q.WidgetType == ReportWidgetType.AgentPerformance).Filters!.Select(f => (f.Column, f.Text))
+        sent.Single(q => q.WidgetType == ReportWidgetType.EndOfShiftAgents).Filters!.Select(f => (f.Column, f.Text))
             .Should().Equal((Login, "zoe"), (Name, "peretz"));
         sent.Single(q => q.WidgetType == ReportWidgetType.EndOfShiftQueues).Filters!.Select(f => (f.Column, f.Text))
             .Should().Equal((Queue, "sup"));
@@ -307,7 +308,7 @@ public class ReportFilterTests
     public async Task Export_AFilterOnAColumnTheWidgetHasNot_IsListed_NeverExportedUnfiltered()
     {
         var (export, exporter, _, screen) = ExportSetup();
-        var agents = W(ReportWidgetType.AgentPerformance, PerfCfg);
+        var agents = W(ReportWidgetType.EndOfShiftAgents, PerfCfg);
         screen.Widgets.Add(agents);
 
         var res = await export.Handle(new ExportReportCommand(screen.Id, Day, Day, Filters: new Dictionary<Guid, IReadOnlyList<ReportColumnFilter>>
@@ -322,9 +323,9 @@ public class ReportFilterTests
     public async Task Export_TwoAgentWidgets_DifferentFilters_EachSheetHasItsOwnRows()
     {
         var (export, exporter, sent, screen) = ExportSetup();
-        var first = W(ReportWidgetType.AgentPerformance, PerfCfg);
-        var second = W(ReportWidgetType.AgentPerformance, PerfCfg);
-        var third = W(ReportWidgetType.AgentPerformance, PerfCfg);   // no entry -> unfiltered
+        var first = W(ReportWidgetType.EndOfShiftAgents, PerfCfg);
+        var second = W(ReportWidgetType.EndOfShiftAgents, PerfCfg);
+        var third = W(ReportWidgetType.EndOfShiftAgents, PerfCfg);   // no entry -> unfiltered
         screen.Widgets.Add(first);
         screen.Widgets.Add(second);
         screen.Widgets.Add(third);

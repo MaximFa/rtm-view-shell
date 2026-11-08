@@ -72,8 +72,9 @@ public class ExportEndOfShiftTests
     }
 
     [Fact]
-    public async Task TwoEndOfShiftWidgets_DifferentHours_BothSheets_EachWithItsOwnHours()
+    public async Task EveryEndOfShiftWidget_TakesTheScreensPeriod_HoursLeftInConfigsAreIgnored()
     {
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: the agents report no longer covers one date with shift hours
         Widget(ReportWidgetType.EndOfShiftAgents, Cfg(8, 16));
         Widget(ReportWidgetType.EndOfShiftAgents, Cfg(16, 23)); // same default title on purpose
         Widget(ReportWidgetType.EndOfShiftQueues, Cfg(6, 14));
@@ -82,34 +83,56 @@ public class ExportEndOfShiftTests
 
         res.Skipped.Should().BeEmpty();
         SheetNames(res.Content).Should().HaveCount(3).And.OnlyHaveUniqueItems();
-        _sent.Where(q => q.WidgetType == ReportWidgetType.EndOfShiftAgents).Select(q => (q.From, q.To))
-            .Should().AllBeEquivalentTo((From, From), "an end-of-shift AGENTS run covers the screen's first date only");
-        // FEAT-REPORT-EOS-CONFIGURABLE-01: the queues report takes the screen's From..To; hours left in its config are ignored
-        _sent.Single(q => q.WidgetType == ReportWidgetType.EndOfShiftQueues).Should().Match<RunReportWidgetQuery>(q =>
-            q.From == From && q.To == To && q.ShiftStartHour == null && q.ShiftEndHour == null);
-        // the hours reach the run from each widget's own config; the 2nd agents widget is not run with the 1st's hours
-        await _hist.Received(1).GetAgentIntervalsAsync(TenantId, From.AddHours(8), From.AddHours(16), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
-        await _hist.Received(1).GetAgentIntervalsAsync(TenantId, From.AddHours(16), From.AddHours(23), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
+        _sent.Should().HaveCount(3).And.OnlyContain(q => q.From == From && q.To == To && q.ShiftStartHour == null && q.ShiftEndHour == null);
+        await _hist.Received(2).GetAgentIntervalsAsync(TenantId, From, To.AddDays(1), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
+        // negative half: the old shift windows are never read
+        await _hist.DidNotReceive().GetAgentIntervalsAsync(TenantId, From.AddHours(8), Arg.Any<DateTime>(), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
         await _hist.Received(1).GetQueueIntervalsAsync(TenantId, From, To.AddDays(1), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task QueuesWidgets_EachRunsWithItsOwnStepFromTheScreen_NoStepMeansDay()
+    public async Task EndOfShiftWidgets_EachRunWithTheirOwnStepAndModeFromTheScreen_NoEntryMeansTheDefault()
     {
-        // FEAT-REPORT-EOS-CONFIGURABLE-01: export = screen; the step chosen on the screen travels per widget
+        // export = screen; the step (both reports) and the row mode (agents) chosen on the screen travel per widget
         Widget(ReportWidgetType.EndOfShiftQueues, """{ "title": "Hourly", "scope": { "businessUnitIds": [1] } }""");
         Widget(ReportWidgetType.EndOfShiftQueues, """{ "title": "Daily", "scope": { "businessUnitIds": [1] } }""");
-        Widget(ReportWidgetType.EndOfShiftAgents, Cfg(8, 16));
+        Widget(ReportWidgetType.EndOfShiftAgents, """{ "title": "Agents", "scope": { "businessUnitIds": [1] } }""");
         var hourly = _screen.Widgets.Single(w => w.ConfigJson!.Contains("Hourly")).Id;
+        var daily = _screen.Widgets.Single(w => w.ConfigJson!.Contains("Daily")).Id;
         var agents = _screen.Widgets.Single(w => w.WidgetType == ReportWidgetType.EndOfShiftAgents).Id;
 
         var res = await _export.Handle(new ExportReportCommand(_screen.Id, From, To,
-            Steps: new Dictionary<Guid, ReportStep> { [hourly] = ReportStep.Hour, [agents] = ReportStep.HalfHour }), CancellationToken.None);
+            Steps: new Dictionary<Guid, ReportStep> { [hourly] = ReportStep.Hour, [agents] = ReportStep.HalfHour },
+            Modes: new Dictionary<Guid, ReportRowMode> { [agents] = ReportRowMode.ByStep, [daily] = ReportRowMode.ByStep }), CancellationToken.None);
 
-        res.Skipped.Should().BeEmpty("a step addressed to the agents widget is not passed to it, so it is not refused");
+        res.Skipped.Should().BeEmpty("a row mode addressed to a queues widget is not passed to it, so it is not refused");
         _sent.Single(q => q.ConfigJson.Contains("Hourly")).Step.Should().Be(ReportStep.Hour);
-        _sent.Single(q => q.ConfigJson.Contains("Daily")).Step.Should().BeNull("no entry = the default Day");
-        _sent.Single(q => q.WidgetType == ReportWidgetType.EndOfShiftAgents).Step.Should().BeNull();
+        _sent.Single(q => q.ConfigJson.Contains("Daily")).Should().Match<RunReportWidgetQuery>(q => q.Step == null && q.RowMode == null,
+            "no step entry = the widget's default; a queues widget takes no row mode");
+        _sent.Single(q => q.WidgetType == ReportWidgetType.EndOfShiftAgents).Should().Match<RunReportWidgetQuery>(q =>
+            q.Step == ReportStep.HalfHour && q.RowMode == ReportRowMode.ByStep);
+    }
+
+    [Fact]
+    public async Task AgentReport_TheFileWritesTheIntervalLikeTheScreen_AndNamesTheSheetAgentReport()
+    {
+        // ByStep by day: the interval cell is ReportIntervalLabel's "dd/MM/yyyy"; untitled sheet = "Agent Report"
+        Widget(ReportWidgetType.EndOfShiftAgents, """{ "scope": { "businessUnitIds": [1] }, "defaultRowMode": "byStep", "defaultStep": "day" }""");
+
+        var res = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
+
+        SheetNames(res.Content).Should().Equal("Agent Report");
+        using (var wb = XlsxDiagnostics.Open(res.Content))
+        {
+            wb.Worksheet("Agent Report").Cell(1, 1).GetString().Should().Be("IntervalStart");
+            wb.Worksheet("Agent Report").Cell(2, 1).GetString().Should().Be("02/11/2026");
+        }
+
+        // negative half: in Summary there is no interval column at all
+        _screen.Widgets.Single().ConfigJson = """{ "scope": { "businessUnitIds": [1] } }""";
+        var summary = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
+        using (var wb = XlsxDiagnostics.Open(summary.Content))
+            wb.Worksheet("Agent Report").Cell(1, 1).GetString().Should().NotBe("IntervalStart");
     }
 
     [Fact]
@@ -183,23 +206,21 @@ public class ExportEndOfShiftTests
     }
 
     [Fact]
-    public async Task WidgetWithoutHours_IsListedWithTheReason_NotDropped()
+    public async Task ARetiredAgentsWidget_IsListedByItsEnglishName_TheAgentReportIsExported()
     {
-        Widget(ReportWidgetType.EndOfShiftAgents, Cfg(8, 16));
-        Widget(ReportWidgetType.EndOfShiftAgents, Cfg(null, null));   // the agents report still needs shift hours
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: an agents widget without hours is no longer skipped (no hours any more);
+        // a retired agents report is listed with its sentence, under its English name (coordinator 15:05:51Z)
+        Widget(ReportWidgetType.EndOfShiftAgents, Cfg(null, null));
+        Widget(ReportWidgetType.AgentMonthly, Cfg(null, null));
 
         var res = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
 
         var skip = res.Skipped.Should().ContainSingle().Which;
-        skip.ReasonCode.Should().Be(ReportReasonCodes.ShiftHours);
-        skip.Reason.Should().Contain("Shift start and end hours are required"); // log text kept for the log
-        var names = SheetNames(res.Content);
-        names.Should().HaveCount(2).And.Contain("Not exported");
+        skip.ReasonCode.Should().Be(ReportReasonCodes.Retired);
+        SheetNames(res.Content).Should().Equal("Agent Report", "Not exported");
         using var wb = XlsxDiagnostics.Open(res.Content);
-        wb.Worksheet("Not exported").Cell(2, 1).GetString().Should().Be("End of shift — agents", "the type's English name, not the enum name (coordinator 15:05:51Z)");
-        // the file shows the fixed sentence of the code, not the validation text
-        wb.Worksheet("Not exported").Cell(2, 2).GetString().Should().Be(ExportReportCommandHandler.SheetText(ReportReasonCodes.ShiftHours))
-            .And.NotContain("required");
+        wb.Worksheet("Not exported").Cell(2, 1).GetString().Should().Be("Agent Monthly", "the type's English name, not the enum name");
+        wb.Worksheet("Not exported").Cell(2, 2).GetString().Should().Be(ExportReportCommandHandler.SheetText(ReportReasonCodes.Retired));
     }
 
     [Fact]
@@ -216,6 +237,17 @@ public class ExportEndOfShiftTests
 
         res.Skipped.Select(s => s.ReasonCode).Should().Equal(ReportReasonCodes.Denied, ReportReasonCodes.NoData, ReportReasonCodes.InvalidConfig);
         res.Skipped.Should().OnlyContain(s => ReportReasonCodes.All.Contains(s.ReasonCode));
+    }
+
+    [Fact]
+    public void TheShiftHoursCode_IsGone_NoReportTakesShiftHours()
+    {
+        // coordinator 06:49:47Z: a code no run can produce is dead code - not in the list, no sentence of its own
+        ReportReasonCodes.All.Should().NotContain("shift-hours");
+        ExportReportCommandHandler.SheetText("shift-hours").Should().Be(ExportReportCommandHandler.SheetText(ReportReasonCodes.Unrecognised));
+        typeof(ReportReasonCodes).GetField("ShiftHours").Should().BeNull("the constant itself is removed, not only unlisted");
+        // negative half: a code that is in the list does have its own sentence
+        ExportReportCommandHandler.SheetText(ReportReasonCodes.Retired).Should().NotBe(ExportReportCommandHandler.SheetText(ReportReasonCodes.Unrecognised));
     }
 
     [Fact]
@@ -238,24 +270,26 @@ public class ExportEndOfShiftTests
     }
 
     [Fact]
-    public async Task QueryHours_StillWin_OverConfig_ForTheLiveWidget()
+    public async Task QueryHours_AreRefused_ForTheAgentsWidget()
     {
-        // the on-screen widget sends its hours on the query: they are used as sent, the config fallback is only for export
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: no report takes shift hours; an old caller sending them gets invalid-config
         var widgets = new RunReportWidgetQueryHandler(_hist, _scope, _user, Substitute.For<ILogger<RunReportWidgetQueryHandler>>());
-        await widgets.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, Cfg(8, 16), From, From,
+        var r = await widgets.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, Cfg(8, 16), From, From,
             ShiftStartHour: 10, ShiftEndHour: 12), CancellationToken.None);
-        await _hist.Received(1).GetAgentIntervalsAsync(TenantId, From.AddHours(10), From.AddHours(12), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
+        r.ErrorCode.Should().Be(ReportReasonCodes.InvalidConfig);
+        await _hist.DidNotReceiveWithAnyArgs().GetAgentIntervalsAsync(default, default, default, default!, default!, default);
     }
 
     [Fact]
-    public async Task OtherTypes_IgnoreConfigHours()
+    public async Task TheAgentsWidget_IgnoresConfigHours()
     {
         var widgets = new RunReportWidgetQueryHandler(_hist, _scope, _user, Substitute.For<ILogger<RunReportWidgetQueryHandler>>());
-        var r = await widgets.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance,
-            "{ \"scope\": { \"businessUnitIds\": [1] }, \"mode\": \"Summary\", \"shiftStartHour\": 8, \"shiftEndHour\": 16 }", From, To), CancellationToken.None);
+        var r = await widgets.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents,
+            "{ \"scope\": { \"businessUnitIds\": [1] }, \"shiftStartHour\": 8, \"shiftEndHour\": 16 }", From, To), CancellationToken.None);
         r.Error.Should().BeNull();
         await _hist.Received(1).GetAgentIntervalsAsync(TenantId, From, To.AddDays(1), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
     }
+
 }
 
 public class ExportNeverLosesTheFileTests

@@ -22,7 +22,9 @@ public static class ReportDefaultDay
     /// <summary>The report types the server's last-data-day rule covers today.</summary>
     public static readonly IReadOnlySet<ReportWidgetType> Covered = new HashSet<ReportWidgetType>
     {
-        ReportWidgetType.EndOfShiftQueues
+        ReportWidgetType.EndOfShiftQueues,
+        // Agent Report (coordinator 2026-11-08T06:27:37Z, p.6: part of the same configuration): ReportDataSet.Agents on the server.
+        ReportWidgetType.EndOfShiftAgents
     };
 
     /// <summary>

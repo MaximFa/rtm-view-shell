@@ -122,11 +122,11 @@ public class RunReportWidgetQueryTests
     }
 
     [Fact]
-    public async Task AgentMonthly_Denied_ReturnsDenied()
+    public async Task EndOfShiftAgents_Denied_ReturnsDenied()
     {
         var configJson = """
         {
-            "scope": { "businessUnitIds": [1], "agentAxis": "detail" },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["SumAvailableMs"],
             "pageSize": 25
         }
@@ -136,19 +136,20 @@ public class RunReportWidgetQueryTests
             .Returns(new ReportWidgetScopeResult { FullScope = false, EffectiveAgentIds = new HashSet<string>(), DroppedCount = 0 });
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.AgentMonthly, configJson, DateTime.UtcNow.AddDays(-30), DateTime.UtcNow),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, configJson, DateTime.UtcNow.AddDays(-30), DateTime.UtcNow),
             CancellationToken.None);
 
         result.Denied.Should().BeTrue();
-        result.AgentMonthly.Should().BeNull();
+        result.AgentSummary.Should().BeNull();
     }
 
     [Fact]
-    public async Task AgentMonthly_WithData_GroupsByYearMonth()
+    public async Task EndOfShiftAgents_Summary_OneRowPerAgentForThePeriod()
     {
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: was the AgentMonthly month row (retired); Summary sums the whole period
         var configJson = """
         {
-            "scope": { "businessUnitIds": [1], "agentAxis": "detail" },
+            "scope": { "businessUnitIds": [1] },
             "columns": ["SumAvailableMs"],
             "pageSize": 25
         }
@@ -164,27 +165,31 @@ public class RunReportWidgetQueryTests
         var intervals = new List<HistAgentInterval>
         {
             new() { Id = Guid.NewGuid(), TenantId = TenantId, IntervalStart = new DateTime(2026, 6, 1, 8, 0, 0, DateTimeKind.Utc), AgentExternalId = "agent1", SumAvailableMs = 100000, SumOnphoneMs = 50000, Handled = 10 },
-            new() { Id = Guid.NewGuid(), TenantId = TenantId, IntervalStart = new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), AgentExternalId = "agent1", SumAvailableMs = 100000, SumOnphoneMs = 60000, Handled = 12 }
+            new() { Id = Guid.NewGuid(), TenantId = TenantId, IntervalStart = new DateTime(2026, 6, 20, 9, 0, 0, DateTimeKind.Utc), AgentExternalId = "agent1", SumAvailableMs = 100000, SumOnphoneMs = 60000, Handled = 12 }
         };
         _repo.GetAgentIntervalsAsync(TenantId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<ReportScope>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
             .Returns(intervals);
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.AgentMonthly, configJson, new DateTime(2026, 6, 1), new DateTime(2026, 6, 30)),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, configJson, new DateTime(2026, 6, 1), new DateTime(2026, 6, 30)),
             CancellationToken.None);
 
-        result.AgentMonthly.Should().NotBeNull();
-        result.AgentMonthly!.Rows.Should().HaveCount(1);
-        result.AgentMonthly.Rows[0].YearMonth.Should().Be("2026-06");
-        result.AgentMonthly.Rows[0].SumAvailableMs.Should().Be(200000);
-        result.AgentMonthly.Rows[0].Handled.Should().Be(22);
+        result.AgentSummary!.Rows.Should().ContainSingle();
+        result.AgentSummary.Rows[0].IntervalStart.Should().BeNull();
+        result.AgentSummary.Rows[0].SumAvailableMs.Should().Be(200000);
+        result.AgentSummary.Rows[0].Handled.Should().Be(22);
+        result.EffectiveColumns.Should().Equal(new[] { "SumAvailableMs" }, "no interval column in Summary");
     }
 
-    // FEAT-REPORT-EOS-CONFIGURABLE-01: the three retired queue reports answer "retired" and touch no store
+    // FEAT-REPORT-EOS-CONFIGURABLE-01 / FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: the retired reports answer "retired" and
+    // touch no scope and no store
     [Theory]
     [InlineData(ReportWidgetType.QueueInterval)]
     [InlineData(ReportWidgetType.QueueWaitTime)]
     [InlineData(ReportWidgetType.Distribution)]
+    [InlineData(ReportWidgetType.AgentMonthly)]
+    [InlineData(ReportWidgetType.AgentShiftDetail)]
+    [InlineData(ReportWidgetType.AgentPerformance)]
     public async Task RetiredTypes_AnswerRetired_WithoutTouchingTheStore(ReportWidgetType widgetType)
     {
         var result = await _handler.Handle(
@@ -194,7 +199,9 @@ public class RunReportWidgetQueryTests
         result.ErrorCode.Should().Be(ReportReasonCodes.Retired);
         result.Denied.Should().BeFalse();
         await _scopeService.DidNotReceiveWithAnyArgs().ResolveQueueScopeAsync(default, default!, default);
+        await _scopeService.DidNotReceiveWithAnyArgs().ResolveAgentScopeAsync(default, default!, default, default);
         await _repo.DidNotReceiveWithAnyArgs().GetQueueIntervalsAsync(default, default, default, default!, default!, default);
+        await _repo.DidNotReceiveWithAnyArgs().GetAgentIntervalsAsync(default, default, default, default!, default!, default);
     }
 
     [Fact]
@@ -301,30 +308,11 @@ public class RunReportWidgetQueryTests
         """;
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.AgentMonthly, configJson, DateTime.UtcNow.AddDays(-30), DateTime.UtcNow),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, configJson, DateTime.UtcNow.AddDays(-30), DateTime.UtcNow),
             CancellationToken.None);
 
         result.Error.Should().NotBeNullOrEmpty();
         result.Error.Should().Contain("BusinessUnitIds");
-    }
-
-    [Fact]
-    public async Task AgentWidget_BuScope_NoAgentAxis_ValidationFails()
-    {
-        var configJson = """
-        {
-            "scope": { "businessUnitIds": [1] },
-            "columns": ["SumAvailableMs"],
-            "pageSize": 25
-        }
-        """;
-
-        var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.AgentShiftDetail, configJson, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
-            CancellationToken.None);
-
-        result.Error.Should().NotBeNullOrEmpty();
-        result.Error.Should().Contain("AgentAxis");
     }
 
     #region Columns optional v1 tests
@@ -393,11 +381,11 @@ public class RunReportWidgetQueryTests
     }
 
     [Fact]
-    public async Task AgentMonthly_NoColumns_UsesDefaultColumns()
+    public async Task EndOfShiftAgents_NoColumns_UsesDefaultColumns()
     {
         var configJson = """
         {
-            "scope": { "businessUnitIds": [1], "agentAxis": "detail" },
+            "scope": { "businessUnitIds": [1] },
             "pageSize": 25
         }
         """;
@@ -413,11 +401,11 @@ public class RunReportWidgetQueryTests
             .Returns(new List<HistAgentInterval>());
 
         var result = await _handler.Handle(
-            new RunReportWidgetQuery(ReportWidgetType.AgentMonthly, configJson, DateTime.UtcNow.AddDays(-30), DateTime.UtcNow),
+            new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, configJson, DateTime.UtcNow.AddDays(-30), DateTime.UtcNow),
             CancellationToken.None);
 
         result.Error.Should().BeNull();
-        result.EffectiveColumns.Should().BeEquivalentTo(ReportWidgetConfig.DefaultColumns(ReportWidgetType.AgentMonthly));
+        result.EffectiveColumns.Should().Equal(ReportWidgetConfig.DefaultColumns(ReportWidgetType.EndOfShiftAgents));
     }
 
     #endregion

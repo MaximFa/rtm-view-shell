@@ -18,7 +18,7 @@ public static class ReportTypeNames
         ReportWidgetType.AgentShiftDetail => "Agent Shift Detail",
         ReportWidgetType.Distribution => "Distribution",
         ReportWidgetType.EndOfShiftQueues => "Queue Report",
-        ReportWidgetType.EndOfShiftAgents => "End of shift — agents",
+        ReportWidgetType.EndOfShiftAgents => "Agent Report",
         ReportWidgetType.AgentPerformance => "Agent Performance",
         _ => type.ToString()   // a value without a name (never for a defined type - see the guard)
     };

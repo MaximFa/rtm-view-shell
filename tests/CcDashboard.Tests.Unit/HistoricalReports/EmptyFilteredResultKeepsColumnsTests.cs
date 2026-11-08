@@ -47,13 +47,15 @@ public class EmptyFilteredResultKeepsColumnsTests
     }
 
     private const string QCfg = """{ "scope": { "businessUnitIds": [1] }, "pageSize": 100 }""";
-    private const string PerfCfg = """{ "scope": { "businessUnitIds": [1] }, "mode": "ByDate", "pageSize": 100 }""";
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: was AgentPerformance ByDate (retired) - the agents report by day step
+    private const string PerfCfg = """{ "scope": { "businessUnitIds": [1] }, "pageSize": 100 }""";
 
     private Task<ReportWidgetResult> Queues(params ReportColumnFilter[] f) =>
         _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftQueues, QCfg, Day, Day, Filters: f), CancellationToken.None);
 
     private Task<ReportWidgetResult> Perf(params ReportColumnFilter[] f) =>
-        _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.AgentPerformance, PerfCfg, Day, Day, Filters: f), CancellationToken.None);
+        _handler.Handle(new RunReportWidgetQuery(ReportWidgetType.EndOfShiftAgents, PerfCfg, Day, Day, Filters: f,
+            Step: ReportStep.Day, RowMode: ReportRowMode.ByStep), CancellationToken.None);
 
     private static readonly ReportColumnFilter NothingQueues = new("Offered", "greater", Number: 1_000_000);
     private static readonly ReportColumnFilter NothingAgents = new("Handled", "greater", Number: 1_000_000);

@@ -37,7 +37,8 @@ public class GetLastDataDayQueryHandler(
     internal static readonly IReadOnlyDictionary<ReportWidgetType, ReportDataSet> Sources =
         new Dictionary<ReportWidgetType, ReportDataSet>
         {
-            [ReportWidgetType.EndOfShiftQueues] = ReportDataSet.Queues
+            [ReportWidgetType.EndOfShiftQueues] = ReportDataSet.Queues,
+            [ReportWidgetType.EndOfShiftAgents] = ReportDataSet.Agents
         };
 
     private TimeZoneInfo Zone => displayZone?.Zone ?? TimeZoneInfo.Utc;
@@ -77,6 +78,15 @@ public class GetLastDataDayQueryHandler(
                 if (scope.Denied)
                     return new LastDataDayResult(null, ReportReasonCodes.Denied);
                 keys = scope.EffectiveWorkgroups;
+                break;
+            }
+            case ReportDataSet.Agents:
+            {
+                // the agents the widget itself would show: its scope narrowed by its picked agents (the run's own rule)
+                var scope = await scopeService.ResolveAgentScopeAsync(tenantId, config, AgentReportAxis.Detail, ct);
+                if (scope.Denied)
+                    return new LastDataDayResult(null, ReportReasonCodes.Denied);
+                keys = CcDashboard.Application.Handlers.RunReportWidgetQueryHandler.NarrowToPickedAgents(scope.EffectiveAgentIds, config.AgentIds).Effective;
                 break;
             }
             default:

@@ -28,11 +28,10 @@ public static class ReportWidgetPalette
         // hour or half an hour. They stay in the enum and keep their renderers - widgets already
         // standing on boards must still draw, and they say "retired" instead of going blank.
         // Blank would be the worse ending: a person reads an empty report as "there was no work".
-        ReportWidgetType.AgentMonthly,
-        ReportWidgetType.AgentShiftDetail,
+        // AgentMonthly, AgentShiftDetail and AgentPerformance are RETIRED the same way (operator, 2026-11-08 07:54,
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01): Agent Report covers them - for the period, or by a step.
         ReportWidgetType.EndOfShiftQueues,
         ReportWidgetType.EndOfShiftAgents,
-        ReportWidgetType.AgentPerformance,
     };
 
     public static string Category(ReportWidgetType type) => type switch
@@ -89,7 +88,9 @@ public static class ReportWidgetPalette
         ReportWidgetType.AgentMonthly => "bi-calendar-month",
         ReportWidgetType.AgentShiftDetail => "bi-person-lines-fill",
         ReportWidgetType.Distribution => "bi-pie-chart",
-        ReportWidgetType.EndOfShiftQueues => "bi-door-closed",
+        // FEAT-REPORT-QUEUE-REPORT-ICON-01 (operator 2026-11-08 07:56, 08:04): the door meant "end of shift"; it is a queue report
+        // now - a queue ticket, not a door and not a telephone.
+        ReportWidgetType.EndOfShiftQueues => "bi-ticket-perforated",
         ReportWidgetType.EndOfShiftAgents => "bi-people",
         ReportWidgetType.AgentPerformance => "bi-graph-up",
         _ => "bi-grid"

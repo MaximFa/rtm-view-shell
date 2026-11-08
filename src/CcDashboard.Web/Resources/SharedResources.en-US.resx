@@ -1042,7 +1042,7 @@
   <data name="Report_DescAgentShiftDetail"><value>Detailed shift-by-shift agent metrics</value></data>
   <data name="Report_DescDistribution"><value>Call distribution charts</value></data>
   <data name="Report_DescEndOfShiftQueues"><value>One row per queue for each interval of the chosen period</value></data>
-  <data name="Report_DescEndOfShiftAgents"><value>One row per agent for the shift window</value></data>
+  <data name="Report_DescEndOfShiftAgents"><value>One row per agent for the period, or for each interval of the step</value></data>
   <data name="Report_DescAgentPerformance"><value>Agent figures for the period: one row per agent, or one per agent per date</value></data>
   <data name="Report_Between"><value>Between</value></data>
   <data name="Report_DurationHint"><value>Time as h:mm:ss</value></data>
@@ -1054,7 +1054,7 @@
   <data name="ReportWidget_ModeHint"><value>The period comes from the date fields on the report page.</value></data>
   <data name="ReportWidget_ModeRequired"><value>Choose the report mode.</value></data>
   <data name="ReportWidget_ModeMissing"><value>The report mode is not set. Open the widget settings and choose summary or by date.</value></data>
-  <data name="Report_EndOfShiftAgents"><value>End of shift — agents</value></data>
+  <data name="Report_EndOfShiftAgents"><value>Agent Report</value></data>
   <data name="Report_Incomplete"><value>The newest part of this window is not aggregated yet, so the last rows may be incomplete. Data through {0}.</value></data>
   <data name="Report_SumTalk"><value>Total talk</value></data>
   <data name="Report_QueueId"><value>Queue id</value></data>
@@ -1089,13 +1089,6 @@
   <data name="ReportWidget_ColumnsHint"><value>Tick the columns this report should show.</value></data>
   <data name="ReportWidget_ColumnsReset"><value>Standard set</value></data>
   <data name="ReportWidget_ColumnsFixed"><value>The columns of this report type are fixed.</value></data>
-  <data name="ReportWidget_ShiftHours"><value>Shift hours</value></data>
-  <data name="ReportWidget_ShiftFrom"><value>from</value></data>
-  <data name="ReportWidget_ShiftTo"><value>to</value></data>
-  <data name="ReportWidget_ShiftHoursHint"><value>The date comes from the date field on the report page; whole hours only, no shift across midnight.</value></data>
-  <data name="ReportWidget_ShiftHoursRequired"><value>Choose the start and the end hour of the shift.</value></data>
-  <data name="ReportWidget_ShiftEndBeforeStart"><value>The shift must end after it starts.</value></data>
-  <data name="ReportWidget_ShiftHoursMissing"><value>Shift hours are not set. Open the widget settings and choose the start and the end hour.</value></data>
   <data name="Common_NotSelected"><value>not selected</value></data>
   <data name="ReportWidget_ColumnsNoneChosen"><value>Nothing is ticked: the standard set will be used.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>Per-column thresholds — available in v1.1 (together with the full Columns picker).</value></data>
@@ -1118,7 +1111,6 @@
   <data name="Reports_ExportSkippedDenied"><value>no access to its data</value></data>
   <data name="Reports_ExportSkippedNoData"><value>no data for the selected period</value></data>
   <data name="Reports_ExportSkippedInvalidConfig"><value>its settings cannot be used</value></data>
-  <data name="Reports_ExportSkippedShiftHours"><value>the shift hours are not set, or do not fit the selected date</value></data>
   <data name="Reports_ExportFailed"><value>Export failed. Please try again.</value></data>
   <data name="Reports_ScheduleStub"><value>Schedule functionality coming soon</value></data>
   <data name="Reports_Description"><value>Description</value></data>
@@ -1232,7 +1224,6 @@
   <data name="Widget_ShowingNofM"><value>Showing {0} of {1}</value></data>
   <data name="Report_ErrorNoData"><value>There is no data for the selected period.</value></data>
   <data name="Report_ErrorInvalidConfig"><value>This report's settings cannot be used. Open its settings and check them.</value></data>
-  <data name="Report_ErrorShiftHours"><value>The shift hours are not set, or do not fit the selected date.</value></data>
   <data name="Report_ErrorRetired"><value>This report has been retired and is no longer built.</value></data>
   <data name="Report_ErrorUnknown"><value>The report could not be built.</value></data>
   <data name="Report_Step"><value>Interval</value></data>
@@ -1243,5 +1234,7 @@
   <data name="Report_StepYear"><value>Year</value></data>
   <data name="Report_FilterNoMatch"><value>No rows match the filter.</value></data>
   <data name="Report_CanvasNoOverlap"><value>Widgets cannot overlap — the widget went back to its place.</value></data>
+  <data name="Report_RowModeByStep"><value>By step — one row per agent per interval</value></data>
+  <data name="Report_StepNotInSummary"><value>The step does not apply in summary mode.</value></data>
 </root>
 

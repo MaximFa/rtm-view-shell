@@ -23,7 +23,6 @@ public static class ReportErrorText
         "denied" => "Report_AccessDenied",
         "no-data" => "Report_ErrorNoData",
         "invalid-config" => "Report_ErrorInvalidConfig",
-        "shift-hours" => "Report_ErrorShiftHours",
         "retired" => "Report_ErrorRetired",
         _ => "Report_ErrorUnknown"
     };

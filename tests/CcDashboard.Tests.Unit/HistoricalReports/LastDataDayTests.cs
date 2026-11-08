@@ -105,8 +105,8 @@ public class LastDataDayTests
 
     [Theory]
     [InlineData(ReportWidgetType.Distribution, ReportReasonCodes.Retired)]
-    [InlineData(ReportWidgetType.EndOfShiftAgents, ReportReasonCodes.InvalidConfig)]
-    [InlineData(ReportWidgetType.AgentMonthly, ReportReasonCodes.InvalidConfig)]
+    [InlineData(ReportWidgetType.AgentMonthly, ReportReasonCodes.Retired)]
+    [InlineData(ReportWidgetType.EndOfShiftQueues + 100, ReportReasonCodes.InvalidConfig)]   // a type the rule does not know
     public async Task TypesTheRuleDoesNotCover_SaySo_AndTheStoreIsNotAsked(ReportWidgetType type, string code)
     {
         (await Run(type)).Should().Be(new LastDataDayResult(null, code));
@@ -126,5 +126,43 @@ public class LastDataDayTests
         LastAt(new DateTime(2026, 11, 6, 11, 30, 0, DateTimeKind.Utc));
         await Run(tenant: Guid.NewGuid());
         await _repo.Received(1).GetLastIntervalStartAsync(TenantId, ReportDataSet.Queues, Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
+    }
+
+    // ---- FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01 (coordinator 06:27:37Z): the agents report joins the same rule ----
+
+    private void AgentScope(params string[] ids) =>
+        _scope.ResolveAgentScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), AgentReportAxis.Detail, Arg.Any<CancellationToken>())
+            .Returns(new ReportWidgetScopeResult { EffectiveAgentIds = new HashSet<string>(ids) });
+
+    [Fact]
+    public async Task Agents_LastBucket_IsTheLocalDay_AskedForTheAgentsTheWidgetShows()
+    {
+        AgentScope("a1", "a2", "a3");
+        LastAt(new DateTime(2026, 11, 6, 22, 30, 0, DateTimeKind.Utc));   // 07.11 00:30 (+02)
+        var r = await Run(ReportWidgetType.EndOfShiftAgents, """{ "scope": { "businessUnitIds": [1] }, "agentIds": ["a2", "x9"] }""");
+
+        r.Should().Be(new LastDataDayResult(new DateOnly(2026, 11, 7)));
+        // the widget's picked agents narrow the scope (x9 is outside it) - the run's own rule, not a second one
+        await _repo.Received(1).GetLastIntervalStartAsync(TenantId, ReportDataSet.Agents,
+            Arg.Is<IReadOnlySet<string>>(k => k.SetEquals(new[] { "a2" })), Arg.Any<CancellationToken>());
+        await _repo.DidNotReceive().GetLastIntervalStartAsync(TenantId, ReportDataSet.Queues, Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Agents_PickedOnlyOutsideTheScope_IsNoDay_AndTheStoreIsNotAsked()
+    {
+        AgentScope("a1");
+        var r = await Run(ReportWidgetType.EndOfShiftAgents, """{ "scope": { "businessUnitIds": [1] }, "agentIds": ["x9"] }""");
+        r.Should().Be(new LastDataDayResult(null));
+        await NoStoreCall();
+    }
+
+    [Fact]
+    public async Task Agents_Denied_IsDenied()
+    {
+        _scope.ResolveAgentScopeAsync(TenantId, Arg.Any<ReportWidgetConfig>(), AgentReportAxis.Detail, Arg.Any<CancellationToken>())
+            .Returns(new ReportWidgetScopeResult());
+        (await Run(ReportWidgetType.EndOfShiftAgents)).Should().Be(new LastDataDayResult(null, ReportReasonCodes.Denied));
+        await NoStoreCall();
     }
 }

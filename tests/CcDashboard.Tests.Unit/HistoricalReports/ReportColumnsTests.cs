@@ -41,7 +41,8 @@ public class ReportColumnsTests
     [Fact]
     public void Kinds_AsMeasured()
     {
-        Kind(ReportWidgetType.AgentPerformance, "Date").Should().Be(ReportColumnKind.Date);
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: the agents row has IntervalStart (by step) instead of Date (ByDate, retired)
+        Kind(ReportWidgetType.EndOfShiftAgents, "IntervalStart").Should().Be(ReportColumnKind.DateTime);
         Kind(ReportWidgetType.QueueInterval, "IntervalStart").Should().Be(ReportColumnKind.DateTime);
         Kind(ReportWidgetType.AgentMonthly, "YearMonth").Should().Be(ReportColumnKind.Text);
         Kind(ReportWidgetType.EndOfShiftQueues, "QueueId").Should().Be(ReportColumnKind.Id);

@@ -52,3 +52,37 @@ public static class ReportWidgetSteps
         return char.ToLowerInvariant(name[0]) + name[1..];
     }
 }
+
+/// <summary>
+/// The row mode one Agent Report widget is drawn with, as it tells the page (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01,
+/// operator 2026-11-08 07:54): the export is built by the page and must be grouped like the screen.
+/// </summary>
+public record ReportWidgetRowMode(Guid WidgetId, ReportRowMode RowMode);
+
+/// <summary>
+/// Which row mode an Agent Report widget is drawn with - the same order as the step: the viewer's own choice -> the
+/// widget's default from the editor -> Summary (one row per agent for the period, what this report always was).
+/// The server applies the same order when a query carries none (Application.ReportWidgetConfig.DefaultRowMode).
+/// </summary>
+public static class ReportRowModes
+{
+    /// <summary>The choices, in the order they are offered.</summary>
+    public static readonly IReadOnlyList<ReportRowMode> All = new[] { ReportRowMode.Summary, ReportRowMode.ByStep };
+
+    /// <summary>The resource key of a mode's name - one mapping for the view window and the editor.</summary>
+    public static string NameKey(ReportRowMode mode) => mode == ReportRowMode.Summary ? "ReportWidget_ModeSummary" : "Report_RowModeByStep";
+
+    public static ReportRowMode Effective(ReportRowMode? personal, string? configDefault)
+        => personal ?? FromConfig(configDefault) ?? ReportRowMode.Summary;
+
+    /// <summary>The configuration's default, or null when unset or unknown (a later version's value is not a mode here).</summary>
+    public static ReportRowMode? FromConfig(string? value)
+        => Enum.TryParse<ReportRowMode>(value, ignoreCase: true, out var mode) && Enum.IsDefined(mode) ? mode : null;
+
+    /// <summary>The camelCase name ("byStep") the server's JsonStringEnumConverter(CamelCase) reads.</summary>
+    public static string ToConfig(ReportRowMode mode)
+    {
+        var name = mode.ToString();
+        return char.ToLowerInvariant(name[0]) + name[1..];
+    }
+}

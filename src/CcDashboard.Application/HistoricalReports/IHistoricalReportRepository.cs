@@ -45,7 +45,7 @@ public interface IHistoricalReportRepository
 
     /// <summary>
     /// FEAT-REPORT-DEFAULT-LAST-DATA-DAY-01: the newest interval start (UTC) of a data set for the tenant, within the given,
-    /// already scoped keys (workgroups for <see cref="ReportDataSet.Queues"/>). Null when there is no row. An empty key set
+    /// already scoped keys (workgroups for <see cref="ReportDataSet.Queues"/>, agent external ids for <see cref="ReportDataSet.Agents"/>). Null when there is no row. An empty key set
     /// returns null without a query (PR234-V4-REPORT-FULLSCOPE-EMPTY-LEAK-01 shape: nothing in scope - nothing asked).
     /// </summary>
     Task<DateTime?> GetLastIntervalStartAsync(
@@ -82,5 +82,7 @@ public interface IHistoricalReportRepository
 /// </summary>
 public enum ReportDataSet
 {
-    Queues
+    Queues,
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01 (coordinator 06:27:37Z): the agents report; keys = agent external ids
+    Agents
 }

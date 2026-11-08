@@ -238,41 +238,6 @@
                                 }
                             </div>
                         }
-                        @if (IsEndOfShiftWidget)
-                        {
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">
-                                    @L["ReportWidget_ShiftHours"] <span class="text-danger">*</span>
-                                </label>
-                                <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <span class="small text-muted">@L["ReportWidget_ShiftFrom"]</span>
-                                    <select class="form-select form-select-sm" style="width: auto;" @bind="_shiftStartHour">
-                                        <option value="">@L["Common_NotSelected"]</option>
-                                        @for (var h = 0; h <= 23; h++)
-                                        {
-                                            var hour = h;
-                                            <option value="@hour">@HourLabel(hour)</option>
-                                        }
-                                    </select>
-                                    <span class="small text-muted">@L["ReportWidget_ShiftTo"]</span>
-                                    <select class="form-select form-select-sm" style="width: auto;" @bind="_shiftEndHour">
-                                        <option value="">@L["Common_NotSelected"]</option>
-                                        @for (var h = 1; h <= 24; h++)
-                                        {
-                                            var hour = h;
-                                            <option value="@hour">@HourLabel(hour)</option>
-                                        }
-                                    </select>
-                                </div>
-                                <div class="small text-muted mt-1">@L["ReportWidget_ShiftHoursHint"]</div>
-                                @if (ShiftProblem is { } problem)
-                                {
-                                    <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">
-                                        <i class="bi bi-exclamation-triangle me-1"></i>@problem
-                                    </div>
-                                }
-                            </div>
-                        }
                         @if (TakesDefaultStep)
                         {
                             @* Operator 2026-11-07 13:25: "an interval by default in the editor's settings,
@@ -288,6 +253,24 @@
                                                 class="btn btn-sm @(_defaultStep == stepChoice ? "btn-primary" : "btn-outline-secondary")"
                                                 aria-pressed="@(_defaultStep == stepChoice ? "true" : "false")"
                                                 @onclick="() => _defaultStep = stepChoice">@L[ReportWidgetSteps.NameKey(stepChoice)]</button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        @if (TakesDefaultRowMode)
+                        {
+                            @* Agent Report (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01, operator 2026-11-08 07:54): the row mode the
+                               widget opens with; the viewer can change it on the view screen, next to the step. *@
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">@L["ReportWidget_Mode"] (@L["Common_Default"])</label>
+                                <div class="d-flex flex-column gap-1" role="radiogroup" aria-label="@L["ReportWidget_Mode"]">
+                                    @foreach (var mode in ReportRowModes.All)
+                                    {
+                                        var modeChoice = mode;
+                                        <button type="button" role="radio"
+                                                class="btn btn-sm text-start @(_defaultRowMode == modeChoice ? "btn-primary" : "btn-outline-secondary")"
+                                                aria-checked="@(_defaultRowMode == modeChoice ? "true" : "false")"
+                                                @onclick="() => _defaultRowMode = modeChoice">@L[ReportRowModes.NameKey(modeChoice)]</button>
                                     }
                                 </div>
                             </div>
@@ -555,11 +538,12 @@
     private int _pageSize = 25;
     // Deliberately nullable with no invented default: a shift the operator never chose must not be
     // saved as if they had. An unset pair blocks Save and says so next to the fields.
-    private int? _shiftStartHour;
     // End-of-shift queues: the step the widget opens with (Day when nothing is stored).
     private ReportStep _defaultStep = ReportStep.Day;
-    private bool TakesDefaultStep => WidgetType == ReportWidgetType.EndOfShiftQueues;
-    private int? _shiftEndHour;
+    // Queue Report and Agent Report open with a step; Agent Report also with a row mode (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01).
+    private bool TakesDefaultStep => WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents;
+    private bool TakesDefaultRowMode => WidgetType == ReportWidgetType.EndOfShiftAgents;
+    private ReportRowMode _defaultRowMode = ReportRowMode.Summary;
     // No invented default here either: "summary" would silently decide for the operator which
     // report they asked for, and the two modes answer different questions.
     private string? _mode;
@@ -641,38 +625,7 @@
         ? L["ReportWidget_ModeRequired"].Value
         : null;
 
-    /// <summary>
-    /// Shift hours belong to the end-of-shift AGENTS report only. The queues report takes a period
-    /// and a step now (FEAT-REPORT-EOS-CONFIGURABLE-01), and the server refuses hours on it: an
-    /// hour pair that is silently ignored is a defect, not compatibility - the screen would show a
-    /// setting that decides nothing.
-    /// </summary>
-    private bool IsEndOfShiftWidget => CcDashboard.Contracts.Common.ReportDateFields.TakesShiftHours(WidgetType);
-
-    // 24 is midnight at the end of the shift, not an hour of the day: printing "24:00" keeps
-    // "ends at midnight" readable, where "00:00" would read as the start of the same date.
-    private static string HourLabel(int hour) => $"{hour:00}:00";
-
-    /// <summary>
-    /// The one message shown next to the hour fields, or null when the pair is usable. The order
-    /// matters: an unset pair is reported as unset, not as a wrong order, because a missing value
-    /// compared against anything would otherwise be described as a contradiction the user never made.
-    /// </summary>
-    private string? ShiftProblem
-    {
-        get
-        {
-            if (!IsEndOfShiftWidget)
-                return null;
-            if (_shiftStartHour is null || _shiftEndHour is null)
-                return L["ReportWidget_ShiftHoursRequired"].Value;
-            if (_shiftEndHour <= _shiftStartHour)
-                return L["ReportWidget_ShiftEndBeforeStart"].Value;
-            return null;
-        }
-    }
-
-    private bool CanSave => _selectedBuIds.Count > 0 && ShiftProblem is null && ModeProblem is null;
+    private bool CanSave => _selectedBuIds.Count > 0 && ModeProblem is null;
 
     // Filtered BUs for searchable dropdown
     private IEnumerable<BusinessUnitDto> FilteredBusinessUnits =>
@@ -887,9 +840,8 @@
             {
                 _title = InitialConfig.Title;
                 _pageSize = InitialConfig.PageSize ?? 25;
-                _shiftStartHour = InitialConfig.ShiftStartHour;
-                _shiftEndHour = InitialConfig.ShiftEndHour;
                 _defaultStep = ReportWidgetSteps.FromConfig(InitialConfig.DefaultStep) ?? ReportStep.Day;
+                _defaultRowMode = ReportRowModes.FromConfig(InitialConfig.DefaultRowMode) ?? ReportRowMode.Summary;
                 _mode = InitialConfig.Mode;
                 _selectedAgentIds.Clear();
                 foreach (var id in InitialConfig.AgentIds ?? new List<string>())
@@ -919,9 +871,8 @@
                 // Reset to defaults for new widget
                 _title = null;
                 _pageSize = 25;
-                _shiftStartHour = null;
-                _shiftEndHour = null;
                 _defaultStep = ReportStep.Day;
+                _defaultRowMode = ReportRowMode.Summary;
                 _mode = null;
                 _selectedAgentIds.Clear();
                 _tableFontSize = "14";
@@ -1052,13 +1003,13 @@
                 ? null
                 : _allowedColumns.Where(_selectedColumns.Contains).ToList(),
             PageSize = InitialConfig?.PageSize ?? 25,
-            // Hours belong to the end-of-shift types only: the server rejects a query that carries
-            // them on any other type, so a leftover pair from a retyped widget must not be saved.
-            ShiftStartHour = IsEndOfShiftWidget ? _shiftStartHour : null,
-            ShiftEndHour = IsEndOfShiftWidget ? _shiftEndHour : null,
-            // The default step belongs to the end-of-shift queues only; the server refuses it on
-            // any other type, so a retyped widget must not carry one.
+            // No report takes shift hours since 2026-11-08 (Agent Report takes a period): a pair left in an old
+            // configuration is dropped on save, not carried as a setting that decides nothing.
+            ShiftStartHour = null,
+            ShiftEndHour = null,
+            // The default step belongs to Queue Report and Agent Report; the server refuses it on any other type.
             DefaultStep = TakesDefaultStep ? ReportWidgetSteps.ToConfig(_defaultStep) : null,
+            DefaultRowMode = TakesDefaultRowMode ? ReportRowModes.ToConfig(_defaultRowMode) : null,
             // The mode belongs to AgentPerformance only; the server refuses it on other types.
             Mode = IsAgentPerformanceWidget ? _mode : null,
             // Carried through untouched: the agent pick has no control yet (backend owes the

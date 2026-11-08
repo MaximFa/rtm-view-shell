@@ -66,12 +66,8 @@ public class RunReportWidgetQueryHandler(
             return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, errors);
         }
 
-        // FEAT-REPORT-EOS-*-01: an end-of-shift report is one date plus shift hours; every other type takes whole days
-        // and must not carry shift hours.
-        // PR234-V4-EOS-WIDGETS-NO-SHIFT-HOURS-01: hours on the query win; without them an end-of-shift widget runs with the
-        // hours saved in its own config. Other types never take hours from the config.
-        if (TakesShiftHours(query.WidgetType) && query.ShiftStartHour is null && query.ShiftEndHour is null)
-            query = query with { ShiftStartHour = config.ShiftStartHour, ShiftEndHour = config.ShiftEndHour };
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: no report takes shift hours any more - both end-of-shift reports cover the
+        // whole local days From..To with a step; hours saved in an old widget's config are ignored, hours on a query refused.
 
         var stepError = ValidateStep(query);
         if (stepError != null)
@@ -85,168 +81,21 @@ public class RunReportWidgetQueryHandler(
         if (filterError != null)
             return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, filterError);
 
-        var shiftError = ValidateShift(query);
-        if (shiftError != null)
-        {
-            logger.LogWarning("RunReportWidgetQuery: shift validation failed: {Error}", shiftError);
-            return ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.ShiftHours, shiftError);
-        }
-
         // The picked days are days in the display zone: local midnight -> UTC instant.
         var from = Zone.WallToUtc(query.From.Date);
         var toExclusive = Zone.WallToUtc(query.To.Date.AddDays(1));
-        if (TakesShiftHours(query.WidgetType))
-        {
-            // Shift hours are site wall-clock hours on the picked date; whole hours fall on the 30-minute bucket edges.
-            from = Zone.WallToUtc(query.From.Date.AddHours(query.ShiftStartHour!.Value));
-            toExclusive = Zone.WallToUtc(query.From.Date.AddHours(query.ShiftEndHour!.Value));
-        }
 
-        // Compute effective columns: config.Columns if non-empty, else DefaultColumns per WidgetType
-        var effectiveColumns = config.GetEffectiveColumns(query.WidgetType);
+        // the one rule of the row mode (agents): the viewer's own choice -> the widget's default (editor) -> Summary
+        var rowMode = query.RowMode ?? config.DefaultRowMode ?? ReportRowMode.Summary;
+
+        // Compute effective columns: config.Columns if non-empty, else DefaultColumns per WidgetType (and the row mode)
+        var effectiveColumns = config.GetEffectiveColumns(query.WidgetType, rowMode);
 
         return query.WidgetType switch
         {
-            ReportWidgetType.AgentMonthly => await RunAgentMonthlyAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
-            ReportWidgetType.AgentShiftDetail => await RunAgentShiftDetailAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
-            ReportWidgetType.EndOfShiftAgents => await RunAgentSummaryAsync(query.WidgetType, null, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
-            ReportWidgetType.AgentPerformance => await RunAgentSummaryAsync(query.WidgetType, config.Mode, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
+            ReportWidgetType.EndOfShiftAgents => await RunAgentSummaryAsync(rowMode, tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.EndOfShiftQueues => await RunQueueSummaryAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             _ => ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, $"Unknown widget type: {query.WidgetType}")
-        };
-    }
-
-    private async Task<ReportWidgetResult> RunAgentMonthlyAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
-    {
-        var axis = config.Scope.AgentAxis ?? AgentReportAxis.Detail;
-        var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, axis, ct);
-
-        if (scopeResult.Denied)
-            return ReportWidgetResult.CreateDenied(ReportWidgetType.AgentMonthly);
-
-        var intervals = await ScopedAgentIntervalsAsync(tenantId, from, toExclusive, scopeResult.EffectiveAgentIds, ct);
-
-        var rows = intervals
-            .GroupBy(x => new { YearMonth = Zone.ToDisplay(x.IntervalStart).ToString("yyyy-MM"), x.AgentExternalId })
-            .Select(g =>
-            {
-                var sumAvailable = g.Sum(x => x.SumAvailableMs);
-                var sumOnphone = g.Sum(x => x.SumOnphoneMs);
-                var sumHold = g.Sum(x => x.SumHoldMs);
-                var sumPaperwork = g.Sum(x => x.SumPaperworkMs);
-                var sumBreak = g.Sum(x => x.SumBreakMs);
-                var sumTraining = g.Sum(x => x.SumTrainingMs);
-                var sumLoggedIn = g.Sum(x => x.SumLoggedInMs);
-                var handled = g.Sum(x => x.Handled);
-                var displayName = g.First().AgentDisplayName;
-
-                var occupancyDenom = sumAvailable + sumOnphone + sumPaperwork;
-                double? occupancyPct = occupancyDenom == 0 ? null : (sumOnphone + sumPaperwork) * 100.0 / occupancyDenom;
-                double? agentAht = handled == 0 ? null : (sumOnphone + sumPaperwork) / 1000.0 / handled;
-                double? holdPct = sumOnphone == 0 ? null : sumHold * 100.0 / sumOnphone;
-
-                return new AgentMonthlyRow(
-                    g.Key.YearMonth,
-                    g.Key.AgentExternalId,
-                    displayName,
-                    sumAvailable,
-                    sumOnphone,
-                    sumHold,
-                    sumPaperwork,
-                    sumBreak,
-                    sumTraining,
-                    sumLoggedIn,
-                    handled,
-                    occupancyPct,
-                    agentAht,
-                    holdPct);
-            })
-            .OrderBy(x => x.YearMonth)
-            .ThenBy(x => x.AgentExternalId)
-            .ToList();
-
-        var (filtered, columnValues) = ApplyFilters(query.WidgetType, rows, query);
-        rows = filtered;
-        var totalCount = rows.Count;
-        List<AgentMonthlyRow> resultRows;
-        int pageSize;
-
-        if (allRows)
-        {
-            resultRows = rows.Take(ExportRowCap).ToList();
-            pageSize = resultRows.Count;
-        }
-        else
-        {
-            pageSize = config.PageSize;
-            resultRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        }
-
-        return new ReportWidgetResult
-        {
-            WidgetType = ReportWidgetType.AgentMonthly,
-            EffectiveColumns = effectiveColumns,
-            ColumnValues = columnValues,
-            AgentMonthly = new AgentMonthlyReportResult(resultRows, totalCount, page, pageSize)
-        };
-    }
-
-    private async Task<ReportWidgetResult> RunAgentShiftDetailAsync(
-        Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns, DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
-    {
-        var axis = config.Scope.AgentAxis ?? AgentReportAxis.Detail;
-        var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, axis, ct);
-
-        if (scopeResult.Denied)
-            return ReportWidgetResult.CreateDenied(ReportWidgetType.AgentShiftDetail);
-
-        var intervals = await ScopedAgentIntervalsAsync(tenantId, from, toExclusive, scopeResult.EffectiveAgentIds, ct);
-
-        var rows = intervals.Select(i =>
-        {
-            var occupancyDenom = i.SumAvailableMs + i.SumOnphoneMs + i.SumPaperworkMs;
-            return new AgentShiftDetailRow(
-                Zone.ToDisplay(i.IntervalStart),
-                i.AgentExternalId,
-                i.AgentDisplayName,
-                i.SumAvailableMs,
-                i.SumOnphoneMs,
-                i.SumHoldMs,
-                i.SumPaperworkMs,
-                i.SumBreakMs,
-                i.SumTrainingMs,
-                i.SumLoggedInMs,
-                i.Handled,
-                occupancyDenom == 0 ? null : (i.SumOnphoneMs + i.SumPaperworkMs) * 100.0 / occupancyDenom,
-                i.Handled == 0 ? null : (i.SumOnphoneMs + i.SumPaperworkMs) / 1000.0 / i.Handled,
-                i.SumOnphoneMs == 0 ? null : i.SumHoldMs * 100.0 / i.SumOnphoneMs,
-                i.SumOnphoneMs - i.SumHoldMs);
-        }).ToList();
-
-        var (filtered, columnValues) = ApplyFilters(query.WidgetType, rows, query);
-        rows = filtered;
-        var totalCount = rows.Count;
-        List<AgentShiftDetailRow> resultRows;
-        int pageSize;
-
-        if (allRows)
-        {
-            resultRows = rows.Take(ExportRowCap).ToList();
-            pageSize = resultRows.Count;
-        }
-        else
-        {
-            pageSize = config.PageSize;
-            resultRows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        }
-
-        return new ReportWidgetResult
-        {
-            WidgetType = ReportWidgetType.AgentShiftDetail,
-            EffectiveColumns = effectiveColumns,
-            ColumnValues = columnValues,
-            AgentShiftDetail = new AgentShiftDetailReportResult(resultRows, totalCount, page, pageSize)
         };
     }
 
@@ -280,38 +129,22 @@ public class RunReportWidgetQueryHandler(
     // The agent summary types carry ReportCaveatCodes.StatusStartBucket (status time sits in the half-hour the status
     // started); the screen owns the sentence and its three translations (PR234-V4-EOS-CAVEAT-NOT-LOCALIZED-01).
 
-    /// <summary>
-    /// Only the end-of-shift AGENTS report still takes shift hours. FEAT-REPORT-EOS-CONFIGURABLE-01: the end-of-shift queues
-    /// report covers whole local days From..To with a Step; hours saved in an old widget's config are ignored.
-    /// </summary>
-    internal static bool TakesShiftHours(ReportWidgetType t) => t is ReportWidgetType.EndOfShiftAgents;
+    /// <summary>The report types that take a step (and From..To). FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: both end-of-shift
+    /// reports; no report takes shift hours any more.</summary>
+    internal static bool TakesStep(ReportWidgetType t) => t is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents;
 
     internal static string? ValidateStep(RunReportWidgetQuery q)
     {
-        if (q.Step is not null && q.WidgetType != ReportWidgetType.EndOfShiftQueues)
-            return "The interval step applies only to the end-of-shift queues report";
+        if (q.Step is not null && !TakesStep(q.WidgetType))
+            return "The interval step applies only to the end-of-shift queues and agents reports";
         if (q.Step is not null && !Enum.IsDefined(q.Step.Value))
             return "Unknown interval step";
-        if (q.WidgetType == ReportWidgetType.EndOfShiftQueues && (q.ShiftStartHour.HasValue || q.ShiftEndHour.HasValue))
-            return "The end-of-shift queues report takes dates from-to, not shift hours";
-        return null;
-    }
-
-    internal static string? ValidateShift(RunReportWidgetQuery q)
-    {
-        if (!TakesShiftHours(q.WidgetType))
-            return q.ShiftStartHour.HasValue || q.ShiftEndHour.HasValue
-                ? "Shift hours apply only to the end-of-shift agents report"
-                : null;
-
-        if (!q.ShiftStartHour.HasValue || !q.ShiftEndHour.HasValue)
-            return "Shift start and end hours are required";
-        if (q.From.Date != q.To.Date)
-            return "An end-of-shift report covers one date";
-        if (q.ShiftStartHour < 0 || q.ShiftStartHour > 23 || q.ShiftEndHour < 1 || q.ShiftEndHour > 24)
-            return "Shift hours must be 0-23 (start) and 1-24 (end)";
-        if (q.ShiftEndHour <= q.ShiftStartHour)
-            return "The shift must end after it starts; a shift across midnight is not supported";
+        if (q.RowMode is not null && q.WidgetType != ReportWidgetType.EndOfShiftAgents)
+            return "The row mode applies only to the end-of-shift agents report";
+        if (q.RowMode is not null && !Enum.IsDefined(q.RowMode.Value))
+            return "Unknown row mode";
+        if (q.ShiftStartHour.HasValue || q.ShiftEndHour.HasValue)
+            return "Reports take dates from-to, not shift hours";
         return null;
     }
 
@@ -342,7 +175,7 @@ public class RunReportWidgetQueryHandler(
     /// never an arbitrary name into reflection). Other types ignore the sort.</summary>
     internal static string? ValidateSort(RunReportWidgetQuery q)
     {
-        if (q.SortColumn is null || q.WidgetType != ReportWidgetType.EndOfShiftQueues)
+        if (q.SortColumn is null || !TakesStep(q.WidgetType))
             return null;
         return ReportColumns.Find(q.WidgetType, q.SortColumn) is null ? "Unknown sort column" : null;
     }
@@ -507,26 +340,37 @@ public class RunReportWidgetQueryHandler(
         return (rows.Skip((page - 1) * pageSize).Take(pageSize).ToList(), pageSize);
     }
 
+    /// <summary>
+    /// The agents a widget shows: its scope, narrowed (never widened) by the agents picked in its config. One rule for the
+    /// report run and for the last-day-with-data query (FEAT-REPORT-DEFAULT-LAST-DATA-DAY-01, agents).
+    /// </summary>
+    internal static (HashSet<string> Effective, IReadOnlyList<string> Dropped) NarrowToPickedAgents(
+        IReadOnlySet<string> scoped, IReadOnlyList<string>? picked)
+    {
+        var effective = new HashSet<string>(scoped);
+        if (picked is not { Count: > 0 })
+            return (effective, Array.Empty<string>());
+        var requested = new HashSet<string>(picked);
+        var dropped = requested.Where(id => !effective.Contains(id)).ToList();
+        effective.IntersectWith(requested);
+        return (effective, dropped);
+    }
+
     private async Task<ReportWidgetResult> RunAgentSummaryAsync(
-        ReportWidgetType type, AgentPerformanceMode? mode, Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns,
+        ReportRowMode rowMode, Guid tenantId, ReportWidgetConfig config, IReadOnlyList<string> effectiveColumns,
         DateTime from, DateTime toExclusive, int page, bool allRows, RunReportWidgetQuery query, CancellationToken ct)
     {
+        const ReportWidgetType type = ReportWidgetType.EndOfShiftAgents;
         var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, AgentReportAxis.Detail, ct);
         if (scopeResult.Denied)
             return ReportWidgetResult.CreateDenied(type);
 
         // The agent filter only narrows the scope (SF-BI-001); requested ids outside it are dropped and logged (SF-BI-002).
-        var effective = new HashSet<string>(scopeResult.EffectiveAgentIds);
-        if (config.AgentIds is { Count: > 0 })
-        {
-            var requested = new HashSet<string>(config.AgentIds);
-            var dropped = requested.Where(id => !effective.Contains(id)).ToList();
-            if (dropped.Count > 0)
-                logger.LogWarning(
-                    "SF-BI-002: User {UserId} PG {PgId} requested {RequestedCount} agents in {Type}, {DroppedCount} out-of-scope dropped (sample: {DroppedSample})",
-                    currentUser.UserId, currentUser.PermissionGroupId, requested.Count, type, dropped.Count, string.Join(", ", dropped.Take(5)));
-            effective.IntersectWith(requested);
-        }
+        var (effective, dropped) = NarrowToPickedAgents(scopeResult.EffectiveAgentIds, config.AgentIds);
+        if (dropped.Count > 0)
+            logger.LogWarning(
+                "SF-BI-002: User {UserId} PG {PgId} requested {RequestedCount} agents in {Type}, {DroppedCount} out-of-scope dropped (sample: {DroppedSample})",
+                currentUser.UserId, currentUser.PermissionGroupId, config.AgentIds!.Count, type, dropped.Count, string.Join(", ", dropped.Take(5)));
 
         var intervals = await ScopedAgentIntervalsAsync(tenantId, from, toExclusive, effective, ct);
 
@@ -537,10 +381,14 @@ public class RunReportWidgetQueryHandler(
             ? (IReadOnlyDictionary<string, string>)new Dictionary<string, string>()
             : await repo.GetAgentDisplayNamesAsync(tenantId, present, ct);
 
-        var byDate = type == ReportWidgetType.AgentPerformance && mode == AgentPerformanceMode.ByDate;
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: Summary = one row per agent for the whole period (no step); ByStep = one row
+        // per (interval of the step, agent), the interval by the same StepKey as the queues report.
+        var byStep = rowMode == ReportRowMode.ByStep;
+        ReportStep? step = byStep ? query.Step ?? config.DefaultStep ?? ReportStep.Day : null;
+        var intervalKey = new Dictionary<object, DateTime>(ReferenceEqualityComparer.Instance);   // row -> UTC interval start
         var rows = intervals
             .Where(i => effective.Contains(i.AgentExternalId))
-            .GroupBy(i => (Date: byDate ? Zone.ToDisplay(i.IntervalStart).Date : (DateTime?)null, i.AgentExternalId))
+            .GroupBy(i => (Interval: step is { } st ? StepKey(i.IntervalStart, st) : ((DateTime Key, DateTime Shown)?)null, i.AgentExternalId))
             .Select(g =>
             {
                 long Sum(Func<CcDashboard.Domain.Domain.Historical.HistAgentInterval, long> f) => g.Sum(f);
@@ -550,8 +398,8 @@ public class RunReportWidgetQueryHandler(
                 var paperwork = Sum(x => x.SumPaperworkMs);
                 var handled = g.Sum(x => x.Handled);
                 var occDenom = available + onphone + paperwork;
-                return new AgentSummaryRow(
-                    g.Key.Date,
+                var row = new AgentSummaryRow(
+                    g.Key.Interval?.Shown,
                     g.Key.AgentExternalId,
                     liveNames.TryGetValue(g.Key.AgentExternalId, out var live) && !string.IsNullOrWhiteSpace(live)
                         ? live
@@ -569,8 +417,12 @@ public class RunReportWidgetQueryHandler(
                     handled == 0 ? null : (onphone + paperwork) / 1000.0 / handled,
                     onphone == 0 ? null : hold * 100.0 / onphone,
                     onphone - hold);
+                if (g.Key.Interval is { } iv)
+                    intervalKey[row] = iv.Key;
+                return row;
             })
-            .OrderBy(r => r.Date)
+            // by the UTC start of the interval (the two local 01:00 of the autumn change stay in time order), then by name
+            .OrderBy(r => intervalKey.TryGetValue(r, out var k) ? k : DateTime.MinValue)
             .ThenBy(r => r.AgentDisplayName ?? r.AgentExternalId, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(r => r.AgentExternalId, StringComparer.Ordinal)
             .ToList();
@@ -578,6 +430,8 @@ public class RunReportWidgetQueryHandler(
         // funnel filters on the final rows, before paging; the checkbox list over the whole window (FEAT-REPORT-COLUMN-FUNNEL-FILTERS-01)
         var (filteredRows, columnValues) = ApplyFilters(type, rows, query);
         rows = filteredRows;
+        if (query.SortColumn is { } sortColumn)
+            rows = SortRows(rows, sortColumn, query.SortDescending, intervalKey);   // after the filters, before paging
 
         var (pageRows, pageSize) = PageOf(rows, config.PageSize, page, allRows);
         var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);
@@ -590,7 +444,11 @@ public class RunReportWidgetQueryHandler(
             DataThroughUtc = through,
             Incomplete = incomplete,
             CaveatCode = ReportCaveatCodes.StatusStartBucket,
-            ColumnValues = columnValues
+            ColumnValues = columnValues,
+            Step = step,
+            RowMode = rowMode,
+            PartialFirst = step is { } s1 && StepKey(from, s1).Key != from,
+            PartialLast = step is { } s2 && StepKey(toExclusive, s2).Key != toExclusive
         };
     }
 
@@ -642,7 +500,7 @@ public class RunReportWidgetQueryHandler(
         var (filteredRows, columnValues) = ApplyFilters(type, rows, query);   // before paging
         rows = filteredRows;
         if (query.SortColumn is { } sortColumn)
-            rows = SortQueueRows(rows, sortColumn, query.SortDescending, intervalKey);   // after the filters, before paging
+            rows = SortRows(rows, sortColumn, query.SortDescending, intervalKey);   // after the filters, before paging
 
         var (pageRows, pageSize) = PageOf(rows, config.PageSize, page, allRows);
         var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);
@@ -662,17 +520,19 @@ public class RunReportWidgetQueryHandler(
     }
 
     /// <summary>
-    /// FEAT-REPORT-QUEUE-COLUMN-SORT-01: the rows ordered by one (white-listed) column. Nulls are always last, whatever the
+    /// FEAT-REPORT-QUEUE-COLUMN-SORT-01 (agents: FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01): the rows ordered by one
+    /// (white-listed) column. Nulls are always last, whatever the
     /// direction; the sort is stable, so equal values keep the default order (interval, then queue). IntervalStart sorts
     /// by the UTC start of the interval, so the two local "01:00" rows of the autumn change never swap.
     /// </summary>
-    internal static List<QueueSummaryRow> SortQueueRows(
-        List<QueueSummaryRow> rows, string column, bool descending, IReadOnlyDictionary<object, DateTime> intervalKey)
+    internal static List<T> SortRows<T>(
+        List<T> rows, string column, bool descending, IReadOnlyDictionary<object, DateTime> intervalKey) where T : class
     {
-        var prop = typeof(QueueSummaryRow).GetProperty(column)
-            ?? throw new ArgumentException("not a column of the queues report: " + column, nameof(column));
-        object? Value(QueueSummaryRow r) =>
-            column == nameof(QueueSummaryRow.IntervalStart) ? intervalKey[r] : prop.GetValue(r);
+        var prop = typeof(T).GetProperty(column)
+            ?? throw new ArgumentException("not a column of the report: " + column, nameof(column));
+        // IntervalStart by the UTC start of its interval (a Summary row of the agents report has none: null, last)
+        object? Value(T r) =>
+            column == nameof(QueueSummaryRow.IntervalStart) ? (intervalKey.TryGetValue(r, out var k) ? (object?)k : null) : prop.GetValue(r);
         IComparer<object?> comparer = prop.PropertyType == typeof(string)
             ? Comparer<object?>.Create((a, b) => StringComparer.CurrentCultureIgnoreCase.Compare((string?)a, (string?)b))
             : Comparer<object?>.Default;

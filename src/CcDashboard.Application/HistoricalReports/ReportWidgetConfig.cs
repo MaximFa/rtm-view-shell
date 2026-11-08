@@ -59,6 +59,12 @@ public record ReportWidgetConfig
     /// </summary>
     public ReportStep? DefaultStep { get; init; }
 
+    /// <summary>
+    /// FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: the row mode the end-of-shift agents widget opens with (editor). One rule:
+    /// the viewer's own choice (query RowMode) -> this -> Summary. Other types: refused by the validator.
+    /// </summary>
+    public ReportRowMode? DefaultRowMode { get; init; }
+
     /// <summary>Appearance settings (opaque, IGNORED server-side).</summary>
     public JsonElement? Appearance { get; init; }
 
@@ -81,8 +87,23 @@ public record ReportWidgetConfig
     /// Get the effective columns: config.Columns if non-empty, else DefaultColumns for the widget type.
     /// v1: Columns picker is stub-disabled; server provides standard set when config has no columns.
     /// </summary>
-    public IReadOnlyList<string> GetEffectiveColumns(ReportWidgetType widgetType)
+    public IReadOnlyList<string> GetEffectiveColumns(ReportWidgetType widgetType, ReportRowMode rowMode = ReportRowMode.Summary)
     {
+        const string interval = nameof(QueueSummaryRow.IntervalStart);
+
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: the agents report shows the interval start only by step, always first
+        // there; in Summary it has no interval (null for every row), so the column is left out even when picked. A saved
+        // "Date" (the retired ByDate field) reads as IntervalStart.
+        if (widgetType == ReportWidgetType.EndOfShiftAgents)
+        {
+            var picked = (Columns is { Count: > 0 } ? Columns : DefaultColumns(widgetType))
+                .Select(c => LegacyColumnAliases(widgetType).TryGetValue(c, out var to) ? to : c)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(c => !string.Equals(c, interval, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            return rowMode == ReportRowMode.ByStep ? new[] { interval }.Concat(picked).ToList() : picked;
+        }
+
         if (Columns is not { Count: > 0 })
             return DefaultColumns(widgetType);
 
@@ -141,6 +162,17 @@ public record ReportWidgetConfig
     /// FEAT-REPORT-*: the columns a user may pick for a widget type = the public fields of its row (column picker source).
     /// Null for types without a row record (Distribution).
     /// </summary>
+    /// <summary>
+    /// FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: names a saved column list may still hold that now mean another column
+    /// (accepted by the validator, mapped by GetEffectiveColumns; never offered in the picker).
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> LegacyColumnAliases(ReportWidgetType widgetType) =>
+        widgetType == ReportWidgetType.EndOfShiftAgents ? AgentAliases : NoAliases;
+
+    private static readonly IReadOnlyDictionary<string, string> AgentAliases =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["Date"] = nameof(AgentSummaryRow.IntervalStart) };
+    private static readonly IReadOnlyDictionary<string, string> NoAliases = new Dictionary<string, string>();
+
     public static IReadOnlyList<string>? AllowedColumns(ReportWidgetType widgetType)
     {
         var rowType = widgetType switch

@@ -237,6 +237,9 @@ public class SaveReportWidgetsTests
     [InlineData(ReportWidgetType.QueueInterval)]
     [InlineData(ReportWidgetType.QueueWaitTime)]
     [InlineData(ReportWidgetType.Distribution)]
+    [InlineData(ReportWidgetType.AgentMonthly)]       // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01
+    [InlineData(ReportWidgetType.AgentShiftDetail)]
+    [InlineData(ReportWidgetType.AgentPerformance)]
     public async Task SaveWidgets_NewRetiredWidget_IsRefused(ReportWidgetType retired)
     {
         var handler = RetiredScreen();
@@ -285,9 +288,11 @@ public class SaveReportWidgetsTests
         await _repo.Received(1).AddWidgetAsync(Arg.Is<ReportWidget>(w => w.ConfigJson == cfg), Arg.Any<CancellationToken>());
 
         var refused = () => RetiredScreen().Handle(new SaveReportWidgetsCommand(ScreenId, new List<SaveReportWidgetRequest>
-            { new(null, ReportWidgetType.AgentPerformance, "{}", """{ "scope": { "businessUnitIds": [1] }, "mode": "summary", "defaultStep": "month" }""", false) }),
+            { new(null, ReportWidgetType.EndOfShiftQueues, "{}", """{ "scope": { "businessUnitIds": [1] }, "defaultRowMode": "byStep" }""", false) }),
             CancellationToken.None);
-        await refused.Should().ThrowAsync<DomainValidationException>().WithMessage("*default interval step*");
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: the agents report takes a default step now; the refusal is shown on the
+        // other default the queues report may not carry
+        await refused.Should().ThrowAsync<DomainValidationException>().WithMessage("*default row mode*");
     }
 }
 

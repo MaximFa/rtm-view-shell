@@ -948,7 +948,7 @@
   <data name="Report_DescAgentShiftDetail"><value>מדדי נציגים מפורטים לפי משמרת</value></data>
   <data name="Report_DescDistribution"><value>תרשימי התפלגות שיחות</value></data>
   <data name="Report_DescEndOfShiftQueues"><value>שורה אחת לכל תור בכל מרווח בתקופה שנבחרה</value></data>
-  <data name="Report_DescEndOfShiftAgents"><value>שורה אחת לכל נציג בחלון המשמרת</value></data>
+  <data name="Report_DescEndOfShiftAgents"><value>שורה אחת לכל נציג לתקופה, או לכל מרווח של הצעד</value></data>
   <data name="Report_DescAgentPerformance"><value>נתוני נציגים לתקופה: שורה לכל נציג, או לכל נציג לפי תאריך</value></data>
   <data name="Report_Between"><value>בין</value></data>
   <data name="Report_DurationHint"><value>זמן בתבנית שעות:דקות:שניות</value></data>
@@ -960,7 +960,7 @@
   <data name="ReportWidget_ModeHint"><value>התקופה נלקחת משדות התאריך בדף הדוח.</value></data>
   <data name="ReportWidget_ModeRequired"><value>בחרו את מצב הדוח.</value></data>
   <data name="ReportWidget_ModeMissing"><value>מצב הדוח לא הוגדר. פתחו את הגדרות הווידג'ט ובחרו «מרוכז» או «לפי תאריך».</value></data>
-  <data name="Report_EndOfShiftAgents"><value>סוף משמרת — נציגים</value></data>
+  <data name="Report_EndOfShiftAgents"><value>דוח נציגים</value></data>
   <data name="Report_Incomplete"><value>החלק האחרון של הטווח הזה עוד לא עובד, ולכן השורות האחרונות עשויות להיות חלקיות. נתונים עד {0}.</value></data>
   <data name="Report_SumTalk"><value>סך שיחה</value></data>
   <data name="Report_QueueId"><value>מזהה תור</value></data>
@@ -995,13 +995,6 @@
   <data name="ReportWidget_ColumnsHint"><value>סמן את העמודות שהדוח הזה יציג.</value></data>
   <data name="ReportWidget_ColumnsReset"><value>מערכת ברירת המחדל</value></data>
   <data name="ReportWidget_ColumnsFixed"><value>העמודות של סוג הדוח הזה קבועות.</value></data>
-  <data name="ReportWidget_ShiftHours"><value>שעות המשמרת</value></data>
-  <data name="ReportWidget_ShiftFrom"><value>מ-</value></data>
-  <data name="ReportWidget_ShiftTo"><value>עד</value></data>
-  <data name="ReportWidget_ShiftHoursHint"><value>התאריך נלקח משדה התאריך בדף הדוח; שעות שלמות בלבד, ללא משמרת החוצה את חצות.</value></data>
-  <data name="ReportWidget_ShiftHoursRequired"><value>בחרו את שעת ההתחלה ואת שעת הסיום של המשמרת.</value></data>
-  <data name="ReportWidget_ShiftEndBeforeStart"><value>המשמרת חייבת להסתיים אחרי שהיא מתחילה.</value></data>
-  <data name="ReportWidget_ShiftHoursMissing"><value>שעות המשמרת לא הוגדרו. פתחו את הגדרות הווידג'ט ובחרו שעת התחלה ושעת סיום.</value></data>
   <data name="Common_NotSelected"><value>לא נבחר</value></data>
   <data name="ReportWidget_ColumnsNoneChosen"><value>לא סומן דבר: יוצג מערך ברירת המחדל.</value></data>
   <data name="ReportWidget_ThresholdsHint"><value>ספים לפי עמודה — זמין בגרסה v1.1 (יחד עם בורר העמודות המלא).</value></data>
@@ -1024,7 +1017,6 @@
   <data name="Reports_ExportSkippedDenied"><value>אין גישה לנתונים שלו</value></data>
   <data name="Reports_ExportSkippedNoData"><value>אין נתונים לתקופה שנבחרה</value></data>
   <data name="Reports_ExportSkippedInvalidConfig"><value>לא ניתן להשתמש בהגדרות שלו</value></data>
-  <data name="Reports_ExportSkippedShiftHours"><value>שעות המשמרת לא הוגדרו או אינן מתאימות לתאריך שנבחר</value></data>
   <data name="Reports_ExportFailed"><value>הייצוא נכשל. נסה שוב.</value></data>
   <data name="Reports_ScheduleStub"><value>פונקציית התזמון תהיה זמינה בקרוב</value></data>
   <data name="Reports_Description"><value>תיאור</value></data>
@@ -1235,11 +1227,12 @@
   <data name="Report_StepYear"><value>שנה</value></data>
   <data name="Report_ErrorNoData"><value>אין נתונים לתקופה שנבחרה.</value></data>
   <data name="Report_ErrorInvalidConfig"><value>לא ניתן להשתמש בהגדרות של דוח זה. יש לפתוח את ההגדרות ולבדוק אותן.</value></data>
-  <data name="Report_ErrorShiftHours"><value>שעות המשמרת לא הוגדרו או אינן מתאימות לתאריך שנבחר.</value></data>
   <data name="Report_ErrorRetired"><value>דוח זה הוסר ואינו מופק עוד.</value></data>
   <data name="Report_ErrorUnknown"><value>לא ניתן היה להפיק את הדוח.</value></data>
   <data name="Report_ShownForRange"><value>נתונים עבור {0} – {1}</value></data>
   <data name="Report_FilterNoMatch"><value>אין שורות שתואמות את הסינון.</value></data>
   <data name="Report_CanvasNoOverlap"><value>ווידג'טים לא יכולים לחפוף — הווידג'ט חזר למקומו.</value></data>
+  <data name="Report_RowModeByStep"><value>לפי מרווח — שורה אחת לכל נציג לכל מרווח</value></data>
+  <data name="Report_StepNotInSummary"><value>המרווח לא חל במצב מרוכז.</value></data>
 </root>
 

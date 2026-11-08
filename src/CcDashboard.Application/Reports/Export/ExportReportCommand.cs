@@ -22,12 +22,16 @@ public record ExportReportCommand(
     // A widget without an entry is exported unfiltered; a filter on a column the type does not have is refused by the run
     // (the widget is then listed in Skipped with invalid-config, never silently exported unfiltered).
     IReadOnlyDictionary<Guid, IReadOnlyList<ReportColumnFilter>>? Filters = null,
-    // FEAT-REPORT-EOS-CONFIGURABLE-01: each end-of-shift queues widget's interval step, keyed by WidgetId (absent = Day).
-    IReadOnlyDictionary<Guid, ReportStep>? Steps = null
+    // FEAT-REPORT-EOS-CONFIGURABLE-01: each end-of-shift widget's interval step, keyed by WidgetId (absent = the widget's
+    // DefaultStep, else Day).
+    IReadOnlyDictionary<Guid, ReportStep>? Steps = null,
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: each end-of-shift agents widget's row mode, keyed by WidgetId (absent = the
+    // widget's DefaultRowMode, else Summary).
+    IReadOnlyDictionary<Guid, ReportRowMode>? Modes = null
 ) : IRequest<ReportExportResult>, IAuditable
 {
     public string AuditEventType => "ReportScreen.Exported";
-    public object? AuditDetails => new { ReportId, From, To, Filters, Steps };
+    public object? AuditDetails => new { ReportId, From, To, Filters, Steps, Modes };
 }
 
 
@@ -68,25 +72,27 @@ public class ExportReportCommandHandler(
 
         foreach (var widget in screen.Widgets.Where(w => !w.IsDeleted))
         {
-            // PR234-V4-EOS-WIDGETS-NO-SHIFT-HOURS-01: an end-of-shift widget covers one date - the screen's first day - and
-            // its own shift hours, which the run takes from the widget config (no hours on the query).
-            // only the end-of-shift AGENTS report is one date with shift hours; the queues report takes From..To and a step
-            var endOfShift = widget.WidgetType is ReportWidgetType.EndOfShiftAgents;
+            // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: every report covers the screen's From..To; the step and the row mode the
+            // screen shows travel per widget (a type that does not take them gets none, so it is not refused for them)
             ReportStep? step = null;
-            if (widget.WidgetType is ReportWidgetType.EndOfShiftQueues && cmd.Steps != null && cmd.Steps.TryGetValue(widget.Id, out var s))
+            if (CcDashboard.Application.Handlers.RunReportWidgetQueryHandler.TakesStep(widget.WidgetType) && cmd.Steps != null && cmd.Steps.TryGetValue(widget.Id, out var s))
                 step = s;
+            ReportRowMode? mode = null;
+            if (widget.WidgetType is ReportWidgetType.EndOfShiftAgents && cmd.Modes != null && cmd.Modes.TryGetValue(widget.Id, out var m))
+                mode = m;
             IReadOnlyList<ReportColumnFilter>? filters = null;
             cmd.Filters?.TryGetValue(widget.Id, out filters);
             var query = new RunReportWidgetQuery(
                 widget.WidgetType,
                 widget.ConfigJson ?? "{}",
-                endOfShift ? cmd.From.Date : cmd.From,
-                endOfShift ? cmd.From.Date : cmd.To,
+                cmd.From,
+                cmd.To,
                 Page: 1,
                 TenantId: cmd.TenantId,
                 AllRows: true,
                 Filters: filters,
-                Step: step);
+                Step: step,
+                RowMode: mode);
 
             var title = GetWidgetTitle(widget);
             ReportWidgetResult result;
@@ -147,11 +153,8 @@ public class ExportReportCommandHandler(
 
         var (rows, totalCount) = result.WidgetType switch
         {
-            ReportWidgetType.AgentMonthly when result.AgentMonthly != null =>
-                (ProjectRows(result.AgentMonthly.Rows, columns), result.AgentMonthly.TotalCount),
-            ReportWidgetType.AgentShiftDetail when result.AgentShiftDetail != null =>
-                (ProjectRows(result.AgentShiftDetail.Rows, columns), result.AgentShiftDetail.TotalCount),
-            ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentPerformance when result.AgentSummary != null =>
+            // retired types (AgentMonthly, AgentShiftDetail, AgentPerformance, the old queue reports) never get here
+            ReportWidgetType.EndOfShiftAgents when result.AgentSummary != null =>
                 (ProjectRows(result.AgentSummary.Rows, columns), result.AgentSummary.TotalCount),
             ReportWidgetType.EndOfShiftQueues when result.QueueSummary != null =>
                 (ProjectRows(result.QueueSummary.Rows, columns), result.QueueSummary.TotalCount),
@@ -165,7 +168,7 @@ public class ExportReportCommandHandler(
         // the one label rule the screen uses (ReportIntervalLabel, by the step the server used).
         // FEAT-REPORT-INTERVAL-LABEL-NO-EDGE-MARK-01 (operator 2026-11-07 18:51): no cut-edge mark in brackets, on the
         // screen or in the file; PartialFirst / PartialLast stay in the answer.
-        if (result.WidgetType == ReportWidgetType.EndOfShiftQueues && result.Step is { } step)
+        if (result.WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents && result.Step is { } step)
         {
             var at = columns.ToList().FindIndex(c => string.Equals(c, nameof(QueueSummaryRow.IntervalStart), StringComparison.OrdinalIgnoreCase));
             if (at >= 0)
@@ -185,7 +188,6 @@ public class ExportReportCommandHandler(
     {
         ReportReasonCodes.Denied => "No access to this widget's data",
         ReportReasonCodes.NoData => "No data for the selected period",
-        ReportReasonCodes.ShiftHours => "Shift hours are not set or not valid for this widget",
         ReportReasonCodes.InvalidConfig => "The widget settings are not valid",
         ReportReasonCodes.Retired => "This report type has been retired",
         _ => "Not exported - reason not recognised"

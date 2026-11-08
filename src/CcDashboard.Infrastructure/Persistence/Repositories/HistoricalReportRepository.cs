@@ -68,6 +68,12 @@ public class HistoricalReportRepository(
                 .AsNoTracking()
                 .Where(x => x.TenantId == tenantId && scopedKeys.Contains(x.Workgroup))
                 .MaxAsync(x => (DateTime?)x.IntervalStart, ct),
+            // the same index shape on hist_agent_intervals: (TenantId, IntervalStart[, AgentExternalId])
+            ReportDataSet.Agents => await ctx.HistAgentIntervals
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenantId && scopedKeys.Contains(x.AgentExternalId))
+                .MaxAsync(x => (DateTime?)x.IntervalStart, ct),
             _ => throw new ArgumentOutOfRangeException(nameof(dataSet), dataSet, "Unknown report data set")
         };
     }

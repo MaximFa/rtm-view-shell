@@ -18,23 +18,27 @@ namespace CcDashboard.Tests.Architecture;
 /// </summary>
 public class ReportScreenDatesGuardTests
 {
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01 (operator 2026-11-08 07:54): Agent Report takes a period now, so no report
+    // takes one date, and the one-field screen of 2026-11-05 is gone with the rule that drew it. The question of this
+    // case changed with it - from "is the second field drawn only where the rule says" to "is it drawn always, and is
+    // no single-date path left to hide it again" - and so did its name. Same number of cases in the file.
     [Fact]
-    public void TheSecondDateField_isDrawnOnlyWhenTheRuleSaysSo_andTheRuleIsNotCopied()
+    public void BothDateFields_areDrawnAlways_andNoSingleDatePathIsLeft()
     {
-        var page = ViewPage();
+        foreach (var page in new[] { ViewPage(), EditorPage() })
+        {
+            SingleDatePath(page).Should().BeEmpty("no report takes one date; a path that hides the \"to\" field hides a control people need");
+            page.Should().Contain("@bind=\"_to\"", "the \"to\" field must be drawn");
+        }
 
-        page.Should().Contain("ReportDateFields.SingleDate",
-            "the page must apply the shared rule, not carry its own copy of which types take one date");
-        Regex.IsMatch(page, @"@if \(!_singleDate\)[\s\S]{0,400}?Report_To")
-            .Should().BeTrue("the \"to\" field must live inside the condition, or it is always drawn");
-
-        // NEGATIVE HALF, on the rule itself: a mixed screen must keep both fields, and an empty
-        // one must not be guessed as single. If these came back true, the condition above would be
-        // hiding a control people need.
-        ReportDateFields.SingleDate(new[] { ReportWidgetType.EndOfShiftAgents, ReportWidgetType.QueueInterval })
-            .Should().BeFalse();
-        ReportDateFields.SingleDate(Array.Empty<ReportWidgetType>()).Should().BeFalse();
+        // NEGATIVE HALF: the 2026-11-05 shapes are caught.
+        SingleDatePath("@if (!_singleDate)\n{ <input @bind=\"_to\" /> }").Should().NotBeEmpty();
+        SingleDatePath("To=\"@(SingleDateNow ? _rangeFrom : _rangeTo)\"").Should().NotBeEmpty();
+        SingleDatePath("ReportDateFields.SingleDate(types)").Should().NotBeEmpty();
     }
+
+    private static List<string> SingleDatePath(string text)
+        => Regex.Matches(text, @"_singleDate|SingleDateNow|ReportDateFields\.SingleDate|TakesShiftHours").Select(m => m.Value).ToList();
 
     [Fact]
     public void AnInvertedRange_isRefusedBeforeAnythingIsSent_andOnlyWhereThereIsAPair()
@@ -43,8 +47,8 @@ public class ReportScreenDatesGuardTests
 
         page.Should().Contain("Report_DateRangeInverted",
             "the refusal must be a localised sentence, not an empty report");
-        Regex.IsMatch(page, @"!_singleDate && _from\.Date > _to\.Date")
-            .Should().BeTrue("the order check must not run on a screen that shows one date - there is no pair there");
+        Regex.IsMatch(page, @"if \(_from\.Date > _to\.Date\)")
+            .Should().BeTrue("the order check must run - every screen has the pair now");
 
         // The refusal must happen BEFORE the range is applied: a check after the assignment would
         // show the message and still send the impossible window.
@@ -82,7 +86,7 @@ public class ReportScreenDatesGuardTests
         var page = ViewPage();
 
         FieldCountAwareCall(page).Should().BeTrue(
-            "the opening dates must come from DefaultRange with the field count, not from a bare period");
+            "the opening dates must come from ReportDateFields.DefaultRange, not from arithmetic in the page");
         DateArithmeticOnTheFields(page).Should().BeEmpty(
             "the page must not compute its own period - the rule knows about the one-field screen");
 
@@ -106,9 +110,9 @@ public class ReportScreenDatesGuardTests
             "a renamed variable must not make the defect invisible");
     }
 
-    /// <summary>The opening dates are set by the call that knows how many date fields there are.</summary>
+    /// <summary>The opening dates are set by the shared rule (since 2026-11-08 it has no field count to know).</summary>
     private static bool FieldCountAwareCall(string text)
-        => Regex.IsMatch(text, @"\(\s*_from\s*,\s*_to\s*\)\s*=\s*ReportDateFields\.DefaultRange\s*\([^)]*_singleDate");
+        => Regex.IsMatch(text, @"\(\s*_from\s*,\s*_to\s*\)\s*=\s*ReportDateFields\.DefaultRange\s*\(");
 
     /// <summary>Any date arithmetic assigned to the date fields, whatever it is written against.</summary>
     private static IReadOnlyList<string> DateArithmeticOnTheFields(string text)
@@ -156,6 +160,10 @@ public class ReportScreenDatesGuardTests
     private static string ViewPage()
         => File.ReadAllText(Path.Combine(
             RepoRoot(), "src", "CcDashboard.Web", "Components", "Reports", "ReportViewPage.razor"));
+
+    private static string EditorPage()
+        => File.ReadAllText(Path.Combine(
+            RepoRoot(), "src", "CcDashboard.Web", "Components", "Reports", "ReportEditorPage.razor"));
 
     private static string Resx(string locale)
         => File.ReadAllText(Path.Combine(

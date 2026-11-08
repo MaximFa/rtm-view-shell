@@ -39,17 +39,21 @@ public class QueueReportDateFormatAndSortGuardTests
 
     // ---- who takes the Queue Report opt-ins ---------------------------------------------------------
 
+    // Widened 2026-11-08 (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01, operator 07:54): Agent Report takes the same format and
+    // sort as Queue Report. The question stays "who takes the opt-ins": exactly the two configurable reports, and none
+    // of the retired ones that still draw on old boards.
     [Fact]
     public void OnlyQueueReport_takesTheDateFormat_andTheSort()
     {
         var widgets = Directory.GetFiles(Widgets(), "*ReportWidget.razor").ToDictionary(f => Path.GetFileName(f)!, File.ReadAllText);
         widgets.Count.Should().BeGreaterThan(5, "the widgets must be findable");
-        TakersOf(widgets, "DateFormat=").Should().Equal("EndOfShiftQueuesReportWidget.razor");
-        TakersOf(widgets, "OnSort=").Should().Equal("EndOfShiftQueuesReportWidget.razor");
+        var two = new[] { "EndOfShiftAgentsReportWidget.razor", "EndOfShiftQueuesReportWidget.razor" };
+        TakersOf(widgets, "DateFormat=").Should().Equal(two);
+        TakersOf(widgets, "OnSort=").Should().Equal(two);
 
-        // NEGATIVE HALF: an agents' widget that took the sort is caught.
+        // NEGATIVE HALF: a retired agents' widget that took the sort is caught.
         var leaked = new Dictionary<string, string>(widgets) { ["AgentMonthlyReportWidget.razor"] = "<ReportRowTable OnSort=\"X\"" };
-        TakersOf(leaked, "OnSort=").Should().HaveCount(2);
+        TakersOf(leaked, "OnSort=").Should().HaveCount(3);
     }
 
     private static List<string> TakersOf(Dictionary<string, string> files, string needle)

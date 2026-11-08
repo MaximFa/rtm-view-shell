@@ -15,8 +15,8 @@ public record RunReportWidgetQuery(
     int Page = 1,
     Guid? TenantId = null,
     bool AllRows = false,
-    // FEAT-REPORT-EOS-*-01: shift hours (site wall clock) on the single date From; required for EndOfShiftAgents, empty otherwise
-    // (FEAT-REPORT-EOS-CONFIGURABLE-01: the queues report takes From..To and a Step instead).
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: no report takes shift hours any more (both end-of-shift reports take From..To
+    // and a Step); a query carrying them is refused with invalid-config. Kept so an old caller gets that answer, not a crash.
     int? ShiftStartHour = null,
     int? ShiftEndHour = null,
     // FEAT-REPORT-COLUMN-FUNNEL-FILTERS-01 (contract 07:23:21Z): funnel filters on any column of a table report, one per
@@ -33,8 +33,19 @@ public record RunReportWidgetQuery(
     // (ReportColumns), else invalid-config; nulls always last; equal values keep the default order (interval, queue).
     // Other report types ignore it. The export does not take it (operator 2026-11-07 22:48).
     string? SortColumn = null,
-    bool SortDescending = false
+    bool SortDescending = false,
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01 (contract 06:08:14Z): the end-of-shift agents report - Summary (one row per agent
+    // for the period, no step) or ByStep (one row per interval of the step and agent). Null = the widget's DefaultRowMode,
+    // else Summary. Other types refuse it.
+    ReportRowMode? RowMode = null
 ) : IRequest<ReportWidgetResult>;
+
+/// <summary>FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: how the end-of-shift agents report lays out its rows. Appended only.</summary>
+public enum ReportRowMode
+{
+    Summary,
+    ByStep
+}
 
 /// <summary>FEAT-REPORT-EOS-CONFIGURABLE-01: the interval of one row of the end-of-shift queues report.</summary>
 /// Month / Year (operator 2026-11-07 12:31, contract 10:32:55Z): the local month / year of the site; IntervalStart = local
@@ -59,7 +70,11 @@ public static class RetiredReports
     {
         ReportWidgetType.QueueInterval,
         ReportWidgetType.QueueWaitTime,
-        ReportWidgetType.Distribution
+        ReportWidgetType.Distribution,
+        // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01 (operator 2026-11-08 07:54): only the end-of-shift reports stay
+        ReportWidgetType.AgentMonthly,
+        ReportWidgetType.AgentShiftDetail,
+        ReportWidgetType.AgentPerformance
     };
 
     public static bool IsRetired(ReportWidgetType type) => Types.Contains(type);
@@ -150,6 +165,9 @@ public record ReportWidgetResult
     /// <summary>The interval the rows are grouped by (end-of-shift queues); null for the other types.</summary>
     public ReportStep? Step { get; init; }
 
+    /// <summary>The row mode the agents report used (null for the other types). In Summary, Step is null.</summary>
+    public ReportRowMode? RowMode { get; init; }
+
     /// <summary>
     /// FEAT-REPORT-EOS-CONFIGURABLE-01 (Month/Year, 10:38:32Z): the first / last interval of the step is cut by the period
     /// (e.g. Month from 05.11): its row sums only the days inside From..To. Set from the period, not from the rows.
@@ -197,12 +215,11 @@ public static class ReportReasonCodes
 {
     public const string Denied = "denied";
     public const string NoData = "no-data";
-    public const string ShiftHours = "shift-hours";
     public const string InvalidConfig = "invalid-config";
     /// <summary>FEAT-REPORT-EOS-CONFIGURABLE-01: the report type was taken out of the product.</summary>
     public const string Retired = "retired";
 
-    public static readonly IReadOnlySet<string> All = new HashSet<string> { Denied, NoData, ShiftHours, InvalidConfig, Retired };
+    public static readonly IReadOnlySet<string> All = new HashSet<string> { Denied, NoData, InvalidConfig, Retired };
 
     /// <summary>
     /// Export only: the widget failed with an empty or unrecognised code, or its run threw. Not a reason of its own -

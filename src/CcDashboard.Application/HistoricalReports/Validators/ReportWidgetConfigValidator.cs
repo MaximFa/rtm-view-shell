@@ -64,9 +64,11 @@ public class ReportWidgetConfigWithTypeValidator : AbstractValidator<(ReportWidg
         // (Older types keep accepting their saved configs as they are.)
         RuleFor(x => x)
             .Must(x => !IsSummaryWidget(x.WidgetType) || x.Config.Columns is null
-                       || x.Config.Columns.All(c => ReportWidgetConfig.AllowedColumns(x.WidgetType)!.Contains(c)))
+                       || x.Config.Columns.All(c => ReportWidgetConfig.AllowedColumns(x.WidgetType)!.Contains(c)
+                                                    || ReportWidgetConfig.LegacyColumnAliases(x.WidgetType).ContainsKey(c)))
             .WithMessage(x => "Unknown column(s): " + string.Join(", ",
-                (x.Config.Columns ?? Array.Empty<string>()).Where(c => !(ReportWidgetConfig.AllowedColumns(x.WidgetType) ?? Array.Empty<string>()).Contains(c))));
+                (x.Config.Columns ?? Array.Empty<string>()).Where(c => !(ReportWidgetConfig.AllowedColumns(x.WidgetType) ?? Array.Empty<string>()).Contains(c)
+                                                                       && !ReportWidgetConfig.LegacyColumnAliases(x.WidgetType).ContainsKey(c))));
 
         RuleFor(x => x)
             .Must(x => x.WidgetType != ReportWidgetType.AgentPerformance || x.Config.Mode.HasValue)
@@ -74,8 +76,14 @@ public class ReportWidgetConfigWithTypeValidator : AbstractValidator<(ReportWidg
 
         // FEAT-REPORT-EOS-CONFIGURABLE-01: a default step only on the end-of-shift queues report, and only a known one
         RuleFor(x => x)
-            .Must(x => x.Config.DefaultStep is null || x.WidgetType == ReportWidgetType.EndOfShiftQueues)
-            .WithMessage("The default interval step applies only to the end-of-shift queues report");
+            .Must(x => x.Config.DefaultStep is null || x.WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents)
+            .WithMessage("The default interval step applies only to the end-of-shift queues and agents reports");
+        RuleFor(x => x)
+            .Must(x => x.Config.DefaultRowMode is null || x.WidgetType == ReportWidgetType.EndOfShiftAgents)
+            .WithMessage("The default row mode applies only to the end-of-shift agents report");
+        RuleFor(x => x.Config.DefaultRowMode)
+            .Must(m => m is null || Enum.IsDefined(m.Value))
+            .WithMessage("Unknown default row mode");
         RuleFor(x => x.Config.DefaultStep)
             .Must(s => s is null || Enum.IsDefined(s.Value))
             .WithMessage("Unknown default interval step");

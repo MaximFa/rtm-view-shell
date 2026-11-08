@@ -68,13 +68,21 @@ public record ReportWidgetConfig
     public int? ShiftEndHour { get; init; }
 
     /// <summary>
-    /// End-of-shift queues only: the step the widget opens with, set in the editor (operator
+    /// Queue Report and Agent Report: the step the widget opens with, set in the editor (operator
     /// 2026-11-07 13:25). A viewer's own choice overrides it; ReportWidgetSteps holds the order.
     /// Held as the camelCase NAME ("month"), for the same reason as <see cref="Mode"/>: this record
     /// has no enum converter, so an enum here would go out as a number. Null = Day.
     /// </summary>
     [JsonPropertyName("defaultStep")]
     public string? DefaultStep { get; init; }
+
+    /// <summary>
+    /// Agent Report only (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01): the row mode the widget opens with - "summary" (one
+    /// row per agent for the period) or "byStep". A viewer's own choice overrides it; ReportRowModes holds the order.
+    /// The camelCase NAME, as DefaultStep. Null = summary.
+    /// </summary>
+    [JsonPropertyName("defaultRowMode")]
+    public string? DefaultRowMode { get; init; }
 
     [JsonPropertyName("appearance")]
     public AppearanceConfig? Appearance { get; init; }

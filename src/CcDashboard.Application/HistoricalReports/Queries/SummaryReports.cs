@@ -5,8 +5,12 @@ namespace CcDashboard.Application.HistoricalReports.Queries;
 /// or per agent per local date (AgentPerformance byDate). Sums come from hist_agent_intervals; derived values from the sums.
 /// Date is null except in AgentPerformance byDate mode.
 /// </summary>
+/// <summary>
+/// FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: IntervalStart = the start of the interval of the step in site wall-clock time
+/// (ByStep), null in Summary (one row per agent for the whole period). Replaces Date (AgentPerformance ByDate, retired).
+/// </summary>
 public record AgentSummaryRow(
-    DateTime? Date,
+    DateTime? IntervalStart,
     string AgentExternalId,
     string? AgentDisplayName,
     long SumLoggedInMs,

@@ -13,7 +13,6 @@ public class ExportSkipReasonTests
     [Theory]
     [InlineData(ExportSkipReason.Denied, "Reports_ExportSkippedDenied")]
     [InlineData(ExportSkipReason.NoData, "Reports_ExportSkippedNoData")]
-    [InlineData(ExportSkipReason.ShiftHours, "Reports_ExportSkippedShiftHours")]
     [InlineData(ExportSkipReason.InvalidConfig, "Reports_ExportSkippedInvalidConfig")]
     public void EachKnownCode_mapsToItsOwnKey(string code, string expectedKey)
     {
@@ -26,7 +25,7 @@ public class ExportSkipReasonTests
     {
         // A map that returned the same key for two codes would read as "translated" while telling
         // the operator the wrong thing about which widget failed and why.
-        new[] { ExportSkipReason.Denied, ExportSkipReason.NoData, ExportSkipReason.ShiftHours, ExportSkipReason.InvalidConfig }
+        new[] { ExportSkipReason.Denied, ExportSkipReason.NoData, ExportSkipReason.InvalidConfig }
             .Select(ExportSkipReason.KeyFor)
             .Should().OnlyHaveUniqueItems();
     }

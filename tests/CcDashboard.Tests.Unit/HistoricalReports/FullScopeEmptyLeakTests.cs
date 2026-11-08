@@ -44,10 +44,9 @@ public class FullScopeEmptyLeakTests
         });
     }
 
-    private const string Cfg = """{ "scope": { "businessUnitIds": [7], "agentAxis": "Detail" }, "mode": "Summary", "pageSize": 100 }""";
+    private const string Cfg = """{ "scope": { "businessUnitIds": [7], "agentAxis": "Detail" }, "pageSize": 100 }""";
 
-    private static bool IsAgentType(ReportWidgetType t) =>
-        t is ReportWidgetType.AgentMonthly or ReportWidgetType.AgentShiftDetail or ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentPerformance;
+    private static bool IsAgentType(ReportWidgetType t) => t is ReportWidgetType.EndOfShiftAgents;
 
     private void Scope(bool empty)
     {
@@ -57,24 +56,21 @@ public class FullScopeEmptyLeakTests
             .Returns(new ReportWidgetScopeResult { FullScope = true, EffectiveAgentIds = empty ? new HashSet<string>() : new HashSet<string> { "own" } });
     }
 
-    private Task<ReportWidgetResult> Run(ReportWidgetType t)
-    {
-        var eos = t is ReportWidgetType.EndOfShiftAgents;   // the queues report takes dates, not shift hours (FEAT-REPORT-EOS-CONFIGURABLE-01)
-        return _handler.Handle(new RunReportWidgetQuery(t, Cfg, Day, Day, ShiftStartHour: eos ? 0 : null, ShiftEndHour: eos ? 24 : null), CancellationToken.None);
-    }
+    // FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01: both end-of-shift reports take dates, not shift hours
+    private Task<ReportWidgetResult> Run(ReportWidgetType t) =>
+        _handler.Handle(new RunReportWidgetQuery(t, Cfg, Day, Day), CancellationToken.None);
 
     /// <summary>The volume the result carries: rows, or calls for the BU-aggregated queue types.</summary>
     private static int Volume(ReportWidgetResult r) => r.WidgetType switch
     {
-        ReportWidgetType.AgentMonthly => r.AgentMonthly!.Rows.Sum(x => x.Handled),
-        ReportWidgetType.AgentShiftDetail => r.AgentShiftDetail!.Rows.Sum(x => x.Handled),
-        ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentPerformance => r.AgentSummary!.Rows.Sum(x => x.Handled),
+        ReportWidgetType.EndOfShiftAgents => r.AgentSummary!.Rows.Sum(x => x.Handled),
         ReportWidgetType.EndOfShiftQueues => r.QueueSummary!.Rows.Sum(x => x.Offered),
         _ => throw new ArgumentOutOfRangeException()
     };
 
     // own data: queue Offered 3; agent Handled 1. The foreign rows would add 100 / 50.
-    // (QueueInterval, QueueWaitTime, Distribution are retired: they answer "retired" before any scope or store call.)
+    // (QueueInterval, QueueWaitTime, Distribution, AgentMonthly, AgentShiftDetail, AgentPerformance are retired: they answer
+    // "retired" before any scope or store call.)
     private static int OwnVolume(ReportWidgetType t) => t switch
     {
         _ when IsAgentType(t) => 1,
@@ -82,11 +78,8 @@ public class FullScopeEmptyLeakTests
     };
 
     [Theory]
-    [InlineData(ReportWidgetType.AgentMonthly)]
-    [InlineData(ReportWidgetType.AgentShiftDetail)]
     [InlineData(ReportWidgetType.EndOfShiftAgents)]
     [InlineData(ReportWidgetType.EndOfShiftQueues)]
-    [InlineData(ReportWidgetType.AgentPerformance)]
     public async Task EmptyEffectiveSet_NoRows_NoQuery(ReportWidgetType type)
     {
         Scope(empty: true);
@@ -100,11 +93,8 @@ public class FullScopeEmptyLeakTests
     }
 
     [Theory]
-    [InlineData(ReportWidgetType.AgentMonthly)]
-    [InlineData(ReportWidgetType.AgentShiftDetail)]
     [InlineData(ReportWidgetType.EndOfShiftAgents)]
     [InlineData(ReportWidgetType.EndOfShiftQueues)]
-    [InlineData(ReportWidgetType.AgentPerformance)]
     public async Task NonEmptySet_OwnRowsOnly_NeverFullScopeToTheStore(ReportWidgetType type)
     {
         Scope(empty: false);

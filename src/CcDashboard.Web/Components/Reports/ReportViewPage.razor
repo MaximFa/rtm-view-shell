@@ -47,15 +47,9 @@
                 <div class="report-header-datebar d-flex gap-2 align-items-center">
                     <label class="small mb-0">@L["Report_From"]</label>
                     <input type="date" class="form-control form-control-sm" style="width: auto;" @bind="_from" />
-                    @* Operator, 2026-11-05: one date field when the screen holds only end-of-shift
-                       reports, because they take a single date and the second field changed
-                       nothing - silently. With any other report on the screen both fields stay,
-                       and the end-of-shift widgets take the first one; their own caption says so. *@
-                    @if (!_singleDate)
-                    {
-                        <label class="small mb-0">@L["Report_To"]</label>
-                        <input type="date" class="form-control form-control-sm" style="width: auto;" @bind="_to" />
-                    }
+                    @* Two fields always: since 2026-11-08 no report takes one date (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01). *@
+                    <label class="small mb-0">@L["Report_To"]</label>
+                    <input type="date" class="form-control form-control-sm" style="width: auto;" @bind="_to" />
                     <button class="btn btn-sm btn-primary" @onclick="ApplyDateRange">
                         <i class="bi bi-check2 me-1"></i>@L["Report_Apply"]
                     </button>
@@ -145,7 +139,8 @@
                                         TenantId="_report?.TenantId"
                                         WidgetId="widget.Id"
                                         FilterChanged="OnWidgetFilterChanged"
-                                        StepChanged="OnWidgetStepChanged" />
+                                        StepChanged="OnWidgetStepChanged"
+                                        RowModeChanged="OnWidgetRowModeChanged" />
                                 </div>
                             </div>
                         }
@@ -217,13 +212,11 @@
 
     private void OnWidgetStepChanged(ReportWidgetStep step) => _widgetSteps[step.WidgetId] = step.Step;
 
-    /// <summary>
-    /// True when every widget on this screen is an end-of-shift report: then the second date field
-    /// is not drawn, and the single date is sent as both ends of the window.
-    /// An empty report is NOT "single": a screen with no widgets says nothing about what it will
-    /// hold, and hiding a field on that guess would surprise whoever drops another report on it.
-    /// </summary>
-    private bool _singleDate;
+    /// <summary>The row mode of each Agent Report widget, for the export - as the steps (FEAT-REPORT-EOS-AGENTS-CONFIGURABLE-01).</summary>
+    private readonly Dictionary<Guid, CcDashboard.Application.HistoricalReports.Queries.ReportRowMode> _widgetRowModes = new();
+
+    private void OnWidgetRowModeChanged(ReportWidgetRowMode mode) => _widgetRowModes[mode.WidgetId] = mode.RowMode;
+
     private DateTime _siteToday;
     // The day the defaults are anchored on: the site's today until the server names the last day
     // that has data (FEAT-REPORT-DEFAULT-LAST-DATA-DAY-01).
@@ -233,29 +226,13 @@
 
     private void RecomputeDateFields()
     {
-        // The rule itself is in ReportDateFields, where a test can reach it; the page only applies
-        // it. Keeping a second copy of "which types take one date" here is how the two would
-        // drift apart.
-        var wasSingle = _singleDate;
-        _singleDate = ReportDateFields.SingleDate(_report?.Widgets.Select(w => w.WidgetType));
-
-        if (_singleDate != wasSingle || !_datesChosen)
+        // Applied only while the person has not chosen dates themselves - their choice must survive a reload of the
+        // widget list. The rule is in ReportDateFields, where a test can reach it.
+        if (!_datesChosen)
         {
-            // The number of fields decides what "the default" means: a one-field screen opens on
-            // today, because that single date IS the window; a two-field screen opens on the last
-            // week. Applied only while the person has not chosen dates themselves - their choice
-            // must survive a reload of the widget list.
-            (_from, _to) = ReportDateFields.DefaultRange(_defaultDay, _singleDate);
+            (_from, _to) = ReportDateFields.DefaultRange(_defaultDay);
             _rangeFrom = _from;
             _rangeTo = _to;
-            _rangeError = null;
-        }
-        else if (_singleDate)
-        {
-            // One field means one date on both ends; a leftover "to" would send a window the
-            // screen no longer shows.
-            _to = _from;
-            _rangeTo = _rangeFrom;
             _rangeError = null;
         }
     }
@@ -273,7 +250,7 @@
 
         if (latest is null || _datesChosen) return;
         _defaultDay = latest.Value;
-        (_from, _to) = ReportDateFields.DefaultRange(_defaultDay, _singleDate);
+        (_from, _to) = ReportDateFields.DefaultRange(_defaultDay);
         _rangeFrom = _from;
         _rangeTo = _to;
         _rangeError = null;
@@ -285,7 +262,7 @@
         // report is loaded and the number of date fields is known (RecomputeDateFields).
         _siteToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, DisplayZone.Zone).Date;
         _defaultDay = _siteToday;
-        (_from, _to) = ReportDateFields.DefaultRange(_siteToday, singleDate: false);
+        (_from, _to) = ReportDateFields.DefaultRange(_siteToday);
         _rangeFrom = _from;
         _rangeTo = _to;
         _loading = true;
@@ -374,12 +351,7 @@
         // accepted without a word. Every report then asked for a window that cannot contain
         // anything, and the screen showed "no data" - which reads as "there was no traffic",
         // not as "you asked for an impossible range". Refused here, before anything is sent.
-        if (_singleDate)
-            _to = _from;
-
-        // The order check belongs to the two-field screen only: with one field there is no pair to
-        // be out of order, and a message about an end date nobody can see would be nonsense.
-        if (!_singleDate && _from.Date > _to.Date)
+        if (_from.Date > _to.Date)
         {
             _rangeError = L["Report_DateRangeInverted"].Value;
             StateHasChanged();
@@ -488,7 +460,8 @@
                     Filters: _widgetFilters
                         .Where(e => e.Value.Filters is { Count: > 0 })
                         .ToDictionary(e => e.Key, e => e.Value.Filters!),
-                    Steps: new Dictionary<Guid, CcDashboard.Application.HistoricalReports.Queries.ReportStep>(_widgetSteps)),
+                    Steps: new Dictionary<Guid, CcDashboard.Application.HistoricalReports.Queries.ReportStep>(_widgetSteps),
+                    Modes: new Dictionary<Guid, CcDashboard.Application.HistoricalReports.Queries.ReportRowMode>(_widgetRowModes)),
                 _cts.Token);
             _skippedLines = BuildSkippedLines(res.Skipped);
             var base64 = Convert.ToBase64String(res.Content);

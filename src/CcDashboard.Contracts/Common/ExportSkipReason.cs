@@ -26,13 +26,6 @@ public static class ExportSkipReason
     public const string NoData = "no-data";
 
     /// <summary>
-    /// The shift hours are unset or do not fit the chosen date. Named after the cause, not after
-    /// the check (coordinator, 2026-11-04): a future different cause gets a code of its own and,
-    /// until it has a text, falls to the generic line - visibly, never silently.
-    /// </summary>
-    public const string ShiftHours = "shift-hours";
-
-    /// <summary>
     /// The widget's own configuration cannot be used: broken JSON, a validator refusal, an unknown
     /// type, or no business unit chosen. Neutral on purpose (coordinator, 2026-11-04): an empty BU
     /// is a valid choice that cannot be run, not corruption, and "corrupt" reads as data loss.
@@ -56,7 +49,6 @@ public static class ExportSkipReason
     {
         Denied => "Reports_ExportSkippedDenied",
         NoData => "Reports_ExportSkippedNoData",
-        ShiftHours => "Reports_ExportSkippedShiftHours",
         InvalidConfig => "Reports_ExportSkippedInvalidConfig",
         _ => null
     };

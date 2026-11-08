@@ -231,6 +231,38 @@ public class ReportPaletteMatchesRenderersGuardTests
     private static string ReportsDirectory()
         => Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "Components", "Reports");
 
+    /// <summary>
+    /// FEAT-REPORT-QUEUE-REPORT-ICON-01 (operator 2026-11-08 07:56 / 08:04): Queue Report's icon is a queue ticket - not the
+    /// door of "end of shift", not a telephone - and no two report types share an icon, or the catalogue cannot tell them apart.
+    /// </summary>
+    [Fact]
+    public void QueueReport_hasAQueueIcon_andNoTwoTypesShareOne()
+    {
+        var types = Enum.GetValues<CcDashboard.Domain.Domain.Reports.ReportWidgetType>();
+        IconProblems(types.ToDictionary(t => t, CcDashboard.Web.Components.ReportWidgets.ReportWidgetPalette.Icon)).Should().BeEmpty();
+
+        // NEGATIVE HALF: the door back, the telephone, and a shared icon are each caught.
+        var withDoor = types.ToDictionary(t => t, CcDashboard.Web.Components.ReportWidgets.ReportWidgetPalette.Icon);
+        withDoor[CcDashboard.Domain.Domain.Reports.ReportWidgetType.EndOfShiftQueues] = "bi-door-closed";
+        IconProblems(withDoor).Should().ContainSingle();
+        var withPhone = types.ToDictionary(t => t, CcDashboard.Web.Components.ReportWidgets.ReportWidgetPalette.Icon);
+        withPhone[CcDashboard.Domain.Domain.Reports.ReportWidgetType.EndOfShiftQueues] = "bi-telephone-inbound";
+        IconProblems(withPhone).Should().ContainSingle();
+        var shared = types.ToDictionary(t => t, CcDashboard.Web.Components.ReportWidgets.ReportWidgetPalette.Icon);
+        shared[CcDashboard.Domain.Domain.Reports.ReportWidgetType.EndOfShiftQueues] = shared[CcDashboard.Domain.Domain.Reports.ReportWidgetType.EndOfShiftAgents];
+        IconProblems(shared).Should().ContainSingle();
+    }
+
+    private static List<string> IconProblems(Dictionary<CcDashboard.Domain.Domain.Reports.ReportWidgetType, string> icons)
+    {
+        var problems = new List<string>();
+        var queue = icons[CcDashboard.Domain.Domain.Reports.ReportWidgetType.EndOfShiftQueues];
+        if (queue.Contains("door") || queue.Contains("telephone")) problems.Add("Queue Report icon " + queue);
+        problems.AddRange(icons.GroupBy(kv => kv.Value).Where(g => g.Count() > 1)
+            .Select(g => "shared " + g.Key + ": " + string.Join(",", g.Select(kv => kv.Key))));
+        return problems;
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
