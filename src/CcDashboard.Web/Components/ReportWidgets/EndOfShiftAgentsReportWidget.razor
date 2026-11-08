@@ -191,13 +191,8 @@ else
     {
         get
         {
-            // The page's own culture, not ISO: the date fields above show dd/MM/yyyy on a he-IL
-            // board, and a caption in another format reads as a different date entirely.
-            var from = From.Date.ToString("d");
-            var to = To.Date.ToString("d");
-            return from == to
-                ? string.Format(L["Report_ShownForDate"].Value, from)
-                : string.Format(L["Report_ShownForRange"].Value, from, to);
+            // One rule for every report widget: dd/MM/yyyy, as the date fields above (PR234-V4-REPORT-SHOWN-FOR-DATE-FORMAT-01).
+            return ReportPeriodText.ShownFor(L, From, To);
         }
     }
 

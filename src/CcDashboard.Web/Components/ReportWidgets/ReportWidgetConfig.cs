@@ -61,6 +61,13 @@ public record ReportWidgetConfig
     public List<string>? DefaultMetrics { get; init; }
 
     /// <summary>
+    /// Queue Trend only (FEAT-REPORT-QUEUE-TREND-CHART-TYPE-01): the chart type the widget opens with (editor, "כללי");
+    /// line / bar / area / step. Presentation only, like Appearance - the server reads no part of it. Null = line.
+    /// </summary>
+    [JsonPropertyName("defaultChartType")]
+    public string? DefaultChartType { get; init; }
+
+    /// <summary>
     /// End-of-shift reports only: the shift hours in site wall clock, on the date picked on the page.
     /// The DATE is not stored here - operator, 2026-11-04: "from the screen, like the other reports".
     /// A date saved in a widget would be stale by the next morning and the dashboard would keep

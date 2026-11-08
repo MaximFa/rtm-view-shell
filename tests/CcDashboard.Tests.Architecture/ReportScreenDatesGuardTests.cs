@@ -152,9 +152,11 @@ public class ReportScreenDatesGuardTests
             widget.IndexOf("ShownForText", StringComparison.Ordinal)
                 .Should().BeLessThan(widget.IndexOf("@if (_denied)", StringComparison.Ordinal),
                     $"{name} must draw the caption before the branches that refuse");
-            widget.Should().Contain("Report_ShownForDate",
-                "with no hours set the caption names the date alone - inventing a window would hide the defect");
+            // Since PR234-V4-REPORT-SHOWN-FOR-DATE-FORMAT-01 the caption is written by the one rule (ReportPeriodText).
+            widget.Should().Contain("ReportPeriodText.ShownFor(L, From, To)", $"{name} writes its caption by the one rule");
         }
+        File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), "ReportPeriodText.cs")).Should().Contain("Report_ShownForDate",
+            "with no hours set the caption names the date alone - inventing a window would hide the defect");
     }
 
     private static string ViewPage()

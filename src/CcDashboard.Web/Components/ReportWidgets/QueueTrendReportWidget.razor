@@ -55,8 +55,9 @@ else
 {
     @if (_incomplete)
     {
-        <div class="alert alert-warning py-1 px-2 mb-1 small" role="status">
-            <i class="bi bi-hourglass-split me-1"></i>@IncompleteText
+        @* One thin line (operator 2026-11-08 20:43): the full text stays in the tooltip, the chart keeps its height. *@
+        <div class="report-trend-incomplete small text-truncate px-2" role="status" title="@IncompleteText">
+            <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>@IncompleteText
         </div>
     }
     @* The legend names each metric ONCE, by its colour (operator 18:17): the comparison is the same colour, dashed. *@
@@ -95,16 +96,19 @@ else
     private const string StepKey = "reportStep";
     private const string MetricsKey = "reportMetrics";
     private const string CompareKey = "reportCompareFrom";
+    private const string ChartTypeKey = "reportChartType";
 
-    private record PersonalView(ReportStep? Step, IReadOnlyList<string>? Metrics, DateTime? CompareFrom);
+    private record PersonalView(ReportStep? Step, IReadOnlyList<string>? Metrics, DateTime? CompareFrom, string? ChartType);
     private PersonalView? _personal;
     private bool _personalLoaded;
 
     private ReportStep _step = ReportStep.Day;
     private IReadOnlyList<string> _metrics = QueueTrendView.FallbackMetrics;
     private DateTime? _compareFrom;
+    private string _chartType = "line";
 
     // the window's draft
+    private string _viewChartType = "line";
     private ReportStep _viewStep;
     private readonly HashSet<string> _viewMetrics = new(StringComparer.Ordinal);
     private string _viewCompareText = string.Empty;
@@ -112,13 +116,13 @@ else
 
     private string StepName(ReportStep s) => L[ReportWidgetSteps.NameKey(s)].Value;
     private string MetricName(string m) => L[ReportColumnLabels.KeyFor(m) ?? m].Value;
-    private static string Day(DateTime d) => d.ToString(ReportIntervalLabel.DayFormat, CultureInfo.InvariantCulture);
+    private static string Day(DateTime d) => ReportPeriodText.Day(d);
 
     private string ShownForText
     {
         get
         {
-            var main = string.Format(L["Report_ShownForRange"].Value, Day(From), Day(To));
+            var main = ReportPeriodText.ShownFor(L, From, To);
             return _compareFrom is { } cf
                 ? main + " · " + string.Format(L["Report_ComparePeriod"].Value, Day(cf), Day(QueueTrendView.CompareTo(cf, From, To)))
                 : main;
@@ -134,6 +138,7 @@ else
         _step = _personal?.Step ?? ReportWidgetSteps.FromConfig(Config?.DefaultStep) ?? ReportStep.Day;
         _metrics = QueueTrendView.Effective(_personal?.Metrics?.ToList(), Config?.DefaultMetrics);
         _compareFrom = _personal?.CompareFrom;
+        _chartType = QueueTrendView.ChartType(_personal?.ChartType, Config?.DefaultChartType, comparing: _compareFrom is not null);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -171,8 +176,10 @@ else
                 : null;
             DateTime? compare = root.TryGetProperty(CompareKey, out var c) && c.ValueKind == JsonValueKind.String
                 ? QueueTrendView.FromStored(c.GetString()) : null;
-            if (step is not null || metrics is { Count: > 0 } || compare is not null)
-                _personal = new PersonalView(step, metrics is { Count: > 0 } ? metrics : null, compare);
+            string? chartType = root.TryGetProperty(ChartTypeKey, out var t) && t.ValueKind == JsonValueKind.String
+                && QueueTrendView.ChartTypes.Contains(t.GetString()!) ? t.GetString() : null;
+            if (step is not null || metrics is { Count: > 0 } || compare is not null || chartType is not null)
+                _personal = new PersonalView(step, metrics is { Count: > 0 } ? metrics : null, compare, chartType);
         }
         catch (Exception ex)
         {
@@ -247,7 +254,7 @@ else
         }
         var options = new
         {
-            chartType = "line",
+            chartType = _chartType,
             fontColor = DarkMode ? "#e4e4e7" : (string?)null,
             fontSize = 11,
             keepNulls = true,
@@ -272,14 +279,18 @@ else
         _viewStep = _step;
         _viewMetrics.Clear();
         foreach (var m in _metrics) _viewMetrics.Add(m);
-        _viewCompareText = _compareFrom is { } cf ? Day(cf) : string.Empty;
+        _viewCompareText = _compareFrom is { } cf ? QueueTrendView.ToStored(cf) : string.Empty;
         _viewCompareBad = false;
+        // The viewer's own pick, else the editor's - not the "line" a comparison forces, so turning the comparison off
+        // brings the chosen type back.
+        _viewChartType = QueueTrendView.ChartType(_personal?.ChartType, Config?.DefaultChartType, comparing: false);
         await Modal.ShowAsync(this, this, L["Widget_LocalViewSettings"].Value, WindowBody, CloseWindow, WindowFooter);
     }
 
     private Task CloseWindow() { Modal.Hide(this); return Task.CompletedTask; }
 
     private void PickStep(ReportStep s) { _viewStep = s; Modal.Refresh(this); }
+    private void PickChartType(ChangeEventArgs e) { _viewChartType = QueueTrendView.ChartType(e.Value?.ToString(), null, false); Modal.Refresh(this); }
     private void ToggleMetric(string m) { if (!_viewMetrics.Remove(m)) _viewMetrics.Add(m); Modal.Refresh(this); }
     private void OnCompareInput(ChangeEventArgs e)
     {
@@ -288,7 +299,8 @@ else
         Modal.Refresh(this);
     }
 
-    private DateTime? ViewCompare => CcDashboard.Web.Components.Shared.ColumnFilterDates.Parse(_viewCompareText, ReportIntervalLabel.DayFormat);
+    // The browser's date picker hands over yyyy-MM-dd, the same form the setting is stored in.
+    private DateTime? ViewCompare => QueueTrendView.FromStored(_viewCompareText);
 
     private bool CanApply => _viewMetrics.Count > 0 && !_viewCompareBad;
 
@@ -323,11 +335,29 @@ else
         </div>
         <div class="small text-muted mt-1 mb-3">@L["Common_Default"]: @StepName(ReportWidgetSteps.FromConfig(Config?.DefaultStep) ?? ReportStep.Day)</div>
 
-        @* Operator 18:08: only the START of the comparison is chosen; its end follows from the report's number of days. *@
+        @* Operator 2026-11-08 20:47: with a comparison - lines only, the choice is switched off and kept; without - any type. *@
+        <label class="form-label fw-semibold" for="@(_chartId + "-type")">@L["DayTrend_ChartType"]</label>
+        <select id="@(_chartId + "-type")" class="form-select form-select-sm" disabled="@(ViewCompare is not null)"
+                value="@(ViewCompare is not null ? "line" : _viewChartType)" @onchange="PickChartType">
+            @foreach (var type in QueueTrendView.ChartTypes)
+            {
+                <option value="@type">@L[QueueTrendView.ChartTypeKey(type)]</option>
+            }
+        </select>
+        @if (ViewCompare is not null)
+        {
+            <div class="small text-muted mt-1 mb-3">@L["Report_CompareLinesOnly"]</div>
+        }
+        else
+        {
+            <div class="small text-muted mt-1 mb-3">@L["Common_Default"]: @L[QueueTrendView.ChartTypeKey(QueueTrendView.ChartType(null, Config?.DefaultChartType, false))]</div>
+        }
+
+        @* Operator 18:08: only the START of the comparison is chosen; its end follows from the report's number of days.
+           Operator 2026-11-08 20:26: chosen with the date picker, as every other date in the product. *@
         <label class="form-label fw-semibold" for="@(_chartId + "-cmp")">@L["Report_CompareFrom"]</label>
-        <input id="@(_chartId + "-cmp")" type="text" class="form-control form-control-sm @(_viewCompareBad ? "is-invalid" : null)"
-               style="width: 140px;" inputmode="numeric" maxlength="10" placeholder="dd/MM/yyyy"
-               value="@_viewCompareText" @onchange="OnCompareInput" />
+        <input id="@(_chartId + "-cmp")" type="date" class="form-control form-control-sm @(_viewCompareBad ? "is-invalid" : null)"
+               style="width: auto;" value="@_viewCompareText" @onchange="OnCompareInput" />
         @if (ViewCompare is { } vc)
         {
             <div class="small text-muted mt-1">@string.Format(L["Report_CompareToComputed"].Value, QueueTrendView.Days(From, To), Day(QueueTrendView.CompareTo(vc, From, To)))</div>
@@ -362,12 +392,13 @@ else
         if (!CanApply) return;
         Modal.Hide(this);
         var metrics = QueueTrendView.Metrics.Where(_viewMetrics.Contains).ToList();
-        var view = new PersonalView(_viewStep, metrics, ViewCompare);
+        var view = new PersonalView(_viewStep, metrics, ViewCompare, _viewChartType);
         try
         {
             // One settings row, written whole: saving one part alone would erase the others.
             var stored = new Dictionary<string, string> { [StepKey] = view.Step!.Value.ToString(), [MetricsKey] = string.Join(",", metrics) };
             if (view.CompareFrom is { } c) stored[CompareKey] = QueueTrendView.ToStored(c);
+            stored[ChartTypeKey] = _viewChartType;
             await Mediator.Send(new CcDashboard.Application.Commands.Widgets.SaveUserWidgetSettingsCommand(WidgetId, JsonSerializer.Serialize(stored)));
         }
         catch (Exception ex)

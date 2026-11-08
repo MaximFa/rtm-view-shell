@@ -3708,6 +3708,14 @@ button.clr-swatch,
     min-height: 180px;
 }
 
+/* Queue Trend: the "last interval still running" note is ONE thin line (operator 2026-11-08 20:43); the full text is
+   in the tooltip, the chart keeps its height. */
+.report-trend-incomplete {
+    flex: 0 0 auto;
+    line-height: 1.4;
+    color: var(--bs-warning-text-emphasis, #997404);
+}
+
 .report-trend-legend {
     display: flex;
     flex-wrap: wrap;

@@ -65,6 +65,58 @@ public class QueueTrendViewGuardTests
         NewChartCode("<script>new Chart(ctx, cfg)</script>").Should().NotBeEmpty();
     }
 
+    [Fact]
+    public void TheComparisonStart_isChosenWithTheDatePicker()
+    {
+        var widget = Read("src", "CcDashboard.Web", "Components", "ReportWidgets", "QueueTrendReportWidget.razor");
+        CompareInputType(widget).Should().Be("date", "operator 20:26 - every date in the product is chosen with the picker");
+        QueueTrendView.FromStored("2026-10-26").Should().Be(new DateTime(2026, 10, 26), "the picker hands over yyyy-MM-dd");
+        QueueTrendView.FromStored(string.Empty).Should().BeNull("an empty picker means no comparison");
+
+        // NEGATIVE HALF: the plain text box that was deployed in 12faa24 is caught.
+        CompareInputType("<input id=\"@(_chartId + \"-cmp\")\" type=\"text\" class=\"x\" />").Should().Be("text");
+    }
+
+    private static string CompareInputType(string text)
+        => Regex.Match(text, @"<input id=""@\(_chartId \+ ""-cmp""\)"" type=""(\w+)""").Groups[1].Value;
+
+    [Fact]
+    public void WithAComparison_theChartIsLinesOnly_whateverTypeWasChosen()
+    {
+        // Operator 2026-11-08 20:47: a comparison draws lines; the choices are kept, not erased.
+        foreach (var saved in QueueTrendView.ChartTypes)
+        {
+            QueueTrendView.ChartType(saved, null, comparing: true).Should().Be("line");
+            QueueTrendView.ChartType(null, saved, comparing: true).Should().Be("line");
+        }
+
+        // NEGATIVE HALF: without a comparison a saved "bar" draws bars - the rule above is not "always line".
+        QueueTrendView.ChartType("bar", null, comparing: false).Should().Be("bar");
+        QueueTrendView.ChartType(null, "area", comparing: false).Should().Be("area", "the editor's default");
+        QueueTrendView.ChartType("step", "area", comparing: false).Should().Be("step", "the viewer's own first");
+        QueueTrendView.ChartType("pie", "nonsense", comparing: false).Should().Be("line", "unknown names count as not chosen");
+
+        var widget = Read("src", "CcDashboard.Web", "Components", "ReportWidgets", "QueueTrendReportWidget.razor");
+        widget.Should().Contain("chartType = _chartType", "the widget draws the type in force, not a fixed line");
+        widget.Should().Contain("comparing: _compareFrom is not null");
+        var apply = Regex.Match(widget, @"private async Task ApplyAsync\(\)[\s\S]*?\n    \}").Value;
+        apply.Should().Contain("[ChartTypeKey]", "the type lives in the same one settings row");
+    }
+
+    [Fact]
+    public void TheIncompleteNote_isOneThinLine_notABox()
+    {
+        var widget = Read("src", "CcDashboard.Web", "Components", "ReportWidgets", "QueueTrendReportWidget.razor");
+        IncompleteNote(widget).Should().Contain("report-trend-incomplete").And.Contain("text-truncate")
+            .And.Contain("title=\"@IncompleteText\"", "the full text stays in the tooltip");
+
+        // NEGATIVE HALF: the alert box deployed in 12faa24 is caught.
+        IncompleteNote("@if (_incomplete)\n{\n<div class=\"alert alert-warning py-1 px-2 mb-1 small\" role=\"status\">")
+            .Should().NotContain("report-trend-incomplete");
+    }
+
+    private static string IncompleteNote(string text) => Regex.Match(text, @"@if \(_incomplete\)[\s\S]*?</div>|@if \(_incomplete\)[\s\S]*$").Value;
+
     private static List<string> NewChartCode(string text) => Regex.Matches(text, @"new\s+Chart\s*\(").Select(m => m.Value).ToList();
 
     [Fact]

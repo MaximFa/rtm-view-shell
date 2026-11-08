@@ -54,6 +54,29 @@ public static class QueueTrendView
     /// <summary>The number of days of the report's period (both ends counted).</summary>
     public static int Days(DateTime from, DateTime to) => (to.Date - from.Date).Days + 1;
 
+    /// <summary>The chart types, as DayTrend offers them and the shared chart module draws them (line / bar / area / step).
+    /// </summary>
+    public static IReadOnlyList<string> ChartTypes { get; } = new[] { "line", "bar", "area", "step" };
+
+    /// <summary>
+    /// The chart type in force (FEAT-REPORT-QUEUE-TREND-CHART-TYPE-01, operator 2026-11-08 20:47): with a comparison - lines
+    /// only, whatever was chosen (the choices are kept, not erased); without - the viewer's own -> the editor's default ->
+    /// line. Unknown names count as not chosen.
+    /// </summary>
+    public static string ChartType(string? personal, string? configDefault, bool comparing)
+        => comparing ? "line" : Known(personal) ?? Known(configDefault) ?? "line";
+
+    private static string? Known(string? type) => type is not null && ChartTypes.Contains(type) ? type : null;
+
+    /// <summary>The resource key of a chart type's name - DayTrend's own names, one name per type.</summary>
+    public static string ChartTypeKey(string type) => type switch
+    {
+        "bar" => "DayTrend_ChartBar",
+        "area" => "DayTrend_ChartArea",
+        "step" => "DayTrend_ChartStep",
+        _ => "DayTrend_ChartLine",
+    };
+
     /// <summary>How the comparison start is kept in the viewer's settings: ISO, whatever the screen's format.</summary>
     public static string ToStored(DateTime d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 

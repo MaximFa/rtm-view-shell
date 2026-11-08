@@ -323,6 +323,17 @@
                                     <div class="small text-muted">@L["Common_Default"]: @string.Join(", ", QueueTrendView.FallbackMetrics.Select(m => L[ReportColumnLabels.KeyFor(m) ?? m].Value))</div>
                                 }
                             </div>
+                            @* The chart type the widget opens with (FEAT-REPORT-QUEUE-TREND-CHART-TYPE-01); a comparison draws lines. *@
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold" for="qt-default-chart-type">@L["DayTrend_ChartType"] (@L["Common_Default"])</label>
+                                <select id="qt-default-chart-type" class="form-select form-select-sm" @bind="_defaultChartType">
+                                    @foreach (var type in QueueTrendView.ChartTypes)
+                                    {
+                                        <option value="@type">@L[QueueTrendView.ChartTypeKey(type)]</option>
+                                    }
+                                </select>
+                                <div class="small text-muted mt-1">@L["Report_CompareLinesOnly"]</div>
+                            </div>
                         }
                         @if (TakesDefaultRowMode)
                         {
@@ -611,6 +622,7 @@
     private bool TakesDefaultStep => WidgetType is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents or ReportWidgetType.QueueTrend;
     private bool IsQueueTrendWidget => WidgetType == ReportWidgetType.QueueTrend;
     private readonly HashSet<string> _defaultMetrics = new(StringComparer.Ordinal);
+    private string _defaultChartType = "line";
     private void ToggleDefaultMetric(string m) { if (!_defaultMetrics.Remove(m)) _defaultMetrics.Add(m); }
     private IReadOnlyList<ScopedQueue> _queues = Array.Empty<ScopedQueue>();
     private readonly HashSet<string> _selectedQueues = new(StringComparer.Ordinal);
@@ -967,6 +979,7 @@
                 _defaultMetrics.Clear();
                 foreach (var m in InitialConfig.DefaultMetrics ?? new List<string>())
                     _defaultMetrics.Add(m);
+                _defaultChartType = QueueTrendView.ChartType(null, InitialConfig.DefaultChartType, comparing: false);
 
                 // Appearance - typography
                 _tableFontSize = ResolveFontSizeToPixel(InitialConfig.Appearance?.TableFontSize);
@@ -999,6 +1012,7 @@
                 _selectedQueues.Clear();
                 _queuesLoadedForBus = null;
                 _defaultMetrics.Clear();
+                _defaultChartType = "line";
                 _tableFontSize = "14";
                 _headerFontSize = "14";
                 _lightBackground = "transparent";
@@ -1138,6 +1152,8 @@
             // Queue Trend only; the server refuses both on any other type. Metrics in the chart's own order.
             Workgroups = IsQueueTrendWidget && _selectedQueues.Count > 0 ? _selectedQueues.OrderBy(w => w, StringComparer.CurrentCultureIgnoreCase).ToList() : null,
             DefaultMetrics = IsQueueTrendWidget && _defaultMetrics.Count > 0 ? QueueTrendView.Metrics.Where(_defaultMetrics.Contains).ToList() : null,
+            // Line is the default, so it is not written; any other type only on Queue Trend.
+            DefaultChartType = IsQueueTrendWidget && _defaultChartType != "line" ? _defaultChartType : null,
             // The mode belongs to AgentPerformance only; the server refuses it on other types.
             Mode = IsAgentPerformanceWidget ? _mode : null,
             // Carried through untouched: the agent pick has no control yet (backend owes the
