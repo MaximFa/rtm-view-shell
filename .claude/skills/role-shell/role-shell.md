@@ -65,6 +65,15 @@ Cardinal truths (source-pinned):
 [НЕ ДЕЙСТВУЕТ для v4 с 2026-11-07: Soma собирает папку v3, а продукт — v4 в RTM-design; решение оператора 2026-11-07 13:42 (+02:00), норма локальной сборки — §A DoD. Не удалено: снятое помечается.] - Build + unit tests + shell log, all three, every change. NO local install and NO Soma (operator 2026-10-13: «локальной установки нет») — they run in the operator's chat CC run-box (`dotnet build` + `dotnet test`, output into `.measurements/`), which needs the coordinator's §4 bless.
 - UI/graphical change → a VISUAL check is MANDATORY (affected page, light+dark, screenshot/read-page as evidence). A green build is NOT sufficient for UI work. · SOURCE: operator 2026-06-24 + 2026-10-13.
 
+**КОМАНДНАЯ ПРОВЕРКА ПОДПИСЕЙ В КАЖДОМ КОММИТ-БОКСЕ** [слово coordinator-1104 2026-11-08T06:49:47Z,
+внесено curator-0611]. Запрет подписей ассистента проверяется КОМАНДОЙ, а не словами и не памятью.
+Предикат берётся ДОСЛОВНО из `.coord/protocols/role-skill-standard.md`, раздел «ЗАПРЕТ, ЖИВУЩИЙ
+ТОЛЬКО В ТЕКСТЕ», пункт 2 (там две записи одного предиката: bash и PowerShell — бери свою среду).
+Свою версию не писать: поиск по словам считает УПОМИНАНИЕ за ПОДПИСЬ и даёт ложное красное
+(куратор наступил на это 2026-11-07, журнал цен). Мерится ОКНО `BASE..HEAD`, не один коммит;
+пара половин прогоняется ДО коммита (чистый текст -> 0, он же с дописанной поддельной
+подписью -> 1); больше нуля в окне — бокс печатает STOP и работа прекращается.
+
 ## §B LESSONS  (append-only · dated · source-pinned · status)
 - 2026-08-31 · §A утверждал «39 widget dispatches в ScreenEditorPage» — в сторе там 2 `<PlacedWidget` + 1 `<RenderWidget` и нуль тегов типов; диспетч живёт в RenderWidget.razor. Строка была взята из памяти, не из замера · SOURCE:§C-4 2026-08-31 · status: active
 - 2026-05-27 · DayTrend BU dropdown showed only 1 item — search field pre-filled → clear on @onfocus · SOURCE:daytend-implementation-insights.md · status: active

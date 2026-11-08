@@ -145,6 +145,15 @@ Cardinal truths (source-pinned):
      выдавай полный ранбокс, включающий правки. это правило")
 
 
+**КОМАНДНАЯ ПРОВЕРКА ПОДПИСЕЙ В КАЖДОМ КОММИТ-БОКСЕ** [слово coordinator-1104 2026-11-08T06:49:47Z,
+внесено curator-0611]. Запрет подписей ассистента проверяется КОМАНДОЙ, а не словами и не памятью.
+Предикат берётся ДОСЛОВНО из `.coord/protocols/role-skill-standard.md`, раздел «ЗАПРЕТ, ЖИВУЩИЙ
+ТОЛЬКО В ТЕКСТЕ», пункт 2 (там две записи одного предиката: bash и PowerShell — бери свою среду).
+Свою версию не писать: поиск по словам считает УПОМИНАНИЕ за ПОДПИСЬ и даёт ложное красное
+(куратор наступил на это 2026-11-07, журнал цен). Мерится ОКНО `BASE..HEAD`, не один коммит;
+пара половин прогоняется ДО коммита (чистый текст -> 0, он же с дописанной поддельной
+подписью -> 1); больше нуля в окне — бокс печатает STOP и работа прекращается.
+
 ## §B LESSONS  (append-only · dated · source-pinned · status)
 - 2026-06-19 · StrictMode scalar.Count: Get-ChildItem/Sort-Object/.Split() return SCALAR on single item -> .Count THROWS under Set-StrictMode -Version Latest. ALWAYS wrap collection results in @(...). · SOURCE: de5e835 (@() on $allBackups L137 + $migrations L204) · status: active
 - 2026-06-19 · §35 BOM re-encode via Python: a TEXT write drops the UTF-8 BOM -> PS 5.1 fails. Re-encode in BINARY: b"\xef\xbb\xbf" + text_CRLF.encode("utf-8") + fsync; verify head -c3 == ef bb bf. · SOURCE: d62e704 dropped BOM -> 024feef fix · status: active

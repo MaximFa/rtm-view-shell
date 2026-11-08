@@ -31,7 +31,12 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 NUGET_PACKAGES=$HOME/.nuget
 cd ~/build/v4 && ~/dotnet/dotnet restore CcDashboard.sln --source "$HOME/mnt/RTM View Shell/.devtools/nuget-packages"
 # 5. Build — errors AND warnings. -clp:ErrorsOnly HIDES warnings: it is why two
 #    local builds passed a change whose only defect was three new warnings.
-cd ~/build/v4 && ~/dotnet/dotnet build CcDashboard.sln --no-restore -v q -clp:Summary -m 2>&1 | tee ~/build/warn-batch.txt
+cd ~/build/v4 && ~/dotnet/dotnet build CcDashboard.sln --no-restore --no-incremental -v q -clp:Summary -m 2>&1 | tee ~/build/warn-batch.txt
+#    --no-incremental is REQUIRED for the comparison: an incremental build only reports
+#    warnings from the projects it rebuilt, so the silent ones read as 'no new warnings'.
+#    shell-1107 measured it 2026-11-08: incremental 41 warnings against 699 in a full
+#    base - a false green by construction; full batch gives 702 / 350 unique against
+#    699 / 350, WARN NEW 0, negative half 1. Same norm as 'one stage', on warnings.
 # then touch the changed files, rebuild, and compare warnings against base (see below)
 # 6. Tests that run without Docker
 cd ~/build/v4 && ~/dotnet/dotnet test tests/CcDashboard.Tests.Unit --no-build -v q
@@ -61,17 +66,19 @@ mkdir -p ~/build/base && cd "$HOME/mnt/RTM-design" && git archive v4 | tar -x -C
 cd ~/build/base && ~/dotnet/dotnet restore CcDashboard.sln --no-cache \
   --source "$HOME/mnt/RTM View Shell/.devtools/nuget-packages" >/dev/null
 cd ~/build/base && ~/dotnet/dotnet build CcDashboard.sln --no-restore -v q -clp:Summary -m 2>&1 \
-  | grep -oE '[^ /\\]+\.cs\([0-9]+,[0-9]+\): warning [A-Z]+[0-9]+: .*' \
+  | grep -oE '[^ /\\]+\.(cs|razor)\([0-9]+,[0-9]+\): warning [A-Z]+[0-9]+: .*' \
   | sed -E 's/\(([0-9]+),([0-9]+)\)//' | sort -u > ~/build/warn-base.txt
 # batch: the same filter over the build of your own tree (step 5)
-grep -oE '[^ /\\]+\.cs\([0-9]+,[0-9]+\): warning [A-Z]+[0-9]+: .*' ~/build/warn-batch.txt \
+grep -oE '[^ /\\]+\.(cs|razor)\([0-9]+,[0-9]+\): warning [A-Z]+[0-9]+: .*' ~/build/warn-batch.txt \
   | sed -E 's/\(([0-9]+),([0-9]+)\)//' | sort -u > ~/build/warn-batch-k.txt
 # the answer: expectation printed before the measurement
 echo "expected WARN NEW 0"; comm -13 ~/build/warn-base.txt ~/build/warn-batch-k.txt | tee /dev/stderr | wc -l
 ```
 
 Line numbers are stripped on purpose: a warning that merely moved down the file is not new.
-Comparison is by (file, code, text).
+Comparison is by (file, code, text). The filter takes `.cs` AND `.razor`: Blazor reports
+warnings with a .razor path, and half the shell territory is razor - a .cs-only needle is
+blind exactly where CS8602 was caught before (shell-1107, 2026-11-08).
 
 **Both sides must be non-empty.** An empty `warn-base.txt` and an empty `warn-batch-k.txt`
 produce WARN NEW 0 on total absence — a false green. Print both line counts beside the
