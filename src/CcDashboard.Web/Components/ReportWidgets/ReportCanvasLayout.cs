@@ -27,20 +27,61 @@ public static class ReportCanvasLayout
         => others.Any(o => o.Overlaps(rect));
 
     /// <summary>
-    /// Where a new widget goes: where it was dropped, or - when that place is taken - straight below the lowest widget
-    /// it would cover, repeated until it covers none. Always ends: every step moves it below a widget, and there are
-    /// finitely many. Never above or left of the drop point, so it stays near where the person let go.
+    /// The ONE place that says which corner of a new widget sits at the point where the mouse was let go: the top-left
+    /// corner, as in the dashboard editor (coordinator 2026-11-08T09:02:21Z; the operator was asked about RTL and did not
+    /// change it). To anchor the top-right corner instead, this is the one line to change: X = x - width.
     /// </summary>
-    public static CanvasRect PlaceFree(CanvasRect wanted, IReadOnlyCollection<CanvasRect> others)
+    public static CanvasRect AnchoredAt(int x, int y, int width, int height) => new(x, y, width, height);
+
+    /// <summary>
+    /// PR234-V4-REPORT-EDITOR-NEW-WIDGET-POSITION-01 (operator 2026-11-08 10:50 / 11:02: "it just flies down, and the
+    /// mouse stays where it was"): where a new widget goes - the free place NEAREST to where it was dropped, on the
+    /// 10 px grid, inside the canvas width. Measured on 234 (ba72973) with the rule this replaces ("straight below the
+    /// lowest widget it would cover"): 3 drops of 4 landed at y=940, below the visible edge of the canvas (878), while
+    /// a free place was 100-200 px away. Ties: the smaller vertical move, then the smaller horizontal one.
+    /// Always finds a place: below the lowest widget everything is free.
+    /// </summary>
+    public static CanvasRect NearestFree(CanvasRect wanted, IReadOnlyCollection<CanvasRect> others, int canvasWidth)
     {
-        var rect = wanted with { X = Math.Max(0, wanted.X), Y = Math.Max(0, wanted.Y) };
-        while (true)
+        var maxX = Math.Max(0, Floor(canvasWidth - wanted.Width));
+        var start = wanted with
         {
-            var hit = others.Where(o => o.Overlaps(rect)).ToList();
-            if (hit.Count == 0) return rect;
-            rect = rect with { Y = Snap(hit.Max(o => o.Bottom) + Grid) };
+            X = Math.Clamp(Snap(wanted.X), 0, maxX),
+            Y = Math.Max(0, Snap(wanted.Y))
+        };
+        if (!OverlapsAny(start, others)) return start;
+
+        // Below the lowest widget (and below the drop point) nothing is taken: the search never needs to go further.
+        var maxY = Snap(Math.Max(start.Y, others.Count == 0 ? 0 : others.Max(o => o.Bottom)));
+        CanvasRect? best = null;
+        long bestD = long.MaxValue;
+        for (var y = 0; y <= maxY; y += Grid)
+        {
+            long dy = y - start.Y;
+            for (var x = 0; x <= maxX; x += Grid)
+            {
+                long dx = x - start.X;
+                var d = dx * dx + dy * dy;
+                if (d > bestD) continue;
+                var candidate = start with { X = x, Y = y };
+                if (OverlapsAny(candidate, others)) continue;
+                if (d < bestD || best is null || IsCloser(candidate, best.Value, start))
+                {
+                    best = candidate;
+                    bestD = d;
+                }
+            }
         }
+        return best ?? start with { Y = maxY };
     }
 
-    private static int Snap(int v) => (int)Math.Ceiling(v / (double)Grid) * Grid;
+    private static bool IsCloser(CanvasRect a, CanvasRect b, CanvasRect to)
+    {
+        var ay = Math.Abs(a.Y - to.Y); var by = Math.Abs(b.Y - to.Y);
+        return ay != by ? ay < by : Math.Abs(a.X - to.X) < Math.Abs(b.X - to.X);
+    }
+
+    private static int Snap(int v) => (int)Math.Round(v / (double)Grid, MidpointRounding.AwayFromZero) * Grid;
+
+    private static int Floor(int v) => (int)Math.Floor(v / (double)Grid) * Grid;
 }
