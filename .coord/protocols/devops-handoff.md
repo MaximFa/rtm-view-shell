@@ -1,3 +1,37 @@
+# ⚡ ДОБАВКА — `devops-1106`, 2026-11-07T21:20:00Z. Новее всех блоков ниже. Пины пере-снимай сам.
+
+Пины сняты в пробуждении 2026-11-07T21:1xZ (после автокомпакции), мостом:
+- v4 (продукт) -> D:\Claude\Projects\RTM-design, на мосту только чтение: `$HOME/mnt/RTM-design`. git:
+  `GIT_DIR="$HOME/mnt/RTM View Shell/.git/worktrees/RTM-design" GIT_WORK_TREE="$HOME/mnt/RTM-design" git --no-optional-locks ...`.
+  HEAD `d2454c94579125b73059f54903d64ef84bf7b9e8`, tree `9844bb11`. Выкачен на 234 (отчёт `.measurements/234_20261107_220213_install-d2454c9.txt`, DONE).
+- v3 (служебное) -> D:\Claude\Projects\RTM View Shell, HEAD `3592688`.
+- Пол для следующего выката: `Installations/07112026.1940.zip` (в v3-каталоге), 129852732 B, sha256 D668E4CA47AA4174BE0878783515889AE89CD475532701BA1EF9BB3A4C6EAC0B.
+
+## Как идёт партия (с 07.11)
+1. Заявка специалиста в `.coord/inbox/devops.md`: пути с пинами [диск | ветка], ожидание Unit/Arch, контроли EXACT.
+2. Я сверяю git-блобы диска с пинами (hash-object, не status), считаю статику [Fact]/[InlineData] против HEAD,
+   генерирую бокс прогона из движка: `.probes/engine/box_ENGINE_run-and-controls.txt` + генератор в `.probes/engine/gen/mk*.py`
+   (последний — `mkqr.py`). Бокс разбираю локальным pwsh 7 (`gate.ps1`), контроли гоняю в .NET на файлах диска в LF и CRLF (`ctl.ps1`).
+   pwsh лежит в scratchpad сессии, не в $HOME — на диске VM постоянного кода нет.
+3. Оператор вставляет бокс в PowerShell на рабочей станции. Транскрипт — `.coord/measure/run-controls-*/runctl_*.txt`.
+   Вердикт: RUN GREEN + N x EXACT + restored ok True + TESTED TREE. Замок `D:\RTMView-Ops\runctl.lock` не даёт двух запусков.
+4. После коммита координатора: `<commit>^{tree}` == TESTED TREE заменяет отдельный HEAD-GREEN.
+5. Пакет: шаблон `.probes/engine/tmpl_probe_WS_fullpkg.ps1` (дельта --no-renames, иглы APPEARING/VANISHING/STAYS/NEGCTL),
+   приборы установки/отката — `tmpl_probe_234_install.ps1` / `tmpl_probe_234_rollback.ps1`, боксы `tmpl_box_234_*.txt`;
+   значения — `gen/v*.json`, заполнение `fill.py` (стоп на любом незаполненном __X__). Затем §4 координатора -> оператор -> 234.
+   Бокс установки r2 блокирует повтор только при «PHASE 2  INSTALL» в прежнем отчёте или MANIFEST в журнале.
+
+## Открыто на 21:20Z
+- Партия Queue Report (backend 4 + shell 11, база d2454c9): бокс `.probes/box_WS_20261107_runctl-queuereport.txt`
+  sha256 BA4E45AE59777045807D8C5752D0F6D5CE9053F582EEE12A809C376CAF18CEE3, у оператора; ожидание Unit 804, Arch 155, 6 контролей.
+  Письмо координатору 2026-11-07T21:09:16Z. Результата ещё нет.
+- Бокс отката d2454c9 -> f7006b5 держится (`box_234_20261107_rollback-d2454c9-to-f7006b5.txt`).
+- Предложение: читать шину на 234 локальной копией со сверкой sha и отличать «не прочитано» от «нет благословения» — по запросу координатора.
+- В ветке v3 нет 68 моих файлов `.probes/` от 06–07.11 (движок, шаблоны, генераторы, боксы, приборы) — один экземпляр, коммит боксом оператора.
+- Старые генераторы (mkfunnel, mkeos*) содержат пути через ~/ — править при повторном использовании.
+- §B навыка 166234 B из 233493 (71%), §A 135 строк при потолке 40 — разрез вместе с координатором.
+- OPS-BACKUP-234 ждёт закрытия BINDING 08:34Z (converge234), слово оператора; PUSH-BARRIER — условий координатора и слова оператора.
+
 # ⚡ ДОБАВКА — `devops-1014`, 2026-11-03T20:27Z. Новее блоков ниже. Пины пере-снимай сам.
 
 ## Сделано 03.11 (всё проверено по транскриптам в .coord/measure/*-1103)
