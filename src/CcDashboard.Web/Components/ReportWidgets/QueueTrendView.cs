@@ -124,6 +124,29 @@ public static class QueueTrendView
         _ => "DayTrend_ChartLine",
     };
 
+    /// <summary>
+    /// The part of the axis worth drawing (FEAT-REPORT-TREND-TRIM-ZERO-EDGES-01, operator 2026-11-09 14:07: "the charts must start
+    /// with non-zero values and end with them"): from the first interval where ANY shown series - main or comparison, by index -
+    /// is non-zero, to the last such. Zeros INSIDE stay (operator 2026-11-08 23:21). Null when every shown value is zero or
+    /// missing: the screen says "no data" instead of an empty axis. One rule for both trends.
+    /// </summary>
+    public static (int First, int Last)? NonZeroRange(IEnumerable<IReadOnlyList<double?>> shown)
+    {
+        int first = int.MaxValue, last = -1;
+        foreach (var series in shown)
+            for (var i = 0; i < series.Count; i++)
+                if (series[i] is { } v && v != 0)
+                {
+                    if (i < first) first = i;
+                    if (i > last) last = i;
+                }
+        return last < 0 ? null : (first, last);
+    }
+
+    /// <summary>The same indices cut from any list of the chart - labels, values, comparison - so the axes stay aligned.</summary>
+    public static T[] Cut<T>(IReadOnlyList<T> items, (int First, int Last) range)
+        => items.Skip(range.First).Take(range.Last - range.First + 1).ToArray();
+
     /// <summary>How the comparison start is kept in the viewer's settings: ISO, whatever the screen's format.</summary>
     public static string ToStored(DateTime d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 

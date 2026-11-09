@@ -15,8 +15,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 1 1 auto;
-    min-height: 100px;
+    /* PR234-V4-ASD-REPORT-LEGEND-CLIPPED-01 (follow-up 2026-11-09 19:25Z): basis 0, not auto - the square ring claimed its full
+       size first and left the legend 84 px to scroll in a 449x479 widget. The legend takes its natural height, the ring the rest;
+       the legend scrolls only when the widget is truly too short. */
+    flex: 1 1 0;
+    /* 60, not ASD's 100: at the default 400x300 the six legend rows (104 px) and a 100 px floor do not both fit - measured in a
+       harness of the live chain, 2 rows were left to scroll; with 60 the ring gets 75 px and every row shows. */
+    min-height: 60px;
     aspect-ratio: 1 / 1;
     max-width: 100%;
     max-height: 100%;

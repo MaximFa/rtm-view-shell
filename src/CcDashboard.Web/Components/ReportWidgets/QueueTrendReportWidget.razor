@@ -53,6 +53,12 @@ else if (_result is null)
         <div class="spinner-border text-primary" role="status"><span class="visually-hidden">@L["Common_Loading"]</span></div>
     </div>
 }
+else if (Range is null)
+{
+    @* Every shown value is zero or missing: say so - an axis of zeros only takes the room (operator 2026-11-09 14:07). *@
+    <ReportIncompleteNote Incomplete="_incomplete" DataThroughUtc="_dataThroughUtc" />
+    <div class="text-center text-muted small py-4" role="status">@L["Report_NoData"]</div>
+}
 else
 {
     <ReportIncompleteNote Incomplete="_incomplete" DataThroughUtc="_dataThroughUtc" />
@@ -226,14 +232,32 @@ else
         StateHasChanged();
     }
 
+    // The shown series only - the viewer's metrics, main and comparison: a hidden metric does not keep the axis long.
+    private IEnumerable<IReadOnlyList<double?>> ShownSeries(QueueTrendResult r)
+    {
+        foreach (var metric in _metrics)
+        {
+            var series = r.Series.FirstOrDefault(s => s.Metric == metric);
+            if (series is null) continue;
+            yield return series.Values;
+            if (r.ComparePoints is not null && series.CompareValues is not null) yield return series.CompareValues;
+        }
+    }
+
+    // The drawn part of the axis (FEAT-REPORT-TREND-TRIM-ZERO-EDGES-01); null = nothing but zeros.
+    private (int First, int Last)? Range => _result is null ? null : QueueTrendView.NonZeroRange(ShownSeries(_result));
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!_needsDraw || _result is null) return;
         _needsDraw = false;
         var r = _result;
-        // Both axes are written by the ONE interval rule (dates by step, operator 2026-11-07 22:32), the answer's step.
-        var labels = r.Points.Select(p => ReportIntervalLabel.Cell(p, r.Step)).ToArray();
-        var compareLabels = r.ComparePoints?.Select(p => ReportIntervalLabel.Cell(p, r.Step)).ToArray();
+        if (Range is not { } range) return;
+        // Both axes are written by the ONE interval rule (dates by step, operator 2026-11-07 22:32), the answer's step, and cut
+        // by the SAME indices as the values, so interval N of the main period still sits over interval N of the comparison.
+        var labels = QueueTrendView.Cut(r.Points.Select(p => ReportIntervalLabel.Cell(p, r.Step)).ToArray(), range);
+        var compareLabels = r.ComparePoints is null ? null
+            : QueueTrendView.Cut(r.ComparePoints.Select(p => ReportIntervalLabel.Cell(p, r.Step)).ToArray(), range);
         var datasets = new List<object>();
         foreach (var metric in _metrics)
         {
@@ -242,9 +266,9 @@ else
             var isTime = series.Kind == ReportColumnKind.DurationSec;
             var name = MetricName(metric);
             var color = QueueTrendView.ColorOf(Type, metric);
-            datasets.Add(new { label = name, metric = name, data = series.Values, color, isTimeMetric = isTime, period = "main", dashed = false });
+            datasets.Add(new { label = name, metric = name, data = QueueTrendView.Cut(series.Values, range), color, isTimeMetric = isTime, period = "main", dashed = false });
             if (compareLabels is not null && series.CompareValues is not null)
-                datasets.Add(new { label = name, metric = name, data = series.CompareValues, color, isTimeMetric = isTime, period = "compare", dashed = true });
+                datasets.Add(new { label = name, metric = name, data = QueueTrendView.Cut(series.CompareValues, range), color, isTimeMetric = isTime, period = "compare", dashed = true });
         }
         var options = new
         {
