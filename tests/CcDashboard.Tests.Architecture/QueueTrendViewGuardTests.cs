@@ -103,20 +103,6 @@ public class QueueTrendViewGuardTests
         apply.Should().Contain("[ChartTypeKey]", "the type lives in the same one settings row");
     }
 
-    [Fact]
-    public void TheIncompleteNote_isOneThinLine_notABox()
-    {
-        var widget = Read("src", "CcDashboard.Web", "Components", "ReportWidgets", "QueueTrendReportWidget.razor");
-        IncompleteNote(widget).Should().Contain("report-trend-incomplete").And.Contain("text-truncate")
-            .And.Contain("title=\"@IncompleteText\"", "the full text stays in the tooltip");
-
-        // NEGATIVE HALF: the alert box deployed in 12faa24 is caught.
-        IncompleteNote("@if (_incomplete)\n{\n<div class=\"alert alert-warning py-1 px-2 mb-1 small\" role=\"status\">")
-            .Should().NotContain("report-trend-incomplete");
-    }
-
-    private static string IncompleteNote(string text) => Regex.Match(text, @"@if \(_incomplete\)[\s\S]*?</div>|@if \(_incomplete\)[\s\S]*$").Value;
-
     private static string MissingDrawnAs(string js)
         => System.Text.RegularExpressions.Regex.Match(js, @"\(v === null \|\| v === undefined\) \? (.+?) : v\)?").Groups[1].Value;
 

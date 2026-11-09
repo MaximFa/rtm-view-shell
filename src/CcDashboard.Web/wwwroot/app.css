@@ -3708,9 +3708,10 @@ button.clr-swatch,
     min-height: 180px;
 }
 
-/* Queue Trend: the "last interval still running" note is ONE thin line (operator 2026-11-08 20:43); the full text is
-   in the tooltip, the chart keeps its height. */
-.report-trend-incomplete {
+/* Every report widget (ReportIncompleteNote): the "last part still running" note is ONE thin line with no background, small
+   type, under the period line (operator 2026-11-08 20:43 for Queue Trend, 2026-11-09 10:23 for all); the full text is in the
+   tooltip, the content keeps its height. */
+.report-incomplete-note {
     flex: 0 0 auto;
     line-height: 1.4;
     color: var(--bs-warning-text-emphasis, #997404);

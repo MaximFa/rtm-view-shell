@@ -68,7 +68,10 @@ public class QueueReportDateFormatAndSortGuardTests
         rule.Should().Contain("ToString(\"d\", CultureInfo.CurrentCulture)");
         // Queue Report's own: every date column through its CellText, the stamp through the same rule.
         var queue = Read("src", "CcDashboard.Web", "Components", "ReportWidgets", "EndOfShiftQueuesReportWidget.razor");
-        queue.Should().Contain("ReportIntervalLabel.Instant(WallClock.ToServerLocal(_dataThroughUtc.Value))");
+        // Since FEAT-REPORT-INCOMPLETE-NOTE-THIN-ALL-01 the stamp is written by the one note of every widget.
+        queue.Should().Contain("<ReportIncompleteNote Incomplete=\"_incomplete\" DataThroughUtc=\"_dataThroughUtc\" />");
+        Read("src", "CcDashboard.Web", "Components", "ReportWidgets", "ReportIncompleteNote.razor")
+            .Should().Contain("ReportIntervalLabel.Instant(WallClock.ToServerLocal(DataThroughUtc.Value))");
         queue.Should().NotContain("ToString(\"yyyy-MM-dd HH:mm\")", "no date of Queue Report is written in the old form");
         queue.Should().Contain("kind is not (ReportColumnKind.DateTime or ReportColumnKind.Date)");
     }

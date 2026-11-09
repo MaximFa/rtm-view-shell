@@ -19,7 +19,14 @@
    copy of the chart code. The viewer may give the widget its own period; empty = the report's (AgentStateDistributionView.Period). *@
 
 <div class="report-widget-shownfor d-flex align-items-center justify-content-between gap-2 small text-muted px-2 pt-1">
-    <span role="note">@ReportPeriodText.ShownFor(L, _from, _to)</span>
+    <span role="note">
+        @ReportPeriodText.ShownFor(L, _from, _to)
+        @if (!string.IsNullOrWhiteSpace(_caveat))
+        {
+            @* PR234-V4-ASD-REPORT-LEGEND-CLIPPED-01: the caveat is an icon with its text in the tooltip, not a line of its own -
+               at 400x300 its line pushed the last legend rows out of the widget. *@
+            <i class="bi bi-info-circle ms-1 report-donut-caveat" role="img" aria-label="@_caveat" title="@_caveat"></i>
+        }</span>
     @if (WidgetId != Guid.Empty)
     {
         <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 report-step-button"
@@ -50,18 +57,7 @@ else if (_result.Groups.All(g => g.Share is null))
 }
 else
 {
-    @if (_incomplete)
-    {
-        <div class="report-trend-incomplete small text-truncate px-2" role="status" title="@IncompleteText">
-            <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>@IncompleteText
-        </div>
-    }
-    @if (!string.IsNullOrWhiteSpace(_caveat))
-    {
-        <div class="report-widget-caveat small text-muted px-2 text-truncate" role="note" title="@_caveat">
-            <i class="bi bi-info-circle me-1" aria-hidden="true"></i>@_caveat
-        </div>
-    }
+    <ReportIncompleteNote Incomplete="_incomplete" DataThroughUtc="_dataThroughUtc" />
     <div class="report-donut">
         <div class="report-donut-box">
             <canvas id="@_chartId"></canvas>
@@ -113,7 +109,7 @@ else
     // the viewer's own period (UserWidgetSettings, one row) and the period in force
     private DateTime? _ownFrom;
     private DateTime? _ownTo;
-    private bool _personalLoaded;
+    private Task? _personalLoad;
     private DateTime _from;
     private DateTime _to;
     private bool _own;
@@ -122,19 +118,15 @@ else
     private string _viewFromText = string.Empty;
     private string _viewToText = string.Empty;
 
-    private string IncompleteText => _dataThroughUtc is null
-        ? L["Report_Incomplete"].Value.Replace("{0}", "-")
-        : string.Format(L["Report_Incomplete"].Value, ReportIntervalLabel.Instant(WallClock.ToServerLocal(_dataThroughUtc.Value)));
-
     private void ApplyEffective() => (_from, _to, _own) = AgentStateDistributionView.Period(_ownFrom, _ownTo, From, To);
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!_personalLoaded)
-        {
-            _personalLoaded = true;
-            await LoadPersonalAsync();
-        }
+        // PR234-V4-REPORT-PERSONAL-SETTINGS-RACE-01: Blazor may call OnParametersSetAsync again while the first call still waits
+        // for the viewer's row. Every call awaits the SAME load, so none applies the empty state before the row is in - a
+        // flag let the second call load the page's defaults and the first one, resuming, apply nothing (shell 08:15:54Z).
+        _personalLoad ??= LoadPersonalAsync();
+        await _personalLoad;
         var configJson = Config?.ToJson();
         if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
         {

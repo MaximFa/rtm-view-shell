@@ -50,7 +50,11 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    flex: 0 0 auto;
+    /* PR234-V4-ASD-REPORT-LEGEND-CLIPPED-01: as ASD's legend - it may shrink and scroll; flex 0 0 auto inside the box's
+       overflow:hidden cut the last rows off at 400x300. */
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .report-donut-lg {

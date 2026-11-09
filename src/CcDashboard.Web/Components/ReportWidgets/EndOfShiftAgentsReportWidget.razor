@@ -91,12 +91,7 @@ else
        re-testing it told the compiler the opposite - that null was still possible - which is what
        produced CS8602 on the @foreach below (line 76 in the run, column 42, on .Rows). The model
        widget has no such re-test and no such warning. *@
-    @if (_incomplete)
-    {
-        <div class="alert alert-warning py-1 px-2 mb-1 small" role="status">
-            <i class="bi bi-hourglass-split me-1"></i>@IncompleteText
-        </div>
-    }
+    <ReportIncompleteNote Incomplete="_incomplete" DataThroughUtc="_dataThroughUtc" />
 
     @if (!string.IsNullOrWhiteSpace(_caveat))
     {
@@ -328,7 +323,7 @@ else
     private ReportStep WidgetDefaultStep => ReportWidgetSteps.FromConfig(Config?.DefaultStep) ?? ReportStep.Day;
     /// <summary>The selection inside the window, applied only by Apply.</summary>
     private ReportStep _viewStep = ReportStep.Day;
-    private bool _stepLoaded;
+    private Task? _stepLoad;
 
 
     private string StepName(ReportStep step) => L[ReportWidgetSteps.NameKey(step)].Value;
@@ -341,6 +336,16 @@ else
     /// has no foreign key to dashboard widgets (AppDbContext.cs:348-357), and the coordinator
     /// decided to use it as it is, without a schema change (2026-11-07 09:09:23Z).
     /// </summary>
+    private async Task LoadAndAnnounceStepAsync()
+    {
+        await LoadStepAsync();
+        _step = ReportWidgetSteps.Effective(_personalStep, Config?.DefaultStep);
+        _rowMode = ReportRowModes.Effective(_personalRowMode, Config?.DefaultRowMode);
+        // Told even when nothing was stored: the page must not assume a step it was never told.
+        await StepChanged.InvokeAsync(new ReportWidgetStep(WidgetId, _step));
+        await RowModeChanged.InvokeAsync(new ReportWidgetRowMode(WidgetId, _rowMode));
+    }
+
     private async Task LoadStepAsync()
     {
         if (WidgetId == Guid.Empty) return;
@@ -554,11 +559,6 @@ else
 
     private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
 
-    private string IncompleteText => _dataThroughUtc is null
-        ? L["Report_Incomplete"].Value.Replace("{0}", "-")
-        : string.Format(L["Report_Incomplete"].Value,
-                        ReportIntervalLabel.Instant(WallClock.ToServerLocal(_dataThroughUtc.Value)));
-
     protected override async Task OnParametersSetAsync()
     {
         if (!_initialized)
@@ -567,16 +567,11 @@ else
             _initialized = true;
         }
 
-        if (!_stepLoaded)
-        {
-            _stepLoaded = true;
-            await LoadStepAsync();
-            _step = ReportWidgetSteps.Effective(_personalStep, Config?.DefaultStep);
-            _rowMode = ReportRowModes.Effective(_personalRowMode, Config?.DefaultRowMode);
-            // Told even when nothing was stored: the page must not assume a step it was never told.
-            await StepChanged.InvokeAsync(new ReportWidgetStep(WidgetId, _step));
-            await RowModeChanged.InvokeAsync(new ReportWidgetRowMode(WidgetId, _rowMode));
-        }
+        // PR234-V4-REPORT-PERSONAL-SETTINGS-RACE-01: Blazor may call OnParametersSetAsync again while the first call still waits
+        // for the viewer's row. Every call awaits the SAME load, so none applies the empty state before the row is in - a
+        // flag let the second call load the page's defaults and the first one, resuming, apply nothing (shell 08:15:54Z).
+        _stepLoad ??= LoadAndAnnounceStepAsync();
+        await _stepLoad;
 
         var configJson = Config?.ToJson();
         if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)

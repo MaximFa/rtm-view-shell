@@ -1,0 +1,24 @@
+@using Microsoft.Extensions.Localization
+@using CcDashboard.Contracts.Common
+@using ReportIntervalLabel = CcDashboard.Application.HistoricalReports.ReportIntervalLabel
+@inject IStringLocalizer<SharedResources> L
+
+@* The "last part of the period is still running" note of EVERY report widget (FEAT-REPORT-INCOMPLETE-NOTE-THIN-ALL-01, operator
+   2026-11-09 10:23): one thin line with no background, small type, right under the period line; the full text is in the tooltip.
+   One component - the widgets used to draw it each on their own, as a yellow box, and one wrote the instant in ISO. The server
+   sends DataThroughUtc in UTC, so it goes through WallClock and the one instant format (dd/MM/yyyy HH:mm). *@
+@if (Incomplete)
+{
+    <div class="report-incomplete-note small text-truncate px-2" role="status" title="@Text">
+        <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>@Text
+    </div>
+}
+
+@code {
+    [Parameter] public bool Incomplete { get; set; }
+    [Parameter] public DateTime? DataThroughUtc { get; set; }
+
+    private string Text => DataThroughUtc is null
+        ? L["Report_Incomplete"].Value.Replace("{0}", "-")
+        : string.Format(L["Report_Incomplete"].Value, ReportIntervalLabel.Instant(WallClock.ToServerLocal(DataThroughUtc.Value)));
+}

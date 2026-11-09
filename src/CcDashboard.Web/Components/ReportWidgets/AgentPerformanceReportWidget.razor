@@ -71,12 +71,7 @@ else
        re-testing it told the compiler the opposite - that null was still possible - which is what
        produced CS8602 on the @foreach below (line 76 in the run, column 42, on .Rows). The model
        widget has no such re-test and no such warning. *@
-    @if (_incomplete)
-    {
-        <div class="alert alert-warning py-1 px-2 mb-1 small" role="status">
-            <i class="bi bi-hourglass-split me-1"></i>@IncompleteText
-        </div>
-    }
+    <ReportIncompleteNote Incomplete="_incomplete" DataThroughUtc="_dataThroughUtc" />
 
     @if (!string.IsNullOrWhiteSpace(_caveat))
     {
@@ -255,11 +250,6 @@ else
     private bool HasRows => _result is { Rows.Count: > 0 };
 
     private int TotalPages => _result is null ? 1 : (int)Math.Ceiling((double)_result.TotalCount / _pageSize);
-
-    private string IncompleteText => _dataThroughUtc is null
-        ? L["Report_Incomplete"].Value.Replace("{0}", "-")
-        : string.Format(L["Report_Incomplete"].Value,
-                        WallClock.ToServerLocal(_dataThroughUtc.Value).ToString("yyyy-MM-dd HH:mm"));
 
     protected override async Task OnParametersSetAsync()
     {

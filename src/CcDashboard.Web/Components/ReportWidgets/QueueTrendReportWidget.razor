@@ -55,13 +55,7 @@ else if (_result is null)
 }
 else
 {
-    @if (_incomplete)
-    {
-        @* One thin line (operator 2026-11-08 20:43): the full text stays in the tooltip, the chart keeps its height. *@
-        <div class="report-trend-incomplete small text-truncate px-2" role="status" title="@IncompleteText">
-            <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>@IncompleteText
-        </div>
-    }
+    <ReportIncompleteNote Incomplete="_incomplete" DataThroughUtc="_dataThroughUtc" />
     @* The legend names each metric ONCE, by its colour (operator 18:17): the comparison is the same colour, dashed. *@
     <div class="report-trend-legend small px-2">
         @foreach (var m in _metrics)
@@ -104,7 +98,7 @@ else
 
     private record PersonalView(ReportStep? Step, IReadOnlyList<string>? Metrics, DateTime? CompareFrom, string? ChartType);
     private PersonalView? _personal;
-    private bool _personalLoaded;
+    private Task? _personalLoad;
 
     private ReportStep _step = ReportStep.Day;
     private IReadOnlyList<string> _metrics = QueueTrendView.FallbackMetrics;
@@ -133,10 +127,6 @@ else
         }
     }
 
-    private string IncompleteText => _dataThroughUtc is null
-        ? L["Report_Incomplete"].Value.Replace("{0}", "-")
-        : string.Format(L["Report_Incomplete"].Value, ReportIntervalLabel.Instant(WallClock.ToServerLocal(_dataThroughUtc.Value)));
-
     private void ApplyEffective()
     {
         _step = _personal?.Step ?? ReportWidgetSteps.FromConfig(Config?.DefaultStep) ?? ReportStep.Day;
@@ -147,11 +137,11 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!_personalLoaded)
-        {
-            _personalLoaded = true;
-            await LoadPersonalAsync();
-        }
+        // PR234-V4-REPORT-PERSONAL-SETTINGS-RACE-01: Blazor may call OnParametersSetAsync again while the first call still waits
+        // for the viewer's row. Every call awaits the SAME load, so none applies the empty state before the row is in - a
+        // flag let the second call load the page's defaults and the first one, resuming, apply nothing (shell 08:15:54Z).
+        _personalLoad ??= LoadPersonalAsync();
+        await _personalLoad;
         var configJson = Config?.ToJson();
         if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
         {
