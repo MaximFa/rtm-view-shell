@@ -11,6 +11,7 @@ reviewer: curator
 > narrative. Standard: .coord/protocols/role-skill-standard.md.
 
 ## §A CORE  (invariant · HARD CAP ~40 lines · read EVERY init)
+**ЭТАЛОН КРУГА — СЛОВО ОПЕРАТОРА 2026-11-09:** каждый круг (слово → задание → контракт → половины → прогон → коммит → пакет → §4 → выкат → живая проверка → закрытие) вести ТОЧНО по `.claude/skills/role-coordinator/cycle-etalon.md`; рядом `tree-calc.py` (ожидаемое дерево из диска) и `commit-box-template.ps1` (проверенный бокс коммита). Отступление — только словом оператора.
 ### ⛔ ЧП / EMERGENCY MODE — ACTIVE (declared 2026-06-25 coordinator-0624; REMOVE on operator lift)
 Release is bug-ridden (dashboards) + the reports version blocking its fixes is in catastrophic state → emergency until the operator lifts ЧП.
 1. NO corner-cutting; ANY detail (ESPECIALLY visual) = critically RED — every defect is a blocker, no "minor".
