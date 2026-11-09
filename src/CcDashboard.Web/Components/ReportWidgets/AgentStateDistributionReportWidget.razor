@@ -1,0 +1,354 @@
+@using System.Text.Json
+@using MediatR
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
+@using CcDashboard.Application.HistoricalReports.Queries
+@using CcDashboard.Contracts.Common
+@using CcDashboard.Domain.Domain.Reports
+@using ReportIntervalLabel = CcDashboard.Application.HistoricalReports.ReportIntervalLabel
+@inject IMediator Mediator
+@inject IStringLocalizer<SharedResources> L
+@inject ILogger<AgentStateDistributionReportWidget> Logger
+@inject IJSRuntime JS
+@inject CcDashboard.Web.Services.ReportModalService Modal
+@implements IAsyncDisposable
+
+@* Agent State Distribution (FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01, operator 2026-11-09 06:41): the real-time ASD donut on the
+   period's data - the six groups of Agent State Trend, shares of the login time, ASD's names and colours, legend "group · % ·
+   time", in the centre the number of distinct agents who logged in during the period (operator 2026-11-09 07:54). Drawn by ASD's own module (agentStateDistributionChart.js, opt-in valueFormat) - no second
+   copy of the chart code. The viewer may give the widget its own period; empty = the report's (AgentStateDistributionView.Period). *@
+
+<div class="report-widget-shownfor d-flex align-items-center justify-content-between gap-2 small text-muted px-2 pt-1">
+    <span role="note">@ReportPeriodText.ShownFor(L, _from, _to)</span>
+    @if (WidgetId != Guid.Empty)
+    {
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 report-step-button"
+                title="@L["Widget_LocalViewSettings"]" @onclick="OpenWindow">
+            <i class="bi bi-calendar3-range me-1" aria-hidden="true"></i>@(_own ? L["Report_OwnPeriod"].Value : L["Report_ReportPeriod"].Value)
+        </button>
+    }
+</div>
+
+@if (_denied)
+{
+    <div class="alert alert-warning"><i class="bi bi-shield-exclamation me-2"></i>@L["Report_AccessDenied"]</div>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>@_error</div>
+}
+else if (_result is null)
+{
+    <div class="d-flex justify-content-center py-4">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">@L["Common_Loading"]</span></div>
+    </div>
+}
+else if (_result.Groups.All(g => g.Share is null))
+{
+    @* No login in the period: say so - an empty ring of zeros reads as "nobody worked", which is a claim, not an absence. *@
+    <div class="text-center text-muted small py-4" role="status">@L["Report_NoData"]</div>
+}
+else
+{
+    @if (_incomplete)
+    {
+        <div class="report-trend-incomplete small text-truncate px-2" role="status" title="@IncompleteText">
+            <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>@IncompleteText
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(_caveat))
+    {
+        <div class="report-widget-caveat small text-muted px-2 text-truncate" role="note" title="@_caveat">
+            <i class="bi bi-info-circle me-1" aria-hidden="true"></i>@_caveat
+        </div>
+    }
+    <div class="report-donut">
+        <div class="report-donut-box">
+            <canvas id="@_chartId"></canvas>
+            @* Operator 2026-11-09 07:54: the centre is the number of distinct agents who logged in during the period - ASD's
+               centre is its connected agents, with the same word under it. *@
+            <div class="report-donut-centre">
+                <b class="report-donut-num">@_result.AgentCount</b>
+                <span class="report-donut-label">@L["Widget_Agents"]</span>
+            </div>
+        </div>
+        <div class="report-donut-legend">
+            @foreach (var g in _result.Groups)
+            {
+                <div class="report-donut-lg">
+                    <i style="background:@QueueTrendView.ColorOf(Trend, g.Metric)"></i>
+                    <span class="report-donut-lg-label">@L[QueueTrendView.LabelKeyOf(Trend, g.Metric)]</span>
+                    <span class="report-donut-lg-n">@AgentStateDistributionView.Share(g.Share)</span>
+                    <span class="report-donut-lg-p">@AgentStateDistributionView.Duration(g.Ms)</span>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ReportWidgetConfig? Config { get; set; }
+    [Parameter, EditorRequired] public DateTime From { get; set; }
+    [Parameter, EditorRequired] public DateTime To { get; set; }
+    [Parameter] public bool DarkMode { get; set; }
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public Guid? TenantId { get; set; }
+    [Parameter] public Guid WidgetId { get; set; }
+
+    // The groups, names and colours are Agent State Trend's: one list, one palette (ASD's).
+    private const ReportWidgetType Trend = ReportWidgetType.AgentStateTrend;
+
+    private readonly string _chartId = "asdr-" + Guid.NewGuid().ToString("N");
+    private bool _denied;
+    private string? _error;
+    private string? _caveat;
+    private AgentStateDistributionResult? _result;
+    private bool _incomplete;
+    private DateTime? _dataThroughUtc;
+    private bool _needsDraw;
+    private DateTime _lastFrom;
+    private DateTime _lastTo;
+    private string? _lastConfigJson;
+
+    // the viewer's own period (UserWidgetSettings, one row) and the period in force
+    private DateTime? _ownFrom;
+    private DateTime? _ownTo;
+    private bool _personalLoaded;
+    private DateTime _from;
+    private DateTime _to;
+    private bool _own;
+
+    // the window's draft
+    private string _viewFromText = string.Empty;
+    private string _viewToText = string.Empty;
+
+    private string IncompleteText => _dataThroughUtc is null
+        ? L["Report_Incomplete"].Value.Replace("{0}", "-")
+        : string.Format(L["Report_Incomplete"].Value, ReportIntervalLabel.Instant(WallClock.ToServerLocal(_dataThroughUtc.Value)));
+
+    private void ApplyEffective() => (_from, _to, _own) = AgentStateDistributionView.Period(_ownFrom, _ownTo, From, To);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_personalLoaded)
+        {
+            _personalLoaded = true;
+            await LoadPersonalAsync();
+        }
+        var configJson = Config?.ToJson();
+        if (From != _lastFrom || To != _lastTo || configJson != _lastConfigJson)
+        {
+            _lastFrom = From;
+            _lastTo = To;
+            _lastConfigJson = configJson;
+            ApplyEffective();
+            await LoadData();
+        }
+    }
+
+    private async Task LoadPersonalAsync()
+    {
+        if (WidgetId == Guid.Empty) return;
+        try
+        {
+            var json = await Mediator.Send(new CcDashboard.Application.Queries.Widgets.GetUserWidgetSettingsQuery(WidgetId));
+            if (string.IsNullOrEmpty(json)) return;
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return;
+            DateTime? Read(string key) => root.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String
+                ? AgentStateDistributionView.FromStored(v.GetString()) : null;
+            var f = Read(AgentStateDistributionView.FromKey);
+            var t = Read(AgentStateDistributionView.ToKey);
+            if (AgentStateDistributionView.CanApply(f, t)) { _ownFrom = f; _ownTo = t; }
+        }
+        catch (Exception ex)
+        {
+            // An unreadable setting is not a reason to refuse the chart: it opens on the report's period.
+            Logger.LogWarning(ex, "Agent state distribution {WidgetId}: view settings could not be read", WidgetId);
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _error = null;
+        _denied = false;
+        try
+        {
+            var effectiveConfig = Config ?? new ReportWidgetConfig();
+            // The period in force goes to the server as plain From/To - the "own or the report's" rule lives here only.
+            var res = await Mediator.Send(new RunReportWidgetQuery(
+                ReportWidgetType.AgentStateDistribution,
+                effectiveConfig.ToJson(),
+                _from,
+                _to,
+                1,
+                TenantId));
+            if (res.Denied) { _denied = true; _result = null; }
+            else if (!string.IsNullOrEmpty(res.Error))
+            {
+                if (ReportErrorText.IsUnknown(res.ErrorCode))
+                    Logger.LogWarning("Agent state distribution failed with an unrecognised error code {ErrorCode}: {Error}", res.ErrorCode, res.Error);
+                _error = L[ReportErrorText.KeyFor(res.ErrorCode)].Value;
+                _result = null;
+            }
+            else
+            {
+                _result = res.AgentStateDistribution;
+                _incomplete = res.Incomplete;
+                _dataThroughUtc = res.DataThroughUtc;
+                var caveatKey = ReportCaveat.KeyFor(res.CaveatCode);
+                if (ReportCaveat.IsUnknown(res.CaveatCode))
+                    Logger.LogWarning("Report widget received an unrecognised caveat code {CaveatCode}", res.CaveatCode);
+                _caveat = caveatKey is null ? null : L[caveatKey].Value;
+                _needsDraw = _result is not null && _result.Groups.Any(g => g.Share is not null);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AgentStateDistributionReportWidget load failed");
+            _error = L["Report_ErrorUnknown"].Value;
+            _result = null;
+        }
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_needsDraw || _result is null) return;
+        _needsDraw = false;
+        var segments = _result.Groups.Select(g => new
+        {
+            label = L[QueueTrendView.LabelKeyOf(Trend, g.Metric)].Value,
+            value = AgentStateDistributionView.Segment(g.Ms),
+            color = QueueTrendView.ColorOf(Trend, g.Metric)
+        }).ToList();
+        var options = new
+        {
+            chartType = "doughnut",
+            valueDisplay = "percentages",
+            showLegend = false,
+            showValueLabels = false,
+            fontColor = DarkMode ? "#e4e4e7" : "#333",
+            valueFormat = "duration"
+        };
+        try
+        {
+            await JS.InvokeVoidAsync("agentStateDistributionChart.render", _chartId, segments, options);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AgentStateDistributionReportWidget: chart render failed");
+        }
+    }
+
+    // ---- the view window, drawn by the page's ReportModalHost ----------------------------------------------------------
+
+    private async Task OpenWindow()
+    {
+        _viewFromText = _ownFrom is { } f ? AgentStateDistributionView.ToStored(f) : string.Empty;
+        _viewToText = _ownTo is { } t ? AgentStateDistributionView.ToStored(t) : string.Empty;
+        await Modal.ShowAsync(this, this, L["Widget_LocalViewSettings"].Value, WindowBody, CloseWindow, WindowFooter);
+    }
+
+    private Task CloseWindow() { Modal.Hide(this); return Task.CompletedTask; }
+
+    private DateTime? ViewFrom => AgentStateDistributionView.FromStored(_viewFromText);
+    private DateTime? ViewTo => AgentStateDistributionView.FromStored(_viewToText);
+    private bool CanApply => AgentStateDistributionView.CanApply(ViewFrom, ViewTo);
+
+    private void OnFrom(ChangeEventArgs e) { _viewFromText = e.Value?.ToString() ?? string.Empty; Modal.Refresh(this); }
+    private void OnTo(ChangeEventArgs e) { _viewToText = e.Value?.ToString() ?? string.Empty; Modal.Refresh(this); }
+
+    private RenderFragment WindowBody => __builder =>
+    {
+        @* Operator 06:41: the widget's own interval; empty = the report's. Picked with the date picker, as every date. *@
+        <label class="form-label fw-semibold">@L["Report_OwnPeriod"]</label>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <label class="small" for="@(_chartId + "-from")">@L["Report_From"]</label>
+            <input id="@(_chartId + "-from")" type="date" class="form-control form-control-sm" style="width: auto;"
+                   value="@_viewFromText" @onchange="OnFrom" />
+            <label class="small" for="@(_chartId + "-to")">@L["Report_To"]</label>
+            <input id="@(_chartId + "-to")" type="date" class="form-control form-control-sm" style="width: auto;"
+                   value="@_viewToText" @onchange="OnTo" />
+        </div>
+        @if (!CanApply)
+        {
+            <div class="small text-danger mt-1">@L["Report_OwnPeriodBad"]</div>
+        }
+        else
+        {
+            <div class="small text-muted mt-1">@L["Report_OwnPeriodEmpty"]: @ReportPeriodText.ShownFor(L, From, To)</div>
+        }
+    };
+
+    private RenderFragment WindowFooter => __builder =>
+    {
+        <div class="d-flex justify-content-between w-100">
+            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ResetAsync">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>@L["Widget_ResetToDefault"]
+            </button>
+            <div>
+                <button type="button" class="btn btn-sm btn-secondary me-2" @onclick="CloseWindow">@L["Cancel"]</button>
+                <button type="button" class="btn btn-sm btn-primary" disabled="@(!CanApply)" @onclick="ApplyAsync">
+                    <i class="bi bi-check2 me-1"></i>@L["Apply"]
+                </button>
+            </div>
+        </div>
+    };
+
+    private async Task ApplyAsync()
+    {
+        if (!CanApply) return;
+        Modal.Hide(this);
+        (_ownFrom, _ownTo) = (ViewFrom, ViewTo);
+        try
+        {
+            if (_ownFrom is { } f && _ownTo is { } t)
+            {
+                var stored = new Dictionary<string, string>
+                {
+                    [AgentStateDistributionView.FromKey] = AgentStateDistributionView.ToStored(f),
+                    [AgentStateDistributionView.ToKey] = AgentStateDistributionView.ToStored(t)
+                };
+                await Mediator.Send(new CcDashboard.Application.Commands.Widgets.SaveUserWidgetSettingsCommand(WidgetId, JsonSerializer.Serialize(stored)));
+            }
+            else
+            {
+                // Both empty = the report's period: no row is the same as an empty one, and leaves nothing behind.
+                await Mediator.Send(new CcDashboard.Application.Commands.Widgets.DeleteUserWidgetSettingsCommand(WidgetId));
+            }
+        }
+        catch (Exception ex)
+        {
+            // In force on this screen all the same; only tomorrow's view is lost.
+            Logger.LogWarning(ex, "Agent state distribution {WidgetId}: view settings could not be saved", WidgetId);
+        }
+        ApplyEffective();
+        await LoadData();
+    }
+
+    private async Task ResetAsync()
+    {
+        Modal.Hide(this);
+        try
+        {
+            await Mediator.Send(new CcDashboard.Application.Commands.Widgets.DeleteUserWidgetSettingsCommand(WidgetId));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Agent state distribution {WidgetId}: view settings could not be deleted", WidgetId);
+        }
+        (_ownFrom, _ownTo) = ((DateTime?)null, (DateTime?)null);
+        ApplyEffective();
+        await LoadData();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Modal.Hide(this);
+        try { await JS.InvokeVoidAsync("agentStateDistributionChart.destroy", _chartId); }
+        catch (JSDisconnectedException) { }
+        catch (Exception ex) { Logger.LogDebug(ex, "Agent state distribution chart destroy"); }
+    }
+}

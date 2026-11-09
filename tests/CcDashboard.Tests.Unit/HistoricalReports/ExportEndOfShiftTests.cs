@@ -212,11 +212,13 @@ public class ExportEndOfShiftTests
         Widget(ReportWidgetType.QueueTrend, """{ "title": "Trend", "scope": { "businessUnitIds": [1] } }""");
         Widget(ReportWidgetType.EndOfShiftQueues, Cfg(null, null));
         Widget(ReportWidgetType.AgentStateTrend, """{ "title": "States", "scope": { "businessUnitIds": [1] } }""");   // FEAT-REPORT-AGENT-STATE-TREND-01
+        Widget(ReportWidgetType.AgentStateDistribution, """{ "title": "Donut", "scope": { "businessUnitIds": [1] } }""");   // FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01
 
         var res = await _export.Handle(new ExportReportCommand(_screen.Id, From, To), CancellationToken.None);
 
-        res.Skipped.Select(x => (x.Title, x.ReasonCode)).Should().Equal(("Trend", ReportReasonCodes.NotExportable), ("States", ReportReasonCodes.NotExportable));
-        _sent.Should().NotContain(q => q.WidgetType == ReportWidgetType.QueueTrend || q.WidgetType == ReportWidgetType.AgentStateTrend,
+        res.Skipped.Select(x => (x.Title, x.ReasonCode)).Should().Equal(("Trend", ReportReasonCodes.NotExportable), ("States", ReportReasonCodes.NotExportable), ("Donut", ReportReasonCodes.NotExportable));
+        _sent.Should().NotContain(q => q.WidgetType == ReportWidgetType.QueueTrend || q.WidgetType == ReportWidgetType.AgentStateTrend
+                                       || q.WidgetType == ReportWidgetType.AgentStateDistribution,
             "the charts are not run for the file");
         SheetNames(res.Content).Should().Equal("Queue Report", "Not exported");
         ExportReportCommandHandler.SheetText(ReportReasonCodes.NotExportable).Should().Be("A chart is not exported");

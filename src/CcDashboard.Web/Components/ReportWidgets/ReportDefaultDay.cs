@@ -28,7 +28,9 @@ public static class ReportDefaultDay
         // Queue Trend: ReportDataSet.Queues on the server, narrowed by the widget's queues (backend 16:34:21Z).
         ReportWidgetType.QueueTrend,
         // Agent State Trend: ReportDataSet.Agents on the server, narrowed by the widget's agents (backend 20:15:57Z).
-        ReportWidgetType.AgentStateTrend
+        ReportWidgetType.AgentStateTrend,
+        // Agent State Distribution: ReportDataSet.Agents on the server (backend 04:42:41Z); its own period, when set, is the viewer's.
+        ReportWidgetType.AgentStateDistribution
     };
 
     /// <summary>

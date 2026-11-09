@@ -22,6 +22,7 @@ public static class ReportTypeNames
         ReportWidgetType.AgentPerformance => "Agent Performance",
         ReportWidgetType.QueueTrend => "Queue Trend",   // en-US Report_QueueTrend: shell's table
         ReportWidgetType.AgentStateTrend => "Agent State Trend",
+        ReportWidgetType.AgentStateDistribution => "Agent State Distribution",
         _ => type.ToString()   // a value without a name (never for a defined type - see the guard)
     };
 }

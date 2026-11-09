@@ -8,7 +8,7 @@
     {
         <div class="report-widget-unconfigured text-center text-muted py-4">
             <i class="bi bi-gear fs-3 d-block mb-2 opacity-50"></i>
-            <span>@L["ReportWidget_Unconfigured"]</span>
+            <span>@L[UnconfiguredKey]</span>
         </div>
     }
     else
@@ -43,6 +43,10 @@
                 @* FEAT-REPORT-AGENT-STATE-TREND-01: the same trend body, another type - no second copy. *@
                 <QueueTrendReportWidget Type="ReportWidgetType.AgentStateTrend" Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" />
                 break;
+            case ReportWidgetType.AgentStateDistribution:
+                @* FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01: ASD's donut on the period's data, with the viewer's own period. *@
+                <AgentStateDistributionReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" />
+                break;
             case ReportWidgetType.AgentPerformance:
                 <AgentPerformanceReportWidget Config="_config" From="From" To="To" DarkMode="DarkMode" Page="Page" TenantId="TenantId" WidgetId="WidgetId" FilterChanged="FilterChanged" />
                 break;
@@ -57,6 +61,12 @@
 </div>
 
 @code {
+    // PR234-V4-REPORT-UNCONFIGURED-TEXT-SAYS-QUEUE-01: an agent report asks for a business unit and agents, not a queue.
+    // The palette's category is the one place that says which reports are about agents.
+    private string UnconfiguredKey => ReportWidgetPalette.Category(WidgetType) == "Agents"
+        ? "ReportWidget_UnconfiguredAgents"
+        : "ReportWidget_Unconfigured";
+
     [Parameter, EditorRequired] public ReportWidgetType WidgetType { get; set; }
     [Parameter] public string? ConfigJson { get; set; }
     [Parameter] public bool DarkMode { get; set; }

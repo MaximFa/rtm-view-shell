@@ -31,7 +31,15 @@ public class EndOfShiftWidgetsSendShiftHoursGuardTests
             var text = File.ReadAllText(Path.Combine(ReportWidgetsDirectory(), file));
             var call = QueryStatement(text);
             SendsAnyHour(call).Should().BeFalse($"{type}: the server refuses shift hours");
-            ForwardsThePeriod(call).Should().BeTrue($"{type}: the window is the page's From..To");
+            if (type == ReportWidgetType.AgentStateDistribution)
+            {
+                // The donut asks for the period IN FORCE: the viewer's own, else the page's (operator 2026-11-09 06:41) -
+                // computed in one place from the page's From..To.
+                ForwardsThePeriodInForce(call).Should().BeTrue($"{type}: the period in force goes to the server");
+                text.Should().Contain("AgentStateDistributionView.Period(_ownFrom, _ownTo, From, To)", $"{type}: from the page's From..To");
+            }
+            else
+                ForwardsThePeriod(call).Should().BeTrue($"{type}: the window is the page's From..To");
         }
 
         // NEGATIVE HALVES, on the shape the agents report had until 2026-11-08: hours from the config, one date.
@@ -80,6 +88,10 @@ public class EndOfShiftWidgetsSendShiftHoursGuardTests
     private static bool ForwardsThePeriod(string call)
         => Regex.IsMatch(call, @"^\s*From\s*,\s*$", RegexOptions.Multiline)
            && Regex.IsMatch(call, @"^\s*To\s*,\s*$", RegexOptions.Multiline);
+
+    private static bool ForwardsThePeriodInForce(string call)
+        => Regex.IsMatch(call, @"^\s*_from\s*,\s*$", RegexOptions.Multiline)
+           && Regex.IsMatch(call, @"^\s*_to\s*,\s*$", RegexOptions.Multiline);
 
     private static string ReportWidgetsDirectory()
         => Path.Combine(RepoRoot(), "src", "CcDashboard.Web", "Components", "ReportWidgets");

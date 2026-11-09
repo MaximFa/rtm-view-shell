@@ -53,6 +53,13 @@ window.agentStateDistributionChart = {
     },
 
     // Read page font from --font-family token
+    // Milliseconds as h:mm:ss (hours not wrapped at 24), for valueFormat 'duration'.
+    _formatDuration: function (ms) {
+        const t = Math.max(0, Math.round((ms || 0) / 1000));
+        const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+        return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    },
+
     _getPageFont: function () {
         return getComputedStyle(document.documentElement).getPropertyValue('--font-family').trim() || undefined;
     },
@@ -170,7 +177,10 @@ window.agentStateDistributionChart = {
             fontColor: fontColor,
             isDoughnut: isDoughnut,
             showPercentages: showPercentages,
-            showValueLabels: options?.showValueLabels ?? true
+            showValueLabels: options?.showValueLabels ?? true,
+            // valueFormat 'duration' (Agent State Distribution report, FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01): the values are
+            // milliseconds, shown as h:mm:ss. Opt-in - the real-time ASD passes nothing and keeps its agent counts.
+            valueFormat: options?.valueFormat
         };
 
         const chartOptions = {
@@ -197,9 +207,10 @@ window.agentStateDistributionChart = {
                                 : context.parsed;
                             const pct = currentTotal > 0 ? Math.round((rawValue / currentTotal) * 100) : 0;
                             const showPct = cd.showPercentages ?? false;
+                            const shown = cd.valueFormat === 'duration' ? self._formatDuration(rawValue) : rawValue;
                             return showPct
-                                ? `${context.label}: ${pct}% (${rawValue})`
-                                : `${context.label}: ${rawValue} (${pct}%)`;
+                                ? `${context.label}: ${pct}% (${shown})`
+                                : `${context.label}: ${shown} (${pct}%)`;
                         }
                     }
                 }

@@ -156,6 +156,9 @@ public record ReportWidgetResult
     /// <summary>FEAT-REPORT-AGENT-STATE-TREND-01: the series of the agent state trend chart (the same shape); null otherwise.</summary>
     public QueueTrendResult? AgentStateTrend { get; init; }
 
+    /// <summary>FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01: the donut of the six groups for the period; null otherwise.</summary>
+    public AgentStateDistributionResult? AgentStateDistribution { get; init; }
+
     /// <summary>
     /// FEAT-REPORT-EOS-*-01: the instant the historical aggregation has reached (UTC); null when nothing was aggregated yet.
     /// Set for the three summary types.

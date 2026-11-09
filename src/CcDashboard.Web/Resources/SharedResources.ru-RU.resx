@@ -1242,6 +1242,13 @@
   <data name="Report_DescQueueTrend"><value>Метрики очередей за период по шагу, с периодом сравнения по выбору</value></data>
   <data name="Report_AgentStateTrend"><value>Динамика статусов агентов</value></data>
   <data name="Report_DescAgentStateTrend"><value>Доля времени входа агентов в каждой группе статусов за период по интервалу, с выбираемым периодом сравнения</value></data>
+  <data name="Report_AgentStateDistribution"><value>Распределение статусов агентов</value></data>
+  <data name="Report_DescAgentStateDistribution"><value>Доля времени входа агентов в каждой группе статусов за период, кольцевой диаграммой; у виджета может быть свой период</value></data>
+  <data name="Report_OwnPeriod"><value>Период виджета</value></data>
+  <data name="Report_ReportPeriod"><value>Период отчёта</value></data>
+  <data name="Report_OwnPeriodEmpty"><value>Пусто — период отчёта</value></data>
+  <data name="Report_OwnPeriodBad"><value>Задайте обе даты, начало не позже конца, — или оставьте обе пустыми</value></data>
+  <data name="ReportWidget_UnconfiguredAgents"><value>Настройте виджет — выберите бизнес-юнит (и агентов, если нужно).</value></data>
   <data name="Report_ErrorNotExportable"><value>График в файл не выгружается.</value></data>
   <data name="Reports_ExportSkippedNotExportable"><value>график в файл не выгружается</value></data>
   <data name="Report_Metrics"><value>Метрики</value></data>

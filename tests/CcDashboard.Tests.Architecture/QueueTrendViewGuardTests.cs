@@ -146,7 +146,7 @@ public class QueueTrendViewGuardTests
     {
         var modal = Read("src", "CcDashboard.Web", "Components", "ReportWidgets", "ReportWidgetConfigModal.razor");
         modal.Should().Contain("new GetScopedQueuesQuery(_selectedBuIds.ToList())", "the server's queues of the chosen units");
-        modal.Should().Contain("Columns = (IsTrendWidget ||", "a chart saves no columns; the server refuses them (both trends)");
+        modal.Should().Contain("Columns = (IsChartWidget ||", "a chart saves no columns; the server refuses them (both trends and the donut)");
         modal.Should().Contain("DefaultMetrics = IsTrendWidget");
         modal.Should().Contain("Workgroups = IsQueueTrendWidget");
         ReportWidgetPalette.Ready.Should().Contain(CcDashboard.Domain.Domain.Reports.ReportWidgetType.QueueTrend);

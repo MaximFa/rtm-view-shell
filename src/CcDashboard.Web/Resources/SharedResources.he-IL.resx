@@ -1238,6 +1238,13 @@
   <data name="Report_DescQueueTrend"><value>מדדי תורים לאורך התקופה לפי מרווח, עם תקופת השוואה לבחירה</value></data>
   <data name="Report_AgentStateTrend"><value>מגמת מצבי נציגים</value></data>
   <data name="Report_DescAgentStateTrend"><value>אחוז זמן הנציגים בכל קבוצת מצבים מתוך זמן הכניסה, לפי מרווח, עם תקופת השוואה לבחירה</value></data>
+  <data name="Report_AgentStateDistribution"><value>התפלגות מצבי נציגים</value></data>
+  <data name="Report_DescAgentStateDistribution"><value>אחוז זמן הנציגים בכל קבוצת מצבים מתוך זמן הכניסה לתקופה, כתרשים טבעת; אפשר לקבוע לווידג'ט תקופה משלו</value></data>
+  <data name="Report_OwnPeriod"><value>תקופת הווידג'ט</value></data>
+  <data name="Report_ReportPeriod"><value>תקופת הדוח</value></data>
+  <data name="Report_OwnPeriodEmpty"><value>ריק — תקופת הדוח</value></data>
+  <data name="Report_OwnPeriodBad"><value>יש לבחור את שני התאריכים, כשההתחלה אינה אחרי הסיום — או להשאיר את שניהם ריקים</value></data>
+  <data name="ReportWidget_UnconfiguredAgents"><value>הגדירו את הווידג'ט — בחרו יחידה עסקית (ונציגים, לפי הצורך).</value></data>
   <data name="Report_ErrorNotExportable"><value>גרף אינו מיוצא לקובץ.</value></data>
   <data name="Reports_ExportSkippedNotExportable"><value>גרף אינו מיוצא לקובץ</value></data>
   <data name="Report_Metrics"><value>מדדים</value></data>

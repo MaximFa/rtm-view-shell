@@ -1240,6 +1240,13 @@
   <data name="Report_DescQueueTrend"><value>Queue metrics over the period by step, with an optional comparison period</value></data>
   <data name="Report_AgentStateTrend"><value>Agent State Trend</value></data>
   <data name="Report_DescAgentStateTrend"><value>Share of the agents' login time in each state group over the period by step, with an optional comparison period</value></data>
+  <data name="Report_AgentStateDistribution"><value>Agent State Distribution</value></data>
+  <data name="Report_DescAgentStateDistribution"><value>Share of the agents' login time in each state group for the period, as a donut; the period can be the widget's own</value></data>
+  <data name="Report_OwnPeriod"><value>Widget period</value></data>
+  <data name="Report_ReportPeriod"><value>Report period</value></data>
+  <data name="Report_OwnPeriodEmpty"><value>Empty — the report's period</value></data>
+  <data name="Report_OwnPeriodBad"><value>Set both dates, the start not after the end — or leave both empty</value></data>
+  <data name="ReportWidget_UnconfiguredAgents"><value>Configure this widget — select a business unit (and agents, if needed).</value></data>
   <data name="Report_ErrorNotExportable"><value>A chart is not exported to the file.</value></data>
   <data name="Reports_ExportSkippedNotExportable"><value>a chart is not exported to the file</value></data>
   <data name="Report_Metrics"><value>Metrics</value></data>

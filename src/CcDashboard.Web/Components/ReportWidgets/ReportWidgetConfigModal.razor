@@ -33,9 +33,9 @@
                                 @L["WidgetCfg_General"]
                             </button>
                         </li>
-                        @if (!IsTrendWidget)
+                        @if (!IsChartWidget)
                         {
-                            @* A chart has no columns: the server refuses Columns on both trend charts. *@
+                            @* A chart has no columns: the server refuses Columns on both trends and the donut. *@
                             <li class="nav-item">
                                 <button class="nav-link @(_tab == "columns" ? "active" : "")" @onclick='() => _tab = "columns"'>
                                     @L["WidgetCfg_Columns"]
@@ -160,60 +160,8 @@
                                 }
                             </div>
                         }
-                        @if (IsAgentWidget)
-                        {
-                            <div class="mb-3">
-                                <label class="form-label">@L["WidgetCfg_AgentAxis"]</label>
-                                <select class="form-select" @bind="_agentAxis">
-                                    <option value="detail">@L["WidgetCfg_AgentAxis_Detail"]</option>
-                                    <option value="cumulative">@L["WidgetCfg_AgentAxis_Cumulative"]</option>
-                                </select>
-                            </div>
-                        }
-                    }
-                    else if (_tab == "general")
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">@L["ReportWidget_Title"]</label>
-                            <input type="text" class="form-control" @bind="_title" />
-                        </div>
-                        @* End-of-shift reports need the shift hours; the DATE comes from the page,
-                           like every other report (operator, 2026-11-04). Without the hours the
-                           server refuses the query outright, so an unset pair blocks Save here
-                           instead of letting the widget render a server error on the dashboard. *@
-                        @* AgentPerformance has no period of its own: the period is the page's date
-                           range, like every other report. What it does need is the mode - the
-                           server refuses the widget without it - and, later, the agent pick. *@
-                        @if (IsAgentPerformanceWidget)
-                        {
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">
-                                    @L["ReportWidget_Mode"] <span class="text-danger">*</span>
-                                </label>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" id="mode-summary"
-                                           name="agent-performance-mode"
-                                           checked="@(_mode == AgentPerformanceModes.Summary)"
-                                           @onchange="@(() => _mode = AgentPerformanceModes.Summary)" />
-                                    <label class="form-check-label" for="mode-summary">@L["ReportWidget_ModeSummary"]</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" id="mode-bydate"
-                                           name="agent-performance-mode"
-                                           checked="@(_mode == AgentPerformanceModes.ByDate)"
-                                           @onchange="@(() => _mode = AgentPerformanceModes.ByDate)" />
-                                    <label class="form-check-label" for="mode-bydate">@L["ReportWidget_ModeByDate"]</label>
-                                </div>
-                                <div class="small text-muted mt-1">@L["ReportWidget_ModeHint"]</div>
-                                @if (ModeProblem is { } modeProblem)
-                                {
-                                    <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">
-                                        <i class="bi bi-exclamation-triangle me-1"></i>@modeProblem
-                                    </div>
-                                }
-                            </div>
-                        }
-                        @* Agent State Trend narrows to picked agents as Agent Performance did (FEAT-REPORT-AGENT-STATE-TREND-01). *@
+                        @* The agent pick sits on the scope tab, next to the business units it narrows (PR234-V4-REPORT-AGENT-PICKER-TAB-01,
+                           operator 2026-11-09 06:41) - as Queue Trend's queues. Agent Performance (retired) and Agent State Trend. *@
                         @if (TakesAgentPick)
                         {
                             @* The agents are the SERVER's list for the chosen business units
@@ -283,6 +231,59 @@
                                             @L["ReportWidget_AgentsClear"]
                                         </button>
                                     }
+                                }
+                            </div>
+                        }
+                        @if (IsAgentWidget)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">@L["WidgetCfg_AgentAxis"]</label>
+                                <select class="form-select" @bind="_agentAxis">
+                                    <option value="detail">@L["WidgetCfg_AgentAxis_Detail"]</option>
+                                    <option value="cumulative">@L["WidgetCfg_AgentAxis_Cumulative"]</option>
+                                </select>
+                            </div>
+                        }
+                    }
+                    else if (_tab == "general")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">@L["ReportWidget_Title"]</label>
+                            <input type="text" class="form-control" @bind="_title" />
+                        </div>
+                        @* End-of-shift reports need the shift hours; the DATE comes from the page,
+                           like every other report (operator, 2026-11-04). Without the hours the
+                           server refuses the query outright, so an unset pair blocks Save here
+                           instead of letting the widget render a server error on the dashboard. *@
+                        @* AgentPerformance has no period of its own: the period is the page's date
+                           range, like every other report. What it does need is the mode - the
+                           server refuses the widget without it - and, later, the agent pick. *@
+                        @if (IsAgentPerformanceWidget)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    @L["ReportWidget_Mode"] <span class="text-danger">*</span>
+                                </label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="mode-summary"
+                                           name="agent-performance-mode"
+                                           checked="@(_mode == AgentPerformanceModes.Summary)"
+                                           @onchange="@(() => _mode = AgentPerformanceModes.Summary)" />
+                                    <label class="form-check-label" for="mode-summary">@L["ReportWidget_ModeSummary"]</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="mode-bydate"
+                                           name="agent-performance-mode"
+                                           checked="@(_mode == AgentPerformanceModes.ByDate)"
+                                           @onchange="@(() => _mode = AgentPerformanceModes.ByDate)" />
+                                    <label class="form-check-label" for="mode-bydate">@L["ReportWidget_ModeByDate"]</label>
+                                </div>
+                                <div class="small text-muted mt-1">@L["ReportWidget_ModeHint"]</div>
+                                @if (ModeProblem is { } modeProblem)
+                                {
+                                    <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>@modeProblem
+                                    </div>
                                 }
                             </div>
                         }
@@ -626,8 +627,12 @@
     private bool IsQueueTrendWidget => WidgetType == ReportWidgetType.QueueTrend;
     // Both trend charts (Queue Trend, Agent State Trend): no columns, default metrics and chart type, one view body.
     private bool IsTrendWidget => QueueTrendView.IsTrend(WidgetType);
-    // The agent pick: Agent Performance (retired, kept drawing) and Agent State Trend (AgentIds, backend 20:15:57Z).
-    private bool TakesAgentPick => IsAgentPerformanceWidget || WidgetType == ReportWidgetType.AgentStateTrend;
+    // Every chart (both trends and the Agent State Distribution donut): no columns tab, Columns saved as null.
+    private bool IsChartWidget => IsTrendWidget || WidgetType == ReportWidgetType.AgentStateDistribution;
+    // The agent pick, on the scope tab (PR234-V4-REPORT-AGENT-PICKER-TAB-01): every report the server narrows by AgentIds -
+    // Agent Report, Agent State Trend, Agent State Distribution, and the retired Agent Performance that still draws.
+    private bool TakesAgentPick => IsAgentPerformanceWidget
+        || WidgetType is ReportWidgetType.EndOfShiftAgents or ReportWidgetType.AgentStateTrend or ReportWidgetType.AgentStateDistribution;
     private readonly HashSet<string> _defaultMetrics = new(StringComparer.Ordinal);
     private string _defaultChartType = "line";
     private void ToggleDefaultMetric(string m) { if (!_defaultMetrics.Remove(m)) _defaultMetrics.Add(m); }
@@ -1145,7 +1150,7 @@
             // must look the same after a reopen, and a set has no order to remember.
             // An empty choice is not saved as empty - that would render a table with no columns;
             // null means "the standard set", which is what an untouched widget already means.
-            Columns = (IsTrendWidget || _allowedColumns is null || _selectedColumns.Count == 0)
+            Columns = (IsChartWidget || _allowedColumns is null || _selectedColumns.Count == 0)
                 ? null
                 : _allowedColumns.Where(_selectedColumns.Contains).ToList(),
             PageSize = InitialConfig?.PageSize ?? 25,

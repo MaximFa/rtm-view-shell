@@ -93,8 +93,9 @@ public class ReportWidgetConfigWithTypeValidator : AbstractValidator<(ReportWidg
             .Must(x => x.Config.DefaultMetrics is null || x.Config.DefaultMetrics.All(n => ReportWidgetConfig.TrendMetrics(x.WidgetType).Any(c => c.Name == n)))
             .WithMessage("Unknown metric(s) for the trend chart");
         RuleFor(x => x)
-            .Must(x => x.WidgetType is not (ReportWidgetType.QueueTrend or ReportWidgetType.AgentStateTrend) || x.Config.Columns is null)
-            .WithMessage("A trend chart has no columns");
+            .Must(x => x.WidgetType is not (ReportWidgetType.QueueTrend or ReportWidgetType.AgentStateTrend or ReportWidgetType.AgentStateDistribution)
+                       || x.Config.Columns is null)
+            .WithMessage("A chart has no columns");
         RuleFor(x => x)
             .Must(x => x.Config.DefaultRowMode is null || x.WidgetType == ReportWidgetType.EndOfShiftAgents)
             .WithMessage("The default row mode applies only to the end-of-shift agents report");

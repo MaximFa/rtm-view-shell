@@ -14,5 +14,7 @@ public enum ReportWidgetType
     // FEAT-REPORT-QUEUE-TREND-COMPARE-01: a chart of the queue metrics by step, with an optional comparison period
     QueueTrend,
     // FEAT-REPORT-AGENT-STATE-TREND-01: a chart of the agents' share of logged-in time per status group, same rule as QueueTrend
-    AgentStateTrend
+    AgentStateTrend,
+    // FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01: the same six groups as one donut for the period
+    AgentStateDistribution
 }

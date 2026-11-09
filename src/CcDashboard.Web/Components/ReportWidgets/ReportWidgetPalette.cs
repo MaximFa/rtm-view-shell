@@ -36,6 +36,8 @@ public static class ReportWidgetPalette
         ReportWidgetType.QueueTrend,
         // FEAT-REPORT-AGENT-STATE-TREND-01 (operator 2026-11-08 21:54): shares of the agents' login time by ASD group as lines.
         ReportWidgetType.AgentStateTrend,
+        // FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01 (operator 2026-11-09 06:41): ASD's donut on the period's data.
+        ReportWidgetType.AgentStateDistribution,
     };
 
     public static string Category(ReportWidgetType type) => type switch
@@ -48,6 +50,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.AgentPerformance => "Agents",
         ReportWidgetType.QueueTrend => "Queues",
         ReportWidgetType.AgentStateTrend => "Agents",
+        ReportWidgetType.AgentStateDistribution => "Agents",
         _ => "Other"
     };
 
@@ -86,6 +89,7 @@ public static class ReportWidgetPalette
         ReportWidgetType.AgentPerformance => "Agent figures for the period: one row per agent, or one per agent per date",
         ReportWidgetType.QueueTrend => "Queue metrics over the period by step, with an optional comparison period",
         ReportWidgetType.AgentStateTrend => "Share of the agents' login time in each state group over the period by step, with an optional comparison period",
+        ReportWidgetType.AgentStateDistribution => "Share of the agents' login time in each state group for the period, as a donut; the period can be the widget's own",
         _ => ""
     };
 
@@ -105,6 +109,8 @@ public static class ReportWidgetPalette
         ReportWidgetType.QueueTrend => "bi-graph-up-arrow",
         // Working icon until the operator's word (coordinator 20:05:25Z): free in src, db and deploy; "a person at work".
         ReportWidgetType.AgentStateTrend => "bi-person-workspace",
+        // Working icon until the operator's word: free in src, db and deploy; bi-pie-chart belongs to the retired Distribution.
+        ReportWidgetType.AgentStateDistribution => "bi-pie-chart-fill",
         _ => "bi-grid"
     };
 }

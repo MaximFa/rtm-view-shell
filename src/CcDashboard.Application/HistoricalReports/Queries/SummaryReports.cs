@@ -69,6 +69,22 @@ public record QueueTrendResult(
     DateTime? CompareFrom,
     DateTime? CompareTo);
 
+/// <summary>
+/// FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01 (contract 04:42:41Z): the six groups of the agent state trend for the whole period
+/// (From..To, local days) as one donut. LoggedInMs = the agents' login time; AgentCount = distinct agents with login in the
+/// period. Groups in the order of AgentStateTrendMetrics: Ms = the group's time (Onphone with Hold inside, Paperwork with
+/// Unavailable, Other = the rest), so the six add up to LoggedInMs; Share = % of LoggedInMs, null for all when LoggedInMs = 0.
+/// </summary>
+public record AgentStateDistributionResult(
+    DateTime From,
+    DateTime To,
+    long LoggedInMs,
+    int AgentCount,
+    IReadOnlyList<AgentStateGroup> Groups);
+
+/// <summary>One group of the donut.</summary>
+public record AgentStateGroup(string Metric, long Ms, double? Share);
+
 /// <summary>One metric of the queue trend chart; Kind from ReportColumns (Count / Percent / DurationSec).</summary>
 public record QueueTrendSeries(string Metric, ReportColumnKind Kind, IReadOnlyList<double?> Values, IReadOnlyList<double?>? CompareValues);
 

@@ -40,7 +40,8 @@ public class GetLastDataDayQueryHandler(
             [ReportWidgetType.EndOfShiftQueues] = ReportDataSet.Queues,
             [ReportWidgetType.EndOfShiftAgents] = ReportDataSet.Agents,
             [ReportWidgetType.QueueTrend] = ReportDataSet.Queues,
-            [ReportWidgetType.AgentStateTrend] = ReportDataSet.Agents
+            [ReportWidgetType.AgentStateTrend] = ReportDataSet.Agents,
+            [ReportWidgetType.AgentStateDistribution] = ReportDataSet.Agents
         };
 
     private TimeZoneInfo Zone => displayZone?.Zone ?? TimeZoneInfo.Utc;

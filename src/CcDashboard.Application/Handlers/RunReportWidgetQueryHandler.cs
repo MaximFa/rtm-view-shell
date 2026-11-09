@@ -97,6 +97,7 @@ public class RunReportWidgetQueryHandler(
             ReportWidgetType.EndOfShiftQueues => await RunQueueSummaryAsync(tenantId, config, effectiveColumns, from, toExclusive, query.Page, query.AllRows, query, ct),
             ReportWidgetType.QueueTrend => await RunQueueTrendAsync(tenantId, config, from, toExclusive, query, ct),
             ReportWidgetType.AgentStateTrend => await RunAgentStateTrendAsync(tenantId, config, from, toExclusive, query, ct),
+            ReportWidgetType.AgentStateDistribution => await RunAgentStateDistributionAsync(tenantId, config, from, toExclusive, query, ct),
             _ => ReportWidgetResult.CreateError(query.WidgetType, ReportReasonCodes.InvalidConfig, $"Unknown widget type: {query.WidgetType}")
         };
     }
@@ -139,6 +140,10 @@ public class RunReportWidgetQueryHandler(
     /// <summary>The trend charts (FEAT-REPORT-QUEUE-TREND-COMPARE-01, FEAT-REPORT-AGENT-STATE-TREND-01): a grid by step, an
     /// optional comparison period; no columns, filters or sort; not exported.</summary>
     internal static bool IsTrend(ReportWidgetType t) => t is ReportWidgetType.QueueTrend or ReportWidgetType.AgentStateTrend;
+
+    /// <summary>The charts: the two trends and the donut (FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01) - no columns, no sort, not
+    /// exported.</summary>
+    internal static bool IsChart(ReportWidgetType t) => IsTrend(t) || t is ReportWidgetType.AgentStateDistribution;
 
     /// <summary>The table reports that sort on the server (FEAT-REPORT-QUEUE-COLUMN-SORT-01); a chart has no columns.</summary>
     internal static bool TakesSort(ReportWidgetType t) => t is ReportWidgetType.EndOfShiftQueues or ReportWidgetType.EndOfShiftAgents;
@@ -187,8 +192,8 @@ public class RunReportWidgetQueryHandler(
     /// never an arbitrary name into reflection). Other types ignore the sort.</summary>
     internal static string? ValidateSort(RunReportWidgetQuery q)
     {
-        if (q.SortColumn is not null && IsTrend(q.WidgetType))
-            return "A trend chart has no columns to sort";
+        if (q.SortColumn is not null && IsChart(q.WidgetType))
+            return "A chart has no columns to sort";
         if (q.SortColumn is null || !TakesSort(q.WidgetType))
             return null;
         return ReportColumns.Find(q.WidgetType, q.SortColumn) is null ? "Unknown sort column" : null;
@@ -605,24 +610,70 @@ public class RunReportWidgetQueryHandler(
     /// HistoricalAggregationService); Paperwork = SumPaperworkMs + SumUnavailableMs (operator 21:59); Other = LoggedIn minus
     /// the five (unmapped statuses, operator 22:04). No login in the interval: null for all six.
     /// </summary>
-    internal static IReadOnlyDictionary<string, double?> AgentStateShares(IReadOnlyCollection<CcDashboard.Domain.Domain.Historical.HistAgentInterval> bucket)
+    public static IReadOnlyDictionary<string, double?> AgentStateShares(IReadOnlyCollection<CcDashboard.Domain.Domain.Historical.HistAgentInterval> bucket)
     {
-        long loggedIn = bucket.Sum(i => i.SumLoggedInMs);
-        long available = bucket.Sum(i => i.SumAvailableMs);
-        long onphone = bucket.Sum(i => i.SumOnphoneMs);
-        long paperwork = bucket.Sum(i => i.SumPaperworkMs + i.SumUnavailableMs);
-        long brk = bucket.Sum(i => i.SumBreakMs);
-        long training = bucket.Sum(i => i.SumTrainingMs);
+        var (loggedIn, ms) = AgentStateMs(bucket);
+        return ms.ToDictionary(kv => kv.Key, kv => loggedIn == 0 ? (double?)null : kv.Value * 100.0 / loggedIn);
+    }
+
+    /// <summary>
+    /// The time of the six groups (ms), summed over the agents and buckets given; the one rule behind the agent state trend
+    /// (per interval) and the donut (per period). FEAT-REPORT-AGENT-STATE-DISTRIBUTION-01 split it out of AgentStateShares.
+    /// </summary>
+    public static (long LoggedIn, IReadOnlyDictionary<string, long> Ms) AgentStateMs(IEnumerable<CcDashboard.Domain.Domain.Historical.HistAgentInterval> bucket)
+    {
+        var b = bucket as IReadOnlyCollection<CcDashboard.Domain.Domain.Historical.HistAgentInterval> ?? bucket.ToList();
+        long loggedIn = b.Sum(i => i.SumLoggedInMs);
+        long available = b.Sum(i => i.SumAvailableMs);
+        long onphone = b.Sum(i => i.SumOnphoneMs);
+        long paperwork = b.Sum(i => i.SumPaperworkMs + i.SumUnavailableMs);
+        long brk = b.Sum(i => i.SumBreakMs);
+        long training = b.Sum(i => i.SumTrainingMs);
         long other = loggedIn - (available + onphone + paperwork + brk + training);
-        double? Pct(long ms) => loggedIn == 0 ? null : ms * 100.0 / loggedIn;
-        return new Dictionary<string, double?>
+        return (loggedIn, new Dictionary<string, long>
         {
-            ["Available"] = Pct(available),
-            ["Onphone"] = Pct(onphone),
-            ["Paperwork"] = Pct(paperwork),
-            ["Break"] = Pct(brk),
-            ["Training"] = Pct(training),
-            ["Other"] = Pct(other),
+            ["Available"] = available,
+            ["Onphone"] = onphone,
+            ["Paperwork"] = paperwork,
+            ["Break"] = brk,
+            ["Training"] = training,
+            ["Other"] = other,
+        });
+    }
+
+    private async Task<ReportWidgetResult> RunAgentStateDistributionAsync(
+        Guid tenantId, ReportWidgetConfig config, DateTime from, DateTime toExclusive, RunReportWidgetQuery query, CancellationToken ct)
+    {
+        const ReportWidgetType type = ReportWidgetType.AgentStateDistribution;
+        var scopeResult = await scopeService.ResolveAgentScopeAsync(tenantId, config, AgentReportAxis.Detail, ct);
+        if (scopeResult.Denied)
+            return ReportWidgetResult.CreateDenied(type);
+        var (effective, dropped) = NarrowToPicked(scopeResult.EffectiveAgentIds, config.AgentIds);
+        if (dropped.Count > 0)
+            logger.LogWarning(
+                "SF-BI-002: User {UserId} PG {PgId} requested {RequestedCount} agents in {Type}, {DroppedCount} out-of-scope dropped (sample: {DroppedSample})",
+                currentUser.UserId, currentUser.PermissionGroupId, config.AgentIds!.Count, type, dropped.Count, string.Join(", ", dropped.Take(5)));
+
+        // the period the screen sent (the widget's own, or the page's - the screen's one rule, coordinator 04:43:29Z)
+        var intervals = await ScopedAgentIntervalsAsync(tenantId, from, toExclusive, effective, ct);
+        var (loggedIn, ms) = AgentStateMs(intervals);
+        if (ms["Other"] < 0)
+            logger.LogWarning("AgentStateDistribution: a negative Other ({OtherMs} ms) - status durations larger than the login time", ms["Other"]);
+
+        var groups = ReportWidgetConfig.AgentStateTrendMetrics
+            .Select(m => new AgentStateGroup(m.Name, ms[m.Name], loggedIn == 0 ? null : ms[m.Name] * 100.0 / loggedIn))
+            .ToList();
+        var agents = intervals.Where(i => i.SumLoggedInMs > 0).Select(i => i.AgentExternalId).Distinct().Count();
+
+        var (through, incomplete) = await FreshnessAsync(tenantId, toExclusive, ct);
+        return new ReportWidgetResult
+        {
+            WidgetType = type,
+            EffectiveColumns = Array.Empty<string>(),
+            AgentStateDistribution = new AgentStateDistributionResult(query.From.Date, query.To.Date, loggedIn, agents, groups),
+            DataThroughUtc = through,
+            Incomplete = incomplete,
+            CaveatCode = ReportCaveatCodes.StatusStartBucket
         };
     }
 
