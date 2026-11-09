@@ -128,7 +128,12 @@ public class HistoricalReportRepository(
 
     public async Task<HistAggregationWatermark?> GetWatermarkAsync(Guid tenantId, CancellationToken ct)
     {
-        return await db.HistAggregationWatermarks
+        // PR234-V4-REPORT-WIDGET-INTERMITTENT-FAIL-01: every report widget reads this at the end of its run; on the shared
+        // scoped context (one per Blazor circuit) two widgets of a page loading together met in it - "A second operation was
+        // started on this context instance" (journal 234, 2026-11-09 13:38-13:50: 3 cases, all here). A read gets its own
+        // context, as every other read of this repository.
+        await using var ctx = await dbFactory.CreateDbContextAsync(ct);
+        return await ctx.HistAggregationWatermarks
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.TenantId == tenantId, ct);
     }
